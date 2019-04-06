@@ -6,6 +6,10 @@ dependencies:
     github: spider-gazelle/action-controller
     version: "~> 1.4"
 
+  action-controller:
+    github: aca-labs/engine-driver
+    branch: master
+
   # https://github.com/jeromegn/kilt
   # Generic template interface for Crystal
   kilt:

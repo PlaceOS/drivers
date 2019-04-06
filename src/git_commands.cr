@@ -10,7 +10,7 @@ class GitCommands
   def self.ls
     io = IO::Memory.new
     result = Process.run(
-      "git", {"ls-files"},
+      "git", {"--no-pager", "ls-files"},
       input: Process::Redirect::Close,
       output: io,
       error: Process::Redirect::Close

@@ -21,6 +21,8 @@ class Build < Application
     driver = params["driver"]
     commit = params["commit"]? || "head"
 
+    head :not_found unless File.exists?(driver)
+
     GitCommands.checkout(driver, commit) do
       # complile the driver
       # TODO::
@@ -31,6 +33,17 @@ class Build < Application
 
   # delete a built driver
   def delete
-    
+    driver = params["driver"]
+    commit = params["commit"]?
+
+    file_path = if commit
+      ""
+    else
+      ""
+    end
+
+    head :not_found unless File.exists?(file_path)
+    File.delete file_path
+    head :ok
   end
 end
