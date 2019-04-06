@@ -1,7 +1,7 @@
 class GitCommands
   class CommandFailure < Exception
     def initialize(@error_code = 1)
-      super
+      super("git exited with code: #{@error_code}")
     end
 
     getter error_code : Int32
@@ -30,7 +30,7 @@ class GitCommands
     # %an: author name
     # %s: subject
     result = Process.run(
-      "git", {"--no-pager", "log", "--format=format:\"%h%n%cI%n%an%n%s%n<--%n%n-->\"", "--no-color", "-n", count, file_name},
+      "git", {"--no-pager", "log", "--format=format:\"%h%n%cI%n%an%n%s%n<--%n%n-->\"", "--no-color", "-n", count.to_s, file_name},
       input: Process::Redirect::Close,
       output: io,
       error: Process::Redirect::Close
@@ -49,14 +49,14 @@ class GitCommands
     end
   end
 
-  def self.checkout(file, commit == "head")
+  def self.checkout(file, commit = "head")
     # https://stackoverflow.com/questions/215718/reset-or-revert-a-specific-file-to-a-specific-revision-using-git
-    result = Process.run("git", {"checkout", commit, "--", driver})
+    result = Process.run("git", {"checkout", commit, "--", file})
     raise CommandFailure.new(result.exit_status) if result.exit_status != 0
 
     yield file
 
     # reset the file back to head
-    Process.run("git", {"checkout", "--", driver})
+    Process.run("git", {"checkout", "--", file})
   end
 end
