@@ -1,25 +1,12 @@
 require "./spec_helper"
 
-describe Welcome do
-  # ==============
-  #  Unit Testing
-  # ==============
-  it "should generate a date string" do
-    # instantiate the controller you wish to unit test
-    welcome = Welcome.new(context("GET", "/"))
-
-    # Test the instance methods of the controller
-    welcome.set_date_header[0].should contain("GMT")
-  end
-
-  # ==============
-  # Test Responses
-  # ==============
+describe Build do
   with_server do
-    it "should welcome you" do
-      result = curl("GET", "/")
-      result.body.includes?("You're being trampled by Spider-Gazelle!").should eq(true)
-      result.headers["Date"]?.nil?.should eq(false)
+    it "should list drivers" do
+      result = curl("GET", "/build")
+      drivers = Array(String).from_json(result.body)
+      (drivers.size > 0).should eq(true)
+      drivers.includes?("drivers/aca/spec_helper.cr").should eq(true)
     end
   end
 end
