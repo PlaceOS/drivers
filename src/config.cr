@@ -7,6 +7,8 @@ require "./controllers/application"
 require "./controllers/*"
 require "./models/*"
 
+require "./engine-drivers"
+
 # Server required after application controllers
 require "action-controller/server"
 

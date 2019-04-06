@@ -7,4 +7,4 @@ require "../src/config"
 # Helper methods for testing controllers (curl, with_server, context)
 require "../lib/action-controller/spec/curl_context"
 
-require "../src/git_commands"
+require "../src/engine-drivers"
