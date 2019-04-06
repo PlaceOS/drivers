@@ -22,7 +22,7 @@ class EngineDrivers::GitCommands
     # %an: author name
     # %s: subject
     result = Process.run(
-      "git", {"--no-pager", "log", "--format=format:\"%h%n%cI%n%an%n%s%n<--%n%n-->\"", "--no-color", "-n", count.to_s, file_name},
+      "git", {"--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name},
       input: Process::Redirect::Close,
       output: io,
       error: Process::Redirect::Close
@@ -30,15 +30,17 @@ class EngineDrivers::GitCommands
 
     raise CommandFailure.new(result.exit_status) if result.exit_status != 0
 
-    commits = io.to_s.split("<--\n\n-->").map(&.split("\n").map &.strip)
-    commits.map do |commit|
-      {
-        commit:  commit[0],
-        date:    commit[1],
-        author:  commit[2],
-        subject: commit[3],
-      }
-    end
+    io.to_s.strip.split("<--\n\n-->")
+      .reject(&.empty?)
+      .map(&.strip.split("\n").map &.strip)
+      .map do |commit|
+        {
+          commit:  commit[0],
+          date:    commit[1],
+          author:  commit[2],
+          subject: commit[3],
+        }
+      end
   end
 
   def self.checkout(file, commit = "head")
