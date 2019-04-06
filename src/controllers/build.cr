@@ -37,10 +37,10 @@ class Build < Application
     commit = params["commit"]?
 
     file_path = if commit
-      ""
-    else
-      ""
-    end
+                  ""
+                else
+                  ""
+                end
 
     head :not_found unless File.exists?(file_path)
     File.delete file_path
