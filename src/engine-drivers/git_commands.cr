@@ -1,19 +1,30 @@
 class EngineDrivers::GitCommands
-  def self.ls
+  @@lock_manager = Mutex.new
+
+  # Ensure only a single git operation is occuring at once to avoid corruption
+  @@repository_lock = {} of String => Mutex
+
+  # Ensures only a single operation on an individual file occurs at once
+  # This enables multi-version compilation to occur without clashing
+  @@file_lock = {} of String => Mutex
+
+  def self.ls(repository = EngineDrivers::Compiler.drivers_dir)
     io = IO::Memory.new
-    result = Process.run(
-      "git", {"--no-pager", "ls-files"},
-      input: Process::Redirect::Close,
-      output: io,
-      error: Process::Redirect::Close
-    )
+    result = get_lock(repository).synchronize do
+      Process.run(
+        "./bin/exec_from", {repository, "git", "--no-pager", "ls-files"},
+        input: Process::Redirect::Close,
+        output: io,
+        error: Process::Redirect::Close
+      )
+    end
 
     raise CommandFailure.new(result.exit_status) if result.exit_status != 0
 
     io.to_s.split("\n")
   end
 
-  def self.commits(file_name, count = 10)
+  def self.commits(file_name, count = 10, repository = EngineDrivers::Compiler.drivers_dir)
     io = IO::Memory.new
 
     # https://git-scm.com/docs/pretty-formats
@@ -21,12 +32,14 @@ class EngineDrivers::GitCommands
     # %cI: committer date, strict ISO 8601 format
     # %an: author name
     # %s: subject
-    result = Process.run(
-      "git", {"--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name},
-      input: Process::Redirect::Close,
-      output: io,
-      error: Process::Redirect::Close
-    )
+    result = get_lock(repository).synchronize do
+      Process.run(
+        "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name},
+        input: Process::Redirect::Close,
+        output: io,
+        error: Process::Redirect::Close
+      )
+    end
 
     raise CommandFailure.new(result.exit_status) if result.exit_status != 0
 
@@ -43,14 +56,53 @@ class EngineDrivers::GitCommands
       end
   end
 
-  def self.checkout(file, commit = "head")
+  def self.checkout(file, commit = "head", repository = EngineDrivers::Compiler.drivers_dir)
     # https://stackoverflow.com/questions/215718/reset-or-revert-a-specific-file-to-a-specific-revision-using-git
-    result = Process.run("git", {"checkout", commit, "--", file})
-    raise CommandFailure.new(result.exit_status) if result.exit_status != 0
+    repo_lock = get_lock(repository)
 
-    yield file
+    get_lock(repository, file).synchronize do
+      result = repo_lock.synchronize do
+        Process.run(
+          "./bin/exec_from",
+          {repository, "git", "checkout", commit, "--", file}
+        )
+      end
+      raise CommandFailure.new(result.exit_status) if result.exit_status != 0
 
-    # reset the file back to head
-    Process.run("git", {"checkout", "--", file})
+      yield file
+
+      # reset the file back to head
+      repo_lock.synchronize do
+        Process.run(
+          "./bin/exec_from",
+          {repository, "git", "checkout", "--", file}
+        )
+      end
+    end
+  end
+
+  def self.get_lock(repository) : Mutex
+    @@lock_manager.synchronize do
+      if lock = @@repository_lock[repository]?
+        lock
+      else
+        lock = Mutex.new
+        @@repository_lock[repository] = lock
+        lock
+      end
+    end
+  end
+
+  def self.get_lock(repository, file) : Mutex
+    lock_key = "#{repository}`#{file}"
+    @@lock_manager.synchronize do
+      if lock = @@file_lock[lock_key]?
+        lock
+      else
+        lock = Mutex.new
+        @@file_lock[lock_key] = lock
+        lock
+      end
+    end
   end
 end

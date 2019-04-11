@@ -10,6 +10,10 @@ dependencies:
     github: aca-labs/crystal-engine-driver
     branch: master
 
+  exec_from:
+    github: aca-labs/exec_from
+    version: "~> 1.0"
+
   # https://github.com/jeromegn/kilt
   # Generic template interface for Crystal
   kilt:
