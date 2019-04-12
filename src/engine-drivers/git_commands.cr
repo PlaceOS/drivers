@@ -81,6 +81,41 @@ class EngineDrivers::GitCommands
     end
   end
 
+  def self.clone(repository, repository_uri, username = nil, password = nil)
+    io = IO::Memory.new
+    result = 1
+
+    if username && password
+      # remove the https://
+      uri = repository_uri[8..-1]
+      # rebuild URL
+      repository_uri = "https://#{username}:#{password}@#{uri}"
+    end
+
+    # Ensure the repository directory exists (it should)
+    working_dir = "../repositories"
+    Dir.mkdir_p working_dir
+
+    get_lock(repository).synchronize do
+      # Ensure the repository being cloned does not exist
+      # TODO:: Process run rm -rf folder
+
+      result = Process.run(
+        "./bin/exec_from",
+        {working_dir, "git", "clone", repository_uri, repository},
+        {"GIT_TERMINAL_PROMPT" => "0"},
+        input: Process::Redirect::Close,
+        output: io,
+        error: io
+      ).exit_status
+    end
+
+    {
+      exit_status: result,
+      output:      io.to_s,
+    }
+  end
+
   def self.get_lock(repository) : Mutex
     @@lock_manager.synchronize do
       if lock = @@repository_lock[repository]?
