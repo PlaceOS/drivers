@@ -61,22 +61,24 @@ class EngineDrivers::GitCommands
     repo_lock = get_lock(repository)
 
     get_lock(repository, file).synchronize do
-      result = repo_lock.synchronize do
-        Process.run(
-          "./bin/exec_from",
-          {repository, "git", "checkout", commit, "--", file}
-        )
-      end
-      raise CommandFailure.new(result.exit_status) if result.exit_status != 0
+      begin
+        result = repo_lock.synchronize do
+          Process.run(
+            "./bin/exec_from",
+            {repository, "git", "checkout", commit, "--", file}
+          )
+        end
+        raise CommandFailure.new(result.exit_status) if result.exit_status != 0
 
-      yield file
-
-      # reset the file back to head
-      repo_lock.synchronize do
-        Process.run(
-          "./bin/exec_from",
-          {repository, "git", "checkout", "--", file}
-        )
+        yield file
+      ensure
+        # reset the file back to head
+        repo_lock.synchronize do
+          Process.run(
+            "./bin/exec_from",
+            {repository, "git", "checkout", "HEAD", "--", file}
+          )
+        end
       end
     end
   end
