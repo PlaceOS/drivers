@@ -81,7 +81,12 @@ class EngineDrivers::GitCommands
     end
   end
 
-  def self.clone(repository, repository_uri, username = nil, password = nil)
+  def self.clone(repository, repository_uri, username = nil, password = nil, working_dir = "../repositories")
+    # Ensure we are rm -rf a sane folder - don't want to delete root for example
+    unless repository.starts_with?(working_dir) && working_dir.size > 1 && (repository.size - working_dir.size) > 1
+      raise "invalid folder structure. Working directory: '#{working_dir}', repository: '#{repository}'"
+    end
+
     io = IO::Memory.new
     result = 1
 
@@ -93,12 +98,16 @@ class EngineDrivers::GitCommands
     end
 
     # Ensure the repository directory exists (it should)
-    working_dir = "../repositories"
     Dir.mkdir_p working_dir
 
     get_lock(repository).synchronize do
       # Ensure the repository being cloned does not exist
-      # TODO:: Process run rm -rf folder
+      Process.run("./bin/exec_from",
+        {working_dir, "rm", "-rf", repository},
+        input: Process::Redirect::Close,
+        output: Process::Redirect::Close,
+        error: Process::Redirect::Close
+      )
 
       result = Process.run(
         "./bin/exec_from",
