@@ -6,6 +6,10 @@ class EngineDrivers::ReadersWriterLock
     @writer_lock = Mutex.new
   end
 
+  def readers
+    @reader_lock.synchronize { @readers }
+  end
+
   # Read locks
   def read
     @writer_lock.synchronize do
@@ -17,17 +21,13 @@ class EngineDrivers::ReadersWriterLock
     @reader_lock.synchronize { @readers -= 1 }
   end
 
+  # Write lock
   def synchronize
-    @writer_lock.synchronize do
-      @reader_lock.synchronize { @readers += 1 }
+    write do
+      yield
     end
-
-    yield
-  ensure
-    @reader_lock.synchronize { @readers -= 1 }
   end
 
-  # Write lock
   def write
     @writer_lock.synchronize do
       write_ready = false
