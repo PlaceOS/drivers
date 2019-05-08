@@ -1,16 +1,21 @@
 class EngineDrivers::GitCommands
+  # Will really only be an issue once threads come along
   @@lock_manager = Mutex.new
 
+  # Allow multiple file level operations to occur in parrallel
+  # File level operations are readers, repo level are writers
+  @@repository_lock = {} of String => ReadersWriterLock
+
   # Ensure only a single git operation is occuring at once to avoid corruption
-  @@repository_lock = {} of String => Mutex
+  @@operation_lock = {} of String => Mutex
 
   # Ensures only a single operation on an individual file occurs at once
   # This enables multi-version compilation to occur without clashing
-  @@file_lock = {} of String => Mutex
+  @@file_lock = {} of String => Hash(String, Mutex)
 
   def self.ls(repository = EngineDrivers::Compiler.drivers_dir)
     io = IO::Memory.new
-    result = get_lock(repository).synchronize do
+    result = basic_operation(repository) do
       Process.run(
         "./bin/exec_from", {repository, "git", "--no-pager", "ls-files"},
         input: Process::Redirect::Close,
@@ -32,7 +37,7 @@ class EngineDrivers::GitCommands
     # %cI: committer date, strict ISO 8601 format
     # %an: author name
     # %s: subject
-    result = get_lock(repository).synchronize do
+    result = file_operation(repository, file_name) do
       Process.run(
         "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name},
         input: Process::Redirect::Close,
@@ -58,11 +63,11 @@ class EngineDrivers::GitCommands
 
   def self.checkout(file, commit = "head", repository = EngineDrivers::Compiler.drivers_dir)
     # https://stackoverflow.com/questions/215718/reset-or-revert-a-specific-file-to-a-specific-revision-using-git
-    repo_lock = get_lock(repository)
+    op_lock = operation_lock(repository)
 
-    get_lock(repository, file).synchronize do
+    file_lock(repository, file) do
       begin
-        result = repo_lock.synchronize do
+        result = op_lock.synchronize do
           Process.run(
             "./bin/exec_from",
             {repository, "git", "checkout", commit, "--", file}
@@ -73,7 +78,7 @@ class EngineDrivers::GitCommands
         yield file
       ensure
         # reset the file back to head
-        repo_lock.synchronize do
+        op_lock.synchronize do
           Process.run(
             "./bin/exec_from",
             {repository, "git", "checkout", "HEAD", "--", file}
@@ -102,7 +107,9 @@ class EngineDrivers::GitCommands
     # Ensure the repository directory exists (it should)
     Dir.mkdir_p working_dir
 
-    get_lock(repository).synchronize do
+    # The call to write here ensures that no other operations are occuring on
+    # the repository at this time.
+    repo_lock(repository).write do
       # Ensure the repository being cloned does not exist
       Process.run("./bin/exec_from",
         {working_dir, "rm", "-rf", repository},
@@ -127,27 +134,64 @@ class EngineDrivers::GitCommands
     }
   end
 
-  def self.get_lock(repository) : Mutex
-    @@lock_manager.synchronize do
-      if lock = @@repository_lock[repository]?
-        lock
-      else
-        lock = Mutex.new
-        @@repository_lock[repository] = lock
-        lock
+  def self.basic_operation(repository)
+    repo_lock(repository).read do
+      operation_lock(repository).synchronize { yield }
+    end
+  end
+
+  def self.file_operation(repository, file)
+    # This is the order of locking that should occur when performing an operation
+    # * Read access to repository (not a global change or exclusive access)
+    # * File lock ensures exclusive access to this file
+    # * Operation lock ensures only a single git command is executing at a time
+    #
+    # The `checkout` function is an example of performing an operation on a file
+    # that requires multiple git operations
+    repo_lock(repository).read do
+      file_lock(repository, file).synchronize do
+        operation_lock(repository).synchronize { yield }
       end
     end
   end
 
-  def self.get_lock(repository, file) : Mutex
-    lock_key = "#{repository}`#{file}"
+  def self.file_lock(repository, file)
+    repo_lock(repository).read do
+      file_lock(repository, file).synchronize do
+        yield
+      end
+    end
+  end
+
+  def self.file_lock(repository, file) : Mutex
     @@lock_manager.synchronize do
-      if lock = @@file_lock[lock_key]?
+      locks = @@file_lock[repository]?
+      @@file_lock[repository] = locks = Hash(String, Mutex).new unless locks
+
+      if lock = locks[file]?
         lock
       else
-        lock = Mutex.new
-        @@file_lock[lock_key] = lock
+        locks[file] = Mutex.new
+      end
+    end
+  end
+
+  def self.repo_lock(repository) : ReadersWriterLock
+    @@lock_manager.synchronize do
+      if lock = @@repository_lock[repository]?
         lock
+      else
+        @@repository_lock[repository] = ReadersWriterLock.new
+      end
+    end
+  end
+
+  def self.operation_lock(repository) : Mutex
+    @@lock_manager.synchronize do
+      if lock = @@operation_lock[repository]?
+        lock
+      else
+        @@operation_lock[repository] = Mutex.new
       end
     end
   end

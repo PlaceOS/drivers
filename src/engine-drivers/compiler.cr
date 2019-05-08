@@ -1,6 +1,3 @@
-# TODO:: create a shard that compiles on install (like ameba)
-# should accept a DIR and a command as a param, it switches dir and executes
-
 class EngineDrivers::Compiler
   BIN_DIR = "#{Dir.current}/bin/drivers"
 
@@ -14,7 +11,7 @@ class EngineDrivers::Compiler
     @@drivers_dir
   end
 
-  # TODO:: if driver in external git repo
+  # if driver in external git repo
   # Make sure that we change the directory for process run
   # Repositories should shard update when they are cloned initially or updated
 
@@ -28,7 +25,7 @@ class EngineDrivers::Compiler
     exe_output = ""
     result = 1
 
-    get_lock(repository).synchronize do
+    EngineDrivers::GitCommands.file_lock(repository, source_file) do
       # Make sure we have an actual version hash of the file
       if commit == "head"
         commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
@@ -67,7 +64,7 @@ class EngineDrivers::Compiler
 
     # NOTE:: supports recursive locking so can perform multiple repository
     # operations in a single lock. i.e. clone + shards install
-    get_lock(repository).synchronize do
+    EngineDrivers::GitCommands.repo_lock(repository).write do
       result = Process.run(
         "./bin/exec_from",
         {repository, "shards", "--no-color", "install"},
@@ -83,8 +80,10 @@ class EngineDrivers::Compiler
     }
   end
 
-  # Proxy the get lock requests to git commands
-  def self.get_lock(*args)
-    EngineDrivers::GitCommands.get_lock(*args)
+  def self.clone_and_install(repository, repository_uri, username = nil, password = nil, working_dir = "../repositories")
+    # TODO::
+    # Repo write lock
+    # clone the repository
+    # shards install
   end
 end
