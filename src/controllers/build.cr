@@ -23,7 +23,7 @@ class Build < Application
   # grab the list of available versions of file / which are built
   get "/commits" do
     driver = params["driver"]
-    count = (params["id"] || 10).to_i
+    count = (params["count"]? || 50).to_i
 
     render json: EngineDrivers::GitCommands.commits(driver, count)
   end
@@ -48,8 +48,8 @@ class Build < Application
   end
 
   # delete a built driver
-  def delete
-    driver = params["driver"]
+  def destroy
+    driver = URI.unescape(params["id"])
     commit = params["commit"]?
 
     files = if commit
