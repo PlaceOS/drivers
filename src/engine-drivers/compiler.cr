@@ -34,7 +34,7 @@ class EngineDrivers::Compiler
       # Want to expose some kind of status signalling
       # @@message = "compiling #{source_file} @ #{commit}"
 
-      exe_output = "#{BIN_DIR}/#{commit}_#{exec_name}"
+      exe_output = "#{BIN_DIR}/#{exec_name}_#{commit}"
       EngineDrivers::GitCommands.checkout(source_file, commit) do
         result = Process.run(
           "./bin/exec_from",
@@ -55,6 +55,19 @@ class EngineDrivers::Compiler
       executable:  exe_output,
       repository:  repository,
     }
+  end
+
+  def self.compiled_drivers(source_file)
+    exec_name = source_file.gsub(/\/|\./, "_")
+    exe_output = "#{exec_name}_"
+
+    Dir.children(BIN_DIR).reject do |file|
+      !file.starts_with?(exe_output) || file.includes?(".")
+    end
+  end
+
+  def self.compiled_drivers
+    Dir.children(BIN_DIR).reject { |file| file.includes?(".") }
   end
 
   # Runs shards install to ensure driver builds will succeed

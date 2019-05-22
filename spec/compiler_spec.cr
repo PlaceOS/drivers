@@ -16,4 +16,9 @@ describe EngineDrivers::Compiler do
     )
     io.to_s.starts_with?("Usage:").should eq(true)
   end
+
+  it "should list compiled versions" do
+    files = EngineDrivers::Compiler.compiled_drivers("drivers/aca/spec_helper.cr")
+    files.should eq(["drivers_aca_spec_helper_cr_b495a86"])
+  end
 end
