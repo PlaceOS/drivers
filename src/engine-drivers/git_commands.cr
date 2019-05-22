@@ -1,10 +1,12 @@
+require "rwlock"
+
 class EngineDrivers::GitCommands
   # Will really only be an issue once threads come along
   @@lock_manager = Mutex.new
 
   # Allow multiple file level operations to occur in parrallel
   # File level operations are readers, repo level are writers
-  @@repository_lock = {} of String => ReadersWriterLock
+  @@repository_lock = {} of String => RWLock
 
   # Ensure only a single git operation is occuring at once to avoid corruption
   @@operation_lock = {} of String => Mutex
@@ -176,12 +178,12 @@ class EngineDrivers::GitCommands
     end
   end
 
-  def self.repo_lock(repository) : ReadersWriterLock
+  def self.repo_lock(repository) : RWLock
     @@lock_manager.synchronize do
       if lock = @@repository_lock[repository]?
         lock
       else
-        @@repository_lock[repository] = ReadersWriterLock.new
+        @@repository_lock[repository] = RWLock.new
       end
     end
   end
