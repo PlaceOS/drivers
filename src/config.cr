@@ -2,6 +2,12 @@
 require "action-controller"
 require "active-model"
 
+# Allows request IDs to be configured for logging
+# You can extend this with additional properties
+class HTTP::Request
+  property id : String?
+end
+
 # Application code
 require "./controllers/application"
 require "./controllers/*"
@@ -14,7 +20,14 @@ require "action-controller/server"
 
 # Add handlers that should run before your application
 ActionController::Server.before(
-  HTTP::LogHandler.new(STDOUT),
+  ActionController::LogHandler.new(STDOUT) { |context|
+    # Allows for custom tags to be included when logging
+    # For example you might want to include a user id here.
+    {
+      # `context.request.id` is set in `controllers/application`
+      request_id: context.request.id
+    }.map { |key, value| " #{key}=#{value}" }.join("")
+  },
   HTTP::ErrorHandler.new(ENV["SG_ENV"]? != "production"),
   HTTP::CompressHandler.new
 )
