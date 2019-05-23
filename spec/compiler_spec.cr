@@ -21,4 +21,10 @@ describe EngineDrivers::Compiler do
     files = EngineDrivers::Compiler.compiled_drivers("drivers/aca/spec_helper.cr")
     files.should eq(["drivers_aca_spec_helper_cr_b495a86"])
   end
+
+  it "should clone and install a repository" do
+    EngineDrivers::Compiler.clone_and_install("readers-writer", "https://github.com/spider-gazelle/readers-writer")
+    File.file?(File.expand_path("../repositories/readers-writer/shard.yml")).should eq(true)
+    File.directory?(File.expand_path("../repositories/readers-writer/bin")).should eq(true)
+  end
 end

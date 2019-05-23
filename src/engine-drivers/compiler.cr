@@ -2,6 +2,7 @@ class EngineDrivers::Compiler
   BIN_DIR = "#{Dir.current}/bin/drivers"
 
   @@drivers_dir = Dir.current
+  @@repository_dir = File.expand_path("../repositories")
 
   def self.drivers_dir=(path)
     @@drivers_dir = path
@@ -11,9 +12,13 @@ class EngineDrivers::Compiler
     @@drivers_dir
   end
 
-  # if driver in external git repo
-  # Make sure that we change the directory for process run
-  # Repositories should shard update when they are cloned initially or updated
+  def self.repository_dir=(path)
+    @@repository_dir = path
+  end
+
+  def self.repository_dir
+    @@repository_dir
+  end
 
   # repository is required to have a local `build.cr` file to support compilation
   def self.build_driver(source_file, commit = "head", repository = @@drivers_dir)
@@ -67,11 +72,15 @@ class EngineDrivers::Compiler
   end
 
   def self.compiled_drivers
-    Dir.children(BIN_DIR).reject { |file| file.includes?(".") }
+    Dir.children(BIN_DIR).reject { |file| file.includes?(".") || File.directory?(file) }
+  end
+
+  def self.repositories(working_dir = @@repository_dir)
+    Dir.children(working_dir).reject { |file| File.file?(file) }
   end
 
   # Runs shards install to ensure driver builds will succeed
-  def self.install_shards(repository = @@drivers_dir)
+  def self.install_shards(repository, working_dir = @@repository_dir)
     io = IO::Memory.new
     result = 1
 
@@ -80,7 +89,7 @@ class EngineDrivers::Compiler
     EngineDrivers::GitCommands.repo_lock(repository).write do
       result = Process.run(
         "./bin/exec_from",
-        {repository, "shards", "--no-color", "install"},
+        {File.join(working_dir, repository), "shards", "--no-color", "install"},
         input: Process::Redirect::Close,
         output: io,
         error: io
@@ -93,10 +102,12 @@ class EngineDrivers::Compiler
     }
   end
 
-  def self.clone_and_install(repository, repository_uri, username = nil, password = nil, working_dir = "../repositories")
-    # TODO::
-    # Repo write lock
-    # clone the repository
-    # shards install
+  def self.clone_and_install(repository, repository_uri, username = nil, password = nil, working_dir = @@repository_dir)
+    EngineDrivers::GitCommands.repo_lock(repository).write do
+      result = EngineDrivers::GitCommands.clone(repository, repository_uri, username, password, working_dir)
+      raise "failed to clone\n#{result[:output]}" unless result[:exit_status] == 0
+      result = install_shards(repository, working_dir)
+      raise "failed to install shards\n#{result[:output]}" unless result[:exit_status] == 0
+    end
   end
 end
