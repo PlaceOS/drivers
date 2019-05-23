@@ -90,28 +90,32 @@ class EngineDrivers::GitCommands
     end
   end
 
-  def self.clone(repository, repository_uri, username = nil, password = nil, working_dir = "../repositories")
+  def self.clone(repository, repository_uri, username = nil, password = nil, working_dir = EngineDrivers::Compiler.repository_dir)
+    working_dir = File.expand_path(working_dir)
+    repo_dir = File.expand_path(repository, working_dir)
+
     # Ensure we are rm -rf a sane folder - don't want to delete root for example
-    unless repository.starts_with?(working_dir) && working_dir.size > 1 && (repository.size - working_dir.size) > 1
-      raise "invalid folder structure. Working directory: '#{working_dir}', repository: '#{repository}'"
+    unless repo_dir.starts_with?(working_dir)
+      raise "invalid folder structure. Working directory: '#{working_dir}', repository: '#{repository}', resulting path: '#{repo_dir}'"
     end
 
     io = IO::Memory.new
     result = 1
 
     if username && password
+      # TODO:: Should probably use URI parser here
       # remove the https://
       uri = repository_uri[8..-1]
       # rebuild URL
       repository_uri = "https://#{username}:#{password}@#{uri}"
     end
 
-    # Ensure the repository directory exists (it should)
-    Dir.mkdir_p working_dir
-
     # The call to write here ensures that no other operations are occuring on
     # the repository at this time.
     repo_lock(repository).write do
+      # Ensure the repository directory exists (it should)
+      Dir.mkdir_p working_dir
+
       # Ensure the repository being cloned does not exist
       Process.run("./bin/exec_from",
         {working_dir, "rm", "-rf", repository},
@@ -120,6 +124,7 @@ class EngineDrivers::GitCommands
         error: Process::Redirect::Close
       )
 
+      # Clone the repository
       result = Process.run(
         "./bin/exec_from",
         {working_dir, "git", "clone", repository_uri, repository},
