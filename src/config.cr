@@ -25,7 +25,7 @@ ActionController::Server.before(
     # For example you might want to include a user id here.
     {
       # `context.request.id` is set in `controllers/application`
-      request_id: context.request.id
+      request_id: context.request.id,
     }.map { |key, value| " #{key}=#{value}" }.join("")
   },
   HTTP::ErrorHandler.new(ENV["SG_ENV"]? != "production"),

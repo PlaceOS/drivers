@@ -90,17 +90,46 @@ class EngineDrivers::GitCommands
     end
   end
 
-  def self.clone(repository, repository_uri, username = nil, password = nil, working_dir = EngineDrivers::Compiler.repository_dir)
+  def self.pull(repository, working_dir = EngineDrivers::Compiler.repository_dir)
     working_dir = File.expand_path(working_dir)
     repo_dir = File.expand_path(repository, working_dir)
 
-    # Ensure we are rm -rf a sane folder - don't want to delete root for example
+    # Double check the inputs
     unless repo_dir.starts_with?(working_dir)
       raise "invalid folder structure. Working directory: '#{working_dir}', repository: '#{repository}', resulting path: '#{repo_dir}'"
     end
+    raise "repository does not exist. Path: '#{repo_dir}'" unless File.directory?(repo_dir)
 
+    # Assumes no password required. Re-clone if this has changed.
     io = IO::Memory.new
     result = 1
+
+    # The call to write here ensures that no other operations are occuring on
+    # the repository at this time.
+    repo_lock(repo_dir).write do
+      result = Process.run(
+        "./bin/exec_from",
+        {repo_dir, "git", "pull"},
+        {"GIT_TERMINAL_PROMPT" => "0"},
+        input: Process::Redirect::Close,
+        output: io,
+        error: io
+      ).exit_status
+    end
+
+    {
+      exit_status: result,
+      output:      io.to_s,
+    }
+  end
+
+  def self.clone(repository, repository_uri, username = nil, password = nil, working_dir = EngineDrivers::Compiler.repository_dir)
+    working_dir = File.expand_path(working_dir)
+    repo_dir = File.expand_path(File.join(working_dir, repository))
+
+    # Ensure we are rm -rf a sane folder - don't want to delete root for example
+    valid = repo_dir.starts_with?(working_dir) && repo_dir != "/" && repository.size > 0 && !repository.includes?("/") && !repository.includes?(".")
+    raise "invalid folder structure. Working directory: '#{working_dir}', repository: '#{repository}', resulting path: '#{repo_dir}'" unless valid
 
     if username && password
       # TODO:: Should probably use URI parser here
@@ -110,9 +139,12 @@ class EngineDrivers::GitCommands
       repository_uri = "https://#{username}:#{password}@#{uri}"
     end
 
+    io = IO::Memory.new
+    result = 1
+
     # The call to write here ensures that no other operations are occuring on
     # the repository at this time.
-    repo_lock(repository).write do
+    repo_lock(repo_dir).write do
       # Ensure the repository directory exists (it should)
       Dir.mkdir_p working_dir
 

@@ -23,8 +23,8 @@ describe EngineDrivers::Compiler do
   end
 
   it "should clone and install a repository" do
-    EngineDrivers::Compiler.clone_and_install("readers-writer", "https://github.com/spider-gazelle/readers-writer")
-    File.file?(File.expand_path("../repositories/readers-writer/shard.yml")).should eq(true)
-    File.directory?(File.expand_path("../repositories/readers-writer/bin")).should eq(true)
+    EngineDrivers::Compiler.clone_and_install("rwlock", "https://github.com/spider-gazelle/readers-writer")
+    File.file?(File.expand_path("../repositories/rwlock/shard.yml")).should eq(true)
+    File.directory?(File.expand_path("../repositories/rwlock/bin")).should eq(true)
   end
 end

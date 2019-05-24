@@ -84,12 +84,14 @@ class EngineDrivers::Compiler
     io = IO::Memory.new
     result = 1
 
+    repo_dir = File.expand_path(File.join(working_dir, repository))
+
     # NOTE:: supports recursive locking so can perform multiple repository
     # operations in a single lock. i.e. clone + shards install
-    EngineDrivers::GitCommands.repo_lock(repository).write do
+    EngineDrivers::GitCommands.repo_lock(repo_dir).write do
       result = Process.run(
         "./bin/exec_from",
-        {File.join(working_dir, repository), "shards", "--no-color", "install"},
+        {repo_dir, "shards", "--no-color", "install"},
         input: Process::Redirect::Close,
         output: io,
         error: io
