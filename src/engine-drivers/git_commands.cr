@@ -31,7 +31,7 @@ class EngineDrivers::GitCommands
     io.to_s.split("\n")
   end
 
-  def self.commits(file_name, count = 10, repository = EngineDrivers::Compiler.drivers_dir)
+  def self.commits(file_name, count = 50, repository = EngineDrivers::Compiler.drivers_dir)
     io = IO::Memory.new
 
     # https://git-scm.com/docs/pretty-formats
@@ -42,6 +42,38 @@ class EngineDrivers::GitCommands
     result = file_operation(repository, file_name) do
       Process.run(
         "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name},
+        input: Process::Redirect::Close,
+        output: io,
+        error: Process::Redirect::Close
+      )
+    end
+
+    raise CommandFailure.new(result.exit_status) if result.exit_status != 0
+
+    io.to_s.strip.split("<--\n\n-->")
+      .reject(&.empty?)
+      .map(&.strip.split("\n").map &.strip)
+      .map do |commit|
+        {
+          commit:  commit[0],
+          date:    commit[1],
+          author:  commit[2],
+          subject: commit[3],
+        }
+      end
+  end
+
+  def self.repository_commits(repository = EngineDrivers::Compiler.drivers_dir, count = 50)
+    io = IO::Memory.new
+
+    # https://git-scm.com/docs/pretty-formats
+    # %h: abbreviated commit hash
+    # %cI: committer date, strict ISO 8601 format
+    # %an: author name
+    # %s: subject
+    result = repo_lock(repository).write do
+      Process.run(
+        "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s},
         input: Process::Redirect::Close,
         output: io,
         error: Process::Redirect::Close
@@ -106,7 +138,7 @@ class EngineDrivers::GitCommands
 
     # The call to write here ensures that no other operations are occuring on
     # the repository at this time.
-    repo_lock(repo_dir).write do
+    repo_operation(repo_dir) do
       result = Process.run(
         "./bin/exec_from",
         {repo_dir, "git", "pull"},
@@ -173,12 +205,14 @@ class EngineDrivers::GitCommands
     }
   end
 
+  # Use this for simple git operations, such as `git ls`
   def self.basic_operation(repository)
     repo_lock(repository).read do
       operation_lock(repository).synchronize { yield }
     end
   end
 
+  # Use this for simple file operations, such as file commits
   def self.file_operation(repository, file)
     # This is the order of locking that should occur when performing an operation
     # * Read access to repository (not a global change or exclusive access)
@@ -190,6 +224,24 @@ class EngineDrivers::GitCommands
     repo_lock(repository).read do
       file_lock(repository, file).synchronize do
         operation_lock(repository).synchronize { yield }
+      end
+    end
+  end
+
+  # Anything that expects a clean repository
+  def self.repo_operation(repository)
+    repo_lock(repository).write do
+      operation_lock(repository).synchronize do
+        # reset incase of a crash during a file operation
+        result = Process.run(
+          "./bin/exec_from", {repository, "git", "reset", "--hard"},
+          input: Process::Redirect::Close,
+          output: io,
+          error: Process::Redirect::Close
+        ).exit_status
+
+        raise CommandFailure.new(result) if result != 0
+        yield
       end
     end
   end

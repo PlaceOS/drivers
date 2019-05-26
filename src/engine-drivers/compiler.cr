@@ -20,12 +20,24 @@ class EngineDrivers::Compiler
     @@repository_dir
   end
 
+  def self.is_built?(source_file, commit = "head", repository = @@repository_dir)
+    exec_name = source_file.gsub(/\/|\./, "_")
+
+    # Make sure we have an actual version hash of the file
+    if commit == "head"
+      commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+    end
+
+    exe_output = File.join(BIN_DIR, "#{exec_name}_#{commit}")
+    File.exists?(exe_output) ? exe_output : nil
+  end
+
   # repository is required to have a local `build.cr` file to support compilation
   def self.build_driver(source_file, commit = "head", repository = @@drivers_dir)
     # Ensure the bin directory exists
     Dir.mkdir_p BIN_DIR
-
     io = IO::Memory.new
+
     exec_name = source_file.gsub(/\/|\./, "_")
     exe_output = ""
     result = 1
@@ -39,7 +51,7 @@ class EngineDrivers::Compiler
       # Want to expose some kind of status signalling
       # @@message = "compiling #{source_file} @ #{commit}"
 
-      exe_output = "#{BIN_DIR}/#{exec_name}_#{commit}"
+      exe_output = File.join(BIN_DIR, "#{exec_name}_#{commit}")
       EngineDrivers::GitCommands.checkout(source_file, commit) do
         result = Process.run(
           "./bin/exec_from",
