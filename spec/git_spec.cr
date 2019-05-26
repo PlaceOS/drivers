@@ -9,7 +9,13 @@ describe EngineDrivers::GitCommands do
   end
 
   it "should list the revisions to a file in a repository" do
-    changes = EngineDrivers::GitCommands.commits("shard.yml")
+    changes = EngineDrivers::GitCommands.commits("shard.yml", count: 200)
+    (changes.size > 0).should eq(true)
+    changes.map { |commit| commit[:subject] }.includes?("restructure application").should eq(true)
+  end
+
+  it "should list the revisions of a repository" do
+    changes = EngineDrivers::GitCommands.repository_commits(count: 200)
     (changes.size > 0).should eq(true)
     changes.map { |commit| commit[:subject] }.includes?("restructure application").should eq(true)
   end

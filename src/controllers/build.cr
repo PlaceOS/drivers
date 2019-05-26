@@ -2,16 +2,14 @@ class Build < Application
   # list the available files
   def index
     compiled = params["compiled"]?
-    list = if compiled
-             EngineDrivers::Compiler.compiled_drivers
-           else
-             result = EngineDrivers::GitCommands.ls(get_repository_path)
-             render json: result.select { |file|
-               file.ends_with?(".cr") && !file.ends_with?("_spec.cr") && file.starts_with?("drivers/")
-             }
-           end
-
-    render json: list
+    if compiled
+      render json: EngineDrivers::Compiler.compiled_drivers
+    else
+      result = EngineDrivers::GitCommands.ls(get_repository_path)
+      render json: result.select { |file|
+        file.ends_with?(".cr") && !file.ends_with?("_spec.cr") && file.starts_with?("drivers/")
+      }
+    end
   end
 
   def show
@@ -30,6 +28,12 @@ class Build < Application
     count = (params["count"]? || 50).to_i
 
     render json: EngineDrivers::GitCommands.commits(driver, count, get_repository_path)
+  end
+
+  # Commits at repo level
+  get "/repository_commits" do
+    count = (params["count"]? || 50).to_i
+    render json: EngineDrivers::GitCommands.repository_commits(get_repository_path, count)
   end
 
   # build a drvier, optionally based on the version specified
@@ -68,17 +72,5 @@ class Build < Application
       File.delete File.join(EngineDrivers::Compiler::BIN_DIR, file)
     end
     head :ok
-  end
-
-  protected def get_repository_path
-    repository = params["repository"]?
-    if repository
-      repo = File.expand_path(File.join(EngineDrivers::Compiler.repository_dir, repository))
-      valid = repo.starts_with?(EngineDrivers::Compiler.repository_dir) && repo != "/" && repository.size > 0 && !repository.includes?("/") && !repository.includes?(".")
-      raise "invalid repository: #{repository}" unless valid
-      repo
-    else
-      EngineDrivers::Compiler.drivers_dir
-    end
   end
 end
