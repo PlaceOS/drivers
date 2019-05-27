@@ -1,24 +1,17 @@
 class EngineDrivers::Compiler
-  BIN_DIR = "#{Dir.current}/bin/drivers"
-
   @@drivers_dir = Dir.current
   @@repository_dir = File.expand_path("../repositories")
+  @@bin_dir = "#{Dir.current}/bin/drivers"
 
-  def self.drivers_dir=(path)
-    @@drivers_dir = path
-  end
+  {% for name in [:drivers_dir, :repository_dir, :bin_dir] %}
+    def {{name.id}}
+      @@{{name.id}}
+    end
 
-  def self.drivers_dir
-    @@drivers_dir
-  end
-
-  def self.repository_dir=(path)
-    @@repository_dir = path
-  end
-
-  def self.repository_dir
-    @@repository_dir
-  end
+    def {{name.id}}=(path)
+      @@{{name.id}} = path
+    end
+  {% end %}
 
   def self.is_built?(source_file, commit = "head", repository = @@repository_dir)
     exec_name = source_file.gsub(/\/|\./, "_")
@@ -28,14 +21,14 @@ class EngineDrivers::Compiler
       commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
     end
 
-    exe_output = File.join(BIN_DIR, "#{exec_name}_#{commit}")
+    exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
     File.exists?(exe_output) ? exe_output : nil
   end
 
   # repository is required to have a local `build.cr` file to support compilation
-  def self.build_driver(source_file, commit = "head", repository = @@drivers_dir)
+  def self.build_driver(source_file, commit = "head", repository = @@drivers_dir, git_checkout = true)
     # Ensure the bin directory exists
-    Dir.mkdir_p BIN_DIR
+    Dir.mkdir_p @@bin_dir
     io = IO::Memory.new
 
     exec_name = source_file.gsub(/\/|\./, "_")
@@ -51,16 +44,26 @@ class EngineDrivers::Compiler
       # Want to expose some kind of status signalling
       # @@message = "compiling #{source_file} @ #{commit}"
 
-      exe_output = File.join(BIN_DIR, "#{exec_name}_#{commit}")
-      EngineDrivers::GitCommands.checkout(source_file, commit) do
+      exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
+      build_script = File.expand_path("./src/build.cr")
+      compile_proc = -> do
         result = Process.run(
           "./bin/exec_from",
-          {repository, "crystal", "build", "-o", exe_output, "./src/build.cr"},
+          {repository, "crystal", "build", "-o", exe_output, build_script},
           {"COMPILE_DRIVER" => source_file},
           input: Process::Redirect::Close,
           output: io,
           error: io
         ).exit_status
+      end
+
+      # When developing you may not want to have to
+      if git_checkout
+        EngineDrivers::GitCommands.checkout(source_file, commit) do
+          compile_proc.call
+        end
+      else
+        compile_proc.call
       end
     end
 
@@ -78,13 +81,13 @@ class EngineDrivers::Compiler
     exec_name = source_file.gsub(/\/|\./, "_")
     exe_output = "#{exec_name}_"
 
-    Dir.children(BIN_DIR).reject do |file|
+    Dir.children(@@bin_dir).reject do |file|
       !file.starts_with?(exe_output) || file.includes?(".")
     end
   end
 
   def self.compiled_drivers
-    Dir.children(BIN_DIR).reject { |file| file.includes?(".") || File.directory?(file) }
+    Dir.children(@@bin_dir).reject { |file| file.includes?(".") || File.directory?(file) }
   end
 
   def self.repositories(working_dir = @@repository_dir)
