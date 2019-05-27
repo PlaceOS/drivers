@@ -14,10 +14,14 @@ OptionParser.parse(ARGV.dup) do |parser|
   parser.on("-b HOST", "--bind=HOST", "Specifies the server host") { |h| host = h }
   parser.on("-p PORT", "--port=PORT", "Specifies the server port") { |p| port = p.to_i }
 
-  parser.on("-w COUNT", "--workers=COUNT", "Specifies the number of processes to handle requests") do |w|
-    cluster = true
-    process_count = w.to_i
-  end
+  # There should only ever be a single instance of this process
+  # as we don't want concurrent access occuring
+  # (technically git allows concurrent repo access however you may experience unexpected
+  # results as file revisions are changed while compiling etc)
+  #parser.on("-w COUNT", "--workers=COUNT", "Specifies the number of processes to handle requests") do |w|
+  #  cluster = true
+  #  process_count = w.to_i
+  #end
 
   parser.on("-r", "--routes", "List the application routes") do
     ActionController::Server.print_routes
