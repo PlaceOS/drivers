@@ -27,4 +27,34 @@ describe EngineDrivers::Compiler do
     File.file?(File.expand_path("../repositories/rwlock/shard.yml")).should eq(true)
     File.directory?(File.expand_path("../repositories/rwlock/bin")).should eq(true)
   end
+
+  it "should compile a private driver" do
+    # Clone the private driver repo
+    EngineDrivers::Compiler.clone_and_install("private_drivers", "https://github.com/aca-labs/private_drivers.git")
+    File.file?(File.expand_path("../repositories/private_drivers/drivers/aca/private_helper.cr")).should eq(true)
+
+    # Test the executable is created
+    result = EngineDrivers::Compiler.build_driver("drivers/aca/private_helper.cr", repository: File.join(EngineDrivers::Compiler.repository_dir, "private_drivers"))
+    result[:exit_status].should eq(0)
+    File.exists?(result[:executable]).should eq(true)
+
+    # Check it functions as expected
+    io = IO::Memory.new
+    Process.run(result[:executable], {"-h"},
+      input: Process::Redirect::Close,
+      output: io,
+      error: io
+    )
+    io.to_s.starts_with?("Usage:").should eq(true)
+
+    # Delete the file
+    File.delete(result[:executable])
+  end
+
+  with_server do
+    it "should compile a private driver using the build API" do
+      result = curl("POST", "/build?repository=private_drivers&driver=drivers/aca/private_helper.cr")
+      result.status_code.should eq(201)
+    end
+  end
 end

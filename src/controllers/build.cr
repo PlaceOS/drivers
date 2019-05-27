@@ -69,7 +69,7 @@ class Build < Application
             end
 
     files.each do |file|
-      File.delete File.join(EngineDrivers::Compiler::BIN_DIR, file)
+      File.delete File.join(EngineDrivers::Compiler.bin_dir, file)
     end
     head :ok
   end

@@ -4,11 +4,11 @@ class EngineDrivers::Compiler
   @@bin_dir = "#{Dir.current}/bin/drivers"
 
   {% for name in [:drivers_dir, :repository_dir, :bin_dir] %}
-    def {{name.id}}
+    def self.{{name.id}}
       @@{{name.id}}
     end
 
-    def {{name.id}}=(path)
+    def self.{{name.id}}=(path)
       @@{{name.id}} = path
     end
   {% end %}
@@ -45,7 +45,7 @@ class EngineDrivers::Compiler
       # @@message = "compiling #{source_file} @ #{commit}"
 
       exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
-      build_script = File.expand_path("./src/build.cr")
+      build_script = File.join(repository, "src/build.cr")
       compile_proc = -> do
         result = Process.run(
           "./bin/exec_from",
