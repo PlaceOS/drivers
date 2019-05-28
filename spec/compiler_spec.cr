@@ -51,6 +51,30 @@ describe EngineDrivers::Compiler do
     File.delete(result[:executable])
   end
 
+  it "should compile a private spec" do
+    # Test the executable is created
+    result = EngineDrivers::Compiler.build_driver(
+      "drivers/aca/private_helper_spec.cr",
+      repository: File.join(EngineDrivers::Compiler.repository_dir, "private_drivers"),
+      git_checkout: false
+    )
+    result[:exit_status].should eq(0)
+    File.exists?(result[:executable]).should eq(true)
+
+    # Check it functions as expected SPEC_RUN_DRIVER
+    io = IO::Memory.new
+    exit_status = Process.run(result[:executable],
+      env: {"SPEC_RUN_DRIVER" => File.join(EngineDrivers::Compiler.bin_dir, "drivers_aca_private_helper_cr_4f6e0cd")},
+      input: Process::Redirect::Close,
+      output: io,
+      error: io
+    ).exit_status
+    exit_status.should eq(0)
+
+    # Delete the file
+    File.delete(result[:executable])
+  end
+
   with_server do
     it "should compile a private driver using the build API" do
       result = curl("POST", "/build?repository=private_drivers&driver=drivers/aca/private_helper.cr")
