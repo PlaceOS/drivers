@@ -19,7 +19,7 @@ class Build < Application
 
   # grab the list of available repositories
   get "/repositories" do
-    EngineDrivers::Compiler.repositories
+    render json: EngineDrivers::Compiler.repositories
   end
 
   # grab the list of available versions of file / which are built

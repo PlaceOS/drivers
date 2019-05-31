@@ -24,14 +24,14 @@ describe EngineDrivers::Compiler do
 
   it "should clone and install a repository" do
     EngineDrivers::Compiler.clone_and_install("rwlock", "https://github.com/spider-gazelle/readers-writer")
-    File.file?(File.expand_path("../repositories/rwlock/shard.yml")).should eq(true)
-    File.directory?(File.expand_path("../repositories/rwlock/bin")).should eq(true)
+    File.file?(File.expand_path("./repositories/rwlock/shard.yml")).should eq(true)
+    File.directory?(File.expand_path("./repositories/rwlock/bin")).should eq(true)
   end
 
   it "should compile a private driver" do
     # Clone the private driver repo
     EngineDrivers::Compiler.clone_and_install("private_drivers", "https://github.com/aca-labs/private_drivers.git")
-    File.file?(File.expand_path("../repositories/private_drivers/drivers/aca/private_helper.cr")).should eq(true)
+    File.file?(File.expand_path("./repositories/private_drivers/drivers/aca/private_helper.cr")).should eq(true)
 
     # Test the executable is created
     result = EngineDrivers::Compiler.build_driver("drivers/aca/private_helper.cr", repository: File.join(EngineDrivers::Compiler.repository_dir, "private_drivers"))
