@@ -1,6 +1,6 @@
 class EngineDrivers::Compiler
   @@drivers_dir = Dir.current
-  @@repository_dir = File.expand_path("../repositories")
+  @@repository_dir = File.expand_path("./repositories")
   @@bin_dir = "#{Dir.current}/bin/drivers"
 
   {% for name in [:drivers_dir, :repository_dir, :bin_dir] %}
