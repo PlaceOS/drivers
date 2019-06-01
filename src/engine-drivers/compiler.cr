@@ -26,7 +26,7 @@ class EngineDrivers::Compiler
   end
 
   # repository is required to have a local `build.cr` file to support compilation
-  def self.build_driver(source_file, commit = "head", repository = @@drivers_dir, git_checkout = true)
+  def self.build_driver(source_file, commit = "head", repository = @@drivers_dir, git_checkout = true, debug = false)
     # Ensure the bin directory exists
     Dir.mkdir_p @@bin_dir
     io = IO::Memory.new
@@ -46,10 +46,17 @@ class EngineDrivers::Compiler
 
       exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
       build_script = File.join(repository, "src/build.cr")
+
+      args = if debug
+        {repository, "crystal", "build", "--debug", "-o", exe_output, build_script}
+      else
+        {repository, "crystal", "build", "-o", exe_output, build_script}
+      end
+
       compile_proc = -> do
         result = Process.run(
           "./bin/exec_from",
-          {repository, "crystal", "build", "-o", exe_output, build_script},
+          args,
           {"COMPILE_DRIVER" => source_file},
           input: Process::Redirect::Close,
           output: io,
