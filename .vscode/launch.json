@@ -7,7 +7,10 @@
       "request": "launch",
       "target": "./bin/engine-drivers",
       "cwd": "${workspaceRoot}",
-      "preLaunchTask": "Compile"
+      "preLaunchTask": "Compile",
+      "setupCommands": [
+        { "text": "-gdb-set follow-fork-mode child" }
+      ]
     }
   ]
 }
