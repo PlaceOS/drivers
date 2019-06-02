@@ -25,14 +25,7 @@ class Test < Application
   # Run the spec and return success if the exit status is 0
   def create
     io = IO::Memory.new
-    exit_status = Process.run(
-      @spec_path,
-      {"--no-color"},
-      {"SPEC_RUN_DRIVER" => @driver_path},
-      input: Process::Redirect::Close,
-      output: io,
-      error: io
-    ).exit_status
+    exit_status = launch_spec(io)
 
     render :not_acceptable, text: io.to_s if exit_status != 0
     render text: io.to_s
@@ -41,12 +34,43 @@ class Test < Application
   # WS watch the output from running specs
   ws "/run_spec", :run_spec do |socket|
     # Run the spec and pipe all the IO down the websocket
-    spawn pipe_spec(socket, @spec_path, @driver_path)
+    spawn { pipe_spec(socket) }
   end
 
-  def pipe_spec(socket, spec_path, driver_path)
-    # TODO::
+  def pipe_spec(socket)
+    output, output_writer = IO.pipe
+    spawn { launch_spec(output_writer) }
+
+    # Read data coming in from the IO and send it down the websocket
+    raw_data = Bytes.new(1024)
+    begin
+      while !output.closed?
+        bytes_read = output.read(raw_data)
+        break if bytes_read == 0 # IO was closed
+        socket.send String.new(raw_data[0, bytes_read])
+      end
+    rescue IO::Error
+    rescue Errno
+      # Input stream closed. This should only occur on termination
+    end
+
+    # Once the process exits, close the websocket
     socket.close
+  end
+
+  def launch_spec(io)
+    io << "\nLaunching spec runner\n"
+    exit_status = Process.run(
+      @spec_path,
+      {"--no-color"},
+      {"SPEC_RUN_DRIVER" => @driver_path},
+      input: Process::Redirect::Close,
+      output: io,
+      error: io
+    ).exit_status
+    io << "\nspec runner exited with #{exit_status}\n"
+    io.close
+    exit_status
   end
 
   def ensure_driver_compiled
