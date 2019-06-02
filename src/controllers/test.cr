@@ -15,8 +15,8 @@ class Test < Application
   end
 
   # grab the list of available versions of the spec file
-  get "/commits" do
-    spec = params["spec"]
+  get "/:id/commits" do
+    spec = URI.unescape(params["id"])
     count = (params["count"]? || 50).to_i
 
     render json: EngineDrivers::GitCommands.commits(spec, count, get_repository_path)

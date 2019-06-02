@@ -23,8 +23,8 @@ class Build < Application
   end
 
   # grab the list of available versions of file / which are built
-  get "/commits" do
-    driver = params["driver"]
+  get "/:id/commits" do
+    driver = URI.unescape(params["id"])
     count = (params["count"]? || 50).to_i
 
     render json: EngineDrivers::GitCommands.commits(driver, count, get_repository_path)
@@ -47,6 +47,7 @@ class Build < Application
       render :not_acceptable, text: result[:output]
     end
 
+    response.headers["Location"] = "/build/#{URI.escape(driver)}"
     head :created
   end
 

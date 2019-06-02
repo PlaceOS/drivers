@@ -22,7 +22,7 @@ describe Build do
     end
 
     it "should list possible versions" do
-      result = curl("GET", "/build/commits/?driver=drivers%2Faca%2Fspec_helper.cr")
+      result = curl("GET", "/build/drivers%2Faca%2Fspec_helper.cr/commits")
       result.status_code.should eq(200)
       commits = JSON.parse(result.body)
       commits.size.should eq(2)
