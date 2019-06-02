@@ -25,8 +25,10 @@ class Test < Application
   # Run the spec and return success if the exit status is 0
   def create
     io = IO::Memory.new
-    exit_status = Process.run(@spec_path,
-      env: {"SPEC_RUN_DRIVER" => @driver_path},
+    exit_status = Process.run(
+      @spec_path,
+      {"--no-color"},
+      {"SPEC_RUN_DRIVER" => @driver_path},
       input: Process::Redirect::Close,
       output: io,
       error: io
