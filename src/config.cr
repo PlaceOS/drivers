@@ -1,6 +1,5 @@
 # Application dependencies
 require "action-controller"
-require "active-model"
 
 # Allows request IDs to be configured for logging
 # You can extend this with additional properties
