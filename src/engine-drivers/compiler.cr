@@ -63,12 +63,12 @@ class EngineDrivers::Compiler
       File.delete(exe_output) if !git_checkout
 
       args = if debug
-        {repository, "crystal", "build", "--debug", "-o", exe_output, build_script}
-      else
-        {repository, "crystal", "build", "-o", exe_output, build_script}
-      end
+               {repository, "crystal", "build", "--debug", "-o", exe_output, build_script}
+             else
+               {repository, "crystal", "build", "-o", exe_output, build_script}
+             end
 
-      compile_proc = -> do
+      compile_proc = ->do
         result = Process.run(
           "./bin/exec_from",
           args,

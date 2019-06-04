@@ -18,10 +18,10 @@ OptionParser.parse(ARGV.dup) do |parser|
   # as we don't want concurrent access occuring
   # (technically git allows concurrent repo access however you may experience unexpected
   # results as file revisions are changed while compiling etc)
-  #parser.on("-w COUNT", "--workers=COUNT", "Specifies the number of processes to handle requests") do |w|
+  # parser.on("-w COUNT", "--workers=COUNT", "Specifies the number of processes to handle requests") do |w|
   #  cluster = true
   #  process_count = w.to_i
-  #end
+  # end
 
   parser.on("-r", "--routes", "List the application routes") do
     ActionController::Server.print_routes
