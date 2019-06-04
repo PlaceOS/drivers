@@ -18,11 +18,14 @@ class EngineDrivers::Compiler
 
     # Make sure we have an actual version hash of the file
     if commit == "head"
-      # Allow uncommited files to be built
-      # TODO:: Check if in file list
-      begin
-        commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
-      rescue
+      diff = EngineDrivers::GitCommands.diff(source_file, repository)
+
+      if diff.empty?
+        # Allow uncommited files to be built
+        begin
+          commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+        rescue
+        end
       end
     end
 
@@ -43,11 +46,15 @@ class EngineDrivers::Compiler
     EngineDrivers::GitCommands.file_lock(repository, source_file) do
       # Make sure we have an actual version hash of the file
       if commit == "head"
-        # Allow uncommited files to be built
-        # TODO:: Check if in file list
-        begin
-          commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
-        rescue
+        diff = EngineDrivers::GitCommands.diff(source_file, repository)
+        if diff.empty?
+          # Allow uncommited files to be built
+          begin
+            commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+          rescue
+            git_checkout = false
+          end
+        else
           git_checkout = false
         end
       end
@@ -60,7 +67,11 @@ class EngineDrivers::Compiler
 
       # If we are building head and don't want to check anything out
       # then we can assume we definitely want to re-build the driver
-      File.delete(exe_output) if !git_checkout
+      begin
+        File.delete(exe_output) if !git_checkout
+      rescue
+        # deleting a non-existant file will raise an exception
+      end
 
       args = if debug
                {repository, "crystal", "build", "--debug", "-o", exe_output, build_script}

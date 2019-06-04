@@ -63,6 +63,23 @@ class EngineDrivers::GitCommands
       end
   end
 
+  def self.diff(file_name, repository = EngineDrivers::Compiler.drivers_dir)
+    io = IO::Memory.new
+
+    result = file_operation(repository, file_name) do
+      Process.run(
+        "./bin/exec_from", {repository, "git", "--no-pager", "diff", "--no-color", file_name},
+        input: Process::Redirect::Close,
+        output: io,
+        error: Process::Redirect::Close
+      )
+    end
+
+    # File most likely doesn't exist
+    return "error" if result.exit_status != 0
+    io.to_s.strip
+  end
+
   def self.repository_commits(repository = EngineDrivers::Compiler.drivers_dir, count = 50)
     io = IO::Memory.new
 
