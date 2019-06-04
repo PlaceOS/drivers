@@ -18,7 +18,12 @@ class EngineDrivers::Compiler
 
     # Make sure we have an actual version hash of the file
     if commit == "head"
-      commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+      # Allow uncommited files to be built
+      # TODO:: Check if in file list
+      begin
+        commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+      rescue
+      end
     end
 
     exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
@@ -38,7 +43,13 @@ class EngineDrivers::Compiler
     EngineDrivers::GitCommands.file_lock(repository, source_file) do
       # Make sure we have an actual version hash of the file
       if commit == "head"
-        commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+        # Allow uncommited files to be built
+        # TODO:: Check if in file list
+        begin
+          commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+        rescue
+          git_checkout = false
+        end
       end
 
       # Want to expose some kind of status signalling
@@ -46,6 +57,10 @@ class EngineDrivers::Compiler
 
       exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
       build_script = File.join(repository, "src/build.cr")
+
+      # If we are building head and don't want to check anything out
+      # then we can assume we definitely want to re-build the driver
+      File.delete(exe_output) if !git_checkout
 
       args = if debug
         {repository, "crystal", "build", "--debug", "-o", exe_output, build_script}

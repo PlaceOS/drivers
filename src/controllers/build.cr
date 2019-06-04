@@ -43,7 +43,9 @@ class Build < Application
 
     result = EngineDrivers::Compiler.build_driver(driver, commit, get_repository_path)
 
-    if result[:exit_status] != 0
+    if result[:exit_status] == 0
+      render :not_acceptable, text: result[:output] unless File.exists?(result[:executable])
+    else
       render :not_acceptable, text: result[:output]
     end
 
