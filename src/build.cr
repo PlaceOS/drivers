@@ -1,4 +1,3 @@
-
 {% if env("COMPILE_DRIVER").ends_with?("_spec.cr") %}
   require "engine-driver/engine-specs/runner"
 {% else %}
