@@ -1,4 +1,5 @@
 require "rwlock"
+require "uri"
 
 class EngineDrivers::GitCommands
   # Will really only be an issue once threads come along
@@ -181,11 +182,10 @@ class EngineDrivers::GitCommands
     raise "invalid folder structure. Working directory: '#{working_dir}', repository: '#{repository}', resulting path: '#{repo_dir}'" unless valid
 
     if username && password
-      # TODO:: Should probably use URI parser here
-      # remove the https://
-      uri = repository_uri[8..-1]
-      # rebuild URL
-      repository_uri = "https://#{username}:#{password}@#{uri}"
+      uri_builder = URI.parse(repository_uri)
+      uri_builder.user = username
+      uri_builder.password = password
+      repository_uri = uri_builder.to_s
     end
 
     io = IO::Memory.new
