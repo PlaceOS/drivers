@@ -4,12 +4,11 @@ EngineSpec.mock_driver "Lutron::Lighting" do
   should_send "nwk\r\n"
   transmit "connection established\r\n"
 
-  sleep 110.milliseconds
-
   # Perform actions
-  exec(:scene?, area: 1)
+  response = exec(:scene?, area: 1)
   should_send("?AREA,1,6\r\n")
   responds("~AREA,1,6,2\r\n")
+  response.get
   status[:area1].should eq(2)
 
   transmit "~DEVICE,1,6,9,1\r\n"
@@ -24,13 +23,9 @@ EngineSpec.mock_driver "Lutron::Lighting" do
   transmit "~SHADEGRP,26,1,100.00\r\n"
   status[:shadegrp26_level].should eq(100.00)
 
-  sleep 110.milliseconds
-
   exec(:scene, area: 1, scene: 3)
   should_send("#AREA,1,6,3\r\n")
   responds("\r\n")
-
-  sleep 110.milliseconds
 
   should_send("?AREA,1,6\r\n")
   transmit "~AREA,1,6,3\r\n"
