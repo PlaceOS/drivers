@@ -199,10 +199,10 @@ class Lutron::Lighting < EngineDriver
     when "error"
       error = "error #{parts[1]}: #{Errors[parts[1]]}"
       logger.warn error
-      return task.abort(error)
+      return task.try &.abort(error)
     end
 
-    task.success
+    task.try &.success
   end
 
   protected def send_cmd(*command)
