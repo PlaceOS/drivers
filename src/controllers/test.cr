@@ -84,7 +84,8 @@ class Test < Application
     debug = params["debug"]?
     if driver_path.nil? || params["force"]? || debug
       result = EngineDrivers::Compiler.build_driver(driver, commit, repository, debug: !!debug)
-      render :not_acceptable, text: result[:output] if result[:exit_status] != 0 || !File.exists?(result[:executable])
+      output = result[:output].strip
+      render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
 
       driver_path = EngineDrivers::Compiler.is_built?(driver, commit, repository)
     end
@@ -103,7 +104,8 @@ class Test < Application
     debug = params["debug"]?
     if spec_path.nil? || params["force"]? || debug
       result = EngineDrivers::Compiler.build_driver(spec, spec_commit, repository, debug: !!debug)
-      render :not_acceptable, text: result[:output] if result[:exit_status] != 0 || !File.exists?(result[:executable])
+      output = result[:output].strip
+      render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
 
       spec_path = EngineDrivers::Compiler.is_built?(spec, spec_commit, repository)
     end
