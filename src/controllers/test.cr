@@ -68,7 +68,7 @@ class Test < Application
       output: io,
       error: io
     ).exit_status
-    io << "\nspec runner exited with #{exit_status}\n"
+    io << "spec runner exited with #{exit_status}\n"
     io.close
     exit_status
   end
