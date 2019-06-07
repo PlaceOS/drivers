@@ -18,5 +18,6 @@ install:
   - sudo dpkg -i libssh2-1-dev_1.8.0-2_amd64.deb
 
   - shards install
+  - sleep 5
 script:
   - crystal spec
