@@ -7,3 +7,5 @@ app
 bin
 repositories
 .DS_Store
+
+*.rdb
