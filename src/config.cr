@@ -27,8 +27,7 @@ ActionController::Server.before(
       # `context.request.id` is set in `controllers/application`
       request_id: context.request.id,
     }.map { |key, value| " #{key}=#{value}" }.join("")
-  },
-  HTTP::CompressHandler.new
+  }
 )
 
 # Optional support for serving of static assests
