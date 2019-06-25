@@ -10,17 +10,19 @@ class MessageMedia::SMS < EngineDriver
   generic_name :SMS
   descriptive_name "MessageMedia SMS service"
 
+  default_settings({
+    basic_auth: {
+      username: "srvc_acct",
+      password: "password!"
+    }
+  })
+
   def on_load
     on_update
   end
 
-  @username : String = ""
-  @password : String = ""
-
   def on_update
     # NOTE:: base URI https://api.messagemedia.com
-    @username = setting?(String, :username) || ""
-    @password = setting?(String, :password) || ""
   end
 
   def send_sms(
@@ -47,12 +49,9 @@ class MessageMedia::SMS < EngineDriver
       payload
     end
 
-    basic_auth = "Basic #{Base64.strict_encode("#{@username}:#{@password}")}"
-
     response = post("/v1/messages", body: {
       messages: numbers,
     }.to_json, headers: {
-      "Authorization" => basic_auth,
       "Content-Type"  => "application/json",
       "Accept"        => "application/json",
     })
