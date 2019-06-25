@@ -7,11 +7,12 @@ EngineSpec.mock_driver "MessageMedia::SMS" do
 
   # sms should send a HTTP request
   expect_http_request do |request, response|
+    headers = request.headers
     io = request.body
     if io
       data = io.gets_to_end
       request = JSON.parse(data)
-      if request["messages"][0]["content"] == "hello steve"
+      if request["messages"][0]["content"] == "hello steve" && headers["Authorization"]? == "Basic #{Base64.strict_encode("srvc_acct:password!")}"
         response.status_code = 202
       else
         response.status_code = 401
