@@ -13,8 +13,8 @@ class MessageMedia::SMS < EngineDriver
   default_settings({
     basic_auth: {
       username: "srvc_acct",
-      password: "password!"
-    }
+      password: "password!",
+    },
   })
 
   def on_load
@@ -52,8 +52,8 @@ class MessageMedia::SMS < EngineDriver
     response = post("/v1/messages", body: {
       messages: numbers,
     }.to_json, headers: {
-      "Content-Type"  => "application/json",
-      "Accept"        => "application/json",
+      "Content-Type" => "application/json",
+      "Accept"       => "application/json",
     })
 
     raise "request failed with #{response.status_code}" unless response.status_code == 202

@@ -1,6 +1,6 @@
 EngineSpec.mock_driver "MessageMedia::SMS" do
   # Send the request
-  response = exec(:send_sms,
+  retval = exec(:send_sms,
     phone_numbers: "+61418419954",
     message: "hello steve"
   )
@@ -23,5 +23,5 @@ EngineSpec.mock_driver "MessageMedia::SMS" do
   end
 
   # What the sms function should return
-  response.get.should eq(nil)
+  retval.get.should eq(nil)
 end
