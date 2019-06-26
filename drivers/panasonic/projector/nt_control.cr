@@ -2,6 +2,7 @@ require "digest/md5"
 require "engine-driver/interface/powerable"
 
 module Panasonic; end
+
 module Panasonic::Projector; end
 
 # Documentation: https://aca.im/driver_docs/Panasonic/panasonic_pt-vw535n_manual.pdf
@@ -54,30 +55,27 @@ class Panasonic::Projector::NTControl < EngineDriver
   end
 
   COMMANDS = {
-    power_on: "PON",
-    power_off: "POF",
+    power_on:    "PON",
+    power_off:   "POF",
     power_query: "QPW",
-    freeze: "OFZ",
-    input: "IIS",
-    mute: "OSH",
-    lamp: "Q$S",
-    lamp_hours: "Q$L"
+    freeze:      "OFZ",
+    input:       "IIS",
+    mute:        "OSH",
+    lamp:        "Q$S",
+    lamp_hours:  "Q$L",
   }
   RESPONSES = COMMANDS.to_h.invert
 
   def power(state : Bool)
     self[:stable_power] = @stable_power = false
+    self[:power_target] = state
 
     if state
       logger.debug "requested to power on"
-
-      self[:power_target] = PowerState::On
       do_send(:power_on, retries: 10, name: :power, delay: 8.seconds)
       do_send(:lamp)
     else
       logger.debug "requested to power off"
-
-      self[:power_target] = PowerState::Off
       do_send(:power_off, retries: 10, name: :power, delay: 8.seconds).get
 
       # Schedule this after we have a result for the power function
@@ -87,11 +85,11 @@ class Panasonic::Projector::NTControl < EngineDriver
   end
 
   def power?(**options)
-      do_send(:lamp, **options)
+    do_send(:lamp, **options)
   end
 
   def lamp_hours?(**options)
-      do_send(:lamp_hours, 1, **options)
+    do_send(:lamp_hours, 1, **options)
   end
 
   enum Inputs
@@ -107,15 +105,15 @@ class Panasonic::Projector::NTControl < EngineDriver
   end
 
   INPUTS = {
-    Inputs::HDMI => "HD1",
-    Inputs::HDMI2 => "HD2",
-    Inputs::VGA => "RG1",
-    Inputs::VGA2 => "RG2",
-    Inputs::Miracast => "MC1",
-    Inputs::DVI => "DVI",
+    Inputs::HDMI        => "HD1",
+    Inputs::HDMI2       => "HD2",
+    Inputs::VGA         => "RG1",
+    Inputs::VGA2        => "RG2",
+    Inputs::Miracast    => "MC1",
+    Inputs::DVI         => "DVI",
     Inputs::DisplayPort => "DP1",
-    Inputs::HDBaseT => "DL1",
-    Inputs::Composite => "VID"
+    Inputs::HDBaseT     => "DL1",
+    Inputs::Composite   => "VID",
   }
   INPUT_LOOKUP = INPUTS.invert
 
@@ -126,7 +124,7 @@ class Panasonic::Projector::NTControl < EngineDriver
     do_send(:input, INPUTS[input], delay: 2.seconds)
     logger.debug { "requested to switch to: #{input}" }
 
-    self[:input] = input    # for a responsive UI
+    self[:input] = input # for a responsive UI
   end
 
   # Mutes audio + video
@@ -142,14 +140,14 @@ class Panasonic::Projector::NTControl < EngineDriver
   end
 
   ERRORS = {
-    "ERR1" => "1: Undefined control command",
-    "ERR2" => "2: Out of parameter range",
-    "ERR3" => "3: Busy state or no-acceptable period",
-    "ERR4" => "4: Timeout or no-acceptable period",
-    "ERR5" => "5: Wrong data length",
-    "ERRA" => "A: Password mismatch",
+    "ERR1"  => "1: Undefined control command",
+    "ERR2"  => "2: Out of parameter range",
+    "ERR3"  => "3: Busy state or no-acceptable period",
+    "ERR4"  => "4: Timeout or no-acceptable period",
+    "ERR5"  => "5: Wrong data length",
+    "ERRA"  => "A: Password mismatch",
     "ER401" => "401: Command cannot be executed",
-    "ER402" => "402: Invalid parameter is sent"
+    "ER402" => "402: Invalid parameter is sent",
   }
 
   def received(data, task)
@@ -199,9 +197,9 @@ class Panasonic::Projector::NTControl < EngineDriver
 
     case cmd
     when :power_on
-      self[:power] = PowerState::On
+      self[:power] = true
     when :power_off
-      self[:power] = PowerState::Off
+      self[:power] = false
     when :power_query
       self[:power] = val.not_nil!.to_i == 1
     when :freeze
@@ -214,7 +212,7 @@ class Panasonic::Projector::NTControl < EngineDriver
       case task.name
       when "lamp"
         ival = resp[0].to_i
-        self[:power] = {1, 2}.includes?(ival) ? PowerState::On : PowerState::Off
+        self[:power] = {1, 2}.includes?(ival)
         self[:warming] = ival == 1
         self[:cooling] = ival == 3
 
@@ -223,7 +221,7 @@ class Panasonic::Projector::NTControl < EngineDriver
           if self[:power] == self[:power_target]
             self[:stable_power] = @stable_power = true
           else
-            power_state(PowerState.parse(self[:power_target].as_s))
+            power self[:power_target].as_bool
           end
         end
       when "lamp_hours"
@@ -238,17 +236,17 @@ class Panasonic::Projector::NTControl < EngineDriver
   protected def do_send(command, param = nil, **options)
     # prepare the command
     cmd = if param.nil?
-      "00#{COMMANDS[command]}\r"
-    else
-      "00#{COMMANDS[command]}:#{param}\r"
-    end
+            "00#{COMMANDS[command]}\r"
+          else
+            "00#{COMMANDS[command]}:#{param}\r"
+          end
 
     logger.debug { "queuing #{command}: #{cmd}" }
 
     # queue the request
     queue(**({
-      name: command
-    }.merge(options))) do |task|
+      name: command,
+    }.merge(options))) do
       # prepare channel and connect to the projector (which will then send the random key)
       @channel = Channel(String).new
       transport.connect
