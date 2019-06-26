@@ -13,4 +13,11 @@ EngineSpec.mock_driver "Panasonic::Projector::NTControl" do
   # Respond with the status then check the state updated
   transmit("00PON\r")
   status[:power].should eq("On")
+
+  exec(:lamp_hours?)
+  expect_reconnect
+  transmit "NTCONTROL 1 09b075be\r"
+  should_send("#{password}00Q$L:1\r")
+  transmit("001682\r")
+  status[:lamp_usage].should eq(1682)
 end

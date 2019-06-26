@@ -7,6 +7,14 @@ module Panasonic::Projector; end
 # Documentation: https://aca.im/driver_docs/Panasonic/panasonic_pt-vw535n_manual.pdf
 #  also https://aca.im/driver_docs/Panasonic/pt-ez580_en.pdf
 
+# How the projector expects you interact with it:
+# ===============================================
+# 1. New connection required for each command sent (hence makebreak!)
+# 2. On connect, the projector sends you a string of characters to use as a password salt
+# 3. Encode your message using the salt and send it to the projector
+# 4. Projector responds with a value
+# 5. You have to disconnect explicitly, projector won't close the connection
+
 class Panasonic::Projector::NTControl < EngineDriver
   include EngineDriver::Interface::Powerable
 
@@ -38,6 +46,7 @@ class Panasonic::Projector::NTControl < EngineDriver
 
   # used to coordinate the projector password hash
   @channel : Channel(String) = Channel(String).new
+  @stable_power : Bool = true
 
   def on_update
     @username = setting?(String, :username) || "admin1"
@@ -57,7 +66,7 @@ class Panasonic::Projector::NTControl < EngineDriver
   RESPONSES = COMMANDS.to_h.invert
 
   def power(state : Bool)
-    self[:stable_state] = false
+    self[:stable_power] = @stable_power = false
 
     if state
       logger.debug "requested to power on"
@@ -185,7 +194,7 @@ class Panasonic::Projector::NTControl < EngineDriver
     # Process the response
     data = data[2..-1]
     resp = data.split(':')
-    cmd = RESPONSES[resp[0]]
+    cmd = RESPONSES[resp[0]]?
     val = resp[1]?
 
     case cmd
@@ -203,14 +212,21 @@ class Panasonic::Projector::NTControl < EngineDriver
       self[:mute] = val.not_nil!.to_i == 1
     else
       case task.name
-      when :lamp
+      when "lamp"
         ival = resp[0].to_i
-        self[:power] = {1, 2}.includes?(ival)
+        self[:power] = {1, 2}.includes?(ival) ? PowerState::On : PowerState::Off
         self[:warming] = ival == 1
         self[:cooling] = ival == 3
 
-        # TODO:: check target states here
-      when :lamp_hours
+        # check target states here
+        if !@stable_power
+          if self[:power] == self[:power_target]
+            self[:stable_power] = @stable_power = true
+          else
+            power_state(PowerState.parse(self[:power_target].as_s))
+          end
+        end
+      when "lamp_hours"
         # Resp looks like: "001682"
         self[:lamp_usage] = data.to_i
       end
@@ -233,22 +249,25 @@ class Panasonic::Projector::NTControl < EngineDriver
     queue(**({
       name: command
     }.merge(options))) do |task|
-      # prepare channel and connect which sends the random key
+      # prepare channel and connect to the projector (which will then send the random key)
       @channel = Channel(String).new
       transport.connect
       # wait for the random key to arrive
       random_key = @channel.receive
       # build the password hash
       password_hash = if random_key.empty?
+                        # An empty key indicates unauthenticated mode
                         ""
                       else
                         Digest::MD5.hexdigest("#{@username}:#{@password}:#{random_key}")
                       end
 
-      # send the message
       message = "#{password_hash}#{cmd}"
       logger.debug { "Sending: #{message}" }
-      task.request_payload = message if task.responds_to?(:request_payload)
+
+      # send the request
+      # NOTE:: the built in `send` function has implicit queuing, but we are
+      # in a task callback here so should be calling transport send directly
       transport.send(message)
     end
   end
