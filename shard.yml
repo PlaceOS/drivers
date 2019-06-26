@@ -22,10 +22,6 @@ dependencies:
   kilt:
     github: jeromegn/kilt
 
-development_dependencies:
-  ameba:
-    github: veelenga/ameba
-
 # compile target
 targets:
   engine-drivers:
