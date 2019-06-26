@@ -5,10 +5,13 @@ class Build < Application
     if compiled
       render json: EngineDrivers::Compiler.compiled_drivers
     else
-      result = EngineDrivers::GitCommands.ls(get_repository_path)
-      render json: result.select { |file|
-        file.ends_with?(".cr") && !file.ends_with?("_spec.cr") && file.starts_with?("drivers/")
-      }
+      result = [] of String
+      Dir.cd(get_repository_path) do
+        Dir.glob("drivers/**/*.cr") do |file|
+          result << file unless file.ends_with?("_spec.cr")
+        end
+      end
+      render json: result
     end
   end
 
