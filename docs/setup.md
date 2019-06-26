@@ -26,9 +26,9 @@ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/openssl/lib/pkgconfig
 ## Running Specs
 
 1. Ensure redis is running: `redis-server`
-1. Install dependencies: `cd engine-drivers; shards install`
-2. Launch application: `crystal run ./src/app.cr`
-3. Browse to: http://localhost:3000/
+2. Install dependencies: `cd engine-drivers; shards update`
+3. Launch application: `crystal run ./src/app.cr`
+4. Browse to: http://localhost:3000/
 
 Now you can build drivers and run specs:
 
