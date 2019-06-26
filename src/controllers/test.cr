@@ -8,10 +8,11 @@ class Test < Application
 
   # Specs available
   def index
-    result = EngineDrivers::GitCommands.ls(get_repository_path)
-    render json: result.select { |file|
-      file.ends_with?("_spec.cr") && file.starts_with?("drivers/")
-    }
+    result = [] of String
+    Dir.cd(get_repository_path) do
+      Dir.glob("drivers/**/*_spec.cr") { |file| result << file }
+    end
+    render json: result
   end
 
   # grab the list of available versions of the spec file
