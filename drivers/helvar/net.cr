@@ -74,55 +74,55 @@ class Helvar::Net < EngineDriver
     device_proportion:        16,
     group_modify_proportion:  17,
     device_modify_proportion: 18,
-    # group_emergency_test: 19,
-    # device_emergency_test: 20,
-    # group_emergency_duration_test: 21,
-    # device_emergency_duration_test: 22,
-    # group_emergency_stop: 23,
-    # device_emergency_stop: 24,
+    group_emergency_test: 19,
+    device_emergency_test: 20,
+    group_emergency_duration_test: 21,
+    device_emergency_duration_test: 22,
+    group_emergency_stop: 23,
+    device_emergency_stop: 24,
 
     # Query commands
     query_lamp_hours:    70,
     query_ballast_hours: 71,
-    # query_max_voltage: 72,
-    # query_min_voltage: 73,
-    # query_max_temp: 74,
-    # query_min_temp: 75,
-    # query_device_types_with_addresses: 100,
+    query_max_voltage: 72,
+    query_min_voltage: 73,
+    query_max_temp: 74,
+    query_min_temp: 75,
+    query_device_types_with_addresses: 100,
     query_clusters:           101,
     query_routers:            102,
     query_LSIB:               103,
     query_device_type:        104,
     query_description_group:  105,
     query_description_device: 106,
-    # query_workgroup_name: 107, # must use UDP
-    # query_workgroup_membership: 108,
+    query_workgroup_name: 107, # must use UDP
+    query_workgroup_membership: 108,
     query_last_scene:   109,
     query_device_state: 110,
-    # query_device_disabled: 111,
+    query_device_disabled: 111,
     query_lamp_failure:  112,
     query_device_faulty: 113,
-    # query_missing: 114,
-    # query_emergency_battery_failure: 129,
-    # query_measurement: 150,
+    query_missing: 114,
+    query_emergency_battery_failure: 129,
+    query_measurement: 150,
     query_inputs: 151,
-    # query_load: 152,
-    # query_power_consumption: 160,
-    # query_group_power_consumption: 161,
+    query_load: 152,
+    query_power_consumption: 160,
+    query_group_power_consumption: 161,
     query_group:       164,
     query_groups:      165,
     query_scene_names: 166,
     query_scene_info:  167,
-    # query_emergency_func_test_time: 170,
-    # query_emergency_func_test_state: 171,
-    # query_emergency_duration_time: 172,
-    # query_emergency_duration_state: 173,
-    # query_emergency_battery_charge: 174,
-    # query_emergency_battery_time: 175,
-    # query_emergency_total_lamp_time: 176,
+    query_emergency_func_test_time: 170,
+    query_emergency_func_test_state: 171,
+    query_emergency_duration_time: 172,
+    query_emergency_duration_state: 173,
+    query_emergency_battery_charge: 174,
+    query_emergency_battery_time: 175,
+    query_emergency_total_lamp_time: 176,
     query_time: 185,
-    # query_longitude: 186,
-    # query_latitude: 187,
+    query_longitude: 186,
+    query_latitude: 187,
     query_time_zone:        188,
     query_daylight_savings: 189,
     query_software_version: 190,
@@ -130,14 +130,10 @@ class Helvar::Net < EngineDriver
   }
 
   # Dynamically define methods based on the tuple above
-  macro define_cmd(name, command)
+  {% for name, command in CMD_METHODS %}
     def {{name.id}}(group : Int32? = nil, block : Int32? = nil, level : Int32? = nil, scene : Int32? = nil, fade : Int32? = nil, addr : Int32? = nil, **options)
       do_send({{command.id.stringify}}, @version, group, block, level, scene, fade, addr, **options)
     end
-  end
-
-  {% for name, command in CMD_METHODS %}
-    define_cmd({{name}}, {{command}})
   {% end %}
 
   # Generate a String => String hash based on the data above
@@ -149,7 +145,6 @@ class Helvar::Net < EngineDriver
     }
     COMMANDS.merge!(COMMANDS.invert)
   end
-
   build_command_hash
 
   PARAMS = {
@@ -246,7 +241,7 @@ class Helvar::Net < EngineDriver
       end
     when '!'
       error = ERRORS[data.split("=")[1]]
-      error = "error #{error} for #{data}"
+      error = "#{error} for #{data}"
       self[:last_error] = error
       logger.warn error
       return task.try &.abort(error)
@@ -259,24 +254,24 @@ class Helvar::Net < EngineDriver
 
   ERRORS = {
     "0"  => "success",
-    "1"  => "Invalid group index parameter",
-    "2"  => "Invalid cluster parameter",
-    "3"  => "Invalid router",
-    "4"  => "Invalid router subnet",
-    "5"  => "Invalid device parameter",
-    "6"  => "Invalid sub device parameter",
-    "7"  => "Invalid block parameter",
-    "8"  => "Invalid scene",
-    "9"  => "Cluster does not exist",
-    "10" => "Router does not exist",
-    "11" => "Device does not exist",
-    "12" => "Property does not exist",
-    "13" => "Invalid RAW message size",
-    "14" => "Invalid messages type",
-    "15" => "Invalid message command",
-    "16" => "Missing ASCII terminator",
-    "17" => "Missing ASCII parameter",
-    "18" => "Incompatible version",
+    "1"  => "invalid group index parameter",
+    "2"  => "invalid cluster parameter",
+    "3"  => "invalid router",
+    "4"  => "invalid router subnet",
+    "5"  => "invalid device parameter",
+    "6"  => "invalid sub device parameter",
+    "7"  => "invalid block parameter",
+    "8"  => "invalid scene",
+    "9"  => "cluster does not exist",
+    "10" => "router does not exist",
+    "11" => "device does not exist",
+    "12" => "property does not exist",
+    "13" => "invalid RAW message size",
+    "14" => "invalid messages type",
+    "15" => "invalid message command",
+    "16" => "missing ASCII terminator",
+    "17" => "missing ASCII parameter",
+    "18" => "incompatible version",
   }
 
   protected def do_send(cmd : String, ver = @version, group = nil, block = nil, level = nil, scene = nil, fade = nil, addr = nil, **options)
