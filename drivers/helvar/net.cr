@@ -63,8 +63,6 @@ class Helvar::Net < EngineDriver
     query_last_scene(group: group)
   end
 
-  # NOTE:: There seems to be a limit on how many methods can be dynamically generated
-  # which is why some of these have been commented out.
   CMD_METHODS = {
     group_scene:              11,
     device_scene:             12,
