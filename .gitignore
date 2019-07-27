@@ -7,5 +7,5 @@ app
 bin
 repositories
 .DS_Store
-
+shard.lock
 *.rdb
