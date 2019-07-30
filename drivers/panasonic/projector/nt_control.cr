@@ -1,5 +1,7 @@
 require "digest/md5"
+require "engine-driver/interface/muteable"
 require "engine-driver/interface/powerable"
+require "engine-driver/interface/switchable"
 
 module Panasonic; end
 
@@ -18,6 +20,21 @@ module Panasonic::Projector; end
 
 class Panasonic::Projector::NTControl < EngineDriver
   include EngineDriver::Interface::Powerable
+  include EngineDriver::Interface::Muteable
+
+  enum Inputs
+    HDMI
+    HDMI2
+    VGA
+    VGA2
+    Miracast
+    DVI
+    DisplayPort
+    HDBaseT
+    Composite
+  end
+
+  include EngineDriver::Interface::InputSelection(Inputs)
 
   # Discovery Information
   tcp_port 1024
@@ -92,18 +109,6 @@ class Panasonic::Projector::NTControl < EngineDriver
     do_send(:lamp_hours, 1, **options)
   end
 
-  enum Inputs
-    HDMI
-    HDMI2
-    VGA
-    VGA2
-    Miracast
-    DVI
-    DisplayPort
-    HDBaseT
-    Composite
-  end
-
   INPUTS = {
     Inputs::HDMI        => "HD1",
     Inputs::HDMI2       => "HD2",
@@ -128,15 +133,18 @@ class Panasonic::Projector::NTControl < EngineDriver
   end
 
   # Mutes audio + video
-  def mute(state : Bool = true)
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
     logger.debug { "requested mute state: #{state}" }
+
+    # TODO:: remote seems to support audio mute and AV mute
+    # but I can't find an audio mute command
 
     actual = state ? 1 : 0
     do_send(:mute, actual)
-  end
-
-  def unmute
-    mute false
   end
 
   ERRORS = {
@@ -207,7 +215,10 @@ class Panasonic::Projector::NTControl < EngineDriver
     when :input
       self[:input] = INPUT_LOOKUP[val]
     when :mute
-      self[:mute] = val.not_nil!.to_i == 1
+      state = self[:mute] = val.not_nil!.to_i == 1
+      self[:mute0] =state
+      self[:mute0_video] = state
+      self[:mute0_audio] = state
     else
       case task.name
       when "lamp"
