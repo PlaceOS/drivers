@@ -16,7 +16,7 @@ class Build < Application
   end
 
   def show
-    driver = URI.unescape(params["id"])
+    driver = URI.decode(params["id"])
     render json: EngineDrivers::Compiler.compiled_drivers(driver)
   end
 
@@ -27,7 +27,7 @@ class Build < Application
 
   # grab the list of available versions of file / which are built
   get "/:id/commits" do
-    driver = URI.unescape(params["id"])
+    driver = URI.decode(params["id"])
     count = (params["count"]? || 50).to_i
 
     render json: EngineDrivers::GitCommands.commits(driver, count, get_repository_path)
@@ -52,13 +52,13 @@ class Build < Application
       render :not_acceptable, text: result[:output]
     end
 
-    response.headers["Location"] = "/build/#{URI.escape(driver)}"
+    response.headers["Location"] = "/build/#{URI.encode(driver)}"
     head :created
   end
 
   # delete a built driver
   def destroy
-    driver = URI.unescape(params["id"])
+    driver = URI.decode(params["id"])
     commit = params["commit"]?
 
     # Check repository to prevent abuse (don't want to delete the wrong thing)
