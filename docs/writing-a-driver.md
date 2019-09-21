@@ -26,6 +26,7 @@ Backing a driver is few different pieces that make it function.
 * Settings
 * Logger
 * Metadata
+* Security
 
 
 ### Queue
@@ -395,3 +396,24 @@ class MyDevice < EngineDriver
 end
 
 ```
+
+
+### Security
+
+By default all public functions are exposed for execution.
+However you can limit who is able to execute sensitive functions.
+
+```crystal
+
+@[Security(Level::Administrator)]
+def perform_task(name : String | Int32)
+  queue &.success("hello #{name}")
+end
+
+```
+
+Use the `Security` annotation to define the access level of the function.
+The options are:
+
+* Administrator `Level::Administrator`
+* Support `Level::Support`
