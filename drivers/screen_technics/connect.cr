@@ -17,17 +17,17 @@ class ScreenTechnics::Connect < EngineDriver
   tcp_port 3001
 
   COMMANDS = {
-    up: 30,
-    down: 33,
-    status: 1,  # this differs from the doc, but appears to work
-    stop: 36
+    up:     30,
+    down:   33,
+    status: 1, # this differs from the doc, but appears to work
+    stop:   36,
   }
 
   CMD_LOOKUP = {
     30 => :up,
     33 => :down,
-    1 => :status,
-    36 => :stop
+     1 => :status,
+    36 => :stop,
   }
 
   def on_load
@@ -104,23 +104,23 @@ class ScreenTechnics::Connect < EngineDriver
   end
 
   STATUS = {
-    0 => :moving_top,
-    1 => :moving_bottom,
-    2 => :moving_preset_1,
-    3 => :moving_preset_2,
-    4 => :moving_top,       # preset top
-    5 => :moving_bottom,    # preset bottom
-    6 => :at_top,
-    7 => :at_bottom,
-    8 => :at_preset_1,
-    9 => :at_preset_2,
+     0 => :moving_top,
+     1 => :moving_bottom,
+     2 => :moving_preset_1,
+     3 => :moving_preset_2,
+     4 => :moving_top,    # preset top
+     5 => :moving_bottom, # preset bottom
+     6 => :at_top,
+     7 => :at_bottom,
+     8 => :at_preset_1,
+     9 => :at_preset_2,
     10 => :stopped,
     11 => :error,
     # 12 => undefined
     13 => :error_timeout,
     14 => :error_current,
     15 => :error_rattle,
-    16 => :at_bottom   # preset bottom
+    16 => :at_bottom, # preset bottom
   }
 
   def received(data, task)
