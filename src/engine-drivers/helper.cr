@@ -3,6 +3,8 @@ require "./git_commands"
 require "./compiler"
 
 module EngineDrivers::Helper
+  extend self
+
   # Returns a list of repository paths
   def repositories : Array(String)
     EngineDrivers::Compiler.repositories
