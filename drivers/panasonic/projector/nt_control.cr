@@ -216,7 +216,7 @@ class Panasonic::Projector::NTControl < EngineDriver
       self[:input] = INPUT_LOOKUP[val]
     when :mute
       state = self[:mute] = val.not_nil!.to_i == 1
-      self[:mute0] =state
+      self[:mute0] = state
       self[:mute0_video] = state
       self[:mute0_audio] = state
     else
