@@ -2,7 +2,7 @@ require "./command_failure"
 require "./git_commands"
 require "./compiler"
 
-class EngineDrivers::Helper
+module EngineDrivers::Helper
   # Returns a list of repository paths
   def repositories : Array(String)
     EngineDrivers::Compiler.repositories
