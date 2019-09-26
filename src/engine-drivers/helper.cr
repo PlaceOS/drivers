@@ -28,6 +28,13 @@ module EngineDrivers::Helper
     EngineDrivers::Compiler.compiled_drivers
   end
 
+  # Check if a version of a driver exists
+  def compiled?(driver : String, commit : String) : Bool
+    exec_name = driver.gsub(/\/|\./, "_")
+    file_name = "#{exec_name}_#{commit}"
+    File.exists?(File.join(EngineDrivers::Compiler.bin_dir, file_name))
+  end
+
   # Repository commits
   # [{commit:, date:, author:, subject:}, ...]
   def repository_commits(repository : String? = nil, count = 50)
