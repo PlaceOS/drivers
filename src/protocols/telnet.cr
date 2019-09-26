@@ -7,6 +7,7 @@ module Protocols; end
 # http://www.omnifarious.org/~hopper/technical/telnet-rfc.html
 # https://github.com/ruby/net-telnet/blob/master/lib/net/telnet.rb
 
+# Telnet for crystal lang
 class Protocols::Telnet
   IAC  = 255_u8 # "\377" # "\xff" # interpret as command
   DONT = 254_u8 # "\376" # "\xfe" # you are not to use option
@@ -77,13 +78,15 @@ class Protocols::Telnet
   CR           = 13_u8
   LF           = 10_u8
   EOL          = "\r\n".to_slice
-  AYT_RESPONSE = "nobody here but us pigeons\r\n".to_slice
+  AYT_RESPONSE = "nobody here but us pigeons".to_slice
 
   def initialize(&@write : (Bytes) -> Nil)
     @binary_mode = false
     @suppress_go_ahead = false
     @buffer = Bytes.new(0)
   end
+
+  getter buffer, suppress_go_ahead, binary_mode
 
   # Buffering here deals with "un-escaping" according to the TELNET protocol.
   # In the TELNET protocol byte value 255 is special.
@@ -113,6 +116,9 @@ class Protocols::Telnet
     inp.write(@buffer)
     inp.write(data.to_slice)
     inp.rewind
+
+    # Clear the buffer
+    @buffer = Bytes.new(0)
 
     loop do
       byte = inp.read_byte
@@ -166,12 +172,14 @@ class Protocols::Telnet
           end
         when AYT
           # respond to "IAC AYT" (are you there)
-          @write.call(AYT_RESPONSE)
+          @write.call prepare(AYT_RESPONSE)
         when SB
           # Start sub-negotiation we want to capture bytes up to SE
+          # https://tools.ietf.org/html/rfc855
           sub_negotiation = IO::Memory.new
           sub_negotiation.write(Bytes[IAC, SB])
 
+          # Currently we are discarding these bytes
           loop do
             sub_byte = inp.read_byte
             if sub_byte.nil?
@@ -191,11 +199,10 @@ class Protocols::Telnet
               when IAC
                 sub_negotiation.write_byte sub_byte
               when SE
-                # TODO:: process sub-negotiation
+                # This concludes sub negotiation, ignoring
                 break
               else
-                # TODO:: maybe we want to write both the sub and request bytes?
-                raise "error invalid stream"
+                sub_negotiation.write(Bytes[IAC, request_byte])
               end
             else
               sub_negotiation.write_byte sub_byte
@@ -216,11 +223,18 @@ class Protocols::Telnet
     outp.to_slice
   end
 
-  def prepare(command)
+  def prepare(command, escape = false)
+    command = command.to_slice
     data = IO::Memory.new
-    data.write command.to_slice
 
-    # TODO:: Escape characters
+    # Escape characters
+    if escape
+      command.each do |byte|
+        byte == 0xff_u8 ? data.write(Bytes[0xff, 0xff]) : data.write_byte(byte)
+      end
+    else
+      data.write command
+    end
 
     if @binary_mode && @suppress_go_ahead
       # IAC WILL SGA IAC DO BIN send EOL --> CR
