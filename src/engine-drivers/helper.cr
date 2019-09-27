@@ -30,12 +30,18 @@ module EngineDrivers::Helper
 
   # Check if a version of a driver exists
   def compiled?(driver : String, commit : String) : Bool
+    File.exists?(driver_path(driver, commit))
+  end
+
+  # Generates path to a driver
+  def driver_path(driver, commit)
     exec_name = driver.gsub(/\/|\./, "_")
     file_name = "#{exec_name}_#{commit}"
-    File.exists?(File.join(EngineDrivers::Compiler.bin_dir, file_name))
+    File.join(EngineDrivers::Compiler.bin_dir, file_name)
   end
 
   # Repository commits
+  #
   # [{commit:, date:, author:, subject:}, ...]
   def repository_commits(repository : String? = nil, count = 50)
     EngineDrivers::GitCommands.repository_commits(get_repository_path(repository), count)
