@@ -74,9 +74,9 @@ class EngineDrivers::Compiler
       end
 
       args = if debug
-               {repository, "crystal", "build", "--debug", "-o", exe_output, build_script}
+               {repository, "crystal", "build", "--error-trace", "--debug", "-o", exe_output, build_script}
              else
-               {repository, "crystal", "build", "-o", exe_output, build_script}
+               {repository, "crystal", "build", "--error-trace", "-o", exe_output, build_script}
              end
 
       compile_proc = ->do
