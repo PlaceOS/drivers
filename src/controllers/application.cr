@@ -12,12 +12,12 @@ abstract class Application < ActionController::Base
   def get_repository_path
     repository = params["repository"]?
     if repository
-      repo = File.expand_path(File.join(EngineDrivers::Compiler.repository_dir, repository))
-      valid = repo.starts_with?(EngineDrivers::Compiler.repository_dir) && repo != "/" && repository.size > 0 && !repository.includes?("/") && !repository.includes?(".")
+      repo = File.expand_path(File.join(ACAEngine::Drivers::Compiler.repository_dir, repository))
+      valid = repo.starts_with?(ACAEngine::Drivers::Compiler.repository_dir) && repo != "/" && repository.size > 0 && !repository.includes?("/") && !repository.includes?(".")
       raise "invalid repository: #{repository}" unless valid
       repo
     else
-      EngineDrivers::Compiler.drivers_dir
+      ACAEngine::Drivers::Compiler.drivers_dir
     end
   end
 end

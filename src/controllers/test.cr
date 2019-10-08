@@ -20,7 +20,7 @@ class Test < Application
     spec = URI.decode(params["id"])
     count = (params["count"]? || 50).to_i
 
-    render json: EngineDrivers::GitCommands.commits(spec, count, get_repository_path)
+    render json: ACAEngine::Drivers::GitCommands.commits(spec, count, get_repository_path)
   end
 
   # Run the spec and return success if the exit status is 0
@@ -79,16 +79,16 @@ class Test < Application
     repository = get_repository_path
     commit = params["commit"]? || "head"
 
-    driver_path = EngineDrivers::Compiler.is_built?(driver, commit, repository)
+    driver_path = ACAEngine::Drivers::Compiler.is_built?(driver, commit, repository)
 
     # Build the driver if has not been compiled yet
     debug = params["debug"]?
     if driver_path.nil? || params["force"]? || debug
-      result = EngineDrivers::Compiler.build_driver(driver, commit, repository, debug: !!debug)
+      result = ACAEngine::Drivers::Compiler.build_driver(driver, commit, repository, debug: !!debug)
       output = result[:output].strip
       render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
 
-      driver_path = EngineDrivers::Compiler.is_built?(driver, commit, repository)
+      driver_path = ACAEngine::Drivers::Compiler.is_built?(driver, commit, repository)
     end
 
     # raise an error if the driver still does not exist
@@ -100,15 +100,15 @@ class Test < Application
     repository = get_repository_path
     spec_commit = params["spec_commit"]? || "head"
 
-    spec_path = EngineDrivers::Compiler.is_built?(spec, spec_commit, repository)
+    spec_path = ACAEngine::Drivers::Compiler.is_built?(spec, spec_commit, repository)
 
     debug = params["debug"]?
     if spec_path.nil? || params["force"]? || debug
-      result = EngineDrivers::Compiler.build_driver(spec, spec_commit, repository, debug: !!debug)
+      result = ACAEngine::Drivers::Compiler.build_driver(spec, spec_commit, repository, debug: !!debug)
       output = result[:output].strip
       render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
 
-      spec_path = EngineDrivers::Compiler.is_built?(spec, spec_commit, repository)
+      spec_path = ACAEngine::Drivers::Compiler.is_built?(spec, spec_commit, repository)
     end
 
     @spec_path = spec_path.not_nil!

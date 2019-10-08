@@ -1,4 +1,4 @@
-class EngineDrivers::Compiler
+class ACAEngine::Drivers::Compiler
   @@drivers_dir = Dir.current
   @@repository_dir = File.expand_path("./repositories")
   @@bin_dir = "#{Dir.current}/bin/drivers"
@@ -18,12 +18,12 @@ class EngineDrivers::Compiler
 
     # Make sure we have an actual version hash of the file
     if commit == "head"
-      diff = EngineDrivers::GitCommands.diff(source_file, repository)
+      diff = ACAEngine::Drivers::GitCommands.diff(source_file, repository)
 
       if diff.empty?
         # Allow uncommited files to be built
         begin
-          commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+          commit = ACAEngine::Drivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
         rescue
         end
       end
@@ -43,14 +43,14 @@ class EngineDrivers::Compiler
     exe_output = ""
     result = 1
 
-    EngineDrivers::GitCommands.file_lock(repository, source_file) do
+    ACAEngine::Drivers::GitCommands.file_lock(repository, source_file) do
       # Make sure we have an actual version hash of the file
       if commit == "head"
-        diff = EngineDrivers::GitCommands.diff(source_file, repository)
+        diff = ACAEngine::Drivers::GitCommands.diff(source_file, repository)
         if diff.empty?
           # Allow uncommited files to be built
           begin
-            commit = EngineDrivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+            commit = ACAEngine::Drivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
           rescue
             git_checkout = false
           end
@@ -92,7 +92,7 @@ class EngineDrivers::Compiler
 
       # When developing you may not want to have to
       if git_checkout
-        EngineDrivers::GitCommands.checkout(source_file, commit) do
+        ACAEngine::Drivers::GitCommands.checkout(source_file, commit) do
           compile_proc.call
         end
       else
@@ -136,7 +136,7 @@ class EngineDrivers::Compiler
 
     # NOTE:: supports recursive locking so can perform multiple repository
     # operations in a single lock. i.e. clone + shards install
-    EngineDrivers::GitCommands.repo_lock(repo_dir).write do
+    ACAEngine::Drivers::GitCommands.repo_lock(repo_dir).write do
       result = Process.run(
         "./bin/exec_from",
         {repo_dir, "shards", "--no-color", "install"},
@@ -153,8 +153,8 @@ class EngineDrivers::Compiler
   end
 
   def self.clone_and_install(repository, repository_uri, username = nil, password = nil, working_dir = @@repository_dir)
-    EngineDrivers::GitCommands.repo_lock(repository).write do
-      result = EngineDrivers::GitCommands.clone(repository, repository_uri, username, password, working_dir)
+    ACAEngine::Drivers::GitCommands.repo_lock(repository).write do
+      result = ACAEngine::Drivers::GitCommands.clone(repository, repository_uri, username, password, working_dir)
       raise "failed to clone\n#{result[:output]}" unless result[:exit_status] == 0
       result = install_shards(repository, working_dir)
       raise "failed to install shards\n#{result[:output]}" unless result[:exit_status] == 0

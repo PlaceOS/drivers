@@ -1,7 +1,7 @@
 require "rwlock"
 require "uri"
 
-class EngineDrivers::GitCommands
+class ACAEngine::Drivers::GitCommands
   # Will really only be an issue once threads come along
   @@lock_manager = Mutex.new
 
@@ -16,7 +16,7 @@ class EngineDrivers::GitCommands
   # This enables multi-version compilation to occur without clashing
   @@file_lock = {} of String => Hash(String, Mutex)
 
-  def self.ls(repository = EngineDrivers::Compiler.drivers_dir)
+  def self.ls(repository = ACAEngine::Drivers::Compiler.drivers_dir)
     io = IO::Memory.new
     result = basic_operation(repository) do
       Process.run(
@@ -32,7 +32,7 @@ class EngineDrivers::GitCommands
     io.to_s.split("\n")
   end
 
-  def self.commits(file_name, count = 50, repository = EngineDrivers::Compiler.drivers_dir)
+  def self.commits(file_name, count = 50, repository = ACAEngine::Drivers::Compiler.drivers_dir)
     io = IO::Memory.new
 
     # https://git-scm.com/docs/pretty-formats
@@ -64,7 +64,7 @@ class EngineDrivers::GitCommands
       end
   end
 
-  def self.diff(file_name, repository = EngineDrivers::Compiler.drivers_dir)
+  def self.diff(file_name, repository = ACAEngine::Drivers::Compiler.drivers_dir)
     io = IO::Memory.new
 
     result = file_operation(repository, file_name) do
@@ -81,7 +81,7 @@ class EngineDrivers::GitCommands
     io.to_s.strip
   end
 
-  def self.repository_commits(repository = EngineDrivers::Compiler.drivers_dir, count = 50)
+  def self.repository_commits(repository = ACAEngine::Drivers::Compiler.drivers_dir, count = 50)
     io = IO::Memory.new
 
     # https://git-scm.com/docs/pretty-formats
@@ -113,7 +113,7 @@ class EngineDrivers::GitCommands
       end
   end
 
-  def self.checkout(file, commit = "head", repository = EngineDrivers::Compiler.drivers_dir)
+  def self.checkout(file, commit = "head", repository = ACAEngine::Drivers::Compiler.drivers_dir)
     # https://stackoverflow.com/questions/215718/reset-or-revert-a-specific-file-to-a-specific-revision-using-git
     op_lock = operation_lock(repository)
 
@@ -140,7 +140,7 @@ class EngineDrivers::GitCommands
     end
   end
 
-  def self.pull(repository, working_dir = EngineDrivers::Compiler.repository_dir)
+  def self.pull(repository, working_dir = ACAEngine::Drivers::Compiler.repository_dir)
     working_dir = File.expand_path(working_dir)
     repo_dir = File.expand_path(repository, working_dir)
 
@@ -173,7 +173,7 @@ class EngineDrivers::GitCommands
     }
   end
 
-  def self.clone(repository, repository_uri, username = nil, password = nil, working_dir = EngineDrivers::Compiler.repository_dir)
+  def self.clone(repository, repository_uri, username = nil, password = nil, working_dir = ACAEngine::Drivers::Compiler.repository_dir)
     working_dir = File.expand_path(working_dir)
     repo_dir = File.expand_path(File.join(working_dir, repository))
 

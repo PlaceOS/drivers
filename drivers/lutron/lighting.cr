@@ -9,7 +9,7 @@ module Lutron; end
 # Login: lutron
 # Password: integration
 
-class Lutron::Lighting < EngineDriver
+class Lutron::Lighting < ACAEngine::Driver
   # Discovery Information
   tcp_port 23
   descriptive_name "Lutron Lighting Gateway"

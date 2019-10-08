@@ -1,7 +1,7 @@
 require "./spec_helper"
 
-describe EngineDrivers::Helper, focus: true do
-  helper = EngineDrivers::Helper
+describe ACAEngine::Drivers::Helper, focus: true do
+  helper = ACAEngine::Drivers::Helper
 
   it "should list drivers" do
     drivers = helper.drivers("private_drivers")

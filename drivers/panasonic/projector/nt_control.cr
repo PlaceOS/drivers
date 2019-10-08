@@ -18,9 +18,9 @@ module Panasonic::Projector; end
 # 4. Projector responds with a value
 # 5. You have to disconnect explicitly, projector won't close the connection
 
-class Panasonic::Projector::NTControl < EngineDriver
-  include EngineDriver::Interface::Powerable
-  include EngineDriver::Interface::Muteable
+class Panasonic::Projector::NTControl < ACAEngine::Driver
+  include ACAEngine::Driver::Interface::Powerable
+  include ACAEngine::Driver::Interface::Muteable
 
   enum Inputs
     HDMI
@@ -34,7 +34,7 @@ class Panasonic::Projector::NTControl < EngineDriver
     Composite
   end
 
-  include EngineDriver::Interface::InputSelection(Inputs)
+  include ACAEngine::Driver::Interface::InputSelection(Inputs)
 
   # Discovery Information
   tcp_port 1024
