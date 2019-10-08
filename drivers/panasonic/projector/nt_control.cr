@@ -19,8 +19,8 @@ module Panasonic::Projector; end
 # 5. You have to disconnect explicitly, projector won't close the connection
 
 class Panasonic::Projector::NTControl < ACAEngine::Driver
-  include ACAEngine::Driver::Interface::Powerable
-  include ACAEngine::Driver::Interface::Muteable
+  include Interface::Powerable
+  include Interface::Muteable
 
   enum Inputs
     HDMI
