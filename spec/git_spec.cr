@@ -1,21 +1,21 @@
 require "./spec_helper"
 require "yaml"
 
-describe EngineDrivers::GitCommands do
+describe ACAEngine::Drivers::GitCommands do
   it "should list files in the repository" do
-    files = EngineDrivers::GitCommands.ls
+    files = ACAEngine::Drivers::GitCommands.ls
     (files.size > 0).should eq(true)
     files.includes?("shard.yml").should eq(true)
   end
 
   it "should list the revisions to a file in a repository" do
-    changes = EngineDrivers::GitCommands.commits("shard.yml", count: 200)
+    changes = ACAEngine::Drivers::GitCommands.commits("shard.yml", count: 200)
     (changes.size > 0).should eq(true)
     changes.map { |commit| commit[:subject] }.includes?("restructure application").should eq(true)
   end
 
   it "should list the revisions of a repository" do
-    changes = EngineDrivers::GitCommands.repository_commits(count: 200)
+    changes = ACAEngine::Drivers::GitCommands.repository_commits(count: 200)
     (changes.size > 0).should eq(true)
     changes.map { |commit| commit[:subject] }.includes?("restructure application").should eq(true)
   end
@@ -27,7 +27,7 @@ describe EngineDrivers::GitCommands do
     (name == "engine-drivers").should eq(true)
 
     # Process a particular commit
-    EngineDrivers::GitCommands.checkout("shard.yml", "18f149d") do
+    ACAEngine::Drivers::GitCommands.checkout("shard.yml", "18f149d") do
       yaml = File.open("shard.yml") { |file| YAML.parse(file) }
       (yaml["name"].to_s == "app").should eq(true)
     end
@@ -45,7 +45,7 @@ describe EngineDrivers::GitCommands do
 
     # Process a particular commit
     expect_raises(Exception, "something went wrong") do
-      EngineDrivers::GitCommands.checkout("shard.yml", "18f149d") do
+      ACAEngine::Drivers::GitCommands.checkout("shard.yml", "18f149d") do
         yaml = File.open("shard.yml") { |file| YAML.parse(file) }
         (yaml["name"].to_s == "app").should eq(true)
 

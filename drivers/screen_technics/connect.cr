@@ -7,9 +7,9 @@ require "engine-driver/interface/stoppable"
 # Default user: Admin
 # Default pass: Connect
 
-class ScreenTechnics::Connect < EngineDriver
-  include EngineDriver::Interface::Moveable
-  include EngineDriver::Interface::Stoppable
+class ScreenTechnics::Connect < ACAEngine::Driver
+  include ACAEngine::Driver::Interface::Moveable
+  include ACAEngine::Driver::Interface::Stoppable
 
   # Discovery Information
   descriptive_name "Screen Technics Projector Screen Control"

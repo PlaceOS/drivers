@@ -3,8 +3,8 @@ module MessageMedia; end
 # Documentation: https://developers.messagemedia.com/code/messages-api-documentation/
 require "engine-driver/interface/sms"
 
-class MessageMedia::SMS < EngineDriver
-  include EngineDriver::Interface::SMS
+class MessageMedia::SMS < ACAEngine::Driver
+  include ACAEngine::Driver::Interface::SMS
 
   # Discovery Information
   generic_name :SMS

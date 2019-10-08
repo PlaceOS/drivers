@@ -52,7 +52,7 @@ EngineSpec.mock_driver "ScreenTechnics::Connect" do
     end
 
     # Original down command should have failed
-    expect_raises(EngineDriver::RemoteException, "queue cleared (Abort)") do
+    expect_raises(ACAEngine::Driver::RemoteException, "queue cleared (Abort)") do
       ret_val.get
     end
 

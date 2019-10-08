@@ -97,7 +97,7 @@ end
 # A common received function for handling responses
 def received(data, task)
   # data is always `Bytes`
-  # task is always `EngineDriver::Task?` (i.e. could be nil if no active task)
+  # task is always `ACAEngine::Driver::Task?` (i.e. could be nil if no active task)
 
   # convert data into the appropriate format
   data = String.new(data)
@@ -201,7 +201,7 @@ sys.bookable #=> true
 sys.id #=> "sys-tem~id"
 sys.modules #=> ["Array", "Of", "Unique", "Module", "Names", "In", "System"]
 sys.count("Module") #=> 3
-sys.implementing(EngineDriver::Interface::Powerable) #=> ["Camera", "Display"]
+sys.implementing(ACAEngine::Driver::Interface::Powerable) #=> ["Camera", "Display"]
 
 # Look at status on a remote module
 system[:Display][:power] #=> true
@@ -377,7 +377,7 @@ Metadata is used by various components to simplify configuration.
 
 ```crystal
 
-class MyDevice < EngineDriver
+class MyDevice < ACAEngine::Driver
   generic_name :Driver
   descriptive_name "Driver model Test"
   description "This is the driver used for testing"

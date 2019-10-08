@@ -1,9 +1,9 @@
 require "./spec_helper"
 
-describe EngineDrivers::Compiler do
+describe ACAEngine::Drivers::Compiler do
   it "should compile a driver" do
     # Test the executable is created
-    result = EngineDrivers::Compiler.build_driver("drivers/aca/spec_helper.cr")
+    result = ACAEngine::Drivers::Compiler.build_driver("drivers/aca/spec_helper.cr")
     result[:exit_status].should eq(0)
     File.exists?(result[:executable]).should eq(true)
 
@@ -18,23 +18,23 @@ describe EngineDrivers::Compiler do
   end
 
   it "should list compiled versions" do
-    files = EngineDrivers::Compiler.compiled_drivers("drivers/aca/spec_helper.cr")
+    files = ACAEngine::Drivers::Compiler.compiled_drivers("drivers/aca/spec_helper.cr")
     files.should eq(["drivers_aca_spec_helper_cr_b495a86"])
   end
 
   it "should clone and install a repository" do
-    EngineDrivers::Compiler.clone_and_install("rwlock", "https://github.com/spider-gazelle/readers-writer")
+    ACAEngine::Drivers::Compiler.clone_and_install("rwlock", "https://github.com/spider-gazelle/readers-writer")
     File.file?(File.expand_path("./repositories/rwlock/shard.yml")).should eq(true)
     File.directory?(File.expand_path("./repositories/rwlock/bin")).should eq(true)
   end
 
   it "should compile a private driver" do
     # Clone the private driver repo
-    EngineDrivers::Compiler.clone_and_install("private_drivers", "https://github.com/aca-labs/private_drivers.git")
+    ACAEngine::Drivers::Compiler.clone_and_install("private_drivers", "https://github.com/aca-labs/private_drivers.git")
     File.file?(File.expand_path("./repositories/private_drivers/drivers/aca/private_helper.cr")).should eq(true)
 
     # Test the executable is created
-    result = EngineDrivers::Compiler.build_driver("drivers/aca/private_helper.cr", repository: File.join(EngineDrivers::Compiler.repository_dir, "private_drivers"))
+    result = ACAEngine::Drivers::Compiler.build_driver("drivers/aca/private_helper.cr", repository: File.join(ACAEngine::Drivers::Compiler.repository_dir, "private_drivers"))
     result[:exit_status].should eq(0)
     File.exists?(result[:executable]).should eq(true)
 
@@ -60,16 +60,16 @@ describe EngineDrivers::Compiler do
 
   it "should compile a private spec" do
     # Test the executable is created
-    result = EngineDrivers::Compiler.build_driver(
+    result = ACAEngine::Drivers::Compiler.build_driver(
       "drivers/aca/private_helper_spec.cr",
-      repository: File.join(EngineDrivers::Compiler.repository_dir, "private_drivers"),
+      repository: File.join(ACAEngine::Drivers::Compiler.repository_dir, "private_drivers"),
       git_checkout: false
     )
     result[:exit_status].should eq(0)
     File.exists?(result[:executable]).should eq(true)
 
     # Ensure the driver we want to test exists
-    driver_file = File.join(EngineDrivers::Compiler.bin_dir, "drivers_aca_private_helper_cr_4f6e0cd")
+    driver_file = File.join(ACAEngine::Drivers::Compiler.bin_dir, "drivers_aca_private_helper_cr_4f6e0cd")
     File.exists?(driver_file).should eq(true)
 
     # Check it functions as expected SPEC_RUN_DRIVER

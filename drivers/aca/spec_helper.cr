@@ -1,6 +1,6 @@
 module ACA; end
 
-class ACA::SpecHelper < EngineDriver
+class ACA::SpecHelper < ACAEngine::Driver
   def implemented_in_driver
     "woot!"
   end

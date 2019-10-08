@@ -3,7 +3,7 @@ module Cisco::Switch; end
 
 require "set"
 
-class Cisco::Switch::SnoopingCatalyst < EngineDriver
+class Cisco::Switch::SnoopingCatalyst < ACAEngine::Driver
   # Discovery Information
   descriptive_name "Cisco Catalyst Switch IP Snooping"
   generic_name :Snooping
@@ -65,7 +65,7 @@ class Cisco::Switch::SnoopingCatalyst < EngineDriver
   end
 
   # Don't want the every day user using this method
-  @[EngineDriver::Security(Level::Administrator)]
+  @[ACAEngine::Driver::Security(Level::Administrator)]
   def run(command : String)
     do_send command
   end
