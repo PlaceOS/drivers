@@ -17,8 +17,7 @@ Gi2/0/15                     notconnect   113          auto   auto 10/100/1000Ba
 Gi2/0/16                     notconnect   113          auto   auto 10/100/1000BaseTX
 Gi2/0/17                     notconnect   113          auto   auto 10/100/1000BaseTX
 Gi3/0/8                      connected    33           auto   auto 10/100/1000BaseTX
- --More--
-)
+ --More--)
 
   should_send " "
   transmit %(

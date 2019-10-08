@@ -38,8 +38,8 @@ class Cisco::Switch::SnoopingCatalyst < ACAEngine::Driver
   @ignore_macs = ::Set(String).new
 
   def on_load
-    # TODO:: need to detect "--More--" which may not have a newline
-    transport.tokenizer = Tokenizer.new("\n")
+    # "--More--" is sent without a newline
+    transport.tokenizer = Tokenizer.new("\n", "--More--")
 
     on_update
   end
@@ -65,7 +65,7 @@ class Cisco::Switch::SnoopingCatalyst < ACAEngine::Driver
   end
 
   # Don't want the every day user using this method
-  @[ACAEngine::Driver::Security(Level::Administrator)]
+  @[Security(Level::Administrator)]
   def run(command : String)
     do_send command
   end
