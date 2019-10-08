@@ -4,7 +4,7 @@ module MessageMedia; end
 require "engine-driver/interface/sms"
 
 class MessageMedia::SMS < ACAEngine::Driver
-  include ACAEngine::Driver::Interface::SMS
+  include Interface::SMS
 
   # Discovery Information
   generic_name :SMS

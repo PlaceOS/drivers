@@ -8,8 +8,8 @@ require "engine-driver/interface/stoppable"
 # Default pass: Connect
 
 class ScreenTechnics::Connect < ACAEngine::Driver
-  include ACAEngine::Driver::Interface::Moveable
-  include ACAEngine::Driver::Interface::Stoppable
+  include Interface::Moveable
+  include Interface::Stoppable
 
   # Discovery Information
   descriptive_name "Screen Technics Projector Screen Control"
