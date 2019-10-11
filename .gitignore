@@ -4,8 +4,8 @@ lib
 .shards
 app
 *.dwarf
+repositories/*
 bin
-repositories
 .DS_Store
 shard.lock
 *.rdb
