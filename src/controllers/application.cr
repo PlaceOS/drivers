@@ -5,7 +5,7 @@ abstract class Application < ActionController::Base
 
   def set_request_id
     # Support request tracking
-    response.headers["X-Request-ID"] = request.id = request.headers["X-Request-ID"]? || UUID.random.to_s
+    response.headers["X-Request-ID"] = logger.request_id = request.headers["X-Request-ID"]? || UUID.random.to_s
   end
 
   # Builds and validates the selected repository
