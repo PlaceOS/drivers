@@ -1,17 +1,19 @@
+PROD = ENV["SG_ENV"]? == "production"
+
 # Application dependencies
 require "action-controller"
 
-# Allows request IDs to be configured for logging
-# You can extend this with additional properties
-class HTTP::Request
-  property id : String?
-end
+# Logging configuration
+ActionController::Logger.add_tag request_id
+
+logger = ActionController::Base.settings.logger
+logger.level = PROD ? Logger::INFO : Logger::DEBUG
+filters = PROD ? ["bearer_token", "secret", "password"] : [] of String
 
 # Application code
 require "./controllers/application"
 require "./controllers/*"
 require "./models/*"
-
 require "./engine-drivers"
 
 # Server required after application controllers
@@ -19,15 +21,9 @@ require "action-controller/server"
 
 # Add handlers that should run before your application
 ActionController::Server.before(
-  HTTP::ErrorHandler.new(ENV["SG_ENV"]? != "production"),
-  ActionController::LogHandler.new(STDOUT) { |context|
-    # Allows for custom tags to be included when logging
-    # For example you might want to include a user id here.
-    {
-      # `context.request.id` is set in `controllers/application`
-      request_id: context.request.id,
-    }.map { |key, value| " #{key}=#{value}" }.join("")
-  }
+  HTTP::ErrorHandler.new(!PROD),
+  ActionController::LogHandler.new(filters),
+  HTTP::CompressHandler.new
 )
 
 # Optional support for serving of static assests
