@@ -1,4 +1,5 @@
 module Cisco; end
+
 module Cisco::Switch; end
 
 require "set"
@@ -15,12 +16,12 @@ class Cisco::Switch::SnoopingCatalyst < ACAEngine::Driver
   default_settings({
     ssh: {
       username: :cisco,
-      password: :cisco
+      password: :cisco,
     },
-    building: "building_code",
+    building:    "building_code",
     ignore_macs: {
-      "Cisco Phone Dock" => "7001b5"
-    }
+      "Cisco Phone Dock" => "7001b5",
+    },
   })
 
   # Interfaces that indicate they have a device connected
@@ -244,7 +245,6 @@ class Cisco::Switch::SnoopingCatalyst < ACAEngine::Driver
 
       # We only want entries that are currently active
       if @check_interface.includes? interface
-
         # Ensure the data is valid
         mac = entries[0]
         if mac =~ /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/
