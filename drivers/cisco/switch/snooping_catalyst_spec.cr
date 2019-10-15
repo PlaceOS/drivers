@@ -53,8 +53,8 @@ Total number of bindings: 3
   status["devices"].should eq({
     "gi3/0/8" => {
       "mac" => "e4b97aa5aa7f",
-      "ip" => "10.151.128.150"
-    }
+      "ip"  => "10.151.128.150",
+    },
   })
 
   status["interfaces"].should eq(["gi3/0/8"])
