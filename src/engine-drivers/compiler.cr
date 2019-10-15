@@ -14,7 +14,7 @@ class ACAEngine::Drivers::Compiler
   {% end %}
 
   def self.is_built?(source_file, commit = "head", repository = @@repository_dir)
-    exec_name = source_file.gsub(/\/|\./, "_")
+    exec_name = self.executable_name(source_file)
 
     # Make sure we have an actual version hash of the file
     if commit == "head"
@@ -39,7 +39,7 @@ class ACAEngine::Drivers::Compiler
     Dir.mkdir_p @@bin_dir
     io = IO::Memory.new
 
-    exec_name = source_file.gsub(/\/|\./, "_")
+    exec_name = self.executable_name(source_file)
     exe_output = ""
     result = 1
 
@@ -111,7 +111,7 @@ class ACAEngine::Drivers::Compiler
   end
 
   def self.compiled_drivers(source_file)
-    exec_name = source_file.gsub(/\/|\./, "_")
+    exec_name = self.executable_name(source_file)
     exe_output = "#{exec_name}_"
 
     Dir.children(@@bin_dir).reject do |file|
@@ -159,5 +159,9 @@ class ACAEngine::Drivers::Compiler
       result = install_shards(repository, working_dir)
       raise "failed to install shards\n#{result[:output]}" unless result[:exit_status] == 0
     end
+  end
+
+  def self.executable_name(source_file)
+    source_file.gsub(/\/|\./, "_")
   end
 end
