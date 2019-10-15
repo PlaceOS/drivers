@@ -1,6 +1,6 @@
 require "./spec_helper"
 
-describe ACAEngine::Drivers::Helper, focus: true do
+describe ACAEngine::Drivers::Helper do
   helper = ACAEngine::Drivers::Helper
 
   it "should list drivers" do

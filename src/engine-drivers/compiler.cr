@@ -17,17 +17,7 @@ class ACAEngine::Drivers::Compiler
     exec_name = self.executable_name(source_file)
 
     # Make sure we have an actual version hash of the file
-    if commit == "head"
-      diff = ACAEngine::Drivers::GitCommands.diff(source_file, repository)
-
-      if diff.empty?
-        # Allow uncommited files to be built
-        begin
-          commit = ACAEngine::Drivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
-        rescue
-        end
-      end
-    end
+    commit = self.normalize_commit(commit, source_file, repository)
 
     exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
     File.exists?(exe_output) ? exe_output : nil
@@ -45,19 +35,8 @@ class ACAEngine::Drivers::Compiler
 
     ACAEngine::Drivers::GitCommands.file_lock(repository, source_file) do
       # Make sure we have an actual version hash of the file
-      if commit == "head"
-        diff = ACAEngine::Drivers::GitCommands.diff(source_file, repository)
-        if diff.empty?
-          # Allow uncommited files to be built
-          begin
-            commit = ACAEngine::Drivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
-          rescue
-            git_checkout = false
-          end
-        else
-          git_checkout = false
-        end
-      end
+      commit = normalize_commit(commit, source_file, repository)
+      git_checkout = false if commit == "head"
 
       # Want to expose some kind of status signalling
       # @@message = "compiling #{source_file} @ #{commit}"
@@ -161,7 +140,28 @@ class ACAEngine::Drivers::Compiler
     end
   end
 
-  def self.executable_name(source_file)
+  # Generate executable name from driver file path
+  def self.executable_name(source_file) : String
     source_file.gsub(/\/|\./, "_")
+  end
+
+  def self.current_commit(source_file, repository)
+    ACAEngine::Drivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+  end
+
+  # Ensure commit is an actual version hash of a file
+  def self.normalize_commit(commit, source_file, repository) : String
+    # Make sure we have an actual version hash of the file
+    if commit == "head"
+      if ACAEngine::Drivers::GitCommands.diff(source_file, repository).empty?
+        # Allow uncommited files to be built
+        begin
+          commit = self.current_commit(source_file, repository)
+        rescue
+        end
+      end
+    end
+
+    commit
   end
 end

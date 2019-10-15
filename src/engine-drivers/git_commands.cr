@@ -1,6 +1,8 @@
 require "rwlock"
 require "uri"
 
+require "./compiler"
+
 class ACAEngine::Drivers::GitCommands
   # Will really only be an issue once threads come along
   @@lock_manager = Mutex.new
