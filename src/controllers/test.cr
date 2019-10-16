@@ -1,116 +1,120 @@
-class Test < Application
-  before_action :ensure_driver_compiled, only: [:run_spec, :create]
-  before_action :ensure_spec_compiled, only: [:run_spec, :create]
-  @driver_path : String = ""
-  @spec_path : String = ""
+require "./application"
 
-  ACA_DRIVERS_DIR = "../../#{Dir.current.split("/")[-1]}"
+module ACAEngine::Drivers::Api
+  class Test < Application
+    before_action :ensure_driver_compiled, only: [:run_spec, :create]
+    before_action :ensure_spec_compiled, only: [:run_spec, :create]
+    @driver_path : String = ""
+    @spec_path : String = ""
 
-  # Specs available
-  def index
-    result = [] of String
-    Dir.cd(get_repository_path) do
-      Dir.glob("drivers/**/*_spec.cr") { |file| result << file }
-    end
-    render json: result
-  end
+    ACA_DRIVERS_DIR = "../../#{Dir.current.split("/")[-1]}"
 
-  # grab the list of available versions of the spec file
-  get "/:id/commits" do
-    spec = URI.decode(params["id"])
-    count = (params["count"]? || 50).to_i
-
-    render json: ACAEngine::Drivers::GitCommands.commits(spec, count, get_repository_path)
-  end
-
-  # Run the spec and return success if the exit status is 0
-  def create
-    io = IO::Memory.new
-    exit_status = launch_spec(io)
-
-    render :not_acceptable, text: io.to_s if exit_status != 0
-    render text: io.to_s
-  end
-
-  # WS watch the output from running specs
-  ws "/run_spec", :run_spec do |socket|
-    # Run the spec and pipe all the IO down the websocket
-    spawn { pipe_spec(socket) }
-  end
-
-  def pipe_spec(socket)
-    output, output_writer = IO.pipe
-    spawn { launch_spec(output_writer) }
-
-    # Read data coming in from the IO and send it down the websocket
-    raw_data = Bytes.new(1024)
-    begin
-      while !output.closed?
-        bytes_read = output.read(raw_data)
-        break if bytes_read == 0 # IO was closed
-        socket.send String.new(raw_data[0, bytes_read])
+    # Specs available
+    def index
+      result = [] of String
+      Dir.cd(get_repository_path) do
+        Dir.glob("drivers/**/*_spec.cr") { |file| result << file }
       end
-    rescue IO::Error
-    rescue Errno
-      # Input stream closed. This should only occur on termination
+      render json: result
     end
 
-    # Once the process exits, close the websocket
-    socket.close
-  end
+    # grab the list of available versions of the spec file
+    get "/:id/commits" do
+      spec = URI.decode(params["id"])
+      count = (params["count"]? || 50).to_i
 
-  def launch_spec(io)
-    io << "\nLaunching spec runner\n"
-    exit_status = Process.run(
-      @spec_path,
-      {"--no-color"},
-      {"SPEC_RUN_DRIVER" => @driver_path},
-      input: Process::Redirect::Close,
-      output: io,
-      error: io
-    ).exit_status
-    io << "spec runner exited with #{exit_status}\n"
-    io.close
-    exit_status
-  end
-
-  def ensure_driver_compiled
-    driver = params["driver"]
-    repository = get_repository_path
-    commit = params["commit"]? || "head"
-
-    driver_path = ACAEngine::Drivers::Compiler.is_built?(driver, commit, repository)
-
-    # Build the driver if has not been compiled yet
-    debug = params["debug"]?
-    if driver_path.nil? || params["force"]? || debug
-      result = ACAEngine::Drivers::Compiler.build_driver(driver, commit, repository, debug: !!debug)
-      output = result[:output].strip
-      render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
-
-      driver_path = ACAEngine::Drivers::Compiler.is_built?(driver, commit, repository)
+      render json: GitCommands.commits(spec, count, get_repository_path)
     end
 
-    # raise an error if the driver still does not exist
-    @driver_path = driver_path.not_nil!
-  end
+    # Run the spec and return success if the exit status is 0
+    def create
+      io = IO::Memory.new
+      exit_status = launch_spec(io)
 
-  def ensure_spec_compiled
-    spec = params["spec"]
-    repository = get_repository_path
-    spec_commit = params["spec_commit"]? || "head"
-
-    spec_path = ACAEngine::Drivers::Compiler.is_built?(spec, spec_commit, repository)
-
-    debug = params["debug"]?
-    if spec_path.nil? || params["force"]? || debug
-      result = ACAEngine::Drivers::Compiler.build_driver(spec, spec_commit, repository, debug: !!debug)
-      output = result[:output].strip
-      render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
-
-      spec_path = ACAEngine::Drivers::Compiler.is_built?(spec, spec_commit, repository)
+      render :not_acceptable, text: io.to_s if exit_status != 0
+      render text: io.to_s
     end
 
-    @spec_path = spec_path.not_nil!
+    # WS watch the output from running specs
+    ws "/run_spec", :run_spec do |socket|
+      # Run the spec and pipe all the IO down the websocket
+      spawn { pipe_spec(socket) }
+    end
+
+    def pipe_spec(socket)
+      output, output_writer = IO.pipe
+      spawn { launch_spec(output_writer) }
+
+      # Read data coming in from the IO and send it down the websocket
+      raw_data = Bytes.new(1024)
+      begin
+        while !output.closed?
+          bytes_read = output.read(raw_data)
+          break if bytes_read == 0 # IO was closed
+          socket.send String.new(raw_data[0, bytes_read])
+        end
+      rescue IO::Error
+      rescue Errno
+        # Input stream closed. This should only occur on termination
+      end
+
+      # Once the process exits, close the websocket
+      socket.close
+    end
+
+    def launch_spec(io)
+      io << "\nLaunching spec runner\n"
+      exit_status = Process.run(
+        @spec_path,
+        {"--no-color"},
+        {"SPEC_RUN_DRIVER" => @driver_path},
+        input: Process::Redirect::Close,
+        output: io,
+        error: io
+      ).exit_status
+      io << "spec runner exited with #{exit_status}\n"
+      io.close
+      exit_status
+    end
+
+    def ensure_driver_compiled
+      driver = params["driver"]
+      repository = get_repository_path
+      commit = params["commit"]? || "head"
+
+      driver_path = Compiler.is_built?(driver, commit, repository)
+
+      # Build the driver if has not been compiled yet
+      debug = params["debug"]?
+      if driver_path.nil? || params["force"]? || debug
+        result = Compiler.build_driver(driver, commit, repository, debug: !!debug)
+        output = result[:output].strip
+        render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
+
+        driver_path = Compiler.is_built?(driver, commit, repository)
+      end
+
+      # raise an error if the driver still does not exist
+      @driver_path = driver_path.not_nil!
+    end
+
+    def ensure_spec_compiled
+      spec = params["spec"]
+      repository = get_repository_path
+      spec_commit = params["spec_commit"]? || "head"
+
+      spec_path = Compiler.is_built?(spec, spec_commit, repository)
+
+      debug = params["debug"]?
+      if spec_path.nil? || params["force"]? || debug
+        result = Compiler.build_driver(spec, spec_commit, repository, debug: !!debug)
+        output = result[:output].strip
+        render :not_acceptable, text: output if result[:exit_status] != 0 || !output.empty? || !File.exists?(result[:executable])
+
+        spec_path = Compiler.is_built?(spec, spec_commit, repository)
+      end
+
+      @spec_path = spec_path.not_nil!
+    end
   end
 end
