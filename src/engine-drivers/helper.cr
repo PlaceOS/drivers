@@ -53,6 +53,11 @@ module ACAEngine::Drivers::Helper
     ACAEngine::Drivers::GitCommands.commits(driver, count, get_repository_path(repository))
   end
 
+  # Returns the latest commit hash for a repository
+  def repository_commit_hash(repository : String? = nil)
+    ACAEngine::Drivers::GitCommands.repository_commits(get_repository_path(repository), 1)[0][:commit]
+  end
+
   # Takes a file path with a repository path and compiles it
   # [{exit_status:, output:, driver:, version:, executable:, repository:}, ...]
   def compile_driver(driver : String, repository : String? = nil, commit = "head")
