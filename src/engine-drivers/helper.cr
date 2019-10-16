@@ -1,6 +1,6 @@
 require "./command_failure"
-require "./git_commands"
 require "./compiler"
+require "./git_commands"
 
 module ACAEngine::Drivers
   module Helper
@@ -26,7 +26,7 @@ module ACAEngine::Drivers
     # Returns a list of compiled driver file paths
     # (across all repositories)
     def compiled_drivers : Array(String)
-      ACAEngine::Drivers::Compiler.compiled_drivers
+      Compiler.compiled_drivers
     end
 
     # Check if a version of a driver exists
@@ -56,7 +56,7 @@ module ACAEngine::Drivers
 
     # Returns the latest commit hash for a repository
     def repository_commit_hash(repository : String? = nil)
-      GitCommands.repository_commits(get_repository_path(repository), 1)[0][:commit]
+      repository_commits(repository, 1)[0][:commit]
     end
 
     # Takes a file path with a repository path and compiles it

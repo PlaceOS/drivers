@@ -1,3 +1,5 @@
+require "./git_commands"
+
 module ACAEngine::Drivers
   class Compiler
     @@drivers_dir = Dir.current
@@ -34,7 +36,7 @@ module ACAEngine::Drivers
       exe_output = ""
       result = 1
 
-      ACAEngine::Drivers::GitCommands.file_lock(repository, source_file) do
+      GitCommands.file_lock(repository, source_file) do
         # Make sure we have an actual version hash of the file
         commit = normalize_commit(commit, source_file, repository)
         git_checkout = false if commit == "head"
@@ -72,7 +74,7 @@ module ACAEngine::Drivers
 
         # When developing you may not want to have to
         if git_checkout
-          ACAEngine::Drivers::GitCommands.checkout(source_file, commit) do
+          GitCommands.checkout(source_file, commit) do
             compile_proc.call
           end
         else
@@ -116,7 +118,7 @@ module ACAEngine::Drivers
 
       # NOTE:: supports recursive locking so can perform multiple repository
       # operations in a single lock. i.e. clone + shards install
-      ACAEngine::Drivers::GitCommands.repo_lock(repo_dir).write do
+      GitCommands.repo_lock(repo_dir).write do
         result = Process.run(
           "./bin/exec_from",
           {repo_dir, "shards", "--no-color", "install"},
@@ -140,13 +142,13 @@ module ACAEngine::Drivers
       working_dir : String = @@repository_dir,
       pull_if_exists : Bool = true
     )
-      ACAEngine::Drivers::GitCommands.repo_lock(repository).write do
-        clone_result = ACAEngine::Drivers::GitCommands.clone(repository, repository_uri, username, password, working_dir)
+      GitCommands.repo_lock(repository).write do
+        clone_result = GitCommands.clone(repository, repository_uri, username, password, working_dir)
         raise "failed to clone\n#{clone_result[:output]}" unless clone_result[:exit_status] == 0
 
         # Pull if already cloned and pull intended
         if clone_result[:output].includes?("already exists") && pull_if_exists
-          pull_result = ACAEngine::Drivers::GitCommands.pull(repository, working_dir)
+          pull_result = GitCommands.pull(repository, working_dir)
           raise "failed to pull\n#{pull_result}" unless pull_result[:exit_status] == 0
         end
 
@@ -162,14 +164,14 @@ module ACAEngine::Drivers
     end
 
     def self.current_commit(source_file, repository)
-      ACAEngine::Drivers::GitCommands.commits(source_file, 1, repository)[0][:commit]
+      GitCommands.commits(source_file, 1, repository)[0][:commit]
     end
 
     # Ensure commit is an actual version hash of a file
     def self.normalize_commit(commit, source_file, repository) : String
       # Make sure we have an actual version hash of the file
       if commit == "head"
-        if ACAEngine::Drivers::GitCommands.diff(source_file, repository).empty?
+        if GitCommands.diff(source_file, repository).empty?
           # Allow uncommited files to be built
           begin
             commit = self.current_commit(source_file, repository)
