@@ -249,6 +249,7 @@ class ACAEngine::Drivers::GitCommands
 
   # Anything that expects a clean repository
   def self.repo_operation(repository)
+    io = IO::Memory.new
     repo_lock(repository).write do
       operation_lock(repository).synchronize do
         # reset incase of a crash during a file operation
