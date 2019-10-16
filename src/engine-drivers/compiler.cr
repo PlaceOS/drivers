@@ -155,8 +155,9 @@ class ACAEngine::Drivers::Compiler
   end
 
   # Generate executable name from driver file path
+  # Removes ".cr" extension and normalises slashes and dots in path
   def self.executable_name(source_file) : String
-    source_file.gsub(/\/|\./, "_")
+    source_file.rchop(".cr").gsub(/\/|\./, "_")
   end
 
   def self.current_commit(source_file, repository)
