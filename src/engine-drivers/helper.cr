@@ -36,7 +36,7 @@ module ACAEngine::Drivers
 
     # Generates path to a driver
     def driver_path(driver, commit)
-      exec_name = Compiler.executable_namedriver.gsub(/\/|\./, "_")
+      exec_name = Compiler.executable_name(driver)
       file_name = "#{exec_name}_#{commit}"
       File.join(Compiler.bin_dir, file_name)
     end
@@ -75,7 +75,7 @@ module ACAEngine::Drivers
       end
 
       files = if commit
-                exec_name = driver.gsub(/\/|\./, "_")
+                exec_name = Compiler.executable_name(driver)
                 ["#{exec_name}_#{commit}"]
               else
                 Compiler.compiled_drivers(driver)
