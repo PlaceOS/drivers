@@ -131,12 +131,26 @@ class ACAEngine::Drivers::Compiler
     }
   end
 
-  def self.clone_and_install(repository, repository_uri, username = nil, password = nil, working_dir = @@repository_dir)
+  def self.clone_and_install(
+    repository : String,
+    repository_uri : String,
+    username : String? = nil,
+    password : String? = nil,
+    working_dir : String = @@repository_dir,
+    pull_if_exists : Bool = true
+  )
     ACAEngine::Drivers::GitCommands.repo_lock(repository).write do
-      result = ACAEngine::Drivers::GitCommands.clone(repository, repository_uri, username, password, working_dir)
-      raise "failed to clone\n#{result[:output]}" unless result[:exit_status] == 0
-      result = install_shards(repository, working_dir)
-      raise "failed to install shards\n#{result[:output]}" unless result[:exit_status] == 0
+      clone_result = ACAEngine::Drivers::GitCommands.clone(repository, repository_uri, username, password, working_dir)
+      raise "failed to clone\n#{clone_result[:output]}" unless clone_result[:exit_status] == 0
+
+      # Pull if already cloned and pull intended
+      if clone_result[:output].includes?("already exists") && pull_if_exists
+        pull_result = ACAEngine::Drivers::GitCommands.pull(repository, working_dir)
+        raise "failed to pull\n#{pull_result}" unless pull_result[:exit_status] == 0
+      end
+
+      install_result = install_shards(repository, working_dir)
+      raise "failed to install shards\n#{install_result[:output]}" unless install_result[:exit_status] == 0
     end
   end
 
