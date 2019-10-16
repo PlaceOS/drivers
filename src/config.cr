@@ -13,7 +13,6 @@ filters = PROD ? ["bearer_token", "secret", "password"] : [] of String
 # Application code
 require "./controllers/application"
 require "./controllers/*"
-require "./models/*"
 require "./engine-drivers"
 
 # Server required after application controllers
@@ -46,4 +45,4 @@ ActionController::Session.configure do |settings|
 end
 
 APP_NAME = "Engine-Drivers"
-VERSION  = "1.0.0"
+VERSION  = `shards version`

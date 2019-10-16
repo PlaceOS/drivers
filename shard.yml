@@ -1,6 +1,11 @@
 name: engine-drivers
 version: 1.0.0
 
+# compile target
+targets:
+  engine-drivers:
+    main: src/app.cr
+
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
@@ -18,13 +23,3 @@ dependencies:
 
   telnet:
     github: spider-gazelle/telnet.cr
-
-  # https://github.com/jeromegn/kilt
-  # Generic template interface for Crystal
-  kilt:
-    github: jeromegn/kilt
-
-# compile target
-targets:
-  engine-drivers:
-    main: src/app.cr
