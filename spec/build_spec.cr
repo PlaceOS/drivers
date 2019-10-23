@@ -6,8 +6,8 @@ module ACAEngine::Drivers::Api
       it "should list drivers" do
         result = curl("GET", "/build")
         drivers = Array(String).from_json(result.body)
-        (drivers.size > 0).should eq(true)
-        drivers.includes?("drivers/aca/spec_helper.cr").should eq(true)
+        (drivers.size > 0).should be_true
+        drivers.includes?("drivers/aca/spec_helper.cr").should be_true
       end
 
       it "should build a driver" do
@@ -19,7 +19,7 @@ module ACAEngine::Drivers::Api
         result = curl("GET", "/build/drivers%2Faca%2Fspec_helper.cr/")
         result.status_code.should eq(200)
         drivers = Array(String).from_json(result.body)
-        drivers[0].starts_with?("drivers_aca_spec_helper_cr_").should eq(true)
+        drivers[0].starts_with?("drivers_aca_spec_helper_cr_").should be_true
       end
 
       it "should list possible versions" do

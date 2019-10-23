@@ -4,7 +4,7 @@ EngineSpec.mock_driver "ScreenTechnics::Connect" do
   responds("101, 1, 17, 1\r\n")
 
   status[:position0].should eq("Down")
-  status[:moving0].should eq(true)
+  status[:moving0].should be_true
   status[:screen0].should eq("moving_bottom")
 
   # Screen Technics requires a large delay between requests

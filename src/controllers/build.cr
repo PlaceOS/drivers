@@ -19,8 +19,8 @@ module ACAEngine::Drivers::Api
     end
 
     def show
-      driver = URI.decode(params["id"])
-      render json: ACAEngine::Drivers::Compiler.compiled_drivers(driver)
+      driver_source = URI.decode(params["id"])
+      render json: ACAEngine::Drivers::Compiler.compiled_drivers(driver_source)
     end
 
     # grab the list of available repositories
@@ -30,10 +30,10 @@ module ACAEngine::Drivers::Api
 
     # grab the list of available versions of file / which are built
     get "/:id/commits" do
-      driver = URI.decode(params["id"])
+      driver_source = URI.decode(params["id"])
       count = (params["count"]? || 50).to_i
 
-      render json: ACAEngine::Drivers::GitCommands.commits(driver, count, get_repository_path)
+      render json: ACAEngine::Drivers::GitCommands.commits(driver_source, count, get_repository_path)
     end
 
     # Commits at repo level
@@ -61,20 +61,19 @@ module ACAEngine::Drivers::Api
 
     # delete a built driver
     def destroy
-      driver = URI.decode(params["id"])
+      driver_source = URI.decode(params["id"])
       commit = params["commit"]?
 
       # Check repository to prevent abuse (don't want to delete the wrong thing)
       repository = get_repository_path
-      ACAEngine::Drivers::GitCommands.checkout(driver, commit || "head", repository) do
-        head :not_found unless File.exists?(File.join(repository, driver))
+      ACAEngine::Drivers::GitCommands.checkout(driver_source, commit || "head", repository) do
+        head :not_found unless File.exists?(File.join(repository, driver_source))
       end
 
       files = if commit
-                exec_name = Compiler.executable_name(driver)
-                ["#{exec_name}_#{commit}"]
+                [Compiler.executable_name(driver_source, commit)]
               else
-                ACAEngine::Drivers::Compiler.compiled_drivers(driver)
+                ACAEngine::Drivers::Compiler.compiled_drivers(driver_source)
               end
 
       files.each do |file|

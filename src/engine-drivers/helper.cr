@@ -31,14 +31,12 @@ module ACAEngine::Drivers
 
     # Check if a version of a driver exists
     def compiled?(driver : String, commit : String) : Bool
-      File.exists?(driver_path(driver, commit))
+      File.exists?(driver_binary_path(driver, commit))
     end
 
-    # Generates path to a driver
-    def driver_path(driver, commit)
-      exec_name = Compiler.executable_name(driver)
-      file_name = "#{exec_name}_#{commit}"
-      File.join(Compiler.bin_dir, file_name)
+    # Generates path to a driver executable
+    def driver_binary_path(driver, commit)
+      File.join(Compiler.bin_dir, Compiler.executable_name(driver, commit)).tap &->puts(String)
     end
 
     # Repository commits

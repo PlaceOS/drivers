@@ -16,49 +16,46 @@ module ACAEngine::Drivers
       end
     {% end %}
 
-    def self.is_built?(source_file, commit = "head", repository = @@repository_dir)
-      exec_name = self.executable_name(source_file)
-
+    def self.is_built?(source_file, commit = "head", repository_drivers = @@drivers_dir)
       # Make sure we have an actual version hash of the file
-      commit = self.normalize_commit(commit, source_file, repository)
-
-      exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
-      File.exists?(exe_output) ? exe_output : nil
+      commit = self.normalize_commit(commit, source_file, repository_drivers)
+      executable_path = File.join(@@bin_dir, self.executable_name(source_file, commit))
+      File.exists?(executable_path) ? executable_path : nil
     end
 
     # repository is required to have a local `build.cr` file to support compilation
-    def self.build_driver(source_file, commit = "head", repository = @@drivers_dir, git_checkout = true, debug = false)
+    def self.build_driver(source_file, commit = "head", repository_drivers = @@drivers_dir, git_checkout = true, debug = false)
       # Ensure the bin directory exists
       Dir.mkdir_p @@bin_dir
       io = IO::Memory.new
 
-      exec_name = self.executable_name(source_file)
-      exe_output = ""
+      # Make sure we have an actual version hash of the file
+      commit = normalize_commit(commit, source_file, repository_drivers)
+      driver_executable = self.executable_name(source_file, commit)
+      executable_path = ""
       result = 1
 
-      GitCommands.file_lock(repository, source_file) do
-        # Make sure we have an actual version hash of the file
-        commit = normalize_commit(commit, source_file, repository)
+      GitCommands.file_lock(repository_drivers, source_file) do
         git_checkout = false if commit == "head"
 
         # Want to expose some kind of status signalling
         # @@message = "compiling #{source_file} @ #{commit}"
 
-        exe_output = File.join(@@bin_dir, "#{exec_name}_#{commit}")
-        build_script = File.join(repository, "src/build.cr")
+        executable_path = File.join(@@bin_dir, driver_executable)
+        build_script = File.join(repository_drivers, "src/build.cr")
 
         # If we are building head and don't want to check anything out
         # then we can assume we definitely want to re-build the driver
         begin
-          File.delete(exe_output) if !git_checkout
+          File.delete(executable_path) if !git_checkout
         rescue
           # deleting a non-existant file will raise an exception
         end
 
         args = if debug
-                 {repository, "crystal", "build", "--error-trace", "--debug", "-o", exe_output, build_script}
+                 {repository_drivers, "crystal", "build", "--error-trace", "--debug", "-o", executable_path, build_script}
                else
-                 {repository, "crystal", "build", "--error-trace", "-o", exe_output, build_script}
+                 {repository_drivers, "crystal", "build", "--error-trace", "-o", executable_path, build_script}
                end
 
         compile_proc = ->do
@@ -72,7 +69,7 @@ module ACAEngine::Drivers
           ).exit_status
         end
 
-        # When developing you may not want to have to
+        # When developing you may not want to have to commit
         if git_checkout
           GitCommands.checkout(source_file, commit) do
             compile_proc.call
@@ -85,19 +82,19 @@ module ACAEngine::Drivers
       {
         exit_status: result,
         output:      io.to_s,
-        driver:      exec_name,
+        driver:      driver_executable,
         version:     commit,
-        executable:  exe_output,
-        repository:  repository,
+        executable:  executable_path,
+        repository:  repository_drivers,
       }
     end
 
     def self.compiled_drivers(source_file)
-      exec_name = self.executable_name(source_file)
-      exe_output = "#{exec_name}_"
+      # Get the executable name without commits to collect all versions
+      exec_base = self.driver_slug(source_file)
 
       Dir.children(@@bin_dir).reject do |file|
-        !file.starts_with?(exe_output) || file.includes?(".")
+        !file.starts_with?(exec_base) || file.includes?(".")
       end
     end
 
@@ -157,10 +154,14 @@ module ACAEngine::Drivers
       end
     end
 
-    # Generate executable name from driver file path
     # Removes ".cr" extension and normalises slashes and dots in path
-    def self.executable_name(source_file) : String
-      source_file.rchop(".cr").gsub(/\/|\./, "_")
+    def self.driver_slug(path : String) : String
+      path.rchop(".cr").gsub(/\/|\./, "_")
+    end
+
+    # Generate executable name from driver file path and commit
+    def self.executable_name(driver_source : String, commit : String)
+      "#{self.driver_slug(driver_source)}_#{commit}"
     end
 
     def self.current_commit(source_file, repository)
