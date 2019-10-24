@@ -36,7 +36,7 @@ module ACAEngine::Drivers
 
     # Generates path to a driver executable
     def driver_binary_path(driver, commit)
-      File.join(Compiler.bin_dir, Compiler.executable_name(driver, commit)).tap &->puts(String)
+      File.join(Compiler.bin_dir, Compiler.executable_name(driver, commit))
     end
 
     # Repository commits
