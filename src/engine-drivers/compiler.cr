@@ -126,7 +126,7 @@ module ACAEngine::Drivers
         ).exit_status
 
         # Otherwise install shards
-        if result != 0 && io.to_s.includes?("Dependencies are satisfied")
+        if result != 0 || !io.to_s.includes?("Dependencies are satisfied")
           io.clear
           result = Process.run(
             "./bin/exec_from",
