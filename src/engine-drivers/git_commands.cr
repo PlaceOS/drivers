@@ -201,23 +201,29 @@ module ACAEngine::Drivers
         # Ensure the repository directory exists (it should)
         Dir.mkdir_p working_dir
 
-        # Ensure the repository being cloned does not exist
-        Process.run("./bin/exec_from",
-          {working_dir, "rm", "-rf", repository},
-          input: Process::Redirect::Close,
-          output: Process::Redirect::Close,
-          error: Process::Redirect::Close
-        )
+        # Check if there's an existing repo
+        if Dir.exists?(File.join(working_dir, repository, ".git"))
+          io << "already exists"
+          result = 0
+        else
+          # Ensure the cloned into directory does not exist
+          Process.run("./bin/exec_from",
+            {working_dir, "rm", "-rf", repository},
+            input: Process::Redirect::Close,
+            output: Process::Redirect::Close,
+            error: Process::Redirect::Close
+          )
 
-        # Clone the repository
-        result = Process.run(
-          "./bin/exec_from",
-          {working_dir, "git", "clone", repository_uri, repository},
-          {"GIT_TERMINAL_PROMPT" => "0"},
-          input: Process::Redirect::Close,
-          output: io,
-          error: io
-        ).exit_status
+          # Clone the repository
+          result = Process.run(
+            "./bin/exec_from",
+            {working_dir, "git", "clone", repository_uri, repository},
+            {"GIT_TERMINAL_PROMPT" => "0"},
+            input: Process::Redirect::Close,
+            output: io,
+            error: io
+          ).exit_status
+        end
       end
 
       {
