@@ -1,0 +1,86 @@
+version: 1.0
+shards:
+  action-controller:
+    github: spider-gazelle/action-controller
+    version: 2.0.2
+
+  bisect:
+    github: spider-gazelle/bisect
+    version: 1.2.0
+
+  connect-proxy:
+    github: spider-gazelle/connect-proxy
+    version: 1.0.0
+
+  cron_parser:
+    github: kostya/cron_parser
+    version: 0.2.0
+
+  engine-driver:
+    github: aca-labs/crystal-engine-driver
+    commit: 1176541d189384acbd797dddd97b317753a1ff29
+
+  exec_from:
+    github: aca-labs/exec_from
+    version: 1.0.2
+
+  habitat:
+    github: luckyframework/habitat
+    version: 0.4.3
+
+  ipaddress:
+    github: Sija/ipaddress.cr
+    version: 0.2.1
+
+  kilt:
+    github: jeromegn/kilt
+    version: 0.5.0
+
+  pool:
+    github: ysbaddaden/pool
+    version: 0.2.3
+
+  priority-queue:
+    github: spider-gazelle/priority-queue
+    commit: cd8dc4f0803d7e00a4bb0d79e4c98c5d72223012
+
+  promise:
+    github: spider-gazelle/promise
+    version: 1.3.0
+
+  protobuf:
+    github: jeromegn/protobuf.cr
+    version: 2.1.2
+
+  radix:
+    github: luislavena/radix
+    version: 0.3.9
+
+  redis:
+    github: stefanwille/crystal-redis
+    version: 2.2.1
+
+  retriable:
+    github: Sija/retriable.cr
+    version: 0.2.0
+
+  rwlock:
+    github: spider-gazelle/readers-writer
+    version: 1.0.5
+
+  ssh2:
+    github: spider-gazelle/ssh2.cr
+    commit: fd9946c951eea33636b38cac999c6deeb0ca28ef
+
+  tasker:
+    github: spider-gazelle/tasker
+    version: 1.2.2
+
+  telnet:
+    github: spider-gazelle/telnet.cr
+    version: 1.0.0
+
+  tokenizer:
+    github: spider-gazelle/tokenizer
+    version: 1.1.0
+

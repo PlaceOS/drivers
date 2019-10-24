@@ -9,7 +9,7 @@ targets:
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
-    version: "~> 2.0"
+    version: ~> 2.0
 
   engine-driver:
     github: aca-labs/crystal-engine-driver
