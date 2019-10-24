@@ -116,13 +116,26 @@ module ACAEngine::Drivers
       # NOTE:: supports recursive locking so can perform multiple repository
       # operations in a single lock. i.e. clone + shards install
       GitCommands.repo_lock(repo_dir).write do
+        # First check if the dependencies are satisfied
         result = Process.run(
           "./bin/exec_from",
-          {repo_dir, "shards", "--no-color", "install"},
+          {repo_dir, "shards", "--no-color", "check"},
           input: Process::Redirect::Close,
           output: io,
           error: io
         ).exit_status
+
+        # Otherwise install shards
+        if result != 0 && io.to_s.includes?("Dependencies are satisfied")
+          io.clear
+          result = Process.run(
+            "./bin/exec_from",
+            {repo_dir, "shards", "--no-color", "install"},
+            input: Process::Redirect::Close,
+            output: io,
+            error: io
+          ).exit_status
+        end
       end
 
       {
