@@ -36,7 +36,9 @@ module ACAEngine::Drivers
       io.to_s.split("\n")
     end
 
-    def self.commits(file_name, count = 50, repository = Compiler.drivers_dir)
+    alias Commit = NamedTuple(commit: String, date: String, author: String, subject: String)
+
+    def self.commits(file_name, count = 50, repository = Compiler.drivers_dir) : Array(Commit)
       io = IO::Memory.new
 
       # https://git-scm.com/docs/pretty-formats
