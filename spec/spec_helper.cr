@@ -8,3 +8,9 @@ require "../src/config"
 require "../lib/action-controller/spec/curl_context"
 
 require "../src/engine-drivers"
+
+# Clone the private drivers
+ACAEngine::Drivers::Compiler.clone_and_install(
+  "private_drivers",
+  "https://github.com/aca-labs/private-crystal-engine-drivers"
+)

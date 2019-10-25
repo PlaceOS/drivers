@@ -212,7 +212,7 @@ module ACAEngine::Drivers
             input: Process::Redirect::Close,
             output: Process::Redirect::Close,
             error: Process::Redirect::Close
-          )
+          ) if Dir.exists?(File.join(working_dir, repository))
 
           # Clone the repository
           result = Process.run(
