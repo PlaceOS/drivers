@@ -2,6 +2,8 @@ require "./application"
 
 module ACAEngine::Drivers::Api
   class Test < Application
+    base "/test"
+
     before_action :ensure_driver_compiled, only: [:run_spec, :create]
     before_action :ensure_spec_compiled, only: [:run_spec, :create]
     @driver_path : String = ""

@@ -2,18 +2,18 @@ require "./application"
 
 module ACAEngine::Drivers::Api
   class Build < Application
+    base "/build"
+
     # list the available files
     def index
       compiled = params["compiled"]?
       if compiled
         render json: ACAEngine::Drivers::Compiler.compiled_drivers
       else
-        result = [] of String
-        Dir.cd(get_repository_path) do
-          Dir.glob("drivers/**/*.cr") do |file|
-            result << file unless file.ends_with?("_spec.cr")
-          end
+        result = Dir.cd(get_repository_path) do
+          Dir.glob("drivers/**/*.cr").reject!(&.ends_with?("_spec.cr"))
         end
+
         render json: result
       end
     end

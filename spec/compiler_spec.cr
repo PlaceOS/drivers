@@ -20,7 +20,9 @@ module ACAEngine::Drivers
 
     it "should list compiled versions" do
       files = ACAEngine::Drivers::Compiler.compiled_drivers("drivers/aca/spec_helper.cr")
-      files.should eq(["drivers_aca_spec_helper_cr_b495a86"])
+
+      files.size.should eq(1)
+      files.first.should start_with("drivers_aca_spec_helper_")
     end
 
     it "should clone and install a repository" do
@@ -70,17 +72,25 @@ module ACAEngine::Drivers
         repository_drivers: File.join(ACAEngine::Drivers::Compiler.repository_dir, "private_drivers"),
         git_checkout: false
       )
+
+      spec_executable = result[:executable]
       result[:exit_status].should eq(0)
-      File.exists?(result[:executable]).should be_true
+      File.exists?(spec_executable).should be_true
+
+      result = ACAEngine::Drivers::Compiler.build_driver(
+        "drivers/aca/private_helper.cr",
+        repository_drivers: File.join(ACAEngine::Drivers::Compiler.repository_dir, "private_drivers"),
+        git_checkout: false
+      )
 
       # Ensure the driver we want to test exists
-      driver_file = File.join(ACAEngine::Drivers::Compiler.bin_dir, "drivers_aca_private_helper_cr_4f6e0cd")
-      File.exists?(driver_file).should be_true
+      executable = result[:executable]
+      File.exists?(executable).should be_true
 
       # Check it functions as expected SPEC_RUN_DRIVER
       io = IO::Memory.new
-      exit_status = Process.run(result[:executable],
-        env: {"SPEC_RUN_DRIVER" => driver_file},
+      exit_status = Process.run(spec_executable,
+        env: {"SPEC_RUN_DRIVER" => executable},
         input: Process::Redirect::Close,
         output: io,
         error: io
@@ -88,7 +98,10 @@ module ACAEngine::Drivers
       exit_status.should eq(0)
 
       # Delete the file
-      File.delete(result[:executable])
+      File.delete(executable)
+      File.delete(executable + ".dwarf")
+      File.delete(spec_executable)
+      File.delete(spec_executable + ".dwarf")
     end
   end
 end

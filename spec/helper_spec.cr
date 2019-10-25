@@ -15,8 +15,7 @@ module ACAEngine::Drivers
       commit = commits[0][:commit]
       result = helper.compile_driver("drivers/aca/private_helper.cr", "private_drivers", commit)
       result[:exit_status].should eq(0)
-      # "/Users/steve/Documents/projects/crystal-engine/crystal-engine-drivers/bin/drivers/drivers_aca_private_helper_cr_4f6e0cd"
-      result[:executable].ends_with?("/drivers_aca_private_helper_cr_4f6e0cd").should be_true
+      result[:executable].ends_with?("/drivers_aca_private_helper_#{commit}").should be_true
     end
   end
 end
