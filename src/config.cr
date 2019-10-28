@@ -22,7 +22,6 @@ require "action-controller/server"
 ActionController::Server.before(
   HTTP::ErrorHandler.new(!PROD),
   ActionController::LogHandler.new(filters),
-  HTTP::CompressHandler.new
 )
 
 # Optional support for serving of static assests
