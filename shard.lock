@@ -32,9 +32,17 @@ shards:
     github: Sija/ipaddress.cr
     version: 0.2.1
 
+  jwt:
+    github: crystal-community/jwt
+    version: 1.1.2
+
   kilt:
     github: jeromegn/kilt
     version: 0.5.0
+
+  openssl_ext:
+    github: stakach/openssl_ext
+    version: 1.0.0
 
   pool:
     github: ysbaddaden/pool

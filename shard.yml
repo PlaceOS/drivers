@@ -23,3 +23,6 @@ dependencies:
 
   telnet:
     github: spider-gazelle/telnet.cr
+
+  jwt:
+    github: crystal-community/jwt
