@@ -76,14 +76,13 @@ module ACAEngine::Drivers
       end
 
       files = if commit
-                exec_name = Compiler.executable_name(driver)
-                ["#{exec_name}_#{commit}"]
+                [Compiler.executable_name(driver, commit)]
               else
                 Compiler.compiled_drivers(driver)
               end
 
       files.each do |file|
-        File.delete File.join(Compiler.bin_dir, file)
+        File.delete(File.join(Compiler.bin_dir, file))
       end
       files
     end
