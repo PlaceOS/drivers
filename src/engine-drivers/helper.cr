@@ -14,13 +14,11 @@ module ACAEngine::Drivers
     # Returns a list of driver source file paths in a repository
     # defaults to ACA repository, i.e. this one
     def drivers(repository : String? = nil) : Array(String)
-      result = [] of String
       Dir.cd(get_repository_path(repository)) do
-        Dir.glob("drivers/**/*.cr") do |file|
-          result << file unless file.ends_with?("_spec.cr")
+        Dir.glob("drivers/**/*.cr").select do |file|
+          !file.ends_with?("_spec.cr")
         end
       end
-      result
     end
 
     # Returns a list of compiled driver file paths
@@ -46,15 +44,20 @@ module ACAEngine::Drivers
       GitCommands.repository_commits(get_repository_path(repository), count)
     end
 
-    # File level commits
-    # [{commit:, date:, author:, subject:}, ...]
-    def commits(driver : String, repository : String? = nil, count = 50)
-      GitCommands.commits(driver, count, get_repository_path(repository))
-    end
-
     # Returns the latest commit hash for a repository
     def repository_commit_hash(repository : String? = nil)
-      repository_commits(repository, 1)[0][:commit]
+      repository_commits(repository, 1).first[:commit]
+    end
+
+    # File level commits
+    # [{commit:, date:, author:, subject:}, ...]
+    def commits(file_path : String, repository : String? = nil, count = 50)
+      GitCommands.commits(file_path, count, get_repository_path(repository))
+    end
+
+    # Returns the latest commit hash for a file
+    def file_commit_hash(file_path : String, repository : String? = nil)
+      commits(file_path, repository, 1).first[:commit]
     end
 
     # Takes a file path with a repository path and compiles it
