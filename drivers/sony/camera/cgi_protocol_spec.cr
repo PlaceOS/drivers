@@ -10,4 +10,5 @@ EngineSpec.mock_driver "Floorsense::Desks" do
 
   # What the function should return (for use in making further requests)
   retval.get.not_nil!["AbsoluteZoom"].should eq("609")
+  status[:pan].should eq(87040)
 end

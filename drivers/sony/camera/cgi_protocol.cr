@@ -37,6 +37,10 @@ class Sony::Camera::CGI < ACAEngine::Driver
     self[:has_discrete_zoom] = true
 
     schedule.every(60.seconds) { query_status }
+    schedule.in(5.seconds) do
+      query_status
+      info?
+    end
     on_update
   end
 
@@ -139,7 +143,12 @@ class Sony::Camera::CGI < ACAEngine::Driver
   end
 
   def info?
-    query("/command/inquiry.cgi?inq=ptzf", priority: 0) do |response|
+    query("/command/inquiry.cgi?inq=system", priority: 0) do |response|
+      response.each do |key, value|
+        if {"ModelName", "Serial", "SoftVersion", "ModelForm", "CGIVersion"}.includes?(key)
+          self[key.underscore] = value
+        end
+      end
       response
     end
   end
@@ -172,6 +181,10 @@ class Sony::Camera::CGI < ACAEngine::Driver
     when MoveablePosition::Up, MoveablePosition::Down,
          MoveablePosition::Left, MoveablePosition::Right
       # Tilt, Pan
+      if @invert_controls && (position.up? || position.down?)
+        position = position.up? ? MoveablePosition::Down : MoveablePosition::Up
+      end
+
       action("/command/ptzf.cgi?Move=#{position.to_s.downcase},0,image#{index}",
         name: "moving"
       ) { self[:moving] = @moving = true }
@@ -224,6 +237,8 @@ class Sony::Camera::CGI < ACAEngine::Driver
     range = -100..100
     in_range range, pan_speed
     in_range range, tilt_speed
+
+    tilt_speed = -tilt_speed if @invert_controls && tilt_speed != 0
 
     action("/command/ptzf.cgi?ContinuousPanTiltZoom=#{pan_speed.to_s(16)},#{tilt_speed.to_s(16)},0,image#{index}",
       name: "moving"
