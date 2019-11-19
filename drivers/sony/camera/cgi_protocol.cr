@@ -53,6 +53,15 @@ class Sony::Camera::CGI < ACAEngine::Driver
     self[:presets] = @presets.keys
   end
 
+  # 24bit twos complement
+  private def twos_complement(value)
+    if value > 0
+      value > 0x80000 ? -(((~(value & 0xFFFFF)) + 1) & 0xFFFFF) : value
+    else
+      ((~(-value & 0xFFFFF)) + 1) & 0xFFFFF
+    end
+  end
+
   private def query(path, **opts, &block : Hash(String, String) -> _)
     queue(**opts) do |task|
       response = get(path)
@@ -88,23 +97,23 @@ class Sony::Camera::CGI < ACAEngine::Driver
           #              Pan,  Tilt, Zoom,Focus
           # AbsolutePTZF=15400,fd578,0000,ca52
           parts = value.split(",")
-          self[:pan] = @pan = parts[0].to_i(16)
-          self[:tilt] = @tilt = parts[1].to_i(16)
+          self[:pan] = @pan = twos_complement parts[0].to_i(16)
+          self[:tilt] = @tilt = twos_complement parts[1].to_i(16)
           self[:zoom] = @zoom = parts[2].to_i(16)
 
         when "PanMovementRange"
           # PanMovementRange=eac00,15400
           parts = value.split(",")
-          pan_max = parts[0].to_i(16)
-          pan_min = parts[1].to_i(16)
+          pan_min = twos_complement parts[0].to_i(16)
+          pan_max = twos_complement parts[1].to_i(16)
           @pan_range = pan_min..pan_max
           self[:pan_range] = {min: pan_min, max: pan_max}
 
         when "TiltMovementRange"
           # TiltMovementRange=fc400,b400
           parts = value.split(",")
-          tilt_max = parts[0].to_i(16)
-          tilt_min = parts[1].to_i(16)
+          tilt_min = twos_complement parts[0].to_i(16)
+          tilt_max = twos_complement parts[1].to_i(16)
           @tilt_range = tilt_min..tilt_max
           self[:tilt_range] = {min: tilt_min, max: tilt_max}
 
@@ -154,13 +163,13 @@ class Sony::Camera::CGI < ACAEngine::Driver
   end
 
   private def action(path, **opts, &block : HTTP::Client::Response -> _)
-      queue(**opts) do |task|
-        response = get(path)
-        raise "request error #{response.status_code}\n#{response.body}" unless response.success?
+    queue(**opts) do |task|
+      response = get(path)
+      raise "request error #{response.status_code}\n#{response.body}" unless response.success?
 
-        result = block.call(response)
-        task.success result
-      end
+      result = block.call(response)
+      task.success result
+    end
   end
 
   # Implement Stoppable interface
@@ -172,6 +181,7 @@ class Sony::Camera::CGI < ACAEngine::Driver
     ) do
       zoom ZoomDirection::Stop if @zooming
       self[:moving] = @moving = false
+      query_status
     end
   end
 
@@ -206,6 +216,7 @@ class Sony::Camera::CGI < ACAEngine::Driver
                 else
                   {{value}} < {{range}}.begin ? {{range}}.begin : {{range}}.end
                 end
+    {{value}} = twos_complement({{value}})
   end
 
   def pantilt(pan : Int32, tilt : Int32, zoom : Int32? = nil) : Nil
@@ -216,7 +227,7 @@ class Sony::Camera::CGI < ACAEngine::Driver
       in_range @zoom_range, zoom
 
       action("/command/ptzf.cgi?AbsolutePTZF=#{pan.to_s(16)},#{tilt.to_s(16)},#{zoom.to_s(16)}",
-        name: "moving"
+        name: "position"
       ) do
         self[:pan] = @pan = pan
         self[:tilt] = @tilt = tilt
@@ -224,7 +235,7 @@ class Sony::Camera::CGI < ACAEngine::Driver
       end
     else
       action("/command/ptzf.cgi?AbsolutePanTilt=#{pan.to_s(16)},#{tilt.to_s(16)},#{@max_speed.to_s(16)}",
-        name: "moving"
+        name: "position"
       ) do
         self[:pan] = @pan = pan
         self[:tilt] = @tilt = tilt
@@ -269,6 +280,12 @@ class Sony::Camera::CGI < ACAEngine::Driver
     end
   end
 
+  def home
+    action("/command/presetposition.cgi?HomePos=ptz-recall",
+        name: "position"
+    ) { query_status }
+  end
+
   def recall(position : String, index : Int32 | String = 1)
     preset = @presets[position]?
     if preset
@@ -279,6 +296,16 @@ class Sony::Camera::CGI < ACAEngine::Driver
   end
 
   def save_position(name : String, index : Int32 | String = 1)
-    # TODO::
+    @presets[name] = {
+      pan: @pan, tilt: @tilt, zoom: @zoom
+    }
+    # TODO:: persist this to the database
+    self[:presets] = @presets.keys
+  end
+
+  def delete_position(name : String, index : Int32 | String = 1)
+    @presets.delete name
+    # TODO:: persist this to the database
+    self[:presets] = @presets.keys
   end
 end
