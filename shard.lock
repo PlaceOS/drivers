@@ -2,7 +2,7 @@ version: 1.0
 shards:
   action-controller:
     github: spider-gazelle/action-controller
-    version: 2.0.2
+    version: 2.2.1
 
   bisect:
     github: spider-gazelle/bisect
@@ -18,7 +18,7 @@ shards:
 
   engine-driver:
     github: aca-labs/crystal-engine-driver
-    commit: 1176541d189384acbd797dddd97b317753a1ff29
+    commit: 24c9391e487217342717800dc91562fa3b991e52
 
   exec_from:
     github: aca-labs/exec_from
@@ -38,7 +38,7 @@ shards:
 
   kilt:
     github: jeromegn/kilt
-    version: 0.5.0
+    version: 0.6.0
 
   openssl_ext:
     github: stakach/openssl_ext
@@ -66,7 +66,7 @@ shards:
 
   redis:
     github: stefanwille/crystal-redis
-    version: 2.2.1
+    version: 2.5.0
 
   retriable:
     github: Sija/retriable.cr
@@ -78,7 +78,7 @@ shards:
 
   ssh2:
     github: spider-gazelle/ssh2.cr
-    commit: fd9946c951eea33636b38cac999c6deeb0ca28ef
+    commit: 71573443ff24a2ce727f0e8998bc0f65ca9da216
 
   tasker:
     github: spider-gazelle/tasker
