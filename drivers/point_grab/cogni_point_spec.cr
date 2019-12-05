@@ -1,4 +1,3 @@
-
 EngineSpec.mock_driver "PointGrab::CogniPoint" do
   # Send the request
   retval = exec(:get_token)

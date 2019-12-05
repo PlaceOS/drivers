@@ -1,6 +1,7 @@
 require "engine-driver/interface/camera"
 
 module Sony; end
+
 module Sony::Camera; end
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
@@ -19,9 +20,9 @@ class Sony::Camera::CGI < ACAEngine::Driver
       password: "Admin_1234",
     },
     invert_controls: false,
-    presets: {
-      name: { pan: 1, tilt: 1, zoom: 1 }
-    }
+    presets:         {
+      name: {pan: 1, tilt: 1, zoom: 1},
+    },
   })
 
   enum Movement
@@ -100,7 +101,6 @@ class Sony::Camera::CGI < ACAEngine::Driver
           self[:pan] = @pan = twos_complement parts[0].to_i(16)
           self[:tilt] = @tilt = twos_complement parts[1].to_i(16)
           self[:zoom] = @zoom = parts[2].to_i(16)
-
         when "PanMovementRange"
           # PanMovementRange=eac00,15400
           parts = value.split(",")
@@ -108,7 +108,6 @@ class Sony::Camera::CGI < ACAEngine::Driver
           pan_max = twos_complement parts[1].to_i(16)
           @pan_range = pan_min..pan_max
           self[:pan_range] = {min: pan_min, max: pan_max}
-
         when "TiltMovementRange"
           # TiltMovementRange=fc400,b400
           parts = value.split(",")
@@ -116,7 +115,6 @@ class Sony::Camera::CGI < ACAEngine::Driver
           tilt_max = twos_complement parts[1].to_i(16)
           @tilt_range = tilt_min..tilt_max
           self[:tilt_range] = {min: tilt_min, max: tilt_max}
-
         when "ZoomMovementRange"
           #                    min, max, digital
           # ZoomMovementRange=0000,4000,7ac0
@@ -125,7 +123,6 @@ class Sony::Camera::CGI < ACAEngine::Driver
           zoom_max = parts[1].to_i(16)
           @zoom_range = zoom_min..zoom_max
           self[:zoom_range] = {min: zoom_min, max: zoom_max}
-
         when "PtzfStatus"
           # PtzfStatus=idle,idle,idle,idle
           parts = value.split(",").map { |state| Movement.parse(state) }[0..2]
@@ -141,9 +138,9 @@ class Sony::Camera::CGI < ACAEngine::Driver
           #  # ZoomMaxVelocity=8
           #  @zoom_speed = 1..value.to_i(16)
 
-          when "PanTiltMaxVelocity"
-            # PanTiltMaxVelocity=24
-            @max_speed = value.to_i(16)
+        when "PanTiltMaxVelocity"
+          # PanTiltMaxVelocity=24
+          @max_speed = value.to_i(16)
         end
       end
 
@@ -198,13 +195,10 @@ class Sony::Camera::CGI < ACAEngine::Driver
       action("/command/ptzf.cgi?Move=#{position.to_s.downcase},0,image#{index}",
         name: "moving"
       ) { self[:moving] = @moving = true }
-
     when MoveablePosition::In
       zoom ZoomDirection::In
-
     when MoveablePosition::Out
       zoom ZoomDirection::Out
-
     else
       raise "unsupported direction: #{position}"
     end
@@ -282,7 +276,7 @@ class Sony::Camera::CGI < ACAEngine::Driver
 
   def home
     action("/command/presetposition.cgi?HomePos=ptz-recall",
-        name: "position"
+      name: "position"
     ) { query_status }
   end
 
@@ -297,7 +291,7 @@ class Sony::Camera::CGI < ACAEngine::Driver
 
   def save_position(name : String, index : Int32 | String = 1)
     @presets[name] = {
-      pan: @pan, tilt: @tilt, zoom: @zoom
+      pan: @pan, tilt: @tilt, zoom: @zoom,
     }
     # TODO:: persist this to the database
     self[:presets] = @presets.keys

@@ -12,7 +12,7 @@ class PointGrab::CogniPoint < ACAEngine::Driver
 
   default_settings({
     user_id: "10000000",
-    app_key: "c5a6adc6-UUID-46e8-b72d-91395bce9565"
+    app_key: "c5a6adc6-UUID-46e8-b72d-91395bce9565",
   })
 
   @user_id : String = ""
@@ -50,7 +50,7 @@ class PointGrab::CogniPoint < ACAEngine::Driver
     response = post("/be/cp/oauth2/token", body: "grant_type=client_credentials", headers: {
       "Content-Type"  => "application/x-www-form-urlencoded",
       "Accept"        => "application/json",
-      "Authorization" => "Basic #{Base64.strict_encode("#{@user_id}:#{@app_key}")}"
+      "Authorization" => "Basic #{Base64.strict_encode("#{@user_id}:#{@app_key}")}",
     })
 
     body = response.body
@@ -250,15 +250,13 @@ class PointGrab::CogniPoint < ACAEngine::Driver
 
   def building_areas(site_id : String, building_id : String)
     floors = get_request("/be/cp/v2/sites/#{site_id}/buildings/#{building_id}/areas", NamedTuple(
-      floorsAreas: FloorAreas
-    ))
+      floorsAreas: FloorAreas))
     floors[:floorsAreas]
   end
 
   def areas(site_id : String, building_id : String, floor_id : String)
     areas = get_request("/be/cp/v2/sites/#{site_id}/buildings/#{building_id}/floors/#{floor_id}/areas", NamedTuple(
-      areas: Array(Area)
-    ))
+      areas: Array(Area)))
     areas[:areas]
   end
 
@@ -281,8 +279,7 @@ class PointGrab::CogniPoint < ACAEngine::Driver
 
   def handlers
     handlers = get_request("/be/cp/v2/resources/handlers", NamedTuple(
-      handlers: Array(Handler)
-    ))
+      handlers: Array(Handler)))
     handlers[:handlers]
   end
 
@@ -319,8 +316,8 @@ class PointGrab::CogniPoint < ACAEngine::Driver
       body: "subscriptionType=PUSH&notificationType=#{events.to_s.upcase}&endpoint=#{handler_uri}&token=#{auth_token}",
       headers: {
         "Content-Type"  => "application/x-www-form-urlencoded",
-        "Accept" => "application/json",
-        "Authorization" => token
+        "Accept"        => "application/json",
+        "Authorization" => token,
       }
     )
 
@@ -343,8 +340,8 @@ class PointGrab::CogniPoint < ACAEngine::Driver
     token = get_token
     delete("/be/cp/v2/telemetry/subscriptions/#{id}",
       headers: {
-        "Accept" => "application/json",
-        "Authorization" => token
+        "Accept"        => "application/json",
+        "Authorization" => token,
       }
     ).success?
   end
@@ -355,8 +352,8 @@ class PointGrab::CogniPoint < ACAEngine::Driver
       body: "started=#{started}",
       headers: {
         "Content-Type"  => "application/x-www-form-urlencoded",
-        "Accept" => "application/json",
-        "Authorization" => token
+        "Accept"        => "application/json",
+        "Authorization" => token,
       }
     ).success?
   end
@@ -370,7 +367,7 @@ class PointGrab::CogniPoint < ACAEngine::Driver
     property area_id : String
     property devices : Array(String)
 
-     @[JSON::Field(key: "type")]
+    @[JSON::Field(key: "type")]
     property event_type : String
     property timestamp : UInt64
     property count : Int32
