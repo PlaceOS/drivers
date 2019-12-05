@@ -143,8 +143,8 @@ class Floorsense::Desks < ACAEngine::Driver
     uri = "/restapi/floorplan-desk?planid=#{group_id}"
 
     response = get(uri, headers: {
-      "Accept" => "application/json",
-      "Authorization" => token
+      "Accept"        => "application/json",
+      "Authorization" => token,
     })
 
     if response.success?
@@ -203,8 +203,8 @@ class Floorsense::Desks < ACAEngine::Driver
     uri = "/restapi/user-locate?name=#{URI.encode_www_form user}"
 
     response = get(uri, headers: {
-      "Accept" => "application/json",
-      "Authorization" => token
+      "Accept"        => "application/json",
+      "Authorization" => token,
     })
 
     if response.success?
