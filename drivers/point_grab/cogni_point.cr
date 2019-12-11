@@ -312,10 +312,16 @@ class PointGrab::CogniPoint < ACAEngine::Driver
     handler_uri = URI.encode_www_form handler_uri
 
     token = get_token
-    response = post("/be/cp/v2/telemetry/subscriptions",
-      body: "subscriptionType=PUSH&notificationType=#{events.to_s.upcase}&endpoint=#{handler_uri}&token=#{auth_token}",
+    response = post(
+      "/be/cp/v2/telemetry/subscriptions",
+      body: {
+        subscriptionType: "PUSH",
+        notificationType: events.to_s.upcase,
+        endpoint:         handler_uri,
+        token:            auth_token,
+      }.to_json,
       headers: {
-        "Content-Type"  => "application/x-www-form-urlencoded",
+        "Content-Type"  => "application/json",
         "Accept"        => "application/json",
         "Authorization" => token,
       }
@@ -348,10 +354,11 @@ class PointGrab::CogniPoint < ACAEngine::Driver
 
   def update_subscription(id : String, started : Bool = true)
     token = get_token
-    patch("/be/cp/v2/telemetry/subscriptions/#{id}",
-      body: "started=#{started}",
+    patch(
+      "/be/cp/v2/telemetry/subscriptions/#{id}",
+      body: {started: started}.to_json,
       headers: {
-        "Content-Type"  => "application/x-www-form-urlencoded",
+        "Content-Type"  => "application/json",
         "Accept"        => "application/json",
         "Authorization" => token,
       }
