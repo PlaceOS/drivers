@@ -137,6 +137,7 @@ class PointGrab::CogniPoint < ACAEngine::Driver
 
     @[JSON::Field(key: "customerId")]
     property customer_id : String
+    property location : Location
   end
 
   def sites
@@ -307,9 +308,6 @@ class PointGrab::CogniPoint < ACAEngine::Driver
   def subscribe(handler_uri : String, auth_token : String = UUID.random.to_s, events : NotificationType = NotificationType::Counting)
     # Ensure the handler is a valid URI
     URI.parse handler_uri
-
-    # Encode the handler
-    handler_uri = URI.encode_www_form handler_uri
 
     token = get_token
     response = post(
