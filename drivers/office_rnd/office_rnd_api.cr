@@ -12,22 +12,26 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
     client_id:     "10000000",
     client_secret: "c5a6adc6-UUID-46e8-b72d-91395bce9565",
     scopes:        ["officernd.api.read", "officernd.api.write"],
+    test_auth:     false,
   })
 
   @client_id : String = ""
-  @client_secrets : String = ""
+  @client_secret : String = ""
   @scopes : Array(String) = [] of String
 
+  @test_auth : Bool = false
   @auth_token : String = ""
   @auth_expiry : Time = 1.minute.ago
 
   def on_load
     on_update
+    @test_auth = setting(Bool, :test_auth)
   end
 
   def on_update
     @client_id = setting(String, :client_id)
-    @app_key = setting(String, :app_key)
+    @client_secret = setting(String, :client_secret)
+    @scopes = setting(Array(String), :scopes)
   end
 
   def expire_token!
@@ -40,11 +44,11 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
 
   def get_token
     return @auth_token unless token_expired?
-    auth_route = "https://identity.officernd.com/oauth/token"
+    auth_route = @test_auth ? "localhost:17839/oauth/token" : "https://identity.officernd.com/oauth/token"
     params = HTTP::Params.encode({
-      "client_secret" => client_secret,
+      "client_secret" => @client_secret,
       "grant_type"    => "client_credentials",
-      "scope"         => scopes.join(' '),
+      "scope"         => @scopes.join(' '),
     })
     headers = HTTP::Headers{
       "Content-Type" => "application/x-www-form-urlencoded",
@@ -59,9 +63,8 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
 
     if response.success?
       resp = TokenResponse.from_json(body.as(IO))
-      token = resp.token
       @auth_expiry = Time.utc + (resp.expires_in - 5).seconds
-      @auth_token = "Bearer #{resp.token}"
+      @auth_token = "Bearer #{resp.access_token}"
     else
       logger.error "authentication failed with HTTP #{response.status_code}"
       raise "failed to obtain access token"
@@ -115,8 +118,8 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
     team_id : String? = nil,
     member_id : String? = nil,
     description : String? = nil,
-    tentative : Boolean? = nil,
-    free : Boolean? = nil
+    tentative : Bool? = nil,
+    free : Bool? = nil
   )
     create_booking [Booking.new(
       resource_id: resource_id,
@@ -139,8 +142,8 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
     team_id: String?,
     member_id: String?,
     description: String?,
-    tentative: Boolean?,
-    free: Boolean?,
+    tentative: Bool?,
+    free: Bool?,
   )
 
   def create_bookings(bookings : Array(BookingArgument))
@@ -180,7 +183,11 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
   # Data Models
   #############################################################################
 
-  struct TokenResponse
+  abstract struct Data
+    include JSON::Serializable
+  end
+
+  struct TokenResponse < Data
     include JSON::Serializable
     property access_token : String
     property token_type : String
@@ -200,47 +207,6 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
     getter image : String?
     @[JSON::Field(key: "isOpen")]
     getter is_open : Bool?
-  end
-
-  struct Booking < Data
-    @[JSON::Field(key: "start")]
-    getter booking_start : BookingTime
-    @[JSON::Field(key: "end")]
-    getter booking_end : BookingTime
-    getter timezone : String # TODO: handle timezones
-    getter source : String?
-    getter summary : String?
-    @[JSON::Field(key: "resourceId")]
-    getter resource_id : String
-    @[JSON::Field(key: "plan")]
-    getter plan_id : String
-    @[JSON::Field(key: "team")]
-    getter team_id : String?
-    @[JSON::Field(key: "member")]
-    getter member_id : String?
-    getter description : String?
-    getter tentative : Boolean?
-    getter free : Boolean?
-    getter fees : Array(BookingFee)
-    getter extras : JSON::Any
-
-    def initialize(
-      @resource_id : String,
-      booking_start : Time,
-      booking_end : Time,
-      @summary : String? = nil,
-      @team_id : String? = nil,
-      @member_id : String? = nil,
-      @description : String? = nil,
-      @tentative : Boolean? = nil,
-      @free : Boolean? = nil
-    )
-      unless @member_id || @team_id
-        raise "Booking requires at least one of team_id or member_id"
-      end
-      @booking_start = BookingTime.new(booking_start)
-      @booking_end = BookingTime.new(booking_end)
-    end
   end
 
   struct BookingTime < Data
@@ -271,11 +237,52 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
     getter member_id : String?
     @[JSON::Field(key: "plan")]
     getter plan_id : String?
-    getter refundable : Boolean?
+    getter refundable : Bool?
     @[JSON::Field(key: "billInAdvance")]
-    getter bill_in_advance : Boolean?
+    getter bill_in_advance : Bool?
     @[JSON::Field(key: "isPersonal")]
-    getter is_personal : Boolean?
+    getter is_personal : Bool?
+  end
+
+  struct Booking < Data
+    @[JSON::Field(key: "start")]
+    getter booking_start : BookingTime
+    @[JSON::Field(key: "end")]
+    getter booking_end : BookingTime
+    getter timezone : String = "Australia/Sydney"
+    getter source : String?
+    getter summary : String?
+    @[JSON::Field(key: "resourceId")]
+    getter resource_id : String
+    @[JSON::Field(key: "plan")]
+    getter plan_id : String = ""
+    @[JSON::Field(key: "team")]
+    getter team_id : String?
+    @[JSON::Field(key: "member")]
+    getter member_id : String?
+    getter description : String?
+    getter tentative : Bool?
+    getter free : Bool?
+    getter fees : Array(BookingFee) = [] of BookingFee
+    getter extras : JSON::Any = JSON::Any.new("")
+
+    def initialize(
+      @resource_id : String,
+      booking_start : Time,
+      booking_end : Time,
+      @summary : String? = nil,
+      @team_id : String? = nil,
+      @member_id : String? = nil,
+      @description : String? = nil,
+      @tentative : Bool? = nil,
+      @free : Bool? = nil
+    )
+      unless @member_id || @team_id
+        raise "Booking requires at least one of team_id or member_id"
+      end
+      @booking_start = BookingTime.new(booking_start)
+      @booking_end = BookingTime.new(booking_end)
+    end
   end
 
   struct Credit < Data
@@ -283,12 +290,47 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
     getter credit : String
   end
 
+  struct Rate < Data
+    @[JSON::Field(key: "_id")]
+    getter id : String
+    getter name : String
+    getter price : Int32
+    @[JSON::Field(key: "cancellationPolicy")]
+    getter cancellation_policy : CancellationPolicy
+    getter extras : Array(Extra)
+    @[JSON::Field(key: "maxDuration")]
+    getter max_duration : Int32
+
+    struct CancellationPolicy < Data
+      @[JSON::Field(key: "minimumPeriod")]
+      property minimum_period : Int32
+    end
+
+    struct Extra < Data
+      @[JSON::Field(key: "_id")]
+      getter id : String
+      getter name : String
+      getter price : Int32
+    end
+  end
+
   struct Resource < Data
     getter name : String
-    getter rate : Rate?
-    getter office : Office
-    getter room : Floor
+    @[JSON::Field(key: "rate")]
+    getter rate_id : String?
+    @[JSON::Field(key: "office")]
+    getter office_id : String
+    @[JSON::Field(key: "room")]
+    getter floor_id : String
     getter type : Type
+
+    MAPPING = {
+      Type::MeetingRoom       => "meeting_room",
+      Type::PrivateOffices    => "team_room",
+      Type::PrivateOfficeDesk => "desk_tr",
+      Type::DedicatedDesks    => "desk",
+      Type::HotDesks          => "hotdesk",
+    }
 
     enum Type
       MeetingRoom
@@ -297,32 +339,20 @@ class OfficeRnd::OfficeRndAPI < ACAEngine::Driver
       DedicatedDesks
       HotDesks
 
-      MAPPING = {
-        MeetingRoom       => "meeting_room",
-        PrivateOffices    => "team_room",
-        PrivateOfficeDesk => "desk_tr",
-        DedicatedDesks    => "desk",
-        HotDesks          => "hotdesk",
-      }
-
       def to_json(json : JSON::Builder)
         json.string(self.to_s)
       end
 
       def to_s
-        MAPPING[self]
+        Resource::MAPPING[self]
       end
 
       def parse(type : String)
-        parsed = MAPPING.key_for?(type)
+        parsed = Resource::MAPPING.key_for?(type)
         raise ArgumentError.new("Unrecognised Resource::Type '#{type}'") unless parsed
         parsed
       end
     end
-  end
-
-  private abstract struct Data
-    include JSON::Serializable
   end
 
   # Internal Helpers
