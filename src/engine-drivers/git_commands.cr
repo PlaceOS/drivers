@@ -292,7 +292,7 @@ module ACAEngine::Drivers
         if lock = locks[file]?
           lock
         else
-          locks[file] = Mutex.new
+          locks[file] = Mutex.new(:reentrant)
         end
       end
     end
