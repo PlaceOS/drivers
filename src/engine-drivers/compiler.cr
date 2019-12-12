@@ -53,9 +53,9 @@ module ACAEngine::Drivers
         end
 
         args = if debug
-                 {repository_drivers, "crystal", "build", "--error-trace", "--debug", "-o", executable_path, build_script}
+                 {repository_drivers, "crystal", "build", "--no-color", "--error-trace", "--debug", "-o", executable_path, build_script}
                else
-                 {repository_drivers, "crystal", "build", "--error-trace", "-o", executable_path, build_script}
+                 {repository_drivers, "crystal", "build", "--no-color", "--error-trace", "-o", executable_path, build_script}
                end
 
         compile_proc = ->do
