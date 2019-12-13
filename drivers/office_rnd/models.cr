@@ -158,18 +158,22 @@ module OfficeRnd
       DedicatedDesks
       HotDesks
 
-      def to_json(json : JSON::Builder)
-        json.string(self.to_s)
-      end
-
       def to_s
         Resource::MAPPING[self]
       end
 
-      def parse(type : String)
+      def to_json(json : JSON::Builder)
+        json.string(self.to_s)
+      end
+
+      def self.parse(type : String)
         parsed = Resource::MAPPING.key_for?(type)
         raise ArgumentError.new("Unrecognised Resource::Type '#{type}'") unless parsed
         parsed
+      end
+
+      def self.valid?(type : String)
+        !!(Resource::MAPPING.key_for?(type))
       end
     end
   end

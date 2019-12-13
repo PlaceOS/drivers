@@ -6,9 +6,11 @@ EngineSpec.mock_driver "OfficeRnd::OfficeRndApi" do
   expect_http_request do |request, response|
     case request.path
     when "/oauth/token"
-      data = HTTP::Params.parse request.body
+      data = request.body
+        .try(&.gets_to_end)
+        .try(&->HTTP::Params.parse(String))
       # The request is param encoded
-      if data["grant_type"] == "client_credentials" && data["client_secret"] == "c5a6adc6-UUID-46e8-b72d-91395bce9565"
+      if data && data["grant_type"] == "client_credentials" && data["client_secret"] == "c5a6adc6-UUID-46e8-b72d-91395bce9565"
         response.status_code = 200
         response.output.puts %({
           "access_token": "#{token}",

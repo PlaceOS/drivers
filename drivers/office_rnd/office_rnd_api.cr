@@ -186,12 +186,13 @@ module OfficeRnd
     # - office (office_id)
     # - resource name (name)
     def resources(
-      type : Resource::Type? = nil,
+      type : (Resource::Type | String)? = nil,
       name : String? = nil,
       office_id : String? = nil,
       available_from : Time? = nil,
       available_to : Time? = nil
     )
+      type = Resource::Type.parse(type) if type.is_a?(String)
       params = HTTP::Params.new
       params["type"] = type.to_s if type
       params["name"] = name if name
