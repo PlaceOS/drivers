@@ -11,7 +11,9 @@ module ACAEngine::Drivers::Api
         render json: ACAEngine::Drivers::Compiler.compiled_drivers
       else
         result = Dir.cd(get_repository_path) do
-          Dir.glob("drivers/**/*.cr").reject!(&.ends_with?("_spec.cr"))
+          Dir.glob("drivers/**/*.cr").reject! do |path|
+            path.ends_with?("_spec.cr") || !File.read_lines(path).any? &.includes?("< ACAEngine::Driver")
+          end
         end
 
         render json: result
