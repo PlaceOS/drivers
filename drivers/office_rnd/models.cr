@@ -82,7 +82,7 @@ module OfficeRnd
     getter description : String?
     getter tentative : Bool?
     getter free : Bool?
-    getter fees : Array(BookingFee) = [] of BookingFee
+    getter fees : Array(::OfficeRnd::BookingFee) = [] of ::OfficeRnd::BookingFee
     getter extras : JSON::Any = JSON::Any.new("")
 
     def initialize(
