@@ -13,7 +13,7 @@ module OfficeRnd
       client_id:     "10000000",
       client_secret: "c5a6adc6-UUID-46e8-b72d-91395bce9565",
       scopes:        ["officernd.api.read", "officernd.api.write"],
-      test_auth:     false,
+      test_auth:     true,
     })
 
     @client_id : String = ""
@@ -45,7 +45,7 @@ module OfficeRnd
 
     def get_token
       return @auth_token unless token_expired?
-      auth_route = @test_auth ? "localhost:17839/oauth/token" : "https://identity.officernd.com/oauth/token"
+      auth_route = @test_auth ? "http://localhost:17839/oauth/token" : "https://identity.officernd.com/oauth/token"
       params = HTTP::Params.encode({
         "client_secret" => @client_secret,
         "grant_type"    => "client_credentials",
@@ -63,7 +63,7 @@ module OfficeRnd
       logger.debug { "received login response: #{body}" }
 
       if response.success?
-        resp = TokenResponse.from_json(body.as(IO))
+        resp = TokenResponse.from_json(body)
         @auth_expiry = Time.utc + (resp.expires_in - 5).seconds
         @auth_token = "Bearer #{resp.access_token}"
       else
@@ -71,6 +71,9 @@ module OfficeRnd
         raise "failed to obtain access token"
       end
     end
+
+    # Booking
+    ###########################################################################
 
     # Get a booking
     def booking(booking_id : String)
@@ -89,7 +92,7 @@ module OfficeRnd
       params["member"] = member_id if member_id
       params["team"] = team_id if team_id
       query_string = params.to_s
-      url = query_string.empty? ? "/resources" : "/resources?#{query_string}"
+      url = query_string.empty? ? "/bookings" : "/bookings?#{query_string}"
       get_request(url, Array(Booking))
     end
 
@@ -102,11 +105,15 @@ module OfficeRnd
     # Make a booking
     #
     def create_bookings(bookings : Array(Booking))
-      response = post("/bookingsbe/cp/oauth2/token", body: bookings.to_json, headers: {
+      response = post("/bookings", body: bookings.to_json, headers: {
         "Content-Type"  => "application/json",
         "Accept"        => "application/json",
         "Authorization" => get_token,
       })
+      unless response.success?
+        expire_token! if response.status_code == 401
+        raise "unexpected response #{response.status_code}\n#{response.body}"
+      end
     end
 
     # Create a booking
@@ -122,7 +129,7 @@ module OfficeRnd
       tentative : Bool? = nil,
       free : Bool? = nil
     )
-      create_booking [Booking.new(
+      create_bookings [Booking.new(
         resource_id: resource_id,
         booking_start: booking_start,
         booking_end: booking_end,
@@ -151,12 +158,25 @@ module OfficeRnd
       create_bookings(bookings.map { |booking| Booking.new(**booking) })
     end
 
+    # Office
+    ###########################################################################
+
     # List offices
     #
-    def offices(name : String? = nil)
-      url = name ? "/bookings" : "/bookings?name=#{name}"
+    def offices
+      url = "/offices"
       get_request(url, Array(Office))
     end
+
+    # Retrieve office
+    #
+    def office(name : String)
+      url = "/offices/#{name}"
+      get_request(url, Office)
+    end
+
+    # Resource
+    ###########################################################################
 
     # Get available rooms (resources) by
     # - type
@@ -193,7 +213,7 @@ module OfficeRnd
         })
 
         if %response.success?
-          {{result_type}}.from_json(%response.body.as(IO))
+          {{result_type}}.from_json(%response.body)
         else
           expire_token! if %response.status_code == 401
           raise "unexpected response #{%response.status_code}\n#{%response.body}"
