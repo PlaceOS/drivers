@@ -102,6 +102,14 @@ module OfficeRnd
       @booking_start = BookingTime.new(booking_start)
       @booking_end = BookingTime.new(booking_end)
     end
+
+    def overlaps?(time_span : Range(Time, Time))
+      starting, ending = booking_start.time, booking_end.time
+      within = time_span.includes?(starting) || time_span.includes?(ending)
+      covers = starting < time_span.begin && ending > time_span.end
+
+      within || covers
+    end
   end
 
   struct Credit < Data
