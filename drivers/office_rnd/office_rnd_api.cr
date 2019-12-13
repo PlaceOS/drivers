@@ -47,6 +47,7 @@ module OfficeRnd
       return @auth_token unless token_expired?
       auth_route = @test_auth ? "http://localhost:17839/oauth/token" : "https://identity.officernd.com/oauth/token"
       params = HTTP::Params.encode({
+        "client_id"     => @client_id,
         "client_secret" => @client_secret,
         "grant_type"    => "client_credentials",
         "scope"         => @scopes.join(' '),
@@ -56,8 +57,9 @@ module OfficeRnd
         "Accept"       => "application/json",
       }
       response = HTTP::Client.post(
-        url: "#{auth_route}?#{params}",
+        url: auth_route,
         headers: headers,
+        body: params,
       )
       body = response.body
       logger.debug { "received login response: #{body}" }
