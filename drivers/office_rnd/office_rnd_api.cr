@@ -97,7 +97,28 @@ module OfficeRnd
     # Booking
     ###########################################################################
 
+    # Get bookings for a resource for a given time span
+    #
+    def resource_bookings(
+      resource_id : String,
+      range_start : Time = Time.utc - 5.minutes,
+      range_end : Time = Time.utc + 24.hours,
+      office_id : String? = nil,
+      member_id : String? = nil,
+      team_id : String? = nil
+    ) : Array(Booking)
+      time_span = (range_start..range_end)
+      bookings(
+        office_id: office_id,
+        member_id: member_id,
+        team_id: team_id,
+      ).select! do |booking|
+        booking.resource_id == resource_id && booking.overlaps?(time_span)
+      end
+    end
+
     # Get a booking
+    #
     def booking(booking_id : String)
       get_request("/bookings/#{booking_id}", Booking)
     end
