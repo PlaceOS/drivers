@@ -74,6 +74,26 @@ module OfficeRnd
       end
     end
 
+    # Floor
+    ###########################################################################
+
+    # Get a floor
+    #
+    def floor(floor_id : String)
+      get_request("/floors/#{floor_id}", Floor)
+    end
+
+    # Get floors
+    #
+    def floors(office_id : String?, name : String?)
+      params = HTTP::Params.new
+      params["office"] = office_id if office_id
+      params["name"] = name if name
+      query_string = params.to_s
+      path = query_string.empty? ? "/floors" : "/floors?#{query_string}"
+      get_request(path, Array(Floor))
+    end
+
     # Booking
     ###########################################################################
 
@@ -82,7 +102,7 @@ module OfficeRnd
       get_request("/bookings/#{booking_id}", Booking)
     end
 
-    # Get bookings in a date range for a particular room
+    # Get bookings
     #
     def bookings(
       office_id : String? = nil,
@@ -94,8 +114,8 @@ module OfficeRnd
       params["member"] = member_id if member_id
       params["team"] = team_id if team_id
       query_string = params.to_s
-      url = query_string.empty? ? "/bookings" : "/bookings?#{query_string}"
-      get_request(url, Array(Booking))
+      path = query_string.empty? ? "/bookings" : "/bookings?#{query_string}"
+      get_request(path, Array(Booking))
     end
 
     # Delete a booking
@@ -166,15 +186,15 @@ module OfficeRnd
     # List offices
     #
     def offices
-      url = "/offices"
-      get_request(url, Array(Office))
+      path = "/offices"
+      get_request(path, Array(Office))
     end
 
     # Retrieve office
     #
     def office(name : String)
-      url = "/offices/#{name}"
-      get_request(url, Office)
+      path = "/offices/#{name}"
+      get_request(path, Office)
     end
 
     # Resource
@@ -200,8 +220,8 @@ module OfficeRnd
       params["availableFrom"] = available_from.to_s if available_from
       params["availableTo"] = available_to.to_s if available_to
       query_string = params.to_s
-      url = query_string.empty? ? "/resources" : "/resources?#{query_string}"
-      get_request(url, Array(Resource))
+      path = query_string.empty? ? "/resources" : "/resources?#{query_string}"
+      get_request(path, Array(Resource))
     end
 
     # Internal Helpers
