@@ -177,4 +177,18 @@ module OfficeRnd
       end
     end
   end
+
+  struct Floor < Data
+    @[JSON::Field(key: "_id")]
+    getter id : String
+    getter floor : String?
+    getter name : String
+    @[JSON::Field(key: "office")]
+    getter office_id : String
+    getter area : Int32?
+    @[JSON::Field(key: "isOpen")]
+    getter is_open : Bool?
+    @[JSON::Field(key: "targetRevenue")]
+    getter target_revenue : Int32?
+  end
 end
