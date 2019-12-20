@@ -17,6 +17,7 @@ dependencies:
 
   exec_from:
     github: aca-labs/exec_from
+    branch: master
 
   rwlock:
     github: spider-gazelle/readers-writer
