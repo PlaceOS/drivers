@@ -62,7 +62,10 @@ module ACAEngine::Drivers
           result = Process.run(
             "./bin/exec_from",
             args,
-            {"COMPILE_DRIVER" => source_file},
+            {
+              "COMPILE_DRIVER" => source_file,
+              "DEBUG" => debug ? "1" : "0"
+            },
             input: Process::Redirect::Close,
             output: io,
             error: io
