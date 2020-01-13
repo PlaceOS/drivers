@@ -20,13 +20,17 @@ shards:
     github: kostya/cron_parser
     version: 0.3.0
 
+  debug:
+    github: Sija/debug.cr
+    version: 1.1.0
+
   delimiter_tree:
     github: drujensen/delimiter_tree
     version: 0.1.4
 
   engine-driver:
     github: aca-labs/crystal-engine-driver
-    commit: 43054a2cbcec085cd61c68f629ddc2fe5d6b32c2
+    commit: 09342b85999fb849f1f4665e8c2120e85d913955
 
   exec_from:
     github: aca-labs/exec_from
