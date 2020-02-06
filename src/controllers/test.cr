@@ -30,8 +30,10 @@ module ACAEngine::Drivers::Api
 
     # Run the spec and return success if the exit status is 0
     def create
+      debug = params["debug"]? == "true"
+
       io = IO::Memory.new
-      exit_status = launch_spec(io)
+      exit_status = launch_spec(io, debug)
 
       render :not_acceptable, text: io.to_s if exit_status != 0
       render text: io.to_s
@@ -39,13 +41,15 @@ module ACAEngine::Drivers::Api
 
     # WS watch the output from running specs
     ws "/run_spec", :run_spec do |socket|
+      debug = params["debug"]? == "true"
+
       # Run the spec and pipe all the IO down the websocket
-      spawn { pipe_spec(socket) }
+      spawn { pipe_spec(socket, debug) }
     end
 
-    def pipe_spec(socket)
+    def pipe_spec(socket, debug)
       output, output_writer = IO.pipe
-      spawn { launch_spec(output_writer) }
+      spawn { launch_spec(output_writer, debug) }
 
       # Read data coming in from the IO and send it down the websocket
       raw_data = Bytes.new(1024)
@@ -64,19 +68,40 @@ module ACAEngine::Drivers::Api
       socket.close
     end
 
-    def launch_spec(io)
+    GDB_DRIVER_SERVER_PORT = ENV["GDB_DRIVER_SERVER_PORT"]? || "4444"
+    GDB_SPEC_SERVER_PORT = ENV["GDB_SPEC_SERVER_PORT"]? || "4445"
+
+    def launch_spec(io, debug)
       io << "\nLaunching spec runner\n"
-      exit_status = Process.run(
-        @spec_path,
-        {"--no-color"},
-        {"SPEC_RUN_DRIVER" => @driver_path},
-        input: Process::Redirect::Close,
-        output: io,
-        error: io
-      ).exit_status
-      io << "spec runner exited with #{exit_status}\n"
-      io.close
-      exit_status
+
+      if debug
+        exit_status = Process.run(
+          "gdbserver",
+          {"0.0.0.0:#{GDB_SPEC_SERVER_PORT}", @spec_path},
+          {
+            "SPEC_RUN_DRIVER" => @driver_path,
+            "SPEC_GDB_SERVER_PORT" => GDB_DRIVER_SERVER_PORT
+          },
+          input: Process::Redirect::Close,
+          output: io,
+          error: io
+        ).exit_status
+        io << "spec runner exited with #{exit_status}\n"
+        io.close
+        exit_status
+      else
+        exit_status = Process.run(
+          @spec_path,
+          nil,
+          {"SPEC_RUN_DRIVER" => @driver_path},
+          input: Process::Redirect::Close,
+          output: io,
+          error: io
+        ).exit_status
+        io << "spec runner exited with #{exit_status}\n"
+        io.close
+        exit_status
+      end
     end
 
     def ensure_driver_compiled

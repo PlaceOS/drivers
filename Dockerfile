@@ -2,9 +2,9 @@ FROM crystallang/crystal:0.32.1-alpine
 COPY . /src
 WORKDIR /src
 
-# Install the latest version of LibSSH2
+# Install the latest version of LibSSH2 and the GDB debugger
 RUN apk update
-RUN apk add libssh2 libssh2-dev
+RUN apk add libssh2 libssh2-dev gdb
 
 # Build App
 RUN rm -rf lib bin
