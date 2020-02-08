@@ -68,8 +68,7 @@ module ACAEngine::Drivers::Api
       socket.close
     end
 
-    GDB_DRIVER_SERVER_PORT = ENV["GDB_DRIVER_SERVER_PORT"]? || "4444"
-    GDB_SPEC_SERVER_PORT = ENV["GDB_SPEC_SERVER_PORT"]? || "4445"
+    GDB_SERVER_PORT = ENV["GDB_SERVER_PORT"]? || "4444"
 
     def launch_spec(io, debug)
       io << "\nLaunching spec runner\n"
@@ -77,11 +76,8 @@ module ACAEngine::Drivers::Api
       if debug
         exit_status = Process.run(
           "gdbserver",
-          {"0.0.0.0:#{GDB_SPEC_SERVER_PORT}", @spec_path},
-          {
-            "SPEC_RUN_DRIVER" => @driver_path,
-            "SPEC_GDB_SERVER_PORT" => GDB_DRIVER_SERVER_PORT
-          },
+          {"0.0.0.0:#{GDB_SERVER_PORT}", @spec_path},
+          {"SPEC_RUN_DRIVER" => @driver_path},
           input: Process::Redirect::Close,
           output: io,
           error: io
