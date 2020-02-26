@@ -2,7 +2,7 @@ version: 1.0
 shards:
   action-controller:
     github: spider-gazelle/action-controller
-    version: 2.3.2
+    version: 2.3.4
 
   bindata:
     github: spider-gazelle/bindata
@@ -70,7 +70,7 @@ shards:
 
   protobuf:
     github: jeromegn/protobuf.cr
-    version: 2.1.2
+    version: 2.2.0
 
   redis:
     github: stefanwille/crystal-redis
@@ -86,7 +86,7 @@ shards:
 
   ssh2:
     github: spider-gazelle/ssh2.cr
-    version: 1.2.3
+    version: 1.2.4
 
   tasker:
     github: spider-gazelle/tasker
