@@ -30,7 +30,11 @@ shards:
 
   engine-driver:
     github: aca-labs/crystal-engine-driver
-    commit: 258c605fd0b4e2a0df4687b3e39cc3fe539eb925
+    commit: 964b68a3211d87643bbf53e4ed6e5ee9e553d2dd
+
+  etcd:
+    github: aca-labs/crystal-etcd
+    version: 0.3.1
 
   exec_from:
     github: aca-labs/exec_from
@@ -39,6 +43,10 @@ shards:
   habitat:
     github: luckyframework/habitat
     version: 0.4.3
+
+  hound-dog:
+    github: aca-labs/hound-dog
+    version: 2.0.2
 
   ipaddress:
     github: Sija/ipaddress.cr
@@ -51,6 +59,10 @@ shards:
   kilt:
     github: jeromegn/kilt
     version: 0.6.0
+
+  murmur3:
+    github: aca-labs/murmur3
+    commit: 7cbe25c0ca8d052c9d98c377c824dcb0e038c790
 
   openssl_ext:
     github: stakach/openssl_ext
@@ -76,8 +88,12 @@ shards:
     github: stefanwille/crystal-redis
     version: 2.5.3
 
+  rendezvous-hash:
+    github: caspiano/rendezvous-hash
+    version: 0.3.1
+
   retriable:
-    github: Sija/retriable.cr
+    github: sija/retriable.cr
     version: 0.2.0
 
   rwlock:
@@ -99,4 +115,8 @@ shards:
   tokenizer:
     github: spider-gazelle/tokenizer
     version: 1.1.0
+
+  ulid:
+    github: aca-labs/ulid
+    version: 0.1.2
 
