@@ -31,7 +31,8 @@ module ACAEngine::Drivers
         )
       end
 
-      raise CommandFailure.new(result.exit_status, "git ls-files failed with #{result.exit_status} in path #{repository}") if result.exit_status != 0
+      exit_status = result.exit_status % 256
+      raise CommandFailure.new(exit_status, "git ls-files failed with #{exit_status} in path #{repository}") if exit_status != 0
 
       io.to_s.split("\n")
     end
@@ -55,7 +56,8 @@ module ACAEngine::Drivers
         )
       end
 
-      raise CommandFailure.new(result.exit_status, "git log failed with #{result.exit_status} in path #{repository}") if result.exit_status != 0
+      exit_status = result.exit_status % 256
+      raise CommandFailure.new(result.exit_status, "git log failed with #{exit_status} in path #{repository}") if exit_status != 0
 
       io.to_s.strip.split("<--\n\n-->")
         .reject(&.empty?)
@@ -83,7 +85,7 @@ module ACAEngine::Drivers
       end
 
       # File most likely doesn't exist
-      return "error" if result.exit_status != 0
+      return "error" if (result.exit_status % 256) != 0
       io.to_s.strip
     end
 
@@ -104,7 +106,8 @@ module ACAEngine::Drivers
         )
       end
 
-      raise CommandFailure.new(result.exit_status, "git log failed with #{result.exit_status} in path #{repository}") if result.exit_status != 0
+      exit_status = result.exit_status % 256
+      raise CommandFailure.new(exit_status, "git log failed with #{exit_status} in path #{repository}") if exit_status != 0
 
       io.to_s.strip.split("<--\n\n-->")
         .reject(&.empty?)
@@ -131,7 +134,9 @@ module ACAEngine::Drivers
               {repository, "git", "checkout", commit, "--", file}
             )
           end
-          raise CommandFailure.new(result.exit_status, "git checkout failed with #{result.exit_status} in path #{repository}") if result.exit_status != 0
+
+          exit_status = result.exit_status % 256
+          raise CommandFailure.new(exit_status, "git checkout failed with #{exit_status} in path #{repository}") if exit_status != 0
 
           yield file
         ensure
@@ -170,7 +175,7 @@ module ACAEngine::Drivers
           input: Process::Redirect::Close,
           output: io,
           error: io
-        ).exit_status
+        ).exit_status % 256
       end
 
       {
@@ -229,7 +234,7 @@ module ACAEngine::Drivers
       end
 
       {
-        exit_status: result,
+        exit_status: result % 256,
         output:      io.to_s,
       }
     end
@@ -270,7 +275,8 @@ module ACAEngine::Drivers
             error: Process::Redirect::Close
           ).exit_status
 
-          raise CommandFailure.new(result, "git reset --hard failed with #{result} in path #{repository}") if result != 0
+          exit_status = result % 256
+          raise CommandFailure.new(exit_status, "git reset --hard failed with #{exit_status} in path #{repository}") if exit_status != 0
           yield
         end
       end
