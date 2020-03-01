@@ -57,7 +57,7 @@ module ACAEngine::Drivers::Api
         render :not_acceptable, text: result[:output]
       end
 
-      response.headers["Location"] = "/build/#{URI.encode(driver)}"
+      response.headers["Location"] = "/build/#{URI.encode_www_form(driver)}"
       head :created
     end
 
