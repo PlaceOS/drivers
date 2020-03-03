@@ -1,0 +1,26 @@
+version: "3.7"
+services:
+  redis:
+    image: eqalpha/keydb
+    restart: always
+    container_name: redis
+    hostname: redis
+    environment:
+      - TZ=$TZ
+
+  drivers:
+    image: acaengine/drivers
+    restart: always
+    container_name: drivers
+    hostname: drivers
+    depends_on:
+      - redis
+    ports:
+      - 127.0.0.1:8085:8080
+      - 127.0.0.1:4444:4444
+    volumes:
+      - ./drivers/:/src/drivers/
+      - ./repositories/:/src/repositories/
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - TZ=$TZ
