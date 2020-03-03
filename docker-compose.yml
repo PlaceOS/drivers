@@ -9,6 +9,7 @@ services:
       - TZ=$TZ
 
   drivers:
+    build: .
     image: acaengine/drivers
     restart: always
     container_name: drivers
