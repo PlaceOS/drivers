@@ -4,9 +4,9 @@ require "uuid"
 module Relaxx
   SUCCESS = {
     Successful: true,
-    Cancelled: false,
+    Cancelled:  false,
     ResultText: "",
-    ResultCode: 0
+    ResultCode: 0,
   }
 
   def self.frame(data)
@@ -26,17 +26,17 @@ EngineSpec.mock_driver "Gantner::Relaxx::ProtocolJSON" do
 
   # Respond with auth A response
   transmit Relaxx.frame({
-    Caption: "AuthenticationResponseA",
-    Result: Relaxx::SUCCESS,
-    Id: UUID.random.to_s.upcase,
-    RequestId: id,
+    Caption:              "AuthenticationResponseA",
+    Result:               Relaxx::SUCCESS,
+    Id:                   UUID.random.to_s.upcase,
+    RequestId:            id,
     AuthenticationString: "wglgJg4kP8DHO+2+N6L8Hsu6mp3LSoe3/gIxDlZgu60=",
-    LoggedIn: false,
-    IsLoginCommand: true,
-    IsNotification: false,
-    IsResponse: true,
-    CustomTimeout: 0,
-    CompressContent: false
+    LoggedIn:             false,
+    IsLoginCommand:       true,
+    IsNotification:       false,
+    IsResponse:           true,
+    CustomTimeout:        0,
+    CompressContent:      false,
   })
 
   # Should send an auth B request
@@ -49,16 +49,16 @@ EngineSpec.mock_driver "Gantner::Relaxx::ProtocolJSON" do
 
   # Respond with auth B response
   transmit Relaxx.frame({
-    Caption: "AuthenticationResponseB",
-    Result: Relaxx::SUCCESS,
-    Id: UUID.random.to_s.upcase,
-    RequestId: id,
-    LoggedIn: true,
-    IsLoginCommand: true,
-    IsNotification: false,
-    IsResponse: true,
-    CustomTimeout: 0,
-    CompressContent: false
+    Caption:         "AuthenticationResponseB",
+    Result:          Relaxx::SUCCESS,
+    Id:              UUID.random.to_s.upcase,
+    RequestId:       id,
+    LoggedIn:        true,
+    IsLoginCommand:  true,
+    IsNotification:  false,
+    IsResponse:      true,
+    CustomTimeout:   0,
+    CompressContent: false,
   })
 
   # Expect a locker state query
@@ -70,39 +70,39 @@ EngineSpec.mock_driver "Gantner::Relaxx::ProtocolJSON" do
   locker_id2 = UUID.random.to_s
 
   transmit Relaxx.frame({
-    Caption: "GetLockersResponse",
-    Result: Relaxx::SUCCESS,
-    Id: UUID.random.to_s.upcase,
-    RequestId: id,
+    Caption:        "GetLockersResponse",
+    Result:         Relaxx::SUCCESS,
+    Id:             UUID.random.to_s.upcase,
+    RequestId:      id,
     IsNotification: false,
-    IsResponse: true,
-    Lockers: [{
-      RecordId: locker_id1,
-      LockerGroupId: UUID.random.to_s,
+    IsResponse:     true,
+    Lockers:        [{
+      RecordId:        locker_id1,
+      LockerGroupId:   UUID.random.to_s,
       LockerGroupName: "Example Group",
-      Number: "1",
-      Address: 21,
-      State: 2,
-      LockerMode: 3,
-      IsFreeLocker: false,
-      IsDeleted: false,
-      IsExisting: true,
-      LastClosedTime: "",
-      CardUIDInUse: ""
-    },{
-      RecordId: locker_id2,
-      LockerGroupId: UUID.random.to_s,
+      Number:          "1",
+      Address:         21,
+      State:           2,
+      LockerMode:      3,
+      IsFreeLocker:    false,
+      IsDeleted:       false,
+      IsExisting:      true,
+      LastClosedTime:  "",
+      CardUIDInUse:    "",
+    }, {
+      RecordId:        locker_id2,
+      LockerGroupId:   UUID.random.to_s,
       LockerGroupName: "Example Group",
-      Number: "2",
-      Address: 21,
-      State: 3,
-      LockerMode: 3,
-      IsFreeLocker: false,
-      IsDeleted: false,
-      IsExisting: true,
-      LastClosedTime: "",
-      CardUIDInUse: "12345"
-    }]
+      Number:          "2",
+      Address:         21,
+      State:           3,
+      LockerMode:      3,
+      IsFreeLocker:    false,
+      IsDeleted:       false,
+      IsExisting:      true,
+      LastClosedTime:  "",
+      CardUIDInUse:    "12345",
+    }],
   })
 
   # send a keep alive request
@@ -112,16 +112,16 @@ EngineSpec.mock_driver "Gantner::Relaxx::ProtocolJSON" do
   id = data["Id"].as_s
 
   transmit Relaxx.frame({
-    Caption: "KeepAliveResponse",
-    Result: Relaxx::SUCCESS,
-    Id: UUID.random.to_s.upcase,
-    RequestId: id,
-    LoggedIn: true,
-    IsLoginCommand: false,
-    IsNotification: false,
-    IsResponse: true,
-    CustomTimeout: 0,
-    CompressContent: false
+    Caption:         "KeepAliveResponse",
+    Result:          Relaxx::SUCCESS,
+    Id:              UUID.random.to_s.upcase,
+    RequestId:       id,
+    LoggedIn:        true,
+    IsLoginCommand:  false,
+    IsNotification:  false,
+    IsResponse:      true,
+    CustomTimeout:   0,
+    CompressContent: false,
   })
 
   status[:authenticated].should eq(true)

@@ -1,6 +1,7 @@
 require "json"
 
 module Gantner; end
+
 module Gantner::Relaxx
   class Result
     include JSON::Serializable
@@ -19,7 +20,7 @@ module Gantner::Relaxx
   end
 
   enum LockerState
-    Unknown = 0
+    Unknown      = 0
     Disabled
     Free
     InUse
@@ -30,7 +31,7 @@ module Gantner::Relaxx
   end
 
   enum LockerMode
-    Unknown = 0
+    Unknown          = 0
     NotExisting
     FreeLocker
     PersonalLocker
@@ -88,7 +89,7 @@ module Gantner::Relaxx
   end
 
   enum LockerEvent
-    Opened = 0
+    Opened   = 0
     Closed
     Enabled
     Disabled
