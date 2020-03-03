@@ -63,14 +63,14 @@ class Gantner::Relaxx::ProtocolJSON < ACAEngine::Driver
   def keep_alive
     send_frame({
       Caption: "KeepAliveRequest",
-      Id: new_request_id
+      Id:      new_request_id,
     }, priority: 0)
   end
 
   def request_auth_string
     send_frame({
       Caption: "AuthenticationRequestA",
-      Id: new_request_id
+      Id:      new_request_id,
     }, priority: 9998)
   end
 
@@ -101,9 +101,9 @@ class Gantner::Relaxx::ProtocolJSON < ACAEngine::Driver
     decrypted = String.new(decrypted_data.to_slice, "UTF-16LE")
 
     send_frame({
-      Caption: "AuthenticationRequestB",
-      Id: new_request_id,
-      AuthenticationString: decrypted
+      Caption:              "AuthenticationRequestB",
+      Id:                   new_request_id,
+      AuthenticationString: decrypted,
     }, priority: 9999)
   end
 
@@ -120,35 +120,35 @@ class Gantner::Relaxx::ProtocolJSON < ACAEngine::Driver
 
     # Detect if this is a GUID
     task = if locker_number.includes?("-")
-      send_frame({
-        Caption: "ExecuteLockerActionRequest",
-        Id: new_request_id,
-        Action: action,
-        LockerId: locker_number
-      })
-    else
-      request = {
-        Caption: "ExecuteLockerActionRequest",
-        Id: new_request_id,
-        Action: action,
-        LockerNumber: locker_number
-      }
-      if locker_group
-        send_frame(request.merge({LockerGroupId: locker_group}))
-      else
-        send_frame(request)
-      end
-    end
+             send_frame({
+               Caption:  "ExecuteLockerActionRequest",
+               Id:       new_request_id,
+               Action:   action,
+               LockerId: locker_number,
+             })
+           else
+             request = {
+               Caption:      "ExecuteLockerActionRequest",
+               Id:           new_request_id,
+               Action:       action,
+               LockerNumber: locker_number,
+             }
+             if locker_group
+               send_frame(request.merge({LockerGroupId: locker_group}))
+             else
+               send_frame(request)
+             end
+           end
 
     task
   end
 
   def query_lockers(free_only : Bool = false)
     send_frame({
-      Caption: "GetLockersRequest",
-      Id: new_request_id,
-      FreeLockersOnly: free_only,
-      PersonalLockersOnly: false
+      Caption:             "GetLockersRequest",
+      Id:                  new_request_id,
+      FreeLockersOnly:     free_only,
+      PersonalLockersOnly: false,
     })
   end
 
@@ -177,7 +177,6 @@ class Gantner::Relaxx::ProtocolJSON < ACAEngine::Driver
       self["authenticated"] = @authenticated = logged_in
       return task.try &.success if logged_in
       login(json["AuthenticationString"].as_s)
-
     when "AuthenticationResponseB"
       logged_in = json["LoggedIn"].as_bool
       self["authenticated"] = @authenticated = logged_in
@@ -189,7 +188,6 @@ class Gantner::Relaxx::ProtocolJSON < ACAEngine::Driver
       else
         logger.warn "authentication failure - please check credentials"
       end
-
     when "GetLockersResponse"
       lockers = Array(Locker).from_json(json["Lockers"].to_json)
       lockers.each do |locker|
@@ -204,7 +202,6 @@ class Gantner::Relaxx::ProtocolJSON < ACAEngine::Driver
       end
       self[:locker_ids] = @locker_ids
       self[:lockers_in_use] = @lockers_in_use
-
     when "CommandNotSupportedResponse"
       logger.warn "Command not supported!"
       return task.try &.abort("Command not supported!")

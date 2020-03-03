@@ -64,7 +64,7 @@ module ACAEngine::Drivers
             args,
             {
               "COMPILE_DRIVER" => source_file,
-              "DEBUG" => debug ? "1" : "0"
+              "DEBUG"          => debug ? "1" : "0",
             },
             input: Process::Redirect::Close,
             output: io,
