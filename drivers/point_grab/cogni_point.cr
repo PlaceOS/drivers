@@ -5,7 +5,7 @@ module PointGrab; end
 
 # Documentation: https://aca.im/driver_docs/PointGrab/CogniPointAPI2-1.pdf
 
-class PointGrab::CogniPoint < ACAEngine::Driver
+class PointGrab::CogniPoint < PlaceOS::Driver
   # Discovery Information
   generic_name :CogniPoint
   descriptive_name "PointGrab CogniPoint REST API"

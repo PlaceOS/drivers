@@ -15,7 +15,7 @@ EngineSpec.mock_driver "Helvar::Net" do
   resp = exec(:get_current_preset, group: 20)
   should_send(">V:2,C:109,G:20#")
   responds("!V:2,C:109,G:20=1#")
-  expect_raises(ACAEngine::Driver::RemoteException, "invalid group index parameter for !V:2,C:109,G:20=1 (Abort)") do
+  expect_raises(PlaceOS::Driver::RemoteException, "invalid group index parameter for !V:2,C:109,G:20=1 (Abort)") do
     resp.get
   end
   status[:last_error].should eq("invalid group index parameter for !V:2,C:109,G:20=1")

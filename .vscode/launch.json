@@ -5,7 +5,7 @@
       "name": "Debug",
       "type": "gdb",
       "request": "launch",
-      "target": "./bin/engine-drivers",
+      "target": "./bin/test-harness",
       "cwd": "${workspaceRoot}",
       "preLaunchTask": "Compile",
       "setupCommands": [

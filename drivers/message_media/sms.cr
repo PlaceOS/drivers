@@ -1,9 +1,9 @@
 module MessageMedia; end
 
 # Documentation: https://developers.messagemedia.com/code/messages-api-documentation/
-require "engine-driver/interface/sms"
+require "driver/interface/sms"
 
-class MessageMedia::SMS < ACAEngine::Driver
+class MessageMedia::SMS < PlaceOS::Driver
   include Interface::SMS
 
   # Discovery Information

@@ -13,5 +13,5 @@ RUN shards build --error-trace --production
 
 # Run the app binding on port 8080
 EXPOSE 8080
-ENTRYPOINT ["/src/bin/engine-drivers"]
-CMD ["/src/bin/engine-drivers", "-b", "0.0.0.0", "-p", "8080"]
+ENTRYPOINT ["/src/bin/test-harness"]
+CMD ["/src/bin/test-harness", "-b", "0.0.0.0", "-p", "8080"]

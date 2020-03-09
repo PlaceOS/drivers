@@ -54,7 +54,7 @@ Lint/UnreachableCode:
   Enabled: true
   Severity: Warning
   Excluded:
-  - repositories/private_drivers/lib/engine-driver/src/engine-driver/protocol/management.cr
+  - repositories/private_drivers/lib/driver/src/driver/protocol/management.cr
 
 # Run `ameba --only Style/VariableNames` for details
 Style/VariableNames:

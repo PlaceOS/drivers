@@ -1,10 +1,9 @@
 # Setup
 
-This allows you to build and test drivers without installing or running the complete
-ACA Engine service.
+This allows you to build and test drivers without installing or running the complete PlaceOS service.
 
-1. clone the drivers repository: `git clone https://github.com/aca-labs/crystal-engine-drivers engine-drivers`
-2. clone private repositories here: `mkdir ./engine-drivers/repositories`
+1. clone the drivers repository: `git clone https://github.com/placeos/drivers drivers`
+2. clone private repositories here: `mkdir ./drivers/repositories`
 
 
 ## OSX
@@ -26,7 +25,7 @@ export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/openssl/lib/pkgconfig
 ## Running Specs
 
 1. Ensure redis is running: `redis-server`
-2. Install dependencies: `cd engine-drivers; shards update`
+2. Install dependencies: `cd drivers; shards update`
 3. Launch application: `crystal run ./src/app.cr`
 4. Browse to: http://localhost:3000/
 

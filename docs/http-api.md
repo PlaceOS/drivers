@@ -12,7 +12,7 @@ Returns the list of available drivers
 
 ```json
 
-["drivers/aca/spec_helper.cr", "..."]
+["drivers/place/spec_helper.cr", "..."]
 ```
 
 
@@ -94,7 +94,7 @@ Lists the available specs
 
 ```json
 
-["drivers/aca/spec_helper_spec.cr", "..."]
+["drivers/place/spec_helper_spec.cr", "..."]
 ```
 
 
@@ -130,7 +130,7 @@ Compiles and runs a spec and returns the output
 
 ```text
 Launching spec runner
-Launching driver: /Users/steve/Documents/projects/crystal-engine/crystal-engine-drivers/bin/drivers/drivers_aca_private_helper_cr_4f6e0cd
+Launching driver: /Users/steve/Documents/projects/placeos/drivers/bin/drivers/drivers_place_private_helper_cr_4f6e0cd
 ... starting driver IO services
 ... starting module
 ... waiting for module

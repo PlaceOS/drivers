@@ -4,7 +4,7 @@ require "uuid"
 require "./models"
 
 module OfficeRnd
-  class OfficeRndAPI < ACAEngine::Driver
+  class OfficeRndAPI < PlaceOS::Driver
     # Discovery Information
     generic_name :OfficeRnd
     descriptive_name "OfficeRnD REST API"

@@ -4,7 +4,7 @@ module Cisco::Switch; end
 
 require "set"
 
-class Cisco::Switch::SnoopingCatalyst < ACAEngine::Driver
+class Cisco::Switch::SnoopingCatalyst < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco Catalyst Switch IP Snooping"
   generic_name :Snooping

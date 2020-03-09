@@ -1,6 +1,6 @@
 require "./application"
 
-module ACAEngine::Drivers::Api
+module PlaceOS::Drivers::Api
   class Test < Application
     base "/test"
 
@@ -9,7 +9,7 @@ module ACAEngine::Drivers::Api
     @driver_path : String = ""
     @spec_path : String = ""
 
-    ACA_DRIVERS_DIR = "../../#{Dir.current.split("/")[-1]}"
+    PLACE_DRIVERS_DIR = "../../#{Dir.current.split("/")[-1]}"
 
     # Specs available
     def index

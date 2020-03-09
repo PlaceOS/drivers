@@ -1,7 +1,7 @@
 require "digest/md5"
-require "engine-driver/interface/muteable"
-require "engine-driver/interface/powerable"
-require "engine-driver/interface/switchable"
+require "driver/interface/muteable"
+require "driver/interface/powerable"
+require "driver/interface/switchable"
 
 module Panasonic; end
 
@@ -18,7 +18,7 @@ module Panasonic::Projector; end
 # 4. Projector responds with a value
 # 5. You have to disconnect explicitly, projector won't close the connection
 
-class Panasonic::Projector::NTControl < ACAEngine::Driver
+class Panasonic::Projector::NTControl < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
@@ -34,7 +34,7 @@ class Panasonic::Projector::NTControl < ACAEngine::Driver
     Composite
   end
 
-  include ACAEngine::Driver::Interface::InputSelection(Inputs)
+  include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
   # Discovery Information
   tcp_port 1024

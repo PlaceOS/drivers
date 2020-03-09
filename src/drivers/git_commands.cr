@@ -4,7 +4,7 @@ require "uri"
 require "./command_failure"
 require "./compiler"
 
-module ACAEngine::Drivers
+module PlaceOS::Drivers
   class GitCommands
     # Will really only be an issue once threads come along
     @@lock_manager = Mutex.new

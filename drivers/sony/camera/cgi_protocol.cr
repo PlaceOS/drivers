@@ -1,4 +1,4 @@
-require "engine-driver/interface/camera"
+require "driver/interface/camera"
 
 module Sony; end
 
@@ -6,7 +6,7 @@ module Sony::Camera; end
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
 
-class Sony::Camera::CGI < ACAEngine::Driver
+class Sony::Camera::CGI < PlaceOS::Driver
   # include Interface::Powerable
   include Interface::Camera
 
