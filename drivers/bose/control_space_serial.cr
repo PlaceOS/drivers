@@ -2,7 +2,7 @@ module Bose; end
 
 # Documentation: https://aca.im/driver_docs/Bose/Bose-ControlSpace-SerialProtocol-v5.pdf
 
-class Bose::ControlSpaceSerial < ACAEngine::Driver
+class Bose::ControlSpaceSerial < PlaceOS::Driver
   # Discovery Information
   tcp_port 10055
   descriptive_name "Bose ControlSpace Serial Protocol"

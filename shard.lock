@@ -28,9 +28,9 @@ shards:
     github: drujensen/delimiter_tree
     version: 0.1.4
 
-  engine-driver:
-    github: aca-labs/crystal-engine-driver
-    commit: c983a7c4b7e50942358617c4e31c0e9e291912e0
+  driver:
+    github: placeos/driver
+    commit: 25f596a36cf291f489e5df0c3f862a40670a12f8
 
   etcd:
     github: aca-labs/crystal-etcd

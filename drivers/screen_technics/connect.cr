@@ -1,13 +1,13 @@
 module ScreenTechnics; end
 
-require "engine-driver/interface/moveable"
-require "engine-driver/interface/stoppable"
+require "driver/interface/moveable"
+require "driver/interface/stoppable"
 
 # Documentation: https://aca.im/driver_docs/Screen%20Technics/Screen%20Technics%20IP%20Connect%20module.pdf
 # Default user: Admin
 # Default pass: Connect
 
-class ScreenTechnics::Connect < ACAEngine::Driver
+class ScreenTechnics::Connect < PlaceOS::Driver
   include Interface::Moveable
   include Interface::Stoppable
 

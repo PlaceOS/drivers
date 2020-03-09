@@ -2,7 +2,7 @@ require "./command_failure"
 require "./compiler"
 require "./git_commands"
 
-module ACAEngine::Drivers
+module PlaceOS::Drivers
   module Helper
     extend self
 
@@ -12,7 +12,7 @@ module ACAEngine::Drivers
     end
 
     # Returns a list of driver source file paths in a repository
-    # defaults to ACA repository, i.e. this one
+    # defaults to PlaceOS repository, i.e. this one
     def drivers(repository : String? = nil) : Array(String)
       Dir.cd(get_repository_path(repository)) do
         Dir.glob("drivers/**/*.cr").select do |file|

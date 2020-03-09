@@ -1,6 +1,6 @@
-module ACA; end
+module Place; end
 
-class ACA::SpecHelper < ACAEngine::Driver
+class Place::SpecHelper < PlaceOS::Driver
   def implemented_in_driver
     "woot!"
   end

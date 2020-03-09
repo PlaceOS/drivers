@@ -2,7 +2,7 @@ module Helvar; end
 
 # Documentation: https://aca.im/driver_docs/Helvar/HelvarNet-Overview.pdf
 
-class Helvar::Net < ACAEngine::Driver
+class Helvar::Net < PlaceOS::Driver
   # Discovery Information
   tcp_port 50000
   descriptive_name "Helvar Net Lighting Gateway"

@@ -1,7 +1,7 @@
 require "uuid"
 require "action-controller"
 
-module ACAEngine::Drivers::Api
+module PlaceOS::Drivers::Api
   abstract class Application < ActionController::Base
     before_action :set_request_id
 

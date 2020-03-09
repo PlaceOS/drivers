@@ -13,7 +13,7 @@ filters = PROD ? ["bearer_token", "secret", "password"] : [] of String
 # Application code
 require "./controllers/application"
 require "./controllers/*"
-require "./engine-drivers"
+require "./drivers"
 
 # Server required after application controllers
 require "action-controller/server"
@@ -43,5 +43,5 @@ ActionController::Session.configure do |settings|
   settings.secret = ENV["COOKIE_SESSION_SECRET"]? || "4f74c0b358d5bab4000dd3c75465dc2c"
 end
 
-APP_NAME = "Engine-Drivers"
+APP_NAME = "Drivers Test Harness"
 VERSION  = `shards version`

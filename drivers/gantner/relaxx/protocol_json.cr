@@ -13,7 +13,7 @@ require "set"
 # User = Administrator
 # PW = Mirone59
 
-class Gantner::Relaxx::ProtocolJSON < ACAEngine::Driver
+class Gantner::Relaxx::ProtocolJSON < PlaceOS::Driver
   # Discovery Information
   tcp_port 8237
   descriptive_name "Gantner GAT Relaxx JSON API"

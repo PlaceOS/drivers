@@ -1,7 +1,7 @@
 {% if env("COMPILE_DRIVER").ends_with?("_spec.cr") %}
-  require "engine-driver/engine-specs/runner"
+  require "driver/engine-specs/runner"
 {% else %}
-  require "engine-driver"
+  require "driver"
 {% end %}
 
 # Dynamically require the desired driver

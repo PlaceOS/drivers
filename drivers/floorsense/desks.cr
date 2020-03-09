@@ -5,7 +5,7 @@ module Floorsense; end
 
 # Documentation: https://documenter.getpostman.com/view/8843075/SVmwvctF?version=latest#3bfbb050-722d-4433-889a-8793fa90af9c
 
-class Floorsense::Desks < ACAEngine::Driver
+class Floorsense::Desks < PlaceOS::Driver
   # Discovery Information
   generic_name :Desks
   descriptive_name "Floorsense Desk Tracking"
@@ -74,7 +74,7 @@ class Floorsense::Desks < ACAEngine::Driver
     if response.success?
       resp = AuthResponse.from_json(data)
       token = resp.info.not_nil!.token
-      payload, header = JWT.decode(token, verify: false, validate: false)
+      payload, _ = JWT.decode(token, verify: false, validate: false)
       @auth_expiry = (Time.unix payload["exp"].as_i64) - 5.minutes
       @auth_token = "Bearer #{token}"
     else

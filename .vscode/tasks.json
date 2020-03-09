@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "Compile",
-      "command": "shards build --debug engine-drivers",
+      "command": "shards build --debug drivers",
       "type": "shell"
     }
   ]

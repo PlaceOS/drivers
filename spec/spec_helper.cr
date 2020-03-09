@@ -7,10 +7,10 @@ require "../src/config"
 # Helper methods for testing controllers (curl, with_server, context)
 require "../lib/action-controller/spec/curl_context"
 
-require "../src/engine-drivers"
+require "../src/drivers"
 
 # Clone the private drivers
-ACAEngine::Drivers::Compiler.clone_and_install(
+PlaceOS::Drivers::Compiler.clone_and_install(
   "private_drivers",
-  "https://github.com/aca-labs/private-crystal-engine-drivers"
+  "https://github.com/placeos/private_drivers"
 )
