@@ -34,7 +34,7 @@ class Bose::ControlSpaceSerial < PlaceOS::Driver
   end
 
   def set_parameter_group(id : UInt8)
-    do_send("SS #{id.to_s(16).upcase}", wait: false).get
+    do_send("SS #{id.to_s(16).upcase}", wait: false, name: "set_pgroup").get
     self[:parameter_group] = id
   end
 
