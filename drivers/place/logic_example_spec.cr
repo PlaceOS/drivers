@@ -1,4 +1,3 @@
-
 class Display < DriverSpecs::MockDriver
   def on_load
     self[:power] = false
@@ -10,13 +9,12 @@ class Display < DriverSpecs::MockDriver
 end
 
 class Switcher < DriverSpecs::MockDriver
-
 end
 
 DriverSpecs.mock_driver "Place::LogicExample" do
   system({
-    Display: {Display, Display},
-    Switcher: {Switcher}
+    Display:  {Display, Display},
+    Switcher: {Switcher},
   })
 
   exec(:power_state?).get.should eq(false)
