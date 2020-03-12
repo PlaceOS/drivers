@@ -1,22 +1,34 @@
 
-EngineSpec.mock_driver "Place::LogicExample" do
+class Display < DriverSpecs::MockDriver
+  def on_load
+    self[:power] = false
+  end
+
+  def power(state : Bool)
+    self[:power] = state
+  end
+end
+
+class Switcher < DriverSpecs::MockDriver
+
+end
+
+DriverSpecs.mock_driver "Place::LogicExample" do
   system({
-    Display: [{
-      # current state
-      power: true,
-
-      # function definitions
-      "$power": {state: {"Bool"}}
-    }]
+    Display: {Display, Display},
+    Switcher: {Switcher}
   })
-  exec(:power_state?).get.should eq(true)
 
-  # Updating emulated module state
-  system(:Display_1)[:power] = "false"
   exec(:power_state?).get.should eq(false)
 
-  # Expecting a function call
-  # TODO:: expect(:Display_1, :power) { |arguments| system(:Display_1)[:power] = arguments["state"].to_json }
-  exec(:power, true)
+  # Updating emulated module state
+  system(:Display_1)[:power] = "true"
   exec(:power_state?).get.should eq(true)
+
+  # Expecting a function call
+  exec(:power, false)
+  exec(:power_state?).get.should eq(false)
+
+  # Expecting a function call to return a result
+  exec(:power, true).get.should eq(true)
 end
