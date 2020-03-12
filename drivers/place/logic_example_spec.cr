@@ -19,6 +19,11 @@ DriverSpecs.mock_driver "Place::LogicExample" do
 
   exec(:power_state?).get.should eq(false)
 
+  # Should allow updating of settings
+  settings({
+    name: "Steve"
+  })
+
   # Updating emulated module state
   system(:Display_1)[:power] = "true"
   exec(:power_state?).get.should eq(true)
