@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "Bose::ControlSpaceSerial" do
+DriverSpecs.mock_driver "Bose::ControlSpaceSerial" do
   exec(:set_parameter_group, 12)
   should_send("SS C\r")
   status[:parameter_group].should eq(12)

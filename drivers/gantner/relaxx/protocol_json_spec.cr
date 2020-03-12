@@ -18,7 +18,7 @@ module Relaxx
   end
 end
 
-EngineSpec.mock_driver "Gantner::Relaxx::ProtocolJSON" do
+DriverSpecs.mock_driver "Gantner::Relaxx::ProtocolJSON" do
   # Should send an auth A request
   data = Relaxx.parse(expect_send)
   data["Caption"].as_s.should eq("AuthenticationRequestA")

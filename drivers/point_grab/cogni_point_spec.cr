@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "PointGrab::CogniPoint" do
+DriverSpecs.mock_driver "PointGrab::CogniPoint" do
   # Send the request
   retval = exec(:get_token)
   token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6WyJSRUFEIiwiV1JJVEUiXSwiZXhwIjoxNTc0MjMzNjEyLCJhdXRob3JpdGllcyI6WyJST0xFX1RSVVNURURfQ0xJRU5UIl0sImp0aSI6IjM1ZjkxYjlkLTVmZmMtNDJkYy05YWZkLTJiZTE0YjI1MmE1NCIsImNsaWVudF9pZCI6IjEwMDAwMjEzIn0.Wzrsaey5z3ShAFYKOaWmgfoRZNsk-PclSK9IRtYf4b8"

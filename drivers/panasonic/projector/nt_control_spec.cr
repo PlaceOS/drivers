@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "Panasonic::Projector::NTControl" do
+DriverSpecs.mock_driver "Panasonic::Projector::NTControl" do
   # Execute a command (triggers the connection)
   exec(:power?)
 

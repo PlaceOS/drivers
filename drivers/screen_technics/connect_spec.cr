@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "ScreenTechnics::Connect" do
+DriverSpecs.mock_driver "ScreenTechnics::Connect" do
   # On connect it queries the state of all screens
   should_send("1, 17, 32\r\n")
   responds("101, 1, 17, 1\r\n")
