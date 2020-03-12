@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "Floorsense::Desks" do
+DriverSpecs.mock_driver "Floorsense::Desks" do
   # Send the request
   retval = exec(:query_status)
 

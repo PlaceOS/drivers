@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "MessageMedia::SMS" do
+DriverSpecs.mock_driver "MessageMedia::SMS" do
   # Send the request
   retval = exec(:send_sms,
     phone_numbers: "+61418419954",

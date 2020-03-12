@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "Helvar::Net" do
+DriverSpecs.mock_driver "Helvar::Net" do
   # Perform actions
   resp = exec(:trigger, group: 1, scene: 2, fade: 1100)
   should_send(">V:2,C:11,G:1,S:2,F:110#")

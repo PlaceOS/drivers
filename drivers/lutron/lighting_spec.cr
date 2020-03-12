@@ -1,4 +1,4 @@
-EngineSpec.mock_driver "Lutron::Lighting" do
+DriverSpecs.mock_driver "Lutron::Lighting" do
   # Module waits for this text to become ready
   transmit "login: "
   should_send "nwk\r\n"
