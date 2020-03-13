@@ -48,6 +48,7 @@ The following functions are available for testing streaming IO:
 * `transmit(data)` -> transmits the object to the module over the streaming IO interface
 * `responds(data)` -> alias for `transmit`
 * `should_send(data, timeout = 500.milliseconds)` -> expects the module to respond with the data provided
+* `expect_send(timeout = 500.milliseconds)` -> returns the next `Bytes` sent by the module (useful if the data sent is not deterministic, i.e. has a time stamp)
 
 A common test case is to ensure that module state updates as expected after transmitting some data to it:
 
@@ -91,8 +92,8 @@ status[:area2001].should eq(1)
 Use `expect_http_request` to access an expected request coming from the module.
 
 * when the block completes, the response is sent to the module
-* you can see `request` object details here: https://crystal-lang.org/api/0.29.0/HTTP/Request.html
-* you can see `response` object details here: https://crystal-lang.org/api/0.29.0/HTTP/Server/Response.html
+* you can see `request` object details here: https://crystal-lang.org/api/latest/HTTP/Request.html
+* you can see `response` object details here: https://crystal-lang.org/api/latest/HTTP/Server/Response.html
 
 
 ## Executing functions
@@ -122,8 +123,109 @@ status[:area1].should eq(2)
 
 ## Testing Logic
 
-TODO:: helpers for mocking out complex systems is coming in a future update.
+Logic modules typically expect a system to contain some drivers which the logic modules interacts with.
 
-* Defining system configuration
-* Mocking remote module functions and state
-* Tracking remote function calls
+```crystal
+
+# define mock versions of the drivers it will interact with
+
+class Display < DriverSpecs::MockDriver
+  include Interface::Powerable
+  include Interface::Muteable
+
+  enum Inputs
+    HDMI
+    HDMI2
+    VGA
+    VGA2
+    Miracast
+    DVI
+    DisplayPort
+    HDBaseT
+    Composite
+  end
+
+  include PlaceOS::Driver::Interface::InputSelection(Inputs)
+
+  # Configure initial state in on_load
+  def on_load
+    self[:power] = false
+    self[:input] = Inputs::HDMI
+  end
+
+  # implement the abstract methods required by the interfaces
+  def power(state : Bool)
+    self[:power] = state
+  end
+
+  def switch_to(input : Inputs)
+    mute(false)
+    self[:input] = input
+  end
+
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    self[:mute] = state
+    self[:mute0] = state
+  end
+end
+
+```
+
+Then you can define the system configuration,
+you can also change the system configuration throughout your spec to test different configurations.
+
+```crystal
+
+DriverSpecs.mock_driver "Place::LogicExample" do
+
+  # Where `{Display, Display}` is referencing the `MockDriver` class defined above
+  # and `Display:` is the friendly name
+  # so this system would have `Display_1`, `Display_2`, `Switcher_1`
+  system({
+    Display:  {Display, Display},
+    Switcher: {Switcher},
+  })
+
+  # ...
+end
+
+```
+
+Along with the physical system configuration you can test different setting configurations.
+Settings can also be changed throughout the life cycle of your spec.
+
+```crystal
+
+DriverSpecs.mock_driver "Place::LogicExample" do
+
+  settings({
+    name: "Meeting Room 1",
+    map_id: "1.03"
+  })
+
+end
+
+```
+
+An action you perform on your driver might be expected to update state in the mock devices.
+You can access this state via the `system` helper
+
+```crystal
+
+DriverSpecs.mock_driver "Place::LogicExample" do
+
+  # execute a function in your logic module
+  exec(:power, true)
+
+  # Check that the expected state has updated in you mock device
+  system(:Display_1)[:power].should eq(true)
+
+end
+
+```
+
+All status queried in this manner is returned as a `JSON::Any` object
