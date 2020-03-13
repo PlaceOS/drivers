@@ -78,4 +78,13 @@ DriverSpecs.mock_driver "Place::LogicExample" do
 
   # Expecting a function call to return a result
   exec(:power, true).get.should eq(true)
+
+  exec(:display_count).get.should eq(2)
+
+  system({
+    Display:  {Display},
+    Switcher: {Switcher},
+  })
+
+  exec(:display_count).get.should eq(1)
 end
