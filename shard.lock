@@ -30,7 +30,7 @@ shards:
 
   driver:
     github: placeos/driver
-    commit: 136ae2c8c11f817a37d25b28b1faca28f27cf33a
+    commit: 864a8050eff8957fba2c7606decb1776dbd7c310
 
   etcd:
     github: aca-labs/crystal-etcd
