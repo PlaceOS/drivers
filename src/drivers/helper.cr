@@ -87,7 +87,7 @@ module PlaceOS::Drivers
       files
     end
 
-    private def get_repository_path(repository : String?) : String
+    def get_repository_path(repository : String?) : String
       if repository
         repo = File.expand_path(File.join(Compiler.repository_dir, repository))
         valid = repo.starts_with?(Compiler.repository_dir) && repo != "/" && repository.size > 0 && !repository.includes?("/") && !repository.includes?(".")

@@ -38,7 +38,7 @@ module PlaceOS::Drivers
       GitCommands.file_lock(repository_drivers, source_file) do
         git_checkout = false if commit == "head"
 
-        # Want to expose some kind of status signalling
+        # TODO: Expose some kind of status signalling
         # @@message = "compiling #{source_file} @ #{commit}"
 
         executable_path = File.join(@@bin_dir, driver_executable)
