@@ -27,14 +27,15 @@ module PlaceOS::Drivers
           "./bin/exec_from", {repository, "git", "--no-pager", "ls-files"},
           input: Process::Redirect::Close,
           output: io,
-          error: Process::Redirect::Close
+          error: io,
         )
       end
 
       exit_status = result.exit_code
-      raise CommandFailure.new(exit_status, "git ls-files failed with #{exit_status} in path #{repository}") if exit_status != 0
+      output = io.to_s
+      raise CommandFailure.new(exit_status, "git ls-files failed with #{exit_status} in path #{repository}: #{output}") if exit_status != 0
 
-      io.to_s.split("\n")
+      output.split("\n")
     end
 
     alias Commit = NamedTuple(commit: String, date: String, author: String, subject: String)
@@ -47,19 +48,19 @@ module PlaceOS::Drivers
       # %cI: committer date, strict ISO 8601 format
       # %an: author name
       # %s: subject
-      result = file_operation(repository, file_name) do
+      exit_status = file_operation(repository, file_name) do
         Process.run(
           "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name},
           input: Process::Redirect::Close,
           output: io,
-          error: Process::Redirect::Close
-        )
+          error: io,
+        ).exit_code
       end
 
-      exit_status = result.exit_code
-      raise CommandFailure.new(result.exit_code, "git log failed with #{exit_status} in path #{repository}") if exit_status != 0
+      output = io.to_s
+      raise CommandFailure.new(exit_status, "git log failed with #{exit_status} in path #{repository}: #{output}") if exit_status != 0
 
-      io.to_s.strip.split("<--\n\n-->")
+      output.strip.split("<--\n\n-->")
         .reject(&.empty?)
         .map(&.strip.split("\n").map &.strip)
         .map do |commit|
@@ -80,13 +81,15 @@ module PlaceOS::Drivers
           "./bin/exec_from", {repository, "git", "--no-pager", "diff", "--no-color", file_name},
           input: Process::Redirect::Close,
           output: io,
-          error: Process::Redirect::Close
+          error: io,
         )
       end
 
       # File most likely doesn't exist
-      return "error" if (result.exit_code) != 0
-      io.to_s.strip
+      output = io.to_s
+
+      return "error: #{output}" if result.exit_code != 0
+      output.strip
     end
 
     def self.repository_commits(repository = Compiler.drivers_dir, count = 50)
@@ -102,14 +105,15 @@ module PlaceOS::Drivers
           "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s},
           input: Process::Redirect::Close,
           output: io,
-          error: Process::Redirect::Close
+          error: io,
         )
       end
 
       exit_status = result.exit_code
-      raise CommandFailure.new(exit_status, "git log failed with #{exit_status} in path #{repository}") if exit_status != 0
+      output = io.to_s
+      raise CommandFailure.new(exit_status, "git log failed with #{exit_status} in path #{repository}: #{output}") if exit_status != 0
 
-      io.to_s.strip.split("<--\n\n-->")
+      output.strip.split("<--\n\n-->")
         .reject(&.empty?)
         .map(&.strip.split("\n").map &.strip)
         .map do |commit|
@@ -128,24 +132,33 @@ module PlaceOS::Drivers
 
       file_lock(repository, file) do
         begin
+          io = IO::Memory.new
           result = op_lock.synchronize do
             Process.run(
               "./bin/exec_from",
-              {repository, "git", "checkout", commit, "--", file}
+              {repository, "git", "checkout", commit, "--", file},
+              input: Process::Redirect::Close,
+              output: io,
+              error: io,
             )
           end
 
           exit_status = result.exit_code
-          raise CommandFailure.new(exit_status, "git checkout failed with #{exit_status} in path #{repository}") if exit_status != 0
+          raise CommandFailure.new(exit_status, "git checkout failed with #{exit_status} in path #{repository}: #{io.to_s}") if exit_status != 0
 
           yield file
         ensure
           # reset the file back to head
           op_lock.synchronize do
-            Process.run(
+            io = IO::Memory.new
+            exit_status = Process.run(
               "./bin/exec_from",
-              {repository, "git", "checkout", "HEAD", "--", file}
-            )
+              {repository, "git", "checkout", "HEAD", "--", file},
+              input: Process::Redirect::Close,
+              output: io,
+              error: io,
+            ).exit_code
+            raise CommandFailure.new(exit_status, "git checkout failed with #{exit_status} in path #{repository}: #{io.to_s}") if exit_status != 0
           end
         end
       end
@@ -174,7 +187,7 @@ module PlaceOS::Drivers
           {"GIT_TERMINAL_PROMPT" => "0"},
           input: Process::Redirect::Close,
           output: io,
-          error: io
+          error: io,
         ).exit_code
       end
 
@@ -218,7 +231,7 @@ module PlaceOS::Drivers
             {working_dir, "rm", "-rf", repository},
             input: Process::Redirect::Close,
             output: Process::Redirect::Close,
-            error: Process::Redirect::Close
+            error: Process::Redirect::Close,
           ) if Dir.exists?(File.join(working_dir, repository))
 
           # Clone the repository
@@ -228,7 +241,7 @@ module PlaceOS::Drivers
             {"GIT_TERMINAL_PROMPT" => "0"},
             input: Process::Redirect::Close,
             output: io,
-            error: io
+            error: io,
           ).exit_code
         end
       end
@@ -272,10 +285,10 @@ module PlaceOS::Drivers
             "./bin/exec_from", {repository, "git", "reset", "--hard"},
             input: Process::Redirect::Close,
             output: io,
-            error: Process::Redirect::Close
+            error: io,
           ).exit_code
 
-          raise CommandFailure.new(exit_status, "git reset --hard failed with #{exit_status} in path #{repository}") if exit_status != 0
+          raise CommandFailure.new(exit_status, "git reset --hard failed with #{exit_status} in path #{repository}: #{io.to_s}") if exit_status != 0
           yield
         end
       end
