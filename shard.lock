@@ -38,7 +38,7 @@ shards:
 
   exec_from:
     github: aca-labs/exec_from
-    commit: daeab46cad2ad82b33c2699d1ab38b3a2f56b897
+    commit: 5f92f207a61448c5875ad42010f8c260a3b95d61
 
   habitat:
     github: luckyframework/habitat
