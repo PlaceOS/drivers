@@ -81,7 +81,7 @@ module PlaceOS::Drivers::Api
           input: Process::Redirect::Close,
           output: io,
           error: io
-        ).exit_status
+        ).exit_code
         io << "spec runner exited with #{exit_status}\n"
         io.close
         exit_status
@@ -93,7 +93,7 @@ module PlaceOS::Drivers::Api
           input: Process::Redirect::Close,
           output: io,
           error: io
-        ).exit_status
+        ).exit_code
         io << "spec runner exited with #{exit_status}\n"
         io.close
         exit_status

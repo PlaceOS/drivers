@@ -94,7 +94,7 @@ module PlaceOS::Drivers
         input: Process::Redirect::Close,
         output: io,
         error: io
-      ).exit_status
+      ).exit_code
       exit_status.should eq(0)
 
       # Delete the file

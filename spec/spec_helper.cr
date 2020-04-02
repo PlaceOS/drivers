@@ -12,5 +12,5 @@ require "../src/drivers"
 # Clone the private drivers
 PlaceOS::Drivers::Compiler.clone_and_install(
   "private_drivers",
-  "https://github.com/placeos/private_drivers"
+  "https://github.com/placeos/private-drivers"
 )
