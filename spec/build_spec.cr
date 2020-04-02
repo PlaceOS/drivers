@@ -27,7 +27,7 @@ module PlaceOS::Drivers::Api
 
         result.status_code.should eq(200)
         commits = JSON.parse(result.body)
-        commits.size.should eq(3)
+        commits.size.should eq(1)
       end
 
       it "should delete all compiled versions of a driver" do

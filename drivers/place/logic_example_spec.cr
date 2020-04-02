@@ -64,7 +64,7 @@ DriverSpecs.mock_driver "Place::LogicExample" do
 
   # Should allow updating of settings
   settings({
-    name: "Steve"
+    name: "Steve",
   })
 
   # Updating emulated module state

@@ -31,7 +31,7 @@ module PlaceOS::Drivers
         )
       end
 
-      exit_status = result.exit_status % 256
+      exit_status = result.exit_code
       raise CommandFailure.new(exit_status, "git ls-files failed with #{exit_status} in path #{repository}") if exit_status != 0
 
       io.to_s.split("\n")
@@ -56,8 +56,8 @@ module PlaceOS::Drivers
         )
       end
 
-      exit_status = result.exit_status % 256
-      raise CommandFailure.new(result.exit_status, "git log failed with #{exit_status} in path #{repository}") if exit_status != 0
+      exit_status = result.exit_code
+      raise CommandFailure.new(result.exit_code, "git log failed with #{exit_status} in path #{repository}") if exit_status != 0
 
       io.to_s.strip.split("<--\n\n-->")
         .reject(&.empty?)
@@ -85,7 +85,7 @@ module PlaceOS::Drivers
       end
 
       # File most likely doesn't exist
-      return "error" if (result.exit_status % 256) != 0
+      return "error" if (result.exit_code) != 0
       io.to_s.strip
     end
 
@@ -106,7 +106,7 @@ module PlaceOS::Drivers
         )
       end
 
-      exit_status = result.exit_status % 256
+      exit_status = result.exit_code
       raise CommandFailure.new(exit_status, "git log failed with #{exit_status} in path #{repository}") if exit_status != 0
 
       io.to_s.strip.split("<--\n\n-->")
@@ -135,7 +135,7 @@ module PlaceOS::Drivers
             )
           end
 
-          exit_status = result.exit_status % 256
+          exit_status = result.exit_code
           raise CommandFailure.new(exit_status, "git checkout failed with #{exit_status} in path #{repository}") if exit_status != 0
 
           yield file
@@ -175,7 +175,7 @@ module PlaceOS::Drivers
           input: Process::Redirect::Close,
           output: io,
           error: io
-        ).exit_status % 256
+        ).exit_code
       end
 
       {
@@ -229,12 +229,12 @@ module PlaceOS::Drivers
             input: Process::Redirect::Close,
             output: io,
             error: io
-          ).exit_status
+          ).exit_code
         end
       end
 
       {
-        exit_status: result % 256,
+        exit_status: result,
         output:      io.to_s,
       }
     end
@@ -268,14 +268,13 @@ module PlaceOS::Drivers
       repo_lock(repository).write do
         operation_lock(repository).synchronize do
           # reset incase of a crash during a file operation
-          result = Process.run(
+          exit_status = Process.run(
             "./bin/exec_from", {repository, "git", "reset", "--hard"},
             input: Process::Redirect::Close,
             output: io,
             error: Process::Redirect::Close
-          ).exit_status
+          ).exit_code
 
-          exit_status = result % 256
           raise CommandFailure.new(exit_status, "git reset --hard failed with #{exit_status} in path #{repository}") if exit_status != 0
           yield
         end

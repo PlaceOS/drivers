@@ -69,7 +69,7 @@ module PlaceOS::Drivers
             input: Process::Redirect::Close,
             output: io,
             error: io
-          ).exit_status
+          ).exit_code
         end
 
         # When developing you may not want to have to commit
@@ -126,7 +126,7 @@ module PlaceOS::Drivers
           input: Process::Redirect::Close,
           output: io,
           error: io
-        ).exit_status
+        ).exit_code
 
         # Otherwise install shards
         if result != 0 || !io.to_s.includes?("Dependencies are satisfied")
@@ -137,7 +137,7 @@ module PlaceOS::Drivers
             input: Process::Redirect::Close,
             output: io,
             error: io
-          ).exit_status
+          ).exit_code
         end
       end
 
