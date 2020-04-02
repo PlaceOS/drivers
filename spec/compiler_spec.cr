@@ -66,10 +66,13 @@ module PlaceOS::Drivers
     end
 
     it "should compile a private spec" do
+      # Clone the private driver repo
+      PlaceOS::Drivers::Compiler.clone_and_install("private_drivers", "https://github.com/placeos/private-drivers.git")
+      repository_path = Helper.get_repository_path("private_drivers")
       # Test the executable is created
       result = PlaceOS::Drivers::Compiler.build_driver(
         "drivers/place/private_helper_spec.cr",
-        repository_drivers: File.join(PlaceOS::Drivers::Compiler.repository_dir, "private_drivers"),
+        repository_drivers: repository_path,
         git_checkout: false
       )
 
@@ -79,7 +82,7 @@ module PlaceOS::Drivers
 
       result = PlaceOS::Drivers::Compiler.build_driver(
         "drivers/place/private_helper.cr",
-        repository_drivers: File.join(PlaceOS::Drivers::Compiler.repository_dir, "private_drivers"),
+        repository_drivers: repository_path,
         git_checkout: false
       )
 
