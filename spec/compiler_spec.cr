@@ -33,7 +33,7 @@ module PlaceOS::Drivers
 
     it "should compile a private driver" do
       # Clone the private driver repo
-      PlaceOS::Drivers::Compiler.clone_and_install("private_drivers", "https://github.com/place/private_drivers.git")
+      PlaceOS::Drivers::Compiler.clone_and_install("private_drivers", "https://github.com/placeos/private-drivers.git")
       File.file?(File.expand_path("./repositories/private_drivers/drivers/place/private_helper.cr")).should be_true
 
       # Test the executable is created
