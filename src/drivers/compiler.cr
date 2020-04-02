@@ -74,7 +74,7 @@ module PlaceOS::Drivers
 
         # When developing you may not want to have to commit
         if git_checkout
-          GitCommands.checkout(source_file, commit) do
+          GitCommands.checkout(source_file, commit, repository_drivers) do
             compile_proc.call
           end
         else
