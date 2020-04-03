@@ -1,3 +1,4 @@
+require "exec_from"
 require "rwlock"
 require "uri"
 
@@ -21,17 +22,12 @@ module PlaceOS::Drivers
     @@file_lock = {} of String => Hash(String, Mutex)
 
     def self.ls(repository = Compiler.drivers_dir)
-      io = IO::Memory.new
-      exit_code = basic_operation(repository) do
-        Process.run(
-          "./bin/exec_from", {repository, "git", "--no-pager", "ls-files"},
-          input: Process::Redirect::Close,
-          output: io,
-          error: io,
-        )
-      end.exit_code
+      result = basic_operation(repository) do
+        ExecFrom.exec_from(repository, "git", {"--no-pager", "ls-files"})
+      end
 
-      output = io.to_s
+      output = result[:output].to_s
+      exit_code = result[:exit_code]
       raise CommandFailure.new(exit_code, "git ls-files failed with #{exit_code} in path #{repository}: #{output}") if exit_code != 0
 
       output.split("\n")
@@ -40,23 +36,17 @@ module PlaceOS::Drivers
     alias Commit = NamedTuple(commit: String, date: String, author: String, subject: String)
 
     def self.commits(file_name, count = 50, repository = Compiler.drivers_dir) : Array(Commit)
-      io = IO::Memory.new
-
       # https://git-scm.com/docs/pretty-formats
       # %h: abbreviated commit hash
       # %cI: committer date, strict ISO 8601 format
       # %an: author name
       # %s: subject
-      exit_code = file_operation(repository, file_name) do
-        Process.run(
-          "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name},
-          input: Process::Redirect::Close,
-          output: io,
-          error: io,
-        ).exit_code
+      result = file_operation(repository, file_name) do
+        ExecFrom.exec_from(repository, "git", {"--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s, file_name})
       end
 
-      output = io.to_s
+      output = result[:output].to_s
+      exit_code = result[:exit_code]
       raise CommandFailure.new(exit_code, "git log failed with #{exit_code} in path #{repository}: #{output}") if exit_code != 0
 
       output.strip.split("<--\n\n-->")
@@ -73,42 +63,31 @@ module PlaceOS::Drivers
     end
 
     def self.diff(file_name, repository = Compiler.drivers_dir)
-      io = IO::Memory.new
-
-      exit_code = file_operation(repository, file_name) do
-        Process.run(
-          "./bin/exec_from", {repository, "git", "--no-pager", "diff", "--no-color", file_name},
-          input: Process::Redirect::Close,
-          output: io,
-          error: io,
-        ).exit_code
+      result = file_operation(repository, file_name) do
+        ExecFrom.exec_from(repository, "git", {"--no-pager", "diff", "--no-color", file_name})
       end
 
+      output = result[:output].to_s
+      exit_code = result[:exit_code]
+
       # File most likely doesn't exist
-      output = io.to_s
       return "error: #{output}" if exit_code != 0
 
       output.strip
     end
 
     def self.repository_commits(repository = Compiler.drivers_dir, count = 50)
-      io = IO::Memory.new
-
       # https://git-scm.com/docs/pretty-formats
       # %h: abbreviated commit hash
       # %cI: committer date, strict ISO 8601 format
       # %an: author name
       # %s: subject
-      exit_code = repo_lock(repository).write do
-        Process.run(
-          "./bin/exec_from", {repository, "git", "--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s},
-          input: Process::Redirect::Close,
-          output: io,
-          error: io,
-        ).exit_code
+      result = repo_lock(repository).write do
+        ExecFrom.exec_from(repository, "git", {"--no-pager", "log", "--format=format:%h%n%cI%n%an%n%s%n<--%n%n-->", "--no-color", "-n", count.to_s})
       end
 
-      output = io.to_s
+      output = result[:output].to_s
+      exit_code = result[:exit_code]
       raise CommandFailure.new(exit_code, "git log failed with #{exit_code} in path #{repository}: #{output}") if exit_code != 0
 
       output.strip.split("<--\n\n-->")
@@ -124,7 +103,7 @@ module PlaceOS::Drivers
         end
     end
 
-    def self.checkout(file, commit = "HEAD", repository = Compiler.drivers_dir)
+    def self.checkout(file : String, commit : String = "HEAD", repository : String = Compiler.drivers_dir)
       # https://stackoverflow.com/questions/215718/reset-or-revert-a-specific-file-to-a-specific-revision-using-git
       file_lock(repository, file) do
         begin
@@ -139,48 +118,35 @@ module PlaceOS::Drivers
 
     # Checkout a file relative to a directory
     protected def self._checkout(repository_directory : String, file : String, commit : String)
-      io = IO::Memory.new
-      exit_code = operation_lock(repository_directory).synchronize do
-        Process.run(
-          "./bin/exec_from",
-          {repository_directory, "git", "checkout", commit, "--", file},
-          input: Process::Redirect::Close,
-          output: io,
-          error: io,
-        ).exit_code
+      result = operation_lock(repository_directory).synchronize do
+        ExecFrom.exec_from(repository_directory, "git", {"checkout", commit, "--", file})
       end
-      raise CommandFailure.new(exit_code, "git checkout failed with #{exit_code} in path #{repository_directory}: #{io.to_s}") if exit_code != 0
+
+      exit_code = result[:exit_code]
+      raise CommandFailure.new(exit_code, "git checkout failed with #{exit_code} in path #{repository_directory}: #{result[:output].to_s}") if exit_code != 0
     end
 
     def self.pull(repository, working_dir = Compiler.repository_dir)
       working_dir = File.expand_path(working_dir)
       repo_dir = File.expand_path(repository, working_dir)
 
-      # Double check the inputs
+      # Double check the input directories
       unless repo_dir.starts_with?(working_dir)
         raise "invalid folder structure. Working directory: '#{working_dir}', repository: '#{repository}', resulting path: '#{repo_dir}'"
       end
+
       raise "repository does not exist. Path: '#{repo_dir}'" unless File.directory?(repo_dir)
 
       # Assumes no password required. Re-clone if this has changed.
-      io = IO::Memory.new
-
       # The call to write here ensures that no other operations are occuring on
       # the repository at this time.
-      exit_code = repo_operation(repo_dir) do
-        Process.run(
-          "./bin/exec_from",
-          {repo_dir, "git", "pull"},
-          {"GIT_TERMINAL_PROMPT" => "0"},
-          input: Process::Redirect::Close,
-          output: io,
-          error: io,
-        ).exit_code
+      result = repo_operation(repo_dir) do
+        ExecFrom.exec_from(repo_dir, "git", {"pull"}, environment: {"GIT_TERMINAL_PROMPT" => "0"})
       end
 
       {
-        exit_status: exit_code,
-        output:      io.to_s,
+        exit_status: result[:exit_code],
+        output:      result[:output].to_s,
       }
     end
 
@@ -199,43 +165,32 @@ module PlaceOS::Drivers
         repository_uri = uri_builder.to_s
       end
 
-      io = IO::Memory.new
-
       # The call to write here ensures that no other operations are occuring on
       # the repository at this time.
-      exit_code = repo_lock(repo_dir).write do
+      repo_lock(repo_dir).write do
         # Ensure the repository directory exists (it should)
         Dir.mkdir_p working_dir
+        repository_path = File.join(working_dir, repository)
 
         # Check if there's an existing repo
-        if Dir.exists?(File.join(working_dir, repository, ".git"))
-          io << "already exists"
-          0
+        if Dir.exists?(File.join(repository_path, ".git"))
+          {
+            exit_status: 0,
+            output:      "already exists",
+          }
         else
           # Ensure the cloned into directory does not exist
-          Process.run("./bin/exec_from",
-            {working_dir, "rm", "-rf", repository},
-            input: Process::Redirect::Close,
-            output: Process::Redirect::Close,
-            error: Process::Redirect::Close,
-          ) if Dir.exists?(File.join(working_dir, repository))
+          ExecFrom.exec_from(working_dir, "rm", {"-rf", repository}) if Dir.exists?(repository_path)
 
           # Clone the repository
-          Process.run(
-            "./bin/exec_from",
-            {working_dir, "git", "clone", repository_uri, repository},
-            {"GIT_TERMINAL_PROMPT" => "0"},
-            input: Process::Redirect::Close,
-            output: io,
-            error: io,
-          ).exit_code
+          result = ExecFrom.exec_from(working_dir, "git", {"clone", repository_uri, repository}, environment: {"GIT_TERMINAL_PROMPT" => "0"})
+
+          {
+            exit_status: result[:exit_code],
+            output:      result[:output].to_s,
+          }
         end
       end
-
-      {
-        exit_status: exit_code,
-        output:      io.to_s,
-      }
     end
 
     # https://stackoverflow.com/questions/6245570/how-to-get-the-current-branch-name-in-git
@@ -278,18 +233,13 @@ module PlaceOS::Drivers
 
     # Anything that expects a clean repository
     def self.repo_operation(repository)
-      io = IO::Memory.new
       repo_lock(repository).write do
         operation_lock(repository).synchronize do
-          # reset incase of a crash during a file operation
-          exit_code = Process.run(
-            "./bin/exec_from", {repository, "git", "reset", "--hard"},
-            input: Process::Redirect::Close,
-            output: io,
-            error: io,
-          ).exit_code
+          # Reset incase of a crash during a file operation
+          result = ExecFrom.exec_from(repository, "git", {"reset", "--hard"})
 
-          raise CommandFailure.new(exit_code, "git reset --hard failed with #{exit_code} in path #{repository}: #{io.to_s}") if exit_code != 0
+          exit_code = result[:exit_code]
+          raise CommandFailure.new(exit_code, "git reset --hard failed with #{exit_code} in path #{repository}: #{result[:output].to_s}") if exit_code != 0
           yield
         end
       end

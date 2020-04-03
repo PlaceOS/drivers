@@ -73,7 +73,7 @@ module PlaceOS::Drivers::Api
       end
 
       files = if commit
-                [Compiler.executable_name(driver_source, commit)]
+                [Compiler.executable_name(driver_source, commit, nil)]
               else
                 PlaceOS::Drivers::Compiler.compiled_drivers(driver_source)
               end
