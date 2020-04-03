@@ -13,8 +13,8 @@ module PlaceOS::Drivers
 
     # Returns a list of driver source file paths in a repository
     # defaults to PlaceOS repository, i.e. this one
-    def drivers(repository : String? = nil) : Array(String)
-      Dir.cd(get_repository_path(repository)) do
+    def drivers(repository_directory : String? = nil) : Array(String)
+      Dir.cd(get_repository_path(repository_directory)) do
         Dir.glob("drivers/**/*.cr").select do |file|
           !file.ends_with?("_spec.cr")
         end
@@ -23,75 +23,92 @@ module PlaceOS::Drivers
 
     # Returns a list of compiled driver file paths
     # (across all repositories)
-    def compiled_drivers : Array(String)
-      Compiler.compiled_drivers
+    def compiled_drivers(id : String? = nil) : Array(String)
+      Compiler.compiled_drivers(id)
     end
 
     # Check if a version of a driver exists
-    def compiled?(driver : String, commit : String) : Bool
-      File.exists?(driver_binary_path(driver, commit))
+    def compiled?(driver_file : String, commit : String, id : String? = nil) : Bool
+      File.exists?(driver_binary_path(driver_file, commit, id))
     end
 
     # Generates path to a driver executable
-    def driver_binary_path(driver, commit)
-      File.join(Compiler.bin_dir, Compiler.executable_name(driver, commit))
+    def driver_binary_path(driver_file : String, commit : String, id : String? = nil)
+      File.join(Compiler.bin_dir, driver_binary_name(driver_file, commit, id))
+    end
+
+    # Generates the name of a driver binary
+    def driver_binary_name(driver_file : String, commit : String, id : String? = nil)
+      Compiler.executable_name(driver_file, commit, id)
     end
 
     # Repository commits
     #
     # [{commit:, date:, author:, subject:}, ...]
-    def repository_commits(repository : String? = nil, count = 50)
-      GitCommands.repository_commits(get_repository_path(repository), count)
+    def repository_commits(repository_directory : String? = nil, count = 50)
+      GitCommands.repository_commits(get_repository_path(repository_directory), count)
     end
 
     # Returns the latest commit hash for a repository
-    def repository_commit_hash(repository : String? = nil)
-      repository_commits(repository, 1).first[:commit]
+    def repository_commit_hash(repository_directory : String? = nil)
+      repository_commits(repository_directory, 1).first[:commit]
     end
 
     # File level commits
     # [{commit:, date:, author:, subject:}, ...]
-    def commits(file_path : String, repository : String? = nil, count = 50)
-      GitCommands.commits(file_path, count, get_repository_path(repository))
+    def commits(file_path : String, repository_directory : String? = nil, count = 50)
+      GitCommands.commits(file_path, count, get_repository_path(repository_directory))
     end
 
     # Returns the latest commit hash for a file
-    def file_commit_hash(file_path : String, repository : String? = nil)
-      commits(file_path, repository, 1).first[:commit]
+    def file_commit_hash(file_path : String, repository_directory : String? = nil)
+      commits(file_path, repository_directory, 1).first[:commit]
     end
 
     # Takes a file path with a repository path and compiles it
     # [{exit_status:, output:, driver:, version:, executable:, repository:}, ...]
-    def compile_driver(driver : String, repository : String? = nil, commit = "HEAD")
-      Compiler.build_driver(driver, commit, get_repository_path(repository))
+    def compile_driver(
+      driver_file : String,
+      repository_directory : String? = nil,
+      commit : String = "HEAD",
+      id : String? = nil
+    )
+      repository_path = get_repository_path(repository_directory)
+      Compiler.build_driver(driver_file, commit, repository_path, id: id)
     end
 
     # Deletes a compiled driver
     # not providing a commit deletes all versions of the driver
-    def delete_driver(driver : String, repository : String? = nil, commit = nil) : Array(String)
+    def delete_driver(
+      driver_file : String,
+      repository_directory : String? = nil,
+      commit : String? = nil,
+      id : String? = nil
+    ) : Array(String)
       # Check repository to prevent abuse (don't want to delete the wrong thing)
-      repository = get_repository_path(repository)
-      GitCommands.checkout(driver, commit || "HEAD", repository) do
-        return [] of String unless File.exists?(File.join(repository, driver))
+      repository_path = get_repository_path(repository_directory)
+      GitCommands.checkout(driver, commit || "HEAD", repository_path) do
+        return [] of String unless File.exists?(File.join(repository_path, driver_file))
       end
 
       files = if commit
-                [Compiler.executable_name(driver, commit)]
+                [driver_binary_name(driver_file, commit, id)]
               else
-                Compiler.compiled_drivers(driver)
+                compiled_drivers(id)
               end
 
       files.each do |file|
         File.delete(File.join(Compiler.bin_dir, file))
       end
+
       files
     end
 
-    def get_repository_path(repository : String?) : String
-      if repository
-        repo = File.expand_path(File.join(Compiler.repository_dir, repository))
-        valid = repo.starts_with?(Compiler.repository_dir) && repo != "/" && repository.size > 0 && !repository.includes?("/") && !repository.includes?(".")
-        raise "invalid repository: #{repository}" unless valid
+    def get_repository_path(repository_directory : String?) : String
+      if repository_directory
+        repo = File.expand_path(File.join(Compiler.repository_dir, repository_directory))
+        valid = repo.starts_with?(Compiler.repository_dir) && repo != "/" && repository_directory.size > 0 && !repository_directory.includes?("/") && !repository_directory.includes?(".")
+        raise "Invalid repository directory: #{repository_directory}" unless valid
         repo
       else
         Compiler.drivers_dir

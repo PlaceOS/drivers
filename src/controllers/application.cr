@@ -12,15 +12,7 @@ module PlaceOS::Drivers::Api
 
     # Builds and validates the selected repository
     def get_repository_path
-      repository = params["repository"]?
-      if repository
-        repo = File.expand_path(File.join(Compiler.repository_dir, repository))
-        valid = repo.starts_with?(Compiler.repository_dir) && repo != "/" && repository.size > 0 && !repository.includes?("/") && !repository.includes?(".")
-        raise "invalid repository: #{repository}" unless valid
-        repo
-      else
-        Compiler.drivers_dir
-      end
+      Helper.get_repository_path(params["repository"]?)
     end
   end
 end

@@ -22,8 +22,8 @@ module PlaceOS::Drivers
     it "should list compiled versions" do
       files = PlaceOS::Drivers::Compiler.compiled_drivers("drivers/place/spec_helper.cr")
 
-      files.size.should eq(1)
-      files.first.should start_with("drivers_place_spec_helper_")
+      files.size.should eq Dir.children(Compiler.bin_dir).count { |f| !f.includes?('.') && f.starts_with?("drivers_place_spec_helper") }
+      files.first.should start_with("drivers_place_spec_helper")
     end
 
     it "should clone and install a repository" do
@@ -93,13 +93,13 @@ module PlaceOS::Drivers
 
       # Check it functions as expected SPEC_RUN_DRIVER
       io = IO::Memory.new
-      exit_status = Process.run(spec_executable,
+      exit_code = Process.run(spec_executable,
         env: {"SPEC_RUN_DRIVER" => executable},
         input: Process::Redirect::Close,
         output: io,
         error: io
       ).exit_code
-      exit_status.should eq(0)
+      exit_code.should eq(0)
 
       # Delete the file
       FileUtils.rm(Dir.glob "#{executable}*")
