@@ -16,7 +16,7 @@ module PlaceOS::Drivers
       end
     {% end %}
 
-    def self.is_built?(source_file, commit = "head", repository_drivers = @@drivers_dir)
+    def self.is_built?(source_file, commit = "HEAD", repository_drivers = @@drivers_dir)
       # Make sure we have an actual version hash of the file
       commit = self.normalize_commit(commit, source_file, repository_drivers)
       executable_path = File.join(@@bin_dir, self.executable_name(source_file, commit))
@@ -24,7 +24,7 @@ module PlaceOS::Drivers
     end
 
     # repository is required to have a local `build.cr` file to support compilation
-    def self.build_driver(source_file, commit = "head", repository_drivers = @@drivers_dir, git_checkout = true, debug = false)
+    def self.build_driver(source_file, commit = "HEAD", repository_drivers = @@drivers_dir, git_checkout = true, debug = false)
       # Ensure the bin directory exists
       Dir.mkdir_p @@bin_dir
       io = IO::Memory.new
@@ -36,7 +36,7 @@ module PlaceOS::Drivers
       result = 1
 
       GitCommands.file_lock(repository_drivers, source_file) do
-        git_checkout = false if commit == "head"
+        git_checkout = false if commit == "HEAD"
 
         # TODO: Expose some kind of status signalling
         # @@message = "compiling #{source_file} @ #{commit}"
@@ -187,7 +187,7 @@ module PlaceOS::Drivers
     # Ensure commit is an actual version hash of a file
     def self.normalize_commit(commit, source_file, repository) : String
       # Make sure we have an actual version hash of the file
-      if commit == "head"
+      if commit == "HEAD"
         if GitCommands.diff(source_file, repository).empty?
           # Allow uncommited files to be built
           begin

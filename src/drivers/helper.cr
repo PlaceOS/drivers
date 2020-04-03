@@ -62,7 +62,7 @@ module PlaceOS::Drivers
 
     # Takes a file path with a repository path and compiles it
     # [{exit_status:, output:, driver:, version:, executable:, repository:}, ...]
-    def compile_driver(driver : String, repository : String? = nil, commit = "head")
+    def compile_driver(driver : String, repository : String? = nil, commit = "HEAD")
       Compiler.build_driver(driver, commit, get_repository_path(repository))
     end
 
@@ -71,7 +71,7 @@ module PlaceOS::Drivers
     def delete_driver(driver : String, repository : String? = nil, commit = nil) : Array(String)
       # Check repository to prevent abuse (don't want to delete the wrong thing)
       repository = get_repository_path(repository)
-      GitCommands.checkout(driver, commit || "head", repository) do
+      GitCommands.checkout(driver, commit || "HEAD", repository) do
         return [] of String unless File.exists?(File.join(repository, driver))
       end
 

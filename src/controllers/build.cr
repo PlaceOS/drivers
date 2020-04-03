@@ -47,7 +47,7 @@ module PlaceOS::Drivers::Api
     # build a drvier, optionally based on the version specified
     def create
       driver = params["driver"]
-      commit = params["commit"]? || "head"
+      commit = params["commit"]? || "HEAD"
 
       result = PlaceOS::Drivers::Compiler.build_driver(driver, commit, get_repository_path)
 
@@ -68,7 +68,7 @@ module PlaceOS::Drivers::Api
 
       # Check repository to prevent abuse (don't want to delete the wrong thing)
       repository = get_repository_path
-      PlaceOS::Drivers::GitCommands.checkout(driver_source, commit || "head", repository) do
+      PlaceOS::Drivers::GitCommands.checkout(driver_source, commit || "HEAD", repository) do
         head :not_found unless File.exists?(File.join(repository, driver_source))
       end
 
