@@ -9,8 +9,10 @@ require "../lib/action-controller/spec/curl_context"
 
 require "../src/drivers"
 
-# Clone the private drivers
-PlaceOS::Drivers::Compiler.clone_and_install(
-  "private_drivers",
-  "https://github.com/placeos/private-drivers"
-)
+Spec.before_suite do
+  # Clone the private drivers
+  PlaceOS::Drivers::Compiler.clone_and_install(
+    "private_drivers",
+    "https://github.com/placeos/private-drivers"
+  )
+end
