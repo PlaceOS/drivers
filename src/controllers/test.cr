@@ -33,9 +33,9 @@ module PlaceOS::Drivers::Api
       debug = params["debug"]? == "true"
 
       io = IO::Memory.new
-      exit_status = launch_spec(io, debug)
+      exit_code = launch_spec(io, debug)
 
-      render :not_acceptable, text: io.to_s if exit_status != 0
+      render :not_acceptable, text: io.to_s if exit_code != 0
       render text: io.to_s
     end
 
@@ -74,7 +74,7 @@ module PlaceOS::Drivers::Api
       io << "\nLaunching spec runner\n"
 
       if debug
-        exit_status = Process.run(
+        exit_code = Process.run(
           "gdbserver",
           {"0.0.0.0:#{GDB_SERVER_PORT}", @spec_path},
           {"SPEC_RUN_DRIVER" => @driver_path},
@@ -82,11 +82,11 @@ module PlaceOS::Drivers::Api
           output: io,
           error: io
         ).exit_code
-        io << "spec runner exited with #{exit_status}\n"
+        io << "spec runner exited with #{exit_code}\n"
         io.close
-        exit_status
+        exit_code
       else
-        exit_status = Process.run(
+        exit_code = Process.run(
           @spec_path,
           nil,
           {"SPEC_RUN_DRIVER" => @driver_path},
@@ -94,9 +94,9 @@ module PlaceOS::Drivers::Api
           output: io,
           error: io
         ).exit_code
-        io << "spec runner exited with #{exit_status}\n"
+        io << "spec runner exited with #{exit_code}\n"
         io.close
-        exit_status
+        exit_code
       end
     end
 
