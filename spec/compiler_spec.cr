@@ -1,4 +1,5 @@
 require "./spec_helper"
+require "file_utils"
 
 module PlaceOS::Drivers
   describe Compiler do
@@ -101,10 +102,8 @@ module PlaceOS::Drivers
       exit_status.should eq(0)
 
       # Delete the file
-      File.delete(executable)
-      File.delete(executable + ".dwarf")
-      File.delete(spec_executable)
-      File.delete(spec_executable + ".dwarf")
+      FileUtils.rm(Dir.glob "#{executable}*")
+      FileUtils.rm(Dir.glob "#{spec_executable}*")
     end
   end
 end
