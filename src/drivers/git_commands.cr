@@ -126,7 +126,7 @@ module PlaceOS::Drivers
         end
     end
 
-    def self.checkout(file, commit = "head", repository = Compiler.drivers_dir)
+    def self.checkout(file, commit = "HEAD", repository = Compiler.drivers_dir)
       # https://stackoverflow.com/questions/215718/reset-or-revert-a-specific-file-to-a-specific-revision-using-git
       op_lock = operation_lock(repository)
 
@@ -250,6 +250,21 @@ module PlaceOS::Drivers
         exit_status: result,
         output:      io.to_s,
       }
+    end
+
+    # https://stackoverflow.com/questions/6245570/how-to-get-the-current-branch-name-in-git
+    def self.current_branch(repository)
+      io = IO::Memory.new
+      exit_status = basic_operation(repository) do
+        Process.run(
+          "./bin/exec_from", {repository, "git", "rev-parse", "--abbrev-ref", "HEAD"},
+          input: Process::Redirect::Close,
+          output: io,
+          error: io,
+        ).exit_code
+      end
+      raise CommandFailure.new(exit_status, "git rev-parse failed with #{exit_status} in path #{repository}: #{io.to_s}") if exit_status != 0
+      io.to_s.strip
     end
 
     # Use this for simple git operations, such as `git ls`

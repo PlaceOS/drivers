@@ -103,7 +103,7 @@ module PlaceOS::Drivers::Api
     def ensure_driver_compiled
       driver = params["driver"]
       repository = get_repository_path
-      commit = params["commit"]? || "head"
+      commit = params["commit"]? || "HEAD"
 
       driver_path = Compiler.is_built?(driver, commit, repository)
 
@@ -124,7 +124,7 @@ module PlaceOS::Drivers::Api
     def ensure_spec_compiled
       spec = params["spec"]
       repository = get_repository_path
-      spec_commit = params["spec_commit"]? || "head"
+      spec_commit = params["spec_commit"]? || "HEAD"
 
       spec_path = Compiler.is_built?(spec, spec_commit, repository)
 
