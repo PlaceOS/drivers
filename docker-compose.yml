@@ -10,7 +10,7 @@ services:
 
   drivers:
     build: .
-    image: acaengine/drivers
+    image: placeos/drivers
     restart: always
     container_name: drivers
     hostname: drivers
