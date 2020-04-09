@@ -11,7 +11,7 @@ module PlaceOS::Drivers::Api
       end
 
       it "should build a driver" do
-        result = curl("POST", "/test?repository=private_drivers&driver=drivers/place/private_helper.cr&spec=drivers/place/private_helper_spec.cr")
+        result = curl("POST", "/test?repository=private_drivers&driver=drivers/place/private_helper.cr&spec=drivers/place/private_helper_spec.cr&force=true")
         result.status_code.should eq(200)
       end
     end
