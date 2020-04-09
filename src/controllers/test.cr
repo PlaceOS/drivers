@@ -60,7 +60,6 @@ module PlaceOS::Drivers::Api
           socket.send String.new(raw_data[0, bytes_read])
         end
       rescue IO::Error
-      rescue Errno
         # Input stream closed. This should only occur on termination
       end
 

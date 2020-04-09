@@ -30,23 +30,23 @@ shards:
 
   driver:
     github: placeos/driver
-    commit: 9aca0b093a17b0e6cc84925b720c1e132aae7351
+    commit: 334dc0c9a7019ccea320fad62ee424a88fad3903
 
   etcd:
     github: aca-labs/crystal-etcd
-    version: 0.3.2
+    version: 0.4.0
 
   exec_from:
     github: aca-labs/exec_from
-    commit: 5f92f207a61448c5875ad42010f8c260a3b95d61
+    commit: a7118c27d21183d93c7095a0bcd3e616b86dc82a
 
   habitat:
     github: luckyframework/habitat
     version: 0.4.3
 
   hound-dog:
-    github: aca-labs/hound-dog
-    version: 2.0.2
+    github: place-labs/hound-dog
+    version: 2.1.0
 
   ipaddress:
     github: Sija/ipaddress.cr
@@ -86,7 +86,7 @@ shards:
 
   redis:
     github: stefanwille/crystal-redis
-    version: 2.5.3
+    version: 2.6.0
 
   rendezvous-hash:
     github: caspiano/rendezvous-hash
@@ -102,7 +102,7 @@ shards:
 
   ssh2:
     github: spider-gazelle/ssh2.cr
-    version: 1.2.4
+    version: 1.2.6
 
   tasker:
     github: spider-gazelle/tasker
@@ -110,7 +110,7 @@ shards:
 
   telnet:
     github: spider-gazelle/telnet.cr
-    version: 1.0.0
+    version: 1.0.1
 
   tokenizer:
     github: spider-gazelle/tokenizer
