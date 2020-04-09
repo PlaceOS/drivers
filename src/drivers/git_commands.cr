@@ -123,7 +123,7 @@ module PlaceOS::Drivers
       end
 
       exit_code = result[:exit_code]
-      raise CommandFailure.new(exit_code, "git checkout failed with #{exit_code} in path #{repository_directory}: #{result[:output].to_s}") if exit_code != 0
+      raise CommandFailure.new(exit_code, "git checkout failed with #{exit_code} in path #{repository_directory}: #{result[:output]}") if exit_code != 0
     end
 
     def self.pull(repository, working_dir = Compiler.repository_dir)
@@ -204,7 +204,7 @@ module PlaceOS::Drivers
           error: io,
         ).exit_code
       end
-      raise CommandFailure.new(exit_status, "git rev-parse failed with #{exit_status} in path #{repository}: #{io.to_s}") if exit_status != 0
+      raise CommandFailure.new(exit_status, "git rev-parse failed with #{exit_status} in path #{repository}: #{io}") if exit_status != 0
       io.to_s.strip
     end
 
@@ -239,7 +239,7 @@ module PlaceOS::Drivers
           result = ExecFrom.exec_from(repository, "git", {"reset", "--hard"})
 
           exit_code = result[:exit_code]
-          raise CommandFailure.new(exit_code, "git reset --hard failed with #{exit_code} in path #{repository}: #{result[:output].to_s}") if exit_code != 0
+          raise CommandFailure.new(exit_code, "git reset --hard failed with #{exit_code} in path #{repository}: #{result[:output]}") if exit_code != 0
           yield
         end
       end
