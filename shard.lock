@@ -30,15 +30,15 @@ shards:
 
   driver:
     github: placeos/driver
-    commit: a4e12945ec1c2e30b74a6baf7e4302be5b16a602
+    version: 1.2.0
 
   etcd:
     github: aca-labs/crystal-etcd
-    version: 0.4.0
+    version: 1.0.0
 
   exec_from:
-    github: aca-labs/exec_from
-    commit: a7118c27d21183d93c7095a0bcd3e616b86dc82a
+    github: place-labs/exec_from
+    version: 1.2.0
 
   habitat:
     github: luckyframework/habitat
@@ -46,7 +46,7 @@ shards:
 
   hound-dog:
     github: place-labs/hound-dog
-    version: 2.1.0
+    version: 2.2.0
 
   ipaddress:
     github: Sija/ipaddress.cr
