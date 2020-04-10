@@ -1,5 +1,5 @@
 name: drivers
-version: 1.0.0
+version: 1.1.0
 
 # compile target
 targets:
@@ -13,11 +13,10 @@ dependencies:
 
   driver:
     github: placeos/driver
-    branch: master
+    version: ~> 1.2
 
   exec_from:
-    github: aca-labs/exec_from
-    branch: master
+    github: place-labs/exec_from
 
   rwlock:
     github: spider-gazelle/readers-writer
