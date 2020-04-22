@@ -5,9 +5,14 @@ module PlaceOS::Drivers::Api
   abstract class Application < ActionController::Base
     before_action :set_request_id
 
+    # Support request tracking
     def set_request_id
-      # Support request tracking
-      response.headers["X-Request-ID"] = logger.request_id = request.headers["X-Request-ID"]? || UUID.random.to_s
+      request_id = UUID.random.to_s
+      Log.context.set(
+        client_ip: client_ip,
+        request_id: request_id
+      )
+      response.headers["X-Request-ID"] = request_id
     end
 
     # Builds and validates the selected repository
