@@ -15,6 +15,9 @@ dependencies:
     github: placeos/driver
     version: ~> 1.2
 
+  compiler:
+    github: placeos/compiler
+
   exec_from:
     github: place-labs/exec_from
 

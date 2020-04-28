@@ -7,7 +7,7 @@ require "../src/config"
 # Helper methods for testing controllers (curl, with_server, context)
 require "../lib/action-controller/spec/curl_context"
 
-require "../src/drivers"
+require "compiler/drivers"
 
 Spec.before_suite do
   # Clone the private drivers
