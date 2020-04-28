@@ -2,7 +2,7 @@ version: 1.0
 shards:
   action-controller:
     github: spider-gazelle/action-controller
-    version: 3.0.1
+    version: 3.0.2
 
   bindata:
     github: spider-gazelle/bindata
@@ -11,6 +11,10 @@ shards:
   bisect:
     github: spider-gazelle/bisect
     version: 1.2.0
+
+  compiler:
+    github: placeos/compiler
+    commit: d5c29f8bf5ebbec36ef70293301ce51cfd15c537
 
   connect-proxy:
     github: spider-gazelle/connect-proxy
@@ -34,7 +38,7 @@ shards:
 
   etcd:
     github: place-labs/crystal-etcd
-    version: 1.0.0
+    version: 1.0.1
 
   exec_from:
     github: place-labs/exec_from
@@ -46,7 +50,7 @@ shards:
 
   hound-dog:
     github: place-labs/hound-dog
-    version: 2.3.1
+    version: 2.3.2
 
   ipaddress:
     github: Sija/ipaddress.cr
@@ -59,6 +63,10 @@ shards:
   kilt:
     github: jeromegn/kilt
     version: 0.6.0
+
+  log_helper:
+    github: spider-gazelle/log_helper
+    version: 0.1.2
 
   murmur3:
     github: aca-labs/murmur3

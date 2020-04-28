@@ -1,10 +1,10 @@
 # Application dependencies
 require "action-controller"
+require "compiler/drivers"
 
 # Application code
 require "./controllers/application"
 require "./controllers/*"
-require "./drivers"
 
 # Server required after application controllers
 require "action-controller/server"
