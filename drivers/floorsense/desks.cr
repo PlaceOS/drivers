@@ -81,9 +81,9 @@ class Floorsense::Desks < PlaceOS::Driver
       case response.status_code
       when 401
         resp = AuthResponse.from_json(data)
-        logger.warn "#{resp.message} (#{resp.code})"
+        logger.warn { "#{resp.message} (#{resp.code})" }
       else
-        logger.error "authentication failed with HTTP #{response.status_code}"
+        logger.error { "authentication failed with HTTP #{response.status_code}" }
       end
       raise "failed to obtain access token"
     end

@@ -62,7 +62,7 @@ class PointGrab::CogniPoint < PlaceOS::Driver
       @auth_expiry = Time.utc + (resp.expires_in - 5).seconds
       @auth_token = "Bearer #{resp.token}"
     else
-      logger.error "authentication failed with HTTP #{response.status_code}"
+      logger.error { "authentication failed with HTTP #{response.status_code}" }
       raise "failed to obtain access token"
     end
   end
@@ -331,7 +331,7 @@ class PointGrab::CogniPoint < PlaceOS::Driver
     if response.success?
       Subscription.from_json(body.not_nil!)
     else
-      logger.error "authentication failed with HTTP #{response.status_code}"
+      logger.error { "authentication failed with HTTP #{response.status_code}" }
       raise "failed to obtain access token"
     end
   end

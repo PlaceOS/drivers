@@ -69,7 +69,7 @@ module OfficeRnd
         @auth_expiry = Time.utc + (resp.expires_in - 5).seconds
         @auth_token = "Bearer #{resp.access_token}"
       else
-        logger.error "authentication failed with HTTP #{response.status_code}"
+        logger.error { "authentication failed with HTTP #{response.status_code}" }
         raise "failed to obtain access token"
       end
     end

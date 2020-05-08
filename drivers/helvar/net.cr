@@ -29,7 +29,7 @@ class Helvar::Net < PlaceOS::Driver
 
   def connected
     schedule.every(40.seconds) do
-      logger.debug "-- Polling Helvar"
+      logger.debug { "-- Polling Helvar" }
       if poll_group = @poll_group
         get_current_preset poll_group
       else
@@ -242,10 +242,10 @@ class Helvar::Net < PlaceOS::Driver
       error = ERRORS[data.split("=")[1]]
       error = "#{error} for #{data}"
       self[:last_error] = error
-      logger.warn error
+      logger.warn { error }
       return task.try &.abort(error)
     else
-      logger.info "unknown request #{data}"
+      logger.info { "unknown request #{data}" }
     end
 
     task.try &.success
