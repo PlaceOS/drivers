@@ -2,11 +2,11 @@ version: 1.0
 shards:
   action-controller:
     github: spider-gazelle/action-controller
-    version: 3.0.2
+    version: 3.1.0
 
   bindata:
     github: spider-gazelle/bindata
-    version: 1.3.0
+    version: 1.5.1
 
   bisect:
     github: spider-gazelle/bisect
@@ -14,7 +14,7 @@ shards:
 
   compiler:
     github: placeos/compiler
-    commit: d5c29f8bf5ebbec36ef70293301ce51cfd15c537
+    version: 1.2.0
 
   connect-proxy:
     github: spider-gazelle/connect-proxy
@@ -34,7 +34,7 @@ shards:
 
   driver:
     github: placeos/driver
-    version: 1.2.0
+    version: 2.0.2
 
   etcd:
     github: place-labs/crystal-etcd
@@ -43,6 +43,10 @@ shards:
   exec_from:
     github: place-labs/exec_from
     version: 1.2.0
+
+  future:
+    github: crystal-community/future.cr
+    version: 0.1.0
 
   habitat:
     github: luckyframework/habitat
@@ -59,10 +63,6 @@ shards:
   jwt:
     github: crystal-community/jwt
     version: 1.4.0
-
-  kilt:
-    github: jeromegn/kilt
-    version: 0.6.0
 
   log_helper:
     github: spider-gazelle/log_helper
@@ -114,7 +114,7 @@ shards:
 
   tasker:
     github: spider-gazelle/tasker
-    version: 1.2.2
+    version: 1.3.0
 
   telnet:
     github: spider-gazelle/telnet.cr
