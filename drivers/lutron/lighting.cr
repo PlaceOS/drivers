@@ -36,7 +36,7 @@ class Lutron::Lighting < PlaceOS::Driver
     send "#{@login}\r\n", priority: 9999
 
     schedule.every(40.seconds) do
-      logger.debug "-- Polling Lutron"
+      logger.debug { "-- Polling Lutron" }
       scene? 1
     end
   end
@@ -198,7 +198,7 @@ class Lutron::Lighting < PlaceOS::Driver
       end
     when "error"
       error = "error #{parts[1]}: #{Errors[parts[1]]}"
-      logger.warn error
+      logger.warn { error }
       return task.try &.abort(error)
     end
 

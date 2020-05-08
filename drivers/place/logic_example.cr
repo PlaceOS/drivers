@@ -7,7 +7,7 @@ class Place::LogicExample < PlaceOS::Driver
   accessor main_lcd : Display_1, implementing: Powerable
 
   def on_update
-    logger.info "woot! an update #{setting?(String, :name)}"
+    logger.info { "woot! an update #{setting?(String, :name)}" }
   end
 
   def power_state?

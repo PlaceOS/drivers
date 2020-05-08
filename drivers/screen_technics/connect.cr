@@ -168,7 +168,7 @@ class ScreenTechnics::Connect < PlaceOS::Driver
       task.try &.success
     else
       error = "Unknown command #{parts[0]}"
-      logger.debug error
+      logger.debug { error }
       task.try &.abort(error)
     end
   end

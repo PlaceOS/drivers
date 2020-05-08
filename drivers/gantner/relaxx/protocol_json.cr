@@ -51,7 +51,7 @@ class Gantner::Relaxx::ProtocolJSON < PlaceOS::Driver
     request_auth_string
 
     schedule.every(40.seconds) do
-      logger.debug "-- maintaining connection"
+      logger.debug { "-- maintaining connection" }
       @authenticated ? keep_alive : request_auth_string
     end
   end
@@ -181,12 +181,12 @@ class Gantner::Relaxx::ProtocolJSON < PlaceOS::Driver
       logged_in = json["LoggedIn"].as_bool
       self["authenticated"] = @authenticated = logged_in
       if logged_in
-        logger.debug "authentication success"
+        logger.debug { "authentication success" }
 
         # Obtain the list of lockers and their current state
         query_lockers if @locker_ids.empty?
       else
-        logger.warn "authentication failure - please check credentials"
+        logger.warn { "authentication failure - please check credentials" }
       end
     when "GetLockersResponse"
       lockers = Array(Locker).from_json(json["Lockers"].to_json)
@@ -203,7 +203,7 @@ class Gantner::Relaxx::ProtocolJSON < PlaceOS::Driver
       self[:locker_ids] = @locker_ids
       self[:lockers_in_use] = @lockers_in_use
     when "CommandNotSupportedResponse"
-      logger.warn "Command not supported!"
+      logger.warn { "Command not supported!" }
       return task.try &.abort("Command not supported!")
     end
 

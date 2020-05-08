@@ -19,7 +19,7 @@ class Bose::ControlSpaceSerial < PlaceOS::Driver
 
   def connected
     schedule.every(60.seconds) do
-      logger.debug "-- maintaining connection"
+      logger.debug { "-- maintaining connection" }
       do_send "GS", priority: 99
     end
   end

@@ -88,11 +88,11 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
     self[:power_target] = state
 
     if state
-      logger.debug "requested to power on"
+      logger.debug { "requested to power on" }
       do_send(:power_on, retries: 10, name: :power, delay: 8.seconds)
       do_send(:lamp)
     else
-      logger.debug "requested to power off"
+      logger.debug { "requested to power off" }
       do_send(:power_off, retries: 10, name: :power, delay: 8.seconds).get
 
       # Schedule this after we have a result for the power function
@@ -184,10 +184,10 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
       self[:last_error] = error_msg = ERRORS[data]
 
       if {"ERR3", "ERR4"}.includes? data
-        logger.info "projector busy: #{error_msg} (#{data})"
+        logger.info { "projector busy: #{error_msg} (#{data})" }
         task.try &.retry
       else
-        logger.error "projector error: #{error_msg} (#{data})"
+        logger.error { "projector error: #{error_msg} (#{data})" }
         task.try &.abort(error_msg)
       end
       return
