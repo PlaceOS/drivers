@@ -45,7 +45,7 @@ DriverSpecs.mock_driver "Gantner::Relaxx::ProtocolJSON" do
   id = data["Id"].as_s
 
   # password should be decrypted
-  data["AuthenticationString"].as_s.should eq("499520882")
+  data["AuthenticationString"].as_i64.should eq(499520882)
 
   # Respond with auth B response
   transmit Relaxx.frame({

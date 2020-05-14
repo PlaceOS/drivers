@@ -103,7 +103,9 @@ class Gantner::Relaxx::ProtocolJSON < PlaceOS::Driver
     send_frame({
       Caption:              "AuthenticationRequestB",
       Id:                   new_request_id,
-      AuthenticationString: decrypted,
+
+      # Locker system expects an integer here
+      AuthenticationString: decrypted.to_i,
     }, priority: 9999)
   end
 
