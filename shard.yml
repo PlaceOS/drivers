@@ -38,3 +38,10 @@ dependencies:
 
   pinger:
     github: spider-gazelle/pinger
+
+  responsible:
+    github: place-labs/responsible
+    version: ~>1.1
+
+  inactive-support:
+    github: spider-gazelle/inactive-support

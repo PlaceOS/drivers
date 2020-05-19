@@ -52,6 +52,10 @@ shards:
     git: https://github.com/place-labs/hound-dog.git
     version: 2.5.0
 
+  inactive-support:
+    github: spider-gazelle/inactive-support
+    commit: 8471418f17388dcdab6bde8b8be73077dec2a6df
+
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git
     version: 0.2.1
@@ -123,6 +127,10 @@ shards:
   rendezvous-hash:
     git: https://github.com/caspiano/rendezvous-hash.git
     version: 0.3.1
+
+  responsible:
+    git: https://github.com/place-labs/responsible.git
+    version: 1.2.0
 
   rwlock:
     git: https://github.com/spider-gazelle/readers-writer.git
