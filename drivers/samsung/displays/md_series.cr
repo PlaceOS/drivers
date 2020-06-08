@@ -70,7 +70,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     schedule.clear
   end
 
-  CMD = Hash(Symbol | Int32, Symbol | Int32){
+  CMD = Hash(Symbol | Int32, Symbol | Int32) {
     :status           => 0x00,
     :hard_off         => 0x11, # Completely powers off
     :panel_mute       => 0xF9, # Screen blanking / visual mute
@@ -129,9 +129,9 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_poll
   end
 
-  def power?(options = {} of Symbol => String, &block)
+  def power?(**options, &block)
     options[:emit] = block unless block.nil?
-    do_send(:panel_mute, "", options)
+    do_send(:panel_mute, "", **options)
   end
 
   # Adds mute states compatible with projectors
@@ -161,7 +161,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   def set_timer(enable = true, volume = 0)
     # set the time on the display
     time_cmd = 0xA7
-    time_request = [] of Int32
+    time_request = [] of Int
     t = Time.now
     time_request << t.day
     hour = t.hour
@@ -184,6 +184,110 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     state = is_affirmative?(enable) ? "01" : "00"
     vol = volume.to_s(16).rjust(2, "0")
     #              on 03:45 am enabled  off 03:30 am enabled  on-everyday  ignore manual  off-everyday  ignore manual  volume 15  input HDMI   holiday apply
-    custom_mdc "A4", "03-2D-01 #{state}  03-1E-01   #{state}      01          80               01           80          #{vol}        21          01"
+    custom_mdc(
+      "A4",
+      "03-2D-01 #{state}  03-1E-01   #{state}      01          80               01           80          #{vol}        21          01"
+    )
+  end
+
+
+  INPUTS = Hash(Symbol | Int32, Symbol | Int32) {
+    :vga => 0x14,       # pc in manual
+    :dvi => 0x18,
+    :dvi_video => 0x1F,
+    :hdmi => 0x21,
+    :hdmi_pc => 0x22,
+    :hdmi2 => 0x23,
+    :hdmi2_pc => 0x24,
+    :hdmi3 => 0x31,
+    :hdmi3_pc => 0x32,
+    :hdmi4 => 0x33,
+    :hdmi4_pc => 0x34,
+    :display_port => 0x25,
+    :dtv => 0x40,
+    :media => 0x60,
+    :widi => 0x61,
+    :magic_info => 0x20,
+    :whiteboard => 0x64
+  }
+  INPUTS.merge!(INPUTS.invert)
+
+  def switch_to(input, **options)
+    input = input.to_sym if input.class == String
+    self[:input_stable] = false
+    self[:input_target] = input
+    do_send(:input, INPUTS[input], **options)
+  end
+
+  SCALE_MODE = Hash(Symbol | Int32, Symbol | Int32) {
+    :fill => 0x09,
+    :fit =>  0x20
+  }
+  SCALE_MODE.merge!(SCALE_MODE.invert)
+
+  # TODO: check if used anywhere
+  # Activite the internal compositor. Can either split 3 or 4 ways.
+  def split(inputs = [:hdmi, :hdmi2, :hdmi3], layout = 0, scale = :fit, **options)
+    main_source = inputs.shift
+
+    data = [
+      1,                  # enable
+      0,                  # sound from screen section 1
+      layout,             # layout mode (1..6)
+      SCALE_MODE[scale],  # scaling for main source
+      inputs.flat_map do |input|
+        input = input.to_sym if input.is_a? String
+        [INPUTS[input], SCALE_MODE[scale]]
+      end
+    ].flatten
+
+    switch_to(main_source, options).then do
+      do_send(:screen_split, data, options)
+    end
+  end
+
+  def volume(vol, options = {})
+    vol = in_range(vol.to_i, 100)
+    do_send(:volume, vol, options)
+  end
+
+  # Emulate mute
+  def mute_audio(val = true)
+    if is_affirmative? val
+      if not self[:audio_mute]
+        self[:audio_mute] = true
+        self[:previous_volume] = self[:volume] || 50
+        volume 0
+      end
+    else
+      unmute_audio
+    end
+  end
+
+  def unmute_audio
+    if self[:audio_mute]
+      self[:audio_mute] = false
+      volume self[:previous_volume]
+    end
+  end
+
+  private def do_send(command, data, **options)
+    data = data.to_a
+
+    if command.is_a?(Symbol)
+      options[:name] = command if data.length > 0 # name unless status request
+      command = CMD[command]
+    end
+
+    data = [command, @id, data.length] + data # Build request
+    data << (data.reduce(:+) & 0xFF)          # Add checksum
+    data = [0xAA] + data                      # Add header
+
+    logger.debug { "Sending to Samsung: #{byte_to_hex(array_to_str(data))}" }
+
+    send(array_to_str(data), options).catch do |reason|
+      disconnect
+      thread.reject(reason)
+    end
   end
 end
