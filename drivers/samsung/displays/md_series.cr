@@ -301,6 +301,80 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     # power? unless self[:hard_off]
   end
 
+  # Enable power on (without WOL)
+  def network_standby(enable : Bool, **options)
+    state = enable ? 1 : 0
+    do_send(:net_standby, state, **options)
+  end
+
+  # Eco auto power off timer
+  def auto_off_timer(enable : Bool, **options)
+    state = enable ? 1 : 0
+    do_send(:eco_solution, [0x81, state], **options)
+  end
+
+  # Device auto power control (presumably signal based?)
+  def auto_power(enable : Bool, **options)
+    state = enable ? 1 : 0
+    do_send(:auto_power, state, **options)
+  end
+
+  # TODO: port to Crystal
+  # # Colour control
+  # [
+  #   :contrast,
+  #   :brightness,
+  #   :sharpness,
+  #   :colour,
+  #   :tint,
+  #   :red_gain,
+  #   :green_gain,
+  #   :blue_gain
+  # ].each do |command|
+  #   define_method command do |val, **options|
+  #     val = in_range(val.to_i, 100)
+  #     do_send(command, val, options)
+  #   end
+  # end
+
+  DEVICE_SETTINGS = [
+    :network_standby,
+    :auto_off_timer,
+    :auto_power,
+    :contrast,
+    :brightness,
+    :sharpness,
+    :colour,
+    :tint,
+    :red_gain,
+    :green_gain,
+    :blue_gain
+]
+
+  def do_device_config
+    logger.debug { "Syncronising device state with settings" }
+    DEVICE_SETTINGS.each do |name|
+      value = setting(Int32, name)
+      # TODO: find out if these are equivalent
+      # __send__(name, value) unless value.nil?
+      do_send(name, value) unless value.nil?
+    end
+  end
+
+  # TODO: check type for broadcast is correct
+  def wake(broadcast : String | Nil = nil)
+    mac = setting(String, :mac_address)
+    if mac
+      # config is the database model representing this device
+      wake_device(mac, broadcast)
+      info = "Wake on Lan for MAC #{mac}"
+      info += " directed to VLAN #{broadcast.as(String)}" if broadcast
+      logger.debug { info }
+    else
+      logger.debug { "No MAC address provided" }
+    end
+  end
+
   private def do_send(command : Symbol, data : Int32 | Array = [] of Int32, **options)
     data = [data] if data.is_a?(Int32)
 
@@ -317,8 +391,5 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #     disconnect
   #     thread.reject(reason)
   #   end
-  end
-
-  def do_device_config
   end
 end
