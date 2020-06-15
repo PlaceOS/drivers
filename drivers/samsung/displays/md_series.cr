@@ -24,6 +24,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     display_id: 0,
   })
 
+  @blank : String = ""
+
   # TODO: figure out how to define indicator \xAA
   def init_tokenizer
     @buffer = Tokenizer.new do |io|
@@ -52,7 +54,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   def on_update
     @id = setting(Int32, :display_id) || 0
     @rs232 = setting(Bool, :rs232_control) || false
-    @blank = setting(Bool, :blank) || false
+    @blank = setting(String, :blank)
   end
 
   def connected
@@ -102,26 +104,28 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   }
   CMD.merge!(CMD.invert)
 
-  # # As true power off disconnects the server we only want to
-  # # power off the panel. This doesn't work in video walls
-  # # so if a nominal blank input is
+  # As true power off disconnects the server we only want to
+  # power off the panel. This doesn't work in video walls
+  # so if a nominal blank input is
+  # TODO: find out if broadcast is needed
   # def power(power, broadcast = nil)
-  #   power = self[:power_target] = is_affirmative?(power)
-  #   self[:power_stable] = false
+  def power(power : Bool)
+    self[:power_target] = power
+    self[:power_stable] = false
 
-  #   if power == Off
-  #     # Blank the screen before turning off panel if required
-  #     # required by some video walls where screens are chained
-  #     switch_to(@blank) if @blank && self[:power]
-  #     do_send(:panel_mute, 1)
-  #   elsif !@rs232 && !self[:connected]
-  #     wake(broadcast)
-  #   else
-  #     # Power on
-  #     do_send(:hard_off, 1)
-  #     do_send(:panel_mute, 0)
-  #   end
-  # end
+    if !power
+      # Blank the screen before turning off panel if required
+      # required by some video walls where screens are chained
+      switch_to(@blank) if @blank && self[:power]
+      do_send(:panel_mute, 1)
+    # elsif !@rs232 && !self[:connected]
+    #   wake(broadcast)
+    else
+      # Power on
+      do_send(:hard_off, 1)
+      do_send(:panel_mute, 0)
+    end
+  end
 
   # def hard_off
   #   do_send(:panel_mute, 0) if self[:power]
@@ -190,39 +194,38 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #   )
   # end
 
-  # INPUTS = Hash(Symbol | Int32, Symbol | Int32) {
-  #   :vga => 0x14,       # pc in manual
-  #   :dvi => 0x18,
-  #   :dvi_video => 0x1F,
-  #   :hdmi => 0x21,
-  #   :hdmi_pc => 0x22,
-  #   :hdmi2 => 0x23,
-  #   :hdmi2_pc => 0x24,
-  #   :hdmi3 => 0x31,
-  #   :hdmi3_pc => 0x32,
-  #   :hdmi4 => 0x33,
-  #   :hdmi4_pc => 0x34,
-  #   :display_port => 0x25,
-  #   :dtv => 0x40,
-  #   :media => 0x60,
-  #   :widi => 0x61,
-  #   :magic_info => 0x20,
-  #   :whiteboard => 0x64
-  # }
-  # INPUTS.merge!(INPUTS.invert)
+  INPUTS = Hash(String, Int32) {
+    "vga" => 0x14,       # pc in manual
+    "dvi" => 0x18,
+    "dvi_video" => 0x1F,
+    "hdmi" => 0x21,
+    "hdmi_pc" => 0x22,
+    "hdmi2" => 0x23,
+    "hdmi2_pc" => 0x24,
+    "hdmi3" => 0x31,
+    "hdmi3_pc" => 0x32,
+    "hdmi4" => 0x33,
+    "hdmi4_pc" => 0x34,
+    "display_port" => 0x25,
+    "dtv" => 0x40,
+    "media" => 0x60,
+    "widi" => 0x61,
+    "magic_info" => 0x20,
+    "whiteboard" => 0x64
+  }
+  #INPUTS.merge!(INPUTS.invert)
 
-  # def switch_to(input, **options)
-  #   input = input.to_sym if input.class == String
-  #   self[:input_stable] = false
-  #   self[:input_target] = input
-  #   do_send(:input, INPUTS[input], **options)
-  # end
+  def switch_to(input : String, **options)
+    self[:input_stable] = false
+    self[:input_target] = input
+    do_send(:input, INPUTS[input], **options)
+  end
 
-  # SCALE_MODE = Hash(Symbol | Int32, Symbol | Int32) {
-  #   :fill => 0x09,
-  #   :fit =>  0x20
-  # }
-  # SCALE_MODE.merge!(SCALE_MODE.invert)
+  SCALE_MODE = Hash(Symbol | Int32, Symbol | Int32) {
+    :fill => 0x09,
+    :fit =>  0x20
+  }
+  SCALE_MODE.merge!(SCALE_MODE.invert)
 
   # # TODO: check if used anywhere
   # # Activite the internal compositor. Can either split 3 or 4 ways.
