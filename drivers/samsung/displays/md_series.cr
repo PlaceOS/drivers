@@ -221,13 +221,13 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_send(:input, INPUTS[input], **options)
   end
 
-  SCALE_MODE = Hash(Symbol | Int32, Symbol | Int32) {
-    :fill => 0x09,
-    :fit =>  0x20
-  }
-  SCALE_MODE.merge!(SCALE_MODE.invert)
-
   # # TODO: check if used anywhere
+  # SCALE_MODE = Hash(Symbol | Int32, Symbol | Int32) {
+  #   :fill => 0x09,
+  #   :fit =>  0x20
+  # }
+  # SCALE_MODE.merge!(SCALE_MODE.invert)
+
   # # Activite the internal compositor. Can either split 3 or 4 ways.
   # def split(inputs = [:hdmi, :hdmi2, :hdmi3], layout = 0, scale = :fit, **options)
   #   main_source = inputs.shift
@@ -279,21 +279,35 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   def unmute_audio
     if self[:audio_mute]
       self[:audio_mute] = false
-      self[:volume] = self[:previous_volume]
+      # TODO: find out if there is a better way to to do this
+      vol = 50 if !self[:previous_volume].is_a?(Int32)
+      volume(vol.as(Int32))
     end
   end
 
-  private def do_send(command : Symbol, data : Int32, **options)
-  #   data = data.to_a
+  SPEAKER_MODES = {
+    :internal => 0,
+    :external => 1
+  }
 
-  #   if command.is_a?(Symbol)
-  #     options[:name] = command if data.length > 0 # name unless status request
-  #     command = CMD[command]
-  #   end
+  def speaker_select(mode : Symbol, **options)
+    # TODO: figure out why this doesn't work
+    #do_send(:speaker, SPEAKER_MODES[mode], **options)
+  end
 
-  #   data = [command, @id, data.length] + data # Build request
-  #   data << (data.reduce(:+) & 0xFF)          # Add checksum
-  #   data = [0xAA] + data                      # Add header
+  def do_poll
+    do_send(:status, [] of Int32, priority: 0)
+  end
+
+  private def do_send(command : Symbol, data : Int32 | Array, **options)
+    data = [data] if data.is_a?(Int32)
+
+    # options[:name] = command if data.length > 0 # name unless status request
+    # command = CMD[command]
+
+    # data = [command, @id, data.length] + data # Build request
+    # data << (data.reduce(:+) & 0xFF)          # Add checksum
+    # data = [0xAA] + data                      # Add header
 
   #   logger.debug { "Sending to Samsung: #{byte_to_hex(array_to_str(data))}" }
 
@@ -301,9 +315,6 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #     disconnect
   #     thread.reject(reason)
   #   end
-  end
-
-  def do_poll
   end
 
   def do_device_config
