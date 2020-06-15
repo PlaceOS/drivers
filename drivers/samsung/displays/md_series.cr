@@ -127,35 +127,35 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     end
   end
 
-  # def hard_off
-  #   do_send(:panel_mute, 0) if self[:power]
-  #   do_send(:hard_off, 0)
-  #   do_poll
-  # end
+  def hard_off
+    do_send(:panel_mute, 0) if self[:power]
+    do_send(:hard_off, 0)
+    do_poll
+  end
 
+  # TODO: found out how to write this in crystal
   # def power?(**options, &block)
   #   options[:emit] = block unless block.nil?
   #   do_send(:panel_mute, "", **options)
   # end
 
-  # # Adds mute states compatible with projectors
-  # def mute(state = true)
-  #   should_mute = is_affirmative?(state)
-  #   power(!should_mute)
-  # end
+  # Adds mute states compatible with projectors
+  def mute(state : Bool = true)
+    power(!state)
+  end
 
-  # def unmute
-  #   power(true)
-  # end
+  def unmute
+    power(true)
+  end
 
-  # # check software version
-  # def software_version?
-  #   do_send (:software_version)
-  # end
+  # check software version
+  def software_version?
+    do_send(:software_version)
+  end
 
-  # def serial_number?
-  #   do_send(:serial_number)
-  # end
+  def serial_number?
+    do_send(:serial_number)
+  end
 
   # # ability to send custom mdc commands via backoffice
   # def custom_mdc(command, value = "")
@@ -292,14 +292,16 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def speaker_select(mode : Symbol, **options)
     # TODO: figure out why this doesn't work
-    #do_send(:speaker, SPEAKER_MODES[mode], **options)
+    # do_send(:speaker, SPEAKER_MODES[mode], **options)
   end
 
   def do_poll
     do_send(:status, [] of Int32, priority: 0)
+    # TODO: uncomment when power? is ported
+    # power? unless self[:hard_off]
   end
 
-  private def do_send(command : Symbol, data : Int32 | Array, **options)
+  private def do_send(command : Symbol, data : Int32 | Array = [] of Int32, **options)
     data = [data] if data.is_a?(Int32)
 
     # options[:name] = command if data.length > 0 # name unless status request
