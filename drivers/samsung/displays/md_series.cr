@@ -248,32 +248,42 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #   end
   # end
 
-  # def volume(vol, **options)
-  #   vol = in_range(vol.to_i, 100)
-  #   do_send(:volume, vol, options)
-  # end
+  def in_range(val : Int32, max : Int32) : Int32
+    min = 0
+    if val < min
+      val = min
+    elsif val > max
+      val = max
+    end
+    val
+  end
 
-  # # Emulate mute
-  # def mute_audio(val = true)
-  #   if is_affirmative? val
-  #     if not self[:audio_mute]
-  #       self[:audio_mute] = true
-  #       self[:previous_volume] = self[:volume] || 50
-  #       volume 0
-  #     end
-  #   else
-  #     unmute_audio
-  #   end
-  # end
+  def volume(vol : Int32, **options)
+    vol = in_range(vol, 100)
+    do_send(:volume, vol, **options)
+  end
 
-  # def unmute_audio
-  #   if self[:audio_mute]
-  #     self[:audio_mute] = false
-  #     volume self[:previous_volume]
-  #   end
-  # end
+  # Emulate mute
+  def mute_audio(val : Bool = true)
+    if val
+      if !self[:audio_mute]
+        self[:audio_mute] = true
+        self[:previous_volume] = self[:volume] || 50
+        volume(0)
+      end
+    else
+      unmute_audio
+    end
+  end
 
-  # private def do_send(command, data, **options)
+  def unmute_audio
+    if self[:audio_mute]
+      self[:audio_mute] = false
+      self[:volume] = self[:previous_volume]
+    end
+  end
+
+  private def do_send(command : Symbol, data : Int32, **options)
   #   data = data.to_a
 
   #   if command.is_a?(Symbol)
@@ -291,7 +301,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #     disconnect
   #     thread.reject(reason)
   #   end
-  # end
+  end
 
   def do_poll
   end
