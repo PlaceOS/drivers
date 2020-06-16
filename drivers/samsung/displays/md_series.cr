@@ -72,37 +72,36 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     schedule.clear
   end
 
-  CMD = Hash(Symbol | Int32, Symbol | Int32) {
-    :status           => 0x00,
-    :hard_off         => 0x11, # Completely powers off
-    :panel_mute       => 0xF9, # Screen blanking / visual mute
-    :volume           => 0x12,
-    :contrast         => 0x24,
-    :brightness       => 0x25,
-    :sharpness        => 0x26,
-    :colour           => 0x27,
-    :tint             => 0x28,
-    :red_gain         => 0x29,
-    :green_gain       => 0x2A,
-    :blue_gain        => 0x2B,
-    :input            => 0x14,
-    :mode             => 0x18,
-    :size             => 0x19,
-    :pip              => 0x3C, # picture in picture
-    :auto_adjust      => 0x3D,
-    :wall_mode        => 0x5C, # Video wall mode
-    :safety           => 0x5D,
-    :wall_on          => 0x84, # Video wall enabled
-    :wall_user        => 0x89, # Video wall user control
-    :speaker          => 0x68,
-    :net_standby      => 0xB5, # Keep NIC active in standby
-    :eco_solution     => 0xE6, # Eco options (auto power off)
-    :auto_power       => 0x33,
-    :screen_split     => 0xB2, # Tri / quad split (larger panels only)
-    :software_version => 0x0E,
-    :serial_number    => 0x0B,
-  }
-  CMD.merge!(CMD.invert)
+  enum COMMANDS
+    Status           = 0x00
+    Hard_off         = 0x11 # Completely powers off
+    Panel_mute       = 0xF9 # Screen blanking / visual mute
+    Volume           = 0x12
+    Contrast         = 0x24
+    Brightness       = 0x25
+    Sharpness        = 0x26
+    Colour           = 0x27
+    Tint             = 0x28
+    Red_gain         = 0x29
+    Green_gain       = 0x2A
+    Blue_gain        = 0x2B
+    Input            = 0x14
+    Mode             = 0x18
+    Size             = 0x19
+    Pip              = 0x3C # picture in picture
+    Auto_adjust      = 0x3D
+    Wall_mode        = 0x5C # Video wall mode
+    Safety           = 0x5D
+    Wall_on          = 0x84 # Video wall enabled
+    Wall_user        = 0x89 # Video wall user control
+    Speaker          = 0x68
+    Net_standby      = 0xB5 # Keep NIC active in standby
+    Eco_solution     = 0xE6 # Eco options (auto power off)
+    Auto_power       = 0x33
+    Screen_split     = 0xB2 # Tri / quad split (larger panels only)
+    Software_version = 0x0E
+    Serial_number    = 0x0B
+  end
 
   # As true power off disconnects the server we only want to
   # power off the panel. This doesn't work in video walls
@@ -117,26 +116,26 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
       switch_to(@blank) if @blank && self[:power]
-      do_send(:panel_mute, 1)
+      do_send("panel_mute", 1)
     # elsif !@rs232 && !self[:connected]
     #   wake(broadcast)
     else
       # Power on
-      do_send(:hard_off, 1)
-      do_send(:panel_mute, 0)
+      do_send("hard_off", 1)
+      do_send("panel_mute", 0)
     end
   end
 
   def hard_off
-    do_send(:panel_mute, 0) if self[:power]
-    do_send(:hard_off, 0)
+    do_send("panel_mute", 0) if self[:power]
+    do_send("hard_off", 0)
     do_poll
   end
 
   # TODO: found out how to write this in crystal
   # def power?(**options, &block)
   #   options[:emit] = block unless block.nil?
-  #   do_send(:panel_mute, "", **options)
+  #   do_send("panel_mute", [], **options)
   # end
 
   # Adds mute states compatible with projectors
@@ -150,11 +149,11 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   # check software version
   def software_version?
-    do_send(:software_version)
+    do_send("software_version")
   end
 
   def serial_number?
-    do_send(:serial_number)
+    do_send("serial_number")
   end
 
   # # ability to send custom mdc commands via backoffice
@@ -194,39 +193,37 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #   )
   # end
 
-  INPUTS = Hash(String, Int32) {
-    "vga" => 0x14,       # pc in manual
-    "dvi" => 0x18,
-    "dvi_video" => 0x1F,
-    "hdmi" => 0x21,
-    "hdmi_pc" => 0x22,
-    "hdmi2" => 0x23,
-    "hdmi2_pc" => 0x24,
-    "hdmi3" => 0x31,
-    "hdmi3_pc" => 0x32,
-    "hdmi4" => 0x33,
-    "hdmi4_pc" => 0x34,
-    "display_port" => 0x25,
-    "dtv" => 0x40,
-    "media" => 0x60,
-    "widi" => 0x61,
-    "magic_info" => 0x20,
-    "whiteboard" => 0x64
-  }
-  #INPUTS.merge!(INPUTS.invert)
+  enum INPUTS
+    Vga           = 0x14 # pc in manual
+    Dvi           = 0x18
+    Dvi_video     = 0x1F
+    Hdmi          = 0x21
+    Hdmi_pc       = 0x22
+    Hdmi2         = 0x23
+    Hdmi2_pc      = 0x24
+    Hdmi3         = 0x31
+    Hdmi3_pc      = 0x32
+    Hdmi4         = 0x33
+    Hdmi4_pc      = 0x34
+    Display_port  = 0x25
+    Dtv           = 0x40
+    Media         = 0x60
+    Widi          = 0x61
+    Magic_info    = 0x20
+    Whiteboard    = 0x64
+  end
 
   def switch_to(input : String, **options)
     self[:input_stable] = false
     self[:input_target] = input
-    do_send(:input, INPUTS[input], **options)
+    do_send("input", INPUTS.parse(input).value, **options)
   end
 
   # # TODO: check if used anywhere
-  # SCALE_MODE = Hash(Symbol | Int32, Symbol | Int32) {
-  #   :fill => 0x09,
-  #   :fit =>  0x20
-  # }
-  # SCALE_MODE.merge!(SCALE_MODE.invert)
+  # enum SCALE_MODE
+  #   fill = 0x09
+  #   fit =  0x20
+  # end
 
   # # Activite the internal compositor. Can either split 3 or 4 ways.
   # def split(inputs = [:hdmi, :hdmi2, :hdmi3], layout = 0, scale = :fit, **options)
@@ -244,7 +241,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #   ].flatten
 
   #   switch_to(main_source, options).then do
-  #     do_send(:screen_split, data, options)
+  #     do_send("screen_split", data, options)
   #   end
   # end
 
@@ -260,7 +257,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def volume(vol : Int32, **options)
     vol = in_range(vol, 100)
-    do_send(:volume, vol, **options)
+    do_send("volume", vol, **options)
   end
 
   # Emulate mute
@@ -285,18 +282,18 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     end
   end
 
-  SPEAKER_MODES = {
-    :internal => 0,
-    :external => 1
-  }
+  enum SPEAKERMODES
+    Internal = 0
+    External = 1
+  end
 
   def speaker_select(mode : Symbol, **options)
     # TODO: figure out why this doesn't work
-    # do_send(:speaker, SPEAKER_MODES[mode], **options)
+    # do_send("speaker", SPEAKERMODES[mode], **options)
   end
 
   def do_poll
-    do_send(:status, [] of Int32, priority: 0)
+    do_send("status", [] of Int32, priority: 0)
     # TODO: uncomment when power? is ported
     # power? unless self[:hard_off]
   end
@@ -304,19 +301,19 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   # Enable power on (without WOL)
   def network_standby(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send(:net_standby, state, **options)
+    do_send("net_standby", state, **options)
   end
 
   # Eco auto power off timer
   def auto_off_timer(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send(:eco_solution, [0x81, state], **options)
+    do_send("eco_solution", [0x81, state], **options)
   end
 
   # Device auto power control (presumably signal based?)
   def auto_power(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send(:auto_power, state, **options)
+    do_send("auto_power", state, **options)
   end
 
   # TODO: port to Crystal
@@ -338,17 +335,17 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   # end
 
   DEVICE_SETTINGS = [
-    :network_standby,
-    :auto_off_timer,
-    :auto_power,
-    :contrast,
-    :brightness,
-    :sharpness,
-    :colour,
-    :tint,
-    :red_gain,
-    :green_gain,
-    :blue_gain
+    "network_standby",
+    "auto_off_timer",
+    "auto_power",
+    "contrast",
+    "brightness",
+    "sharpness",
+    "colour",
+    "tint",
+    "red_gain",
+    "green_gain",
+    "blue_gain",
 ]
 
   def do_device_config
@@ -375,11 +372,16 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     end
   end
 
-  private def do_send(command : Symbol, data : Int32 | Array = [] of Int32, **options)
+  enum RESPONSESTATUS
+    Ack = 0x41
+    Nak = 0x4e
+  end
+
+  private def do_send(command : String, data : Int32 | Array = [] of Int32, **options)
     data = [data] if data.is_a?(Int32)
 
     # options[:name] = command if data.length > 0 # name unless status request
-    # command = CMD[command]
+    command = COMMANDS.parse(command)
 
     # data = [command, @id, data.length] + data # Build request
     # data << (data.reduce(:+) & 0xFF)          # Add checksum
