@@ -24,7 +24,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     display_id: 0,
   })
 
-  @blank : String = ""
+  @blank : String? = nil
 
   # TODO: figure out how to define indicator \xAA
   def init_tokenizer
@@ -54,7 +54,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   def on_update
     @id = setting(Int32?, :display_id) || 0
     @rs232 = setting(Bool?, :rs232_control) || false
-    @blank = setting(String, :blank)
+    @blank = setting(String?, :blank)
   end
 
   def connected
@@ -114,7 +114,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     if !power
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
-      switch_to(@blank) if @blank && self[:power]
+      switch_to(@blank.as(String)) if @blank && self[:power]
       do_send("panel_mute", 1)
     elsif !@rs232 && !self[:connected]
        wake(broadcast)
