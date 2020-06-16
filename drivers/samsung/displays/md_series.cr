@@ -52,8 +52,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   def on_update
-    @id = setting(Int32, :display_id) || 0
-    @rs232 = setting(Bool, :rs232_control) || false
+    @id = setting(Int32?, :display_id) || 0
+    @rs232 = setting(Bool?, :rs232_control) || false
     @blank = setting(String, :blank)
   end
 
@@ -106,9 +106,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   # As true power off disconnects the server we only want to
   # power off the panel. This doesn't work in video walls
   # so if a nominal blank input is
-  # TODO: find out if broadcast is needed
-  # def power(power, broadcast = nil)
-  def power(power : Bool)
+  def power(power : Bool, broadcast : String? = nil)
     self[:power_target] = power
     self[:power_stable] = false
 
@@ -117,8 +115,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
       # required by some video walls where screens are chained
       switch_to(@blank) if @blank && self[:power]
       do_send("panel_mute", 1)
-    # elsif !@rs232 && !self[:connected]
-    #   wake(broadcast)
+    elsif !@rs232 && !self[:connected]
+       wake(broadcast)
     else
       # Power on
       do_send("hard_off", 1)
@@ -265,7 +263,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     if val
       if !self[:audio_mute]
         self[:audio_mute] = true
-        self[:previous_volume] = self[:volume] || 50
+        self[:previous_volume] = self[:volume].as_i? || 50
         volume(0)
       end
     else
@@ -275,10 +273,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def unmute_audio
     if self[:audio_mute]
-      self[:audio_mute] = false
-      # TODO: find out if there is a better way to to do this
-      vol = 50 if !self[:previous_volume].is_a?(Int32)
-      volume(vol.as(Int32))
+      self[:audio_mute] = false      
+      volume(self[:previous_volume].as_i? || 50)
     end
   end
 
@@ -359,13 +355,13 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   # TODO: check type for broadcast is correct
-  def wake(broadcast : String | Nil = nil)
+  def wake(broadcast : String? = nil)
     mac = setting(String, :mac_address)
     if mac
       # config is the database model representing this device
       wake_device(mac, broadcast)
       info = "Wake on Lan for MAC #{mac}"
-      info += " directed to VLAN #{broadcast.as(String)}" if broadcast
+      info += " directed to VLAN #{broadcast}" if broadcast
       logger.debug { info }
     else
       logger.debug { "No MAC address provided" }
@@ -375,6 +371,19 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   enum RESPONSESTATUS
     Ack = 0x41
     Nak = 0x4e
+  end
+
+  def received(data, task)
+    logger.debug { "Samsung sent: #{data}" }
+  end
+
+  def check_power_state
+    return if self[:power_stable]
+    if self[:power] == self[:power_target]
+      self[:power_stable] = true
+    else
+      power(self[:power_target].as_bool)
+    end
   end
 
   private def do_send(command : String, data : Int32 | Array = [] of Int32, **options)
