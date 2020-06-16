@@ -116,9 +116,9 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     if !power
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
-      switch_to(@blank.as(String)) if @blank && self[:power]
+      switch_to(@blank.as(String)) if @blank && self[:power]?
       do_send("panel_mute", 1)
-    elsif !@rs232 && !self[:connected]
+    elsif !@rs232 && !self[:connected]?
        wake(broadcast)
     else
       # Power on
@@ -128,7 +128,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   def hard_off
-    do_send("panel_mute", 0) if self[:power]
+    do_send("panel_mute", 0) if self[:power]?
     do_send("hard_off", 0)
     do_poll
   end
@@ -265,7 +265,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   # Emulate mute
   def mute_audio(val : Bool = true)
     if val
-      if !self[:audio_mute]
+      if !self[:audio_mute]?
         self[:audio_mute] = true
         self[:previous_volume] = self[:volume].as_i? || 50
         volume(0)
@@ -276,7 +276,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   def unmute_audio
-    if self[:audio_mute]
+    if self[:audio_mute]?
       self[:audio_mute] = false      
       volume(self[:previous_volume].as_i? || 50)
     end
@@ -293,7 +293,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def do_poll
     do_send("status", [] of Int32, priority: 0)
-    power? unless self[:hard_off]
+    power? unless self[:hard_off]?
   end
 
   # Enable power on (without WOL)
@@ -380,8 +380,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   def check_power_state
-    return if self[:power_stable]
-    if self[:power] == self[:power_target]
+    return if self[:power_stable]?
+    if self[:power]? == self[:power_target]?
       self[:power_stable] = true
     else
       power(self[:power_target].as_bool)
