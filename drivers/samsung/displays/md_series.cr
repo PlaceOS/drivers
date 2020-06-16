@@ -22,11 +22,13 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   default_settings({
     display_id: 0,
+    rs232_control: false,
+    blank: nil,
   })
 
   @id : Int32 = 0
   @rs232 : Bool = false
-  @blank : String? = nil
+  @blank : String?
 
   # TODO: figure out how to define indicator \xAA
   def init_tokenizer
@@ -61,7 +63,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def connected
     do_poll
-    do_device_config unless self[:hard_off]?
+    # do_device_config unless self[:hard_off]?
 
     schedule.every(30.seconds) do
       logger.debug { "-- polling display" }
@@ -332,29 +334,29 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #   end
   # end
 
-  DEVICE_SETTINGS = [
-    "network_standby",
-    "auto_off_timer",
-    "auto_power",
-    "contrast",
-    "brightness",
-    "sharpness",
-    "colour",
-    "tint",
-    "red_gain",
-    "green_gain",
-    "blue_gain",
-]
+#   DEVICE_SETTINGS = [
+#     :network_standby,
+#     :auto_off_timer,
+#     :auto_power,
+#     :contrast,
+#     :brightness,
+#     :sharpness,
+#     :colour,
+#     :tint,
+#     :red_gain,
+#     :green_gain,
+#     :blue_gain,
+# ]
 
-  def do_device_config
-    logger.debug { "Syncronising device state with settings" }
-    DEVICE_SETTINGS.each do |name|
-      value = setting(Int32, name)
-      # TODO: find out if these are equivalent
-      # __send__(name, value) unless value.nil?
-      do_send(name, value) unless value.nil?
-    end
-  end
+#   def do_device_config
+#     logger.debug { "Syncronising device state with settings" }
+#     DEVICE_SETTINGS.each do |name|
+#       value = setting(Int32?, name)
+#       # TODO: find out if these are equivalent
+#       # __send__(name, value) unless value.nil?
+#       do_send(name.to_s, value.as(Int32)) unless value.nil?
+#     end
+#   end
 
   # TODO: check type for broadcast is correct
   def wake(broadcast : String? = nil)
