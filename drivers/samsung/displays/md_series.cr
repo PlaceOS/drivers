@@ -61,7 +61,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def connected
     do_poll
-    do_device_config unless self[:hard_off]
+    do_device_config unless self[:hard_off]?
 
     schedule.every(30.seconds) do
       logger.debug { "-- polling display" }
@@ -314,7 +314,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_send("auto_power", state, **options)
   end
 
-  # TODO: figure out this does and port to Crystal
+  # TODO: figure out what this does and port to Crystal
   # # Colour control
   # [
   #   :contrast,
