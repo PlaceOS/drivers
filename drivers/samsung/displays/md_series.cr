@@ -24,6 +24,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     display_id: 0,
   })
 
+  @id : Int32 = 0
+  @rs232 : Bool = false
   @blank : String? = nil
 
   # TODO: figure out how to define indicator \xAA
@@ -52,8 +54,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   def on_update
-    @id = setting(Int32?, :display_id) || 0
-    @rs232 = setting(Bool?, :rs232_control) || false
+    @id = setting(Int32, :display_id)
+    @rs232 = setting(Bool, :rs232_control)
     @blank = setting(String?, :blank)
   end
 
@@ -386,21 +388,30 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     end
   end
 
-  private def do_send(command : String, data : Int32 | Array = [] of Int32, **options)
+  private def do_send(command : String, data : Int32 | Array(Int32) = [] of Int32, **options)
     data = [data] if data.is_a?(Int32)
 
-    # options[:name] = command if data.length > 0 # name unless status request
-    command = COMMANDS.parse(command)
+    # # options[:name] = command if data.length > 0 # name unless status request
+    command = COMMANDS.parse(command).value
 
-    # data = [command, @id, data.length] + data # Build request
-    # data << (data.reduce(:+) & 0xFF)          # Add checksum
-    # data = [0xAA] + data                      # Add header
+    data = [command, @id, data.size] + data # Build request
+    # TODO: write equivalent in crystal
+    # # data << (data.reduce(:+) & 0xFF)          # Add checksum
+    data = [0xAA] + data                      # Add header
 
-  #   logger.debug { "Sending to Samsung: #{byte_to_hex(array_to_str(data))}" }
+    data = byte_to_hex(data)
+    logger.debug { "Sending to Samsung: #{data}}" }
+    data = data.hexbytes
+    logger.debug { "hexbytes = #{data}" }
+    send(data, **options)
 
   #   send(array_to_str(data), options).catch do |reason|
   #     disconnect
   #     thread.reject(reason)
   #   end
+  end
+
+  def byte_to_hex(bytes : Array(Int32)) : String
+    bytes.map { |n| "%02X" % (n & 0xFF) }.join
   end
 end
