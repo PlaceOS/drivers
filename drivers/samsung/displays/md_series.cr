@@ -106,6 +106,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   # As true power off disconnects the server we only want to
   # power off the panel. This doesn't work in video walls
   # so if a nominal blank input is
+  # TODO: check type for broadcast is correct
   def power(power : Bool, broadcast : String? = nil)
     self[:power_target] = power
     self[:power_stable] = false
@@ -130,11 +131,12 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_poll
   end
 
-  # TODO: found out how to write this in crystal
+  # TODO: figure out what block is for
   # def power?(**options, &block)
-  #   options[:emit] = block unless block.nil?
-  #   do_send("panel_mute", [], **options)
-  # end
+  def power?(**options)
+    # options[:emit] = block unless block.nil?
+    do_send("panel_mute", [] of Int32, **options)
+  end
 
   # Adds mute states compatible with projectors
   def mute(state : Bool = true)
@@ -283,15 +285,13 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     External = 1
   end
 
-  def speaker_select(mode : Symbol, **options)
-    # TODO: figure out why this doesn't work
-    # do_send("speaker", SPEAKERMODES[mode], **options)
+  def speaker_select(mode : String, **options)
+    do_send("speaker", SPEAKERMODES.parse(mode).value, **options)
   end
 
   def do_poll
     do_send("status", [] of Int32, priority: 0)
-    # TODO: uncomment when power? is ported
-    # power? unless self[:hard_off]
+    power? unless self[:hard_off]
   end
 
   # Enable power on (without WOL)
@@ -312,7 +312,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_send("auto_power", state, **options)
   end
 
-  # TODO: port to Crystal
+  # TODO: figure out this does and port to Crystal
   # # Colour control
   # [
   #   :contrast,
