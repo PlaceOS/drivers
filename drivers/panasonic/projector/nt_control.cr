@@ -1,7 +1,7 @@
 require "digest/md5"
-require "driver/interface/muteable"
-require "driver/interface/powerable"
-require "driver/interface/switchable"
+require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/powerable"
+require "placeos-driver/interface/switchable"
 
 module Panasonic; end
 

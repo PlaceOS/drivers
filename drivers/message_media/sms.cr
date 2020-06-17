@@ -1,7 +1,7 @@
 module MessageMedia; end
 
 # Documentation: https://developers.messagemedia.com/code/messages-api-documentation/
-require "driver/interface/sms"
+require "placeos-driver/interface/sms"
 
 class MessageMedia::SMS < PlaceOS::Driver
   include Interface::SMS

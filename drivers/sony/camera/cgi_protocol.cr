@@ -1,4 +1,4 @@
-require "driver/interface/camera"
+require "placeos-driver/interface/camera"
 
 module Sony; end
 
