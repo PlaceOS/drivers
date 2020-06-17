@@ -360,8 +360,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     # Pop also removes the checksum from the response here
     if data.pop != checksum
       logger.error { "invalid checksum" }
-      # TODO:
-      # task.retry
+      task.try &.retry
     end
 
     status = data[4]
@@ -411,17 +410,14 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
         logger.debug { "Samsung responded with ACK: #{value}" }
       end
 
-      hex
+      task.try &.success
     when RESPONSESTATUS::Nak
-      logger.warn { "Samsung responded with NAK: #{byte_to_hex(values)}" }
-      # TODO
-      # :failed  # Failed response
+      task.try &.abort("Samsung responded with NAK: #{byte_to_hex(values)}")
     else
-      logger.warn { "Samsung aborted with: #{byte_to_hex(values)}" }
-      hex
+      task.try &.abort("Samsung aborted with: #{byte_to_hex(values)}")
     end
 
-    task.try &.success
+    hex
   end
 
   def check_power_state
