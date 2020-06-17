@@ -37,7 +37,9 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
       string = io.gets_to_end
 
       # (data length + header and checksum)
-      string[2].to_i + 4
+      # original ruby code with support for indicator and variable length message
+      # string[2].to_i + 4
+      string[3].to_i + 4 # move data length index + 1 as response will include indicator
     end
   end
 
@@ -74,37 +76,6 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   def disconnected
     self[:power] = false unless @rs232
     schedule.clear
-  end
-
-  enum COMMANDS
-    Status           = 0x00
-    Hard_off         = 0x11 # Completely powers off
-    Panel_mute       = 0xF9 # Screen blanking / visual mute
-    Volume           = 0x12
-    Contrast         = 0x24
-    Brightness       = 0x25
-    Sharpness        = 0x26
-    Colour           = 0x27
-    Tint             = 0x28
-    Red_gain         = 0x29
-    Green_gain       = 0x2A
-    Blue_gain        = 0x2B
-    Input            = 0x14
-    Mode             = 0x18
-    Size             = 0x19
-    Pip              = 0x3C # picture in picture
-    Auto_adjust      = 0x3D
-    Wall_mode        = 0x5C # Video wall mode
-    Safety           = 0x5D
-    Wall_on          = 0x84 # Video wall enabled
-    Wall_user        = 0x89 # Video wall user control
-    Speaker          = 0x68
-    Net_standby      = 0xB5 # Keep NIC active in standby
-    Eco_solution     = 0xE6 # Eco options (auto power off)
-    Auto_power       = 0x33
-    Screen_split     = 0xB2 # Tri / quad split (larger panels only)
-    Software_version = 0x0E
-    Serial_number    = 0x0B
   end
 
   # As true power off disconnects the server we only want to
@@ -379,6 +350,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def received(data, task)
     logger.debug { "Samsung sent: #{data}" }
+    task.try &.success
   end
 
   def check_power_state
@@ -388,6 +360,37 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     else
       power(self[:power_target].as_bool)
     end
+  end
+
+  enum COMMANDS
+    Status           = 0x00
+    Hard_off         = 0x11 # Completely powers off
+    Panel_mute       = 0xF9 # Screen blanking / visual mute
+    Volume           = 0x12
+    Contrast         = 0x24
+    Brightness       = 0x25
+    Sharpness        = 0x26
+    Colour           = 0x27
+    Tint             = 0x28
+    Red_gain         = 0x29
+    Green_gain       = 0x2A
+    Blue_gain        = 0x2B
+    Input            = 0x14
+    Mode             = 0x18
+    Size             = 0x19
+    Pip              = 0x3C # picture in picture
+    Auto_adjust      = 0x3D
+    Wall_mode        = 0x5C # Video wall mode
+    Safety           = 0x5D
+    Wall_on          = 0x84 # Video wall enabled
+    Wall_user        = 0x89 # Video wall user control
+    Speaker          = 0x68
+    Net_standby      = 0xB5 # Keep NIC active in standby
+    Eco_solution     = 0xE6 # Eco options (auto power off)
+    Auto_power       = 0x33
+    Screen_split     = 0xB2 # Tri / quad split (larger panels only)
+    Software_version = 0x0E
+    Serial_number    = 0x0B
   end
 
   private def do_send(command : String, data : Int32 | Array(Int32) = [] of Int32, **options)
