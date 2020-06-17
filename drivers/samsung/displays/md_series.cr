@@ -396,8 +396,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
         self[:hard_off] = value == 0
         self[:power] = false if self[:hard_off]
       when COMMAND::Screen_split
-        # TODO:
-        # self[:screen_split] = value.positive?
+        self[:screen_split] = value >= 0
       when COMMAND::Software_version
         self[:software_version] = values.join
       when COMMAND::Serial_number
