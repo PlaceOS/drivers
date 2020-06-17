@@ -1,6 +1,6 @@
 # Application dependencies
 require "action-controller"
-require "compiler/drivers"
+require "placeos-compiler/drivers"
 
 # Application code
 require "./controllers/application"
