@@ -355,6 +355,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
     # Calculate checksum of response
     checksum = data[1..-2].sum & 0xFF
+    logger.debug { "Checksum: #{checksum.to_s(16)}" }
 
     # Pop also removes the checksum from the response here
     if data.pop != checksum
@@ -363,33 +364,63 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
       # task.retry
     end
 
-    status = data[4]?
-    command = data[5]?
-    value = data[6..-1] if data[6]?
+    status = data[4]
+    command = data[5]
+    values = data[6..-1]
+    value = values.first
 
     case status
     when RESPONSESTATUS::Ack
       case command
       when COMMAND::Status
+        self[:hard_off]   = values[0] == 0
+        self[:power]      = false if self[:hard_off]
+        self[:volume]     = values[1]
+        self[:audio_mute] = false if values[2] > 0
+        self[:input]      = INPUTS.new(values[3]).to_s
+        check_power_state
       when COMMAND::Panel_mute
+        self[:power] = value == 0
+        check_power_state
       when COMMAND::Volume
+        self[:volume] = value
+        self[:audio_mute] = false if value > 0
       when COMMAND::Brightness
+        self[:brightness] = value
       when COMMAND::Input
+        self[:input] = INPUTS.new(value).to_s
+        # The input feedback behaviour seems to go a little odd when
+        # screen split is active. Ignore any input forcing when on.
+        unless self[:screen_split]
+          self[:input_stable] = self[:input] == self[:input_target]
+          switch_to(self[:input_target].as_s) unless self[:input_stable]
+        end
       when COMMAND::Speaker
+        self[:speaker] = SPEAKERMODES.new(value).to_s
       when COMMAND::Hard_off
+        self[:hard_off] = value == 0
+        self[:power] = false if self[:hard_off]
       when COMMAND::Screen_split
+        # TODO:
+        # self[:screen_split] = value.positive?
       when COMMAND::Software_version
+        self[:software_version] = values.join
       when COMMAND::Serial_number
+        self[:serial_number] = values.join
       else
         logger.debug { "Samsung responded with ACK: #{value}" }
       end
+
+      hex
     when RESPONSESTATUS::Nak
-      logger.warn { "Samsung responded with NAK:" }
+      logger.warn { "Samsung responded with NAK: #{byte_to_hex(values)}" }
+      # TODO
+      # :failed  # Failed response
     else
-      logger.warn { "Samsung aborted with:" }
+      logger.warn { "Samsung aborted with: #{byte_to_hex(values)}" }
+      hex
     end
 
-    logger.debug { "Checksum: #{checksum.to_s(16)}" }
     task.try &.success
   end
 
