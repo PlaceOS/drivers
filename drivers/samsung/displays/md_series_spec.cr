@@ -8,12 +8,19 @@ DriverSpecs.mock_driver "Samsung::Displays::MdSeries" do
   # power? -> panel_mute
   should_send("\xAA\xF9#{id}\x00\xF9")
   responds("\xAA\xFF#{id}\x03A\xF9\x00\x3C")
+  status[:power].should eq(true)
+
   # status
   should_send("\xAA\x00#{id}\x00\x00")
-  responds("\xAA\xFF#{id}\x09A\x00\x00\x06\x00\x14\x00\x00\x00\x63")
+  responds("\xAA\xFF#{id}\x09A\x00\x01\x06\x00\x14\x00\x00\x00\x64")
+  status[:hard_off].should eq(false)
+  status[:volume].should eq(6)
+  status[:audio_mute].should eq(false)
+  status[:input].should eq("Vga")
 
   exec(:volume, 24)
   should_send("\xAA\x12#{id}\x01\x18\x2B")
-  responds("\xAA\xFF\x00\x03A\x12\x18")
-  # status[:volume].should eq(24)
+  responds("\xAA\xFF\x00\x03A\x12\x18\x6D")
+  status[:volume].should eq(24)
+  status[:audio_mute].should eq(false)
 end

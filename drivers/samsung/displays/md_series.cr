@@ -352,16 +352,15 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
     # Calculate checksum of response
     checksum = data[1..-2].sum & 0xFF
-    logger.debug { "Checksum: #{checksum.to_s(16)}" }
 
     # Pop also removes the checksum from the response here
     if data.pop != checksum
-      logger.error { "invalid checksum" }
-      task.try &.retry
+      logger.error { "Invalid checksum\nChecksum should be: #{checksum.to_s(16)}" }
+      return task.try &.retry
     end
 
-    status = data[4]
-    command = data[5]
+    status = RESPONSESTATUS.new(data[4])
+    command = COMMAND.new(data[5])
     values = data[6..-1]
     value = values.first
 
@@ -372,7 +371,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
         self[:hard_off]   = values[0] == 0
         self[:power]      = false if self[:hard_off]
         self[:volume]     = values[1]
-        self[:audio_mute] = false if values[2] > 0
+        self[:audio_mute] = values[2] == 1
         self[:input]      = INPUTS.new(values[3]).to_s
         check_power_state
       when COMMAND::Panel_mute
@@ -413,8 +412,6 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     else
       task.try &.abort("Samsung aborted with: #{byte_to_hex(values)}")
     end
-
-    hex
   end
 
   def check_power_state
