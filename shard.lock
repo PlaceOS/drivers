@@ -1,130 +1,138 @@
-version: 1.0
+version: 2.0
 shards:
   action-controller:
-    github: spider-gazelle/action-controller
-    version: 3.1.0
+    git: https://github.com/spider-gazelle/action-controller.git
+    version: 3.1.5
 
   bindata:
-    github: spider-gazelle/bindata
-    version: 1.5.1
+    git: https://github.com/spider-gazelle/bindata.git
+    version: 1.5.4
 
   bisect:
-    github: spider-gazelle/bisect
+    git: https://github.com/spider-gazelle/bisect.git
     version: 1.2.0
 
-  compiler:
-    github: placeos/compiler
-    version: 1.2.1
-
   connect-proxy:
-    github: spider-gazelle/connect-proxy
+    git: https://github.com/spider-gazelle/connect-proxy.git
     version: 1.0.0
 
+  crc16:
+    git: https://github.com/maiha/crc16.cr.git
+    version: 0.1.0
+
   cron_parser:
-    github: kostya/cron_parser
+    git: https://github.com/kostya/cron_parser.git
     version: 0.3.0
 
   debug:
-    github: Sija/debug.cr
+    git: https://github.com/Sija/debug.cr.git
     version: 1.1.0
 
   delimiter_tree:
-    github: drujensen/delimiter_tree
+    git: https://github.com/drujensen/delimiter_tree.git
     version: 0.1.4
 
-  driver:
-    github: placeos/driver
-    version: 2.0.5
-
   etcd:
-    github: place-labs/crystal-etcd
+    git: https://github.com/place-labs/crystal-etcd.git
     version: 1.0.1
 
   exec_from:
-    github: place-labs/exec_from
+    git: https://github.com/place-labs/exec_from.git
     version: 1.2.0
 
   future:
-    github: crystal-community/future.cr
+    git: https://github.com/crystal-community/future.cr.git
     version: 0.1.0
 
   habitat:
-    github: luckyframework/habitat
+    git: https://github.com/luckyframework/habitat.git
     version: 0.4.3
 
   hound-dog:
-    github: place-labs/hound-dog
-    version: 2.3.2
+    git: https://github.com/place-labs/hound-dog.git
+    version: 2.5.0
 
   ipaddress:
-    github: Sija/ipaddress.cr
+    git: https://github.com/Sija/ipaddress.cr.git
     version: 0.2.1
 
   jwt:
-    github: crystal-community/jwt
-    version: 1.4.0
+    git: https://github.com/crystal-community/jwt.git
+    version: 1.4.2
 
   log_helper:
-    github: spider-gazelle/log_helper
-    version: 0.1.2
+    git: https://github.com/spider-gazelle/log_helper.git
+    version: 1.0.2
 
   murmur3:
-    github: aca-labs/murmur3
-    commit: 7cbe25c0ca8d052c9d98c377c824dcb0e038c790
+    git: https://github.com/aca-labs/murmur3.git
+    version: 0.1.1+git.commit.7cbe25c0ca8d052c9d98c377c824dcb0e038c790
 
   openssl_ext:
-    github: stakach/openssl_ext
-    version: 1.2.0
+    git: https://github.com/stakach/openssl_ext.git
+    version: 1.2.1
+
+  placeos-compiler:
+    git: https://github.com/placeos/compiler.git
+    version: 2.0.2
+
+  placeos-driver:
+    git: https://github.com/placeos/driver.git
+    version: 3.3.2
 
   pool:
-    github: ysbaddaden/pool
+    git: https://github.com/ysbaddaden/pool.git
     version: 0.2.3
 
   priority-queue:
-    github: spider-gazelle/priority-queue
-    commit: bde47d11cb4b4d1ed7680a7f417ff707c434b1e4
+    git: https://github.com/spider-gazelle/priority-queue.git
+    version: 1.0.0+git.commit.bde47d11cb4b4d1ed7680a7f417ff707c434b1e4
 
   promise:
-    github: spider-gazelle/promise
+    git: https://github.com/spider-gazelle/promise.git
     version: 2.1.0
 
   protobuf:
-    github: jeromegn/protobuf.cr
-    version: 2.2.0
+    git: https://github.com/jeromegn/protobuf.cr.git
+    version: 2.2.1
 
   redis:
-    github: stefanwille/crystal-redis
+    git: https://github.com/stefanwille/crystal-redis.git
     version: 2.6.0
 
+  redis-cluster:
+    git: https://github.com/caspiano/redis-cluster.cr.git
+    version: 0.8.4
+
   rendezvous-hash:
-    github: caspiano/rendezvous-hash
+    git: https://github.com/caspiano/rendezvous-hash.git
     version: 0.3.1
 
   rwlock:
-    github: spider-gazelle/readers-writer
+    git: https://github.com/spider-gazelle/readers-writer.git
     version: 1.0.5
 
   simple_retry:
-    github: spider-gazelle/simple_retry
+    git: https://github.com/spider-gazelle/simple_retry.git
     version: 1.1.0
 
   ssh2:
-    github: spider-gazelle/ssh2.cr
-    version: 1.2.6
+    git: https://github.com/spider-gazelle/ssh2.cr.git
+    version: 1.4.0
 
   tasker:
-    github: spider-gazelle/tasker
+    git: https://github.com/spider-gazelle/tasker.git
     version: 1.3.0
 
   telnet:
-    github: spider-gazelle/telnet.cr
+    git: https://github.com/spider-gazelle/telnet.cr.git
     version: 1.0.1
 
   tokenizer:
-    github: spider-gazelle/tokenizer
+    git: https://github.com/spider-gazelle/tokenizer.git
     version: 1.1.0
 
   ulid:
-    github: place-labs/ulid
+    git: https://github.com/place-labs/ulid.git
     version: 0.1.2
 
