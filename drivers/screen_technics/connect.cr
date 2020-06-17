@@ -1,7 +1,7 @@
 module ScreenTechnics; end
 
-require "driver/interface/moveable"
-require "driver/interface/stoppable"
+require "placeos-driver/interface/moveable"
+require "placeos-driver/interface/stoppable"
 
 # Documentation: https://aca.im/driver_docs/Screen%20Technics/Screen%20Technics%20IP%20Connect%20module.pdf
 # Default user: Admin

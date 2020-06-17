@@ -1,6 +1,6 @@
-require "driver/interface/muteable"
-require "driver/interface/powerable"
-require "driver/interface/switchable"
+require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/powerable"
+require "placeos-driver/interface/switchable"
 
 class Display < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Powerable
