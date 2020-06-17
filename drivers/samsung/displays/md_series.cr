@@ -34,7 +34,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   def init_tokenizer
     @buffer = Tokenizer.new do |io|
       bytes = io.peek
-      logger.debug { "bytes: #{bytes}" }
+      logger.debug { "Received: #{bytes}" }
 
       # (data length + header and checksum)
       # original ruby code with support for indicator and variable length message
@@ -65,7 +65,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def connected
     do_poll
-    # do_device_config unless self[:hard_off]?
+    do_device_config unless self[:hard_off]?
 
     schedule.every(30.seconds) do
       logger.debug { "-- polling display" }
@@ -305,29 +305,29 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #   end
   # end
 
-#   DEVICE_SETTINGS = [
-#     :network_standby,
-#     :auto_off_timer,
-#     :auto_power,
-#     :contrast,
-#     :brightness,
-#     :sharpness,
-#     :colour,
-#     :tint,
-#     :red_gain,
-#     :green_gain,
-#     :blue_gain,
-# ]
+  DEVICE_SETTINGS = [
+    :network_standby,
+    :auto_off_timer,
+    :auto_power,
+    :contrast,
+    :brightness,
+    :sharpness,
+    :colour,
+    :tint,
+    :red_gain,
+    :green_gain,
+    :blue_gain,
+]
 
-#   def do_device_config
-#     logger.debug { "Syncronising device state with settings" }
-#     DEVICE_SETTINGS.each do |name|
-#       value = setting(Int32?, name)
-#       # TODO: find out if these are equivalent
-#       # __send__(name, value) unless value.nil?
-#       do_send(name.to_s, value.as(Int32)) unless value.nil?
-#     end
-#   end
+  def do_device_config
+    logger.debug { "Syncronising device state with settings" }
+    DEVICE_SETTINGS.each do |name|
+      value = setting(Int32, name)
+      # TODO: find out if these are equivalent
+      # __send__(name, value) unless value.nil?
+      do_send(name.to_s, value) unless value.nil?
+    end
+  end
 
   # TODO: check type for broadcast is correct
   def wake(broadcast : String? = nil)
@@ -344,21 +344,52 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   enum RESPONSESTATUS
-    Ack = 0x41
-    Nak = 0x4e
+    Ack = 0x41 # A
+    Nak = 0x4e # N
   end
 
   def received(data, task)
-    logger.debug { "Samsung sent: #{data}" }
+    data = data.map{ |b| b.to_i }.to_a
+    hex = byte_to_hex(data)
+    logger.debug { "Samsung sent: #{hex}" }
 
     # Calculate checksum of response
-    sum : Int32 = 0
-    data[1..-2].each do |b|
-      sum += b
-    end
-    checksum = (sum & 0xFF).to_s(16)
+    checksum = data[1..-2].sum & 0xFF
 
-    logger.debug { "Checksum: #{checksum}" }
+    # Pop also removes the checksum from the response here
+    if data.pop != checksum
+      logger.error { "invalid checksum" }
+      # TODO:
+      # task.retry
+    end
+
+    status = data[4]?
+    command = data[5]?
+    value = data[6..-1] if data[6]?
+
+    case status
+    when RESPONSESTATUS::Ack
+      case command
+      when COMMAND::Status
+      when COMMAND::Panel_mute
+      when COMMAND::Volume
+      when COMMAND::Brightness
+      when COMMAND::Input
+      when COMMAND::Speaker
+      when COMMAND::Hard_off
+      when COMMAND::Screen_split
+      when COMMAND::Software_version
+      when COMMAND::Serial_number
+      else
+        logger.debug { "Samsung responded with ACK: #{value}" }
+      end
+    when RESPONSESTATUS::Nak
+      logger.warn { "Samsung responded with NAK:" }
+    else
+      logger.warn { "Samsung aborted with:" }
+    end
+
+    logger.debug { "Checksum: #{checksum.to_s(16)}" }
     task.try &.success
   end
 
@@ -371,7 +402,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     end
   end
 
-  enum COMMANDS
+  enum COMMAND
     Status           = 0x00
     Hard_off         = 0x11 # Completely powers off
     Panel_mute       = 0xF9 # Screen blanking / visual mute
@@ -406,7 +437,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     data = [data] if data.is_a?(Int32)
 
     # # options[:name] = command if data.length > 0 # name unless status request
-    command = COMMANDS.parse(command).value
+    command = COMMAND.parse(command).value
 
     data = [command, @id, data.size] + data # Build request
     data << (data.sum & 0xFF)               # Add checksum
@@ -415,7 +446,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     data = byte_to_hex(data)
     logger.debug { "Sending to Samsung: #{data}}" }
     data = data.hexbytes
-    logger.debug { "hexbytes = #{data}" }
+    logger.debug { "hexbytes: #{data}" }
     send(data, **options)
 
   #   send(array_to_str(data), options).catch do |reason|
@@ -424,6 +455,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   #   end
   end
 
+  # TODO: find out if I can do this instead
+  # def byte_to_hex(bytes : Enumerable(Int)) : String
   def byte_to_hex(bytes : Array(Int32)) : String
     bytes.map { |n| "%02X" % (n & 0xFF) }.join
   end
