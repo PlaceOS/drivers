@@ -1,7 +1,7 @@
 {% if env("COMPILE_DRIVER").ends_with?("_spec.cr") %}
-  require "driver/driver-specs/runner"
+  require "placeos-driver/driver-specs/runner"
 {% else %}
-  require "driver"
+  require "placeos-driver"
 {% end %}
 
 # Dynamically require the desired driver

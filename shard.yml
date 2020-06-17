@@ -1,5 +1,6 @@
 name: drivers
-version: 1.2.0
+version: 2.0.0
+crystal: 0.35.0
 
 # compile target
 targets:
@@ -9,14 +10,15 @@ targets:
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
+    version: ~> 3.1
+
+  placeos-driver:
+    github: placeos/driver
     version: ~> 3.0
 
-  driver:
-    github: placeos/driver
-    version: ~> 2.0
-
-  compiler:
+  placeos-compiler:
     github: placeos/compiler
+    version: ~> 2.0
 
   exec_from:
     github: place-labs/exec_from
