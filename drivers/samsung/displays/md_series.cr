@@ -33,13 +33,13 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   # TODO: figure out how to define indicator \xAA
   def init_tokenizer
     @buffer = Tokenizer.new do |io|
-      # bytes = io.peek # for demonstration purposes
-      string = io.gets_to_end
+      bytes = io.peek
+      logger.debug { "bytes: #{bytes}" }
 
       # (data length + header and checksum)
       # original ruby code with support for indicator and variable length message
       # string[2].to_i + 4
-      string[3].to_i + 4 # move data length index + 1 as response will include indicator
+      bytes[3].to_i + 5 # move data length index + 1 as response will include indicator
     end
   end
 
@@ -250,7 +250,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def unmute_audio
     if self[:audio_mute]?
-      self[:audio_mute] = false      
+      self[:audio_mute] = false
       volume(self[:previous_volume].as_i? || 50)
     end
   end
@@ -350,6 +350,15 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
   def received(data, task)
     logger.debug { "Samsung sent: #{data}" }
+
+    # Calculate checksum of response
+    sum : Int32 = 0
+    data[1..-2].each do |b|
+      sum += b
+    end
+    checksum = (sum & 0xFF).to_s(16)
+
+    logger.debug { "Checksum: #{checksum}" }
     task.try &.success
   end
 
@@ -400,9 +409,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     command = COMMANDS.parse(command).value
 
     data = [command, @id, data.size] + data # Build request
-    # TODO: write equivalent in crystal
-    # # data << (data.reduce(:+) & 0xFF)          # Add checksum
-    data = [0xAA] + data                      # Add header
+    data << (data.sum & 0xFF)               # Add checksum
+    data = [0xAA] + data                    # Add header
 
     data = byte_to_hex(data)
     logger.debug { "Sending to Samsung: #{data}}" }
