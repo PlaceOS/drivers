@@ -194,31 +194,28 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_send("input", INPUTS.parse(input).value, **options)
   end
 
-  # # TODO: check if used anywhere
-  # enum SCALE_MODE
-  #   fill = 0x09
-  #   fit =  0x20
-  # end
+  enum SCALEMODE
+    Fill = 0x09
+    Fit =  0x20
+  end
 
-  # # Activite the internal compositor. Can either split 3 or 4 ways.
-  # def split(inputs = [:hdmi, :hdmi2, :hdmi3], layout = 0, scale = :fit, **options)
-  #   main_source = inputs.shift
+  # Activite the internal compositor. Can either split 3 or 4 ways.
+  def split(inputs : Array(String) = ["hdmi", "hdmi2", "hdmi3"], layout : Int32 = 0, scale : String = "fit", **options)
+    main_source = inputs.shift
 
-  #   data = [
-  #     1,                  # enable
-  #     0,                  # sound from screen section 1
-  #     layout,             # layout mode (1..6)
-  #     SCALE_MODE[scale],  # scaling for main source
-  #     inputs.flat_map do |input|
-  #       input = input.to_sym if input.is_a? String
-  #       [INPUTS[input], SCALE_MODE[scale]]
-  #     end
-  #   ].flatten
+    data = [
+      1,                  # enable
+      0,                  # sound from screen section 1
+      layout,             # layout mode (1..6)
+      SCALEMODE.parse(scale).value,  # scaling for main source
+      inputs.flat_map do |input|
+        [INPUTS.parse(input).value, SCALEMODE.parse(scale).value]
+      end
+    ].flatten
 
-  #   switch_to(main_source, options).then do
-  #     do_send("screen_split", data, options)
-  #   end
-  # end
+    switch_to(main_source, **options)
+    do_send("screen_split", data, **options)
+  end
 
   def in_range(val : Int32, max : Int32) : Int32
     min = 0
@@ -476,10 +473,11 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     logger.debug { "hexbytes: #{data}" }
     send(data, **options)
 
-  #   send(array_to_str(data), options).catch do |reason|
-  #     disconnect
-  #     thread.reject(reason)
-  #   end
+    # TODO: find out if this is necessary
+    # send(array_to_str(data), options).catch do |reason|
+    #   disconnect
+    #   thread.reject(reason)
+    # end
   end
 
   # TODO: find out if I can do this instead
