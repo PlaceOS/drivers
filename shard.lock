@@ -2,7 +2,7 @@ version: 2.0
 shards:
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 3.1.5
+    version: 3.1.6
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
@@ -90,7 +90,7 @@ shards:
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
-    version: 2.1.0
+    version: 2.2.0
 
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
