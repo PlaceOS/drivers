@@ -227,11 +227,6 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     val
   end
 
-  def volume(vol : Int32, **options)
-    vol = in_range(vol, 100)
-    do_send("volume", vol, **options)
-  end
-
   # Emulate mute
   def mute_audio(val : Bool = true)
     if val
@@ -284,23 +279,26 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_send("auto_power", state, **options)
   end
 
-  # TODO: figure out what this does and port to Crystal
-  # # Colour control
-  # [
-  #   :contrast,
-  #   :brightness,
-  #   :sharpness,
-  #   :colour,
-  #   :tint,
-  #   :red_gain,
-  #   :green_gain,
-  #   :blue_gain
-  # ].each do |command|
-  #   define_method command do |val, **options|
-  #     val = in_range(val.to_i, 100)
-  #     do_send(command, val, options)
-  #   end
-  # end
+  # Display control
+  METHODS = [
+    "volume",
+    "contrast",
+    "brightness",
+    "sharpness",
+    "colour",
+    "tint",
+    "red_gain",
+    "green_gain",
+    "blue_gain"
+  ]
+
+  # Macro to define methods from the array above
+  {% for name in METHODS %}
+    def {{name.id}}(val : Int32, **options)
+      val = in_range(val, 100)
+      do_send({{name.id.stringify}}, val, **options)
+    end
+  {% end %}
 
   DEVICE_SETTINGS = [
     :network_standby,
