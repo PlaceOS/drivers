@@ -110,7 +110,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   # def power?(**options, &block)
   def power?(**options)
     # options[:emit] = block unless block.nil?
-    do_send("panel_mute", [] of Int32, **options)
+    do_send("panel_mute", [] of UInt8, **options)
   end
 
   # Adds mute states compatible with projectors
@@ -131,42 +131,64 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     do_send("serial_number")
   end
 
-  # # ability to send custom mdc commands via backoffice
-  # def custom_mdc(command, value = "")
-  #   do_send(hex_to_byte(command).bytes[0], hex_to_byte(value).bytes)
-  # end
+  # Converts a hex encoded string into a binary string
+  def byte_to_hex(data : String) : String
+    # Removes invalid characters
+    data = data.gsub(/(0x|[^0-9A-Fa-f])*/, "")
 
-  # def set_timer(enable = true, volume = 0)
-  #   # set the time on the display
-  #   time_cmd = 0xA7
-  #   time_request = [] of Int
-  #   t = Time.now
-  #   time_request << t.day
-  #   hour = t.hour
-  #   ampm = if hour > 12
-  #            hour = hour - 12
-  #            0 # pm
-  #          else
-  #            1 # am
-  #          end
-  #   time_request << hour
-  #   time_request << t.min
-  #   time_request << t.month
-  #   year = t.year.to_s(16).rjust(4, "0")
-  #   time_request << year[0..1].to_i(16)
-  #   time_request << year[2..-1].to_i(16)
-  #   time_request << ampm
+    # Ensure we have an even number of characters
+    data = '0' + data if data.size % 2 > 0
 
-  #   do_send time_cmd, time_request
+    # Breaks string into an array of characters
+    output = [] of Int32
+    data.scan(/.{2}/) do |md|
+      output << md[0].to_i(16)
+    end
 
-  #   state = is_affirmative?(enable) ? "01" : "00"
-  #   vol = volume.to_s(16).rjust(2, "0")
-  #   #              on 03:45 am enabled  off 03:30 am enabled  on-everyday  ignore manual  off-everyday  ignore manual  volume 15  input HDMI   holiday apply
-  #   custom_mdc(
-  #     "A4",
-  #     "03-2D-01 #{state}  03-1E-01   #{state}      01          80               01           80          #{vol}        21          01"
-  #   )
-  # end
+    String.build do |io|
+      output.each do |number|
+        io.write_byte number.to_u8
+      end
+    end
+  end
+
+  # ability to send custom mdc commands via backoffice
+  def custom_mdc(command : String, value : String)
+    command = byte_to_hex(command).bytes[0].to_i
+    data = byte_to_hex(value).bytes
+    do_send(command, data)
+  end
+
+  def set_timer(enable : Bool = true, volume : Int32 = 0)
+    # set the time on the display
+    time_request = [] of Int32
+    t = Time.local
+    time_request << t.day
+    hour = t.hour
+    ampm = if hour > 12
+             hour = hour - 12
+             0 # pm
+           else
+             1 # am
+           end
+    time_request << hour
+    time_request << t.minute
+    time_request << t.month
+    year = t.year.to_s(16).rjust(4, '0')
+    time_request << year[0..1].to_i(16)
+    time_request << year[2..-1].to_i(16)
+    time_request << ampm
+
+    do_send("time", time_request)
+
+    state = enable ? "01" : "00"
+    vol = volume.to_s(16).rjust(2, '0')
+    # on 03:45 am enabled  off 03:30 am enabled  on-everyday  ignore manual  off-everyday  ignore manual  volume 15  input HDMI   holiday apply
+    custom_mdc(
+      "A4",
+      "03-2D-01 #{state}  03-1E-01   #{state}      01          80               01           80          #{vol}        21          01"
+    )
+  end
 
   enum INPUTS
     Vga           = 0x14 # pc in manual
@@ -257,7 +279,7 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   def do_poll
-    do_send("status", [] of Int32, priority: 0)
+    do_send("status", [] of UInt8, priority: 0)
     power? unless self[:hard_off]?
   end
 
@@ -344,9 +366,9 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = data.map{ |b| b.to_i }.to_a
-    hex = byte_to_hex(data)
+    hex = data.hexstring
     logger.debug { "Samsung sent: #{hex}" }
+    data = data.map{ |b| b.to_i }.to_a
 
     # Calculate checksum of response
     checksum = data[1..-2].sum & 0xFF
@@ -405,9 +427,9 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
 
       task.try &.success
     when RESPONSESTATUS::Nak
-      task.try &.abort("Samsung responded with NAK: #{byte_to_hex(values)}")
+      task.try &.abort("Samsung responded with NAK: #{hex}")
     else
-      task.try &.abort("Samsung aborted with: #{byte_to_hex(values)}")
+      task.try &.abort("Samsung aborted with: #{hex}")
     end
   end
 
@@ -449,22 +471,24 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     Screen_split     = 0xB2 # Tri / quad split (larger panels only)
     Software_version = 0x0E
     Serial_number    = 0x0B
+    Time             = 0xA7
   end
 
-  private def do_send(command : String, data : Int32 | Array(Int32) = [] of Int32, **options)
+  private def do_send(command : String | Int32, data : Int32 | Array(Int) = [] of UInt8, **options)
     data = [data] if data.is_a?(Int32)
 
     # # options[:name] = command if data.length > 0 # name unless status request
-    command = COMMAND.parse(command).value
+    command = COMMAND.parse(command).value if command.is_a?(String)
 
     data = [command, @id, data.size] + data # Build request
     data << (data.sum & 0xFF)               # Add checksum
     data = [0xAA] + data                    # Add header
 
-    data = byte_to_hex(data)
+    # Convert to Bytes
+    data = Slice.new(data.size) { |i| data[i].to_u8 }
+
     logger.debug { "Sending to Samsung: #{data}}" }
-    data = data.hexbytes
-    logger.debug { "hexbytes: #{data}" }
+    logger.debug { "hexbytes: #{data.hexstring}" }
     send(data, **options)
 
     # TODO: find out if this is necessary
@@ -472,11 +496,5 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     #   disconnect
     #   thread.reject(reason)
     # end
-  end
-
-  # TODO: find out if I can do this instead
-  # def byte_to_hex(bytes : Enumerable(Int)) : String
-  def byte_to_hex(bytes : Array(Int32)) : String
-    bytes.map { |n| "%02X" % (n & 0xFF) }.join
   end
 end

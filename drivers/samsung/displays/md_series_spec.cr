@@ -23,4 +23,6 @@ DriverSpecs.mock_driver "Samsung::Displays::MdSeries" do
   responds("\xAA\xFF\x00\x03A\x12\x18\x6D")
   status[:volume].should eq(24)
   status[:audio_mute].should eq(false)
+
+  exec(:set_timer, true, 15)
 end
