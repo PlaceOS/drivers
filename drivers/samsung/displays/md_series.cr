@@ -474,8 +474,8 @@ class Samsung::Displays::MdSeries < PlaceOS::Driver
     Time             = 0xA7
   end
 
-  private def do_send(command : String | Int32, data : Int32 | Array(Int) = [] of UInt8, **options)
-    data = [data] if data.is_a?(Int32)
+  private def do_send(command : String | Int, data : Int | Array(Int) = [] of UInt8, **options)
+    data = [data] if data.is_a?(Int)
 
     # # options[:name] = command if data.length > 0 # name unless status request
     command = COMMAND.parse(command).value if command.is_a?(String)
