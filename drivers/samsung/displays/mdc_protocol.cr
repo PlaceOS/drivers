@@ -379,24 +379,24 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     value = values.first
 
     case status
-    when RESPONSESTATUS::Ack
+    when .ack?
       case command
-      when COMMAND::Status
+      when .status?
         self[:hard_off]   = values[0] == 0
         self[:power]      = false if self[:hard_off]
         self[:volume]     = values[1]
         self[:audio_mute] = values[2] == 1
         self[:input]      = INPUTS.from_value(values[3]).to_s
         check_power_state
-      when COMMAND::Panel_mute
+      when .panel_mute?
         self[:power] = value == 0
         check_power_state
-      when COMMAND::Volume
+      when .volume?
         self[:volume] = value
         self[:audio_mute] = false if value > 0
-      when COMMAND::Brightness
+      when .brightness?
         self[:brightness] = value
-      when COMMAND::Input
+      when .input?
         self[:input] = INPUTS.from_value(value).to_s
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
@@ -404,23 +404,23 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
           self[:input_stable] = self[:input] == self[:input_target]
           switch_to(self[:input_target].as_s) unless self[:input_stable]
         end
-      when COMMAND::Speaker
+      when .speaker?
         self[:speaker] = SPEAKERMODES.from_value(value).to_s
-      when COMMAND::Hard_off
+      when .hard_off?
         self[:hard_off] = value == 0
         self[:power] = false if self[:hard_off]
-      when COMMAND::Screen_split
+      when .screen_split?
         self[:screen_split] = value >= 0
-      when COMMAND::Software_version
+      when .software_version?
         self[:software_version] = values.join
-      when COMMAND::Serial_number
+      when .serial_number?
         self[:serial_number] = values.join
       else
         logger.debug { "Samsung responded with ACK: #{value}" }
       end
 
       task.try &.success
-    when RESPONSESTATUS::Nak
+    when .nak?
       task.try &.abort("Samsung responded with NAK: #{hex}")
     else
       task.try &.abort("Samsung aborted with: #{hex}")
