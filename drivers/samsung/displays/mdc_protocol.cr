@@ -20,7 +20,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   default_settings({
     display_id: 0,
     rs232_control: false,
-    blank: nil,
+    blanking_input: nil,
   })
 
   @id : Int32 = 0
@@ -33,10 +33,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       bytes = io.peek
       logger.debug { "Received: #{bytes}" }
 
-      # (data length + header and checksum)
-      # original ruby code with support for indicator and variable length message
-      # string[2].to_i + 4
-      bytes[3].to_i + 5 # move data length index + 1 as response will include indicator
+    # [header, command, id, data.size, [data], checksum]
+    bytes[3].to_i + 5
     end
   end
 
@@ -57,7 +55,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def on_update
     @id = setting(Int32, :display_id)
     @rs232 = setting(Bool, :rs232_control)
-    @blank = setting(String?, :blank)
+    @blank = setting(String?, :blanking_input)
   end
 
   def connected
@@ -65,7 +63,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_device_config unless self[:hard_off]?
 
     schedule.every(30.seconds) do
-      logger.debug { "-- polling display" }
       do_poll
     end
   end
@@ -376,8 +373,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       return task.try &.retry
     end
 
-    status = RESPONSESTATUS.new(data[4])
-    command = COMMAND.new(data[5])
+    status = RESPONSESTATUS.from_value(data[4])
+    command = COMMAND.from_value(data[5])
     values = data[6..-1]
     value = values.first
 
@@ -389,7 +386,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         self[:power]      = false if self[:hard_off]
         self[:volume]     = values[1]
         self[:audio_mute] = values[2] == 1
-        self[:input]      = INPUTS.new(values[3]).to_s
+        self[:input]      = INPUTS.from_value(values[3]).to_s
         check_power_state
       when COMMAND::Panel_mute
         self[:power] = value == 0
@@ -400,7 +397,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       when COMMAND::Brightness
         self[:brightness] = value
       when COMMAND::Input
-        self[:input] = INPUTS.new(value).to_s
+        self[:input] = INPUTS.from_value(value).to_s
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]
@@ -408,7 +405,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
           switch_to(self[:input_target].as_s) unless self[:input_stable]
         end
       when COMMAND::Speaker
-        self[:speaker] = SPEAKERMODES.new(value).to_s
+        self[:speaker] = SPEAKERMODES.from_value(value).to_s
       when COMMAND::Hard_off
         self[:hard_off] = value == 0
         self[:power] = false if self[:hard_off]
