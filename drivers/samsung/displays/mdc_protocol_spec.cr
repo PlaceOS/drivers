@@ -1,6 +1,6 @@
   # [header, command, id, data.size, [data], checksum]
 
-DriverSpecs.mock_driver "Samsung::Displays::MdSeries" do
+DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
   id = "\x00"
 
   # connected -> do_poll

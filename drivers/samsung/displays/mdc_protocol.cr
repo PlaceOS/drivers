@@ -1,6 +1,6 @@
 module Samsung; end
 
-class Samsung::Displays::MdSeries < PlaceOS::Driver
+class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # Discovery Information
   tcp_port 1515
   descriptive_name "Samsung MD, DM & QM Series LCD"
