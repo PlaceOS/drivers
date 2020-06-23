@@ -285,16 +285,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(COMMAND::Auto_power, state, **options)
   end
 
-  def in_range(val : Int32, max : Int32) : Int32
-    min = 0
-    if val < min
-      val = min
-    elsif val > max
-      val = max
-    end
-    val
-  end
-
   # Display control
   METHODS = [
     "volume",
@@ -311,7 +301,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # Macro to define methods from the array above
   {% for name in METHODS %}
     def {{name.id}}(val : Int32, **options)
-      val = in_range(val, 100)
+      val = val.clamp(0, 100)
       do_send(COMMAND.parse({{name.id.stringify}}), val, **options)
     end
   {% end %}
@@ -362,7 +352,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def received(data, task)
     hex = data.hexstring
     logger.debug { "Samsung sent: #{hex}" }
-    data = data.map{ |b| b.to_i }.to_a
+    data = data.map(&.to_i).to_a
 
     # Calculate checksum of response
     checksum = data[1..-2].sum & 0xFF
@@ -474,16 +464,17 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     # # options[:name] = command if data.length > 0 # name unless status request
     command = command.value if command.is_a?(COMMAND)
 
-    data = [command, @id, data.size] + data # Build request
-    data << (data.sum & 0xFF)               # Add checksum
-    data = [0xAA] + data                    # Add header
+    bytes = Slice(UInt8).new(data.size + 5)
+    bytes[0] = 0xAA.to_u8 # Header
+    bytes[1] = command.to_u8
+    bytes[2] = @id.to_u8
+    bytes[3] = data.size.to_u8
+    # Copy data into bytes for index 4...(4 + data.size)
+    data.each_with_index(4) do |b, i| bytes[i] = b.to_u8 end
+    bytes[-1] = (bytes[1..-2].map(&.to_i).sum & 0xFF).to_u8 # Checksum
 
-    # Convert to Bytes
-    data = Slice.new(data.size) { |i| data[i].to_u8 }
-
-    logger.debug { "Sending to Samsung: #{data}}" }
-    logger.debug { "hexbytes: #{data.hexstring}" }
-    send(data, **options)
+    logger.debug { "Sending to Samsung: #{bytes.hexstring}" }
+    send(bytes, **options)
 
     # TODO: find out if this is necessary
     # send(array_to_str(data), options).catch do |reason|
