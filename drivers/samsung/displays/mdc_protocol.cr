@@ -84,19 +84,19 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
       switch_to(@blank.as(String)) if @blank && self[:power]?
-      do_send("panel_mute", 1)
+      do_send(COMMAND::Panel_mute, 1)
     elsif !@rs232 && !self[:connected]?
        wake(broadcast)
     else
       # Power on
-      do_send("hard_off", 1)
-      do_send("panel_mute", 0)
+      do_send(COMMAND::Hard_off, 1)
+      do_send(COMMAND::Panel_mute, 0)
     end
   end
 
   def hard_off
-    do_send("panel_mute", 0) if self[:power]?
-    do_send("hard_off", 0)
+    do_send(COMMAND::Panel_mute, 0) if self[:power]?
+    do_send(COMMAND::Hard_off, 0)
     do_poll
   end
 
@@ -104,7 +104,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # def power?(**options, &block)
   def power?(**options)
     # options[:emit] = block unless block.nil?
-    do_send("panel_mute", [] of UInt8, **options)
+    do_send(COMMAND::Panel_mute, [] of UInt8, **options)
   end
 
   # Adds mute states compatible with projectors
@@ -118,11 +118,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   # check software version
   def software_version?
-    do_send("software_version")
+    do_send(COMMAND::Software_version)
   end
 
   def serial_number?
-    do_send("serial_number")
+    do_send(COMMAND::Serial_number)
   end
 
   # Converts a hex encoded string into a binary string
@@ -173,7 +173,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     time_request << year[2..-1].to_i(16)
     time_request << ampm
 
-    do_send("time", time_request)
+    do_send(COMMAND::Time, time_request)
 
     state = enable ? "01" : "00"
     vol = volume.to_s(16).rjust(2, '0')
@@ -207,7 +207,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def switch_to(input : String, **options)
     self[:input_stable] = false
     self[:input_target] = input
-    do_send("input", INPUTS.parse(input).value, **options)
+    do_send(COMMAND::Input, INPUTS.parse(input).value, **options)
   end
 
   enum SCALEMODE
@@ -230,17 +230,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     ].flatten
 
     switch_to(main_source, **options)
-    do_send("screen_split", data, **options)
-  end
-
-  def in_range(val : Int32, max : Int32) : Int32
-    min = 0
-    if val < min
-      val = min
-    elsif val > max
-      val = max
-    end
-    val
+    do_send(COMMAND::Screen_split, data, **options)
   end
 
   # Emulate mute
@@ -269,30 +259,40 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def speaker_select(mode : String, **options)
-    do_send("speaker", SPEAKERMODES.parse(mode).value, **options)
+    do_send(COMMAND::Speaker, SPEAKERMODES.parse(mode).value, **options)
   end
 
   def do_poll
-    do_send("status", [] of UInt8, priority: 0)
+    do_send(COMMAND::Status, [] of UInt8, priority: 0)
     power? unless self[:hard_off]?
   end
 
   # Enable power on (without WOL)
   def network_standby(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send("net_standby", state, **options)
+    do_send(COMMAND::Net_standby, state, **options)
   end
 
   # Eco auto power off timer
   def auto_off_timer(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send("eco_solution", [0x81, state], **options)
+    do_send(COMMAND::Eco_solution, [0x81, state], **options)
   end
 
   # Device auto power control (presumably signal based?)
   def auto_power(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send("auto_power", state, **options)
+    do_send(COMMAND::Auto_power, state, **options)
+  end
+
+  def in_range(val : Int32, max : Int32) : Int32
+    min = 0
+    if val < min
+      val = min
+    elsif val > max
+      val = max
+    end
+    val
   end
 
   # Display control
@@ -312,7 +312,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   {% for name in METHODS %}
     def {{name.id}}(val : Int32, **options)
       val = in_range(val, 100)
-      do_send({{name.id.stringify}}, val, **options)
+      do_send(COMMAND.parse({{name.id.stringify}}), val, **options)
     end
   {% end %}
 
@@ -336,7 +336,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       value = setting(Int32, name)
       # TODO: find out if these are equivalent
       # __send__(name, value) unless value.nil?
-      do_send(name.to_s, value) unless value.nil?
+      do_send(COMMAND.parse(value.to_s), value) unless value.nil?
     end
   end
 
@@ -468,11 +468,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     Time             = 0xA7
   end
 
-  private def do_send(command : String | Int, data : Int | Array(Int) = [] of UInt8, **options)
+  private def do_send(command : COMMAND | Int, data : Int | Array(Int) = [] of UInt8, **options)
     data = [data] if data.is_a?(Int)
 
     # # options[:name] = command if data.length > 0 # name unless status request
-    command = COMMAND.parse(command).value if command.is_a?(String)
+    command = command.value if command.is_a?(COMMAND)
 
     data = [command, @id, data.size] + data # Build request
     data << (data.sum & 0xFF)               # Add checksum
