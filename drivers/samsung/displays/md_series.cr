@@ -1,8 +1,5 @@
 module Samsung; end
 
-# Documentation: https://drive.google.com/a/room.tools/file/d/135yRevYnI6BbZvRWjV51Ur0yKU5bQ_a-/view?usp=sharing
-# Older Documentation: https://aca.im/driver_docs/Samsung/MDC%20Protocol%202015%20v13.7c.pdf
-
 class Samsung::Displays::MdSeries < PlaceOS::Driver
   # Discovery Information
   tcp_port 1515
