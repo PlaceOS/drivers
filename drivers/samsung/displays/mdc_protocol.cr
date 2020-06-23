@@ -32,9 +32,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     @buffer = Tokenizer.new do |io|
       bytes = io.peek
       logger.debug { "Received: #{bytes}" }
-
-    # [header, command, id, data.size, [data], checksum]
-    bytes[3].to_i + 5
+      # [header, command, id, data.size, [data], checksum]
+      bytes[3].to_i + 5
     end
   end
 
