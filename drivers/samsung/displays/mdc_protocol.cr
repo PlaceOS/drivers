@@ -1,6 +1,8 @@
 module Samsung; end
 
 class Samsung::Displays::MDCProtocol < PlaceOS::Driver
+  include Utilities::Transcoder
+
   # Discovery Information
   tcp_port 1515
   descriptive_name "Samsung MD, DM & QM Series LCD"
@@ -103,7 +105,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # def power?(**options, &block)
   def power?(**options)
     # options[:emit] = block unless block.nil?
-    do_send(COMMAND::Panel_mute, [] of UInt8, **options)
+    do_send(COMMAND::Panel_mute, Bytes.empty, **options)
   end
 
   # Adds mute states compatible with projectors
@@ -122,27 +124,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   def serial_number?
     do_send(COMMAND::Serial_number)
-  end
-
-  # Converts a hex encoded string into a binary string
-  def byte_to_hex(data : String) : String
-    # Removes invalid characters
-    data = data.gsub(/(0x|[^0-9A-Fa-f])*/, "")
-
-    # Ensure we have an even number of characters
-    data = '0' + data if data.size % 2 > 0
-
-    # Breaks string into an array of characters
-    output = [] of Int32
-    data.scan(/.{2}/) do |md|
-      output << md[0].to_i(16)
-    end
-
-    String.build do |io|
-      output.each do |number|
-        io.write_byte number.to_u8
-      end
-    end
   end
 
   def set_timer(enable : Bool = true, volume : Int32 = 0)
@@ -165,15 +146,14 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     time_request << year[2..-1].to_i(16)
     time_request << ampm
 
-    do_send(COMMAND::Time, time_request)
+    do_send(COMMAND::Time, array_to_bytes(time_request))
 
     state = enable ? "01" : "00"
     vol = volume.to_s(16).rjust(2, '0')
     #       on 03:45am  enabled off  03:30am   enabled   on-everyday  ignore manual  off-everyday  ignore manual  volume 15  input HDMI  holiday apply
     data = "03-2D-01    #{state}     03-1E-01  #{state}  01           80             01            80             #{vol}     21          01"
-    data = byte_to_hex(data).bytes
 
-    do_send(COMMAND::Timer, data)
+    do_send(COMMAND::Timer, hex_to_bytes(data))
   end
 
   enum INPUTS
@@ -222,7 +202,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     ].flatten
 
     switch_to(main_source, **options)
-    do_send(COMMAND::Screen_split, data, **options)
+    do_send(COMMAND::Screen_split, array_to_bytes(data), **options)
   end
 
   # Emulate mute
@@ -255,7 +235,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def do_poll
-    do_send(COMMAND::Status, [] of UInt8, priority: 0)
+    do_send(COMMAND::Status, Bytes.empty, priority: 0)
     power? unless self[:hard_off]?
   end
 
@@ -268,7 +248,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # Eco auto power off timer
   def auto_off_timer(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send(COMMAND::Eco_solution, [0x81, state], **options)
+    do_send(COMMAND::Eco_solution, Bytes[0x81, state], **options)
   end
 
   # Device auto power control (presumably signal based?)
@@ -450,20 +430,20 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     Time             = 0xA7
     Timer            = 0xA4
 
-    def build(id : Int32, data : Array(Int)) : Bytes
+    def build(id : Int32, data : Bytes) : Bytes
       Bytes.new(data.size + 5).tap do |bytes|
-        bytes[0] = 0xAA_u8                                    # Header
-        bytes[1] = self.to_u8                                 # Command
-        bytes[2] = id.to_u8                                   # Display ID
-        bytes[3] = data.size.to_u8                            # Data size
-        data.each_with_index(4) { |b, i| bytes[i] = b.to_u8 } # Data
-        bytes[-1] = bytes[1..-2].reduce(&.+).to_u8!           # Checksum
+        bytes[0] = 0xAA_u8                              # Header
+        bytes[1] = self.to_u8                           # Command
+        bytes[2] = id.to_u8                             # Display ID
+        bytes[3] = data.size.to_u8                      # Data size
+        data.each_with_index(4) { |b, i| bytes[i] = b } # Data
+        bytes[-1] = bytes[1..-2].reduce(&.+)            # Checksum
       end
     end
   end
 
-  private def do_send(command : COMMAND, data : Int | Array(Int) = [] of UInt8, **options)
-    data = [data] if data.is_a?(Int)
+  private def do_send(command : COMMAND, data : Int | Bytes = Bytes.empty, **options)
+    data = Bytes[data] if data.is_a?(Int)
     bytes = command.build(@id, data)
     logger.debug { "Sending to Samsung: #{bytes.hexstring}" }
     send(bytes, **options)
