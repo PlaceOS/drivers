@@ -272,20 +272,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  # TODO: check type for broadcast is correct
-  def wake(broadcast : String? = nil)
-    mac = setting(String, :mac_address)
-    if mac
-      # config is the database model representing this device
-      wake_device(mac, broadcast)
-      info = "Wake on Lan for MAC #{mac}"
-      info += " directed to VLAN #{broadcast}" if broadcast
-      logger.debug { info }
-    else
-      logger.debug { "No MAC address provided" }
-    end
-  end
-
   enum ResponseStatus
     Ack = 0x41 # A
     Nak = 0x4e # N
