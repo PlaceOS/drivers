@@ -23,4 +23,12 @@ DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
   responds("\xAA\xFF\x00\x03A\x12\x18\xFF")
   status[:volume].should eq(24)
   status[:audio_mute].should eq(false)
+
+  exec(:mute, true)
+  responds("\xAA\xFF#{id}\x03A\xF9\x01\xFF")
+  status[:power].should eq(false)
+
+  exec(:unmute)
+  responds("\xAA\xFF#{id}\x03A\xF9\x00\xFF")
+  status[:power].should eq(true)
 end

@@ -84,8 +84,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       # required by some video walls where screens are chained
       switch_to(@blank.as(String)) if @blank && self[:power]?
       do_send(Command::Panel_Mute, 1)
-    elsif !@rs232 && !self[:connected]?
-       wake_device(broadcast.as(String)) if broadcast
+    elsif !@rs232 && !self[:connected]? && broadcast
+       wake_device(broadcast.as(String))
     else
       # Power on
       do_send(Command::Hard_Off, 1)
@@ -96,7 +96,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def hard_off
     do_send(Command::Panel_Mute, 0) if self[:power]?
     do_send(Command::Hard_Off, 0)
-    do_poll
   end
 
   # TODO: figure out what block is for
@@ -108,11 +107,12 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   # Adds mute states compatible with projectors
   def mute(state : Bool = true)
-    power(!state)
+    state = state ? 1 : 0
+    do_send(Command::Panel_Mute, state)
   end
 
   def unmute
-    power(true)
+    mute(false)
   end
 
   # check software version
