@@ -1,8 +1,6 @@
 module Samsung; end
 
 class Samsung::Displays::MDCProtocol < PlaceOS::Driver
-  include Utilities::Transcoder
-
   # Discovery Information
   tcp_port 1515
   descriptive_name "Samsung MD, DM & QM Series LCD"
@@ -87,7 +85,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       switch_to(@blank.as(String)) if @blank && self[:power]?
       do_send(Command::Panel_Mute, 1)
     elsif !@rs232 && !self[:connected]?
-       wake(broadcast)
+       wake_device(broadcast.as(String)) if broadcast
     else
       # Power on
       do_send(Command::Hard_Off, 1)
@@ -150,29 +148,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     self[:input_stable] = false
     self[:input_target] = input
     do_send(Command::Input, Inputs.parse(input).value, **options)
-  end
-
-  enum ScaleModes
-    Fill = 0x09
-    Fit =  0x20
-  end
-
-  # Activite the internal compositor. Can either split 3 or 4 ways.
-  def split(inputs : Array(String) = ["hdmi", "hdmi2", "hdmi3"], layout : Int32 = 0, scale : String = "fit", **options)
-    main_source = inputs.shift
-
-    data = [
-      1,                  # enable
-      0,                  # sound from screen section 1
-      layout,             # layout mode (1..6)
-      ScaleModes.parse(scale).value,  # scaling for main source
-      inputs.flat_map do |input|
-        [Inputs.parse(input).value, ScaleModes.parse(scale).value]
-      end
-    ].flatten
-
-    switch_to(main_source, **options)
-    do_send(Command::Screen_Split, array_to_bytes(data), **options)
   end
 
   # Emulate mute
