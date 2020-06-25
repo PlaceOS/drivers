@@ -145,13 +145,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  # ability to send custom mdc commands via backoffice
-  def custom_mdc(command : String, value : String)
-    command = byte_to_hex(command).bytes[0].to_i
-    data = byte_to_hex(value).bytes
-    do_send(command, data)
-  end
-
   def set_timer(enable : Bool = true, volume : Int32 = 0)
     # set the time on the display
     time_request = [] of Int32
@@ -176,11 +169,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
     state = enable ? "01" : "00"
     vol = volume.to_s(16).rjust(2, '0')
-    # on 03:45 am enabled  off 03:30 am enabled  on-everyday  ignore manual  off-everyday  ignore manual  volume 15  input HDMI   holiday apply
-    custom_mdc(
-      "A4",
-      "03-2D-01 #{state}  03-1E-01   #{state}      01          80               01           80          #{vol}        21          01"
-    )
+    #       on 03:45am  enabled off  03:30am   enabled   on-everyday  ignore manual  off-everyday  ignore manual  volume 15  input HDMI  holiday apply
+    data = "03-2D-01    #{state}     03-1E-01  #{state}  01           80             01            80             #{vol}     21          01"
+    data = byte_to_hex(data).bytes
+
+    do_send(COMMAND::Timer, data)
   end
 
   enum INPUTS
@@ -455,9 +448,10 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     Software_version = 0x0E
     Serial_number    = 0x0B
     Time             = 0xA7
+    Timer            = 0xA4
   end
 
-  private def do_send(command : COMMAND | Int, data : Int | Array(Int) = [] of UInt8, **options)
+  private def do_send(command : COMMAND, data : Int | Array(Int) = [] of UInt8, **options)
     data = [data] if data.is_a?(Int)
 
     # # options[:name] = command if data.length > 0 # name unless status request
