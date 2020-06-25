@@ -347,7 +347,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     data = data.map(&.to_i).to_a
 
     # Calculate checksum of response
-    checksum = data[1..-2].sum & 0xFF
+    checksum = data[1..-2].reduce(&.+)
 
     # Pop also removes the checksum from the response here
     if data.pop != checksum
@@ -449,26 +449,24 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     Serial_number    = 0x0B
     Time             = 0xA7
     Timer            = 0xA4
+
+    def build(id : Int32, data : Array(Int)) : Bytes
+      Bytes.new(data.size + 5).tap do |bytes|
+        bytes[0] = 0xAA_u8                                    # Header
+        bytes[1] = self.to_u8                                 # Command
+        bytes[2] = id.to_u8                                   # Display ID
+        bytes[3] = data.size.to_u8                            # Data size
+        data.each_with_index(4) { |b, i| bytes[i] = b.to_u8 } # Data
+        bytes[-1] = bytes[1..-2].reduce(&.+).to_u8!           # Checksum
+      end
+    end
   end
 
   private def do_send(command : COMMAND, data : Int | Array(Int) = [] of UInt8, **options)
     data = [data] if data.is_a?(Int)
-
-    # # options[:name] = command if data.length > 0 # name unless status request
-    command = command.value if command.is_a?(COMMAND)
-
-    bytes = Slice(UInt8).new(data.size + 5)
-    bytes[0] = 0xAA.to_u8 # Header
-    bytes[1] = command.to_u8
-    bytes[2] = @id.to_u8
-    bytes[3] = data.size.to_u8
-    # Copy data into bytes for index 4...(4 + data.size)
-    data.each_with_index(4) do |b, i| bytes[i] = b.to_u8 end
-    bytes[-1] = (bytes[1..-2].map(&.to_i).sum & 0xFF).to_u8 # Checksum
-
+    bytes = command.build(@id, data)
     logger.debug { "Sending to Samsung: #{bytes.hexstring}" }
     send(bytes, **options)
-
     # TODO: find out if this is necessary
     # send(array_to_str(data), options).catch do |reason|
     #   disconnect
