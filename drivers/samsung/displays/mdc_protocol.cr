@@ -126,36 +126,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(COMMAND::Serial_number)
   end
 
-  def set_timer(enable : Bool = true, volume : Int32 = 0)
-    # set the time on the display
-    time_request = [] of Int32
-    t = Time.local
-    time_request << t.day
-    hour = t.hour
-    ampm = if hour > 12
-             hour = hour - 12
-             0 # pm
-           else
-             1 # am
-           end
-    time_request << hour
-    time_request << t.minute
-    time_request << t.month
-    year = t.year.to_s(16).rjust(4, '0')
-    time_request << year[0..1].to_i(16)
-    time_request << year[2..-1].to_i(16)
-    time_request << ampm
-
-    do_send(COMMAND::Time, array_to_bytes(time_request))
-
-    state = enable ? "01" : "00"
-    vol = volume.to_s(16).rjust(2, '0')
-    #       on 03:45am  enabled off  03:30am   enabled   on-everyday  ignore manual  off-everyday  ignore manual  volume 15  input HDMI  holiday apply
-    data = "03-2D-01    #{state}     03-1E-01  #{state}  01           80             01            80             #{vol}     21          01"
-
-    do_send(COMMAND::Timer, hex_to_bytes(data))
-  end
-
   enum INPUTS
     Vga           = 0x14 # pc in manual
     Dvi           = 0x18
