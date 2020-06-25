@@ -85,19 +85,19 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
       switch_to(@blank.as(String)) if @blank && self[:power]?
-      do_send(COMMAND::Panel_mute, 1)
+      do_send(Command::Panel_Mute, 1)
     elsif !@rs232 && !self[:connected]?
        wake(broadcast)
     else
       # Power on
-      do_send(COMMAND::Hard_off, 1)
-      do_send(COMMAND::Panel_mute, 0)
+      do_send(Command::Hard_Off, 1)
+      do_send(Command::Panel_Mute, 0)
     end
   end
 
   def hard_off
-    do_send(COMMAND::Panel_mute, 0) if self[:power]?
-    do_send(COMMAND::Hard_off, 0)
+    do_send(Command::Panel_Mute, 0) if self[:power]?
+    do_send(Command::Hard_Off, 0)
     do_poll
   end
 
@@ -105,7 +105,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # def power?(**options, &block)
   def power?(**options)
     # options[:emit] = block unless block.nil?
-    do_send(COMMAND::Panel_mute, Bytes.empty, **options)
+    do_send(Command::Panel_Mute, Bytes.empty, **options)
   end
 
   # Adds mute states compatible with projectors
@@ -119,40 +119,40 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   # check software version
   def software_version?
-    do_send(COMMAND::Software_version)
+    do_send(Command::Software_Version)
   end
 
   def serial_number?
-    do_send(COMMAND::Serial_number)
+    do_send(Command::Serial_Number)
   end
 
-  enum INPUTS
+  enum Inputs
     Vga           = 0x14 # pc in manual
     Dvi           = 0x18
-    Dvi_video     = 0x1F
+    Dvi_Video     = 0x1F
     Hdmi          = 0x21
-    Hdmi_pc       = 0x22
+    Hdmi_Pc       = 0x22
     Hdmi2         = 0x23
-    Hdmi2_pc      = 0x24
+    Hdmi2_Pc      = 0x24
     Hdmi3         = 0x31
-    Hdmi3_pc      = 0x32
+    Hdmi3_Pc      = 0x32
     Hdmi4         = 0x33
-    Hdmi4_pc      = 0x34
-    Display_port  = 0x25
+    Hdmi4_Pc      = 0x34
+    Display_Port  = 0x25
     Dtv           = 0x40
     Media         = 0x60
     Widi          = 0x61
-    Magic_info    = 0x20
+    Magic_Info    = 0x20
     Whiteboard    = 0x64
   end
 
   def switch_to(input : String, **options)
     self[:input_stable] = false
     self[:input_target] = input
-    do_send(COMMAND::Input, INPUTS.parse(input).value, **options)
+    do_send(Command::Input, Inputs.parse(input).value, **options)
   end
 
-  enum SCALEMODE
+  enum ScaleModes
     Fill = 0x09
     Fit =  0x20
   end
@@ -165,14 +165,14 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       1,                  # enable
       0,                  # sound from screen section 1
       layout,             # layout mode (1..6)
-      SCALEMODE.parse(scale).value,  # scaling for main source
+      ScaleModes.parse(scale).value,  # scaling for main source
       inputs.flat_map do |input|
-        [INPUTS.parse(input).value, SCALEMODE.parse(scale).value]
+        [Inputs.parse(input).value, ScaleModes.parse(scale).value]
       end
     ].flatten
 
     switch_to(main_source, **options)
-    do_send(COMMAND::Screen_split, array_to_bytes(data), **options)
+    do_send(Command::Screen_Split, array_to_bytes(data), **options)
   end
 
   # Emulate mute
@@ -195,36 +195,36 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  enum SPEAKERMODES
+  enum SpeakerModes
     Internal = 0
     External = 1
   end
 
   def speaker_select(mode : String, **options)
-    do_send(COMMAND::Speaker, SPEAKERMODES.parse(mode).value, **options)
+    do_send(Command::Speaker, SpeakerModes.parse(mode).value, **options)
   end
 
   def do_poll
-    do_send(COMMAND::Status, Bytes.empty, priority: 0)
+    do_send(Command::Status, Bytes.empty, priority: 0)
     power? unless self[:hard_off]?
   end
 
   # Enable power on (without WOL)
   def network_standby(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send(COMMAND::Net_standby, state, **options)
+    do_send(Command::Net_Standby, state, **options)
   end
 
   # Eco auto power off timer
   def auto_off_timer(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send(COMMAND::Eco_solution, Bytes[0x81, state], **options)
+    do_send(Command::Eco_Solution, Bytes[0x81, state], **options)
   end
 
   # Device auto power control (presumably signal based?)
   def auto_power(enable : Bool, **options)
     state = enable ? 1 : 0
-    do_send(COMMAND::Auto_power, state, **options)
+    do_send(Command::Auto_Power, state, **options)
   end
 
   # Display control
@@ -244,7 +244,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   {% for name in METHODS %}
     def {{name.id}}(val : Int32, **options)
       val = val.clamp(0, 100)
-      do_send(COMMAND.parse({{name.id.stringify}}), val, **options)
+      do_send(Command.parse({{name.id.stringify}}), val, **options)
     end
   {% end %}
 
@@ -268,7 +268,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       value = setting(Int32, name)
       # TODO: find out if these are equivalent
       # __send__(name, value) unless value.nil?
-      do_send(COMMAND.parse(value.to_s), value) unless value.nil?
+      do_send(Command.parse(value.to_s), value) unless value.nil?
     end
   end
 
@@ -286,7 +286,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  enum RESPONSESTATUS
+  enum ResponseStatus
     Ack = 0x41 # A
     Nak = 0x4e # N
   end
@@ -305,8 +305,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       return task.try &.retry
     end
 
-    status = RESPONSESTATUS.from_value(data[4])
-    command = COMMAND.from_value(data[5])
+    status = ResponseStatus.from_value(data[4])
+    command = Command.from_value(data[5])
     values = data[6..-1]
     value = values.first
 
@@ -318,7 +318,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         self[:power]      = false if self[:hard_off]
         self[:volume]     = values[1]
         self[:audio_mute] = values[2] == 1
-        self[:input]      = INPUTS.from_value(values[3]).to_s
+        self[:input]      = Inputs.from_value(values[3]).to_s
         check_power_state
       when .panel_mute?
         self[:power] = value == 0
@@ -329,7 +329,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       when .brightness?
         self[:brightness] = value
       when .input?
-        self[:input] = INPUTS.from_value(value).to_s
+        self[:input] = Inputs.from_value(value).to_s
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]
@@ -337,7 +337,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
           switch_to(self[:input_target].as_s) unless self[:input_stable]
         end
       when .speaker?
-        self[:speaker] = SPEAKERMODES.from_value(value).to_s
+        self[:speaker] = SpeakerModes.from_value(value).to_s
       when .hard_off?
         self[:hard_off] = value == 0
         self[:power] = false if self[:hard_off]
@@ -368,35 +368,35 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  enum COMMAND
+  enum Command
     Status           = 0x00
-    Hard_off         = 0x11 # Completely powers off
-    Panel_mute       = 0xF9 # Screen blanking / visual mute
+    Hard_Off         = 0x11 # Completely powers off
+    Panel_Mute       = 0xF9 # Screen blanking / visual mute
     Volume           = 0x12
     Contrast         = 0x24
     Brightness       = 0x25
     Sharpness        = 0x26
     Colour           = 0x27
     Tint             = 0x28
-    Red_gain         = 0x29
-    Green_gain       = 0x2A
-    Blue_gain        = 0x2B
+    Red_Gain         = 0x29
+    Green_Gain       = 0x2A
+    Blue_Gain        = 0x2B
     Input            = 0x14
     Mode             = 0x18
     Size             = 0x19
     Pip              = 0x3C # picture in picture
-    Auto_adjust      = 0x3D
-    Wall_mode        = 0x5C # Video wall mode
+    Auto_Adjust      = 0x3D
+    Wall_Mode        = 0x5C # Video wall mode
     Safety           = 0x5D
-    Wall_on          = 0x84 # Video wall enabled
-    Wall_user        = 0x89 # Video wall user control
+    Wall_On          = 0x84 # Video wall enabled
+    Wall_User        = 0x89 # Video wall user control
     Speaker          = 0x68
-    Net_standby      = 0xB5 # Keep NIC active in standby
-    Eco_solution     = 0xE6 # Eco options (auto power off)
-    Auto_power       = 0x33
-    Screen_split     = 0xB2 # Tri / quad split (larger panels only)
-    Software_version = 0x0E
-    Serial_number    = 0x0B
+    Net_Standby      = 0xB5 # Keep NIC active in standby
+    Eco_Solution     = 0xE6 # Eco options (auto power off)
+    Auto_Power       = 0x33
+    Screen_Split     = 0xB2 # Tri / quad split (larger panels only)
+    Software_Version = 0x0E
+    Serial_Number    = 0x0B
     Time             = 0xA7
     Timer            = 0xA4
 
@@ -412,7 +412,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  private def do_send(command : COMMAND, data : Int | Bytes = Bytes.empty, **options)
+  private def do_send(command : Command, data : Int | Bytes = Bytes.empty, **options)
     data = Bytes[data] if data.is_a?(Int)
     bytes = command.build(@id, data)
     logger.debug { "Sending to Samsung: #{bytes.hexstring}" }
