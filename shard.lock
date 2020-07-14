@@ -2,7 +2,7 @@ version: 2.0
 shards:
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 3.1.6
+    version: 3.3.0
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
@@ -26,11 +26,7 @@ shards:
 
   debug:
     git: https://github.com/Sija/debug.cr.git
-    version: 1.1.0
-
-  delimiter_tree:
-    git: https://github.com/drujensen/delimiter_tree.git
-    version: 0.1.4
+    version: 2.0.0
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
@@ -44,9 +40,13 @@ shards:
     git: https://github.com/crystal-community/future.cr.git
     version: 0.1.0
 
+  google:
+    git: https://github.com/PlaceOS/google.git
+    version: 2.2.2
+
   habitat:
     git: https://github.com/luckyframework/habitat.git
-    version: 0.4.3
+    version: 0.4.4
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
@@ -64,13 +64,29 @@ shards:
     git: https://github.com/spider-gazelle/log_helper.git
     version: 1.0.2
 
+  lucky_router:
+    git: https://github.com/luckyframework/lucky_router.git
+    version: 0.3.0
+
   murmur3:
     git: https://github.com/aca-labs/murmur3.git
     version: 0.1.1+git.commit.7cbe25c0ca8d052c9d98c377c824dcb0e038c790
 
+  office365:
+    git: https://github.com/PlaceOS/office365.git
+    version: 1.1.0
+
   openssl_ext:
     git: https://github.com/stakach/openssl_ext.git
     version: 1.2.2
+
+  pinger:
+    git: https://github.com/spider-gazelle/pinger.git
+    version: 1.1.0
+
+  place_calendar:
+    git: https://github.com/PlaceOS/calendar.git
+    version: 2.0.1
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -78,7 +94,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.4.1
+    version: 3.4.4
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -90,7 +106,7 @@ shards:
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
-    version: 2.2.0
+    version: 2.2.1
 
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
@@ -122,7 +138,7 @@ shards:
 
   tasker:
     git: https://github.com/spider-gazelle/tasker.git
-    version: 1.3.0
+    version: 2.0.1
 
   telnet:
     git: https://github.com/spider-gazelle/telnet.cr.git
