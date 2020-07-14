@@ -26,8 +26,15 @@ dependencies:
   rwlock:
     github: spider-gazelle/readers-writer
 
+  jwt:
+    github: crystal-community/jwt
+
+  # Driver deps:
   telnet:
     github: spider-gazelle/telnet.cr
 
-  jwt:
-    github: crystal-community/jwt
+  place_calendar:
+    github: PlaceOS/calendar
+
+  pinger:
+    github: spider-gazelle/pinger
