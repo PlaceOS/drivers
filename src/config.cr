@@ -20,7 +20,7 @@ filters = PROD ? ["bearer_token", "secret", "password"] : [] of String
 # Add handlers that should run before your application
 ActionController::Server.before(
   HTTP::ErrorHandler.new(PROD),
-  ActionController::LogHandler.new(filters),
+  ActionController::LogHandler.new(filters, ActionController::LogHandler::Event.all),
 )
 
 # Optional support for serving of static assests
