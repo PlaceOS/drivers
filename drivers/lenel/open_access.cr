@@ -135,7 +135,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   ) forall T
     ~get("/instances",
       headers: default_headers,
-      params: encode args.merge version: "1.0"
+      params: encode args.merge type_name: T.name, version: "1.0"
     ) >> NamedTuple(
       page_number: Int32?,
       page_size: Int32?,
