@@ -4,7 +4,7 @@ require "json"
 #
 # NOTE: naming here must match that used by OpenAccess - struct names are passed
 # as meaningful information within API requests.
-module Lenel::Models
+module Lenel::OpenAccess::Models
   # Defines a new Lenel data type.
   private macro lnl(name, *attrs)
     record Lnl_{{name}}, {{*attrs}} do
