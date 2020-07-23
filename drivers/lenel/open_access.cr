@@ -39,6 +39,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
     authenticate! if client.token.nil?
   end
 
+  def disconnected
+    client.token = nil
+  end
+
   def authenticate! : Nil
     username  = setting String, :username
     password  = setting String, :password
@@ -57,8 +61,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
 
       set_connected_state true
     rescue e
-      logger.error { "authentication failed" }
-      client.token = nil
+      logger.error { "authentication failed: #{e.message}" }
       set_connected_state false
       raise e
     end
