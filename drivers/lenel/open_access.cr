@@ -25,8 +25,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
   end
 
   def on_load
-    # Hearbeat for base service connectivity
-    schedule.every 5.minutes, &->version
+    schedule.every 5.minutes do
+      logger.debug { "checking service connectivity" }
+      version
+    end
   end
 
   def on_update
@@ -42,6 +44,8 @@ class Lenel::OpenAccess < PlaceOS::Driver
     password  = setting String, :password
     directory = setting String, :directory_id
 
+    logger.debug { "requesting access token for #{username}" }
+
     begin
       auth = client.add_authentication username, password, directory
       client.token = auth[:session_token]
@@ -49,8 +53,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
       renewal_time = auth[:token_expiration_time] - 5.minutes
       schedule.at renewal_time, &->authenticate!
 
+      logger.info { "authenticated - renews at #{renewal_time}" }
+
       set_connected_state true
     rescue e
+      logger.error { "authentication failed" }
       client.token = nil
       set_connected_state false
       raise e
