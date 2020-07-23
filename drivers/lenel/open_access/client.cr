@@ -25,6 +25,10 @@ class Lenel::OpenAccess::Client
     end
   end
 
+
+  ########
+  # Systen metadata
+
   # Gets the version of the attached OnGuard system.
   def version
     ~transport.get(
@@ -34,6 +38,10 @@ class Lenel::OpenAccess::Client
       product_version: String,
     )
   end
+
+
+  ########
+  # Auth
 
   # Creates a new auth session.
   def add_authentication(
@@ -57,11 +65,25 @@ class Lenel::OpenAccess::Client
     )
   end
 
-  # Creates a new entry for *instance*.
-  def create_instance(instance : T) forall T
+
+  ########
+  # CRUD ops for system info
+
+  # Creates a new entry of *type*.
+  def add_instance(type type_name : T.class, **property_value_map : **U) : T forall T, U
+    Models.subset T, U
     ~transport.post(
       path: "/instances?version=1.0",
-    ) >> T
+      body: args.to_json
+    ) >> NamedTuple(
+      type_name: String,
+      property_value_map: T,
+    )[:property_value_map]
+  end
+
+  # Creates *instance*.
+  def add_instance(instance : T) : T forall T
+    add_instance T, **instance.to_named_tuple
   end
 
   # Retrieves instances of a particular type base on the passed filter.
@@ -73,7 +95,7 @@ class Lenel::OpenAccess::Client
     page_number : Int32? = nil,
     page_size : Int32? = nil,
     order_by : String? = nil,
-  ) forall T
+  ) : Array(T) forall T
     params = HTTP::Params.encode args.merge type_name: T.name
     ~transport.get(
       path: "/instances?version=1.0&#{params}",
@@ -83,9 +105,40 @@ class Lenel::OpenAccess::Client
       total_pages: Int32,
       total_items: Int32,
       count: Int32,
-      item_list: Array(T),
+      item_list: Array(NamedTuple(type_name: String, property_value_map: T)),
+    )[:item_list].map { |item| item[:property_value_map] }
+  end
+
+
+  # Updates a record of *type*. Passed properties must include the types key and
+  # any fields to update.
+  def modify_instance(type type_name : T.class, **property_value_map : **U) : T forall T, U
+    Models.subset T, U
+    ~transport.put(
+      path: "/instances?version=1.0",
+      body: args.to_json
+    ) >> NamedTuple(
       type_name: String,
-      property_value_map: Hash(String, String),
+      property_value_map: T,
+    )[:property_value_map]
+  end
+
+  # Updates an entry to match the data in *instance*.
+  def modify_instance(instance : T) : T forall T
+    modify_instance T, **instance.to_named_tuple
+  end
+
+  # Deletes an instance of *type*.
+  def delete_instance(type type_name : T.class, **property_value_map : **U) : Nil forall T, U
+    Models.subset T, U
+    ~transport.delete(
+      path: "/instances?version=1.0",
+      body: args.to_json,
     )
+  end
+
+  # Deletes *instance*.
+  def delete_instance(instance : T) : Nil forall T
+    delete_instance T, **instance.to_named_tuple
   end
 end

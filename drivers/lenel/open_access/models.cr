@@ -9,10 +9,43 @@ module Lenel::OpenAccess::Models
   private macro lnl(name, *attrs)
     record Lnl_{{name}}, {{*attrs}} do
       include JSON::Serializable
+
+      # Name of the type as expected by the OpenAccess API endpoints.
       def self.name
         "Lnl_{{name}}"
       end
+
+      # Allows the type to be used directly in building request bodies
+      def self.to_json(json : JSON::Builder)
+        json.string name
+      end
+
+      # Convert all fields of this record to a `NamedTuple`.
+      #
+      # This can be used to splat it's contents into arguments.
+      def to_named_tuple
+        {% verbatim do %}
+          {% if @type.instance_vars.empty? %}
+            NamedTuple.new
+          {% else %}
+            {
+              {% for property in @type.instance_vars.map &.name %}
+                {{property.id}}: {{property.id}},
+              {% end %}
+            }
+          {% end %}
+        {% end %}
+      end
     end
+  end
+
+  # Checks if *type* has an accessor for every key in *named_tuple*.
+  #
+  # This can be to provide type checks for methods with variadic args.
+  macro subset(type, named_tuple)
+    \{% for prop in {{named_tuple}}.keys.reject { |key| {{type}}.has_method? key} %}
+      \{{ raise "no property \"#{prop}\" in #{{{type}}}" }}
+    \{% end %}
   end
 
   lnl AccessGroup, id : Int32, segmentid : Int32, name : String

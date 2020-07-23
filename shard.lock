@@ -53,8 +53,8 @@ shards:
     version: 2.5.0
 
   inactive-support:
-    github: spider-gazelle/inactive-support
-    commit: 8471418f17388dcdab6bde8b8be73077dec2a6df
+    git: https://github.com/spider-gazelle/inactive-support.git
+    version: 0.1.0+git.commit.0deab89bb161538642827adab195dba8e6139712
 
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git

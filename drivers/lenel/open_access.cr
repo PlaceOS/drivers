@@ -69,16 +69,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
 
   # Gets the version of the attached OnGuard system.
   def version
-    logger.debug { "requesting version" }
-    version = client.version
-    logger.debug { version }
-  rescue e
-    logger.error { "error requestion version: #{e.message}" }
-  end
-
-  # TODO: remove me, temp for testing
-  def get_test
-    client.get_instances Lnl_AccessGroup
+    client.version
   end
 end
 
