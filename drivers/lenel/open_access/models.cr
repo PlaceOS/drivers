@@ -48,5 +48,28 @@ module Lenel::OpenAccess::Models
     \{% end %}
   end
 
-  lnl AccessGroup, id : Int32, segmentid : Int32, name : String
+  lnl AccessGroup,
+    id : Int32,
+    segmentid : Int32,
+    name : String
+
+  lnl Visit,
+    id : Int32,
+    cardholderid : Int32,
+    delgatedid : Int32,
+    email_include_def_recipents : Bool,
+    email_include_host : Bool,
+    email_include_visitor : Bool,
+    email_list : String,
+    lastchanged : Time,
+    name : String,
+    scheduled_timein : Time,
+    scheduled_timeout : Time,
+    signinlocationid : Int32,
+    timein : Time,
+    timeout : Time,
+    type : Int32,
+    visit_eventid : Int32,
+    visit_key : String,
+    visitor_id : String
 end
