@@ -71,6 +71,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
     self[:volume_min] = 0
     self[:volume_max] = 100
+    self[:previous_volume] = 50
 
     # Meta data for inquiring interfaces
     self[:type] = :lcd
@@ -159,7 +160,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     if val
       if !self[:audio_mute]?
         self[:audio_mute] = true
-        self[:previous_volume] = self[:volume].as_i? || 50
+        self[:previous_volume] = self[:volume].as_i
         volume(0)
       end
     else
@@ -170,7 +171,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def unmute_audio
     if self[:audio_mute]?
       self[:audio_mute] = false
-      volume(self[:previous_volume].as_i? || 50)
+      volume(self[:previous_volume].as_i)
     end
   end
 
