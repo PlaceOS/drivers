@@ -47,8 +47,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   default_settings({
     display_id: 0,
-    rs232_control: false,
-    blanking_input: nil,
+    rs232_control: false
   })
 
   @id : Int32 = 0
@@ -83,7 +82,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def on_update
     @id = setting(Int32, :display_id)
     @rs232 = setting(Bool, :rs232_control)
-    @blank = setting(String?, :blanking_input)
+    @blank = setting?(String, :blanking_input)
   end
 
   def connected
@@ -260,7 +259,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def do_device_config
     logger.debug { "Syncronising device state with settings" }
     DEVICE_SETTINGS.each do |name|
-      value = setting(Int32, name)
+      value = setting?(Int32, name)
       # TODO: find out if these are equivalent
       # __send__(name, value) unless value.nil?
       do_send(Command.parse(value.to_s), value) unless value.nil?
