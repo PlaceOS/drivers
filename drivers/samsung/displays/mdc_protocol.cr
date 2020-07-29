@@ -1,9 +1,11 @@
 require "driver/interface/powerable"
+require "driver/interface/muteable"
 
 module Samsung; end
 
 class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   include Interface::Powerable
+  include Interface::Muteable
 
   # Discovery Information
   tcp_port 1515
@@ -109,14 +111,45 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(Command::Panel_Mute, Bytes.empty, **options)
   end
 
+  # Mutes audio + video
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    logger.debug { "requested mute state: #{state}" }
+    mute_video(state)
+    mute_audio(state)
+  end
+
   # Adds mute states compatible with projectors
-  def mute(state : Bool = true)
+  def mute_video(state : Bool = true)
     state = state ? 1 : 0
     do_send(Command::Panel_Mute, state)
   end
 
-  def unmute
-    mute(false)
+  def unmute_video
+    mute_video(false)
+  end
+
+  # Emulate mute
+  def mute_audio(val : Bool = true)
+    if val
+      if !self[:audio_mute]?
+        self[:audio_mute] = true
+        self[:previous_volume] = self[:volume].as_i? || 50
+        volume(0)
+      end
+    else
+      unmute_audio
+    end
+  end
+
+  def unmute_audio
+    if self[:audio_mute]?
+      self[:audio_mute] = false
+      volume(self[:previous_volume].as_i? || 50)
+    end
   end
 
   # check software version
@@ -152,26 +185,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     self[:input_stable] = false
     self[:input_target] = input
     do_send(Command::Input, Inputs.parse(input).value, **options)
-  end
-
-  # Emulate mute
-  def mute_audio(val : Bool = true)
-    if val
-      if !self[:audio_mute]?
-        self[:audio_mute] = true
-        self[:previous_volume] = self[:volume].as_i? || 50
-        volume(0)
-      end
-    else
-      unmute_audio
-    end
-  end
-
-  def unmute_audio
-    if self[:audio_mute]?
-      self[:audio_mute] = false
-      volume(self[:previous_volume].as_i? || 50)
-    end
   end
 
   enum SpeakerModes
