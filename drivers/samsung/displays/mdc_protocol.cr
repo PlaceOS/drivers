@@ -1,6 +1,10 @@
+require "driver/interface/powerable"
+
 module Samsung; end
 
 class Samsung::Displays::MDCProtocol < PlaceOS::Driver
+  include Interface::Powerable
+
   # Discovery Information
   tcp_port 1515
   descriptive_name "Samsung MD, DM & QM Series LCD"
