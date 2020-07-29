@@ -1,11 +1,33 @@
 require "driver/interface/powerable"
 require "driver/interface/muteable"
+require "driver/interface/switchable"
 
 module Samsung; end
 
 class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
+
+  enum Inputs
+    Vga           = 0x14 # pc in manual
+    Dvi           = 0x18
+    Dvi_Video     = 0x1F
+    Hdmi          = 0x21
+    Hdmi_Pc       = 0x22
+    Hdmi2         = 0x23
+    Hdmi2_Pc      = 0x24
+    Hdmi3         = 0x31
+    Hdmi3_Pc      = 0x32
+    Hdmi4         = 0x33
+    Hdmi4_Pc      = 0x34
+    Display_Port  = 0x25
+    Dtv           = 0x40
+    Media         = 0x60
+    Widi          = 0x61
+    Magic_Info    = 0x20
+    Whiteboard    = 0x64
+  end
+  include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
   # Discovery Information
   tcp_port 1515
@@ -88,7 +110,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     if !power
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
-      switch_to(@blank.as(String)) if @blank && self[:power]?
+      switch_to(Inputs.parse(@blank.as(String))) if @blank && self[:power]?
       do_send(Command::Panel_Mute, 1)
     elsif !@rs232 && !self[:connected]? && broadcast
        wake_device(broadcast.as(String))
@@ -161,30 +183,10 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(Command::Serial_Number)
   end
 
-  enum Inputs
-    Vga           = 0x14 # pc in manual
-    Dvi           = 0x18
-    Dvi_Video     = 0x1F
-    Hdmi          = 0x21
-    Hdmi_Pc       = 0x22
-    Hdmi2         = 0x23
-    Hdmi2_Pc      = 0x24
-    Hdmi3         = 0x31
-    Hdmi3_Pc      = 0x32
-    Hdmi4         = 0x33
-    Hdmi4_Pc      = 0x34
-    Display_Port  = 0x25
-    Dtv           = 0x40
-    Media         = 0x60
-    Widi          = 0x61
-    Magic_Info    = 0x20
-    Whiteboard    = 0x64
-  end
-
-  def switch_to(input : String, **options)
+  def switch_to(input : Input, **options)
     self[:input_stable] = false
     self[:input_target] = input
-    do_send(Command::Input, Inputs.parse(input).value, **options)
+    do_send(Command::Input, input.value, **options)
   end
 
   enum SpeakerModes
@@ -312,7 +314,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]
           self[:input_stable] = self[:input] == self[:input_target]
-          switch_to(self[:input_target].as_s) unless self[:input_stable]
+          switch_to(Inputs.parse(self[:input_target].as_s)) unless self[:input_stable]
         end
       when .speaker?
         self[:speaker] = SpeakerModes.from_value(value).to_s
