@@ -9,6 +9,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco Meraki Dashboard"
   generic_name :Dashboard
+  uri_base "https://api.meraki.com"
   description %(
     for more information visit:
       * Dashboard API: https://documentation.meraki.com/zGeneral_Administration/Other_Topics/The_Cisco_Meraki_Dashboard_API
@@ -32,8 +33,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @api_key : String = ""
 
   def on_update
-    # NOTE:: base URI https://api.meraki.com
-
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
     @api_key = setting?(String, :meraki_api_key) || ""
