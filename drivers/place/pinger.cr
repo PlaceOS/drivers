@@ -11,7 +11,7 @@ class Place::Pinger < PlaceOS::Driver
   description %(periodically pings a device)
 
   default_settings({
-    ping_every: 60
+    ping_every: 60,
   })
 
   def on_load
