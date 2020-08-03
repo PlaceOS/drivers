@@ -8,6 +8,23 @@ class Place::Calendar < PlaceOS::Driver
 
   uri_base "https://staff.app.api.com"
 
+  default_settings({
+    calendar_service_account: "service_account@email.address",
+    calendar_config: {
+      scopes: ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/admin.directory.user.readonly"],
+      domain: "primary.domain.com",
+      sub: "default.service.account@google.com",
+      issuer: "placeos@organisation.iam.gserviceaccount.com",
+      signing_key: "PEM encoded private key"
+    },
+    calendar_config_office: {
+      _note_: "rename to 'calendar_config' for use",
+      tenant: "",
+      client_id: "",
+      client_secret: ""
+    }
+  })
+
   alias GoogleParams = NamedTuple(
     scopes: String | Array(String),
     domain: String,
