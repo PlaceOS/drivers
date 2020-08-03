@@ -11,13 +11,11 @@ class Place::Calendar < PlaceOS::Driver
   default_settings({
     calendar_service_account: "service_account@email.address",
     calendar_config: {
-      calendar_scope: "https://www.googleapis.com/auth/calendar",
-      directory_scope: "https://www.googleapis.com/auth/admin.directory.user.readonly",
+      scopes: ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/admin.directory.user.readonly"],
       domain: "primary.domain.com",
       sub: "default.service.account@google.com",
       issuer: "placeos@organisation.iam.gserviceaccount.com",
-      signing_key: "PEM encoded private key",
-      user_agent: "PlaceOS"
+      signing_key: "PEM encoded private key"
     },
     calendar_config_office: {
       _note_: "rename to 'calendar_config' for use",
@@ -28,13 +26,11 @@ class Place::Calendar < PlaceOS::Driver
   })
 
   alias GoogleParams = NamedTuple(
+    scopes: String | Array(String),
+    domain: String,
+    sub: String,
     issuer: String,
     signing_key: String,
-    domain: String,
-    calendar_scope: String,
-    directory_scope: String,
-    sub: String,
-    user_agent: String,
   )
 
   alias OfficeParams = NamedTuple(

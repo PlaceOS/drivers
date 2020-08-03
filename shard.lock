@@ -86,7 +86,7 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 3.0.1
+    version: 2.0.1
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
