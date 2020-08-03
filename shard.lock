@@ -42,7 +42,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.3.2
+    version: 2.4.0
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -86,7 +86,7 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 2.0.1
+    version: 4.0.0
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
