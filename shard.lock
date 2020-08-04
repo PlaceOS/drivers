@@ -28,6 +28,10 @@ shards:
     git: https://github.com/Sija/debug.cr.git
     version: 2.0.0
 
+  email:
+    git: https://github.com/arcage/crystal-email.git
+    version: 0.6.2
+
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
     version: 1.0.1
@@ -50,7 +54,7 @@ shards:
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
-    version: 2.5.0
+    version: 2.5.1
 
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git
@@ -94,7 +98,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.0
+    version: 3.5.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
