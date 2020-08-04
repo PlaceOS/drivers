@@ -36,13 +36,11 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   def on_update
-    logger.debug { "updating config on #{system.inspect}" }
-
-    @calendar_id = setting(String?, :calendar_id) || system.email.not_nil!
+    @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
     time_zone = setting?(String, :calendar_time_zone)
-    @time_zone = Time::Location.load(time_zone) if time_zone
+    @time_zone = Time::Location.load(time_zone) if time_zone.presence
 
-    @default_title = setting?(String, :book_now_default_title) || "Ad Hoc booking"
+    @default_title = setting?(String, :book_now_default_title).presence || "Ad Hoc booking"
     self[:default_title] = @default_title
 
     book_now = setting?(Bool, :disable_book_now)
