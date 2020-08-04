@@ -27,6 +27,7 @@ Backing a driver is few different pieces that make it function.
 * Logger
 * Metadata
 * Security
+* Interfaces
 
 
 ### Queue
@@ -417,3 +418,38 @@ The options are:
 
 * Administrator `Level::Administrator`
 * Support `Level::Support`
+
+
+### Interfaces
+
+Drivers can expose any methods that make sense for the device, service or logic they encapsulate.
+Across these there are often core sets of similar functionality.
+Interfaces provide a standard way of implementing and interacting with this.
+
+Thier usage is optional, but highly encouraged as it both improves modularity and reduces complexity in driver implementations.
+
+A full list of interfaces is [available in the driver framework](https://github.com/PlaceOS/driver/tree/master/src/placeos-driver/interface). This will expand over time to cover common, repeated patterns as they emerge.
+
+#### Implementing an Interface
+
+Each interface is a module containing abstract methods, types and functionality built from these.
+
+First include the module within the driver body.
+```crystal
+include Interface::Powerable
+```
+You will then need to provide implementations of the abstract methods.
+The compiler will guide you in this.
+
+Some interfaces will also provide default implementation for other methods.
+These may be overridden if the device or service provides a more efficient way to directly execute the desired behaviour.
+To keep compatibility, overridden methods must maintain feature and functional parity with the original implementation.
+
+#### Using an Interface
+
+Drivers that provide an Interface can be discovered using the `system.implementing` method from any logic module.
+This will return a list of all drivers in the system which implement the Interface.
+
+Similarly, the `accessor` macro provides a way to declare a dependency on a sibling driver that provides specific functionality.
+
+For more infomaration on these and for usage examples, see [logic drivers](#logic-drivers).
