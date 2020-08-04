@@ -10,19 +10,19 @@ class Place::Calendar < PlaceOS::Driver
 
   default_settings({
     calendar_service_account: "service_account@email.address",
-    calendar_config: {
-      scopes: ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/admin.directory.user.readonly"],
-      domain: "primary.domain.com",
-      sub: "default.service.account@google.com",
-      issuer: "placeos@organisation.iam.gserviceaccount.com",
-      signing_key: "PEM encoded private key"
+    calendar_config:          {
+      scopes:      ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/admin.directory.user.readonly"],
+      domain:      "primary.domain.com",
+      sub:         "default.service.account@google.com",
+      issuer:      "placeos@organisation.iam.gserviceaccount.com",
+      signing_key: "PEM encoded private key",
     },
     calendar_config_office: {
-      _note_: "rename to 'calendar_config' for use",
-      tenant: "",
-      client_id: "",
-      client_secret: ""
-    }
+      _note_:        "rename to 'calendar_config' for use",
+      tenant:        "",
+      client_id:     "",
+      client_secret: "",
+    },
   })
 
   alias GoogleParams = NamedTuple(
@@ -95,5 +95,35 @@ class Place::Calendar < PlaceOS::Driver
     user_id = user_id || @service_account
 
     client.delete_event(user_id, event_id, calendar_id: calendar_id)
+  end
+
+  @[Security(Level::Support)]
+  def create_event(
+    title : String,
+    event_start : Int64,
+    event_end : Int64? = nil,
+    description : String = "",
+    attendees : Array(NamedTuple(name: String, email: String)) = [] of NamedTuple(name: String, email: String),
+    timezone : String? = nil,
+    user_id : String? = nil,
+    calendar_id : String? = nil
+  )
+    user_id = user_id || @service_account
+    calendar_id = calendar_id || user_id
+
+    event = PlaceCalendar::Event.new
+    event.host = calendar_id
+    event.title = title
+    event.description = description
+    event.timezone = timezone
+    event.attendees = attendees
+    event.event_start = Time.unix(event_start)
+    if event_end
+      event.event_end = Time.unix(event_end)
+    else
+      event.all_day = true
+    end
+
+    client.create_event(user_id, event, calendar_id)
   end
 end
