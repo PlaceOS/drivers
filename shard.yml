@@ -1,5 +1,5 @@
 name: drivers
-version: 2.0.2
+version: 2.1.0
 crystal: 0.35.1
 
 # compile target
@@ -12,29 +12,32 @@ dependencies:
     github: spider-gazelle/action-controller
     version: ~> 3.1
 
-  placeos-driver:
-    github: placeos/driver
-    version: ~> 3.0
+  email:
+    github: arcage/crystal-email
+
+  exec_from:
+    github: place-labs/exec_from
+
+  jwt:
+    github: crystal-community/jwt
+
+  pinger:
+    github: spider-gazelle/pinger
+
+  place_calendar:
+    github: PlaceOS/calendar
 
   placeos-compiler:
     github: placeos/compiler
     version: ~> 2.0
 
-  exec_from:
-    github: place-labs/exec_from
+  placeos-driver:
+    github: placeos/driver
+    version: ~> 3.0
 
   rwlock:
     github: spider-gazelle/readers-writer
 
-  jwt:
-    github: crystal-community/jwt
-
   # Driver deps:
   telnet:
     github: spider-gazelle/telnet.cr
-
-  place_calendar:
-    github: PlaceOS/calendar
-
-  pinger:
-    github: spider-gazelle/pinger
