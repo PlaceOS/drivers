@@ -36,6 +36,8 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   def on_update
+    logger.debug { "updating config on #{system.inspect}" }
+
     @calendar_id = setting(String?, :calendar_id) || system.email.not_nil!
     time_zone = setting?(String, :calendar_time_zone)
     @time_zone = Time::Location.load(time_zone) if time_zone
@@ -74,6 +76,7 @@ class Place::Bookings < PlaceOS::Driver
   @last_booking_started : Int64 = 0_i64
 
   def start_meeting(meeting_start_time : Int64) : Nil
+    logger.debug { "starting meeting #{meeting_start_time}" }
     @last_booking_started = meeting_start_time
     define_setting(:last_booking_started, meeting_start_time)
     check_current_booking
@@ -83,10 +86,12 @@ class Place::Bookings < PlaceOS::Driver
   def end_meeting(meeting_start_time : Int64) : Nil
     cmeeting = current
     result = if cmeeting && cmeeting.event_start.to_unix == meeting_start_time
+               logger.debug { "deleting event #{cmeeting.title}, from #{@calendar_id}" }
                calendar.delete_event(@calendar_id, cmeeting.id)
              else
                nmeeting = upcoming
                if nmeeting && nmeeting.event_start.to_unix == meeting_start_time
+                 logger.debug { "deleting event #{nmeeting.title}, from #{@calendar_id}" }
                  calendar.delete_event(@calendar_id, nmeeting.id)
                else
                  raise "only the current or pending meeting can be cancelled"
@@ -104,6 +109,8 @@ class Place::Bookings < PlaceOS::Driver
     starting = Time.utc.to_unix
     ending = period_in_seconds.seconds.from_now.to_unix
 
+    logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
+
     calendar.create_event(title, starting, ending, [{
       name:  @calendar_id,
       email: @calendar_id,
@@ -112,13 +119,15 @@ class Place::Bookings < PlaceOS::Driver
 
   def poll_events : Nil
     now = Time.local @time_zone
-    start_of_week = now.at_beginning_of_week
-    four_weeks_time = start_of_week + 30.days
+    start_of_week = now.at_beginning_of_week.to_unix
+    four_weeks_time = start_of_week + 30.days.to_i
+
+    logger.debug { "polling events #{@calendar_id}, from #{start_of_week}, to #{four_weeks_time}, in #{@time_zone.name}" }
 
     events = calendar.list_events(
       @calendar_id,
-      start_of_week.to_unix,
-      four_weeks_time.to_unix,
+      start_of_week,
+      four_weeks_time,
       @time_zone.name
     ).get
 
