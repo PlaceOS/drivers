@@ -1,12 +1,15 @@
 require "email"
 
+# for local testing use: http://nilhcem.com/FakeSMTP/download.html
+
 DriverSpecs.mock_driver "Place::Smtp" do
   settings({
     sender:   "support@place.tech",
-    host:     ENV["PLACE_SMTP_HOST"]? || "smtp.host",
-    port:     ENV["PLACE_SMTP_PORT"]?.try(&.to_i) || 587,
+    host:     ENV["PLACE_SMTP_HOST"]? || "localhost",
+    port:     ENV["PLACE_SMTP_PORT"]?.try(&.to_i) || 25,
     username: ENV["PLACE_SMTP_USER"]? || "", # Username/Password for SMTP servers with basic authorization
     password: ENV["PLACE_SMTP_PASS"]? || "",
+    tls_mode: ENV["PLACE_SMTP_MODE"]? || "none",
   })
 
   response = exec(

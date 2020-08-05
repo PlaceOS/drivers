@@ -13,10 +13,10 @@ class Place::Smtp < PlaceOS::Driver
   description %(sends emails via SMTP)
 
   default_settings({
-    sender:   "support@place.tech",
-    host:     "smtp.host",
-    port:     587,
-    tls_mode: EMail::Client::TLSMode::STARTTLS,
+    sender: "support@place.tech",
+    # host:     "smtp.host",
+    # port:     587,
+    tls_mode: EMail::Client::TLSMode::STARTTLS.to_s,
     username: "", # Username/Password for SMTP servers with basic authorization
     password: "",
   })
@@ -27,7 +27,7 @@ class Place::Smtp < PlaceOS::Driver
 
   @smtp_client : EMail::Client?
 
-  @sender : String = "PlaceOS"
+  @sender : String = "support@place.tech"
   @username : String = ""
   @password : String = ""
   @host : String = "smtp.host"
@@ -39,12 +39,21 @@ class Place::Smtp < PlaceOS::Driver
   end
 
   def on_update
+    defaults = URI.parse(config.uri.not_nil!)
+    tls_mode = if scheme = defaults.scheme
+                 scheme.ends_with?('s') ? EMail::Client::TLSMode::SMTPS : EMail::Client::TLSMode::STARTTLS
+               else
+                 EMail::Client::TLSMode::STARTTLS
+               end
+    port = defaults.port || 587
+    host = defaults.host || "smtp.host"
+
     @username = setting?(String, :username) || ""
     @password = setting?(String, :password) || ""
     @sender = setting?(String, :sender) || "support@place.tech"
-    @host = setting?(String, :host) || "smtp.host"
-    @port = setting?(Int32, :port) || 587
-    @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || EMail::Client::TLSMode::STARTTLS
+    @host = setting?(String, :host) || host
+    @port = setting?(Int32, :port) || port
+    @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || tls_mode
 
     @smtp_client = new_smtp_client
   end
