@@ -217,20 +217,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   # Display control
-  METHODS = [
-    "volume",
-    "contrast",
-    "brightness",
-    "sharpness",
-    "colour",
-    "tint",
-    "red_gain",
-    "green_gain",
-    "blue_gain"
-  ]
-
-  # Macro to define methods from the array above
-  {% for name in METHODS %}
+  {% for name in ["volume", "contrast", "brightness", "sharpness", "colour", "tint", "red_gain", "green_gain", "blue_gain"] %}
     @[Security(Level::Administrator)]
     def {{name.id}}(val : Int32, **options)
       val = val.clamp(0, 100)
