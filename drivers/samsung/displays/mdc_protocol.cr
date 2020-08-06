@@ -78,10 +78,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def connected
-    do_poll
     do_device_config unless self[:hard_off]?
 
-    schedule.every(30.seconds) do
+    schedule.every(30.seconds, true) do
       do_poll
     end
   end
