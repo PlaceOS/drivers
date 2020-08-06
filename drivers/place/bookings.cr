@@ -32,9 +32,9 @@ class Place::Bookings < PlaceOS::Driver
   @bookings : Array(JSON::Any) = [] of JSON::Any
 
   def on_load
-    on_update
-
     monitor("staff/event/changed") { |_subscription, payload| check_change(payload) }
+
+    on_update
   end
 
   def on_update
@@ -231,7 +231,7 @@ class Place::Bookings < PlaceOS::Driver
   class StaffEventChange
     include JSON::Serializable
 
-    property action : String # create, update, cancelled
+    property action : String    # create, update, cancelled
     property system_id : String # primary calendar effected
     property event_id : String
     property resource : String # the resource email that is effected
