@@ -53,6 +53,39 @@ module Lenel::OpenAccess::Models
     segmentid : Int32,
     name : String
 
+  lnl Badge,
+    badgekey : Int32,
+    activate : Time,
+    deactivate : Time,
+    id : Int64,
+    personid : Int32,
+    status : Int32,
+    type : Int32,
+    uselimit : Int32
+
+  enum BadgeTypeClass
+    Standard
+    Temporary
+    Visitor
+    Guest
+    SpecialPurpose
+  end
+
+  lnl BadgeType,
+    id : Int32,
+    name : String,
+    badgetypeclass : BadgeTypeClass,
+    defaultaccessgroup : Int32,
+    usemobilecredential : Bool
+
+  lnl Visitor,
+    id : Int32,
+    firstname : String,
+    lastname : String,
+    email : String,
+    organization : String,
+    title : String
+
   lnl Visit,
     id : Int32,
     cardholderid : Int32,
