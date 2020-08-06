@@ -42,7 +42,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.3.0
+    version: 2.4.1
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -50,11 +50,11 @@ shards:
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
-    version: 2.5.0
+    version: 2.5.1
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
-    version: 0.1.0+git.commit.0deab89bb161538642827adab195dba8e6139712
+    version: 0.1.1
 
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git
@@ -78,7 +78,7 @@ shards:
 
   office365:
     git: https://github.com/PlaceOS/office365.git
-    version: 1.1.0
+    version: 1.1.1
 
   openssl_ext:
     git: https://github.com/stakach/openssl_ext.git
@@ -90,7 +90,7 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 2.0.1
+    version: 4.0.1
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -98,7 +98,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.4.5
+    version: 3.5.2
 
   pool:
     git: https://github.com/ysbaddaden/pool.git

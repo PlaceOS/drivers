@@ -45,4 +45,3 @@ dependencies:
 
   inactive-support:
     github: spider-gazelle/inactive-support
-    branch: args
