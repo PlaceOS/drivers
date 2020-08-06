@@ -86,9 +86,13 @@ class Lenel::OpenAccess::Client
     add_instance T, **instance.to_named_tuple
   end
 
-  # Retrieves instances of a particular type base on the passed filter.
+  # Retrieves instances of a particular *type*.
   #
-  # This can be used to query or enumerate records kept on the Lenel system.
+  # The search criteria specified in *filter* is a subset of SQL. This supports
+  # operations such as as:
+  # + exclusion `LastName != "Lake"`
+  # + wildcards `LastName like "La%"`
+  # + boolean operators `LastName = "Lake" OR FirstName = "Lisa"`
   def get_instances(
     type type_name : T.class,
     filter : String? = nil,
