@@ -52,7 +52,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   @id : Int32 = 0
   @rs232 : Bool = false
-  @blank : String?
+  @blank : Input?
   @previous_volume : Int32 = 50
   # Meta data for inquiring interfaces
   @input_stable : Bool = true
@@ -74,7 +74,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def on_update
     @id = setting(Int32, :display_id)
     @rs232 = setting(Bool, :rs232_control)
-    @blank = setting?(String, :blanking_input)
+    if blanking_input = setting?(String, :blanking_input)
+      @blank = Input.parse?(blanking_input)
+    end
   end
 
   def connected
@@ -101,7 +103,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     if !power
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
-      switch_to(Inputs.parse(@blank.as(String))) if @blank && self[:power]?
+      if (blanking_input = @blank) && self[:power]?
+        switch_to(blanking_input)
+      end
       do_send(Command::Panel_Mute, 1)
     elsif !@rs232 && !self[:connected]? && broadcast
        wake_device(broadcast.as(String))
