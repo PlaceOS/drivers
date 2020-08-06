@@ -54,18 +54,15 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   @rs232 : Bool = false
   @blank : String?
 
-  # TODO: figure out how to define indicator \xAA
-  def init_tokenizer
-    @buffer = Tokenizer.new do |io|
+  def on_load
+    # TODO: figure out how to define indicator \xAA
+    transport.tokenizer = Tokenizer.new do |io|
       bytes = io.peek
       logger.debug { "Received: #{bytes}" }
       # [header, command, id, data.size, [data], checksum]
       bytes[3].to_i + 5
     end
-  end
 
-  def on_load
-    transport.tokenizer = init_tokenizer
     on_update
 
     self[:volume_min] = 0
