@@ -107,8 +107,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         switch_to(blanking_input)
       end
       do_send(Command::Panel_Mute, 1)
-    elsif !@rs232 && !self[:connected]? && broadcast
-       wake_device(broadcast.as(String))
+    elsif !@rs232 && !self[:connected]? && (broadcast_string = broadcast)
+       wake_device(broadcast_string)
     else
       # Power on
       do_send(Command::Hard_Off, 1)
