@@ -236,6 +236,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   # Macro to define methods from the array above
   {% for name in METHODS %}
+    @[Security(Level::Administrator)]
     def {{name.id}}(val : Int32, **options)
       val = val.clamp(0, 100)
       do_send(Command.parse({{name.id.stringify}}), val, **options)
