@@ -71,6 +71,13 @@ class Lenel::OpenAccess < PlaceOS::Driver
   def version
     client.version
   end
+
+  # Temp for comms test
+  def test_comms
+    logger.debug { "Client version is #{version[:product_version]}" }
+  rescue e
+    logger.error { e.message }
+  end
 end
 
 
