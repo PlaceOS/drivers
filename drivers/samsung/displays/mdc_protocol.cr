@@ -60,7 +60,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   @power_stable : Bool = true
 
   def on_load
-    # TODO: figure out how to define indicator \xAA
     transport.tokenizer = Tokenizer.new do |io|
       bytes = io.peek
       # disconnect if the first byte is not 0xAA
