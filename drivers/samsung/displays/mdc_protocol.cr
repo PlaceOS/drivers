@@ -8,6 +8,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
+  INDICATOR = 0xAA_u8
+
   enum Inputs
     Vga           = 0x14 # pc in manual
     Dvi           = 0x18
@@ -62,11 +64,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def on_load
     transport.tokenizer = Tokenizer.new do |io|
       bytes = io.peek
-      # disconnect if the first byte is not 0xAA
-      disconnect if bytes[0] != 170
+      # Ensure message indicator is well-formed
+      disconnect unless bytes.first == INDICATOR
       logger.debug { "Received: #{bytes}" }
       # [header, command, id, data.size, [data], checksum]
-      # return 0 if byte.size < 4 to flag that the message is incomplete
+      # return 0 if the message is incomplete
       bytes.size < 4 ? 0 : bytes[3].to_i + 5
     end
 
