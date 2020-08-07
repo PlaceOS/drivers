@@ -369,7 +369,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
     def build(id : Int32, data : Bytes) : Bytes
       Bytes.new(data.size + 5).tap do |bytes|
-        bytes[0] = 0xAA_u8                              # Header
+        bytes[0] = INDICATOR                            # Header
         bytes[1] = self.to_u8                           # Command
         bytes[2] = id.to_u8                             # Display ID
         bytes[3] = data.size.to_u8                      # Data size
