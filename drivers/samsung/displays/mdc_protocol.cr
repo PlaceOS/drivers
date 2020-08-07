@@ -63,9 +63,12 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     # TODO: figure out how to define indicator \xAA
     transport.tokenizer = Tokenizer.new do |io|
       bytes = io.peek
+      # disconnect if the first byte is not 0xAA
+      disconnect if bytes[0] != 170
       logger.debug { "Received: #{bytes}" }
       # [header, command, id, data.size, [data], checksum]
-      bytes[3].to_i + 5
+      # return 0 if byte.size < 4 to flag that the message is incomplete
+      bytes.size < 4 ? 0 : bytes[3].to_i + 5
     end
 
     on_update
