@@ -76,19 +76,17 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    message = "C203D6"
-
     current = self[:power]?
 
     if current
-      message += "0004" # Power Off
-      do_send(:command, message.hexbytes, name: :power, delay: 10000, timeout: 10000)
+      data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x04] # 0004 = Power Off
+      do_send(:command, data, name: :power, delay: 10000, timeout: 10000)
 
       self[:power] = false
       logger.debug { "-- NEC LCD, requested to power off" }
     else
-      message += "0001" # Power On
-      do_send(:command, message.hexbytes, name: :power, delay: 5000)
+      data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x01] # 0001 = Power On
+      do_send(:command, data, name: :power, delay: 5000)
       self[:warming] = true
       self[:power] = true
       logger.debug { "-- NEC LCD, requested to power on" }
@@ -99,37 +97,31 @@ class Nec::Display::All < PlaceOS::Driver
     end
   end
 
-  # def power?(**options)
-  #   # options[:emit] = block if block_given?
-  #   type = :command
-  #   message = "01D6"
-  #   send_checksum(type, message, options)
-  # end
+  def power?(**options)
+    # options[:emit] = block if block_given?
+    do_send(:command, Bytes[0x01, 0xD6], **options)
+  end
 
-  # #
-  # # Input selection
-  # #
-  # INPUTS = {
-  #   :vga => 1,
-  #   :rgbhv => 2,
-  #   :dvi => 3,
-  #   :hdmi_set => 4,    # Set only?
-  #   :video1 => 5,
-  #   :video2 => 6,
-  #   :svideo => 7,
-  #   :tuner => 9,
-  #   :tv => 10,
-  #   :dvd1 => 12,
-  #   :option => 13,
-  #   :dvd2 => 14,
-  #   :display_port => 15,
-  #   :hdmi => 17,
-  #   :hdmi2 => 18,
-  #   :hdmi3 => 130,
-  #   :usb => 135
-
-  # }
-  # INPUTS.merge!(INPUTS.invert)
+  # Input selection
+  enum Inputs
+    Vga          = 1
+    Rgbhv        = 2
+    Dvi          = 3
+    Hdmi_set     = 4
+    Video1       = 5
+    Video2       = 6
+    Svideo       = 7
+    Tuner        = 9
+    Tv           = 10
+    Dvd1         = 12
+    Option       = 13
+    Dvd2         = 14
+    Display_port = 15
+    Hdmi         = 17
+    Hdmi2        = 18
+    Hdmi3        = 130
+    Usb          = 135
+  end
 
   # def switch_to(input)
   #   input = input.to_sym
@@ -140,7 +132,7 @@ class Nec::Display::All < PlaceOS::Driver
   #   message = OPERATION_CODE[:video_input]
   #   message += INPUTS[input].to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
 
-  #   send_checksum(type, message, name: :input, delay: 6000)
+  #   do_send(type, message, name: :input, delay: 6000)
   #   video_input
 
   #   # Double check the input again!
@@ -171,7 +163,7 @@ class Nec::Display::All < PlaceOS::Driver
   #   message = OPERATION_CODE[:audio_input]
   #   message += AUDIO[input].to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
 
-  #   send_checksum(type, message, name: :audio)
+  #   do_send(type, message, name: :audio)
   #   mute_status(20)        # higher status than polling commands - lower than input switching
   #   volume_status(20)
 
@@ -186,7 +178,7 @@ class Nec::Display::All < PlaceOS::Driver
   #   message = OPERATION_CODE[:auto_setup] #"001E"    # Page + OP code
   #   message += "0001"    # Value of input as a hex string
 
-  #   send_checksum(:set_parameter, message, delay_on_receive: 4000)
+  #   do_send(:set_parameter, message, delay_on_receive: 4000)
   # end
 
 
@@ -199,8 +191,8 @@ class Nec::Display::All < PlaceOS::Driver
   #   message = OPERATION_CODE[:brightness_status]
   #   message += val.to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
 
-  #   send_checksum(:set_parameter, message, name: :brightness)
-  #   send_checksum(:command, '0C', name: :brightness_save)    # Save the settings
+  #   do_send(:set_parameter, message, name: :brightness)
+  #   do_send(:command, '0C', name: :brightness_save)    # Save the settings
   # end
 
   # def contrast(val)
@@ -209,8 +201,8 @@ class Nec::Display::All < PlaceOS::Driver
   #   message = OPERATION_CODE[:contrast_status]
   #   message += val.to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
 
-  #   send_checksum(:set_parameter, message, name: :contrast)
-  #   send_checksum(:command, '0C', name: :contrast_save)    # Save the settings
+  #   do_send(:set_parameter, message, name: :contrast)
+  #   do_send(:command, '0C', name: :contrast_save)    # Save the settings
   # end
 
   # def volume(val)
@@ -221,8 +213,8 @@ class Nec::Display::All < PlaceOS::Driver
 
   #   self[:audio_mute] = false    # audio is unmuted when the volume is set
 
-  #   send_checksum(:set_parameter, message, name: :volume)
-  #   send_checksum(:command, '0C', name: :volume_save)    # Save the settings
+  #   do_send(:set_parameter, message, name: :volume)
+  #   do_send(:command, '0C', name: :volume_save)    # Save the settings
   # end
 
 
@@ -230,7 +222,7 @@ class Nec::Display::All < PlaceOS::Driver
   #   message = OPERATION_CODE[:mute_status]
   #   message += is_affirmative?(state) ? "0001" : "0000"    # Value of input as a hex string
 
-  #   send_checksum(:set_parameter, message, name: :mute)
+  #   do_send(:set_parameter, message, name: :mute)
 
   #   logger.debug { "requested to update mute to #{state}" }
   # end
@@ -410,7 +402,7 @@ class Nec::Display::All < PlaceOS::Driver
   #       logger.debug { "NEC requesting #{command}" }
 
   #       message = OPERATION_CODE[command]
-  #       send_checksum(:get_parameter, message, priority: priority, name: command)    # Status polling is a low priority
+  #       do_send(:get_parameter, message, priority: priority, name: command)    # Status polling is a low priority
   #   end
   # end
 
