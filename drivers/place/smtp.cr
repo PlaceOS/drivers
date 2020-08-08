@@ -74,15 +74,15 @@ class Place::Smtp < PlaceOS::Driver
   end
 
   def send_mail(
-    subject : String,
     to : String | Array(String),
-    from : String | Array(String) | Nil = nil,
+    subject : String,
     message_html : String = "",
     message_plaintext : String = "",
     attachments : Array(Attachment) = [] of Attachment,
     resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
     cc : String | Array(String) = [] of String,
-    bcc : String | Array(String) = [] of String
+    bcc : String | Array(String) = [] of String,
+    from : String | Array(String) | Nil = nil
   ) : Bool
     to = {to} unless to.is_a?(Array)
 
