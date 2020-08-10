@@ -91,9 +91,9 @@ class Nec::Display::All < PlaceOS::Driver
       self[:power] = true
       logger.debug { "-- NEC LCD, requested to power on" }
 
-  #     power_on_delay
-  #     mute_status(20)
-  #     volume_status(20)
+      power_on_delay
+      mute_status(20)
+      volume_status(20)
     end
   end
 
@@ -377,35 +377,35 @@ class Nec::Display::All < PlaceOS::Driver
     'F' => :set_parameter_reply
   }
 
-  # OPERATION_CODE = {
-  #   :video_input => '0060', '0060' => :video_input,
-  #   :audio_input => '022E', '022E' => :audio_input,
-  #   :volume_status => '0062', '0062' => :volume_status,
-  #   :mute_status => '008D', '008D' => :mute_status,
-  #   :power_on_delay => '02D8', '02D8' => :power_on_delay,
-  #   :contrast_status => '0012', '0012' => :contrast_status,
-  #   :brightness_status => '0010', '0010' => :brightness_status,
-  #   :auto_setup => '001E', '001E' => :auto_setup
-  # }
-  # #
-  # # Automatically creates a callable function for each command
-  # #    http://blog.jayfields.com/2007/10/ruby-defining-class-methods.html
-  # #    http://blog.jayfields.com/2008/02/ruby-dynamically-define-method.html
-  # #
-  # OPERATION_CODE.each_key do |command|
-  #   define_method command do |*args|
-  #       priority = 0
-  #       if args.length > 0
-  #           priority = args[0]
-  #       end
+  OPERATION_NAMES = [
+    :video_input,
+    :audio_input,
+    :volume_status,
+    :mute_status,
+    :power_on_delay,
+    :contrast_status,
+    :brightness_status,
+    :auto_setup
+  ]
 
-  #       logger.debug { "NEC requesting #{command}" }
+  OPERATION_VALUES = [
+    Bytes[0x00, 0x60],
+    Bytes[0x02, 0x2E],
+    Bytes[0x00, 0x62],
+    Bytes[0x00, 0x8D],
+    Bytes[0x02, 0xD8],
+    Bytes[0x00, 0x12],
+    Bytes[0x00, 0x10],
+    Bytes[0x00, 0x1E]
+  ]
 
-  #       message = OPERATION_CODE[command]
-  #       do_send(:get_parameter, message, priority: priority, name: command)    # Status polling is a low priority
-  #   end
-  # end
-
+  {% for name, index in OPERATION_NAMES %}
+  @[Security(Level::Administrator)]
+    def {{name.id}}(priority : Int32 = 0)
+      data = OPERATION_VALUES[{{index}}]
+      do_send(:get_parameter, data, priority: priority, name: {{name.id}})
+    end
+  {% end %}
 
   # def check_checksum(data)
   #   data = str_to_array(data)
