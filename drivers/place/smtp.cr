@@ -2,13 +2,13 @@ require "base64"
 require "email"
 require "uri"
 
-require "placeos-driver/interface/email"
+require "placeos-driver/interface/mailer"
 
 class Place::Smtp < PlaceOS::Driver
-  include PlaceOS::Driver::Interface::Email
+  include PlaceOS::Driver::Interface::Mailer
 
   descriptive_name "SMTP Mailer"
-  generic_name :Email
+  generic_name :Mailer
   uri_base "https://smtp.host.com"
   description %(sends emails via SMTP)
 
@@ -76,10 +76,10 @@ class Place::Smtp < PlaceOS::Driver
   def send_mail(
     to : String | Array(String),
     subject : String,
-    message_html : String = "",
     message_plaintext : String = "",
-    attachments : Array(Attachment) = [] of Attachment,
+    message_html : String = "",
     resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
+    attachments : Array(Attachment) = [] of Attachment,
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil
