@@ -51,7 +51,7 @@ class Nec::Display::All < PlaceOS::Driver
   # Communication settings
   @delay_between_sends = 120
   @wait_response_timeout = 5000
-  # @input_double_check = nil
+  @input_double_check : PlaceOS::Driver::Proxy::Scheduler? = nil
 
   def on_load
     transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
@@ -80,13 +80,15 @@ class Nec::Display::All < PlaceOS::Driver
 
     if current
       data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x04] # 0004 = Power Off
-      do_send(:command, data, name: :power, delay: 10000, timeout: 10000)
+      # TODO: port over commented section in line below
+      do_send("command", data)#, name: :power, delay: 10000, timeout: 10000)
 
       self[:power] = false
       logger.debug { "-- NEC LCD, requested to power off" }
     else
       data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x01] # 0001 = Power On
-      do_send(:command, data, name: :power, delay: 5000)
+      # TODO: port over commented section in line below
+      do_send("command", data)#, name: :power, delay: 5000)
       self[:warming] = true
       self[:power] = true
       logger.debug { "-- NEC LCD, requested to power on" }
@@ -99,7 +101,7 @@ class Nec::Display::All < PlaceOS::Driver
 
   def power?(**options)
     # options[:emit] = block if block_given?
-    do_send(:command, Bytes[0x01, 0xD6], **options)
+    do_send("command", Bytes[0x01, 0xD6], **options)
   end
 
   # Input selection
@@ -123,73 +125,96 @@ class Nec::Display::All < PlaceOS::Driver
     Usb          = 135
   end
 
-  # def switch_to(input)
-  #   input = input.to_sym
-  #   self[:target_input] = input
-  #   self[:target_audio] = nil
+  def switch_to(input : String)
+    input = Inputs.parse(input)
+    self[:target_input] = input
+    self[:target_audio] = nil
 
-  #   type = :set_parameter
-  #   message = OPERATION_CODE[:video_input]
-  #   message += INPUTS[input].to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
+    operation_index = OPERATION_NAMES.index(:video_input)
+    if operation_index
+      message = OPERATION_VALUES[operation_index]
+      data = Bytes.new(message.size + 2)
+      data.copy_from(message)
+      data[message.size + 1] = 0x00
+      data[message.size + 2] = input.value.to_u8
 
-  #   do_send(type, message, name: :input, delay: 6000)
-  #   video_input
+      # TODO: port over commented section in line below
+      do_send("set parameter", data)#, name: :input, delay: 6000)
+      video_input
 
-  #   # Double check the input again!
-  #   @input_double_check.cancel if @input_double_check
-  #   @input_double_check = schedule.in('4s') do
-  #       @input_double_check = nil
-  #       video_input
-  #   end
+      # Double check the input again!
+      # @input_double_check.cancel if @input_double_check
+      # TODO: check if the below is equivalent
+      if input_double_check = @input_double_check
+        input_double_check.clear
+      end
+      # TODO: figure out how to port to crystal
+      # @input_double_check = schedule.in(4.seconds) do
+      #   @input_double_check = nil
+      #   video_input
+      # end
 
-  #   logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
-  # end
+      logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
+    end
+  end
 
-  # AUDIO = {
-  #   :audio1 => 1,
-  #   :audio2 => 2,
-  #   :audio3 => 3,
-  #   :hdmi => 4,
-  #   :tv => 6,
-  #   :display_port => 7
-  # }
-  # AUDIO.merge!(AUDIO.invert)
+  enum Audio
+    Audio1        = 1
+    Audio2        = 2
+    Audio3        = 3
+    Hdmi          = 4
+    Tv            = 6
+    Display_port  = 7
+  end
 
-  # def switch_audio(input)
-  #   input = input.to_sym if input.class == String
-  #   self[:target_audio] = input
+  def switch_audio(input : String)
+    input = Audio.parse(input)
+    self[:target_audio] = input
 
-  #   type = :set_parameter
-  #   message = OPERATION_CODE[:audio_input]
-  #   message += AUDIO[input].to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
+    operation_index = OPERATION_NAMES.index(:audio_input)
+    if operation_index
+      message = OPERATION_VALUES[operation_index]
+      data = Bytes.new(message.size + 2)
+      data.copy_from(message)
+      data[message.size + 1] = 0x00
+      data[message.size + 2] = input.value.to_u8
 
-  #   do_send(type, message, name: :audio)
-  #   mute_status(20)        # higher status than polling commands - lower than input switching
-  #   volume_status(20)
+      # TODO: port over commented section in line below
+      do_send("set parameter", data)#, name: :audio)
+      mute_status(20) # higher status than polling commands - lower than input switching
+      volume_status(20)
 
-  #   logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
-  # end
+      logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
+    end
+  end
 
+  def auto_adjust
+    operation_index = OPERATION_NAMES.index(:audio_setup)
+    if operation_index
+      message = OPERATION_VALUES[operation_index]
+      data = Bytes.new(message.size + 2)
+      data.copy_from(message)
+      data[message.size + 1] = 0x00
+      data[message.size + 2] = 0x01
 
-  # #
-  # # Auto adjust
-  # #
-  # def auto_adjust
-  #   message = OPERATION_CODE[:auto_setup] #"001E"    # Page + OP code
-  #   message += "0001"    # Value of input as a hex string
+      # TODO: port over commented section in line below
+      do_send("set parameter", data)#, delay_on_receive: 4000)
+    end
+  end
 
-  #   do_send(:set_parameter, message, delay_on_receive: 4000)
-  # end
-
-
-  # #
-  # # Value based set parameter
-  # #
-  # def brightness(val)
-  #   val = in_range(val.to_i, 100)
+  # def brightness(val : Int32)
+  #   val = val.clamp(0, 100)
 
   #   message = OPERATION_CODE[:brightness_status]
   #   message += val.to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
+
+  #   operation_index = OPERATION_NAMES.index(:brightness_status)
+  #   if operation_index
+  #     message = OPERATION_VALUES[operation_index]
+  #     data = Bytes.new(message.size + 2)
+  #     data.copy_from(message)
+  #     data[message.size + 1] = 0x00
+  #     data[message.size + 2] = val.to_u8
 
   #   do_send(:set_parameter, message, name: :brightness)
   #   do_send(:command, '0C', name: :brightness_save)    # Save the settings
@@ -244,7 +269,7 @@ class Nec::Display::All < PlaceOS::Driver
 
   #   logger.debug { "NEC LCD responded #{data}" }
 
-  #   case MSG_TYPE[data[4]]    # Check the MSG_TYPE (B, D or F)
+  #   case MsgType[data[4]]    # Check the MsgType (B, D or F)
   #       when :command_reply
   #           #
   #           # Power on and off
@@ -368,14 +393,14 @@ class Nec::Display::All < PlaceOS::Driver
   # end
 
   # Types of messages sent to and from the LCD
-  MSG_TYPE = Hash(Symbol|Char, Char|Symbol) {
-    :command => 'A',
-    'B' => :command_reply,
-    :get_parameter => 'C',
-    'D' => :get_parameter_reply,
-    :set_parameter => 'E',
-    'F' => :set_parameter_reply
-  }
+  enum MsgType
+    Command             = 0x41 # 'A'
+    Command_reply       = 0x42 # 'B'
+    Get_parameter       = 0x43 # 'C'
+    Get_parameter_reply = 0x44 # 'D'
+    Set_parameter       = 0x45 # 'E'
+    Set_parameter_reply = 0x46 # 'F'
+  end
 
   OPERATION_NAMES = [
     :video_input,
@@ -426,26 +451,18 @@ class Nec::Display::All < PlaceOS::Driver
   # end
 
   # Builds the command and creates the checksum
-  def do_send(type : Symbol, data : Bytes = Bytes.empty, **options)
-    # #
-    # # build header + command and convert to a byte array
-    # #
-    # command = "" << 0x02 << command << 0x03
-    # command = "0*0#{MSG_TYPE[type]}#{command.length.to_s(16).upcase.rjust(2, '0')}#{command}"
-    # command = str_to_array(command)
+  private def do_send(type : String, data : Bytes = Bytes.empty, **options)
+    bytes = Bytes.new(data.size + 7)
+    bytes[0] = 0x01                                 # SOH
+    bytes[1] = MsgType.parse(type).to_u8            #
+    bytes[2] = data.size.to_u8 + 2                  # Length
+    bytes[3] = 0x02                                 #
+    data.each_with_index(4) { |b, i| bytes[i] = b } # Data
+    bytes[-3] = 0x03                                #
+    # TODO: port checksum calculation
+    # bytes[-2] = bytes[1..-3].reduce(&.^)            # Checksum
+    bytes[-1] = DELIMITER                           # Delimiter
 
-    # #
-    # # build checksum
-    # #
-    # check = 0
-    # command.each do |byte|
-    #     check = check ^ byte
-    # end
-
-    # command << check    # Add checksum
-    # command << 0x0D        # delimiter required by NEC displays
-    # command.insert(0, 0x01)    # insert SOH byte (not part of the checksum)
-
-    # send(command, options)
+    send(bytes, **options)
   end
 end
