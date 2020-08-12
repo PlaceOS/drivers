@@ -432,21 +432,18 @@ class Nec::Display::All < PlaceOS::Driver
     end
   {% end %}
 
-  # def check_checksum(data)
-  #   data = str_to_array(data)
-
-  #   check = 0
-  #   #
+  # def check_checksum(data : Bytes)
+  #   checksum = 0x00_u8
   #   # Loop through the second to the second last element
-  #   #    Delimiter is removed automatically
-  #   #
-  #   if data.length >= 2
-  #       data[1..-2].each do |byte|
-  #           check = check ^ byte
-  #       end
-  #       return check == data[-1]    # Check the check sum equals the last element
+  #   # Delimiter is removed automatically
+  #   if data.size >= 2
+  #     data[1..-2].each do |b|
+  #       checksum = checksum ^ b
+  #     end
+  #     # Check the checksum equals the last element
+  #     checksum == data[-1]
   #   else
-  #       return true
+  #     true
   #   end
   # end
 
@@ -459,8 +456,11 @@ class Nec::Display::All < PlaceOS::Driver
     bytes[3] = 0x02                                 #
     data.each_with_index(4) { |b, i| bytes[i] = b } # Data
     bytes[-3] = 0x03                                #
-    # TODO: port checksum calculation
-    # bytes[-2] = bytes[1..-3].reduce(&.^)            # Checksum
+    checksum = 0x00_u8
+    bytes[1..-3].each do |b|
+      checksum = checksum ^ b
+    end
+    bytes[-2] = checksum                            # Checksum
     bytes[-1] = DELIMITER                           # Delimiter
 
     send(bytes, **options)
