@@ -202,33 +202,32 @@ class Nec::Display::All < PlaceOS::Driver
     end
   end
 
-  # def brightness(val : Int32)
-  #   val = val.clamp(0, 100)
+  def brightness(val : Int32)
+    operation_index = OPERATION_NAMES.index(:brightness_status)
+    if operation_index
+      message = OPERATION_VALUES[operation_index]
+      data = Bytes.new(message.size + 2)
+      data.copy_from(message)
+      data[message.size + 1] = 0x00
+      data[message.size + 2] = val.clamp(0, 100).to_u8
 
-  #   message = OPERATION_CODE[:brightness_status]
-  #   message += val.to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
+      do_send("set_parameter", message)#, name: :brightness)
+      do_send("command", Bytes[0x0C])#, name: :brightness_save)    # Save the settings
+    end
+  end
 
-  #   operation_index = OPERATION_NAMES.index(:brightness_status)
-  #   if operation_index
-  #     message = OPERATION_VALUES[operation_index]
-  #     data = Bytes.new(message.size + 2)
-  #     data.copy_from(message)
-  #     data[message.size + 1] = 0x00
-  #     data[message.size + 2] = val.to_u8
-
-  #   do_send(:set_parameter, message, name: :brightness)
-  #   do_send(:command, '0C', name: :brightness_save)    # Save the settings
-  # end
-
-  # def contrast(val)
-  #   val = in_range(val.to_i, 100)
-
-  #   message = OPERATION_CODE[:contrast_status]
-  #   message += val.to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
-
-  #   do_send(:set_parameter, message, name: :contrast)
-  #   do_send(:command, '0C', name: :contrast_save)    # Save the settings
-  # end
+  def contrast(val : Int32)
+    operation_index = OPERATION_NAMES.index(:contrast_status)
+    if operation_index
+      message = OPERATION_VALUES[operation_index]
+      data = Bytes.new(message.size + 2)
+      data.copy_from(message)
+      data[message.size + 1] = 0x00
+      data[message.size + 2] = val.clamp(0, 100).to_u8
+      do_send("set_parameter", message)#, name: :contrast)
+      do_send("command", Bytes[0x0C])#, name: :contrast_save)    # Save the settings
+    end
+  end
 
   # def volume(val)
   #   val = in_range(val.to_i, 100)
@@ -314,21 +313,18 @@ class Nec::Display::All < PlaceOS::Driver
   #   return true # Command success
   end
 
-
   def do_poll
-  #   power?({:priority => 0}) do
-  #       logger.debug { "Polling, power = #{self[:power]}" }
+    power?(priority: 0)
+    logger.debug { "Polling, power = #{self[:power]}" }
 
-  #       if self[:power] == On
-  #           power_on_delay
-  #           mute_status
-  #           volume_status
-  #           video_input
-  #           audio_input
-  #       end
-  #   end
+    if self[:power]?
+      power_on_delay
+      mute_status
+      volume_status
+      video_input
+      audio_input
+    end
   end
-
 
   # private
 
