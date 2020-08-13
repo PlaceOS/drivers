@@ -145,12 +145,14 @@ class Nec::Display::All < PlaceOS::Driver
       video_input
 
       # Double check the input again!
-      # @input_double_check.cancel if @input_double_check
       # TODO: check if the below is equivalent
-      if input_double_check = @input_double_check
-        input_double_check.clear
+      @input_double_check.try &.terminate
+      schedule.in(4.seconds) do
+        @input_double_check = nil
+        video_input.as(PlaceOS::Driver::Transport)
       end
       # TODO: figure out how to port to crystal
+      # @input_double_check.cancel if @input_double_check
       # @input_double_check = schedule.in(4.seconds) do
       #   @input_double_check = nil
       #   video_input
