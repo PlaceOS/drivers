@@ -259,58 +259,52 @@ class Nec::Display::All < PlaceOS::Driver
 
   # LCD Response code
   def received(data, task)
-  #   # Check for valid response
-  #   if !check_checksum(data)
-  #       logger.debug { "-- NEC LCD, checksum failed for command: #{command[:data]}" } if command
-  #       logger.debug { "-- NEC LCD, response was: #{data}" }
-  #       return false
-  #   end
+    hex = data.hexstring
+    # Check for valid response
+    if !check_checksum(data)
+      task.try &.abort("-- NEC LCD, invalid response was: #{hex}")
+    end
 
-  #   logger.debug { "NEC LCD responded #{data}" }
+    logger.debug { "NEC LCD responded #{hex}" }
 
-  #   case MsgType[data[4]]    # Check the MsgType (B, D or F)
-  #       when :command_reply
-  #           #
-  #           # Power on and off
-  #           #    8..9 == "00" means no error 
-  #           if data[10..15] == "C203D6"    # Means power comamnd
-  #               if data[8..9] == "00"
-  #                   power_on_delay(99)    # wait until the screen has turned on before sending commands (99 == high priority)
-  #               else
-  #                   logger.info "-- NEC LCD, command failed: #{command[:data]}" if command
-  #                   logger.info "-- NEC LCD, response was: #{data}"
-  #                   return false    # command failed
-  #               end
-  #           elsif data[10..13] == "00D6"    # Power status response
-  #               if data[10..11] == "00"
-  #                   if data[23] == '1'        # On == 1, Off == 4
-  #                       self[:power] = On
-  #                   else
-  #                       self[:power] = Off
-  #                       self[:warming] = false
-  #                   end
-  #               else
-  #                   logger.info "-- NEC LCD, command failed: #{command[:data]}" if command
-  #                   logger.info "-- NEC LCD, response was: #{data}"
-  #                   return false    # command failed
-  #               end
+    command = MsgType.from_value(data[4])
 
-  #           end
+    case command    # Check the MsgType (B, D or F)
+      when .command_reply?
+        # Power on and off
+        # 8..9 == "00" means no error
+        if hex[10..15] == "c203d6" # Means power comamnd
+          if hex[8..9] == "00"
+            power_on_delay(99)    # wait until the screen has turned on before sending commands (99 == high priority)
+          else
+            task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+          end
+        elsif hex[10..13] == "00d6" # Power status response
+          if hex[10..11] == "00"
+            if hex[23] == "1" # On == 1, Off == 4
+              self[:power] = true
+            else
+              self[:power] = false
+              self[:warming] = false
+            end
+          else
+            task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+          end
+        end
+      when .get_parameter_reply?, .set_parameter_reply?
+        if hex[8..9] == "00"
+          # TODO
+          # parse_response(data, command)
+        elsif data[8..9] == "BE"    # Wait response
+          # TODO
+          # send(command[:data])    # checksum already added
+          logger.debug { "-- NEC LCD, response was a wait command" }
+        else
+          task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+        end
+    end
 
-  #       when :get_parameter_reply, :set_parameter_reply
-  #           if data[8..9] == "00"
-  #               parse_response(data, command)
-  #           elsif data[8..9] == 'BE'    # Wait response
-  #               send(command[:data])    # checksum already added
-  #               logger.debug "-- NEC LCD, response was a wait command"
-  #           else
-  #               logger.info "-- NEC LCD, get or set failed: #{command[:data]}" if command
-  #               logger.info "-- NEC LCD, response was: #{data}"
-  #               return false
-  #           end
-  #   end
-
-  #   return true # Command success
+    task.try &.success
   end
 
   def do_poll
@@ -326,10 +320,7 @@ class Nec::Display::All < PlaceOS::Driver
     end
   end
 
-  # private
-
-
-  # def parse_response(data, command)
+  # private def parse_response(data, command)
 
   #   # 14..15 == type (we don't care)
   #   max = data[16..19].to_i(16)
@@ -428,20 +419,20 @@ class Nec::Display::All < PlaceOS::Driver
     end
   {% end %}
 
-  # def check_checksum(data : Bytes)
-  #   checksum = 0x00_u8
-  #   # Loop through the second to the second last element
-  #   # Delimiter is removed automatically
-  #   if data.size >= 2
-  #     data[1..-2].each do |b|
-  #       checksum = checksum ^ b
-  #     end
-  #     # Check the checksum equals the last element
-  #     checksum == data[-1]
-  #   else
-  #     true
-  #   end
-  # end
+  private def check_checksum(data : Bytes)
+    checksum = 0x00_u8
+    # Loop through the second to the second last element
+    # Delimiter is removed automatically
+    if data.size >= 2
+      data[1..-2].each do |b|
+        checksum = checksum ^ b
+      end
+      # Check the checksum equals the last element
+      checksum == data[-1]
+    else
+      true
+    end
+  end
 
   # Builds the command and creates the checksum
   private def do_send(type : String, data : Bytes = Bytes.empty, **options)
