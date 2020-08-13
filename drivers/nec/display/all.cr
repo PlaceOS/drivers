@@ -135,8 +135,8 @@ class Nec::Display::All < PlaceOS::Driver
       message = OPERATION_VALUES[operation_index]
       data = Bytes.new(message.size + 2)
       data.copy_from(message)
-      data[message.size + 1] = 0x00
-      data[message.size + 2] = input.value.to_u8
+      data[message.size] = 0x00
+      data[message.size + 1] = input.value.to_u8
 
       # TODO: port over commented section in line below
       do_send("set parameter", data)#, name: :input, delay: 6000)
@@ -176,8 +176,8 @@ class Nec::Display::All < PlaceOS::Driver
       message = OPERATION_VALUES[operation_index]
       data = Bytes.new(message.size + 2)
       data.copy_from(message)
-      data[message.size + 1] = 0x00
-      data[message.size + 2] = input.value.to_u8
+      data[message.size] = 0x00
+      data[message.size + 1] = input.value.to_u8
 
       # TODO: port over commented section in line below
       do_send("set parameter", data)#, name: :audio)
@@ -194,8 +194,8 @@ class Nec::Display::All < PlaceOS::Driver
       message = OPERATION_VALUES[operation_index]
       data = Bytes.new(message.size + 2)
       data.copy_from(message)
-      data[message.size + 1] = 0x00
-      data[message.size + 2] = 0x01
+      data[message.size] = 0x00
+      data[message.size + 1] = 0x01
 
       # TODO: port over commented section in line below
       do_send("set parameter", data)#, delay_on_receive: 4000)
@@ -208,11 +208,11 @@ class Nec::Display::All < PlaceOS::Driver
       message = OPERATION_VALUES[operation_index]
       data = Bytes.new(message.size + 2)
       data.copy_from(message)
-      data[message.size + 1] = 0x00
-      data[message.size + 2] = val.clamp(0, 100).to_u8
+      data[message.size] = 0x00
+      data[message.size + 1] = val.clamp(0, 100).to_u8
 
       do_send("set_parameter", message)#, name: :brightness)
-      do_send("command", Bytes[0x0C])#, name: :brightness_save)    # Save the settings
+      do_send("command", Bytes[0x0C])#, name: :brightness_save) # Save the settings
     end
   end
 
@@ -222,39 +222,44 @@ class Nec::Display::All < PlaceOS::Driver
       message = OPERATION_VALUES[operation_index]
       data = Bytes.new(message.size + 2)
       data.copy_from(message)
-      data[message.size + 1] = 0x00
-      data[message.size + 2] = val.clamp(0, 100).to_u8
+      data[message.size] = 0x00
+      data[message.size + 1] = val.clamp(0, 100).to_u8
       do_send("set_parameter", message)#, name: :contrast)
       do_send("command", Bytes[0x0C])#, name: :contrast_save)    # Save the settings
     end
   end
 
-  # def volume(val)
-  #   val = in_range(val.to_i, 100)
+  def volume(val : Int32)
+    operation_index = OPERATION_NAMES.index(:volume_status)
+    if operation_index
+      message = OPERATION_VALUES[operation_index]
+      data = Bytes.new(message.size + 2)
+      data.copy_from(message)
+      data[message.size] = 0x00
+      data[message.size + 1] = val.clamp(0, 100).to_u8
+      do_send("set_parameter", message)#, name: :volume_status)
+      do_send("command", Bytes[0x0C])#, name: :volume_save) # Save the settings
+      self[:audio_mute] = false # audio is unmuted when the volume is set
+    end
+  end
 
-  #   message = OPERATION_CODE[:volume_status]
-  #   message += val.to_s(16).upcase.rjust(4, '0')    # Value of input as a hex string
-
-  #   self[:audio_mute] = false    # audio is unmuted when the volume is set
-
-  #   do_send(:set_parameter, message, name: :volume)
-  #   do_send(:command, '0C', name: :volume_save)    # Save the settings
-  # end
-
-
-  # def mute_audio(state = true)
-  #   message = OPERATION_CODE[:mute_status]
-  #   message += is_affirmative?(state) ? "0001" : "0000"    # Value of input as a hex string
-
-  #   do_send(:set_parameter, message, name: :mute)
-
-  #   logger.debug { "requested to update mute to #{state}" }
-  # end
+  def mute_audio(state : Bool = true)
+    operation_index = OPERATION_NAMES.index(:mute_status)
+    if operation_index
+      message = OPERATION_VALUES[operation_index]
+      data = Bytes.new(message.size + 1)
+      data.copy_from(message)
+      data[message.size] = 0x00
+      data[message.size + 1] = (state ? 0x01 : 0x00).to_u8
+      do_send("set_parameter", message)
+      logger.debug { "requested to update mute to #{state}" }
+    end
+  end
   # alias_method :mute, :mute_audio
 
-  # def unmute_audio
-  #   mute_audio(false)
-  # end
+  def unmute_audio
+    mute_audio(false)
+  end
   # alias_method :unmute, :unmute_audio
 
   # LCD Response code
@@ -262,7 +267,7 @@ class Nec::Display::All < PlaceOS::Driver
     hex = data.hexstring
     # Check for valid response
     if !check_checksum(data)
-      task.try &.abort("-- NEC LCD, invalid response was: #{hex}")
+      return task.try &.retry("-- NEC LCD, invalid response was: #{hex}")
     end
 
     logger.debug { "NEC LCD responded #{hex}" }
@@ -277,7 +282,7 @@ class Nec::Display::All < PlaceOS::Driver
           if hex[8..9] == "00"
             power_on_delay(99)    # wait until the screen has turned on before sending commands (99 == high priority)
           else
-            task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+            return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
           end
         elsif hex[10..13] == "00d6" # Power status response
           if hex[10..11] == "00"
@@ -288,19 +293,17 @@ class Nec::Display::All < PlaceOS::Driver
               self[:warming] = false
             end
           else
-            task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+            return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
           end
         end
       when .get_parameter_reply?, .set_parameter_reply?
         if hex[8..9] == "00"
           # TODO
-          # parse_response(data, command)
+          # parse_response(data)
         elsif data[8..9] == "BE"    # Wait response
-          # TODO
-          # send(command[:data])    # checksum already added
-          logger.debug { "-- NEC LCD, response was a wait command" }
+          return task.try &.retry("-- NEC LCD, response was a wait command")
         else
-          task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
         end
     end
 
@@ -320,64 +323,56 @@ class Nec::Display::All < PlaceOS::Driver
     end
   end
 
-  # private def parse_response(data, command)
+  private def parse_response(hex : String)
+    # 14..15 == type (we don't care)
+    max = data[16..19].to_i(16)
+    value = data[20..23].to_i(16)
 
-  #   # 14..15 == type (we don't care)
-  #   max = data[16..19].to_i(16)
-  #   value = data[20..23].to_i(16)
-
-  #   case OPERATION_CODE[data[10..13]]
-  #       when :video_input
-  #           self[:input] = INPUTS[value]
-  #           self[:target_input] = self[:input] if self[:target_input].nil?
-  #           switch_to(self[:target_input]) unless self[:input] == self[:target_input]
-
-  #       when :audio_input
-  #           self[:audio] = AUDIO[value]
-  #           switch_audio(self[:target_audio]) if self[:target_audio] && self[:audio] != self[:target_audio]
-
-  #       when :volume_status
-  #           self[:volume_max] = max
-  #           if not self[:audio_mute]
-  #               self[:volume] = value
-  #           end
-
-  #       when :brightness_status
-  #           self[:brightness_max] = max
-  #           self[:brightness] = value
-
-  #       when :contrast_status
-  #           self[:contrast_max] = max
-  #           self[:contrast] = value
-
-  #       when :mute_status
-  #           self[:audio_mute] = value == 1
-  #           if(value == 1)
-  #               self[:volume] = 0
-  #           else
-  #               volume_status(60)    # high priority
-  #           end
-
-  #       when :power_on_delay
-  #           if value > 0
-  #               self[:warming] = true
-  #               schedule.in("#{value}s") do        # Prevent any commands being sent until the power on delay is complete
-  #                   power_on_delay
-  #               end
-  #           else
-  #               schedule.in('3s') do        # Reactive the interface once the display is online
-  #                   self[:warming] = false    # allow access to the display
-  #               end
-  #           end
-  #       when :auto_setup
-  #           # auto_setup
-  #           # nothing needed to do here (we are delaying the next command by 4 seconds)
-  #       else
-  #           logger.info "-- NEC LCD, unknown response: #{data[10..13]}"
-  #           logger.info "-- NEC LCD, for command: #{command[:data]}" if command
-  #           logger.info "-- NEC LCD, full response was: #{data}"
-  #   end
-  # end
+    case OPERATION_CODE[data[10..13]]
+      when :video_input
+        self[:input] = INPUTS[value]
+        self[:target_input] = self[:input] if self[:target_input].nil?
+        switch_to(self[:target_input]) unless self[:input] == self[:target_input]
+      when :audio_input
+        self[:audio] = AUDIO[value]
+        switch_audio(self[:target_audio]) if self[:target_audio] && self[:audio] != self[:target_audio]
+      when :volume_status
+        self[:volume_max] = max
+        if not self[:audio_mute]
+          self[:volume] = value
+        end
+      when :brightness_status
+        self[:brightness_max] = max
+        self[:brightness] = value
+      when :contrast_status
+        self[:contrast_max] = max
+        self[:contrast] = value
+      when :mute_status
+        self[:audio_mute] = value == 1
+        if(value == 1)
+          self[:volume] = 0
+        else
+          volume_status(60) # high priority
+        end
+      when :power_on_delay
+        if value > 0
+          self[:warming] = true
+          schedule.in(value.seconds) do # Prevent any commands being sent until the power on delay is complete
+            power_on_delay
+          end
+        else
+          schedule.in(3.seconds) do # Reactive the interface once the display is online
+            self[:warming] = false # allow access to the display
+          end
+        end
+      when :auto_setup
+        # auto_setup
+        # nothing needed to do here (we are delaying the next command by 4 seconds)
+      else
+        logger.info "-- NEC LCD, unknown response: #{data[10..13]}"
+        logger.info "-- NEC LCD, full response was: #{data}"
+      end
+  end
 
   # Types of messages sent to and from the LCD
   enum MsgType
