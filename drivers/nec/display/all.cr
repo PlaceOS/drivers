@@ -1,3 +1,5 @@
+require "driver/interface/powerable"
+
 module Nec; end
 module Nec::Display; end
 
@@ -32,6 +34,8 @@ module Nec::Display; end
 # audio (audio input)
 
 class Nec::Display::All < PlaceOS::Driver
+  include Interface::Powerable
+
   # Discovery Information
   tcp_port 7142
   descriptive_name "NEC LCD Display"
@@ -274,13 +278,13 @@ class Nec::Display::All < PlaceOS::Driver
 
     command = MsgType.from_value(data[4])
 
-    case command    # Check the MsgType (B, D or F)
+    case command # Check the MsgType (B, D or F)
       when .command_reply?
         # Power on and off
         # 8..9 == "00" means no error
         if hex[10..15] == "c203d6" # Means power comamnd
           if hex[8..9] == "00"
-            power_on_delay(99)    # wait until the screen has turned on before sending commands (99 == high priority)
+            power_on_delay(99) # wait until the screen has turned on before sending commands (99 == high priority)
           else
             return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
           end
