@@ -76,6 +76,8 @@ class Nec::Display::All < PlaceOS::Driver
   # 0x0D (<CR> carriage return \r)
   DELIMITER = 0x0D_u8
 
+  @target_input : Input? = nil
+  @target_audio : Audio? = nil
   @input_double_check : PlaceOS::Driver::Proxy::Scheduler? = nil
 
   def on_load
@@ -130,8 +132,8 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def switch_to(input : Input)
-    self[:target_input] = input
-    self[:target_audio] = nil
+    @target_input = input
+    @target_audio = nil
 
     operation_index = OPERATION_NAMES.index(:video_input)
     if operation_index
@@ -171,9 +173,8 @@ class Nec::Display::All < PlaceOS::Driver
     Display_port  = 7
   end
 
-  def switch_audio(input : String)
-    input = Audio.parse(input)
-    self[:target_audio] = input
+  def switch_audio(input : Audio)
+    @target_audio = input
 
     operation_index = OPERATION_NAMES.index(:audio_input)
     if operation_index
@@ -298,8 +299,7 @@ class Nec::Display::All < PlaceOS::Driver
         end
       when .get_parameter_reply?, .set_parameter_reply?
         if hex[8..9] == "00"
-          # TODO
-          # parse_response(data)
+          parse_response(hex)
         elsif data[8..9] == "BE"    # Wait response
           return task.try &.retry("-- NEC LCD, response was a wait command")
         else
@@ -323,22 +323,28 @@ class Nec::Display::All < PlaceOS::Driver
     end
   end
 
-  private def parse_response(hex : String)
+  private def parse_response(data : String)
     # 14..15 == type (we don't care)
     max = data[16..19].to_i(16)
     value = data[20..23].to_i(16)
 
     case OPERATION_CODE[data[10..13]]
       when :video_input
-        self[:input] = INPUTS[value]
-        self[:target_input] = self[:input] if self[:target_input].nil?
-        switch_to(self[:target_input]) unless self[:input] == self[:target_input]
+        input = Inputs.from_value(value)
+        self[:input] = input
+        target_input = @target_input ||= input
+        if target_input && self[:input] != self[:target_input]
+          switch_to(target_input)
+        end
       when :audio_input
-        self[:audio] = AUDIO[value]
-        switch_audio(self[:target_audio]) if self[:target_audio] && self[:audio] != self[:target_audio]
+        self[:audio] = Audio.from_value(value)
+        target_audio = @target_audio
+        if target_audio && self[:audio] != self[:target_audio]
+          switch_audio(target_audio)
+        end
       when :volume_status
         self[:volume_max] = max
-        if not self[:audio_mute]
+        unless self[:audio_mute]
           self[:volume] = value
         end
       when :brightness_status
@@ -358,7 +364,7 @@ class Nec::Display::All < PlaceOS::Driver
         if value > 0
           self[:warming] = true
           schedule.in(value.seconds) do # Prevent any commands being sent until the power on delay is complete
-            power_on_delay
+            power_on_delay.as(PlaceOS::Driver::Transport)
           end
         else
           schedule.in(3.seconds) do # Reactive the interface once the display is online
@@ -369,8 +375,8 @@ class Nec::Display::All < PlaceOS::Driver
         # auto_setup
         # nothing needed to do here (we are delaying the next command by 4 seconds)
       else
-        logger.info "-- NEC LCD, unknown response: #{data[10..13]}"
-        logger.info "-- NEC LCD, full response was: #{data}"
+        logger.info { "-- NEC LCD, unknown response: #{data[10..13]}" }
+        logger.info { "-- NEC LCD, full response was: #{data}" }
       end
   end
 
@@ -405,6 +411,18 @@ class Nec::Display::All < PlaceOS::Driver
     Bytes[0x00, 0x10],
     Bytes[0x00, 0x1E]
   ]
+
+  OPERATIONS = {
+    :video_input => "0060",
+    :audio_input => "022e",
+    :volume_status => "0062",
+    :mute_status => "008d",
+    :power_on_delay => "02d8",
+    :contrast_status => "0012",
+    :brightness_status => "0010",
+    :auto_setup => "001e"
+  }
+  OPERATION_CODE = OPERATIONS.merge(OPERATIONS.invert)
 
   {% for name, index in OPERATION_NAMES %}
   @[Security(Level::Administrator)]
