@@ -1,4 +1,6 @@
 require "driver/interface/powerable"
+require "driver/interface/muteable"
+require "driver/interface/switchable"
 
 module Nec; end
 module Nec::Display; end
@@ -35,6 +37,28 @@ module Nec::Display; end
 
 class Nec::Display::All < PlaceOS::Driver
   include Interface::Powerable
+  include Interface::AudioMuteable
+
+  enum Inputs
+    Vga          = 1
+    Rgbhv        = 2
+    Dvi          = 3
+    Hdmi_set     = 4
+    Video1       = 5
+    Video2       = 6
+    Svideo       = 7
+    Tuner        = 9
+    Tv           = 10
+    Dvd1         = 12
+    Option       = 13
+    Dvd2         = 14
+    Display_port = 15
+    Hdmi         = 17
+    Hdmi2        = 18
+    Hdmi3        = 130
+    Usb          = 135
+  end
+  include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
   # Discovery Information
   tcp_port 7142
@@ -105,29 +129,7 @@ class Nec::Display::All < PlaceOS::Driver
     do_send("command", Bytes[0x01, 0xD6], **options)
   end
 
-  # Input selection
-  enum Inputs
-    Vga          = 1
-    Rgbhv        = 2
-    Dvi          = 3
-    Hdmi_set     = 4
-    Video1       = 5
-    Video2       = 6
-    Svideo       = 7
-    Tuner        = 9
-    Tv           = 10
-    Dvd1         = 12
-    Option       = 13
-    Dvd2         = 14
-    Display_port = 15
-    Hdmi         = 17
-    Hdmi2        = 18
-    Hdmi3        = 130
-    Usb          = 135
-  end
-
-  def switch_to(input : String)
-    input = Inputs.parse(input)
+  def switch_to(input : Input)
     self[:target_input] = input
     self[:target_audio] = nil
 
@@ -241,7 +243,7 @@ class Nec::Display::All < PlaceOS::Driver
     end
   end
 
-  def mute_audio(state : Bool = true)
+  def mute_audio(state : Bool = true, index : Int32 | String = 0)
     operation_index = OPERATION_NAMES.index(:mute_status)
     if operation_index
       message = OPERATION_VALUES[operation_index]
@@ -253,12 +255,10 @@ class Nec::Display::All < PlaceOS::Driver
       logger.debug { "requested to update mute to #{state}" }
     end
   end
-  # alias_method :mute, :mute_audio
 
   def unmute_audio
     mute_audio(false)
   end
-  # alias_method :unmute, :unmute_audio
 
   # LCD Response code
   def received(data, task)
