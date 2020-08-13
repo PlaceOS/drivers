@@ -52,12 +52,11 @@ class Nec::Display::All < PlaceOS::Driver
   # 0x0D (<CR> carriage return \r)
   DELIMITER = 0x0D_u8
 
-  # Communication settings
-  @delay_between_sends = 120
-  @wait_response_timeout = 5000
   @input_double_check : PlaceOS::Driver::Proxy::Scheduler? = nil
 
   def on_load
+    # Communication settings
+    queue.delay = 120.milliseconds
     transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
     on_update
   end
@@ -84,15 +83,13 @@ class Nec::Display::All < PlaceOS::Driver
 
     if current
       data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x04] # 0004 = Power Off
-      # TODO: port over commented section in line below
-      do_send("command", data)#, name: :power, delay: 10000, timeout: 10000)
+      do_send("command", data, name: "power", delay: 10.seconds, timeout: 10.seconds)
 
       self[:power] = false
       logger.debug { "-- NEC LCD, requested to power off" }
     else
       data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x01] # 0001 = Power On
-      # TODO: port over commented section in line below
-      do_send("command", data)#, name: :power, delay: 5000)
+      do_send("command", data, name: "power", delay: 5.seconds)
       self[:warming] = true
       self[:power] = true
       logger.debug { "-- NEC LCD, requested to power on" }
@@ -142,8 +139,7 @@ class Nec::Display::All < PlaceOS::Driver
       data[message.size] = 0x00
       data[message.size + 1] = input.value.to_u8
 
-      # TODO: port over commented section in line below
-      do_send("set parameter", data)#, name: :input, delay: 6000)
+      do_send("set parameter", data, name: "input", delay: 6.seconds)
       video_input
 
       # Double check the input again!
@@ -183,8 +179,7 @@ class Nec::Display::All < PlaceOS::Driver
       data[message.size] = 0x00
       data[message.size + 1] = input.value.to_u8
 
-      # TODO: port over commented section in line below
-      do_send("set parameter", data)#, name: :audio)
+      do_send("set parameter", data, name: "audio")
       mute_status(20) # higher status than polling commands - lower than input switching
       volume_status(20)
 
@@ -200,9 +195,8 @@ class Nec::Display::All < PlaceOS::Driver
       data.copy_from(message)
       data[message.size] = 0x00
       data[message.size + 1] = 0x01
-
-      # TODO: port over commented section in line below
-      do_send("set parameter", data)#, delay_on_receive: 4000)
+      # TODO: find out if there is an equivalent for delay_on_receive
+      do_send("set parameter", data)#, delay_on_receive: 4.seconds)
     end
   end
 
@@ -215,8 +209,8 @@ class Nec::Display::All < PlaceOS::Driver
       data[message.size] = 0x00
       data[message.size + 1] = val.clamp(0, 100).to_u8
 
-      do_send("set_parameter", message)#, name: :brightness)
-      do_send("command", Bytes[0x0C])#, name: :brightness_save) # Save the settings
+      do_send("set_parameter", message, name: "brightness")
+      do_send("command", Bytes[0x0C], name: "brightness_save") # Save the settings
     end
   end
 
@@ -228,8 +222,8 @@ class Nec::Display::All < PlaceOS::Driver
       data.copy_from(message)
       data[message.size] = 0x00
       data[message.size + 1] = val.clamp(0, 100).to_u8
-      do_send("set_parameter", message)#, name: :contrast)
-      do_send("command", Bytes[0x0C])#, name: :contrast_save)    # Save the settings
+      do_send("set_parameter", message, name: "contrast")
+      do_send("command", Bytes[0x0C], name: "contrast_save") # Save the settings
     end
   end
 
@@ -241,8 +235,8 @@ class Nec::Display::All < PlaceOS::Driver
       data.copy_from(message)
       data[message.size] = 0x00
       data[message.size + 1] = val.clamp(0, 100).to_u8
-      do_send("set_parameter", message)#, name: :volume_status)
-      do_send("command", Bytes[0x0C])#, name: :volume_save) # Save the settings
+      do_send("set_parameter", message, name: "volume_status")
+      do_send("command", Bytes[0x0C], name: "volume_save") # Save the settings
       self[:audio_mute] = false # audio is unmuted when the volume is set
     end
   end
