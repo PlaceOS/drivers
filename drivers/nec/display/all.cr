@@ -135,33 +135,30 @@ class Nec::Display::All < PlaceOS::Driver
     @target_input = input
     @target_audio = nil
 
-    operation_index = OPERATION_NAMES.index(:video_input)
-    if operation_index
-      message = OPERATION_VALUES[operation_index]
-      data = Bytes.new(message.size + 2)
-      data.copy_from(message)
-      data[message.size] = 0x00
-      data[message.size + 1] = input.value.to_u8
+    message = OPERATIONS[:video_input].hexbytes
+    data = Bytes.new(4)
+    data.copy_from(message)
+    data[-2] = 0x00
+    data[-1] = input.value.to_u8
 
-      do_send("set parameter", data, name: "input", delay: 6.seconds)
-      video_input
+    do_send("set parameter", data, name: "input", delay: 6.seconds)
+    video_input
 
-      # Double check the input again!
-      # TODO: check if the below is equivalent
-      @input_double_check.try &.terminate
-      schedule.in(4.seconds) do
-        @input_double_check = nil
-        video_input.as(PlaceOS::Driver::Transport)
-      end
-      # TODO: figure out how to port to crystal
-      # @input_double_check.cancel if @input_double_check
-      # @input_double_check = schedule.in(4.seconds) do
-      #   @input_double_check = nil
-      #   video_input
-      # end
-
-      logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
+    # Double check the input again!
+    # TODO: check if the below is equivalent
+    @input_double_check.try &.terminate
+    schedule.in(4.seconds) do
+      @input_double_check = nil
+      video_input.as(PlaceOS::Driver::Transport)
     end
+    # TODO: figure out how to port to crystal
+    # @input_double_check.cancel if @input_double_check
+    # @input_double_check = schedule.in(4.seconds) do
+    #   @input_double_check = nil
+    #   video_input
+    # end
+
+    logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
   end
 
   enum Audio
@@ -176,87 +173,69 @@ class Nec::Display::All < PlaceOS::Driver
   def switch_audio(input : Audio)
     @target_audio = input
 
-    operation_index = OPERATION_NAMES.index(:audio_input)
-    if operation_index
-      message = OPERATION_VALUES[operation_index]
-      data = Bytes.new(message.size + 2)
-      data.copy_from(message)
-      data[message.size] = 0x00
-      data[message.size + 1] = input.value.to_u8
+    message = OPERATIONS[:audio_input].hexbytes
+    data = Bytes.new(4)
+    data.copy_from(message)
+    data[-2] = 0x00
+    data[-1] = input.value.to_u8
 
-      do_send("set parameter", data, name: "audio")
-      mute_status(20) # higher status than polling commands - lower than input switching
-      volume_status(20)
+    do_send("set parameter", data, name: "audio")
+    mute_status(20) # higher status than polling commands - lower than input switching
+    volume_status(20)
 
-      logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
-    end
+    logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
   end
 
   def auto_adjust
-    operation_index = OPERATION_NAMES.index(:audio_setup)
-    if operation_index
-      message = OPERATION_VALUES[operation_index]
-      data = Bytes.new(message.size + 2)
-      data.copy_from(message)
-      data[message.size] = 0x00
-      data[message.size + 1] = 0x01
-      # TODO: find out if there is an equivalent for delay_on_receive
-      do_send("set parameter", data)#, delay_on_receive: 4.seconds)
-    end
+    message = OPERATIONS[:audio_setup].hexbytes
+    data = Bytes.new(4)
+    data.copy_from(message)
+    data[-2] = 0x00
+    data[-1] = 0x01
+    # TODO: find out if there is an equivalent for delay_on_receive
+    do_send("set parameter", data)#, delay_on_receive: 4.seconds)
   end
 
   def brightness(val : Int32)
-    operation_index = OPERATION_NAMES.index(:brightness_status)
-    if operation_index
-      message = OPERATION_VALUES[operation_index]
-      data = Bytes.new(message.size + 2)
-      data.copy_from(message)
-      data[message.size] = 0x00
-      data[message.size + 1] = val.clamp(0, 100).to_u8
+    message = OPERATIONS[:brightness_status].hexbytes
+    data = Bytes.new(4)
+    data.copy_from(message)
+    data[-2] = 0x00
+    data[-1] = val.clamp(0, 100).to_u8
 
-      do_send("set_parameter", message, name: "brightness")
-      do_send("command", Bytes[0x0C], name: "brightness_save") # Save the settings
-    end
+    do_send("set_parameter", message, name: "brightness")
+    do_send("command", Bytes[0x0C], name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
-    operation_index = OPERATION_NAMES.index(:contrast_status)
-    if operation_index
-      message = OPERATION_VALUES[operation_index]
-      data = Bytes.new(message.size + 2)
-      data.copy_from(message)
-      data[message.size] = 0x00
-      data[message.size + 1] = val.clamp(0, 100).to_u8
-      do_send("set_parameter", message, name: "contrast")
-      do_send("command", Bytes[0x0C], name: "contrast_save") # Save the settings
-    end
+    message = OPERATIONS[:contrast_status].hexbytes
+    data = Bytes.new(4)
+    data.copy_from(message)
+    data[-2] = 0x00
+    data[-1] = val.clamp(0, 100).to_u8
+    do_send("set_parameter", message, name: "contrast")
+    do_send("command", Bytes[0x0C], name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
-    operation_index = OPERATION_NAMES.index(:volume_status)
-    if operation_index
-      message = OPERATION_VALUES[operation_index]
-      data = Bytes.new(message.size + 2)
-      data.copy_from(message)
-      data[message.size] = 0x00
-      data[message.size + 1] = val.clamp(0, 100).to_u8
-      do_send("set_parameter", message, name: "volume_status")
-      do_send("command", Bytes[0x0C], name: "volume_save") # Save the settings
-      self[:audio_mute] = false # audio is unmuted when the volume is set
-    end
+    message = OPERATIONS[:volume_status].hexbytes
+    data = Bytes.new(4)
+    data.copy_from(message)
+    data[-2] = 0x00
+    data[-1] = val.clamp(0, 100).to_u8
+    do_send("set_parameter", message, name: "volume_status")
+    do_send("command", Bytes[0x0C], name: "volume_save") # Save the settings
+    self[:audio_mute] = false # audio is unmuted when the volume is set
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    operation_index = OPERATION_NAMES.index(:mute_status)
-    if operation_index
-      message = OPERATION_VALUES[operation_index]
-      data = Bytes.new(message.size + 1)
-      data.copy_from(message)
-      data[message.size] = 0x00
-      data[message.size + 1] = (state ? 0x01 : 0x00).to_u8
-      do_send("set_parameter", message)
-      logger.debug { "requested to update mute to #{state}" }
-    end
+    message = OPERATIONS[:mute_status].hexbytes
+    data = Bytes.new(message.size + 1)
+    data.copy_from(message)
+    data[-2] = 0x00
+    data[-1] = (state ? 0x01 : 0x00).to_u8
+    do_send("set_parameter", message)
+    logger.debug { "requested to update mute to #{state}" }
   end
 
   def unmute_audio
@@ -390,44 +369,22 @@ class Nec::Display::All < PlaceOS::Driver
     Set_parameter_reply = 0x46 # 'F'
   end
 
-  OPERATION_NAMES = [
-    :video_input,
-    :audio_input,
-    :volume_status,
-    :mute_status,
-    :power_on_delay,
-    :contrast_status,
-    :brightness_status,
-    :auto_setup
-  ]
-
-  OPERATION_VALUES = [
-    Bytes[0x00, 0x60],
-    Bytes[0x02, 0x2E],
-    Bytes[0x00, 0x62],
-    Bytes[0x00, 0x8D],
-    Bytes[0x02, 0xD8],
-    Bytes[0x00, 0x12],
-    Bytes[0x00, 0x10],
-    Bytes[0x00, 0x1E]
-  ]
-
   OPERATIONS = {
-    :video_input => "0060",
-    :audio_input => "022e",
-    :volume_status => "0062",
-    :mute_status => "008d",
-    :power_on_delay => "02d8",
-    :contrast_status => "0012",
-    :brightness_status => "0010",
-    :auto_setup => "001e"
+    "video_input" => "0060",
+    "audio_input" => "022e",
+    "volume_status" => "0062",
+    "mute_status" => "008d",
+    "power_on_delay" => "02d8",
+    "contrast_status" => "0012",
+    "brightness_status" => "0010",
+    "auto_setup" => "001e"
   }
   OPERATION_CODE = OPERATIONS.merge(OPERATIONS.invert)
 
-  {% for name, index in OPERATION_NAMES %}
+  {% for name in OPERATIONS.keys %}
   @[Security(Level::Administrator)]
     def {{name.id}}(priority : Int32 = 0)
-      data = OPERATION_VALUES[{{index}}]
+      data = OPERATION_CODE[{{name}}].hexbytes
       do_send(:get_parameter, data, priority: priority, name: {{name.id}})
     end
   {% end %}
