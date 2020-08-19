@@ -10,18 +10,23 @@ module Cisco::Meraki
 
     @[JSON::Field(key: "apMac")]
     property access_point_mac : String
-    property rssi : Float64
+    property rssi : Int32
   end
 
   class Location
     include JSON::Serializable
 
-    property manufacturer : String
-    property ssid : String
-    property os : String
     property x : Float64
     property y : Float64
+    property lng : Float64?
+    property lat : Float64?
     property variance : Float64
+
+    @[JSON::Field(key: "floorPlanId")]
+    property floor_plan_id : String?
+
+    @[JSON::Field(key: "floorPlanName")]
+    property floor_plan_name : String?
 
     @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::ISO8601))]
     property time : Time
@@ -40,7 +45,7 @@ module Cisco::Meraki
     property nearest_ap_mac : String
 
     @[JSON::Field(key: "nearestApRssi")]
-    property nearest_ap_rssi : String
+    property nearest_ap_rssi : Int32
 
     @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::ISO8601))]
     property time : Time
@@ -52,19 +57,14 @@ module Cisco::Meraki
     @[JSON::Field(key: "clientMac")]
     property client_mac : String
 
-    @[JSON::Field(key: "floorPlanId")]
-    property floor_plan_id : String
-
-    @[JSON::Field(key: "floorPlanName")]
-    property floor_plan_name : String
-
-    property ipv4 : String
-    property ipv6 : String
-    property lng : Float64
-    property lat : Float64
+    property manufacturer : String
+    property ipv4 : String?
+    property ipv6 : String?
+    property ssid : String?
+    property os : String?
 
     @[JSON::Field(key: "latestRecord")]
-    property latest_record : Array(LatestRecord)
+    property latest_record : LatestRecord
     property locations : Array(Location)
   end
 
@@ -79,7 +79,7 @@ module Cisco::Meraki
   class DevicesSeen
     include JSON::Serializable
 
-    property version : Float64
+    property version : String
     property secret : String
 
     @[JSON::Field(key: "type")]
