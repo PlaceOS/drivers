@@ -141,13 +141,14 @@ class Place::Bookings < PlaceOS::Driver
     now = Time.utc.to_unix
     previous_booking = nil
     current_booking = nil
-    next_booking = 0
+    next_booking = Int32::MAX
 
     @bookings.each_with_index do |event, index|
       starting = event["event_start"].as_i64
 
       # All meetings are in the future
       if starting > now
+        next_booking = index
         previous_booking = index - 1 if index > 0
         break
       end
@@ -160,13 +161,15 @@ class Place::Bookings < PlaceOS::Driver
                     end
 
       # Event ended in the past
-      next if now >= ending_unix
+      next if ending_unix < now
 
       # We've found the current event
-      current_booking = index
-      previous_booking = index - 1 if index > 0
-      next_booking = index + 1
-      break
+      if starting <= now && ending_unix > now
+        current_booking = index
+        previous_booking = index - 1 if index > 0
+        next_booking = index + 1
+        break
+      end
     end
 
     self[:previous_booking] = previous_booking ? @bookings[previous_booking] : nil
