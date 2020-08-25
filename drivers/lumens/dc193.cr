@@ -32,7 +32,6 @@ class Lumens::DC193 < PlaceOS::Driver
   end
 
   def disconnected
-    queue.clear
     schedule.clear
   end
 
@@ -59,6 +58,8 @@ class Lumens::DC193 < PlaceOS::Driver
   end
 
   def lamp(state : Bool, head_led : Bool = false)
+    return false if @frozen
+
     lamps = if state && head_led
               1_u8
             elsif state
@@ -77,6 +78,8 @@ class Lumens::DC193 < PlaceOS::Driver
   end
 
   def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 1)
+    return false if @frozen
+
     position = (position < 0 ? 0 : @zoom_max) unless @zoom_range.includes?(position)
     low = (position & 0xFF).to_u8
     high = ((position >> 8) & 0xFF).to_u8
@@ -85,6 +88,8 @@ class Lumens::DC193 < PlaceOS::Driver
   end
 
   def zoom(direction : ZoomDirection, index : Int32 | String = 1)
+    return false if @frozen
+
     case direction
     when ZoomDirection::Stop
       send Bytes[0xA0, 0x10, 0x00, 0x00, 0x00, 0xAF]
@@ -100,6 +105,8 @@ class Lumens::DC193 < PlaceOS::Driver
   end
 
   def auto_focus(name : String = "auto_focus")
+    return false if @frozen
+
     send Bytes[0xA0, 0xA3, 0x01, 0x00, 0x00, 0xAF], name: name
   end
 
@@ -117,6 +124,8 @@ class Lumens::DC193 < PlaceOS::Driver
   end
 
   def picture_mode(state : String)
+    return false if @frozen
+
     mode = case state.downcase
            when "photo"
              0x00_u8
@@ -192,8 +201,8 @@ class Lumens::DC193 < PlaceOS::Driver
              when :power
                data[2] == 0x01_u8
              when :power_staus
-               @ready == data[2] == 0x01_u8
-               @power == data[3] == 0x01_u8
+               @ready = data[2] == 0x01_u8
+               @power = data[3] == 0x01_u8
                logger.debug { "System power: #{@power}, ready: #{@ready}" }
                self[:ready] = @ready
                self[:power] = @power
