@@ -9,11 +9,11 @@ assignees: ''
 
 **Driver to be Migrated**
 
-A clear and concise description of what the bug is.
+Information about the driver to be migrated.
 
 **Link to Existing Driver**
 
-Steps to reproduce the behaviour or a minimal code snippet that demonstrates the behaviour.
+Link to existing Driver on Ruby Drivers Repo.
 
 **Additional context**
 
