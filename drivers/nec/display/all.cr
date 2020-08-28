@@ -105,16 +105,17 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def power(state : Bool)
+    data = "C203D6"
     current = self[:power]?
 
     if current
-      data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x04] # 0004 = Power Off
+      data += "0004" # 0004 = Power Off
       do_send("command", data, name: "power", delay: 10.seconds, timeout: 10.seconds)
 
       self[:power] = false
       logger.debug { "-- NEC LCD, requested to power off" }
     else
-      data = Bytes[0xC2, 0x03, 0xD6, 0x00, 0x01] # 0001 = Power On
+      data += "0001" # 0001 = Power Off
       do_send("command", data, name: "power", delay: 5.seconds)
       self[:warming] = true
       self[:power] = true
@@ -128,18 +129,15 @@ class Nec::Display::All < PlaceOS::Driver
 
   def power?(**options)
     # options[:emit] = block if block_given?
-    do_send("command", Bytes[0x01, 0xD6], **options)
+    do_send("command", "01D6", **options)
   end
 
   def switch_to(input : Input)
     @target_input = input
     @target_audio = nil
 
-    message = OPERATIONS[:video_input].hexbytes
-    data = Bytes.new(4)
-    data.copy_from(message)
-    data[-2] = 0x00
-    data[-1] = input.value.to_u8
+    data = OPERATIONS[:video_input]
+    data += input.value.to_s(16).upcase.rjust(4, '0')
 
     do_send("set parameter", data, name: "input", delay: 6.seconds)
     video_input
@@ -173,11 +171,8 @@ class Nec::Display::All < PlaceOS::Driver
   def switch_audio(input : Audio)
     @target_audio = input
 
-    message = OPERATIONS[:audio_input].hexbytes
-    data = Bytes.new(4)
-    data.copy_from(message)
-    data[-2] = 0x00
-    data[-1] = input.value.to_u8
+    data = OPERATIONS[:audio_input]
+    data += input.value.to_s(16).upcase.rjust(4, '0')
 
     do_send("set parameter", data, name: "audio")
     mute_status(20) # higher status than polling commands - lower than input switching
@@ -187,54 +182,42 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def auto_adjust
-    message = OPERATIONS[:audio_setup].hexbytes
-    data = Bytes.new(4)
-    data.copy_from(message)
-    data[-2] = 0x00
-    data[-1] = 0x01
+    data = OPERATIONS[:audio_setup]
+    data += "0001"
     # TODO: find out if there is an equivalent for delay_on_receive
     do_send("set parameter", data)#, delay_on_receive: 4.seconds)
   end
 
   def brightness(val : Int32)
-    message = OPERATIONS[:brightness_status].hexbytes
-    data = Bytes.new(4)
-    data.copy_from(message)
-    data[-2] = 0x00
-    data[-1] = val.clamp(0, 100).to_u8
+    data = OPERATIONS[:brightness_status]
+    data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
-    do_send("set_parameter", message, name: "brightness")
-    do_send("command", Bytes[0x0C], name: "brightness_save") # Save the settings
+    do_send("set_parameter", data, name: "brightness")
+    do_send("command", "0C", name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
-    message = OPERATIONS[:contrast_status].hexbytes
-    data = Bytes.new(4)
-    data.copy_from(message)
-    data[-2] = 0x00
-    data[-1] = val.clamp(0, 100).to_u8
-    do_send("set_parameter", message, name: "contrast")
-    do_send("command", Bytes[0x0C], name: "contrast_save") # Save the settings
+    data = OPERATIONS[:contrast_status]
+    data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+
+    do_send("set_parameter", data, name: "contrast")
+    do_send("command", "0C", name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
-    message = OPERATIONS[:volume_status].hexbytes
-    data = Bytes.new(4)
-    data.copy_from(message)
-    data[-2] = 0x00
-    data[-1] = val.clamp(0, 100).to_u8
-    do_send("set_parameter", message, name: "volume_status")
-    do_send("command", Bytes[0x0C], name: "volume_save") # Save the settings
+    data = OPERATIONS[:volume_status]
+    data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+
+    do_send("set_parameter", data, name: "volume_status")
+    do_send("command", "0C", name: "volume_save") # Save the settings
     self[:audio_mute] = false # audio is unmuted when the volume is set
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    message = OPERATIONS[:mute_status].hexbytes
-    data = Bytes.new(message.size + 1)
-    data.copy_from(message)
-    data[-2] = 0x00
-    data[-1] = (state ? 0x01 : 0x00).to_u8
-    do_send("set_parameter", message)
+    data = OPERATIONS[:mute_status]
+    data += state ? "0001" : "0000"
+
+    do_send("set_parameter", data)
     logger.debug { "requested to update mute to #{state}" }
   end
 
@@ -252,6 +235,8 @@ class Nec::Display::All < PlaceOS::Driver
 
     logger.debug { "NEC LCD responded #{hex}" }
 
+    # TODO:
+    # command = MSG_TYPE[data[4]]
     command = MsgType.from_value(data[4])
 
     case command # Check the MsgType (B, D or F)
@@ -369,6 +354,16 @@ class Nec::Display::All < PlaceOS::Driver
     Set_parameter_reply = 0x46 # 'F'
   end
 
+  # TODO: remove
+  MSG_TYPE = {
+    "command" => "A",
+    "B" => "command_reply",
+    "get_parameter" => "C",
+    "D" => "get_parameter_reply",
+    "set_parameter" => "E",
+    "F" => "set_parameter_reply"
+  }
+
   OPERATIONS = {
     "video_input" => "0060",
     "audio_input" => "022e",
@@ -384,7 +379,7 @@ class Nec::Display::All < PlaceOS::Driver
   {% for name in OPERATIONS.keys %}
   @[Security(Level::Administrator)]
     def {{name.id}}(priority : Int32 = 0)
-      data = OPERATION_CODE[{{name}}].hexbytes
+      data = OPERATION_CODE[{{name}}]
       do_send(:get_parameter, data, priority: priority, name: {{name.id}})
     end
   {% end %}
@@ -405,20 +400,27 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Builds the command and creates the checksum
-  private def do_send(type : String, data : Bytes = Bytes.empty, **options)
-    bytes = Bytes.new(data.size + 7)
-    bytes[0] = 0x01                                 # SOH
-    bytes[1] = MsgType.parse(type).to_u8            #
-    bytes[2] = data.size.to_u8 + 2                  # Length
-    bytes[3] = 0x02                                 #
-    data.each_with_index(4) { |b, i| bytes[i] = b } # Data
-    bytes[-3] = 0x03                                #
+  private def do_send(type : String, data : String = "", **options)
+    command = "\x02#{data}\x03"
+    command = "0*0#{MSG_TYPE[type]}#{command.size.to_s(16).upcase.rjust(2, '0')}#{command}"
+    logger.info { "command is #{command}" }
+    command = command.bytes
+
     checksum = 0x00_u8
-    bytes[1..-3].each do |b|
+    command.each do |b|
       checksum = checksum ^ b
     end
-    bytes[-2] = checksum                            # Checksum
-    bytes[-1] = DELIMITER                           # Delimiter
+
+    bytes = Bytes.new(command.size + 3)
+    logger.info { "command size is #{command.size}" }
+    logger.info { "bytes size is #{bytes.size}" }
+    bytes[0] = 0x01
+    command.each_with_index(1) { |b, i|
+      logger.info { "index is #{i}" }
+      bytes[i] = b
+    }
+    bytes[-2] = checksum
+    bytes[-1] = 0x0D
 
     send(bytes, **options)
   end
