@@ -1,3 +1,3 @@
 DriverSpecs.mock_driver "Nec::Display::All" do
-  exec(:power, true)
+  should_send("\x01\x30\x2A\x30\x41\x30\x36\x02\x30\x31\x44\x36\x03\x1F\x0D")
 end
