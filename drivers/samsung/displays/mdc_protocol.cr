@@ -220,8 +220,18 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(Command::Auto_Power, state, **options)
   end
 
-  # Display control
-  {% for name in ["volume", "contrast", "brightness", "sharpness", "colour", "tint", "red_gain", "green_gain", "blue_gain"] %}
+  INT_DEVICE_SETTINGS = [
+    "volume",
+    "contrast",
+    "brightness",
+    "sharpness",
+    "colour",
+    "tint",
+    "red_gain",
+    "green_gain",
+    "blue_gain"
+  ]
+  {% for name in INT_DEVICE_SETTINGS %}
     @[Security(Level::Administrator)]
     def {{name.id}}(val : Int32, **options)
       val = val.clamp(0, 100)
@@ -229,28 +239,19 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   {% end %}
 
-  DEVICE_SETTINGS = [
-    :network_standby,
-    :auto_off_timer,
-    :auto_power,
-    :contrast,
-    :brightness,
-    :sharpness,
-    :colour,
-    :tint,
-    :red_gain,
-    :green_gain,
-    :blue_gain,
-]
-
   def do_device_config
     logger.debug { "Syncronising device state with settings" }
-    DEVICE_SETTINGS.each do |name|
-      value = setting?(Int32, name)
-      # TODO: find out if these are equivalent
-      # __send__(name, value) unless value.nil?
-      do_send(Command.parse(value.to_s), value) unless value.nil?
-    end
+
+    # Boolean device settings
+    {% for name in ["network_standby", "auto_off_timer", "auto_power"] %}
+      %value = setting?(Bool, {{name.id}})
+      {{name.id}}(%value) unless %value.nil?
+    {% end %}
+
+    {% for name in INT_DEVICE_SETTINGS %}
+      %value = setting?(Int32, {{name.id}})
+      {{name.id}}(%value) unless %value.nil?
+    {% end %}
   end
 
   enum ResponseStatus
