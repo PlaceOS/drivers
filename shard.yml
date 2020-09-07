@@ -24,6 +24,9 @@ dependencies:
   pinger:
     github: spider-gazelle/pinger
 
+  ntlm:
+    github: spider-gazelle/ntlm
+
   place_calendar:
     github: PlaceOS/calendar
 
