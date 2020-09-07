@@ -46,7 +46,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.5.3
+    version: 2.5.4
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -70,11 +70,15 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.3.0
+    version: 0.3.1
 
   murmur3:
     git: https://github.com/aca-labs/murmur3.git
     version: 0.1.1+git.commit.7cbe25c0ca8d052c9d98c377c824dcb0e038c790
+
+  ntlm:
+    git: https://github.com/spider-gazelle/ntlm.git
+    version: 1.0.0
 
   office365:
     git: https://github.com/PlaceOS/office365.git
@@ -98,7 +102,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.9
+    version: 3.5.10
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
