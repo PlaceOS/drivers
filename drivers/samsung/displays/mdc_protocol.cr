@@ -244,12 +244,12 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
     # Boolean device settings
     {% for name in ["network_standby", "auto_off_timer", "auto_power"] %}
-      %value = setting?(Bool, {{name.id}})
+      %value = setting?(Bool, {{name.id.stringify}})
       {{name.id}}(%value) unless %value.nil?
     {% end %}
 
     {% for name in INT_DEVICE_SETTINGS %}
-      %value = setting?(Int32, {{name.id}})
+      %value = setting?(Int32, {{name.id.stringify}})
       {{name.id}}(%value) unless %value.nil?
     {% end %}
   end
