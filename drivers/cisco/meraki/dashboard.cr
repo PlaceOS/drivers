@@ -121,6 +121,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @locations[format_mac(address)]?
   end
 
+  @[Security(PlaceOS::Driver::Level::Support)]
   def inspect_state
     logger.debug {
       "IP Mappings: #{@ip_lookup.inspect}\nMAC Locations: #{@locations.inspect}"
