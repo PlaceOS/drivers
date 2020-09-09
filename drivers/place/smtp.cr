@@ -33,6 +33,7 @@ class Place::Smtp < PlaceOS::Driver
   @host : String = "smtp.host"
   @port : Int32 = 587
   @tls_mode : EMail::Client::TLSMode = EMail::Client::TLSMode::STARTTLS
+  @send_lock : Mutex = Mutex.new
 
   def on_load
     on_update
@@ -106,8 +107,8 @@ class Place::Smtp < PlaceOS::Driver
     bcc.each { |_bcc| message.bcc(_bcc) }
     cc.each { |_cc| message.cc(_cc) }
 
-    message.message(message_plaintext) unless message_plaintext.presence.nil?
-    message.message_html(message_html) unless message_html.presence.nil?
+    message.message(message_plaintext.as(String)) unless message_plaintext.presence.nil?
+    message.message_html(message_html.as(String)) unless message_html.presence.nil?
 
     # Traverse all attachments
     {resource_attachments, attachments}.map(&.each).each.flatten.each do |attachment|
@@ -124,8 +125,12 @@ class Place::Smtp < PlaceOS::Driver
     end
 
     sent = false
-    smtp_client.start do
-      sent = send(message)
+
+    # Ensure only a single send at a time
+    @send_lock.synchronize do
+      smtp_client.start do
+        sent = send(message)
+      end
     end
 
     sent
