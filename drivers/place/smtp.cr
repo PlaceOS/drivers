@@ -76,8 +76,8 @@ class Place::Smtp < PlaceOS::Driver
   def send_mail(
     to : String | Array(String),
     subject : String,
-    message_plaintext : String = "",
-    message_html : String = "",
+    message_plaintext : String? = nil,
+    message_html : String? = nil,
     resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
     attachments : Array(Attachment) = [] of Attachment,
     cc : String | Array(String) = [] of String,
@@ -106,8 +106,8 @@ class Place::Smtp < PlaceOS::Driver
     bcc.each { |_bcc| message.bcc(_bcc) }
     cc.each { |_cc| message.cc(_cc) }
 
-    message.message(message_plaintext) unless message_plaintext.nil?
-    message.message_html(message_html) unless message_html.nil?
+    message.message(message_plaintext) unless message_plaintext.presence.nil?
+    message.message_html(message_html) unless message_html.presence.nil?
 
     # Traverse all attachments
     {resource_attachments, attachments}.map(&.each).each.flatten.each do |attachment|
