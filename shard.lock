@@ -34,7 +34,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.1
+    version: 1.0.2
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -54,7 +54,7 @@ shards:
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
-    version: 2.5.1
+    version: 2.5.2
 
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git
@@ -102,7 +102,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.10
+    version: 3.5.11
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -131,6 +131,10 @@ shards:
   rendezvous-hash:
     git: https://github.com/caspiano/rendezvous-hash.git
     version: 0.3.1
+
+  retriable:
+    git: https://github.com/Sija/retriable.cr.git
+    version: 0.2.2
 
   rwlock:
     git: https://github.com/spider-gazelle/readers-writer.git
