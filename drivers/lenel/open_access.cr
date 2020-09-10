@@ -78,6 +78,38 @@ class Lenel::OpenAccess < PlaceOS::Driver
   rescue e
     logger.error { e.message }
   end
+
+  # Find a visitor by email address.
+  def lookup_visitor(email : String) : Lnl_Visitor?
+    visitors = client.get_instances Lnl_Visitor, %(email="#{email}")
+    logger.warn { "duplicate visitor records exist for #{email}" }
+    visitors.first?
+  end
+
+  # Creates a new visitor record.
+  @[Security(Level::Support)]
+  def create_visitor(
+    email : String,
+    firstname : String,
+    lastname : String,
+    organization : String? = nil,
+    title : String? = nil,
+  ) : Lnl_Visitor
+    logger.debug { "creating visitor record for #{email}" }
+
+    unless client.get_count(Lnl_Visitor, %(email="#{email}")).zero?
+      raise "visitor record already exists for #{email}"
+    end
+
+    client.add_instance Lnl_Visitor, **args
+  end
+
+  # Deletes a visitor record.
+  @[Security(Level::Administrator)]
+  def delete_visitor(id : Int32) : Nil
+    logger.debug { "deleting visitor #{id}" }
+    client.delete_instance Lnl_Visitor, id: id
+  end
 end
 
 
