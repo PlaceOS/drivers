@@ -226,29 +226,30 @@ class Nec::Display::All < PlaceOS::Driver
 
   # LCD Response code
   def received(data, task)
-    hex = data.hexstring
+    hex = String.new(data)
     # Check for valid response
     if !check_checksum(data)
       return task.try &.retry("-- NEC LCD, invalid response was: #{hex}")
     end
 
-    logger.debug { "NEC LCD responded #{hex}" }
+    logger.debug { "NEC LCD responded with hex #{hex}" }
 
-    command = MSG_TYPE[data[4]]
+    command = MSG_TYPE[hex[4]]
 
     case command # Check the MSG_TYPE (B, D or F)
       when "command_reply"
         # Power on and off
-        # 8..9 == "00" means no error
-        if hex[10..15] == "c203d6" # Means power comamnd
+        if hex[10..15] == "C203D6" # Means power comamnd
+          # 8..9 == "00" means no error
           if hex[8..9] == "00"
             power_on_delay(99) # wait until the screen has turned on before sending commands (99 == high priority)
           else
             return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
           end
-        elsif hex[10..13] == "00d6" # Power status response
+        elsif hex[12..13] == "D6" # Power status response
+          # 10..11 == "00" means no error
           if hex[10..11] == "00"
-            if hex[23] == "1" # On == 1, Off == 4
+            if hex[23] == '1' # On == 1, Off == 4
               self[:power] = true
             else
               self[:power] = false
@@ -343,12 +344,12 @@ class Nec::Display::All < PlaceOS::Driver
 
   # Types of messages sent to and from the LCD
   MSG_TYPE = {
-    "command" => "A",
-    "B" => "command_reply",
-    "get_parameter" => "C",
-    "D" => "get_parameter_reply",
-    "set_parameter" => "E",
-    "F" => "set_parameter_reply"
+    "command" => 'A',
+    'B' => "command_reply",
+    "get_parameter" => 'C',
+    'D' => "get_parameter_reply",
+    "set_parameter" => 'E',
+    'F' => "set_parameter_reply"
   }
 
   OPERATIONS = {
@@ -376,11 +377,11 @@ class Nec::Display::All < PlaceOS::Driver
     # Loop through the second to the second last element
     # Delimiter is removed automatically
     if data.size >= 2
-      data[1..-2].each do |b|
+      data[1..-3].each do |b|
         checksum = checksum ^ b
       end
       # Check the checksum equals the last element
-      checksum == data[-1]
+      checksum == data[-2]
     else
       true
     end
