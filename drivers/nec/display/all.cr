@@ -143,18 +143,17 @@ class Nec::Display::All < PlaceOS::Driver
     video_input
 
     # Double check the input again!
-    # TODO: check if the below is equivalent
-    @input_double_check.try &.terminate
-    schedule.in(4.seconds) do
-      @input_double_check = nil
-      video_input.as(PlaceOS::Driver::Transport)
-    end
-    # TODO: figure out how to port to crystal
     # @input_double_check.cancel if @input_double_check
     # @input_double_check = schedule.in(4.seconds) do
     #   @input_double_check = nil
     #   video_input
     # end
+    # TODO: check if the below is equivalent to what's above
+    @input_double_check.try &.terminate
+    schedule.in(4.seconds) do
+      @input_double_check = nil
+      video_input.as(PlaceOS::Driver::Transport)
+    end
 
     logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
   end
@@ -235,12 +234,10 @@ class Nec::Display::All < PlaceOS::Driver
 
     logger.debug { "NEC LCD responded #{hex}" }
 
-    # TODO:
-    # command = MSG_TYPE[data[4]]
-    command = MsgType.from_value(data[4])
+    command = MSG_TYPE[data[4]]
 
-    case command # Check the MsgType (B, D or F)
-      when .command_reply?
+    case command # Check the MSG_TYPE (B, D or F)
+      when "command_reply"
         # Power on and off
         # 8..9 == "00" means no error
         if hex[10..15] == "c203d6" # Means power comamnd
@@ -261,7 +258,7 @@ class Nec::Display::All < PlaceOS::Driver
             return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
           end
         end
-      when .get_parameter_reply?, .set_parameter_reply?
+      when "get_parameter_reply", "set_parameter_reply"
         if hex[8..9] == "00"
           parse_response(hex)
         elsif data[8..9] == "BE"    # Wait response
@@ -345,16 +342,6 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Types of messages sent to and from the LCD
-  enum MsgType
-    Command             = 0x41 # 'A'
-    Command_reply       = 0x42 # 'B'
-    Get_parameter       = 0x43 # 'C'
-    Get_parameter_reply = 0x44 # 'D'
-    Set_parameter       = 0x45 # 'E'
-    Set_parameter_reply = 0x46 # 'F'
-  end
-
-  # TODO: remove
   MSG_TYPE = {
     "command" => "A",
     "B" => "command_reply",
@@ -412,13 +399,8 @@ class Nec::Display::All < PlaceOS::Driver
     end
 
     bytes = Bytes.new(command.size + 3)
-    logger.info { "command size is #{command.size}" }
-    logger.info { "bytes size is #{bytes.size}" }
     bytes[0] = 0x01
-    command.each_with_index(1) { |b, i|
-      logger.info { "index is #{i}" }
-      bytes[i] = b
-    }
+    command.each_with_index(1) { |b, i| bytes[i] = b }
     bytes[-2] = checksum
     bytes[-1] = 0x0D
 
