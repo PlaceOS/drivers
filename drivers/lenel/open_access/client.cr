@@ -113,6 +113,17 @@ class Lenel::OpenAccess::Client
     ))[:item_list].map { |item| item[:property_value_map] }
   end
 
+  # Counts the number of instances of *type*.
+  #
+  # *filter* may optionally be used to specify a subset of these.
+  def get_count(type type_name : T.class, filter : String? = nil) forall T
+    params = HTTP::Params.encode args.merge type_name: T.name
+    (~transport.get(
+      path: "/count?version=1.0&#{params}"
+    ) >> NamedTuple(
+      total_items: Int32
+    ))[:total_items]
+  end
 
   # Updates a record of *type*. Passed properties must include the types key and
   # any fields to update.
