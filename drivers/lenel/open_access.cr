@@ -131,3 +131,13 @@ class PlaceOS::HTTPClient < HTTP::Client
     @driver.transport.before_request &block
   end
 end
+
+# Patch in support for `body` in DELETE requests
+class PlaceOS::Driver
+  protected def delete(path, body : ::HTTP::Client::BodyType = nil,
+                       params : Hash(String, String?) = {} of String => String?,
+                       headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new,
+                       secure = false, concurrent = false)
+    transport.http("DELETE", path, body, params, headers, secure, concurrent)
+  end
+end
