@@ -72,13 +72,13 @@ class Lenel::OpenAccess::Client
   # Creates a new entry of *type*.
   def add_instance(type type_name : T.class, **property_value_map : **U) : T forall T, U
     Models.subset T, U
-    ~transport.post(
+    (~transport.post(
       path: "/instances?version=1.0",
       body: args.to_json
     ) >> NamedTuple(
       type_name: String,
       property_value_map: T,
-    )[:property_value_map]
+    ))[:property_value_map]
   end
 
   # Creates *instance*.
@@ -101,7 +101,7 @@ class Lenel::OpenAccess::Client
     order_by : String? = nil,
   ) : Array(T) forall T
     params = HTTP::Params.encode args.merge type_name: T.name
-    ~transport.get(
+    (~transport.get(
       path: "/instances?version=1.0&#{params}",
     ) >> NamedTuple(
       page_number: Int32?,
@@ -110,7 +110,7 @@ class Lenel::OpenAccess::Client
       total_items: Int32,
       count: Int32,
       item_list: Array(NamedTuple(type_name: String, property_value_map: T)),
-    )[:item_list].map { |item| item[:property_value_map] }
+    ))[:item_list].map { |item| item[:property_value_map] }
   end
 
 
@@ -118,13 +118,13 @@ class Lenel::OpenAccess::Client
   # any fields to update.
   def modify_instance(type type_name : T.class, **property_value_map : **U) : T forall T, U
     Models.subset T, U
-    ~transport.put(
+    (~transport.put(
       path: "/instances?version=1.0",
       body: args.to_json
     ) >> NamedTuple(
       type_name: String,
       property_value_map: T,
-    )[:property_value_map]
+    ))[:property_value_map]
   end
 
   # Updates an entry to match the data in *instance*.
