@@ -46,6 +46,12 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.token = nil
   end
 
+  # Lists the directories available for auth.
+  @[Security(Level::Support)]
+  def directories
+    client.get_directories
+  end
+
   def authenticate! : Nil
     username  = setting String, :username
     password  = setting String, :password
