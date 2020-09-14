@@ -51,11 +51,12 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
   expect_http_request do |req, res|
     req.method.should eq("GET")
     req.path.should eq("/version")
-    res.headers["error"] = {
-      code: "openaccess.general.invalidapplicationid",
-      message: "You are not licensed for OpenAccess."
-    }.to_json
-    res.status_code = 401
+    respond_with 401, {
+      error: {
+        code: "openaccess.general.invalidapplicationid",
+        message: "You are not licensed for OpenAccess."
+      }
+    }
   end
   # FIXME: the test runner does not appear to be able to resolve this?
   #expect_raises(Lenel::OpenAccess::Error) do

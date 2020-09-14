@@ -1,15 +1,20 @@
 require "json"
 
 class Lenel::OpenAccess::Error < Exception
-  alias Info = { code: String, message: String? }
+  alias Info = {
+    error: {
+      code: String,
+      message: String?
+    }
+  }
 
   def self.from_response(response)
-    if error = response.headers["error"]?.try &->Info.from_json(String)
-      new **error
-    else
-      new response.inspect
-      # new response.status.to_s
-    end
+    # Although the API docs specify this is being in an "error" header, this
+    # appars as JSON within the response body when tested with OpenAccess 7.5
+    error = Error::Info.from_json response.body
+    new **error[:error]
+  rescue
+    new response.status.to_s
   end
 
   getter code
