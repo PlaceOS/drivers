@@ -58,14 +58,18 @@ class Lenel::OpenAccess::Client
 
   # Enumerates the directories available for auth.
   def get_directories
-    ~transport.get(
+    (~transport.get(
       path: "/directories?version=1.0",
-    )
-    #>> NamedTuple(
-    #  total_items: Int32,
-    #  item_list: Array(String)?,
-    #  property_value_map: String,
-    #)
+    ) >> NamedTuple(
+      total_items: Int32,
+      item_list: Array(NamedTuple(
+        property_value_map: {
+          ID: String,
+          Name: String,
+          directory_type: Int32,
+        }
+      )),
+    ))[:item_list].map { |item| item[:property_value_map] }
   end
 
   # Creates a new auth session.

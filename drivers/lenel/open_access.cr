@@ -49,7 +49,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   # Query the directories available for auth.
   @[Security(Level::Support)]
   def directories
-    client.get_directories.inspect
+    client.get_directories
   rescue e
     logger.error { e.message }
     raise e
