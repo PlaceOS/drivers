@@ -1,8 +1,8 @@
-require "driver/interface/powerable"
-require "driver/interface/muteable"
-require "driver/interface/switchable"
-
 module Samsung; end
+
+require "placeos-driver/interface/powerable"
+require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/switchable"
 
 class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   include Interface::Powerable
