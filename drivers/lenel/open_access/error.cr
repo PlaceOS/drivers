@@ -7,7 +7,8 @@ class Lenel::OpenAccess::Error < Exception
     if error = response.headers["error"]?.try &->Info.from_json(String)
       new **error
     else
-      new response.status.to_s
+      new response.inspect
+      # new response.status.to_s
     end
   end
 
