@@ -1,9 +1,9 @@
-require "driver/interface/powerable"
-require "driver/interface/muteable"
-require "driver/interface/switchable"
-
 module Nec; end
 module Nec::Display; end
+
+require "placeos-driver/interface/powerable"
+require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/switchable"
 
 # :title:All NEC Control Module
 #
