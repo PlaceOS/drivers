@@ -5,36 +5,6 @@ require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 
-# :title:All NEC Control Module
-#
-# Controls all LCD displays as of 1/07/2011
-# Status information avaliable:
-# -----------------------------
-#
-# (built in)
-# connected
-#
-# (module defined)
-# power
-# warming
-#
-# volume
-# volume_min == 0
-# volume_max
-#
-# brightness
-# brightness_min == 0
-# brightness_max
-#
-# contrast
-# contrast_min = 0
-# contrast_max
-#
-# audio_mute
-#
-# input (video input)
-# audio (audio input)
-
 class Nec::Display::All < PlaceOS::Driver
   include Interface::Powerable
   include Interface::AudioMuteable
@@ -62,7 +32,7 @@ class Nec::Display::All < PlaceOS::Driver
 
   # Discovery Information
   tcp_port 7142
-  descriptive_name "NEC LCD Display"
+  descriptive_name "NEC Display"
   generic_name :Display
 
   default_settings({
@@ -73,9 +43,6 @@ class Nec::Display::All < PlaceOS::Driver
   @volume_min : Int32 = 0
   @volume_max : Int32 = 100
 
-  # 0x0D (<CR> carriage return \r)
-  DELIMITER = 0x0D_u8
-
   @target_input : Input? = nil
   @target_audio : Audio? = nil
   @input_double_check : PlaceOS::Driver::Proxy::Scheduler? = nil
@@ -83,7 +50,8 @@ class Nec::Display::All < PlaceOS::Driver
   def on_load
     # Communication settings
     queue.delay = 120.milliseconds
-    transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
+    # 0x0D (<CR> carriage return \r)
+    transport.tokenizer = Tokenizer.new(Bytes[0x0D_u8])
     on_update
   end
 
@@ -99,8 +67,6 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def disconnected
-    # Disconnected may be called without calling connected
-    # Hence the check if timer is nil here
     schedule.clear
   end
 
