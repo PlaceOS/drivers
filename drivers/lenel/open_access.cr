@@ -75,13 +75,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.version
   end
 
-  # Temp for comms test
-  def test_comms
-    logger.debug { "Client version is #{version[:product_version]}" }
-  rescue e
-    logger.error { e.message }
-  end
-
   # Find a visitor by email address.
   def lookup_visitor(email : String) : Lnl_Visitor?
     visitors = client.get_instances Lnl_Visitor, %(email="#{email}")
