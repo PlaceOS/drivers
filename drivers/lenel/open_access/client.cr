@@ -4,6 +4,7 @@ require "responsible"
 require "uri"
 require "inactive-support/macro/args"
 require "./models"
+require "./error"
 
 # Lenel OpenAccess API wrapper.
 #
@@ -23,6 +24,18 @@ class Lenel::OpenAccess::Client
       req.headers["Content-Type"]   = "application/json"
       req.headers["Session-Token"]  = token.not_nil! unless token.nil?
     end
+  end
+
+
+  #######
+  # Error handling
+
+  Responsible.on_server_error do |response|
+    raise OpenAccess::Error.from_response response
+  end
+
+  Responsible.on_client_error do |response|
+    raise OpenAccess::Error.from_response response
   end
 
 
