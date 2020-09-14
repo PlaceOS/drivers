@@ -81,7 +81,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     logger.warn { "duplicate visitor records exist for #{email}" }
     visitors.first?
   rescue e
-    #
     logger.error { e.message }
     raise e
   end

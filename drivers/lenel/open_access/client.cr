@@ -113,7 +113,10 @@ class Lenel::OpenAccess::Client
     page_size : Int32? = nil,
     order_by : String? = nil,
   ) : Array(T) forall T
-    params = HTTP::Params.encode args.merge(type_name: T.name).to_h.compact
+    params = HTTP::Params.new
+    args.merge(type_name: T.name).each do |key, val|
+      params.add key.to_s, val unless val.nil?
+    end
     (~transport.get(
       path: "/instances?version=1.0&#{params}",
     ) >> NamedTuple(
@@ -130,7 +133,7 @@ class Lenel::OpenAccess::Client
   #
   # *filter* may optionally be used to specify a subset of these.
   def get_count(type type_name : T.class, filter : String? = nil) forall T
-    params = HTTP::Params.encode args.merge(type_name: T.name).to_h.compact
+    params = HTTP::Params.encode args.merge type_name: T.name
     (~transport.get(
       path: "/count?version=1.0&#{params}"
     ) >> NamedTuple(
