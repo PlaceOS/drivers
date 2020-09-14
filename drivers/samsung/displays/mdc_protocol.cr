@@ -215,7 +215,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     red_gain: Int32,
     green_gain: Int32,
     blue_gain: Int32
-}
+  }
   {% for name, kind in DEVICE_SETTINGS %}
     @[Security(Level::Administrator)]
     def {{name.id}}(value : {{kind}}, **options)
