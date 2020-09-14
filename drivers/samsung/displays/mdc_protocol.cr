@@ -202,54 +202,38 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     power? unless self[:hard_off]?
   end
 
-  # Enable power on (without WOL)
-  def network_standby(enable : Bool, **options)
-    state = enable ? 1 : 0
-    do_send(Command::Net_Standby, state, **options)
-  end
-
-  # Eco auto power off timer
-  def auto_off_timer(enable : Bool, **options)
-    state = enable ? 1 : 0
-    do_send(Command::Eco_Solution, Bytes[0x81, state], **options)
-  end
-
-  # Device auto power control (presumably signal based?)
-  def auto_power(enable : Bool, **options)
-    state = enable ? 1 : 0
-    do_send(Command::Auto_Power, state, **options)
-  end
-
-  INT_DEVICE_SETTINGS = [
-    "volume",
-    "contrast",
-    "brightness",
-    "sharpness",
-    "colour",
-    "tint",
-    "red_gain",
-    "green_gain",
-    "blue_gain"
-  ]
-  {% for name in INT_DEVICE_SETTINGS %}
+  DEVICE_SETTINGS = {
+    network_standby: Bool,
+    auto_off_timer: Bool,
+    auto_power: Bool,
+    volume: Int32,
+    contrast: Int32,
+    brightness: Int32,
+    sharpness: Int32,
+    colour: Int32,
+    tint: Int32,
+    red_gain: Int32,
+    green_gain: Int32,
+    blue_gain: Int32
+}
+  {% for name, kind in DEVICE_SETTINGS %}
     @[Security(Level::Administrator)]
-    def {{name.id}}(val : Int32, **options)
-      val = val.clamp(0, 100)
-      do_send(Command.parse({{name.id.stringify}}), val, **options)
+    def {{name.id}}(value : {{kind}}, **options)
+      {% if kind.resolve == Bool %}
+        state = value ? 1 : 0
+        data = {{name.id.stringify}} == "auto_off_timer" ? Bytes[0x81, state] : state
+      {% elsif kind.resolve == Int32 %}
+        data = value.clamp(0, 100)
+      {% end %}
+      do_send(Command.parse({{name.id.stringify}}), data, **options)
     end
   {% end %}
 
   def do_device_config
     logger.debug { "Syncronising device state with settings" }
 
-    # Boolean device settings
-    {% for name in ["network_standby", "auto_off_timer", "auto_power"] %}
-      %value = setting?(Bool, {{name.id.stringify}})
-      {{name.id}}(%value) unless %value.nil?
-    {% end %}
-
-    {% for name in INT_DEVICE_SETTINGS %}
-      %value = setting?(Int32, {{name.id.stringify}})
+    {% for name, kind in DEVICE_SETTINGS %}
+      %value = setting?({{kind}}, {{name.id.stringify}})
       {{name.id}}(%value) unless %value.nil?
     {% end %}
   end
@@ -359,9 +343,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     Wall_On          = 0x84 # Video wall enabled
     Wall_User        = 0x89 # Video wall user control
     Speaker          = 0x68
-    Net_Standby      = 0xB5 # Keep NIC active in standby
-    Eco_Solution     = 0xE6 # Eco options (auto power off)
-    Auto_Power       = 0x33
+    Network_Standby  = 0xB5 # Keep NIC active in standby, enable power on (without WOL)
+    Auto_Off_Timer   = 0xE6 # Eco options (auto power off)
+    Auto_Power       = 0x33 # Device auto power control (presumably signal based?)
     Screen_Split     = 0xB2 # Tri / quad split (larger panels only)
     Software_Version = 0x0E
     Serial_Number    = 0x0B
