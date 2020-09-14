@@ -32,14 +32,17 @@ class Lenel::OpenAccess < PlaceOS::Driver
   end
 
   def on_update
+    logger.debug { "settings updated" }
     authenticate!
   end
 
   def connected
+    logger.debug { "connected" }
     authenticate! if client.token.nil?
   end
 
   def disconnected
+    logger.debug { "disconnected" }
     client.token = nil
   end
 
