@@ -1,19 +1,23 @@
-class Lenel::OpenAccess::Error < Exception
-  def self.from_response(response)
-    if error = response.headers["error"]?
-      # FIXME: temp for checking header format
-      new "", error
-    else
-      new "HTTP #{response.status}"
-    end
-  end
+require "json"
 
-  def initialize(@code : String, @message : String? = nil)
+class Lenel::OpenAccess::Error < Exception
+  alias Info = { code: String, message: String? }
+
+  def self.from_response(response)
+    if error = response.headers["error"]?.try &->Info.from_json(String)
+      new **error
+    else
+      new response.status.to_s
+    end
   end
 
   getter code
 
-  def to_s(io : IO) : Nil
-    io << "#{message} (#{code})"
+  def initialize(@code : String, message : String? = nil)
+    if message
+      super "#{message} (#{code})"
+    else
+      super code
+    end
   end
 end
