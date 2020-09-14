@@ -2,7 +2,7 @@ class Lenel::OpenAccess::Error < Exception
   def self.from_response(response)
     if error = response.headers["error"]?
       # FIXME: temp for checking header format
-      new error
+      new "", error
     else
       new "HTTP #{response.status}"
     end
