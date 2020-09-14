@@ -60,11 +60,12 @@ class Lenel::OpenAccess::Client
   def get_directories
     ~transport.get(
       path: "/directories?version=1.0",
-    ) >> NamedTuple(
-      total_items: Int32,
-      item_list: Array(String)?,
-      property_value_map: String,
     )
+    #>> NamedTuple(
+    #  total_items: Int32,
+    #  item_list: Array(String)?,
+    #  property_value_map: String,
+    #)
   end
 
   # Creates a new auth session.
