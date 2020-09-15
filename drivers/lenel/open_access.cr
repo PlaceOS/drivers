@@ -56,9 +56,9 @@ class Lenel::OpenAccess < PlaceOS::Driver
   end
 
   def authenticate! : Nil
-    username  = setting String, :username
-    password  = setting String, :password
-    directory = setting String, :directory_id
+    username = setting String, :username
+    password = setting String, :password
+    directory = setting?(String, :directory_id).presence
 
     logger.debug { "requesting access token for #{username}" }
 

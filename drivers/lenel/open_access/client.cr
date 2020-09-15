@@ -76,14 +76,14 @@ class Lenel::OpenAccess::Client
   def add_authentication(
     username user_name : String,
     password : String,
-    directory_id : String,
+    directory_id : String?,
   )
     # FIXME: this is currently returning an error:
     #   Invalid property: 'directory_id'
     # This is being sent correctly as per the protocol guide and example within.
     ~transport.post(
       path: "/authentication?version=1.0",
-      body: args.to_json,
+      body: args.to_h.compact.to_json,
     ) >> NamedTuple(
       session_token: String,
       token_expiration_time: Time,
