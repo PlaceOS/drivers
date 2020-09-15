@@ -230,7 +230,7 @@ class Nec::Display::All < PlaceOS::Driver
     when .get_parameter_reply?, .set_parameter_reply?
       if hex[8..9] == "00"
         parse_response(hex)
-      elsif data[8..9] == "BE"    # Wait response
+      elsif hex[8..9] == "BE"    # Wait response
         return task.try &.retry("-- NEC LCD, response was a wait command")
       else
         return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
@@ -332,10 +332,23 @@ class Nec::Display::All < PlaceOS::Driver
   }
   OPERATION_CODE = OPERATIONS.merge(OPERATIONS.invert)
 
-  {% for name in OPERATIONS.keys %}
+  enum Operations
+    Video_input       = 0x0060
+    Audio_input       = 0x022E
+    Volume_status     = 0x0062
+    Mute_status       = 0x008D
+    Power_on_delay    = 0x02D8
+    Contrast_status   = 0x0012
+    Brightness_status = 0x0010
+    Auto_setup        = 0x001E
+  end
+
+  {% for name in Operations.constants.map { |n| n.downcase } %}
   @[Security(Level::Administrator)]
     def {{name.id}}(priority : Int32 = 0)
-      data = OPERATION_CODE[{{name}}]
+      io = IO::Memory.new
+      io.write_byte(Operations.parse({{name}}))
+      data = io.to_slice
       do_send(:get_parameter, data, priority: priority, name: {{name.id}})
     end
   {% end %}
@@ -356,7 +369,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Builds the command and creates the checksum
-  private def do_send(type : String, data : String | Bytes = Bytes.empty, **options)
+  private def do_send(type : String, data : String | Bytes = Bytes[], **options)
     bytes = Bytes.new(data.size + 11)
     data = data.bytes if data.is_a?(String)
 
