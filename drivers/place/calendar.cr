@@ -40,7 +40,7 @@ class Place::Calendar < PlaceOS::Driver
   )
 
   @client : PlaceCalendar::Client? = nil
-  @service_account : String = ""
+  @service_account : String? = nil
 
   def on_load
     on_update
@@ -55,7 +55,7 @@ class Place::Calendar < PlaceOS::Driver
       config = setting(OfficeParams, :calendar_config)
       PlaceCalendar::Client.new(**config)
     end
-    @service_account = setting(String, :calendar_service_account)
+    @service_account = setting?(String, :calendar_service_account).presence
   end
 
   protected def client : PlaceCalendar::Client
@@ -82,7 +82,7 @@ class Place::Calendar < PlaceOS::Driver
     location = time_zone ? Time::Location.load(time_zone) : Time::Location.local
     period_start = Time.unix(period_start).in location
     period_end = Time.unix(period_end).in location
-    user_id = user_id || @service_account
+    user_id = user_id || @service_account.presence || calendar_id
 
     client.list_events(user_id, calendar_id,
       period_start: period_start,
@@ -92,7 +92,7 @@ class Place::Calendar < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def delete_event(calendar_id : String, event_id : String, user_id : String? = nil)
-    user_id = user_id || @service_account
+    user_id = user_id || @service_account.presence || calendar_id
 
     client.delete_event(user_id, event_id, calendar_id: calendar_id)
   end
@@ -103,18 +103,18 @@ class Place::Calendar < PlaceOS::Driver
     event_start : Int64,
     event_end : Int64? = nil,
     description : String = "",
-    attendees : Array(NamedTuple(name: String, email: String)) = [] of NamedTuple(name: String, email: String),
+    attendees : Array(PlaceCalendar::Event::Attendee) = [] of PlaceCalendar::Event::Attendee,
     timezone : String? = nil,
     user_id : String? = nil,
     calendar_id : String? = nil
   )
-    user_id = user_id || @service_account
+    user_id = (user_id || @service_account.presence || calendar_id).not_nil!
     calendar_id = calendar_id || user_id
 
     event = PlaceCalendar::Event.new
     event.host = calendar_id
     event.title = title
-    event.description = description
+    event.body = description
     event.timezone = timezone
     event.attendees = attendees
     event.event_start = Time.unix(event_start)
