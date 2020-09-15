@@ -44,8 +44,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.token = nil
   end
 
-  # FIXME: mark as private after testing
-  def authenticate! : Nil
+  private def authenticate! : Nil
     username = setting String, :username
     password = setting String, :password
     directory = setting?(String, :directory_id).presence
@@ -71,7 +70,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
 
   # Test service connectivity.
   @[Security(Level::Support)]
-  def check_comms : Bool
+  def check_comms
     logger.debug { "checking service connectivity" }
     if client.token
       client.get_keepalive
@@ -79,11 +78,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
     else
       client.version
       logger.warn { "service reachable, no active auth session" }
+      authenticate!
     end
-    true
   rescue e : OpenAccess::Error
     logger.error { e.message }
-    false
+    set_connected_state false
   end
 
   # Query the directories available for auth.
