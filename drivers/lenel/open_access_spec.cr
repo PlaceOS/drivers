@@ -16,7 +16,12 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
   end
 
   # Re-auth on creds update
-  settings({username: "foo", password: "bar", directory_id: "baz"})
+  settings({
+    username: "foo",
+    password: "bar",
+    directory_id: "baz",
+    application_id: ""
+  })
   expect_http_request do |req, res|
     req.method.should eq("POST")
     req.path.should eq("/authentication")

@@ -97,6 +97,13 @@ class Lenel::OpenAccess::Client
     )
   end
 
+  # Request a connection keepalive to prevent session timeout.
+  def get_keepalive : Nil
+    ~transport.get(
+      path: "/keepalive?version=1.0",
+    )
+  end
+
 
   ########
   # CRUD ops for system info

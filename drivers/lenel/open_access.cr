@@ -25,14 +25,12 @@ class Lenel::OpenAccess < PlaceOS::Driver
   end
 
   def on_load
-    schedule.every 5.minutes do
-      logger.debug { "checking service connectivity" }
-      version
-    end
+    schedule.every 5.minutes, &->check_comms
   end
 
   def on_update
     logger.debug { "settings updated" }
+    client.app_id = setting String, :application_id
     authenticate!
   end
 
@@ -46,13 +44,27 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.token = nil
   end
 
+  # Test service connectivity.
+  @[Security(Level::Support)]
+  def check_comms : Bool
+    logger.debug { "checking service connectivity" }
+    if client.token
+      client.get_keepalive
+      logger.info { "client online and authenticated" }
+    else
+      client.version
+      logger.warn { "service reachable, no active auth session" }
+    end
+    true
+  rescue e : OpenAccess::Error
+    logger.error { e.message }
+    false
+  end
+
   # Query the directories available for auth.
   @[Security(Level::Support)]
-  def directories
+  def list_directories
     client.get_directories
-  rescue e
-    logger.error { e.message }
-    raise e
   end
 
   def authenticate! : Nil
