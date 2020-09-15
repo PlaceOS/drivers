@@ -82,7 +82,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
   rescue e : OpenAccess::Error
     logger.error { e.message }
     set_connected_state false
-    raise e
   end
 
   # Query the directories available for auth.
