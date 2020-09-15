@@ -78,7 +78,14 @@ class Lenel::OpenAccess < PlaceOS::Driver
     else
       client.version
       logger.warn { "service reachable, no active auth session" }
-      queue priority: 90, name: :auth, &->authenticate!
+      queue priority: 90 do |task|
+        begin
+          authenticate!
+          task.success
+        rescue e : OpenAccess::Error
+          task.abort e.message
+        end
+      end
     end
   rescue e : OpenAccess::Error
     logger.error { e.message }
