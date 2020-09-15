@@ -102,9 +102,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     visitors = client.get_instances Lnl_Visitor, %(email="#{email}")
     logger.warn { "duplicate visitor records exist for #{email}" }
     visitors.first?
-  rescue e
-    logger.error { e.message }
-    raise e
   end
 
   # Creates a new visitor record.
@@ -119,7 +116,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     logger.debug { "creating visitor record for #{email}" }
 
     unless client.get_count(Lnl_Visitor, %(email="#{email}")).zero?
-      raise "visitor record already exists for #{email}"
+      raise ArgumentError.new "visitor record already exists for #{email}"
     end
 
     client.add_instance Lnl_Visitor, **args
