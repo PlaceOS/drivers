@@ -47,11 +47,13 @@ class Nec::Display::All < PlaceOS::Driver
   @target_audio : Audio? = nil
   @input_double_check : PlaceOS::Driver::Proxy::Scheduler? = nil
 
+  DELIMITER = 0x0D_u8
+
   def on_load
     # Communication settings
     queue.delay = 120.milliseconds
     # 0x0D (<CR> carriage return \r)
-    transport.tokenizer = Tokenizer.new(Bytes[0x0D_u8])
+    transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
     on_update
   end
 
@@ -200,39 +202,39 @@ class Nec::Display::All < PlaceOS::Driver
 
     logger.debug { "NEC LCD responded with hex #{hex}" }
 
-    command = MSG_TYPE[hex[4]]
+    command = MsgType.from_value(data[4])
 
-    case command # Check the MSG_TYPE (B, D or F)
-      when "command_reply"
-        # Power on and off
-        if hex[10..15] == "C203D6" # Means power comamnd
-          # 8..9 == "00" means no error
-          if hex[8..9] == "00"
-            power_on_delay(99) # wait until the screen has turned on before sending commands (99 == high priority)
-          else
-            return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
-          end
-        elsif hex[12..13] == "D6" # Power status response
-          # 10..11 == "00" means no error
-          if hex[10..11] == "00"
-            if hex[23] == '1' # On == 1, Off == 4
-              self[:power] = true
-            else
-              self[:power] = false
-              self[:warming] = false
-            end
-          else
-            return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
-          end
-        end
-      when "get_parameter_reply", "set_parameter_reply"
+    case command # Check the MsgType (B, D or F)
+    when .command_reply?
+      # Power on and off
+      if hex[10..15] == "C203D6" # Means power comamnd
+        # 8..9 == "00" means no error
         if hex[8..9] == "00"
-          parse_response(hex)
-        elsif data[8..9] == "BE"    # Wait response
-          return task.try &.retry("-- NEC LCD, response was a wait command")
+          power_on_delay(99) # wait until the screen has turned on before sending commands (99 == high priority)
         else
           return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
         end
+      elsif hex[12..13] == "D6" # Power status response
+        # 10..11 == "00" means no error
+        if hex[10..11] == "00"
+          if hex[23] == '1' # On == 1, Off == 4
+            self[:power] = true
+          else
+            self[:power] = false
+            self[:warming] = false
+          end
+        else
+          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+        end
+      end
+    when .get_parameter_reply?, .set_parameter_reply?
+      if hex[8..9] == "00"
+        parse_response(hex)
+      elsif data[8..9] == "BE"    # Wait response
+        return task.try &.retry("-- NEC LCD, response was a wait command")
+      else
+        return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+      end
     end
 
     task.try &.success
@@ -309,14 +311,14 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Types of messages sent to and from the LCD
-  MSG_TYPE = {
-    "command" => 'A',
-    'B' => "command_reply",
-    "get_parameter" => 'C',
-    'D' => "get_parameter_reply",
-    "set_parameter" => 'E',
-    'F' => "set_parameter_reply"
-  }
+  enum MsgType
+    Command             = 0x41 # 'A'
+    Command_reply       = 0x42 # 'B'
+    Get_parameter       = 0x43 # 'C'
+    Get_parameter_reply = 0x44 # 'D'
+    Set_parameter       = 0x45 # 'E'
+    Set_parameter_reply = 0x46 # 'F'
+  end
 
   OPERATIONS = {
     "video_input" => "0060",
@@ -354,22 +356,33 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Builds the command and creates the checksum
-  private def do_send(type : String, data : String = "", **options)
-    command = "\x02#{data}\x03"
-    command = "0*0#{MSG_TYPE[type]}#{command.size.to_s(16).upcase.rjust(2, '0')}#{command}"
-    logger.info { "command is #{command}" }
-    command = command.bytes
+  private def do_send(type : String, data : String | Bytes = Bytes.empty, **options)
+    bytes = Bytes.new(data.size + 11)
+    data = data.bytes if data.is_a?(String)
 
+    # Header
+    bytes[0] = 0x01 # SOH
+    bytes[1] = 0x30 # '0'
+    bytes[2] = 0x2A # '*'
+    bytes[3] = 0x30 # '0'
+    bytes[4] = MsgType.parse(type).value.to_u8
+    message_length = (data.size + 2).to_s(16).upcase.rjust(2, '0').bytes
+    bytes[5] = message_length[0]
+    bytes[6] = message_length[1]
+
+    # Message
+    bytes[7] = 0x02 # Start of messsage
+    data.each_with_index(8) { |b, i| bytes[i] = b }
+    bytes[8 + data.size] = 0x03 # End of message
+
+    # Checksum
     checksum = 0x00_u8
-    command.each do |b|
+    bytes[1..8 + data.size].each do |b|
       checksum = checksum ^ b
     end
-
-    bytes = Bytes.new(command.size + 3)
-    bytes[0] = 0x01
-    command.each_with_index(1) { |b, i| bytes[i] = b }
     bytes[-2] = checksum
-    bytes[-1] = 0x0D
+
+    bytes[-1] = DELIMITER
 
     send(bytes, **options)
   end
