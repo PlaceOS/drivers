@@ -333,14 +333,14 @@ class Nec::Display::All < PlaceOS::Driver
   OPERATION_CODE = OPERATIONS.merge(OPERATIONS.invert)
 
   enum Operations
-    Video_input       = 0x0060
-    Audio_input       = 0x022E
-    Volume_status     = 0x0062
-    Mute_status       = 0x008D
-    Power_on_delay    = 0x02D8
-    Contrast_status   = 0x0012
-    Brightness_status = 0x0010
-    Auto_setup        = 0x001E
+    Video_input       = 0x30303630
+    Audio_input       = 0x30323245
+    Volume_status     = 0x30303632
+    Mute_status       = 0x30303844
+    Power_on_delay    = 0x30324438
+    Contrast_status   = 0x30303132
+    Brightness_status = 0x30303130
+    Auto_setup        = 0x30303145
   end
 
   {% for name in Operations.constants.map { |n| n.downcase } %}
@@ -355,13 +355,12 @@ class Nec::Display::All < PlaceOS::Driver
 
   private def check_checksum(data : Bytes)
     checksum = 0x00_u8
-    # Loop through the second to the second last element
-    # Delimiter is removed automatically
+    # Loop through the second to the third last element
     if data.size >= 2
       data[1..-3].each do |b|
         checksum = checksum ^ b
       end
-      # Check the checksum equals the last element
+      # Check the checksum equals the second last element
       checksum == data[-2]
     else
       true
