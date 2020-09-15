@@ -64,7 +64,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     rescue e
       logger.error { "authentication failed: #{e.message}" }
       set_connected_state false
-      raise e
     end
   end
 
@@ -78,14 +77,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     else
       client.version
       logger.warn { "service reachable, no active auth session" }
-      queue priority: 90 do |task|
-        begin
-          authenticate!
-          task.success
-        rescue e : OpenAccess::Error
-          task.abort e.message
-        end
-      end
+      authenticate!
     end
   rescue e : OpenAccess::Error
     logger.error { e.message }
