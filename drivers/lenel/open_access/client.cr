@@ -78,9 +78,6 @@ class Lenel::OpenAccess::Client
     password : String,
     directory_id : String?,
   )
-    # FIXME: this is currently returning an error:
-    #   Invalid property: 'directory_id'
-    # This is being sent correctly as per the protocol guide and example within.
     ~transport.post(
       path: "/authentication?version=1.0",
       body: args.to_h.compact.to_json,
