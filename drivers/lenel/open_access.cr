@@ -44,29 +44,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.token = nil
   end
 
-  # Test service connectivity.
-  @[Security(Level::Support)]
-  def check_comms : Bool
-    logger.debug { "checking service connectivity" }
-    if client.token
-      client.get_keepalive
-      logger.info { "client online and authenticated" }
-    else
-      client.version
-      logger.warn { "service reachable, no active auth session" }
-    end
-    true
-  rescue e : OpenAccess::Error
-    logger.error { e.message }
-    false
-  end
-
-  # Query the directories available for auth.
-  @[Security(Level::Support)]
-  def list_directories
-    client.get_directories
-  end
-
+  # FIXME: mark as private after testing
   def authenticate! : Nil
     username = setting String, :username
     password = setting String, :password
@@ -89,6 +67,29 @@ class Lenel::OpenAccess < PlaceOS::Driver
       set_connected_state false
       raise e
     end
+  end
+
+  # Test service connectivity.
+  @[Security(Level::Support)]
+  def check_comms : Bool
+    logger.debug { "checking service connectivity" }
+    if client.token
+      client.get_keepalive
+      logger.info { "client online and authenticated" }
+    else
+      client.version
+      logger.warn { "service reachable, no active auth session" }
+    end
+    true
+  rescue e : OpenAccess::Error
+    logger.error { e.message }
+    false
+  end
+
+  # Query the directories available for auth.
+  @[Security(Level::Support)]
+  def list_directories
+    client.get_directories
   end
 
   # Gets the version of the attached OnGuard system.
