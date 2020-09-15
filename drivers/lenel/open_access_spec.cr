@@ -63,9 +63,7 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
       }
     }
   end
-  # FIXME: the test runner does not appear to be able to resolve this?
-  #expect_raises(Lenel::OpenAccess::Error) do
-  expect_raises(Exception) do
+  expect_raises(PlaceOS::Driver::RemoteException) do
     failing_request.get
   end
 
