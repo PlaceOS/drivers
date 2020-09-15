@@ -6,7 +6,7 @@ shards:
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
-    version: 1.5.6
+    version: 1.6.0
 
   bisect:
     git: https://github.com/spider-gazelle/bisect.git
@@ -46,7 +46,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.5.4
+    version: 2.6.1
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -94,7 +94,7 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 4.0.1
+    version: 4.1.0
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
