@@ -96,8 +96,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def power?(**options)
-    # options[:emit] = block if block_given?
-    do_send(MsgType::Command, "01D6", **options)
+    do_send(MsgType::Command, Command::Power_query, **options)
   end
 
   def switch_to(input : Input)
@@ -126,12 +125,12 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   enum Audio
-    Audio1        = 1
-    Audio2        = 2
-    Audio3        = 3
-    Hdmi          = 4
-    Tv            = 6
-    Display_port  = 7
+    Audio1       = 1
+    Audio2       = 2
+    Audio3       = 3
+    Hdmi         = 4
+    Tv           = 6
+    Display_port = 7
   end
 
   def switch_audio(input : Audio)
@@ -322,6 +321,7 @@ class Nec::Display::All < PlaceOS::Driver
     Contrast_status   = 0x0012
     Brightness_status = 0x0010
     Auto_setup        = 0x001E
+    Power_query       = 0x01D6
 
     def to_s : String
       self.value.to_s(16).upcase.rjust(4, '0')
