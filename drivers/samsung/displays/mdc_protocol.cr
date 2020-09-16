@@ -125,11 +125,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(Command::Hard_Off, 0)
   end
 
-  # TODO: figure out what block is for
-  # def power?(**options, &block)
   def power?(**options)
-    # options[:emit] = block unless block.nil?
-    do_send(Command::Panel_Mute, Bytes.empty, **options)
+    do_send(Command::Panel_Mute, Bytes.empty, **options).get
+    self[:power]
   end
 
   # Mutes audio + video
