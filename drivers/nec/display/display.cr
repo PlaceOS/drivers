@@ -259,55 +259,55 @@ class Nec::Display::All < PlaceOS::Driver
     value = data[20..23].to_i(16)
 
     case Operations.from_value(data[10..13].to_i(16))
-      when .video_input?
-        input = Inputs.from_value(value)
-        self[:input] = input
-        target_input = @target_input ||= input
-        if target_input && self[:input] != self[:target_input]
-          switch_to(target_input)
-        end
-      when .audio_input?
-        self[:audio] = Audio.from_value(value)
-        target_audio = @target_audio
-        if target_audio && self[:audio] != self[:target_audio]
-          switch_audio(target_audio)
-        end
-      when .volume_status?
-        self[:volume_max] = max
-        unless self[:audio_mute]
-          self[:volume] = value
-        end
-      when .brightness_status?
-        self[:brightness_max] = max
-        self[:brightness] = value
-      when .contrast_status?
-        self[:contrast_max] = max
-        self[:contrast] = value
-      when .mute_status?
-        self[:audio_mute] = value == 1
-        if(value == 1)
-          self[:volume] = 0
-        else
-          volume_status(60) # high priority
-        end
-      when .power_on_delay?
-        if value > 0
-          self[:warming] = true
-          schedule.in(value.seconds) do # Prevent any commands being sent until the power on delay is complete
-            power_on_delay.as(PlaceOS::Driver::Transport)
-          end
-        else
-          schedule.in(3.seconds) do # Reactive the interface once the display is online
-            self[:warming] = false # allow access to the display
-          end
-        end
-      when .auto_setup?
-        # auto_setup
-        # nothing needed to do here (we are delaying the next command by 4 seconds)
-      else
-        logger.info { "-- NEC LCD, unknown response: #{data[10..13]}" }
-        logger.info { "-- NEC LCD, full response was: #{data}" }
+    when .video_input?
+      input = Inputs.from_value(value)
+      self[:input] = input
+      target_input = @target_input ||= input
+      if target_input && self[:input] != self[:target_input]
+        switch_to(target_input)
       end
+    when .audio_input?
+      self[:audio] = Audio.from_value(value)
+      target_audio = @target_audio
+      if target_audio && self[:audio] != self[:target_audio]
+        switch_audio(target_audio)
+      end
+    when .volume_status?
+      self[:volume_max] = max
+      unless self[:audio_mute]
+        self[:volume] = value
+      end
+    when .brightness_status?
+      self[:brightness_max] = max
+      self[:brightness] = value
+    when .contrast_status?
+      self[:contrast_max] = max
+      self[:contrast] = value
+    when .mute_status?
+      self[:audio_mute] = value == 1
+      if(value == 1)
+        self[:volume] = 0
+      else
+        volume_status(60) # high priority
+      end
+    when .power_on_delay?
+      if value > 0
+        self[:warming] = true
+        schedule.in(value.seconds) do # Prevent any commands being sent until the power on delay is complete
+          power_on_delay.as(PlaceOS::Driver::Transport)
+        end
+      else
+        schedule.in(3.seconds) do # Reactive the interface once the display is online
+          self[:warming] = false # allow access to the display
+        end
+      end
+    when .auto_setup?
+      # auto_setup
+      # nothing needed to do here (we are delaying the next command by 4 seconds)
+    else
+      logger.info { "-- NEC LCD, unknown response: #{data[10..13]}" }
+      logger.info { "-- NEC LCD, full response was: #{data}" }
+    end
   end
 
   # Types of messages sent to and from the LCD
