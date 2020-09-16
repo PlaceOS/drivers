@@ -104,8 +104,7 @@ class Nec::Display::All < PlaceOS::Driver
     @target_input = input
     @target_audio = nil
 
-    data = Operations::Video_input.value.to_s(16)
-    data += input.value.to_s(16).upcase.rjust(4, '0')
+    data = Command::Video_input.to_s + input.value.to_s(16).upcase.rjust(4, '0')
 
     do_send(MsgType::Set_parameter, data, name: "input", delay: 6.seconds)
     video_input
@@ -138,8 +137,7 @@ class Nec::Display::All < PlaceOS::Driver
   def switch_audio(input : Audio)
     @target_audio = input
 
-    data = Operations::Audio_input.value.to_s(16)
-    data += input.value.to_s(16).upcase.rjust(4, '0')
+    data = Command::Audio_input.to_s + input.value.to_s(16).upcase.rjust(4, '0')
 
     do_send(MsgType::Set_parameter, data, name: "audio")
     mute_status(20) # higher status than polling commands - lower than input switching
@@ -149,31 +147,27 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def auto_adjust
-    data = Operations::Auto_setup.value.to_s(16)
-    data += "0001"
+    data = Command::Auto_setup.to_s + "0001"
     # TODO: find out if there is an equivalent for delay_on_receive
     do_send(MsgType::Set_parameter, data)#, delay_on_receive: 4.seconds)
   end
 
   def brightness(val : Int32)
-    data = Operations::Brightness_status.value.to_s(16)
-    data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+    data = Command::Brightness_status.to_s + val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
     do_send(MsgType::Set_parameter, data, name: "brightness")
     do_send(MsgType::Command, "0C", name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
-    data = Operations::Contrast_status.value.to_s(16)
-    data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+    data = Command::Contrast_status.to_s + val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
     do_send(MsgType::Set_parameter, data, name: "contrast")
     do_send(MsgType::Command, "0C", name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
-    data = Operations::Volume_status.value.to_s(16)
-    data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+    data = Command::Volume_status.to_s + val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
     do_send(MsgType::Set_parameter, data, name: "volume_status")
     do_send(MsgType::Command, "0C", name: "volume_save") # Save the settings
@@ -181,8 +175,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    data = Operations::Mute_status.value.to_s(16)
-    data += state ? "0001" : "0000"
+    data = Command::Mute_status.to_s + (state ? "0001" : "0000")
 
     do_send(MsgType::Set_parameter, data)
     logger.debug { "requested to update mute to #{state}" }
@@ -258,7 +251,7 @@ class Nec::Display::All < PlaceOS::Driver
     max = data[16..19].to_i(16)
     value = data[20..23].to_i(16)
 
-    case Operations.from_value(data[10..13].to_i(16))
+    case Command.from_value(data[10..13].to_i(16))
     when .video_input?
       input = Inputs.from_value(value)
       self[:input] = input
@@ -320,24 +313,25 @@ class Nec::Display::All < PlaceOS::Driver
     Set_parameter_reply = 0x46 # 'F'
   end
 
-  enum Operations
-    Video_input       = 0x30303630 # "0060"
-    Audio_input       = 0x30323245 # "022E"
-    Volume_status     = 0x30303632 # "0062"
-    Mute_status       = 0x30303844 # "008D"
-    Power_on_delay    = 0x30324438 # "02D8"
-    Contrast_status   = 0x30303132 # "0012"
-    Brightness_status = 0x30303130 # "0010"
-    Auto_setup        = 0x30303145 # "001E"
+  enum Command
+    Video_input       = 0x0060
+    Audio_input       = 0x022E
+    Volume_status     = 0x0062
+    Mute_status       = 0x008D
+    Power_on_delay    = 0x02D8
+    Contrast_status   = 0x0012
+    Brightness_status = 0x0010
+    Auto_setup        = 0x001E
+
+    def to_s : String
+      self.value.to_s(16).upcase.rjust(4, '0')
+    end
   end
 
-  {% for name in Operations.constants.map(&.downcase) %}
+  {% for name in Command.constants.map(&.downcase) %}
   @[Security(Level::Administrator)]
     def {{name.id}}(priority : Int32 = 0)
-      io = IO::Memory.new
-      io.write_byte(Operations.parse({{name}}))
-      data = io.to_slice
-      do_send(MsgType::Get_parameter, data, priority: priority, name: {{name.id}})
+      do_send(MsgType::Get_parameter, Command.parse({{name}}), priority: priority, name: {{name.id}})
     end
   {% end %}
 
@@ -356,10 +350,11 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Builds the command and creates the checksum
-  # data is an ascii encoded string
-  private def do_send(type : MsgType, data : String, **options)
-    bytes = Bytes.new(data.size + 11)
+  # data can be an ascii encoded string
+  private def do_send(type : MsgType, data : Command | String, **options)
+    data = data.to_s if data.is_a?(Command)
     data = data.bytes
+    bytes = Bytes.new(data.size + 11)
 
     # Header
     bytes[0] = 0x01 # SOH
