@@ -185,7 +185,12 @@ class Place::Bookings < PlaceOS::Driver
 
       booked = true
       # Up to the frontend to delete pending bookings that have past their start time
-      current_pending = true if start_time > @last_booking_started
+      if !@disable_end_meeting
+        current_pending = true if start_time > @last_booking_started
+      elsif @pending_period.to_i > 0_i64
+        pending_limit = (Time.unix(start_time) + @pending_period).to_unix
+        current_pending = true if start_time < pending_limit
+      end
 
       self[:current_booking] = booking
     else
