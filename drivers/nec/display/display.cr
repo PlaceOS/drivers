@@ -78,13 +78,13 @@ class Nec::Display::All < PlaceOS::Driver
 
     if current
       data += "0004" # 0004 = Power Off
-      do_send("command", data, name: "power", delay: 10.seconds, timeout: 10.seconds)
+      do_send(MsgType::Command, data, name: "power", delay: 10.seconds, timeout: 10.seconds)
 
       self[:power] = false
       logger.debug { "-- NEC LCD, requested to power off" }
     else
       data += "0001" # 0001 = Power Off
-      do_send("command", data, name: "power", delay: 5.seconds)
+      do_send(MsgType::Command, data, name: "power", delay: 5.seconds)
       self[:warming] = true
       self[:power] = true
       logger.debug { "-- NEC LCD, requested to power on" }
@@ -97,7 +97,7 @@ class Nec::Display::All < PlaceOS::Driver
 
   def power?(**options)
     # options[:emit] = block if block_given?
-    do_send("command", "01D6", **options)
+    do_send(MsgType::Command, "01D6", **options)
   end
 
   def switch_to(input : Input)
@@ -107,7 +107,7 @@ class Nec::Display::All < PlaceOS::Driver
     data = Operations::Video_input.value.to_s(16)
     data += input.value.to_s(16).upcase.rjust(4, '0')
 
-    do_send("set parameter", data, name: "input", delay: 6.seconds)
+    do_send(MsgType::Set_parameter, data, name: "input", delay: 6.seconds)
     video_input
 
     # Double check the input again!
@@ -141,7 +141,7 @@ class Nec::Display::All < PlaceOS::Driver
     data = Operations::Audio_input.value.to_s(16)
     data += input.value.to_s(16).upcase.rjust(4, '0')
 
-    do_send("set parameter", data, name: "audio")
+    do_send(MsgType::Set_parameter, data, name: "audio")
     mute_status(20) # higher status than polling commands - lower than input switching
     volume_status(20)
 
@@ -152,31 +152,31 @@ class Nec::Display::All < PlaceOS::Driver
     data = Operations::Auto_setup.value.to_s(16)
     data += "0001"
     # TODO: find out if there is an equivalent for delay_on_receive
-    do_send("set parameter", data)#, delay_on_receive: 4.seconds)
+    do_send(MsgType::Set_parameter, data)#, delay_on_receive: 4.seconds)
   end
 
   def brightness(val : Int32)
     data = Operations::Brightness_status.value.to_s(16)
     data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
-    do_send("set_parameter", data, name: "brightness")
-    do_send("command", "0C", name: "brightness_save") # Save the settings
+    do_send(MsgType::Set_parameter, data, name: "brightness")
+    do_send(MsgType::Command, "0C", name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
     data = Operations::Contrast_status.value.to_s(16)
     data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
-    do_send("set_parameter", data, name: "contrast")
-    do_send("command", "0C", name: "contrast_save") # Save the settings
+    do_send(MsgType::Set_parameter, data, name: "contrast")
+    do_send(MsgType::Command, "0C", name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
     data = Operations::Volume_status.value.to_s(16)
     data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
-    do_send("set_parameter", data, name: "volume_status")
-    do_send("command", "0C", name: "volume_save") # Save the settings
+    do_send(MsgType::Set_parameter, data, name: "volume_status")
+    do_send(MsgType::Command, "0C", name: "volume_save") # Save the settings
     self[:audio_mute] = false # audio is unmuted when the volume is set
   end
 
@@ -184,7 +184,7 @@ class Nec::Display::All < PlaceOS::Driver
     data = Operations::Mute_status.value.to_s(16)
     data += state ? "0001" : "0000"
 
-    do_send("set_parameter", data)
+    do_send(MsgType::Set_parameter, data)
     logger.debug { "requested to update mute to #{state}" }
   end
 
@@ -337,7 +337,7 @@ class Nec::Display::All < PlaceOS::Driver
       io = IO::Memory.new
       io.write_byte(Operations.parse({{name}}))
       data = io.to_slice
-      do_send(:get_parameter, data, priority: priority, name: {{name.id}})
+      do_send(MsgType::Get_parameter, data, priority: priority, name: {{name.id}})
     end
   {% end %}
 
@@ -356,7 +356,8 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Builds the command and creates the checksum
-  private def do_send(type : String, data : String, **options)
+  # data is an ascii encoded string
+  private def do_send(type : MsgType, data : String, **options)
     bytes = Bytes.new(data.size + 11)
     data = data.bytes if data.is_a?(String)
 
@@ -365,7 +366,7 @@ class Nec::Display::All < PlaceOS::Driver
     bytes[1] = 0x30 # '0'
     bytes[2] = 0x2A # '*'
     bytes[3] = 0x30 # '0'
-    bytes[4] = MsgType.parse(type).value.to_u8
+    bytes[4] = type.value.to_u8
     message_length = (data.size + 2).to_s(16).upcase.rjust(2, '0').bytes
     bytes[5] = message_length[0]
     bytes[6] = message_length[1]
