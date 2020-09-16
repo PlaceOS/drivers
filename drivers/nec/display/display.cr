@@ -194,46 +194,46 @@ class Nec::Display::All < PlaceOS::Driver
 
   # LCD Response code
   def received(data, task)
-    hex = String.new(data)
+    ascii_string = String.new(data)
     # Check for valid response
     if !check_checksum(data)
-      return task.try &.retry("-- NEC LCD, invalid response was: #{hex}")
+      return task.try &.retry("-- NEC LCD, invalid response was: #{ascii_string}")
     end
 
-    logger.debug { "NEC LCD responded with hex #{hex}" }
+    logger.debug { "NEC LCD responded with ascii_string #{ascii_string}" }
 
     command = MsgType.from_value(data[4])
 
     case command # Check the MsgType (B, D or F)
     when .command_reply?
       # Power on and off
-      if hex[10..15] == "C203D6" # Means power comamnd
+      if ascii_string[10..15] == "C203D6" # Means power comamnd
         # 8..9 == "00" means no error
-        if hex[8..9] == "00"
+        if ascii_string[8..9] == "00"
           power_on_delay(99) # wait until the screen has turned on before sending commands (99 == high priority)
         else
-          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
         end
-      elsif hex[12..13] == "D6" # Power status response
+      elsif ascii_string[12..13] == "D6" # Power status response
         # 10..11 == "00" means no error
-        if hex[10..11] == "00"
-          if hex[23] == '1' # On == 1, Off == 4
+        if ascii_string[10..11] == "00"
+          if ascii_string[23] == '1' # On == 1, Off == 4
             self[:power] = true
           else
             self[:power] = false
             self[:warming] = false
           end
         else
-          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
         end
       end
     when .get_parameter_reply?, .set_parameter_reply?
-      if hex[8..9] == "00"
-        parse_response(hex)
-      elsif hex[8..9] == "BE"    # Wait response
+      if ascii_string[8..9] == "00"
+        parse_response(ascii_string)
+      elsif ascii_string[8..9] == "BE"    # Wait response
         return task.try &.retry("-- NEC LCD, response was a wait command")
       else
-        return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{hex}")
+        return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
       end
     end
 
@@ -321,14 +321,14 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   enum Operations
-    Video_input       = 0x30303630
-    Audio_input       = 0x30323245
-    Volume_status     = 0x30303632
-    Mute_status       = 0x30303844
-    Power_on_delay    = 0x30324438
-    Contrast_status   = 0x30303132
-    Brightness_status = 0x30303130
-    Auto_setup        = 0x30303145
+    Video_input       = 0x30303630 # "0060"
+    Audio_input       = 0x30323245 # "022E"
+    Volume_status     = 0x30303632 # "0062"
+    Mute_status       = 0x30303844 # "008D"
+    Power_on_delay    = 0x30324438 # "02D8"
+    Contrast_status   = 0x30303132 # "0012"
+    Brightness_status = 0x30303130 # "0010"
+    Auto_setup        = 0x30303145 # "001E"
   end
 
   {% for name in Operations.constants.map(&.downcase) %}
@@ -356,7 +356,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Builds the command and creates the checksum
-  private def do_send(type : String, data : String | Bytes = Bytes[], **options)
+  private def do_send(type : String, data : String, **options)
     bytes = Bytes.new(data.size + 11)
     data = data.bytes if data.is_a?(String)
 
