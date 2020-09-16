@@ -27,6 +27,10 @@ class Nec::Display::All < PlaceOS::Driver
     Hdmi2        = 18
     Hdmi3        = 130
     Usb          = 135
+
+    def to_s : String
+      Nec::Display::All.format_value(self.value)
+    end
   end
   include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
@@ -103,7 +107,7 @@ class Nec::Display::All < PlaceOS::Driver
     @target_input = input
     @target_audio = nil
 
-    data = Command::Video_input.to_s + input.value.to_s(16).upcase.rjust(4, '0')
+    data = Command::Video_input.to_s + input.to_s
 
     do_send(MsgType::Set_parameter, data, name: "input", delay: 6.seconds)
     video_input
@@ -131,12 +135,16 @@ class Nec::Display::All < PlaceOS::Driver
     Hdmi         = 4
     Tv           = 6
     Display_port = 7
+
+    def to_s : String
+      Nec::Display::All.format_value(self.value)
+    end
   end
 
   def switch_audio(input : Audio)
     @target_audio = input
 
-    data = Command::Audio_input.to_s + input.value.to_s(16).upcase.rjust(4, '0')
+    data = Command::Audio_input.to_s + input.to_s
 
     do_send(MsgType::Set_parameter, data, name: "audio")
     mute_status(20) # higher status than polling commands - lower than input switching
@@ -152,21 +160,21 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def brightness(val : Int32)
-    data = Command::Brightness_status.to_s + val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+    data = Command::Brightness_status.to_s + self.class.format_value(val.clamp(0, 100))
 
     do_send(MsgType::Set_parameter, data, name: "brightness")
     do_send(MsgType::Command, "0C", name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
-    data = Command::Contrast_status.to_s + val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+    data = Command::Contrast_status.to_s + self.class.format_value(val.clamp(0, 100))
 
     do_send(MsgType::Set_parameter, data, name: "contrast")
     do_send(MsgType::Command, "0C", name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
-    data = Command::Volume_status.to_s + val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
+    data = Command::Volume_status.to_s + self.class.format_value(val.clamp(0, 100))
 
     do_send(MsgType::Set_parameter, data, name: "volume_status")
     do_send(MsgType::Command, "0C", name: "volume_save") # Save the settings
@@ -324,8 +332,12 @@ class Nec::Display::All < PlaceOS::Driver
     Power_query       = 0x01D6
 
     def to_s : String
-      self.value.to_s(16).upcase.rjust(4, '0')
+      Nec::Display::All.format_value(self.value)
     end
+  end
+
+  def self.format_value(value : Int, length : Int = 4) : String
+    value.to_s(16).upcase.rjust(length, '0')
   end
 
   {% for name in Command.constants.map(&.downcase) %}
@@ -362,7 +374,7 @@ class Nec::Display::All < PlaceOS::Driver
     bytes[2] = 0x2A # '*'
     bytes[3] = 0x30 # '0'
     bytes[4] = type.value.to_u8
-    message_length = (data.size + 2).to_s(16).upcase.rjust(2, '0').bytes
+    message_length = self.class.format_value(data.size + 2, 2).bytes
     bytes[5] = message_length[0]
     bytes[6] = message_length[1]
 
