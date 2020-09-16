@@ -322,13 +322,13 @@ class Nec::Display::All < PlaceOS::Driver
 
   OPERATIONS = {
     "video_input" => "0060",
-    "audio_input" => "022e",
+    "audio_input" => "022E",
     "volume_status" => "0062",
-    "mute_status" => "008d",
-    "power_on_delay" => "02d8",
+    "mute_status" => "008D",
+    "power_on_delay" => "02D8",
     "contrast_status" => "0012",
     "brightness_status" => "0010",
-    "auto_setup" => "001e"
+    "auto_setup" => "001E"
   }
   OPERATION_CODE = OPERATIONS.merge(OPERATIONS.invert)
 
