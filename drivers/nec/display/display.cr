@@ -359,7 +359,7 @@ class Nec::Display::All < PlaceOS::Driver
   # data is an ascii encoded string
   private def do_send(type : MsgType, data : String, **options)
     bytes = Bytes.new(data.size + 11)
-    data = data.bytes if data.is_a?(String)
+    data = data.bytes
 
     # Header
     bytes[0] = 0x01 # SOH
