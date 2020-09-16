@@ -104,7 +104,7 @@ class Nec::Display::All < PlaceOS::Driver
     @target_input = input
     @target_audio = nil
 
-    data = OPERATIONS[:video_input]
+    data = Operations::Video_input.value.to_s(16)
     data += input.value.to_s(16).upcase.rjust(4, '0')
 
     do_send("set parameter", data, name: "input", delay: 6.seconds)
@@ -138,7 +138,7 @@ class Nec::Display::All < PlaceOS::Driver
   def switch_audio(input : Audio)
     @target_audio = input
 
-    data = OPERATIONS[:audio_input]
+    data = Operations::Audio_input.value.to_s(16)
     data += input.value.to_s(16).upcase.rjust(4, '0')
 
     do_send("set parameter", data, name: "audio")
@@ -149,14 +149,14 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def auto_adjust
-    data = OPERATIONS[:audio_setup]
+    data = Operations::Auto_setup.value.to_s(16)
     data += "0001"
     # TODO: find out if there is an equivalent for delay_on_receive
     do_send("set parameter", data)#, delay_on_receive: 4.seconds)
   end
 
   def brightness(val : Int32)
-    data = OPERATIONS[:brightness_status]
+    data = Operations::Brightness_status.value.to_s(16)
     data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
     do_send("set_parameter", data, name: "brightness")
@@ -164,7 +164,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def contrast(val : Int32)
-    data = OPERATIONS[:contrast_status]
+    data = Operations::Contrast_status.value.to_s(16)
     data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
     do_send("set_parameter", data, name: "contrast")
@@ -172,7 +172,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def volume(val : Int32)
-    data = OPERATIONS[:volume_status]
+    data = Operations::Volume_status.value.to_s(16)
     data += val.clamp(0, 100).to_s(16).upcase.rjust(4, '0')
 
     do_send("set_parameter", data, name: "volume_status")
@@ -181,7 +181,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    data = OPERATIONS[:mute_status]
+    data = Operations::Mute_status.value.to_s(16)
     data += state ? "0001" : "0000"
 
     do_send("set_parameter", data)
@@ -258,39 +258,39 @@ class Nec::Display::All < PlaceOS::Driver
     max = data[16..19].to_i(16)
     value = data[20..23].to_i(16)
 
-    case OPERATION_CODE[data[10..13]]
-      when :video_input
+    case Operations.from_value(data[10..13].to_i(16))
+      when .video_input?
         input = Inputs.from_value(value)
         self[:input] = input
         target_input = @target_input ||= input
         if target_input && self[:input] != self[:target_input]
           switch_to(target_input)
         end
-      when :audio_input
+      when .audio_input?
         self[:audio] = Audio.from_value(value)
         target_audio = @target_audio
         if target_audio && self[:audio] != self[:target_audio]
           switch_audio(target_audio)
         end
-      when :volume_status
+      when .volume_status?
         self[:volume_max] = max
         unless self[:audio_mute]
           self[:volume] = value
         end
-      when :brightness_status
+      when .brightness_status?
         self[:brightness_max] = max
         self[:brightness] = value
-      when :contrast_status
+      when .contrast_status?
         self[:contrast_max] = max
         self[:contrast] = value
-      when :mute_status
+      when .mute_status?
         self[:audio_mute] = value == 1
         if(value == 1)
           self[:volume] = 0
         else
           volume_status(60) # high priority
         end
-      when :power_on_delay
+      when .power_on_delay?
         if value > 0
           self[:warming] = true
           schedule.in(value.seconds) do # Prevent any commands being sent until the power on delay is complete
@@ -301,7 +301,7 @@ class Nec::Display::All < PlaceOS::Driver
             self[:warming] = false # allow access to the display
           end
         end
-      when :auto_setup
+      when .auto_setup?
         # auto_setup
         # nothing needed to do here (we are delaying the next command by 4 seconds)
       else
@@ -320,18 +320,6 @@ class Nec::Display::All < PlaceOS::Driver
     Set_parameter_reply = 0x46 # 'F'
   end
 
-  OPERATIONS = {
-    "video_input" => "0060",
-    "audio_input" => "022E",
-    "volume_status" => "0062",
-    "mute_status" => "008D",
-    "power_on_delay" => "02D8",
-    "contrast_status" => "0012",
-    "brightness_status" => "0010",
-    "auto_setup" => "001E"
-  }
-  OPERATION_CODE = OPERATIONS.merge(OPERATIONS.invert)
-
   enum Operations
     Video_input       = 0x30303630
     Audio_input       = 0x30323245
@@ -343,7 +331,7 @@ class Nec::Display::All < PlaceOS::Driver
     Auto_setup        = 0x30303145
   end
 
-  {% for name in Operations.constants.map { |n| n.downcase } %}
+  {% for name in Operations.constants.map(&.downcase) %}
   @[Security(Level::Administrator)]
     def {{name.id}}(priority : Int32 = 0)
       io = IO::Memory.new
