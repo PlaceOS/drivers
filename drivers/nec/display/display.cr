@@ -10,23 +10,23 @@ class Nec::Display::All < PlaceOS::Driver
   include Interface::AudioMuteable
 
   enum Inputs
-    Vga          = 1
-    Rgbhv        = 2
-    Dvi          = 3
-    Hdmi_set     = 4
-    Video1       = 5
-    Video2       = 6
-    Svideo       = 7
-    Tuner        = 9
-    Tv           = 10
-    Dvd1         = 12
-    Option       = 13
-    Dvd2         = 14
-    Display_port = 15
-    Hdmi         = 17
-    Hdmi2        = 18
-    Hdmi3        = 130
-    Usb          = 135
+    Vga         = 1
+    Rgbhv       = 2
+    Dvi         = 3
+    HdmiSet     = 4
+    Video1      = 5
+    Video2      = 6
+    Svideo      = 7
+    Tuner       = 9
+    Tv          = 10
+    Dvd1        = 12
+    Optio       = 13
+    Dvd2        = 14
+    DisplayPort = 15
+    Hdmi        = 17
+    Hdmi2       = 18
+    Hdmi3       = 130
+    Usb         = 135
 
     def to_s : String
       Nec::Display::All.format_value(self.value)
@@ -100,16 +100,16 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def power?(**options)
-    do_send(MsgType::Command, Command::Power_query, **options)
+    do_send(MsgType::Command, Command::PowerQuery, **options)
   end
 
   def switch_to(input : Input)
     @target_input = input
     @target_audio = nil
 
-    data = Command::Video_input.to_s + input.to_s
+    data = Command::VideoInput.to_s + input.to_s
 
-    do_send(MsgType::Set_parameter, data, name: "input", delay: 6.seconds)
+    do_send(MsgType::SetParameter, data, name: "input", delay: 6.seconds)
     video_input
 
     # Double check the input again!
@@ -129,12 +129,12 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   enum Audio
-    Audio1       = 1
-    Audio2       = 2
-    Audio3       = 3
-    Hdmi         = 4
-    Tv           = 6
-    Display_port = 7
+    Audio1      = 1
+    Audio2      = 2
+    Audio3      = 3
+    Hdmi        = 4
+    Tv          = 6
+    DisplayPort = 7
 
     def to_s : String
       Nec::Display::All.format_value(self.value)
@@ -144,9 +144,9 @@ class Nec::Display::All < PlaceOS::Driver
   def switch_audio(input : Audio)
     @target_audio = input
 
-    data = Command::Audio_input.to_s + input.to_s
+    data = Command::AudioInput.to_s + input.to_s
 
-    do_send(MsgType::Set_parameter, data, name: "audio")
+    do_send(MsgType::SetParameter, data, name: "audio")
     mute_status(20) # higher status than polling commands - lower than input switching
     volume_status(20)
 
@@ -154,37 +154,37 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def auto_adjust
-    data = Command::Auto_setup.to_s + "0001"
+    data = Command::AutoSetup.to_s + "0001"
     # TODO: find out if there is an equivalent for delay_on_receive
-    do_send(MsgType::Set_parameter, data)#, delay_on_receive: 4.seconds)
+    do_send(MsgType::SetParameter, data)#, delay_on_receive: 4.seconds)
   end
 
   def brightness(val : Int32)
-    data = Command::Brightness_status.to_s + self.class.format_value(val.clamp(0, 100))
+    data = Command::BrightnessStatus.to_s + self.class.format_value(val.clamp(0, 100))
 
-    do_send(MsgType::Set_parameter, data, name: "brightness")
+    do_send(MsgType::SetParameter, data, name: "brightness")
     do_send(MsgType::Command, "0C", name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
-    data = Command::Contrast_status.to_s + self.class.format_value(val.clamp(0, 100))
+    data = Command::ContrastStatus.to_s + self.class.format_value(val.clamp(0, 100))
 
-    do_send(MsgType::Set_parameter, data, name: "contrast")
+    do_send(MsgType::SetParameter, data, name: "contrast")
     do_send(MsgType::Command, "0C", name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
-    data = Command::Volume_status.to_s + self.class.format_value(val.clamp(0, 100))
+    data = Command::VolumeStatus.to_s + self.class.format_value(val.clamp(0, 100))
 
-    do_send(MsgType::Set_parameter, data, name: "volume_status")
+    do_send(MsgType::SetParameter, data, name: "volume_status")
     do_send(MsgType::Command, "0C", name: "volume_save") # Save the settings
     self[:audio_mute] = false # audio is unmuted when the volume is set
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    data = Command::Mute_status.to_s + (state ? "0001" : "0000")
+    data = Command::MuteStatus.to_s + (state ? "0001" : "0000")
 
-    do_send(MsgType::Set_parameter, data)
+    do_send(MsgType::SetParameter, data)
     logger.debug { "requested to update mute to #{state}" }
   end
 
@@ -312,24 +312,24 @@ class Nec::Display::All < PlaceOS::Driver
 
   # Types of messages sent to and from the LCD
   enum MsgType
-    Command             = 0x41 # 'A'
-    Command_reply       = 0x42 # 'B'
-    Get_parameter       = 0x43 # 'C'
-    Get_parameter_reply = 0x44 # 'D'
-    Set_parameter       = 0x45 # 'E'
-    Set_parameter_reply = 0x46 # 'F'
+    Command           = 0x41 # 'A'
+    CommandReply      = 0x42 # 'B'
+    GetParameter      = 0x43 # 'C'
+    GetParameterReply = 0x44 # 'D'
+    SetParameter      = 0x45 # 'E'
+    SetParameterReply = 0x46 # 'F'
   end
 
   enum Command
-    Video_input       = 0x0060
-    Audio_input       = 0x022E
-    Volume_status     = 0x0062
-    Mute_status       = 0x008D
-    Power_on_delay    = 0x02D8
-    Contrast_status   = 0x0012
-    Brightness_status = 0x0010
-    Auto_setup        = 0x001E
-    Power_query       = 0x01D6
+    VideoInput       = 0x0060
+    AudioInput       = 0x022E
+    VolumeStatus     = 0x0062
+    MuteStatus       = 0x008D
+    PowerOnDelay     = 0x02D8
+    ContrastStatus   = 0x0012
+    BrightnessStatus = 0x0010
+    AutoSetup        = 0x001E
+    PowerQuery       = 0x01D6
 
     def to_s : String
       Nec::Display::All.format_value(self.value)
@@ -343,7 +343,7 @@ class Nec::Display::All < PlaceOS::Driver
   {% for name in Command.constants.map(&.downcase) %}
   @[Security(Level::Administrator)]
     def {{name.id}}(priority : Int32 = 0)
-      do_send(MsgType::Get_parameter, Command.parse({{name}}), priority: priority, name: {{name.id}})
+      do_send(MsgType::GetParameter, Command.parse({{name}}), priority: priority, name: {{name.id}})
     end
   {% end %}
 
