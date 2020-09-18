@@ -9,7 +9,7 @@ class Nec::Display::All < PlaceOS::Driver
   include Interface::Powerable
   include Interface::AudioMuteable
 
-  enum Inputs
+  enum Input
     Vga         = 1
     Rgbhv       = 2
     Dvi         = 3
@@ -32,7 +32,7 @@ class Nec::Display::All < PlaceOS::Driver
       Nec::Display::All.format_value(self.value)
     end
   end
-  include PlaceOS::Driver::Interface::InputSelection(Inputs)
+  include PlaceOS::Driver::Interface::InputSelection(Input)
 
   # Discovery Information
   tcp_port 7142
@@ -245,7 +245,7 @@ class Nec::Display::All < PlaceOS::Driver
 
     case Command.from_value(data[10..13].to_i(16))
     when .video_input?
-      input = Inputs.from_value(value)
+      input = Input.from_value(value)
       self[:input] = input
       target_input = @target_input ||= input
       if target_input && self[:input] != self[:target_input]
