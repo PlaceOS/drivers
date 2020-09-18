@@ -46,7 +46,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.6.1
+    version: 2.6.4
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -102,7 +102,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.11
+    version: 3.5.12
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -138,7 +138,7 @@ shards:
 
   rwlock:
     git: https://github.com/spider-gazelle/readers-writer.git
-    version: 1.0.5
+    version: 1.0.6
 
   simple_retry:
     git: https://github.com/spider-gazelle/simple_retry.git
