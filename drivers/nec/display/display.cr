@@ -337,7 +337,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def self.format_value(value : Int, length : Int = 4) : String
-    value.to_s(16).upcase.rjust(length, '0')
+    value.to_s(16, true).rjust(length, '0')
   end
 
   {% for name in Command.constants.map(&.underscore) %}
