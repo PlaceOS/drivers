@@ -109,23 +109,9 @@ class Nec::Display::All < PlaceOS::Driver
 
     data = Command::VideoInput.to_s + input.to_s
 
+    logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
     do_send(MsgType::SetParameter, data, name: "input", delay: 6.seconds)
     video_input
-
-    # Double check the input again!
-    # @input_double_check.cancel if @input_double_check
-    # @input_double_check = schedule.in(4.seconds) do
-    #   @input_double_check = nil
-    #   video_input
-    # end
-    # TODO: check if the below is equivalent to what's above
-    @input_double_check.try &.terminate
-    schedule.in(4.seconds) do
-      @input_double_check = nil
-      video_input.as(PlaceOS::Driver::Transport)
-    end
-
-    logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
   end
 
   enum Audio
@@ -146,11 +132,10 @@ class Nec::Display::All < PlaceOS::Driver
 
     data = Command::AudioInput.to_s + input.to_s
 
+    logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
     do_send(MsgType::SetParameter, data, name: "audio")
     mute_status(20) # higher status than polling commands - lower than input switching
     volume_status(20)
-
-    logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
   end
 
   def auto_adjust
@@ -184,8 +169,8 @@ class Nec::Display::All < PlaceOS::Driver
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
     data = Command::MuteStatus.to_s + (state ? "0001" : "0000")
 
-    do_send(MsgType::SetParameter, data)
     logger.debug { "requested to update mute to #{state}" }
+    do_send(MsgType::SetParameter, data)
   end
 
   def unmute_audio
