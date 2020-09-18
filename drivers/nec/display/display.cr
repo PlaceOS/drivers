@@ -325,10 +325,10 @@ class Nec::Display::All < PlaceOS::Driver
     value.to_s(16, true).rjust(length, '0')
   end
 
-  {% for name in Command.constants.map(&.underscore) %}
-  @[Security(Level::Administrator)]
-    def {{name.id}}(priority : Int32 = 0)
-      do_send(MsgType::GetParameter, Command.parse({{name}}), priority: priority, name: {{name.id}})
+  {% for name in Command.constants %}
+    @[Security(Level::Administrator)]
+    def {{name.id.underscore}}(priority : Int32 = 0)
+      do_send(MsgType::GetParameter, Command::{{name.id}}, priority: priority, name: {{name.id.underscore}})
     end
   {% end %}
 
