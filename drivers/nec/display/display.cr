@@ -20,7 +20,7 @@ class Nec::Display::All < PlaceOS::Driver
     Tuner       = 9
     Tv          = 10
     Dvd1        = 12
-    Optio       = 13
+    Option      = 13
     Dvd2        = 14
     DisplayPort = 15
     Hdmi        = 17
@@ -310,7 +310,7 @@ class Nec::Display::All < PlaceOS::Driver
     AudioInput       = 0x022E
     VolumeStatus     = 0x0062
     MuteStatus       = 0x008D
-    PowerOnDelay    = 0x02D8
+    PowerOnDelay     = 0x02D8
     ContrastStatus   = 0x0012
     BrightnessStatus = 0x0010
     AutoSetup        = 0x001E
