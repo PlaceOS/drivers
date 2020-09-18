@@ -77,21 +77,22 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def power(state : Bool)
+    # Do nothing if already in desired state
+    return if self[:power]? == state
     data = "C203D6"
-    current = self[:power]?
 
-    if current
+    if state
       data += "0004" # 0004 = Power Off
+      logger.debug { "-- NEC LCD, requested to power off" }
       do_send(MsgType::Command, data, name: "power", delay: 10.seconds, timeout: 10.seconds)
 
       self[:power] = false
-      logger.debug { "-- NEC LCD, requested to power off" }
     else
       data += "0001" # 0001 = Power Off
+      logger.debug { "-- NEC LCD, requested to power on" }
       do_send(MsgType::Command, data, name: "power", delay: 5.seconds)
       self[:warming] = true
       self[:power] = true
-      logger.debug { "-- NEC LCD, requested to power on" }
 
       power_on_delay
       mute_status(20)
