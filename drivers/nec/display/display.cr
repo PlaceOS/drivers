@@ -100,14 +100,14 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def power?(**options)
-    do_send(MsgType::Command, Command::PowerQuery, **options)
+    do_send(MsgType::Command, Command::Power_Query, **options)
   end
 
   def switch_to(input : Input)
     @target_input = input
     @target_audio = nil
 
-    data = Command::VideoInput.to_s + input.to_s
+    data = Command::Video_Input.to_s + input.to_s
 
     do_send(MsgType::SetParameter, data, name: "input", delay: 6.seconds)
     video_input
@@ -144,7 +144,7 @@ class Nec::Display::All < PlaceOS::Driver
   def switch_audio(input : Audio)
     @target_audio = input
 
-    data = Command::AudioInput.to_s + input.to_s
+    data = Command::Audio_Input.to_s + input.to_s
 
     do_send(MsgType::SetParameter, data, name: "audio")
     mute_status(20) # higher status than polling commands - lower than input switching
@@ -154,27 +154,27 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def auto_adjust
-    data = Command::AutoSetup.to_s + "0001"
+    data = Command::Auto_Setup.to_s + "0001"
     # TODO: find out if there is an equivalent for delay_on_receive
     do_send(MsgType::SetParameter, data)#, delay_on_receive: 4.seconds)
   end
 
   def brightness(val : Int32)
-    data = Command::BrightnessStatus.to_s + self.class.format_value(val.clamp(0, 100))
+    data = Command::Brightness_Status.to_s + self.class.format_value(val.clamp(0, 100))
 
     do_send(MsgType::SetParameter, data, name: "brightness")
     do_send(MsgType::Command, "0C", name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
-    data = Command::ContrastStatus.to_s + self.class.format_value(val.clamp(0, 100))
+    data = Command::Contrast_Status.to_s + self.class.format_value(val.clamp(0, 100))
 
     do_send(MsgType::SetParameter, data, name: "contrast")
     do_send(MsgType::Command, "0C", name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
-    data = Command::VolumeStatus.to_s + self.class.format_value(val.clamp(0, 100))
+    data = Command::Volume_Status.to_s + self.class.format_value(val.clamp(0, 100))
 
     do_send(MsgType::SetParameter, data, name: "volume_status")
     do_send(MsgType::Command, "0C", name: "volume_save") # Save the settings
@@ -182,7 +182,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    data = Command::MuteStatus.to_s + (state ? "0001" : "0000")
+    data = Command::Mute_Status.to_s + (state ? "0001" : "0000")
 
     do_send(MsgType::SetParameter, data)
     logger.debug { "requested to update mute to #{state}" }
@@ -321,15 +321,15 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   enum Command
-    VideoInput       = 0x0060
-    AudioInput       = 0x022E
-    VolumeStatus     = 0x0062
-    MuteStatus       = 0x008D
-    PowerOnDelay     = 0x02D8
-    ContrastStatus   = 0x0012
-    BrightnessStatus = 0x0010
-    AutoSetup        = 0x001E
-    PowerQuery       = 0x01D6
+    Video_Input       = 0x0060
+    Audio_Input       = 0x022E
+    Volume_Status     = 0x0062
+    Mute_Status       = 0x008D
+    Power_On_Delay    = 0x02D8
+    Contrast_Status   = 0x0012
+    Brightness_Status = 0x0010
+    Auto_Setup        = 0x001E
+    Power_Query       = 0x01D6
 
     def to_s : String
       Nec::Display::All.format_value(self.value)
