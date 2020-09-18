@@ -56,7 +56,6 @@ class Nec::Display::All < PlaceOS::Driver
   def on_load
     # Communication settings
     queue.delay = 120.milliseconds
-    # 0x0D (<CR> carriage return \r)
     transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
     on_update
   end
