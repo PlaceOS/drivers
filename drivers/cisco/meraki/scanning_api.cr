@@ -16,8 +16,8 @@ module Cisco::Meraki
   class Location
     include JSON::Serializable
 
-    property x : Float64
-    property y : Float64
+    property x : Float64 | String | Nil
+    property y : Float64 | String | Nil
     property lng : Float64?
     property lat : Float64?
     property variance : Float64
@@ -36,6 +36,30 @@ module Cisco::Meraki
 
     @[JSON::Field(key: "rssiRecords")]
     property rssi_records : Array(RSSI)
+
+    def x!
+      get_x.not_nil!
+    end
+
+    def y!
+      get_y.not_nil!
+    end
+
+    def get_x : Float64?
+      if tmp = x
+        if tmp.is_a?(Float64)
+          tmp
+        end
+      end
+    end
+
+    def get_y : Float64?
+      if tmp = y
+        if tmp.is_a?(Float64)
+          tmp
+        end
+      end
+    end
   end
 
   class LatestRecord
