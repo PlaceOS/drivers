@@ -185,7 +185,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # remove junk
     locations = locations.reject do |loc|
-      loc.variance > @maximum_uncertainty || loc.time < ignore_older
+      loc.get_x.nil? || loc.variance > @maximum_uncertainty || loc.time < ignore_older
     end
 
     return existing if locations.empty?
@@ -231,10 +231,10 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         # Average of the confidence factors
         average_multiplier = (confidence_factor + time_factor) / 2.0
 
-        new_x = new_loc.x
-        new_y = new_loc.y
-        old_x = location.x
-        old_y = location.y
+        new_x = new_loc.x!
+        new_y = new_loc.y!
+        old_x = location.x!
+        old_y = location.y!
 
         # 7.5 =   5   + ((  10  -  5   ) * 0.5)
         new_x = old_x + ((new_x - old_x) * average_multiplier)
