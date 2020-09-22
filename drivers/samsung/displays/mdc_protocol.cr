@@ -115,7 +115,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def hard_off
-    do_send(Command::Panel_Mute, 0) if self[:power]?
+    do_send(Command::Panel_Mute, 0) if power = self[:power]?
     do_send(Command::Hard_Off, 0)
   end
 
@@ -159,7 +159,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def unmute_audio
-    if self[:audio_mute]?
+    if audio_mute = self[:audio_mute]?
       self[:audio_mute] = false
       volume(@previous_volume)
     end
@@ -191,8 +191,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def do_poll
+    hard_off = self[:hard_off]?
     do_send(Command::Status, Bytes.empty, priority: 0)
-    power? unless self[:hard_off]?
+    power? unless hard_off
   end
 
   DEVICE_SETTINGS = {
@@ -278,7 +279,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         self[:input] = Inputs.from_value(value).to_s
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
-        unless self[:screen_split]
+        unless screen_split = self[:screen_split]?
           input_target = @input_target
           @input_stable = self[:input] == input_target
           if input_target
@@ -288,8 +289,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       when .speaker?
         self[:speaker] = SpeakerModes.from_value(value).to_s
       when .hard_off?
-        self[:hard_off] = value == 0
-        self[:power] = false if self[:hard_off]
+        hard_off = value == 0
+        unless was_off = self[:hard_off]?
+          self[:hard_off] = hard_off
+          self[:power] = false if hard_off
+        end
       when .screen_split?
         self[:screen_split] = value >= 0
       when .software_version?
