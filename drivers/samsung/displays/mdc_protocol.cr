@@ -83,7 +83,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def connected
-    do_device_config unless hard_off = self[:hard_off]?
+    do_device_config unless (hard_off = self[:hard_off]?) && hard_off.as_bool?
 
     schedule.every(30.seconds, true) do
       do_poll
@@ -115,7 +115,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def hard_off
-    do_send(Command::Panel_Mute, 0) if power = self[:power]?
+    do_send(Command::Panel_Mute, 0) if (power = self[:power]?) && power.as_bool?
     do_send(Command::Hard_Off, 0)
   end
 
@@ -124,30 +124,26 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     self[:power]
   end
 
-  # Mutes audio + video
+  # Mutes both audio/video
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    mute_video(state)
-    mute_audio(state)
+    mute_video(state) unless layer == MuteLayer::Audio
+    mute_audio(state) unless layer == MuteLayer::Video
   end
 
-  # Adds mute states compatible with projectors
+  # Adds video mute state compatible with projectors
   def mute_video(state : Bool = true)
     state = state ? 1 : 0
     do_send(Command::Panel_Mute, state)
   end
 
-  def unmute_video
-    mute_video(false)
-  end
-
-  # Emulate mute
-  def mute_audio(val : Bool = true)
-    if val
-      if !self[:audio_mute]?
+  # Emulate audio mute
+  def mute_audio(state : Bool = true)
+    if state
+      unless (audio_mute = self[:audio_mute]?) && audio_mute.as_bool?
         self[:audio_mute] = true
         @previous_volume = self[:volume].as_i
         volume(0)
@@ -158,7 +154,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def unmute_audio
-    if audio_mute = self[:audio_mute]?
+    if (audio_mute = self[:audio_mute]?) && audio_mute.as_bool?
       self[:audio_mute] = false
       volume(@previous_volume)
     end
@@ -191,7 +187,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   def do_poll
     do_send(Command::Status, Bytes.empty, priority: 0)
-    power? unless hard_off = self[:hard_off]?
+    power? unless (hard_off = self[:hard_off]?) && hard_off.as_bool?
   end
 
   DEVICE_SETTINGS = {
@@ -274,9 +270,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         self[:input] = Inputs.from_value(value).to_s
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
-        unless screen_split = self[:screen_split]?
+        unless (screen_split = self[:screen_split]?) && screen_split.as_bool?
           input_target = @input_target
-          @input_stable = self[:input] == input_target
+          @input_stable = self[:input]? == input_target
           if input_target
             switch_to(input_target) unless @input_stable
           end
@@ -284,7 +280,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       when .speaker?
         self[:speaker] = SpeakerModes.from_value(value).to_s
       when .hard_off?
-        unless was_off = self[:hard_off]?
+        unless (was_off = self[:hard_off]?) && was_off.as_bool?
           self[:hard_off] = hard_off = value == 0
           self[:power] = false if hard_off
         end
@@ -310,7 +306,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     return if @power_stable
     if self[:power]? == self[:power_target]?
       @power_stable = true
-    elsif power_target = self[:power_target]
+    elsif power_target = self[:power_target]?
       power(power_target.as_bool)
     end
   end

@@ -1,4 +1,5 @@
   # [header, command, id, data.size, [data], checksum]
+require "placeos-driver/interface/muteable"
 
 DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
   id = "\x00"
@@ -18,17 +19,31 @@ DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
   status[:audio_mute].should eq(false)
   status[:input].should eq("Vga")
 
-  exec(:volume, 24)
-  should_send("\xAA\x12#{id}\x01\x18\x12")
-  responds("\xAA\xFF\x00\x03A\x12\x18\xFF")
-  status[:volume].should eq(24)
+  exec(:volume, 6)
+  should_send("\xAA\x12#{id}\x01\x06\x12")
+  responds("\xAA\xFF\x00\x03A\x12\x06\xFF")
+  status[:volume].should eq(6)
   status[:audio_mute].should eq(false)
 
-  exec(:mute, true)
+  exec(:mute)
+  # Video mute
+  should_send("\xAA\xF9\x00\x01\x01\xF9")
   responds("\xAA\xFF#{id}\x03A\xF9\x01\xFF")
   status[:power].should eq(false)
+  # Audio mute
+  should_send("\xAA\x12#{id}\x01\x00\x12")
+  responds("\xAA\xFF\x00\x03A\x12\x00\xFF")
+  status[:audio_mute].should eq(true)
+  status[:volume].should eq(0)
 
   exec(:unmute)
+  # Video unmute
+  should_send("\xAA\xF9\x00\x01\x00\xF9")
   responds("\xAA\xFF#{id}\x03A\xF9\x00\xFF")
   status[:power].should eq(true)
+  # Audio unmute
+  should_send("\xAA\x12#{id}\x01\x06\x12")
+  responds("\xAA\xFF\x00\x03A\x12\x06\xFF")
+  status[:audio_mute].should eq(false)
+  status[:volume].should eq(6)
 end
