@@ -130,7 +130,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    logger.debug { "requested mute state: #{state}" }
     mute_video(state)
     mute_audio(state)
   end
@@ -223,8 +222,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   {% end %}
 
   def do_device_config
-    logger.debug { "Syncronising device state with settings" }
-
     {% for name, kind in DEVICE_SETTINGS %}
       %value = setting?({{kind}}, {{name.id.stringify}})
       {{name.id}}(%value) unless %value.nil?
@@ -313,8 +310,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     return if @power_stable
     if self[:power]? == self[:power_target]?
       @power_stable = true
-    else
-      power(self[:power_target].as_bool)
+    elsif power_target = self[:power_target]
+      power(power_target.as_bool)
     end
   end
 
