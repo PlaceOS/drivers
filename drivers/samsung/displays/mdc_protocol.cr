@@ -362,10 +362,5 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     bytes = command.build(@id, data)
     logger.debug { "Sending to Samsung: #{bytes.hexstring}" }
     send(bytes, **options)
-    # TODO: find out if this is necessary
-    # send(array_to_str(data), options).catch do |reason|
-    #   disconnect
-    #   thread.reject(reason)
-    # end
   end
 end
