@@ -259,8 +259,10 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     when .ack?
       case command
       when .status?
-        self[:hard_off]   = values[0] == 0
-        self[:power]      = false if self[:hard_off]
+        if values[0] == 0
+          self[:hard_off]   = true
+          self[:power]      = false
+        end
         self[:volume]     = values[1]
         self[:audio_mute] = values[2] == 1
         self[:input]      = Inputs.from_value(values[3]).to_s

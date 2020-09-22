@@ -12,8 +12,7 @@ DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
   # status
   should_send("\xAA\x00#{id}\x00\x00")
   responds("\xAA\xFF#{id}\x09A\x00\x01\x06\x00\x14\x00\x00\x00\xFF")
-  status[:hard_off].should eq(false)
-  # status[:power].should eq(true)
+  status[:power].should eq(true)
   status[:volume].should eq(6)
   status[:audio_mute].should eq(false)
   status[:input].should eq("Vga")
