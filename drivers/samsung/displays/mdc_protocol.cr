@@ -56,9 +56,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   @rs232 : Bool = false
   @blank : Input?
   @previous_volume : Int32 = 50
-  # Meta data for inquiring interfaces
   @input_stable : Bool = true
-  @input_target : Input = Input::Hdmi
+  @input_target : Input? = nil
   @power_stable : Bool = true
 
   def on_load
@@ -177,7 +176,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   def switch_to(input : Input, **options)
     @input_stable = false
-    @input_target = input
+    input_target = @input_target
+    @input_target = input_target if input_target
     do_send(Command::Input, input.value, **options)
   end
 
@@ -278,8 +278,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]
-          @input_stable = self[:input] == @input_target
-          switch_to(@input_target) unless @input_stable
+          input_target = @input_target
+          @input_stable = self[:input] == input_target
+          if input_target
+            switch_to(input_target) unless @input_stable
+          end
         end
       when .speaker?
         self[:speaker] = SpeakerModes.from_value(value).to_s
