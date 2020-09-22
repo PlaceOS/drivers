@@ -83,7 +83,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def connected
-    do_device_config unless self[:hard_off]?
+    do_device_config unless hard_off = self[:hard_off]?
 
     schedule.every(30.seconds, true) do
       do_poll
@@ -191,9 +191,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def do_poll
-    hard_off = self[:hard_off]?
     do_send(Command::Status, Bytes.empty, priority: 0)
-    power? unless hard_off
+    power? unless hard_off = self[:hard_off]?
   end
 
   DEVICE_SETTINGS = {
@@ -260,8 +259,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     when .ack?
       case command
       when .status?
-        hard_off = values[0] == 0
-        self[:hard_off]   = hard_off
+        self[:hard_off]   = hard_off = values[0] == 0
         self[:power]      = false if hard_off
         self[:volume]     = values[1]
         self[:audio_mute] = values[2] == 1
@@ -289,9 +287,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       when .speaker?
         self[:speaker] = SpeakerModes.from_value(value).to_s
       when .hard_off?
-        hard_off = value == 0
         unless was_off = self[:hard_off]?
-          self[:hard_off] = hard_off
+          self[:hard_off] = hard_off = value == 0
           self[:power] = false if hard_off
         end
       when .screen_split?
