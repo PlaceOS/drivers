@@ -48,15 +48,18 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   def on_update
-    # Work around crystal limitation of splatting a union
-    @client = begin
-      config = setting(GoogleParams, :calendar_config)
-      PlaceCalendar::Client.new(**config)
-    rescue
-      config = setting(OfficeParams, :calendar_config)
-      PlaceCalendar::Client.new(**config)
-    end
     @service_account = setting?(String, :calendar_service_account).presence
+
+    @client_lock.synchronize do
+      # Work around crystal limitation of splatting a union
+      @client = begin
+        config = setting(GoogleParams, :calendar_config)
+        PlaceCalendar::Client.new(**config)
+      rescue
+        config = setting(OfficeParams, :calendar_config)
+        PlaceCalendar::Client.new(**config)
+      end
+    end
   end
 
   protected def client
