@@ -67,7 +67,7 @@ class Cisco::Meraki::CaptivePortal < PlaceOS::Driver
     date = Time.unix(time).in(time_zone).to_s(@date_format)
     guest_string = "#{email.downcase}-#{date}-#{@wifi_secret}"
 
-    OpenSSL::Digest.new("SHA256").update(guest_string).hexdigest
+    OpenSSL::Digest.new("SHA256").update(guest_string).final.hexstring
   end
 
   # Splits the SHA256 into code length and then randomly selects one
