@@ -41,6 +41,7 @@ class Place::Calendar < PlaceOS::Driver
 
   @client : PlaceCalendar::Client? = nil
   @service_account : String? = nil
+  @client_lock : Mutex = Mutex.new
 
   def on_load
     on_update
@@ -58,23 +59,23 @@ class Place::Calendar < PlaceOS::Driver
     @service_account = setting?(String, :calendar_service_account).presence
   end
 
-  protected def client : PlaceCalendar::Client
-    @client.not_nil!
+  protected def client
+    @client_lock.synchronize { yield @client.not_nil! }
   end
 
   @[Security(Level::Support)]
   def list_users(query : String? = nil, limit : Int32? = nil)
-    client.list_users(query, limit)
+    client &.list_users(query, limit)
   end
 
   @[Security(Level::Support)]
   def get_user(user_id : String)
-    client.get_user(user_id)
+    client &.get_user(user_id)
   end
 
   @[Security(Level::Support)]
   def list_calendars(user_id : String)
-    client.list_calendars(user_id)
+    client &.list_calendars(user_id)
   end
 
   @[Security(Level::Support)]
@@ -84,7 +85,7 @@ class Place::Calendar < PlaceOS::Driver
     period_end = Time.unix(period_end).in location
     user_id = user_id || @service_account.presence || calendar_id
 
-    client.list_events(user_id, calendar_id,
+    client &.list_events(user_id, calendar_id,
       period_start: period_start,
       period_end: period_end
     )
@@ -94,7 +95,7 @@ class Place::Calendar < PlaceOS::Driver
   def delete_event(calendar_id : String, event_id : String, user_id : String? = nil)
     user_id = user_id || @service_account.presence || calendar_id
 
-    client.delete_event(user_id, event_id, calendar_id: calendar_id)
+    client &.delete_event(user_id, event_id, calendar_id: calendar_id)
   end
 
   @[Security(Level::Support)]
@@ -124,6 +125,6 @@ class Place::Calendar < PlaceOS::Driver
       event.all_day = true
     end
 
-    client.create_event(user_id, event, calendar_id)
+    client &.create_event(user_id, event, calendar_id)
   end
 end
