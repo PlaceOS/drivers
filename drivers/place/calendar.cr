@@ -23,6 +23,7 @@ class Place::Calendar < PlaceOS::Driver
       client_id:     "",
       client_secret: "",
     },
+    rate_limit: 5,
   })
 
   alias GoogleParams = NamedTuple(
@@ -42,13 +43,18 @@ class Place::Calendar < PlaceOS::Driver
   @client : PlaceCalendar::Client? = nil
   @service_account : String? = nil
   @client_lock : Mutex = Mutex.new
+  @rate_limit : Int32 = 3
+  @channel : Channel(Nil) = Channel(Nil).new(3)
 
   def on_load
+    spawn { rate_limiter }
     on_update
   end
 
   def on_update
     @service_account = setting?(String, :calendar_service_account).presence
+    @rate_limit = setting?(Int32, :rate_limit) || 3
+    @channel = Channel(Nil).new(@rate_limit)
 
     @client_lock.synchronize do
       # Work around crystal limitation of splatting a union
@@ -63,7 +69,10 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def client
-    @client_lock.synchronize { yield @client.not_nil! }
+    @client_lock.synchronize do
+      @channel.receive
+      yield @client.not_nil!
+    end
   end
 
   @[Security(Level::Support)]
@@ -129,5 +138,19 @@ class Place::Calendar < PlaceOS::Driver
     end
 
     client &.create_event(user_id, event, calendar_id)
+  end
+
+  protected def rate_limiter
+    wait_for = 300.milliseconds
+    loop do
+      begin
+        @channel.send(nil)
+        wait_for = 1.second / @rate_limit
+      rescue error
+        logger.error(exception: error) { "issue with rate limiter" }
+      ensure
+        sleep wait_for
+      end
+    end
   end
 end
