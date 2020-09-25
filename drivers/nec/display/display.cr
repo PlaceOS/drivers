@@ -77,17 +77,11 @@ class Nec::Display::All < PlaceOS::Driver
 
   def power(state : Bool)
     # Do nothing if already in desired state
-    return if self[:power]? == state
+    return if self[:power]?.try &.as_bool? == state
     data = "C203D6"
 
     if state
-      data += "0004" # 0004 = Power Off
-      logger.debug { "-- NEC LCD, requested to power off" }
-      do_send(MsgType::Command, data, name: "power", delay: 10.seconds, timeout: 10.seconds)
-
-      self[:power] = false
-    else
-      data += "0001" # 0001 = Power Off
+      data += "0001" # 0001 = Power On
       logger.debug { "-- NEC LCD, requested to power on" }
       do_send(MsgType::Command, data, name: "power", delay: 5.seconds)
       self[:warming] = true
@@ -96,11 +90,17 @@ class Nec::Display::All < PlaceOS::Driver
       power_on_delay
       mute_status(20)
       volume_status(20)
+    else
+      data += "0004" # 0004 = Power Off
+      logger.debug { "-- NEC LCD, requested to power off" }
+      do_send(MsgType::Command, data, name: "power", delay: 10.seconds, timeout: 10.seconds)
+
+      self[:power] = false
     end
   end
 
   def power?(**options)
-    do_send(MsgType::Command, Command::PowerQuery, **options)
+    do_send(MsgType::Command, Command::PowerQuery, **options, name: "power?")
   end
 
   def switch_to(input : Input)
@@ -229,7 +229,9 @@ class Nec::Display::All < PlaceOS::Driver
     power?(priority: 0)
     logger.debug { "Polling, power = #{self[:power]}" }
 
-    if self[:power]?
+    # TODO: not sure why but this seems to never run even even if self[:power] == true
+    # if self[:power]?
+    if self[:power]?.try &.as_bool?
       power_on_delay
       mute_status
       volume_status
@@ -340,6 +342,7 @@ class Nec::Display::All < PlaceOS::Driver
         checksum = checksum ^ b
       end
       # Check the checksum equals the second last element
+      logger.debug { "Error: checksum should be #{checksum.to_s(16)}" } unless checksum == data[-2]
       checksum == data[-2]
     else
       true
