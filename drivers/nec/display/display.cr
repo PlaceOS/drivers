@@ -279,7 +279,7 @@ class Nec::Display::All < PlaceOS::Driver
       if value > 0
         self[:warming] = true
         schedule.in(value.seconds) do # Prevent any commands being sent until the power on delay is complete
-          power_on_delay.as(PlaceOS::Driver::Transport)
+          power_on_delay
         end
       else
         schedule.in(3.seconds) do # Reactive the interface once the display is online
@@ -328,7 +328,7 @@ class Nec::Display::All < PlaceOS::Driver
   {% for name in Command.constants %}
     @[Security(Level::Administrator)]
     def {{name.id.underscore}}(priority : Int32 = 0)
-      do_send(MsgType::GetParameter, Command::{{name.id}}, priority: priority, name: {{name.id.underscore}})
+      do_send(MsgType::GetParameter, Command::{{name.id}}, priority: priority, name: {{name.id.underscore.stringify}})
     end
   {% end %}
 
