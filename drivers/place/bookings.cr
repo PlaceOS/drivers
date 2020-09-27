@@ -67,7 +67,7 @@ class Place::Bookings < PlaceOS::Driver
 
     schedule.clear
     cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
-    cache_polling_period += Random.rand(120).seconds
+    cache_polling_period += Random.rand(90).seconds + Random.rand(1000).milliseconds
     schedule.every(cache_polling_period) { poll_events }
 
     schedule.every(30.seconds) { poll_events }
