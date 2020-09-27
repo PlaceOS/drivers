@@ -70,7 +70,7 @@ class Place::Bookings < PlaceOS::Driver
     cache_polling_period += Random.rand(90).seconds + Random.rand(1000).milliseconds
     schedule.every(cache_polling_period) { poll_events }
 
-    schedule.every(30.seconds) { poll_events }
+    schedule.in(10.seconds + Random.rand(20).seconds + Random.rand(1000).milliseconds) { poll_events }
   end
 
   # This is how we check the rooms status
