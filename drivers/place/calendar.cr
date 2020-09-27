@@ -46,6 +46,9 @@ class Place::Calendar < PlaceOS::Driver
   @rate_limit : Int32 = 3
   @channel : Channel(Nil) = Channel(Nil).new(3)
 
+  @queue_lock : Mutex = Mutex.new
+  @queue_size = 0
+
   def on_load
     spawn { rate_limiter }
     on_update
@@ -69,10 +72,16 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def client
+    @queue_lock.synchronize { @queue_size += 1 }
     @client_lock.synchronize do
       @channel.receive
+      @queue_lock.synchronize { @queue_size -= 1 }
       yield @client.not_nil!
     end
+  end
+
+  def queue_size
+    @queue_size
   end
 
   @[Security(Level::Support)]
