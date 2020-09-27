@@ -48,6 +48,7 @@ class Place::Calendar < PlaceOS::Driver
 
   @queue_lock : Mutex = Mutex.new
   @queue_size = 0
+  @wait_time : Time::Span = 300.milliseconds
 
   def on_load
     spawn { rate_limiter }
@@ -57,6 +58,7 @@ class Place::Calendar < PlaceOS::Driver
   def on_update
     @service_account = setting?(String, :calendar_service_account).presence
     @rate_limit = setting?(Int32, :rate_limit) || 3
+    @wait_time = 1.second / @rate_limit
     @channel = Channel(Nil).new(@rate_limit)
 
     @client_lock.synchronize do
@@ -72,6 +74,9 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def client
+    if (@wait_time * @queue_size) > 10.seconds
+      raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
+    end
     @queue_lock.synchronize { @queue_size += 1 }
     @client_lock.synchronize do
       @channel.receive
@@ -86,16 +91,19 @@ class Place::Calendar < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def list_users(query : String? = nil, limit : Int32? = nil)
+    logger.debug { "listing user details, query #{query}" }
     client &.list_users(query, limit)
   end
 
   @[Security(Level::Support)]
   def get_user(user_id : String)
+    logger.debug { "getting user details for #{user_id}" }
     client &.get_user(user_id)
   end
 
   @[Security(Level::Support)]
   def list_calendars(user_id : String)
+    logger.debug { "listing calendars for #{user_id}" }
     client &.list_calendars(user_id)
   end
 
@@ -106,6 +114,8 @@ class Place::Calendar < PlaceOS::Driver
     period_end = Time.unix(period_end).in location
     user_id = user_id || @service_account.presence || calendar_id
 
+    logger.debug { "listing events for #{calendar_id}" }
+
     client &.list_events(user_id, calendar_id,
       period_start: period_start,
       period_end: period_end
@@ -115,6 +125,8 @@ class Place::Calendar < PlaceOS::Driver
   @[Security(Level::Support)]
   def delete_event(calendar_id : String, event_id : String, user_id : String? = nil)
     user_id = user_id || @service_account.presence || calendar_id
+
+    logger.debug { "deleting event #{event_id} on #{calendar_id}" }
 
     client &.delete_event(user_id, event_id, calendar_id: calendar_id)
   end
@@ -133,6 +145,8 @@ class Place::Calendar < PlaceOS::Driver
     user_id = (user_id || @service_account.presence || calendar_id).not_nil!
     calendar_id = calendar_id || user_id
 
+    logger.debug { "creating event on #{calendar_id}" }
+
     event = PlaceCalendar::Event.new
     event.host = calendar_id
     event.title = title
@@ -150,15 +164,13 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def rate_limiter
-    wait_for = 300.milliseconds
     loop do
       begin
         @channel.send(nil)
-        wait_for = 1.second / @rate_limit
       rescue error
         logger.error(exception: error) { "issue with rate limiter" }
       ensure
-        sleep wait_for
+        sleep @wait_time
       end
     end
   end
