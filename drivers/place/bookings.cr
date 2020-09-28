@@ -38,39 +38,40 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   def on_update
-    @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
-    time_zone = setting?(String, :calendar_time_zone).presence
-    @time_zone = Time::Location.load(time_zone) if time_zone
-
-    @default_title = setting?(String, :book_now_default_title).presence || "Ad Hoc booking"
-    self[:default_title] = @default_title
-
-    book_now = setting?(Bool, :disable_book_now)
-    @disable_book_now = book_now.nil? ? !system.bookable : !!book_now
-    self[:disable_book_now] = @disable_book_now
-
-    @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
-    self[:disable_end_meeting] = @disable_end_meeting
-
-    pending_period = setting?(UInt32, :pending_period) || 5_u32
-    @pending_period = pending_period.minutes
-    self[:pending_period] = pending_period
-
-    pending_before = setting?(UInt32, :pending_before) || 5_u32
-    @pending_before = pending_before.minutes
-    self[:pending_before] = pending_before
-
-    self[:control_ui] = setting?(String, :control_ui)
-    self[:catering_ui] = setting?(String, :catering_ui)
-
-    @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
-
     schedule.clear
+    @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
+
+    schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_events }
+
     cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
     cache_polling_period += Random.rand(90).seconds + Random.rand(1000).milliseconds
     schedule.every(cache_polling_period) { poll_events }
 
-    schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_events }
+    time_zone = setting?(String, :calendar_time_zone).presence
+    @time_zone = Time::Location.load(time_zone) if time_zone
+
+    @default_title = setting?(String, :book_now_default_title).presence || "Ad Hoc booking"
+
+    book_now = setting?(Bool, :disable_book_now)
+    @disable_book_now = book_now.nil? ? !system.bookable : !!book_now
+    @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
+
+    pending_period = setting?(UInt32, :pending_period) || 5_u32
+    @pending_period = pending_period.minutes
+
+    pending_before = setting?(UInt32, :pending_before) || 5_u32
+    @pending_before = pending_before.minutes
+
+    @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
+
+    # Write to redis last on the off chance there is a connection issue
+    self[:default_title] = @default_title
+    self[:disable_book_now] = @disable_book_now
+    self[:disable_end_meeting] = @disable_end_meeting
+    self[:pending_period] = pending_period
+    self[:pending_before] = pending_before
+    self[:control_ui] = setting?(String, :control_ui)
+    self[:catering_ui] = setting?(String, :catering_ui)
   end
 
   # This is how we check the rooms status
