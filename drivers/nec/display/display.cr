@@ -84,10 +84,7 @@ class Nec::Display::All < PlaceOS::Driver
       data += "0001" # 0001 = Power On
       logger.debug { "-- NEC LCD, requested to power on" }
       do_send(MsgType::Command, data, name: "power", delay: 5.seconds)
-      self[:warming] = true
-      self[:power] = true
 
-      power_on_delay
       mute_status(20)
       volume_status(20)
     else
@@ -195,7 +192,7 @@ class Nec::Display::All < PlaceOS::Driver
       if ascii_string[10..15] == "C203D6" # Means power comamnd
         # 8..9 == "00" means no error
         if ascii_string[8..9] == "00"
-          power_on_delay(99) # wait until the screen has turned on before sending commands (99 == high priority)
+          self[:power] = true
         else
           return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
         end
@@ -206,7 +203,6 @@ class Nec::Display::All < PlaceOS::Driver
             self[:power] = true
           else
             self[:power] = false
-            self[:warming] = false
           end
         else
           return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
@@ -232,7 +228,6 @@ class Nec::Display::All < PlaceOS::Driver
     # TODO: not sure why but this seems to never run even even if self[:power] == true
     # if self[:power]?
     if self[:power]?.try &.as_bool?
-      power_on_delay
       mute_status
       volume_status
       video_input
@@ -276,17 +271,6 @@ class Nec::Display::All < PlaceOS::Driver
         self[:volume] = 0
       else
         volume_status(60) # high priority
-      end
-    when .power_on_delay?
-      if value > 0
-        self[:warming] = true
-        schedule.in(value.seconds) do # Prevent any commands being sent until the power on delay is complete
-          power_on_delay
-        end
-      else
-        schedule.in(3.seconds) do # Reactive the interface once the display is online
-          self[:warming] = false # allow access to the display
-        end
       end
     when .auto_setup?
       # auto_setup
