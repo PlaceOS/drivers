@@ -20,4 +20,10 @@ describe Extron::SIS::Command do
     command = Extron::SIS::Command.tie 1, 2
     command.to_s.should eq("‹1*2!›")
   end
+
+  it "performs bounds checks for args" do
+    expect_raises(ArgumentError) do
+      Extron::SIS::Command.tie -1
+    end
+  end
 end

@@ -48,7 +48,7 @@ struct Extron::SIS::Command(*T)
   end
 
   # Ties *input* to all outputs.
-  def self.tie(input : Int, layer : SwitchLayer)
+  def self.tie(input : Int, layer = SwitchLayer::All)
     enforce input > 0, "input must be positive"
     Command[input, '*', layer]
   end
