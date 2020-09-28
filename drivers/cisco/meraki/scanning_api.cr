@@ -81,7 +81,7 @@ module Cisco::Meraki
     @[JSON::Field(key: "clientMac")]
     property client_mac : String
 
-    property manufacturer : String
+    property manufacturer : String?
     property ipv4 : String?
     property ipv6 : String?
     property ssid : String?
