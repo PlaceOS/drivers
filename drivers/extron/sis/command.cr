@@ -60,11 +60,13 @@ struct Extron::SIS::Command(*T)
 
   # Disconnect signal to *output*.
   def self.untie_output(output : Int)
+    enforce output > 0, "output must be positive"
     Command[0, '*', output, SwitchLayer::All]
   end
 
   # Disconnect a signal *input* from all outputs.
   def self.untie_input(input : Int)
+    enforce input > 0, "input must be positive"
     Command[input, '*', 0, SwitchLayer::All]
   end
 end
