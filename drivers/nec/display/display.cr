@@ -39,14 +39,6 @@ class Nec::Display::All < PlaceOS::Driver
   descriptive_name "NEC Display"
   generic_name :Display
 
-  default_settings({
-    volume_min: 0,
-    volume_max: 100
-  })
-
-  @volume_min : Int32 = 0
-  @volume_max : Int32 = 100
-
   @target_input : Input? = nil
   @target_audio : Audio? = nil
   @input_double_check : PlaceOS::Driver::Proxy::Scheduler? = nil
@@ -61,8 +53,6 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def on_update
-    @volume_min = setting(Int32, :volume_min)
-    @volume_max = setting(Int32, :volume_max)
   end
 
   def connected
@@ -158,7 +148,7 @@ class Nec::Display::All < PlaceOS::Driver
   def volume(val : Int32)
     data = Command::VolumeStatus.to_s + self.class.format_value(val.clamp(0, 100))
 
-    do_send(MsgType::SetParameter, data, name: "volume_status")
+    do_send(MsgType::SetParameter, data, name: "volume")
     do_send(MsgType::Command, "0C", name: "volume_save") # Save the settings
     self[:audio_mute] = false # audio is unmuted when the volume is set
   end
@@ -176,6 +166,8 @@ class Nec::Display::All < PlaceOS::Driver
 
   # LCD Response code
   def received(data, task)
+    logger.debug { "task is #{task.try &.name}" }
+
     ascii_string = String.new(data)
     # Check for valid response
     if !check_checksum(data)
@@ -228,19 +220,22 @@ class Nec::Display::All < PlaceOS::Driver
     # TODO: not sure why but this seems to never run even even if self[:power] == true
     # if self[:power]?
     if self[:power]?.try &.as_bool?
-      mute_status
-      volume_status
-      video_input
-      audio_input
+      # mute_status
+      # volume_status
+      # video_input
+      # audio_input
     end
   end
 
   private def parse_response(data : String)
     # 14..15 == type (we don't care)
-    max = data[16..19].to_i(16)
     value = data[20..23].to_i(16)
+    command = Command.from_value(data[10..13].to_i(16))
 
-    case Command.from_value(data[10..13].to_i(16))
+    logger.debug { "command is #{data[10..13]}" }
+    logger.debug { "value is #{data[20..23]}" }
+
+    case command
     when .video_input?
       input = Input.from_value(value)
       self[:input] = input
@@ -255,19 +250,14 @@ class Nec::Display::All < PlaceOS::Driver
         switch_audio(target_audio)
       end
     when .volume_status?
-      self[:volume_max] = max
-      unless self[:audio_mute]
-        self[:volume] = value
-      end
+      self[:volume] = value
     when .brightness_status?
-      self[:brightness_max] = max
       self[:brightness] = value
     when .contrast_status?
-      self[:contrast_max] = max
       self[:contrast] = value
     when .mute_status?
       self[:audio_mute] = value == 1
-      if(value == 1)
+      if value == 1
         self[:volume] = 0
       else
         volume_status(60) # high priority
@@ -336,6 +326,7 @@ class Nec::Display::All < PlaceOS::Driver
   # Builds the command and creates the checksum
   # data can be an ascii encoded string
   private def do_send(type : MsgType, data : Command | String, **options)
+    logger.debug { "Sending command #{data}"} if data.is_a?(Command)
     data = data.to_s if data.is_a?(Command)
     data = data.bytes
     bytes = Bytes.new(data.size + 11)
