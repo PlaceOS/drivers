@@ -42,8 +42,9 @@ module Extron::SIS::Response
 
   # Parses for device messages that can be safely ignored - these exist mainly
   # to flush initial connect banners
-  Ignorable = (Copyright / Clock).transform { nil }
+  Ignorable = (Copyright / Clock).transform { |x| Ignored.new x }
+  alias Ignored = Box
 
   # Async messages that can be expected outside of a command -> response flow.
-  Unsolitcited = DeviceError / Tie / Ignorable
+  Unsolicited = DeviceError / Tie / Ignorable
 end

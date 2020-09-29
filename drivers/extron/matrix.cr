@@ -62,6 +62,13 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   def received(data, task)
-    task.try &.success
+    case response = Response.parse data, as: Response::Unsolicited
+    in Tie
+      # TODO update status
+    in Error, Response::ParseError
+      logger.error { response }
+    in Response::Ignored
+      logger.debug { response.object }
+    end
   end
 end
