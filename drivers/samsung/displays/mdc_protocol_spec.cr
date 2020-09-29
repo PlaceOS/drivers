@@ -1,5 +1,4 @@
-  # [header, command, id, data.size, [data], checksum]
-require "placeos-driver/interface/muteable"
+# [header, command, id, data.size, [data], checksum]
 
 DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
   id = "\x00"
