@@ -1,5 +1,3 @@
-module Samsung; end
-
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
@@ -78,8 +76,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     @id = setting(Int32, :display_id)
     @rs232 = setting(Bool, :rs232_control)
     @blank = setting?(String, :blanking_input).try &->Input.parse(String)
-      @blank = Input.parse?(blanking_input)
-    end
   end
 
   def connected
