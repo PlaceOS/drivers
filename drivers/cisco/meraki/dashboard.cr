@@ -247,6 +247,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         location = new_loc
       end
     end
+
+    location
   end
 
   protected def update_ipv4(observation)
