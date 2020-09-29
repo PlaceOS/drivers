@@ -77,7 +77,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def on_update
     @id = setting(Int32, :display_id)
     @rs232 = setting(Bool, :rs232_control)
-    if blanking_input = setting?(String, :blanking_input)
+    @blank = setting?(String, :blanking_input).try &->Input.parse(String)
       @blank = Input.parse?(blanking_input)
     end
   end
