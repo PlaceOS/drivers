@@ -25,11 +25,11 @@ class Extron::Matrix < PlaceOS::Driver
   def switch(input : Input, output : Output, layer : SwitchLayer = SwitchLayer::All)
     send Command[input, '*', output, layer] do |data, task|
       case result = Response.parse data, as: Response::Tie
-      when Tie
+      in Tie
         task.success
-      when Error
+      in Error
         result.retryable? ? task.retry result : task.abort result
-      when Response::ParseError
+      in Response::ParseError
         task.abort result
       end
     end
