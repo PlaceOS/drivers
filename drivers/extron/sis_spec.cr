@@ -19,7 +19,10 @@ describe Extron::SIS::Command do
   end
 
   it "flattens nested fields" do
-    routes = [Extron::SIS::Route.new(1, 2), Extron::SIS::Route.new(3, 4)]
+    routes = [
+      [1, '*', 2, Extron::SIS::SwitchLayer::All],
+      [3, '*', 4, Extron::SIS::SwitchLayer::All]
+    ]
     command = Extron::SIS::Command["\e+Q", routes, '\r']
     io = IO::Memory.new
     io.write_bytes command
