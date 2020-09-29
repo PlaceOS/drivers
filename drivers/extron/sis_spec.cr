@@ -38,6 +38,28 @@ describe Extron::SIS::Response do
     end
   end
 
+  describe Extron::SIS::Response::Copyright do
+    it "parses and provides the full banner" do
+      message = "(c) Copyright YYYY, Extron Electronics, Model Name, Vx.xx, nn-nnnn-nn"
+      parsed = Extron::SIS::Response::Copyright.parse message
+      parsed.should be_a(String)
+      parsed.should eq(message)
+    end
+
+    it "does not parse other messages" do
+      parsed = Extron::SIS::Response::Copyright.parse "foo"
+      parsed.should be_a(Extron::SIS::Response::ParseError)
+    end
+  end
+
+  describe Extron::SIS::Response::Clock do
+    it "parses" do
+      clock = "Fri, Feb 13, 2009, 23:31:30"
+      parsed = Extron::SIS::Response::Clock.parse clock
+      parsed.as(Time).to_unix.should eq(1234567890)
+    end
+  end
+
   describe Extron::SIS::Response::Tie do
     it "parses" do
       tie = Extron::SIS::Response::Tie.parse "Out2 In1 All"
