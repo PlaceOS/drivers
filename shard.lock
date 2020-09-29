@@ -88,6 +88,10 @@ shards:
     git: https://github.com/stakach/openssl_ext.git
     version: 1.2.2
 
+  pars3k:
+    git: https://github.com/place-labs/pars3k.git
+    version: 0.1.0+git.commit.bd4034b537aa8c0a939f4717c30517f80b9f7719
+
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
     version: 1.1.0

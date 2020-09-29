@@ -44,3 +44,6 @@ dependencies:
   # Driver deps:
   telnet:
     github: spider-gazelle/telnet.cr
+
+  pars3k:
+    github: place-labs/pars3k

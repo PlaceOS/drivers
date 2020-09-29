@@ -29,3 +29,23 @@ describe Extron::SIS::Command do
     io.to_s.should eq("\e+Q1*2!3*4!\r")
   end
 end
+
+describe Extron::SIS::Response do
+  describe Extron::SIS::Response::DeviceError do
+    it "parses to a SIS::Error" do
+      error = Extron::SIS::Response::DeviceError.parse "E17"
+      error.should eq(Extron::SIS::Error::Timeout)
+    end
+  end
+
+  describe Extron::SIS::Response::Tie do
+    it "parses" do
+      tie = Extron::SIS::Response::Tie.parse "Out2 In1 All"
+      tie.should be_a Extron::SIS::Tie
+      tie = tie.as Extron::SIS::Tie
+      tie.input.should eq(1)
+      tie.output.should eq(2)
+      tie.layer.should eq(Extron::SIS::SwitchLayer::All)
+    end
+  end
+end

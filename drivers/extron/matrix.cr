@@ -2,58 +2,63 @@ require "set"
 require "./sis"
 
 class Extron::Matrix < PlaceOS::Driver
+  include Extron::SIS
+
   generic_name :Switcher
   descriptive_name "Extron matrix switcher"
   description "Audio-visual signal distribution device"
-  tcp_port SIS::SSH_PORT
+  tcp_port SSH_PORT
 
   def on_load
-    transport.tokenizer = Tokenizer.new SIS::DELIMITER
+    transport.tokenizer = Tokenizer.new DELIMITER
   end
-
-  alias Input = SIS::Input
-
-  alias Output = SIS::Output
-
-  alias SwitchLayer = SIS::SwitchLayer
 
   alias Outputs = Array(Output)
 
   alias SignalMap = Hash(Input, Output | Outputs)
 
-  # Routes a signal *input* to an *output* at the specified *layer*.
+  # Connect a signal *input* to an *output* at the specified *layer*.
   #
   # `0` may be used as either an input or output to specify a disconnection at
   # the corresponding signal point. For example, to disconnect input 1 from all
   # outputs is is currently feeding `switch(1, 0)`.
   def switch(input : Input, output : Output, layer : SwitchLayer = SwitchLayer::All)
-    send SIS::Command[input, '*', output, layer]
+    send Command[input, '*', output, layer] do |data, task|
+      case result = Response.parse data, as: Response::Tie
+      when Tie
+        task.success
+      when Error
+        result.retryable? ? task.retry result : task.abort result
+      when Response::ParseError
+        task.abort result
+      end
+    end
   end
 
-  # Routes *input* to all outputs at the specified *layer*.
+  # Connect *input* to all outputs at the specified *layer*.
   def switch_to(input : Input, layer : SwitchLayer = SwitchLayer::All)
-    send SIS::Command[input, '*', layer]
+    send Command[input, '*', layer]
   end
 
-  # Applies a `SignalMap` as a single operation. All included routes will take
+  # Applies a `SignalMap` as a single operation. All included ties will take
   # simultaneoulsy on the device.
   def switch_map(map : SignalMap, layer : SwitchLayer = SwitchLayer::All)
-    routes = map.each.flat_map do |(input, outputs)|
+    ties = map.each.flat_map do |(input, outputs)|
       if outputs.is_a? Enumerable
-        outputs.each.map { |output| {input, output} }
+        outputs.each.map { |output| Tie.new input, output, layer }
       else
-        {input, outputs}
+        Tie.new input, outputs, layer
       end
     end
 
     seen = Set(Output).new
-    routes = routes.tap do |(_, output)|
-      unless seen.add? output
-        logger.warn { "conflict for output #{output} in requested map" }
+    ties = ties.tap do |tie|
+      unless seen.add? tie.output
+        logger.warn { "conflict for output #{tie.output} in requested map" }
       end
     end
 
-    send SIS::Command["\e+Q", routes.map { |(input, output)| [input, '*', output, layer] }, '\r']
+    send Command["\e+Q", ties.map { |tie| [tie.input, '*', tie.output, tie.layer] }, '\r']
   end
 
   def received(data, task)
