@@ -45,16 +45,6 @@ module Extron::SIS
     end
   end
 
-  # Struct for representing a signal path.
-  record Route, input : Input, output : Output, layer = SwitchLayer::All do
-    def to_s(io : IO)
-      io << input
-      io << '*'
-      io << output
-      io << layer
-    end
-  end
-
   # Structure for representing a SIS device command.
   #
   # Commands are composed from a set of *fields*. The contents and types of these
@@ -82,7 +72,7 @@ module Extron::SIS
     # command fields in the same way as `Byte` objects and other similar
     # collections from the Crystal std lib.
     macro [](*fields)
-      Extron::SIS::Command.new {{*fields}}
+      Extron::SIS::Command.new({{*fields}})
     end
   end
 end

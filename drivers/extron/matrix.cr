@@ -38,33 +38,22 @@ class Extron::Matrix < PlaceOS::Driver
   # Applies a `SignalMap` as a single operation. All included routes will take
   # simultaneoulsy on the device.
   def switch_map(map : SignalMap, layer : SwitchLayer = SwitchLayer::All)
-    # Collapse the map into a set of individual routes.
-    routes = [] of SIS::Route
-    seen = Set(Output).new
+    routes = map.each.flat_map do |(input, outputs)|
+      if outputs.is_a? Enumerable
+        outputs.each.map { |output| {input, output} }
+      else
+        {input, outputs}
+      end
+    end
 
-    insert = ->(input : Input, output : Output) do
+    seen = Set(Output).new
+    routes = routes.tap do |(_, output)|
       unless seen.add? output
         logger.warn { "conflict for output #{output} in requested map" }
       end
-      routes << SIS::Route.new input, output, layer
     end
 
-    map.each do |input, outputs|
-      if outputs.is_a? Output
-        insert.call input, outputs
-      else
-        outputs.each { |output| insert.call(input, output) }
-      end
-    end
-
-    send SIS::Command["\e+Q", routes, '\r'] do |data, task|
-      if data.to_s == "Qik"
-        # TODO: resync tracked routes
-        task.try &.success
-      else
-        task.try &.abort
-      end
-    end
+    send SIS::Command["\e+Q", routes.map { |(input, output)| [input, '*', output, layer] }, '\r']
   end
 
   def received(data, task)
