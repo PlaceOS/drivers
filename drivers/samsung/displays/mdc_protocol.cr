@@ -9,23 +9,23 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   INDICATOR = 0xAA_u8
 
   enum Inputs
-    Vga           = 0x14 # pc in manual
-    Dvi           = 0x18
-    Dvi_Video     = 0x1F
-    Hdmi          = 0x21
-    Hdmi_Pc       = 0x22
-    Hdmi2         = 0x23
-    Hdmi2_Pc      = 0x24
-    Hdmi3         = 0x31
-    Hdmi3_Pc      = 0x32
-    Hdmi4         = 0x33
-    Hdmi4_Pc      = 0x34
-    Display_Port  = 0x25
-    Dtv           = 0x40
-    Media         = 0x60
-    Widi          = 0x61
-    Magic_Info    = 0x20
-    Whiteboard    = 0x64
+    Vga         = 0x14 # pc in manual
+    Dvi         = 0x18
+    DviVideo    = 0x1F
+    Hdmi        = 0x21
+    HdmiPc      = 0x22
+    Hdmi2       = 0x23
+    Hdmi2Pc     = 0x24
+    Hdmi3       = 0x31
+    Hdmi3Pc     = 0x32
+    Hdmi4       = 0x33
+    Hdmi4Pc     = 0x34
+    DisplayPort = 0x25
+    Dtv         = 0x40
+    Media       = 0x60
+    Widi        = 0x61
+    MagicInfo   = 0x20
+    Whiteboard  = 0x64
   end
   include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
@@ -102,21 +102,21 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       if (blanking_input = @blank) && self[:power]?
         switch_to(blanking_input)
       end
-      do_send(Command::Panel_Mute, 1)
+      do_send(Command::PanelMute, 1)
     else
       # Power on
-      do_send(Command::Hard_Off, 1)
-      do_send(Command::Panel_Mute, 0)
+      do_send(Command::HardOff, 1)
+      do_send(Command::PanelMute, 0)
     end
   end
 
   def hard_off
-    do_send(Command::Panel_Mute, 0) if self[:power]?.try &.as_bool
-    do_send(Command::Hard_Off, 0)
+    do_send(Command::PanelMute, 0) if self[:power]?.try &.as_bool
+    do_send(Command::HardOff, 0)
   end
 
   def power?(**options)
-    do_send(Command::Panel_Mute, Bytes.empty, **options).get
+    do_send(Command::PanelMute, Bytes.empty, **options).get
     self[:power]
   end
 
@@ -133,7 +133,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # Adds video mute state compatible with projectors
   def mute_video(state : Bool = true)
     state = state ? 1 : 0
-    do_send(Command::Panel_Mute, state)
+    do_send(Command::PanelMute, state)
   end
 
   # Emulate audio mute
@@ -158,11 +158,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   # check software version
   def software_version?
-    do_send(Command::Software_Version)
+    do_send(Command::SoftwareVersion)
   end
 
   def serial_number?
-    do_send(Command::Serial_Number)
+    do_send(Command::SerialNumber)
   end
 
   def switch_to(input : Input, **options)
@@ -308,36 +308,36 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   enum Command
-    Status           = 0x00
-    Hard_Off         = 0x11 # Completely powers off
-    Panel_Mute       = 0xF9 # Screen blanking / visual mute
-    Volume           = 0x12
-    Contrast         = 0x24
-    Brightness       = 0x25
-    Sharpness        = 0x26
-    Colour           = 0x27
-    Tint             = 0x28
-    Red_Gain         = 0x29
-    Green_Gain       = 0x2A
-    Blue_Gain        = 0x2B
-    Input            = 0x14
-    Mode             = 0x18
-    Size             = 0x19
-    Pip              = 0x3C # picture in picture
-    Auto_Adjust      = 0x3D
-    Wall_Mode        = 0x5C # Video wall mode
-    Safety           = 0x5D
-    Wall_On          = 0x84 # Video wall enabled
-    Wall_User        = 0x89 # Video wall user control
-    Speaker          = 0x68
-    Network_Standby  = 0xB5 # Keep NIC active in standby, enable power on (without WOL)
-    Auto_Off_Timer   = 0xE6 # Eco options (auto power off)
-    Auto_Power       = 0x33 # Device auto power control (presumably signal based?)
-    Screen_Split     = 0xB2 # Tri / quad split (larger panels only)
-    Software_Version = 0x0E
-    Serial_Number    = 0x0B
-    Time             = 0xA7
-    Timer            = 0xA4
+    Status          = 0x00
+    HardOff         = 0x11 # Completely powers off
+    PanelMute       = 0xF9 # Screen blanking / visual mute
+    Volume          = 0x12
+    Contrast        = 0x24
+    Brightness      = 0x25
+    Sharpness       = 0x26
+    Colour          = 0x27
+    Tint            = 0x28
+    RedGain         = 0x29
+    GreenGain       = 0x2A
+    BlueGain        = 0x2B
+    Input           = 0x14
+    Mode            = 0x18
+    Size            = 0x19
+    Pip             = 0x3C # picture in picture
+    AutoAdjust      = 0x3D
+    WallMode        = 0x5C # Video wall mode
+    Safety          = 0x5D
+    WallOn          = 0x84 # Video wall enabled
+    WallUser        = 0x89 # Video wall user control
+    Speaker         = 0x68
+    NetworkStandby  = 0xB5 # Keep NIC active in standby, enable power on (without WOL)
+    AutoOffTimer    = 0xE6 # Eco options (auto power off)
+    AutoPower       = 0x33 # Device auto power control (presumably signal based?)
+    ScreenSplit     = 0xB2 # Tri / quad split (larger panels only)
+    SoftwareVersion = 0x0E
+    SerialNumber    = 0x0B
+    Time            = 0xA7
+    Timer           = 0xA4
 
     def build(id : Int32, data : Bytes) : Bytes
       Bytes.new(data.size + 5).tap do |bytes|
