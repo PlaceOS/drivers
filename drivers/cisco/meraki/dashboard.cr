@@ -34,6 +34,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # Age at which we discard a drifting value (accepting a less confident value)
     maximum_drift_time: 160,
+
+    # can we use the meraki dashboard API for user lookups
+    dashboard_api_user_lookup: "network_id",
   })
 
   def on_load
@@ -57,6 +60,11 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @scanning_secret = setting?(String, :meraki_secret) || ""
     @api_key = setting?(String, :meraki_api_key) || ""
 
+    schedule.clear
+    if network_id = setting?(String, :dashboard_api_user_lookup).presence
+      schedule.every(2.minutes) { poll_clients(network_id.not_nil!) }
+    end
+
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
     @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
     @maximum_confidence_time = (setting?(Int32, :maximum_confidence_time) || 40).seconds
@@ -70,6 +78,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   # Perform fetch with the required API request limits in place
   @[Security(PlaceOS::Driver::Level::Support)]
   def fetch(location : String)
+    req(location) do |task, response|
+      task.success(response.body)
+    end
+  end
+
+  protected def req(location : String, &block : (PlaceOS::Driver::Task, HTTP::Client::Response) -> Nil)
     queue delay: 200.milliseconds do |task|
       response = get(location, headers: {
         "X-Cisco-Meraki-API-Key" => @api_key,
@@ -77,7 +91,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         "Accept"                 => "application/json",
       })
       if response.success?
-        task.success(response.body)
+        block.call task, response
       elsif response.status.found?
         # Meraki might return a `302` on GET requests
         response = HTTP::Client.get(response.headers["Location"], headers: HTTP::Headers{
@@ -86,7 +100,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
           "Accept"                 => "application/json",
         })
         if response.success?
-          task.success(response.body)
+          block.call task, response
         else
           task.abort "request #{location} failed with status: #{response.status_code}"
         end
@@ -127,6 +141,16 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       "IP Mappings: #{@ip_lookup.inspect}\nMAC Locations: #{@locations.inspect}"
     }
     {ip_mappings: @ip_lookup.size, tracking: @locations.size}
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def poll_clients(network_id : String)
+    req("/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=3600") do |task, response|
+      task.success({
+        links: response.headers["Link"],
+        data:  response.body,
+      })
+    end
   end
 
   # Webhook endpoint for scanning API, expects version 3

@@ -27,6 +27,9 @@ dependencies:
   ntlm:
     github: spider-gazelle/ntlm
 
+  link-header:
+    github: spider-gazelle/link-header
+
   place_calendar:
     github: PlaceOS/calendar
 
