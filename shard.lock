@@ -66,7 +66,7 @@ shards:
 
   link-header:
     git: https://github.com/spider-gazelle/link-header.git
-    version: 1.0.0
+    version: 1.0.1
 
   log_helper:
     git: https://github.com/spider-gazelle/log_helper.git
