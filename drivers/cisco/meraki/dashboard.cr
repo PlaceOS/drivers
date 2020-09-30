@@ -3,6 +3,7 @@ module Cisco; end
 module Cisco::Meraki; end
 
 require "json"
+require "link-header"
 require "./scanning_api"
 
 class Cisco::Meraki::Dashboard < PlaceOS::Driver
@@ -37,9 +38,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # can we use the meraki dashboard API for user lookups
     dashboard_api_user_lookup: "network_id",
+
+    rate_limit: 4,
   })
 
   def on_load
+    spawn { rate_limiter }
     on_update
   end
 
@@ -55,10 +59,19 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @time_multiplier : Float64 = 0.0
   @confidence_multiplier : Float64 = 0.0
 
+  @rate_limit : Int32 = 4
+  @channel : Channel(Nil) = Channel(Nil).new(1)
+  @queue_lock : Mutex = Mutex.new
+  @queue_size = 0
+  @wait_time : Time::Span = 300.milliseconds
+
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
     @api_key = setting?(String, :meraki_api_key) || ""
+
+    @rate_limit = setting?(Int32, :rate_limit) || 4
+    @wait_time = 1.second / @rate_limit
 
     schedule.clear
     if network_id = setting?(String, :dashboard_api_user_lookup).presence
@@ -78,35 +91,39 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   # Perform fetch with the required API request limits in place
   @[Security(PlaceOS::Driver::Level::Support)]
   def fetch(location : String)
-    req(location) do |task, response|
-      task.success(response.body)
-    end
+    req(location) { |response| response.body }
   end
 
-  protected def req(location : String, &block : (PlaceOS::Driver::Task, HTTP::Client::Response) -> Nil)
-    queue delay: 200.milliseconds do |task|
-      response = get(location, headers: {
+  protected def req(location : String)
+    if (@wait_time * @queue_size) > 10.seconds
+      raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
+    end
+
+    @queue_lock.synchronize { @queue_size += 1 }
+    @channel.receive
+    @queue_lock.synchronize { @queue_size -= 1 }
+
+    response = get(location, headers: {
+      "X-Cisco-Meraki-API-Key" => @api_key,
+      "Content-Type"           => "application/json",
+      "Accept"                 => "application/json",
+    })
+    if response.success?
+      yield response
+    elsif response.status.found?
+      # Meraki might return a `302` on GET requests
+      response = HTTP::Client.get(response.headers["Location"], headers: HTTP::Headers{
         "X-Cisco-Meraki-API-Key" => @api_key,
         "Content-Type"           => "application/json",
         "Accept"                 => "application/json",
       })
       if response.success?
-        block.call task, response
-      elsif response.status.found?
-        # Meraki might return a `302` on GET requests
-        response = HTTP::Client.get(response.headers["Location"], headers: HTTP::Headers{
-          "X-Cisco-Meraki-API-Key" => @api_key,
-          "Content-Type"           => "application/json",
-          "Accept"                 => "application/json",
-        })
-        if response.success?
-          block.call task, response
-        else
-          task.abort "request #{location} failed with status: #{response.status_code}"
-        end
+        yield response
       else
-        task.abort "request #{location} failed with status: #{response.status_code}"
+        raise "request #{location} failed with status: #{response.status_code}"
       end
+    else
+      raise "request #{location} failed with status: #{response.status_code}"
     end
   end
 
@@ -143,14 +160,55 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     {ip_mappings: @ip_lookup.size, tracking: @locations.size}
   end
 
+  class Client
+    include JSON::Serializable
+
+    property id : String
+    property mac : String
+    property description : String?
+
+    property ip : String?
+    property ip6 : String?
+
+    @[JSON::Field(key: "ip6Local")]
+    property ip6_local : String?
+
+    property user : String?
+
+    # 2020-09-29T07:53:08Z
+    @[JSON::Field(key: "firstSeen")]
+    property first_seen : String
+
+    @[JSON::Field(key: "lastSeen")]
+    property last_seen : String
+
+    property manufacturer : String?
+    property os : String?
+
+    @[JSON::Field(key: "recentDeviceMac")]
+    property recent_device_mac : String?
+    property ssid : String?
+    property vlan : Int32?
+    property switchport : String?
+    property status : String
+    property notes : String?
+  end
+
   @[Security(PlaceOS::Driver::Level::Support)]
-  def poll_clients(network_id : String)
-    req("/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=3600") do |task, response|
-      task.success({
-        links: response.headers["Link"],
-        data:  response.body,
-      })
+  def poll_clients(network_id : String, timespan : UInt32 = 900_u32)
+    clients = [] of Client
+    next_page = "/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=#{timespan}"
+
+    loop do
+      break unless next_page
+
+      next_page = req(next_page) do |response|
+        clients.concat Array(Client).from_json(response.body)
+        LinkHeader.new(response)["next"]?
+      end
     end
+
+    clients
   end
 
   # Webhook endpoint for scanning API, expects version 3
@@ -297,5 +355,17 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   def format_mac(address : String)
     address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
+  end
+
+  protected def rate_limiter
+    loop do
+      begin
+        @channel.send(nil)
+      rescue error
+        logger.error(exception: error) { "issue with rate limiter" }
+      ensure
+        sleep @wait_time
+      end
+    end
   end
 end
