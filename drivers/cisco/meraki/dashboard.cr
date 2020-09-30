@@ -2,6 +2,7 @@ module Cisco; end
 
 module Cisco::Meraki; end
 
+require "uri"
 require "json"
 require "link-header"
 require "./scanning_api"
@@ -103,20 +104,24 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @channel.receive
     @queue_lock.synchronize { @queue_size -= 1 }
 
-    response = get(location, headers: {
+    headers = HTTP::Headers{
       "X-Cisco-Meraki-API-Key" => @api_key,
       "Content-Type"           => "application/json",
       "Accept"                 => "application/json",
-    })
+    }
+
+    uri = URI.parse(location)
+    response = if uri.host.nil?
+                 get(location, headers: headers)
+               else
+                 HTTP::Client.get(location, headers: headers)
+               end
+
     if response.success?
       yield response
     elsif response.status.found?
       # Meraki might return a `302` on GET requests
-      response = HTTP::Client.get(response.headers["Location"], headers: HTTP::Headers{
-        "X-Cisco-Meraki-API-Key" => @api_key,
-        "Content-Type"           => "application/json",
-        "Accept"                 => "application/json",
-      })
+      response = HTTP::Client.get(response.headers["Location"], headers: headers)
       if response.success?
         yield response
       else
