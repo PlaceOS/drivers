@@ -327,7 +327,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   # returns locations based on most recently seen
   # versus most accurate location
   def locate_user(email : String? = nil, username : String? = nil)
-    username = format_username(username || email || "")
+    username = format_username(username.presence || email || "")
 
     if macs = user_mac_mappings[username]?
       location_max_age = @max_location_age.ago
