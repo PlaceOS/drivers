@@ -54,6 +54,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         "level_name": "BUILDING - L1",
       },
     },
+
+    # Time before a user location is considered probably too old
+    max_location_age: 10,
   })
 
   def on_load
@@ -82,6 +85,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @user_mac_mappings : PlaceOS::Driver::Storage? = nil
   @default_network : String = ""
   @floorplan_mappings : Hash(String, Hash(String, String)) = Hash(String, Hash(String, String)).new
+  @max_location_age : Time::Span = 10.minutes
 
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
@@ -111,6 +115,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @confidence_multiplier = 1.0_f64 / (@maximum_uncertainty.to_i - @acceptable_confidence.to_i).to_f64
 
     @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
+    @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
   end
 
   protected def user_mac_mappings
@@ -325,7 +330,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     username = format_username(username || email || "")
 
     if macs = user_mac_mappings[username]?
-      location_max_age = 4.minutes.ago
+      location_max_age = @max_location_age.ago
 
       Array(String).from_json(macs).compact_map { |mac|
         if location = locate_mac(mac)
