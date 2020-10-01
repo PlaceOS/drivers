@@ -38,7 +38,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     maximum_drift_time: 160,
 
     # can we use the meraki dashboard API for user lookups
-    dashboard_api_user_lookup: "network_id",
+    default_network_id: "network_id",
 
     rate_limit: 4,
   })
@@ -66,6 +66,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @queue_size = 0
   @wait_time : Time::Span = 300.milliseconds
 
+  @user_mac_mappings : PlaceOS::Driver::Storage? = nil
+  @default_network : String = ""
+
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
@@ -74,9 +77,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @rate_limit = setting?(Int32, :rate_limit) || 4
     @wait_time = 1.second / @rate_limit
 
+    # We want to store our user => mac_address mappings in redis
+    @user_mac_mappings = PlaceOS::Driver::Storage.new(module_id, "user_macs")
+    @default_network = setting?(String, :default_network_id) || ""
+
     schedule.clear
-    if network_id = setting?(String, :dashboard_api_user_lookup).presence
-      schedule.every(2.minutes) { poll_clients(network_id.not_nil!) }
+    if @default_network.presence
+      schedule.every(2.minutes) { map_users_to_macs }
     end
 
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
@@ -87,6 +94,10 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # How much confidence do we have in this new value, relative to an old confident value
     @time_multiplier = 1.0_f64 / (@maximum_drift_time.to_i - @maximum_confidence_time.to_i).to_f64
     @confidence_multiplier = 1.0_f64 / (@maximum_uncertainty.to_i - @acceptable_confidence.to_i).to_f64
+  end
+
+  protected def user_mac_mappings
+    @user_mac_mappings.not_nil!
   end
 
   # Perform fetch with the required API request limits in place
@@ -200,7 +211,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
-  def poll_clients(network_id : String, timespan : UInt32 = 900_u32)
+  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
+    network_id = network_id.presence || @default_network
+
     clients = [] of Client
     next_page = "/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=#{timespan}"
 
@@ -214,6 +227,82 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
 
     clients
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def map_users_to_macs(network_id : String? = nil)
+    network_id = network_id.presence || @default_network
+    storage = user_mac_mappings
+
+    poll_clients(network_id).each do |client|
+      user_id = client.user
+      next unless user_id
+      user_id = format_username(user_id)
+      user_mac = format_mac(client.mac)
+
+      # Check if mac mapping already exists
+      existing_user = storage[user_mac]?
+      next if existing_user == user_id
+
+      # Remove any pervious mappings
+      if existing_user
+        if user_macs = storage[existing_user]?
+          macs = Array(String).from_json(user_macs)
+          macs.delete(user_mac)
+          storage[existing_user] = macs.to_json
+        end
+      end
+
+      # Update the user mappings
+      storage[user_mac] = user_id
+      macs = if user_macs = storage[user_id]?
+               tmp_macs = Array(String).from_json(user_macs)
+               tmp_macs.unshift(user_mac)
+               tmp_macs.uniq!
+               tmp_macs[0...9]
+             else
+               [user_mac]
+             end
+      storage[user_id] = macs
+    end
+  end
+
+  def format_username(user : String)
+    if user.includes? "@"
+      user = user.split("@")[0]
+    elsif user.includes? "\\"
+      user = user.split("\\")[1]
+    end
+    user.downcase
+  end
+
+  def macs_assigned_to(username : String)
+    username = format_username(username)
+    if macs = user_mac_mappings[username]?
+      Array(String).from_json(macs)
+    else
+      [] of String
+    end
+  end
+
+  def check_ownership_of(mac_address : String)
+    user_mac_mappings[format_mac(mac_address)]?
+  end
+
+  # returns locations based on most recently seen
+  # versus most accurate location
+  def locate_user(username : String)
+    username = format_username(username)
+    location_max_age = 4.minutes.ago
+    if macs = user_mac_mappings[username]?
+      Array(String).from_json(macs).compact_map { |mac|
+        if location = locate_mac(mac)
+          location if location.time > location_max_age
+        end
+      }.sort { |a, b| b.time <=> a.time }
+    else
+      [] of Location
+    end
   end
 
   # Webhook endpoint for scanning API, expects version 3
