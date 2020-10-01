@@ -6,8 +6,11 @@ require "uri"
 require "json"
 require "link-header"
 require "./scanning_api"
+require "placeos-driver/interface/locatable"
 
 class Cisco::Meraki::Dashboard < PlaceOS::Driver
+  include Interface::Locatable
+
   # Discovery Information
   descriptive_name "Cisco Meraki Dashboard"
   generic_name :Dashboard
@@ -304,8 +307,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   # returns locations based on most recently seen
   # versus most accurate location
-  def locate_user(username : String)
-    username = format_username(username)
+  def locate_user(identifier : String)
+    username = format_username(identifier)
 
     if macs = user_mac_mappings[username]?
       location_max_age = 4.minutes.ago
