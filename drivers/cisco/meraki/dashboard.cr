@@ -193,7 +193,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @[Security(PlaceOS::Driver::Level::Support)]
   def inspect_state
     logger.debug {
-      "IP Mappings: #{@ip_lookup.inspect}\nMAC Locations: #{@locations.inspect}"
+      "IP Mappings: #{@ip_lookup.keys}\n\nMAC Locations: #{@locations.keys}"
     }
     {ip_mappings: @ip_lookup.size, tracking: @locations.size}
   end
@@ -377,7 +377,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   # Webhook endpoint for scanning API, expects version 3
   def scanning_api(method : String, headers : Hash(String, Array(String)), body : String)
-    logger.debug { "scanning API received: #{method},\nheaders #{headers},\nbody #{body}" }
+    logger.debug { "scanning API received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
 
     # Return the scanning API validator code on a GET request
     return {HTTP::Status::OK.to_i, EMPTY_HEADERS, @scanning_validator} if method == "GET"
@@ -423,6 +423,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       end
     rescue e
       logger.error { "failed to parse meraki scanning API payload\n#{e.inspect_with_backtrace}" }
+      logger.debug { "failed payload body was\n#{body}" }
     end
 
     logger.debug { "updated #{locations_updated} locations" }
