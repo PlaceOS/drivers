@@ -86,7 +86,7 @@ shards:
 
   office365:
     git: https://github.com/PlaceOS/office365.git
-    version: 1.2.0
+    version: 1.2.1
 
   openssl_ext:
     git: https://github.com/stakach/openssl_ext.git
@@ -106,7 +106,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.14
+    version: 3.5.15
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
