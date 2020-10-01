@@ -3,24 +3,24 @@ module Place; end
 require "placeos-driver/interface/locatable"
 
 WIRELESS_LOC = {
-  "location" => "wireless",
+  "location"         => "wireless",
   "coordinates_from" => "bottom-left",
-  "x" => 16.764784482481577,
-  "y" => 25.435735950388988,
-  "lng" => 55.274935030154325,
-  "lat" => 25.201036346211698,
-  "variance" => 7.944837533996209,
-  "last_seen" => 1601526474,
-  "building" => "zone_1234",
-  "level" => "zone_1234",
+  "x"                => 16.764784482481577,
+  "y"                => 25.435735950388988,
+  "lng"              => 55.274935030154325,
+  "lat"              => 25.201036346211698,
+  "variance"         => 7.944837533996209,
+  "last_seen"        => 1601526474,
+  "building"         => "zone_1234",
+  "level"            => "zone_1234",
 }
 
 DESK_LOC = {
-  "location" => "desk",
+  "location"    => "desk",
   "at_location" => true,
-  "map_id" => "desk-4-1006",
-  "building" => "zone_1234",
-  "level" => "zone_1234",
+  "map_id"      => "desk-4-1006",
+  "building"    => "zone_1234",
+  "level"       => "zone_1234",
 }
 
 DriverSpecs.mock_driver "Place::LocationServices" do
