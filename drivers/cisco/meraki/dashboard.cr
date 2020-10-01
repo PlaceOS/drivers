@@ -388,6 +388,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       return SUCCESS_RESPONSE
     end
 
+    locations_updated = 0
+
     # Parse the data posted
     begin
       seen = DevicesSeen.from_json(body)
@@ -412,13 +414,18 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         existing = @locations[client_mac]?
 
         location = parse(existing, ignore_older, drift_older, observation.latest_record.time, observation.locations)
-        @locations[client_mac] = location if location
+        if location
+          @locations[client_mac] = location
+          locations_updated += 1
+        end
         update_ipv4(observation)
         update_ipv6(observation)
       end
     rescue e
       logger.error { "failed to parse meraki scanning API payload\n#{e.inspect_with_backtrace}" }
     end
+
+    logger.debug { "updated #{locations_updated} locations" }
 
     # Return a 200 response
     SUCCESS_RESPONSE
