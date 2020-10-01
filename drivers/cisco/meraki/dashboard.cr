@@ -40,7 +40,17 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # can we use the meraki dashboard API for user lookups
     default_network_id: "network_id",
 
+    # Max requests a second made to the dashboard
     rate_limit: 4,
+
+    # Level mappings, level name for human readability
+    floorplan_mappings: {
+      "g_727894289773756672" => {
+        "building":   "zone-12345",
+        "level":      "zone-123456",
+        "level_name": "BUILDING - L1",
+      },
+    },
   })
 
   def on_load
@@ -68,6 +78,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   @user_mac_mappings : PlaceOS::Driver::Storage? = nil
   @default_network : String = ""
+  @floorplan_mappings : Hash(String, Hash(String, String)) = Hash(String, Hash(String, String)).new
 
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
@@ -94,6 +105,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # How much confidence do we have in this new value, relative to an old confident value
     @time_multiplier = 1.0_f64 / (@maximum_drift_time.to_i - @maximum_confidence_time.to_i).to_f64
     @confidence_multiplier = 1.0_f64 / (@maximum_uncertainty.to_i - @acceptable_confidence.to_i).to_f64
+
+    @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
   end
 
   protected def user_mac_mappings
@@ -293,15 +306,36 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   # versus most accurate location
   def locate_user(username : String)
     username = format_username(username)
-    location_max_age = 4.minutes.ago
+
     if macs = user_mac_mappings[username]?
+      location_max_age = 4.minutes.ago
+
       Array(String).from_json(macs).compact_map { |mac|
         if location = locate_mac(mac)
           location if location.time > location_max_age
         end
-      }.sort { |a, b| b.time <=> a.time }
+      }.sort { |a, b|
+        b.time <=> a.time
+      }.map { |location|
+        loc = {
+          "location"          => "wireless",
+          "coordinates_from"  => "bottom-left",
+          "x"                 => location.x,
+          "y"                 => location.y,
+          "lng"               => location.lng,
+          "lat"               => location.lat,
+          "variance"          => location.variance,
+          "last_seen"         => location.time.to_unix,
+          "meraki_floor_id"   => location.floor_plan_id,
+          "meraki_floor_name" => location.floor_plan_name,
+        }
+        if level_data = @floorplan_mappings[location.floor_plan_id]
+          level_data.each { |k, v| loc[k] = v }
+        end
+        loc
+      }
     else
-      [] of Location
+      [] of Nil
     end
   end
 
