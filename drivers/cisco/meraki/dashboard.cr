@@ -99,6 +99,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     if @default_network.presence
       schedule.every(2.minutes) { map_users_to_macs }
     end
+    schedule.every(30.minutes) { cleanup_caches }
 
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
     @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
@@ -250,7 +251,14 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     network_id = network_id.presence || @default_network
     storage = user_mac_mappings
 
-    poll_clients(network_id).each do |client|
+    logger.debug { "mapping users to device MACs" }
+    clients = poll_clients(network_id)
+
+    new_devices = 0
+    updated_dev = 0
+
+    logger.debug { "mapping found #{clients.size} devices" }
+    clients.each do |client|
       user_id = client.user
       next unless user_id
       user_id = format_username(user_id)
@@ -262,11 +270,14 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
       # Remove any pervious mappings
       if existing_user
+        updated_dev += 1
         if user_macs = storage[existing_user]?
           macs = Array(String).from_json(user_macs)
           macs.delete(user_mac)
           storage[existing_user] = macs.to_json
         end
+      else
+        new_devices += 1
       end
 
       # Update the user mappings
@@ -281,6 +292,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
              end
       storage[user_id] = macs
     end
+
+    logger.debug { "mapping assigned #{new_devices} new devices, #{updated_dev} user updated" }
+    nil
   end
 
   def format_username(user : String)
@@ -307,8 +321,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   # returns locations based on most recently seen
   # versus most accurate location
-  def locate_user(identifier : String)
-    username = format_username(identifier)
+  def locate_user(email : String? = nil, username : String? = nil)
+    username = format_username(username || email || "")
 
     if macs = user_mac_mappings[username]?
       location_max_age = 4.minutes.ago
@@ -340,6 +354,20 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     else
       [] of Nil
     end
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def cleanup_caches : Nil
+    logger.debug { "removing IP and location data that is over 30 minutes old" }
+
+    old = 30.minutes.ago
+    remove_keys = [] of String
+    @ip_lookup.each { |ip, lookup| remove_keys << ip if lookup.time < old }
+    remove_keys.each { |ip| @ip_lookup.delete(ip) }
+
+    remove_keys.clear
+    @locations.each { |mac, location| remove_keys << mac if location.time < old }
+    remove_keys.each { |mac| @locations.delete(mac) }
   end
 
   # Webhook endpoint for scanning API, expects version 3

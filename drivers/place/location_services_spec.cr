@@ -35,7 +35,7 @@ end
 class WirelessLocation < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Locatable
 
-  def locate_user(identifier : String)
+  def locate_user(email : String? = nil, username : String? = nil)
     [WIRELESS_LOC]
   end
 end
@@ -43,7 +43,7 @@ end
 class DeskLocation < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Locatable
 
-  def locate_user(identifier : String)
+  def locate_user(email : String? = nil, username : String? = nil)
     [DESK_LOC]
   end
 end
