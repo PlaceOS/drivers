@@ -329,7 +329,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
           "meraki_floor_id"   => location.floor_plan_id,
           "meraki_floor_name" => location.floor_plan_name,
         }
-        if level_data = @floorplan_mappings[location.floor_plan_id]
+        if level_data = @floorplan_mappings[location.floor_plan_id]?
           level_data.each { |k, v| loc[k] = v }
         end
         loc
