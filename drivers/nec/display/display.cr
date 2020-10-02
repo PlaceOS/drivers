@@ -28,7 +28,7 @@ class Nec::Display::All < PlaceOS::Driver
     Hdmi3       = 130
     Usb         = 135
 
-    def to_s : String
+    def to_ascii : String
       Nec::Display::All.format_value(self.value)
     end
   end
@@ -84,14 +84,15 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def power?(**options)
-    do_send(MsgType::Command, Command::PowerQuery, **options, name: "power?")
+    do_send(MsgType::Command, Command::PowerQuery, **options, name: "power?").get
+    self[:power]
   end
 
   def switch_to(input : Input)
     @target_input = input
     @target_audio = nil
 
-    data = Command::VideoInput.to_s + input.to_s
+    data = Command::VideoInput.to_s + input.to_ascii
 
     logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
     do_send(MsgType::SetParameter, data, name: "input", delay: 6.seconds)
@@ -106,7 +107,7 @@ class Nec::Display::All < PlaceOS::Driver
     Tv          = 6
     DisplayPort = 7
 
-    def to_s : String
+    def to_ascii : String
       Nec::Display::All.format_value(self.value)
     end
   end
@@ -114,7 +115,7 @@ class Nec::Display::All < PlaceOS::Driver
   def switch_audio(input : Audio)
     @target_audio = input
 
-    data = Command::AudioInput.to_s + input.to_s
+    data = Command::AudioInput.to_s + input.to_ascii
 
     logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
     do_send(MsgType::SetParameter, data, name: "audio")
@@ -156,6 +157,18 @@ class Nec::Display::All < PlaceOS::Driver
 
   def unmute_audio
     mute_audio(false)
+  end
+
+  def do_poll
+    current_power = power?(priority: 0)
+    logger.debug { "Polling, power = #{current_power}" }
+
+    if current_power.try &.as_bool?
+      mute_status
+      volume_status
+      video_input
+      audio_input
+    end
   end
 
   # LCD Response code
@@ -203,42 +216,21 @@ class Nec::Display::All < PlaceOS::Driver
     task.try &.success
   end
 
-  def do_poll
-    power?(priority: 0)
-    logger.debug { "Polling, power = #{self[:power]}" }
-
-    # TODO: not sure why but this seems to never run even even if self[:power] == true
-    # if self[:power]?
-    if self[:power]?.try &.as_bool?
-      # mute_status
-      # volume_status
-      # video_input
-      # audio_input
-    end
-  end
-
   private def parse_response(data : String)
     # 14..15 == type (we don't care)
     value = data[20..23].to_i(16)
     command = Command.from_value(data[10..13].to_i(16))
 
     logger.debug { "command is #{data[10..13]}" }
+    logger.debug { command }
     logger.debug { "value is #{data[20..23]}" }
+    logger.debug { value }
 
     case command
     when .video_input?
-      input = Input.from_value(value)
-      self[:input] = input
-      target_input = @target_input ||= input
-      if target_input && self[:input] != self[:target_input]
-        switch_to(target_input)
-      end
+      self[:input] = Input.from_value(value).to_s
     when .audio_input?
-      self[:audio] = Audio.from_value(value)
-      target_audio = @target_audio
-      if target_audio && self[:audio] != self[:target_audio]
-        switch_audio(target_audio)
-      end
+      self[:audio] = Audio.from_value(value).to_s
     when .volume_status?
       self[:volume] = value
     when .brightness_status?
