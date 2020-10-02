@@ -74,9 +74,6 @@ class Nec::Display::All < PlaceOS::Driver
       data += "0001" # 0001 = Power On
       logger.debug { "-- NEC LCD, requested to power on" }
       do_send(MsgType::Command, data, name: "power", delay: 5.seconds)
-
-      mute_status(20)
-      volume_status(20)
     else
       data += "0004" # 0004 = Power Off
       logger.debug { "-- NEC LCD, requested to power off" }
@@ -121,14 +118,11 @@ class Nec::Display::All < PlaceOS::Driver
 
     logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
     do_send(MsgType::SetParameter, data, name: "audio")
-    mute_status(20) # higher status than polling commands - lower than input switching
-    volume_status(20)
   end
 
   def auto_adjust
     data = Command::AutoSetup.to_s + "0001"
-    # TODO: find out if there is an equivalent for delay_on_receive
-    do_send(MsgType::SetParameter, data)#, delay_on_receive: 4.seconds)
+    do_send(MsgType::SetParameter, data, name: "auto_adjust")
   end
 
   def brightness(val : Int32)
@@ -157,7 +151,7 @@ class Nec::Display::All < PlaceOS::Driver
     data = Command::MuteStatus.to_s + (state ? "0001" : "0000")
 
     logger.debug { "requested to update mute to #{state}" }
-    do_send(MsgType::SetParameter, data)
+    do_send(MsgType::SetParameter, data, name: "mute_audio")
   end
 
   def unmute_audio
@@ -184,18 +178,14 @@ class Nec::Display::All < PlaceOS::Driver
       if ascii_string[10..15] == "C203D6" # Means power comamnd
         # 8..9 == "00" means no error
         if ascii_string[8..9] == "00"
-          self[:power] = true
+          self[:power] = ascii_string[11] == '1'
         else
           return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
         end
       elsif ascii_string[12..13] == "D6" # Power status response
         # 10..11 == "00" means no error
         if ascii_string[10..11] == "00"
-          if ascii_string[23] == '1' # On == 1, Off == 4
-            self[:power] = true
-          else
-            self[:power] = false
-          end
+          self[:power] = ascii_string[23] == '1'
         else
           return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
         end
@@ -257,11 +247,7 @@ class Nec::Display::All < PlaceOS::Driver
       self[:contrast] = value
     when .mute_status?
       self[:audio_mute] = value == 1
-      if value == 1
-        self[:volume] = 0
-      else
-        volume_status(60) # high priority
-      end
+      self[:volume] = 0 if value == 1
     when .auto_setup?
       # auto_setup
       # nothing needed to do here (we are delaying the next command by 4 seconds)
