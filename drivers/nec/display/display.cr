@@ -286,7 +286,6 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Builds the command and creates the checksum
-  # data can be an ascii encoded string
   private def do_send(type : MsgType, data : Command | Array(Int), **options)
     data = [data.value] if data.is_a?(Command)
     data = data.join { |i| format_value(i) }.bytes
