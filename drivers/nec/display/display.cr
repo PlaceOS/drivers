@@ -39,10 +39,6 @@ class Nec::Display::All < PlaceOS::Driver
   descriptive_name "NEC Display"
   generic_name :Display
 
-  @target_input : Input? = nil
-  @target_audio : Audio? = nil
-  @input_double_check : PlaceOS::Driver::Proxy::Scheduler? = nil
-
   DELIMITER = 0x0D_u8
 
   def on_load
@@ -89,9 +85,6 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def switch_to(input : Input)
-    @target_input = input
-    @target_audio = nil
-
     data = Command::VideoInput.to_s + input.to_ascii
 
     logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
@@ -113,8 +106,6 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   def switch_audio(input : Audio)
-    @target_audio = input
-
     data = Command::AudioInput.to_s + input.to_ascii
 
     logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
