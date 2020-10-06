@@ -57,6 +57,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   @input_stable : Bool = true
   @input_target : Input? = nil
   @power_stable : Bool = true
+  @power_target : Bool = true
 
   def on_load
     transport.tokenizer = Tokenizer.new do |io|
@@ -93,7 +94,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   # As true power off disconnects the server we only want to power off the panel
   def power(state : Bool)
-    self[:power_target] = power
+    @power_target = state
     @power_stable = false
 
     if state
@@ -300,10 +301,10 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   def check_power_state
     return if @power_stable
-    if self[:power]? == self[:power_target]?
+    if self[:power]? == @power_target
       @power_stable = true
     else
-      power(self[:power_target].as_bool)
+      power(@power_target)
     end
   end
 
