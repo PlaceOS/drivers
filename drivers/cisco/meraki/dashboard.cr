@@ -393,6 +393,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     property id : String
     property width : Float64
     property height : Float64
+
+    # This is useful for when we have to map meraki IDs to our zones
+    property name : String?
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
