@@ -27,6 +27,11 @@ DriverSpecs.mock_driver "Nec::Display::All" do
   status[:audio_mute].should eq(true)
   status[:volume].should eq(0)
 
+  exec(:unmute_audio)
+  should_send("\x010*0E0A\x02008D0000\x03\x63\x0D")
+     responds("\x0100*F12\x0200008D0000000000\x03\x12\x0D")
+  status[:audio_mute].should eq(false)
+
   exec(:volume, 25)
   should_send("\x010*0E0A\x0200620019\x03\x13\x0D")
      responds("\x0100*F12\x020000620000640019\x03\x60\x0D")
