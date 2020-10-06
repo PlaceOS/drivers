@@ -212,9 +212,9 @@ class Nec::Display::All < PlaceOS::Driver
 
     case command
     when .video_input?
-      self[:input] = Input.from_value(value).to_s
+      self[:input] = Input.from_value(value)
     when .audio_input?
-      self[:audio] = Audio.from_value(value).to_s
+      self[:audio] = Audio.from_value(value)
     when .volume_status?
       self[:volume] = value
     when .brightness_status?
