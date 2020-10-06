@@ -127,8 +127,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    mute_video(state) if layer == MuteLayer::Video || layer == MuteLayer::AudioVideo
-    mute_audio(state) if layer == MuteLayer::Audio || layer == MuteLayer::AudioVideo
+  mute_video(state) if layer.video? || layer.audio_video?
+  mute_audio(state) if layer.audio? || layer.audio_video?
   end
 
   # Adds video mute state compatible with projectors
