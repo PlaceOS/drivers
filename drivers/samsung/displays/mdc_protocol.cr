@@ -8,7 +8,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   INDICATOR = 0xAA_u8
 
-  enum Inputs
+  enum Input
     Vga         = 0x14 # pc in manual
     Dvi         = 0x18
     DviVideo    = 0x1F
@@ -27,7 +27,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     MagicInfo   = 0x20
     Whiteboard  = 0x64
   end
-  include PlaceOS::Driver::Interface::InputSelection(Inputs)
+  include PlaceOS::Driver::Interface::InputSelection(Input)
 
   # Discovery Information
   tcp_port 1515
@@ -252,7 +252,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         self[:power]      = false if hard_off
         self[:volume]     = values[1]
         self[:audio_mute] = values[2] == 1
-        self[:input]      = Inputs.from_value(values[3])
+        self[:input]      = Input.from_value(values[3])
         check_power_state
       when .panel_mute?
         self[:power] = value == 0
@@ -263,7 +263,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       when .brightness?
         self[:brightness] = value
       when .input?
-        self[:input] = Inputs.from_value(value)
+        self[:input] = Input.from_value(value)
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]?.try &.as_bool
