@@ -173,5 +173,8 @@ class Place::Calendar < PlaceOS::Driver
         sleep @wait_time
       end
     end
+  rescue
+    # Possible error with logging exception, restart rate limiter silently
+    spawn { rate_limiter }
   end
 end
