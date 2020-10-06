@@ -85,6 +85,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @user_mac_mappings : PlaceOS::Driver::Storage? = nil
   @default_network : String = ""
   @floorplan_mappings : Hash(String, Hash(String, String)) = Hash(String, Hash(String, String)).new
+  @floorplan_sizes = {} of String => FloorPlan
   @max_location_age : Time::Span = 10.minutes
 
   def on_update
@@ -99,12 +100,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @user_mac_mappings = PlaceOS::Driver::Storage.new(module_id, "user_macs")
     @default_network = setting?(String, :default_network_id) || ""
 
-    schedule.clear
-    if @default_network.presence
-      schedule.every(2.minutes) { map_users_to_macs }
-    end
-    schedule.every(30.minutes) { cleanup_caches }
-
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
     @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
     @maximum_confidence_time = (setting?(Int32, :maximum_confidence_time) || 40).seconds
@@ -116,6 +111,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
+
+    schedule.clear
+    if @default_network.presence
+      schedule.every(2.minutes) { map_users_to_macs }
+      schedule.every(29.minutes, immediate: true) { sync_floorplan_sizes }
+    end
+    schedule.every(30.minutes) { cleanup_caches }
   end
 
   protected def user_mac_mappings
@@ -351,9 +353,18 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
           "meraki_floor_id"   => location.floor_plan_id,
           "meraki_floor_name" => location.floor_plan_name,
         }
+
+        # Add our zone IDs to the response
         if level_data = @floorplan_mappings[location.floor_plan_id]?
           level_data.each { |k, v| loc[k] = v }
         end
+
+        # Add meraki map information to the response
+        if map_size = @floorplan_sizes[location.floor_plan_id]?
+          loc["map_width"] = map_size.width
+          loc["map_height"] = map_size.height
+        end
+
         loc
       }
     else
@@ -373,6 +384,32 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     remove_keys.clear
     @locations.each { |mac, location| remove_keys << mac if location.time < old }
     remove_keys.each { |mac| @locations.delete(mac) }
+  end
+
+  class FloorPlan
+    include JSON::Serializable
+
+    @[JSON::Field(key: "floorPlanId")]
+    property id : String
+    property width : Float64
+    property height : Float64
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def sync_floorplan_sizes(network_id : String? = nil)
+    network_id = network_id.presence || @default_network
+    logger.debug { "syncing floor plan sizes for network #{network_id}" }
+
+    floor_plans = {} of String => FloorPlan
+
+    req("/api/v1/networks/#{network_id}/floorPlans") { |response|
+      Array(FloorPlan).from_json(response.body).each do |plan|
+        floor_plans[plan.id] = plan
+      end
+      nil
+    }
+
+    @floorplan_sizes = floor_plans
   end
 
   # Webhook endpoint for scanning API, expects version 3
