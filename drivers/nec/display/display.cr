@@ -136,10 +136,6 @@ class Nec::Display::All < PlaceOS::Driver
     do_send(MsgType::SetParameter, data, name: "mute_audio")
   end
 
-  def unmute_audio
-    mute_audio(false)
-  end
-
   def do_poll
     current_power = power?(priority: 0)
     logger.debug { "Polling, power = #{current_power}" }
