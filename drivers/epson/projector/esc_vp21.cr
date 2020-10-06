@@ -24,6 +24,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   generic_name :Display
 
   def on_load
+    transport.tokenizer = Tokenizer.new("\r\n")
+
     self[:volume_min] = 0
     self[:volume_max] = 255
 
@@ -51,25 +53,25 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   #
   # Power commands
   #
-  def power(state : Bool, opt = nil)
+  def power(state : Bool)
     self[:stable_state] = false
     if state
       self[:power_target] = true
       do_send(:PWR, :ON, {:timeout => 40000, :name => :power})
       logger.debug { "-- epson Proj, requested to power on" }
-      do_send(:PWR, {:name => :power_state})
+      do_send(:PWR, options: {:name => :power_state})
     else
       self[:power_target] = false
       do_send(:PWR, :OFF, {:timeout => 10000, :name => :power})
       logger.debug { "-- epson Proj, requested to power off" }
-      do_send(:PWR, {:name => :power_state})
+      do_send(:PWR, options: {:name => :power_state})
     end
   end
 
-  def power?(**options, &block)
+  def power?(options, &block)
     options[:emit] = block unless block.nil?
     options[:name] = :power_state
-    do_send(:PWR, **options)
+    do_send(:PWR, options: options)
   end
 
   #
@@ -82,53 +84,57 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   INPUT_LOOKUP = INPUTS.invert
 
   def switch_to(input : Inputs)
-    do_send(:SOURCE, INPUTS[input], name: :inpt_source)
-    do_send(:SOURCE, name: :inpt_query)
+    do_send(:SOURCE, INPUT_LOOKUP[input], {:name => :inpt_source})
+    do_send(:SOURCE, options: {:name => :inpt_query})
 
     logger.debug { "-- epson LCD, requested to switch to: #{input}" }
     self[:input] = input # for a responsive UI
-    self[:mute] = false
+    self[:MUTE] = false
   end
 
   #
   # Volume commands are sent using the inpt command
   #
-  def volume(vol, **options)
-    vol = vol.to_i
+  def volume(vol : Int32, options)
     vol = 0 if vol < 0
     vol = 255 if vol > 255
 
     # Seems to only return ":" for this command
     self[:volume] = vol
     self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
-    do_send(:VOL, vol, **options)
+    do_send(:VOL, vol, options)
   end
 
-  #
-  # Mute Audio and Video
-  #
-  def mute(state : Bool)
-    logger.debug { "-- epson Proj, requested to mute #{state}" }
-    do_send(:MUTE, state, name: :video_mute) # Audio + Video
+  # Mutes audio + video
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    logger.debug { "-- epson Proj, requested mute state: #{state}" }
+
+    do_send(:MUTE, state, {:name => :video_mute}) # Audio + Video
     do_send(:MUTE)                           # request status
   end
 
-  def unmute
-    mute(false)
+  def unmute(index : Int32 | String = 0, layer : MuteLayer = MuteLayer::AudioVideo)
+    mute false, index, layer
   end
 
   # Audio mute
-  def mute_audio(state : Bool = true)
+  def mute_audio(state : Bool = true, index : Int32 | String = 0)
+    mute state, index, MuteLayer::Audio
+
     val = state ? 0 : self[:unmute_volume]
     volume(val)
   end
 
-  def unmute_audio
-    mute_audio(false)
+  def unmute_audio(index : Int32 | String = 0)
+    mute_audio(false, index)
   end
 
   def input?
-    do_send(:SOURCE, {
+    do_send(:SOURCE, options: {
       :name     => :inpt_query,
       :priority => 0,
     })
@@ -189,16 +195,14 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       self[:warming] = state == 2
       self[:cooling] = state == 3
       if self[:warming] || self[:cooling]
-        schedule.in("5s") do
-          power?({:priority => 0})
-        end
+        schedule.in(5.seconds) { power?(priority: 0) }
       end
       if !self[:stable_state] && self[:power_target] == self[:power]
         self[:stable_state] = true
-        self[:mute] = false if !self[:power]
+        self[:MUTE] = false if !self[:power]
       end
     when :MUTE
-      self[:mute] = data[1] == true
+      self[:MUTE] = data[1] == true
     when :VOL
       vol = data[1].to_i
       self[:volume] = vol
@@ -206,32 +210,32 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     when :LAMP
       self[:lamp_usage] = data[1].to_i
     when :SOURCE
-      self[:source] = INPUTS[data[1].to_i(16)] || :unknown
+      self[:source] = INPUT_LOOKUP[data[1].to_i(16)] || :unknown
     end
 
     :success
   end
 
   def inspect_error
-    do_send(:ERR, priority: 0)
+    do_send(:ERR, {:priority => 0})
   end
 
   protected def do_poll(*args)
-    power?({:priority => 0}) do
+    power?(priority: 0) do
       if self[:power]
         if self[:stable_state] == false && self[:power_target] == false
           power(false)
         else
           self[:stable_state] = true
-          do_send(:SOURCE, {
+          do_send(:SOURCE, options: {
             :name     => :inpt_query,
             :priority => 0,
           })
-          do_send(:MUTE, {
-            :name     => :mute_query,
+          do_send(:MUTE, options: {
+            :name     => :MUTE_query,
             :priority => 0,
           })
-          do_send(:VOL, {
+          do_send(:VOL, options: {
             :name     => :vol_query,
             :priority => 0,
           })
@@ -244,19 +248,14 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
         end
       end
     end
-    do_send(:LAMP, {:priority => 0})
+    do_send(:LAMP, options: {:priority => 0})
   end
 
-  protected def do_send(command, param = nil, **options)
-    if param.is_a? Hash
-      options = param
-      param = nil
-    end
-
+  protected def do_send(command, param = nil, options : Hash(String, Int32))
     if param.nil?
-      send("#{command}?\x0D", **options)
+      send("#{command}?\x0D", options)
     else
-      send("#{command} #{param}\x0D", **options)
+      send("#{command} #{param}\x0D", options.not_nil!)
     end
   end
 end
