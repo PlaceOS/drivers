@@ -92,21 +92,21 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   # As true power off disconnects the server we only want to power off the panel
-  def power(power : Bool)
+  def power(state : Bool)
     self[:power_target] = power
     @power_stable = false
 
-    if !power
+    if state
+      # Power on
+      do_send(Command::HardOff, 1)
+      do_send(Command::PanelMute, 0)
+    else
       # Blank the screen before turning off panel if required
       # required by some video walls where screens are chained
       if (blanking_input = @blank) && self[:power]?
         switch_to(blanking_input)
       end
       do_send(Command::PanelMute, 1)
-    else
-      # Power on
-      do_send(Command::HardOff, 1)
-      do_send(Command::PanelMute, 0)
     end
   end
 
