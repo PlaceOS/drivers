@@ -139,20 +139,13 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   # Emulate audio mute
   def mute_audio(state : Bool = true)
+    # Do nothing if already in desired state
+    return if self[:audio_mute]?.try &.as_bool == state
+    self[:audio_mute] = state
     if state
-      unless self[:audio_mute]?.try &.as_bool
-        self[:audio_mute] = true
-        @previous_volume = self[:volume].as_i
-        volume(0)
-      end
+      @previous_volume = self[:volume].as_i
+      volume(0)
     else
-      unmute_audio
-    end
-  end
-
-  def unmute_audio
-    if self[:audio_mute]?.try &.as_bool
-      self[:audio_mute] = false
       volume(@previous_volume)
     end
   end
