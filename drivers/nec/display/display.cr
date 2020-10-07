@@ -56,7 +56,7 @@ class Nec::Display::All < PlaceOS::Driver
 
   def power(state : Bool)
     # Do nothing if already in desired state
-    return if self[:power]?.try &.as_bool? == state
+    return if self[:power]?.try &.as_bool == state
 
     if state
       # 1 = Power On
@@ -73,9 +73,9 @@ class Nec::Display::All < PlaceOS::Driver
     end
   end
 
-  def power?(**options)
+  def power?(**options) : Bool
     do_send(MsgType::Command, Command::PowerQuery, **options, name: "power?").get
-    self[:power]
+    self[:power].as_bool
   end
 
   def switch_to(input : Input)
@@ -140,7 +140,7 @@ class Nec::Display::All < PlaceOS::Driver
     current_power = power?(priority: 0)
     logger.debug { "Polling, power = #{current_power}" }
 
-    if current_power.try &.as_bool?
+    if current_power
       mute_status
       volume_status
       video_input
