@@ -26,14 +26,12 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   default_settings({
     rs232_control: false,
-    display_id: 1,
-    autoswitch: false
+    display_id: 1
   })
 
   @display_id : Int32 = 0
   @id_num : Int32 = 1
   @rs232 : Bool = false
-  @autoswitch : Bool = false
   @id : String = ""
   @last_broadcast : String? = nil
 
@@ -49,7 +47,6 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   def on_update
     @rs232 = setting(Bool, :rs232_control)
     @id_num = setting(Int32, :display_id)
-    @autoswitch = setting(Bool, :autoswitch)
     @id = @id_num.to_s.rjust(2, '0')
   end
 
@@ -240,57 +237,31 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     end
 
     case command
-    when :power
+    when .power?
       self[:hard_power] = resp_value == 1
       self[:power] = false unless self[:hard_power].as_bool
-    # when :input
-    #     self[:input] = Inputs[resp_value] || :unknown
-    #     self[:input_target] = self[:input] if self[:input_target].nil?
-    #     if self[:input_target] == self[:input] || @autoswitch
-    #         self[:input_stable] = true
-    #     else
-    #         switch_to(self[:input_target])
-    #     end
-    # when :aspect_ratio
-    #     self[:aspect_ratio] = Ratios[resp_value] || :unknown
-    # when :screen_mute
-    #     # This indicates power status as hard off we are disconnected
-    #     self[:power] = resp_value != 1
-
-    #     if self[:power_stable] == false
-    #         # Power target should only be auto-set to on. Off is undesirable.
-    #         self[:power_target] = On if self[:power_target].nil? && self[:power]
-
-    #         # The target has been achieved
-    #         # This does allow users to turn off displays with a remote if they desire
-    #         if self[:power_target] == self[:power]
-    #             self[:power_stable] = true
-    #         elsif self[:power_target] != nil
-    #             power(self[:power_target])
-    #         end
-    #     end
-    # when :volume_mute
-    #     self[:audio_mute] = resp_value == 0
-    # when :contrast
-    #     self[:contrast] = resp_value
-    # when :brightness
-    #     self[:brightness] = resp_value
-    # when :sharpness
-    #     self[:sharpness] = resp_value
-    # when :volume
-    #     self[:volume] = resp_value
-    # when :wol
-    #     logger.debug { "WOL Enabled!" }
-    # when :dpm
-    #     logger.debug { "DPM changed!" }
-    # when :no_signal_off
-    #     logger.debug { "No Signal Auto Off changed!" }
-    # when :auto_off
-    #     logger.debug { "Auto Off changed!" }
-    # when :local_button_lock
-    #     logger.debug { "Local Button Lock changed!" }
-    # else
-    #     return
+    when .input?
+      self[:input] = Input.from_value(resp_value)
+    when .aspect_ratio?
+      self[:aspect_ratio] = Ratio.from_value(resp_value)
+    when .screen_mute?
+      self[:power] = resp_value != 1
+    when .volume_mute?
+      self[:audio_mute] = resp_value == 0
+    when .contrast?, .brightness?, .sharpness?, .volume?
+      self[command.to_s.downcase] = resp_value
+    when .wol?
+      logger.debug { "WOL Enabled!" }
+    when .dpm?
+      logger.debug { "DPM changed!" }
+    when .no_signal_off?
+      logger.debug { "No Signal Auto Off changed!" }
+    when .auto_off?
+      logger.debug { "Auto Off changed!" }
+    when .local_button_lock?
+      logger.debug { "Local Button Lock changed!" }
+    else
+      return task.try &.retry
     end
 
     task.try &.success
