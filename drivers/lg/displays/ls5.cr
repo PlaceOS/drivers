@@ -112,7 +112,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def switch_to(input : Input, **options)
-    do_send(Command::Input, input.value, 'x', name: "input")#, delay_on_receive: 2000)
+    do_send(Command::Input, input.value, 'x', name: "input", delay: 2.seconds)
   end
 
   def mute(
@@ -144,7 +144,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     Program = 0x06
   end
   def aspect_ratio(ratio : Ratio)
-    do_send(Command::AspectRatio, ratio.value, name: "aspect_ratio")#, delay_on_receive: 1000)
+    do_send(Command::AspectRatio, ratio.value, name: "aspect_ratio", delay: 1.second)
   end
 
   def do_poll
@@ -225,7 +225,75 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def received(data, task)
+    command = Command.from_value(data[0])
+    logger.debug { "Command is #{command}" }
+    data = String.new(data)
     logger.debug { "LG sent #{data}" }
+
+    resp = data.split(' ').last
+
+    resp_value = 0
+    if resp[0..1] == "OK" # Extract the response value
+      resp_value = resp[2..-1].to_i(16)
+    else # Request failed. We don't want to retry
+      return task.try &.abort
+    end
+
+    case command
+    when :power
+      self[:hard_power] = resp_value == 1
+      self[:power] = false unless self[:hard_power].as_bool
+    # when :input
+    #     self[:input] = Inputs[resp_value] || :unknown
+    #     self[:input_target] = self[:input] if self[:input_target].nil?
+    #     if self[:input_target] == self[:input] || @autoswitch
+    #         self[:input_stable] = true
+    #     else
+    #         switch_to(self[:input_target])
+    #     end
+    # when :aspect_ratio
+    #     self[:aspect_ratio] = Ratios[resp_value] || :unknown
+    # when :screen_mute
+    #     # This indicates power status as hard off we are disconnected
+    #     self[:power] = resp_value != 1
+
+    #     if self[:power_stable] == false
+    #         # Power target should only be auto-set to on. Off is undesirable.
+    #         self[:power_target] = On if self[:power_target].nil? && self[:power]
+
+    #         # The target has been achieved
+    #         # This does allow users to turn off displays with a remote if they desire
+    #         if self[:power_target] == self[:power]
+    #             self[:power_stable] = true
+    #         elsif self[:power_target] != nil
+    #             power(self[:power_target])
+    #         end
+    #     end
+    # when :volume_mute
+    #     self[:audio_mute] = resp_value == 0
+    # when :contrast
+    #     self[:contrast] = resp_value
+    # when :brightness
+    #     self[:brightness] = resp_value
+    # when :sharpness
+    #     self[:sharpness] = resp_value
+    # when :volume
+    #     self[:volume] = resp_value
+    # when :wol
+    #     logger.debug { "WOL Enabled!" }
+    # when :dpm
+    #     logger.debug { "DPM changed!" }
+    # when :no_signal_off
+    #     logger.debug { "No Signal Auto Off changed!" }
+    # when :auto_off
+    #     logger.debug { "Auto Off changed!" }
+    # when :local_button_lock
+    #     logger.debug { "Local Button Lock changed!" }
+    # else
+    #     return
+    end
+
+    task.try &.success
   end
 
   private def do_send(command : Command, data : Int, system : Char = 'k', **options)
