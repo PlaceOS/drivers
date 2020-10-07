@@ -51,21 +51,18 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def connected
-    # #configure_dpm
-    # wake_on_lan(true)
-    # no_signal_off(false)
-    # auto_off(false)
-    # local_button_lock(true)
-    # pm_mode(3)
-    # schedule.every(50.seconds, true) do
-    #   do_poll
-    # end
+    wake_on_lan
+    no_signal_off
+    auto_off
+    local_button_lock
+    pm_mode
+    schedule.every(50.seconds, true) do
+      do_poll
+    end
   end
 
   def disconnected
     schedule.clear
-    # self[:power] = false  # As we may need to use wake on lan
-    # self[:power_stable] = false if !self[:power_target].nil? && self[:power_target] != self[:power]
   end
 
   enum Command
@@ -82,14 +79,12 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     AutoOff         = 0x6E # 'n'
     LocalButtonLock = 0x6F # 'o'
     Wol             = 0x77 # 'w'
-    # TODO: Dupe with Contrast
     NoSignalOff     = 0x67 # 'g'
-    # TODO: Dupe with AutoOff
     PmMode          = 0x6E # 'n'
   end
   {% for name in Command.constants %}
     @[Security(Level::Administrator)]
-    def {{name.id.underscore}}(priority : Int32 = 0)
+    def {{name.id.underscore}}?(priority : Int32 = 0)
       do_send(Command::{{name.id}}, 0xFF, priority: priority, name: {{name.id.underscore.stringify}} + "_status")
     end
   {% end %}
@@ -105,7 +100,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def hard_off
-    do_send(Command::Power, 0, name: :power, priority: 99)
+    do_send(Command::Power, 0, name: "power", priority: 99)
   end
 
   def switch_to(input : Input, **options)
@@ -145,26 +140,25 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def do_poll
-    # if @rs232
-    #   power?.then do
-    #     if self[:hard_power].try? &.as_bool
-    #         screen_mute?
-    #         input?
-    #         volume_mute?
-    #         volume?
-    #     end
-    #   end
-    # elsif self[:connected].try? &.as_bool
-    #   screen_mute?
+    if @rs232
+      power?
+      if self[:hard_power]?.try &.as_bool
+        screen_mute?
+        input?
+        volume_mute?
+        volume?
+      end
+    elsif self[:connected].try &.as_bool
+      screen_mute?
 
-    #   if @id_num == 1
-    #     input?
-    #     volume_mute?
-    #     volume?
-    #   end
-    # elsif self[:power_target].try? &.as_bool
-    #   power(true)
-    # end
+      if @id_num == 1
+        input?
+        volume_mute?
+        volume?
+      end
+    elsif self[:power_target]?.try &.as_bool
+      power(true)
+    end
   end
 
   def input?(priority : Int32 = 0)
@@ -223,6 +217,22 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   def received(data, task)
     command = Command.from_value(data[0])
+
+    # Both the responses for contrast/no_signal_off will have data[0] == 'g'
+    # Same thing for auto_off/pm_mode with data[0] == 'n'
+    # We will try using the task name to actually distinguish between these pairs
+    if (command.contrast? || command.no_signal_off? || command.auto_off? || command.pm_mode?) && (task_name = task.try &.name)
+      case task_name
+      when .includes?("contrast")
+        command = Command::Contrast
+      when .includes?("no_signal_off")
+        command = Command::NoSignalOff
+      when .includes?("auto_off")
+        command = Command::AutoOff
+      when .includes?("pm_mode")
+        command = Command::PmMode
+      end
+    end
     logger.debug { "Command is #{command}" }
     data = String.new(data)
     logger.debug { "LG sent #{data}" }
@@ -260,6 +270,8 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
       logger.debug { "Auto Off changed!" }
     when .local_button_lock?
       logger.debug { "Local Button Lock changed!" }
+    when .pm_mode?
+      logger.debug { "PM Mode changed!" }
     else
       return task.try &.retry
     end
