@@ -235,7 +235,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
         command = "PmMode"
       end
     end
-    logger.debug { "Command is #{command}" }
+    logger.debug { "Received command #{command}" }
     data = String.new(data)
     logger.debug { "LG sent #{data}" }
 
@@ -291,8 +291,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     else
       data = "#{system}#{command.value.chr} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
     end
-    logger.debug { "Sending command #{command} with data" }
-    logger.debug { data }
+    logger.debug { "Sending command #{command}" }
     send(data, **options)
   end
 end
