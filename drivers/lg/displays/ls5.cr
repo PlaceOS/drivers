@@ -187,7 +187,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   def no_signal_off(state : Bool = false)
     val = state ? 1 : 0
-    do_send(Command::NoSignalOff, val, 'f', name: "disable_no_sig_off")
+    do_send(Command::NoSignalOff, val, 'f', name: "disable_no_signal_off")
   end
 
   def auto_off(state : Bool = false)
@@ -197,7 +197,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   def wake_on_lan(state : Bool = true)
     val = state ? 1 : 0
-    do_send(Command::WakeOnLan, val, 'f', name: "enable_wol")
+    do_send(Command::WakeOnLan, val, 'f', name: "enable_wake_on_lan")
   end
 
   def wake(broadcast : String? = nil)
@@ -216,7 +216,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     end
   end
 
-  DUPLICATES = ["Contrast, NoSignalOff", "AutoOff", "PmMode"]
+  DUPLICATES = ["Contrast", "NoSignalOff", "AutoOff", "PmMode"]
   def received(data, task)
     command = Command.from_value(data[0]).to_s
 
@@ -262,21 +262,15 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     when "AspectRatio"
       self[:aspect_ratio] = Ratio.from_value(resp_value)
     when "ScreenMute"
-      self[:power] = resp_value != 1
+      self[:power] = resp_value == 0
     when "VolumeMute"
       self[:audio_mute] = resp_value == 0
-    when "Contrast", "Brightness", "Sharpness", "Volume"
-      self[command.downcase] = resp_value
-    when "WakeOnLan"
-      logger.debug { "Wake On Lan Enabled!" }
-    when "NoSignalOff"
-      logger.debug { "No Signal Auto Off changed!" }
-    when "AutoOff"
-      logger.debug { "Auto Off changed!" }
+    when "Contrast", "Brightness", "Sharpness", "Volume", "PmMode"
+      self[command.underscore] = resp_value
+    when "WakeOnLan", "NoSignalOff", "AutoOff"
+      self[command.underscore] = resp_value == 1
     when "LocalButtonLock"
-      logger.debug { "Local Button Lock changed!" }
-    when "PmMode"
-      logger.debug { "PM Mode changed!" }
+      self[:local_button_lock] = resp_value == 2
     else
       return task.try &.retry
     end
