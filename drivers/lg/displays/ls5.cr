@@ -74,11 +74,10 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     Volume          = 0x66 # 'f'
     Contrast        = 0x67 # 'g'
     Brightness      = 0x68 # 'h'
-    Dpm             = 0x69 # 'j'
     Sharpness       = 0x6B # 'k'
     AutoOff         = 0x6E # 'n'
     LocalButtonLock = 0x6F # 'o'
-    Wol             = 0x77 # 'w'
+    WakeOnLan       = 0x77 # 'w'
     NoSignalOff     = 0x67 # 'g'
     PmMode          = 0x6E # 'n'
   end
@@ -195,7 +194,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   def wake_on_lan(state : Bool = true)
     val = state ? 1 : 0
-    do_send(Command::Wol, val, 'f', name: "enable_wol")
+    do_send(Command::WakeOnLan, val, 'f', name: "enable_wol")
   end
 
   def wake(broadcast : String? = nil)
@@ -215,22 +214,23 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     end
   end
 
+  DUPLICATES = ["Contrast, NoSignalOff", "AutoOff", "PmMode"]
   def received(data, task)
-    command = Command.from_value(data[0])
+    command = Command.from_value(data[0]).to_s
 
     # Both the responses for contrast/no_signal_off will have data[0] == 'g'
     # Same thing for auto_off/pm_mode with data[0] == 'n'
     # We will try using the task name to actually distinguish between these pairs
-    if (command.contrast? || command.no_signal_off? || command.auto_off? || command.pm_mode?) && (task_name = task.try &.name)
+    if DUPLICATES.includes?(command) && (task_name = task.try &.name)
       case task_name
       when .includes?("contrast")
-        command = Command::Contrast
+        command = "Contrast"
       when .includes?("no_signal_off")
-        command = Command::NoSignalOff
+        command = "NoSignalOff"
       when .includes?("auto_off")
-        command = Command::AutoOff
+        command = "AutoOff"
       when .includes?("pm_mode")
-        command = Command::PmMode
+        command = "PmMode"
       end
     end
     logger.debug { "Command is #{command}" }
@@ -241,36 +241,39 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
     resp_value = 0
     if resp[0..1] == "OK" # Extract the response value
-      resp_value = resp[2..-1].to_i(16)
+      # Special case for PM Mode
+      if resp[2..3] == "0c"
+        resp_value = resp[4..-2].to_i(16)
+      else
+        resp_value = resp[2..-2].to_i(16)
+      end
     else # Request failed. We don't want to retry
       return task.try &.abort
     end
 
     case command
-    when .power?
+    when "Power"
       self[:hard_power] = resp_value == 1
       self[:power] = false unless self[:hard_power].as_bool
-    when .input?
+    when "Input"
       self[:input] = Input.from_value(resp_value)
-    when .aspect_ratio?
+    when "AspectRatio"
       self[:aspect_ratio] = Ratio.from_value(resp_value)
-    when .screen_mute?
+    when "ScreenMute"
       self[:power] = resp_value != 1
-    when .volume_mute?
+    when "VolumeMute"
       self[:audio_mute] = resp_value == 0
-    when .contrast?, .brightness?, .sharpness?, .volume?
-      self[command.to_s.downcase] = resp_value
-    when .wol?
-      logger.debug { "WOL Enabled!" }
-    when .dpm?
-      logger.debug { "DPM changed!" }
-    when .no_signal_off?
+    when "Contrast", "Brightness", "Sharpness", "Volume"
+      self[command.downcase] = resp_value
+    when "WakeOnLan"
+      logger.debug { "Wake On Lan Enabled!" }
+    when "NoSignalOff"
       logger.debug { "No Signal Auto Off changed!" }
-    when .auto_off?
+    when "AutoOff"
       logger.debug { "Auto Off changed!" }
-    when .local_button_lock?
+    when "LocalButtonLock"
       logger.debug { "Local Button Lock changed!" }
-    when .pm_mode?
+    when "PmMode"
       logger.debug { "PM Mode changed!" }
     else
       return task.try &.retry
@@ -280,7 +283,12 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   private def do_send(command : Command, data : Int, system : Char = 'k', **options)
-    data = "#{system}#{command.value} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
+    # Special case for PM Mode
+    if command.pm_mode? && system == 's'
+      data = "#{system}#{command.value.chr} #{@id} 0c #{data.to_s(16, true).rjust(2, '0')}\r"
+    else
+      data = "#{system}#{command.value.chr} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
+    end
     logger.debug { "Sending command #{command} with data" }
     logger.debug { data }
     send(data, **options)
