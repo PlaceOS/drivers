@@ -123,7 +123,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   def mute_audio(state : Bool = true)
     # Do nothing if already in desired state
-    return if self[:audio_mute]?.try &.as_bool == state
+    return if (self[:audio_mute]?.try &.as_bool) == state
     state = state ? 1 : 0
     do_send(Command::VolumeMute, state, name: "mute_audio")
   end
@@ -148,7 +148,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
         volume_mute?
         volume?
       end
-    elsif self[:connected].try &.as_bool
+    elsif self[:connected]?.try &.as_bool
       screen_mute?
 
       if @id_num == 1
