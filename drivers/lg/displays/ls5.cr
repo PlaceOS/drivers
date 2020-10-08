@@ -96,6 +96,9 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
         wake(broadcast || @last_broadcast)
       end
     end
+    # To power on, unmute the display
+    # To power off, mute the display
+    mute(!state) if self[:connected]
   end
 
   def hard_off
@@ -123,7 +126,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   def mute_audio(state : Bool = true)
     # Do nothing if already in desired state
     return if (self[:audio_mute]?.try &.as_bool) == state
-    state = state ? 1 : 0
+    state = state ? 0 : 1
     do_send(Command::VolumeMute, state, name: "mute_audio")
   end
 
@@ -198,8 +201,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def wake(broadcast : String? = nil)
-    mac = setting(String, :mac_address)
-    if mac
+    if mac = setting?(String, :mac_address)
       # config is the database model representing this device
       wake_device(mac, broadcast)
       logger.debug {
