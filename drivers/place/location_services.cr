@@ -18,4 +18,38 @@ class Place::LocationServices < PlaceOS::Driver
     end
     located
   end
+
+  # Will return an array of MAC address strings
+  # lowercase with no seperation characters abcdeffd1234 etc
+  def macs_assigned_to(email : String? = nil, username : String? = nil)
+    logger.debug { "listing MAC addresses assigned to #{email}, #{username}" }
+    macs = [] of String
+    system.implementing(Interface::Locatable).macs_assigned_to(email, username).get.each do |found|
+      macs.concat found.as_a.map(&.as_s)
+    end
+    macs
+  end
+
+  # Will return `nil` or `{"location": "wireless", "assigned_to": "bob123", "mac_address": "abcd"}`
+  def check_ownership_of(mac_address : String)
+    logger.debug { "searching for owner of #{mac_address}" }
+    owner = nil
+    system.implementing(Interface::Locatable).check_ownership_of(mac_address).get.each do |result|
+      if result != nil
+        owner = result
+        break
+      end
+    end
+    owner
+  end
+
+  # Will return an array of devices and their x, y coordinates
+  def device_locations(zone_id : String, location : String? = nil)
+    logger.debug { "searching devices in zone #{zone_id}" }
+    located = [] of JSON::Any
+    system.implementing(Interface::Locatable).device_locations(zone_id, location).get.each do |locations|
+      located.concat locations.as_a
+    end
+    located
+  end
 end
