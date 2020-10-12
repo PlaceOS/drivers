@@ -1,4 +1,4 @@
-DriverSpecs.mock_driver "Nec::Display::All" do
+DriverSpecs.mock_driver "Nec::Display" do
   # do_poll
   # power?
   should_send("\x010*0A06\x0201D6\x03\x1F\x0D")
@@ -52,8 +52,16 @@ DriverSpecs.mock_driver "Nec::Display::All" do
      responds("\x0100*B06\x0200C\x03\x2C\x0D")
   status[:brightness].should eq(100)
 
-   exec(:power, false)
-   should_send("\x010*0A0C\x02C203D60004\x03\x1D\x0D")
-      responds("\x0100*B0E\x0200C203D60004\x03\x18\x0D")
-   status[:power].should eq(false)
+#   exec(:volume, 50)
+#   should_send("\x010*0E0A\x0200620032\x03\x1A\x0D")
+#      responds("\x0100*F12\x020000620000640032\x03\x69\x0D")
+#   should_send("\x010*0A04\x020C\x03\x1D\x0D")
+#      responds("\x0100*B06\x0200C\x03\x2C\x0D")
+#   status[:audio_mute].should eq(false)
+#   status[:volume].should eq(50)
+
+  exec(:power, false)
+  should_send("\x010*0A0C\x02C203D60004\x03\x1D\x0D")
+     responds("\x0100*B0E\x0200C203D60004\x03\x18\x0D")
+  status[:power].should eq(false)
 end

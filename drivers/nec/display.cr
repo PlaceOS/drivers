@@ -2,7 +2,7 @@ require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 
-class Nec::Display::All < PlaceOS::Driver
+class Nec::Display < PlaceOS::Driver
   include Interface::Powerable
   include Interface::AudioMuteable
 
