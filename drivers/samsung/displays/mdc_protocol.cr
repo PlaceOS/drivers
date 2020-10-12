@@ -291,7 +291,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  def check_power_state
+  private def check_power_state
     return if @power_stable
     if self[:power]? == @power_target
       @power_stable = true
