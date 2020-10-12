@@ -50,7 +50,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     rs232_control: false
   })
 
-  @id : Int32 = 0
+  @id : UInt8 = 0
   @rs232 : Bool = false
   @blank : Input?
   @previous_volume : Int32 = 50
@@ -74,7 +74,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def on_update
-    @id = setting(Int32, :display_id)
+    @id = setting(UInt8, :display_id)
     @rs232 = setting(Bool, :rs232_control)
     @blank = setting?(String, :blanking_input).try &->Input.parse(String)
   end
@@ -298,7 +298,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     end
   end
 
-  enum Command
+  enum Command : UInt8
     Status          = 0x00
     HardOff         = 0x11 # Completely powers off
     PanelMute       = 0xF9 # Screen blanking / visual mute
@@ -330,11 +330,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     Time            = 0xA7
     Timer           = 0xA4
 
-    def build(id : Int32, data : Bytes) : Bytes
+    def build(id : UInt8, data : Bytes) : Bytes
       Bytes.new(data.size + 5).tap do |bytes|
         bytes[0] = INDICATOR                            # Header
-        bytes[1] = self.to_u8                           # Command
-        bytes[2] = id.to_u8                             # Display ID
+        bytes[1] = self.value                           # Command
+        bytes[2] = id                                   # Display ID
         bytes[3] = data.size.to_u8                      # Data size
         data.each_with_index(4) { |b, i| bytes[i] = b } # Data
         bytes[-1] = bytes[1..-2].reduce(&.+)            # Checksum
