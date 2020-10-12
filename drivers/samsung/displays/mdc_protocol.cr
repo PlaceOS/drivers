@@ -161,8 +161,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   def switch_to(input : Input, **options)
     @input_stable = false
-    input_target = @input_target
-    @input_target = input_target if input_target
+    @input_target = input
     do_send(Command::Input, input.value, **options)
   end
 
