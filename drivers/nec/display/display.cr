@@ -68,8 +68,6 @@ class Nec::Display::All < PlaceOS::Driver
       # 4 = Power Off
       data = [Command::Power.value, 4]
       do_send(MsgType::Command, data, name: "power", delay: 10.seconds, timeout: 10.seconds)
-
-      self[:power] = false
     end
   end
 
@@ -126,7 +124,6 @@ class Nec::Display::All < PlaceOS::Driver
 
     do_send(MsgType::SetParameter, data, name: "volume")
     do_send(MsgType::Command, Command::Save, name: "volume_save") # Save the settings
-    self[:audio_mute] = false # audio is unmuted when the volume is set
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
@@ -198,9 +195,9 @@ class Nec::Display::All < PlaceOS::Driver
     value = data[20..23].to_i(16)
     command = Command.from_value(data[10..13].to_i(16))
 
-    logger.debug { "command is #{data[10..13]}" }
+    logger.debug { "command is 0x#{data[10..13]}" }
     logger.debug { command }
-    logger.debug { "value is #{data[20..23]}" }
+    logger.debug { "value is 0x#{data[20..23]}" }
     logger.debug { value }
 
     case command
@@ -210,6 +207,7 @@ class Nec::Display::All < PlaceOS::Driver
       self[:audio] = Audio.from_value(value)
     when .volume_status?
       self[:volume] = value
+      self[:audio_mute] = value == 0
     when .brightness_status?
       self[:brightness] = value
     when .contrast_status?
