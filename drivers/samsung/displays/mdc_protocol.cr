@@ -221,20 +221,18 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def received(data, task)
     hex = data.hexstring
     logger.debug { "Samsung sent: #{hex}" }
-    data = data.map(&.to_i).to_a
 
     # Calculate checksum of response
     checksum = data[1..-2].reduce(&.+)
 
-    # Pop also removes the checksum from the response here
-    if data.pop != checksum
+    if data[-1] != checksum
       logger.error { "Invalid checksum, checksum should be: #{checksum.to_s(16)}" }
       return task.try &.retry
     end
 
     status = ResponseStatus.from_value(data[4])
     command = Command.from_value(data[5])
-    values = data[6..-1]
+    values = data[6..-2]
     value = values.first
 
     case status
