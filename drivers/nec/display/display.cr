@@ -225,7 +225,7 @@ class Nec::Display::All < PlaceOS::Driver
   end
 
   # Types of messages sent to and from the LCD
-  enum MsgType
+  enum MsgType : UInt8
     Command           = 0x41 # 'A'
     CommandReply      = 0x42 # 'B'
     GetParameter      = 0x43 # 'C'
@@ -287,7 +287,7 @@ class Nec::Display::All < PlaceOS::Driver
     bytes[1] = 0x30 # '0'
     bytes[2] = 0x2A # '*'
     bytes[3] = 0x30 # '0'
-    bytes[4] = type.value.to_u8
+    bytes[4] = type.value
     message_length = format_value(data.size + 2, 2).bytes
     bytes[5] = message_length[0]
     bytes[6] = message_length[1]
