@@ -228,7 +228,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
     # Pop also removes the checksum from the response here
     if data.pop != checksum
-      logger.error { "Invalid checksum\nChecksum should be: #{checksum.to_s(16)}" }
+      logger.error { "Invalid checksum, checksum should be: #{checksum.to_s(16)}" }
       return task.try &.retry
     end
 
