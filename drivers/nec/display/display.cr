@@ -56,7 +56,7 @@ class Nec::Display::All < PlaceOS::Driver
 
   def power(state : Bool)
     # Do nothing if already in desired state
-    return if self[:power]?.try &.as_bool == state
+    return if self[:power]? == state
 
     if state
       # 1 = Power On
