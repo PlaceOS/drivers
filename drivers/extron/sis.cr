@@ -47,7 +47,7 @@ module Extron::SIS
     All = 0x21 # '!'
     Aud = 0x24 # '$'
     Vid = 0x25 # '%'
-    RBG = 0x26 # '&'
+    RGB = 0x26 # '&'
   end
 
   # Struct for representing a matrix signal path.
