@@ -7,32 +7,33 @@ require "./sis/*"
 # processing and general audio-visual products via SSH, telnet and serial
 # control.
 module Extron::SIS
-  TELNET_PORT = 21
-  SSH_PORT = 22023
+  TELNET_PORT =    21
+  SSH_PORT    = 22023
 
   DELIMITER = "\r\n"
 
   # Illegal characters for use in property names.
-  SPECIAL_CHARS = "+-,@=‘[]{}<>`“;:|\?".chars
+  SPECIAL_CHARS = "+-,@=‘[]{}<>`“;:|?".chars
 
   # Symbolic type for representating a successfull interactions no useful data.
   struct Ok; end
 
   # Device error numbers
   enum Error
-    InvalidInput = 1
-    InvalidCommand = 10
-    InvalidPresent = 11
-    InvalidOutput = 12
-    InvalidParameter = 13
-    InvalidForConfig = 14
-    Timeout = 17
-    Busy = 22
-    PrivilegesViolation = 24
-    DeviceNotPresent = 25
+    InvalidInput           =  1
+    InvalidCommand         = 10
+    InvalidPresent         = 11
+    InvalidOutput          = 12
+    InvalidParameter       = 13
+    InvalidForConfig       = 14
+    Timeout                = 17
+    Busy                   = 22
+    PrivilegesViolation    = 24
+    DeviceNotPresent       = 25
     MaxConnectionsExceeded = 26
-    InvalidEventNumber = 27
-    FileNotFound = 28
+    InvalidEventNumber     = 27
+    FileNotFound           = 28
+
     def retryable?
       timeout? || busy?
     end
@@ -51,6 +52,7 @@ module Extron::SIS
     def includes_video?
       All || Vid || RGB
     end
+
     def includes_audio?
       All || Aud
     end
@@ -61,7 +63,6 @@ module Extron::SIS
 
   # Struct for representing a broadcast signal path, or single output switch.
   record Switch, input : Input, layer : SwitchLayer
-
 
   alias IOSize = UInt16
 

@@ -55,7 +55,7 @@ module Extron::SIS::Response
     input <= Parse.string("In") >> num(Input),
     _ <= Parse.char(' '),
     layer <= word_as_enum(SwitchLayer),
-    Parse.const SIS::Tie.new input, output, layer
+    Parse.const SIS::Tie.new input, output, layer,
   })
 
   # Broadcast or single output route update.
@@ -63,14 +63,14 @@ module Extron::SIS::Response
     input <= Parse.string("In") >> num(Input),
     _ <= Parse.char(' '),
     layer <= word_as_enum(SwitchLayer),
-    Parse.const SIS::Switch.new input, layer
+    Parse.const SIS::Switch.new input, layer,
   })
 
   MatrixSize = Parse.do({
     inputs <= num(IOSize),
     _ <= Parse.char('X'),
     outputs <= num(IOSize),
-    Parse.const SIS::MatrixSize.new inputs, outputs
+    Parse.const SIS::MatrixSize.new inputs, outputs,
   })
 
   SwitcherInformation = Parse.do({
@@ -79,7 +79,7 @@ module Extron::SIS::Response
     _ <= Parse.char(' '),
     _ <= Parse.char('A'),
     audio <= MatrixSize,
-    Parse.const SIS::SwitcherInformation.new video, audio
+    Parse.const SIS::SwitcherInformation.new video, audio,
   })
 
   # Parses for device messages that can be safely ignored - these exist mainly

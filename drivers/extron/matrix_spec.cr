@@ -19,7 +19,7 @@ DriverSpecs.mock_driver "Extron::Matrix" do
   status["audio3"].should eq 2
   status["audio4"].should eq 2
 
-  switch_map = exec :switch_map, { 1 => [2, 3, 4] }
+  switch_map = exec :switch_map, {1 => [2, 3, 4]}
   should_send "\e+Q1*2!1*3!1*4!\r"
   responds "Qik\r\n"
   status["video2"].should eq 1
@@ -27,7 +27,7 @@ DriverSpecs.mock_driver "Extron::Matrix" do
   status["video4"].should eq 1
 
   expect_raises PlaceOS::Driver::RemoteException do
-    conflict = exec :switch_map, { 1 => 1, 2 => 1 }
+    conflict = exec :switch_map, {1 => 1, 2 => 1}
     conflict.get
   end
 

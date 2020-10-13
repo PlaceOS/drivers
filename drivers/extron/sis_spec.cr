@@ -23,7 +23,7 @@ describe Command do
   it "flattens nested fields" do
     routes = [
       [1, '*', 2, SwitchLayer::All],
-      [3, '*', 4, SwitchLayer::All]
+      [3, '*', 4, SwitchLayer::All],
     ]
     command = Command["\e+Q", routes, '\r']
     io = IO::Memory.new
