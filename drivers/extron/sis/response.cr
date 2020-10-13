@@ -5,11 +5,16 @@ require "pars"
 module Extron::SIS::Response
   include Pars
 
-  # Parses a response packet with specified *expected* parser.
+  # Parses a response packet with specified *parser*.
   #
   # Returns the parser output, a parse error or a device error.
-  def self.parse(data, as expected : Parser(T)) forall T
-    (expected | DeviceError | "unhandled device response").parse data
+  def self.parse(data : String, as parser : Parser(T)) forall T
+    (parser | DeviceError | "unhandled device response").parse data
+  end
+
+  # :ditto:
+  def self.parse(data : Bytes, as parser : Parser(T)) forall T
+    parse String.new(data), parser
   end
 
   # :nodoc:
