@@ -48,9 +48,8 @@ class Extron::Matrix < PlaceOS::Driver
       end
     end
 
-    seen = Set(Output).new
-    ties.each do |tie|
-      unless seen.add? tie.output
+    ties.each_with_object(Set(Output).new) do |tie, seen_outputs|
+      unless seen_outputs.add? tie.output
         logger.warn { "conflict for output #{tie.output} in requested map" }
       end
     end
