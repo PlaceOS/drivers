@@ -48,6 +48,12 @@ module Extron::SIS
     Aud = 0x24 # '$'
     Vid = 0x25 # '%'
     RGB = 0x26 # '&'
+    def includes_video?
+      All || Vid || RGB
+    end
+    def includes_audio?
+      All || Aud
+    end
   end
 
   # Struct for representing a matrix signal path.

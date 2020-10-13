@@ -88,7 +88,7 @@ class Extron::Matrix < PlaceOS::Driver
   def received(data, task)
     case response = Response.parse data, as: Response::Unsolicited
     in Tie
-      # TODO update io status
+      update_io response
     in Error, Response::ParseError
       logger.error { response }
     in Ok
@@ -97,26 +97,22 @@ class Extron::Matrix < PlaceOS::Driver
     end
   end
 
-  # Update exposed driver state to include *tie*.
+  private def update_io(input : Input, output : Output, layer : SwitchLayer)
+    self["audio#{output}"] = input if layer.includes_audio?
+    self["video#{output}"] = input if layer.includes_video?
+  end
+
   private def update_io(tie : Tie)
-    case tie.layer
-    in SwitchLayer::All
-      self["audio#{tie.output}"] = tie.input
-      self["video#{tie.output}"] = tie.input
-    in SwitchLayer::Aud
-      self["audio#{tie.output}"] = tie.input
-    in SwitchLayer::Vid, SwitchLayer::RGB
-      self["video#{tie.output}"] = tie.input
-    end
+    update_io tie.input, tie.output, tie.layer
   end
 
   # Update exposed driver state to include *switch*.
-  # TODO: push state to all outputs
   private def update_io(switch : Switch)
-    case switch.layer
-    in SwitchLayer::All
-    in SwitchLayer::Aud
-    in SwitchLayer::Vid, SwitchLayer::RGB
+    if switch.layer.includes_video?
+      device_size.video.outputs.times { |o| update_io switch.input, Output.new(o + 1), SwitchLayer::Vid }
+    end
+    if switch.layer.includes_audio?
+      device_size.audio.outputs.times { |o| update_io switch.input, Output.new(o + 1), SwitchLayer::Aud }
     end
   end
 end
