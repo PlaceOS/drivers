@@ -278,12 +278,18 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     task.try &.success
   end
 
-  private def do_send(command : Command, data : Int, system : Char = 'k', **options)
-    # Special case for PM Mode
-    if command.pm_mode? && system == 's'
-      data = "#{system}#{command.value.chr} #{@id} 0c #{data.to_s(16, true).rjust(2, '0')}\r"
+  # From manual
+  # [Command1]: identifies between the factory setting and the user setting modes.
+  # Default c1 to 'k' which appears to be for user settings
+  # and which most commands use (e.g. Mute, Screen off, Volume, Brightness)
+  private def do_send(command : Command, data : Int, c1 : Char = 'k', **options)
+    # Command::PmMode and Command::AutoOff both are equal to 0x6E == 'n'
+    # However, PmMode has c1 == 's' while AutoOff has c1 == 'm'
+    # So this is how we can differentiate whether the command we want to send is PmMode
+    if command.pm_mode? && c1 == 's'
+      data = "#{c1}#{command.value.chr} #{@id} 0c #{data.to_s(16, true).rjust(2, '0')}\r"
     else
-      data = "#{system}#{command.value.chr} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
+      data = "#{c1}#{command.value.chr} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
     end
     logger.debug { "Sending command #{command}" }
     send(data, **options)
