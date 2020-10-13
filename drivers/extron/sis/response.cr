@@ -40,7 +40,7 @@ module Extron::SIS::Response
 
   # Signal route update.
   Tie = Parse.do({
-    output <= Parse.string("Out") >> Parse.integer.map &->Input.new(String),
+    output <= Parse.string("Out") >> Parse.integer.map &->Output.new(String),
     _ <= Parse.char(' '),
     input <= Parse.string("In") >> Parse.integer.map &->Input.new(String),
     _ <= Parse.char(' '),
