@@ -23,18 +23,12 @@ class Extron::Matrix < PlaceOS::Driver
   # the corresponding signal point. For example, to disconnect input 1 from all
   # outputs is is currently feeding `switch(1, 0)`.
   def switch(input : Input, output : Output, layer : SwitchLayer = SwitchLayer::All)
-    send Command[input, '*', output, layer], Response::Tie do |tie|
-      logger.debug { "#{tie.input}->#{tie.output} (#{tie.layer})" }
-      # TODO: update io status
-    end
+    send Command[input, '*', output, layer], Response::Tie, &->update_io(Tie)
   end
 
   # Connect *input* to all outputs at the specified *layer*.
   def switch_to(input : Input, layer : SwitchLayer = SwitchLayer::All)
-    send Command[input, '*', layer], Response::Switch do |switch|
-      logger.debug { "#{switch.input}->all (#{switch.layer})" }
-      # TODO: update io status
-    end
+    send Command[input, '*', layer], Response::Switch, &->update_io(Switch)
   end
 
   # Applies a `SignalMap` as a single operation. All included ties will take
@@ -55,20 +49,16 @@ class Extron::Matrix < PlaceOS::Driver
     end
 
     send Command["\e+Q", ties.map { |tie| [tie.input, '*', tie.output, tie.layer] }, '\r'], Response::Qik do
-      ties.each do |tie|
-        logger.debug { "#{tie.input}->#{tie.output} (#{tie.layer})" }
-      end
-      # TODO: update IO status
+      ties.each &->update_io(Tie)
     end
   end
 
   # Send *command* to the device and yield a parsed response to *block*.
-  private def send(command, parser : SIS::Response::Parser(T), &block : T, Task -> Nil) forall T
+  private def send(command, parser : SIS::Response::Parser(T), &block : T -> Nil) forall T
     send command do |data, task|
       case response = Response.parse data, parser
       in T
-        result = block.call response, task
-        task.success result unless task.complete?
+        task.success block.call response
       in Error
         response.retryable? ? task.retry response : task.abort response
       in Response::ParseError
@@ -85,8 +75,31 @@ class Extron::Matrix < PlaceOS::Driver
     in Error, Response::ParseError
       logger.error { response }
     in Ok
-      # Nothing to see here, on of the Ignorable responses
+      # Nothing to see here, one of the Ignorable responses
       logger.debug { response }
+    end
+  end
+
+  # Update exposed driver state to include *tie*.
+  private def update_io(tie : Tie)
+    case tie.layer
+    in SwitchLayer::All
+      self["audio#{tie.output}"] = tie.input
+      self["video#{tie.output}"] = tie.input
+    in SwitchLayer::Aud
+      self["audio#{tie.output}"] = tie.input
+    in SwitchLayer::Vid, SwitchLayer::RGB
+      self["video#{tie.output}"] = tie.input
+    end
+  end
+
+  # Update exposed driver state to include *switch*.
+  # TODO: push state to all outputs
+  private def update_io(switch : Switch)
+    case switch.layer
+    in SwitchLayer::All
+    in SwitchLayer::Aud
+    in SwitchLayer::Vid, SwitchLayer::RGB
     end
   end
 end
