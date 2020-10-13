@@ -52,13 +52,16 @@ DriverSpecs.mock_driver "Nec::Display" do
      responds("\x0100*B06\x0200C\x03\x2C\x0D")
   status[:brightness].should eq(100)
 
-#   exec(:volume, 50)
-#   should_send("\x010*0E0A\x0200620032\x03\x1A\x0D")
-#      responds("\x0100*F12\x020000620000640032\x03\x69\x0D")
-#   should_send("\x010*0A04\x020C\x03\x1D\x0D")
-#      responds("\x0100*B06\x0200C\x03\x2C\x0D")
-#   status[:audio_mute].should eq(false)
-#   status[:volume].should eq(50)
+  exec(:switch_to, "tv")
+  should_send("\x010*0E0A\x020060000A\x03\x68\x0D")
+     responds("\x0100*F12\x02000060000000000A\x03\x19\x0D")
+  status[:input].should eq("Tv")
+
+  exec(:switch_audio, "audio_2")
+  sleep 6 # since switch_to has 6 seconds of delay
+  should_send("\x010*0E0A\x02022E0002\x03\x68\x0D")
+     responds("\x0100*F12\x0200022E0000000002\x03\x19\x0D")
+  status[:audio].should eq("Audio2")
 
   exec(:power, false)
   should_send("\x010*0A0C\x02C203D60004\x03\x1D\x0D")

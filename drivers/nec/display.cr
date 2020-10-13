@@ -81,7 +81,6 @@ class Nec::Display < PlaceOS::Driver
 
     logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
     do_send(MsgType::SetParameter, data, name: "input", delay: 6.seconds)
-    video_input
   end
 
   enum Audio
