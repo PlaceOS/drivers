@@ -31,7 +31,7 @@ module Extron::SIS::Response
 
   # Quick response, occurs following quick tie, or siwtching interaction from
   # the device's front panel.
-  Qik = Parse.string("Qik") >> Parse.constant(Ok.new nil)
+  Qik = Parse.string("Qik") >> Parse.const(Ok.new)
 
   # Signal route update.
   Tie = Parse.do({
@@ -45,7 +45,7 @@ module Extron::SIS::Response
 
   # Parses for device messages that can be safely ignored - these exist mainly
   # to flush initial connect banners
-  Ignorable = (Copyright | Clock).map { Ok }
+  Ignorable = (Copyright | Clock) >> Parse.const(Ok.new)
 
   # Async messages that can be expected outside of a command -> response flow.
   Unsolicited = DeviceError | Tie | Ignorable

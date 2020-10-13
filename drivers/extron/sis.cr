@@ -15,6 +15,9 @@ module Extron::SIS
   # Illegal characters for use in property names.
   SPECIAL_CHARS = "+-,@=‘[]{}<>`“;:|\?".chars
 
+  # Symbolic type for representating a successfull interactions no useful data.
+  struct Ok; end
+
   # Device error numbers
   enum Error
     InvalidInput = 1
