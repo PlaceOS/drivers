@@ -254,15 +254,13 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       when .brightness?
         self[:brightness] = value
       when .input?
-        self[:input] = Input.from_value(value)
+        current_input = Input.from_value(value)
+        self[:input] = current_input
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]?.try &.as_bool
-          input_target = @input_target
-          @input_stable = self[:input]? == input_target
-          if input_target
-            switch_to(input_target) unless @input_stable
-          end
+          @input_stable = current_input == (input_target = @input_target)
+          switch_to(input_target) if input_target && !@input_stable
         end
       when .speaker?
         self[:speaker] = SpeakerMode.from_value(value)

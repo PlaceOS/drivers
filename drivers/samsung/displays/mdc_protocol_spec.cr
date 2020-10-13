@@ -20,19 +20,19 @@ DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
 
   exec(:volume, 24)
   should_send("\xAA\x12#{id}\x01\x18\x12")
-  responds("\xAA\xFF\x00\x03A\x12\x18\xFF")
+  responds("\xAA\xFF#{id}\x03A\x12\x18\xFF")
   status[:volume].should eq(24)
   status[:audio_mute].should eq(false)
 
   exec(:volume, 6)
   should_send("\xAA\x12#{id}\x01\x06\x12")
-  responds("\xAA\xFF\x00\x03A\x12\x06\xFF")
+  responds("\xAA\xFF#{id}\x03A\x12\x06\xFF")
   status[:volume].should eq(6)
   status[:audio_mute].should eq(false)
 
   exec(:mute)
   # Video mute
-  should_send("\xAA\xF9\x00\x01\x01\xF9")
+  should_send("\xAA\xF9#{id}\x01\x01\xF9")
   responds("\xAA\xFF#{id}\x03A\xF9\x01\xFF")
   status[:power].should eq(false)
   # Audio mute
@@ -43,12 +43,23 @@ DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do
 
   exec(:unmute)
   # Video unmute
-  should_send("\xAA\xF9\x00\x01\x00\xF9")
+  should_send("\xAA\xF9#{id}\x01\x00\xF9")
   responds("\xAA\xFF#{id}\x03A\xF9\x00\xFF")
   status[:power].should eq(true)
   # Audio unmute
   should_send("\xAA\x12#{id}\x01\x06\x12")
-  responds("\xAA\xFF\x00\x03A\x12\x06\xFF")
+  responds("\xAA\xFF#{id}\x03A\x12\x06\xFF")
   status[:audio_mute].should eq(false)
   status[:volume].should eq(6)
+
+  exec(:switch_to, "hdmi")
+  should_send("\xAA\x14#{id}\x01\x21\x14")
+  responds("\xAA\xFF#{id}\x03A\x14\x21\xFF")
+  status[:input].should eq("Hdmi")
+
+  # power(false) == video_mute(true)
+  exec(:power, false)
+  should_send("\xAA\xF9#{id}\x01\x01\xF9")
+  responds("\xAA\xFF#{id}\x03A\xF9\x01\xFF")
+  status[:power].should eq(false)
 end
