@@ -42,7 +42,13 @@ DriverSpecs.mock_driver "Lg::Displays::Ls5" do
   responds("f 01 OK08x")
   status[:volume].should eq(8)
 
+  exec(:switch_to, "dvi")
+  should_send("xb 01 70\r")
+  responds("b 01 OK70x")
+  status[:input].should eq("Dvi")
+
   exec(:power, true)
+  sleep 2 # since switch_to has 2 seconds of delay
   # mute_video(false)
   should_send("kd 01 00\r")
   responds("d 01 OK00x")
