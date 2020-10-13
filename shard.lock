@@ -90,7 +90,7 @@ shards:
 
   pars:
     git: https://github.com/place-labs/pars.git
-    version: 1.0.0+git.commit.881092b1aa2729d52d2f8bd612a76580b03f81df
+    version: 1.1.0+git.commit.16bf2c909110cc148818f7af298afeded538123c
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git

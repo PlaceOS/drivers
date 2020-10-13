@@ -8,13 +8,15 @@ module Extron::SIS::Response
   # Parses a response packet with specified *expected* parser.
   #
   # Returns the parser output, a parse error or a device error.
-  def self.parse(data : Bytes, as expected : T) forall T
-    (expected | DeviceError).parse String.new(data)
+  def self.parse(data, as expected : Parser(T)) forall T
+    (expected | DeviceError | "unhandled device response").parse data
   end
 
+  # :nodoc:
   Delimiter = Parse.string SIS::DELIMITER
 
-  # Parse a full command response as a String
+  # Parse a full command response as a String. Delimiter is optional as it may
+  # have already been dropped by an upstream tokenizer.
   Raw = ((Parse.char ^ Delimiter) * (0..) << Delimiter * (0..1)).map &.join
 
   # Error codes returned from the device.
