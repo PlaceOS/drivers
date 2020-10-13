@@ -53,6 +53,9 @@ module Extron::SIS
     end
   end
 
-  # Struct for representing a signal path.
+  # Struct for representing a matrix signal path.
   record Tie, input : Input, output : Output, layer : SwitchLayer
+
+  # Struct for representing a broadcast signal path, or single output switch.
+  record Switch, input : Input, layer : SwitchLayer
 end

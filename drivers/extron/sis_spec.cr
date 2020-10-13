@@ -73,6 +73,16 @@ describe Response do
     end
   end
 
+  describe Response::Switch do
+    it "parses" do
+      tie = Response::Switch.parse "In1 All"
+      tie.should be_a Switch
+      tie = tie.as Switch
+      tie.input.should eq(1)
+      tie.layer.should eq(SwitchLayer::All)
+    end
+  end
+
   describe ".parse" do
     it "builds a parser that includes device errors" do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie

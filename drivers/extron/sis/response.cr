@@ -38,7 +38,7 @@ module Extron::SIS::Response
   # the device's front panel.
   Qik = Parse.string("Qik") >> Parse.const(Ok.new)
 
-  # Signal route update.
+  # Matrix signal route update.
   Tie = Parse.do({
     output <= Parse.string("Out") >> Parse.integer.map &->Output.new(String),
     _ <= Parse.char(' '),
@@ -46,6 +46,14 @@ module Extron::SIS::Response
     _ <= Parse.char(' '),
     layer <= Parse.word.map &->SwitchLayer.parse(String),
     Parse.const SIS::Tie.new input, output, layer
+  })
+
+  # Broadcast or single output route update.
+  Switch = Parse.do({
+    input <= Parse.string("In") >> Parse.integer.map &->Input.new(String),
+    _ <= Parse.char(' '),
+    layer <= Parse.word.map &->SwitchLayer.parse(String),
+    Parse.const SIS::Switch.new input, layer
   })
 
   # Parses for device messages that can be safely ignored - these exist mainly
