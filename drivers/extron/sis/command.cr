@@ -17,7 +17,11 @@ struct Extron::SIS::Command(*T)
   # Writes `self` to the passed *io*.
   def to_io(io : IO, format = IO::ByteFormat::SystemEndian)
     @fields.each.flatten.each do |field|
-      io << field
+      if field.is_a? Enum
+        io.write_byte field.value
+      else
+        io << field
+      end
     end
   end
 

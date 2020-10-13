@@ -24,7 +24,7 @@ class Extron::Matrix < PlaceOS::Driver
   # outputs is is currently feeding `switch(1, 0)`.
   def switch(input : Input, output : Output, layer : SwitchLayer = SwitchLayer::All)
     send Command[input, '*', output, layer], Response::Tie do |tie|
-      logger.debug { "#{tie.input} -> #{tie.output} (#{tie.layer})" }
+      logger.debug { "#{tie.input}->#{tie.output} (#{tie.layer})" }
       # TODO: update io status
     end
   end
@@ -32,7 +32,7 @@ class Extron::Matrix < PlaceOS::Driver
   # Connect *input* to all outputs at the specified *layer*.
   def switch_to(input : Input, layer : SwitchLayer = SwitchLayer::All)
     send Command[input, '*', layer], Response::Switch do |switch|
-      logger.debug { "#{switch.input} -> all (#{switch.layer})" }
+      logger.debug { "#{switch.input}->all (#{switch.layer})" }
       # TODO: update io status
     end
   end
@@ -56,7 +56,7 @@ class Extron::Matrix < PlaceOS::Driver
 
     send Command["\e+Q", ties.map { |tie| [tie.input, '*', tie.output, tie.layer] }, '\r'], Response::Qik do
       ties.each do |tie|
-        logger.debug { "#{tie.input} -> #{tie.output} (#{tie.layer})" }
+        logger.debug { "#{tie.input}->#{tie.output} (#{tie.layer})" }
       end
       # TODO: update IO status
     end

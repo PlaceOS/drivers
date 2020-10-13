@@ -48,9 +48,6 @@ module Extron::SIS
     Aud = 0x24 # '$'
     Vid = 0x25 # '%'
     RBG = 0x26 # '&'
-    def to_s(io : IO)
-      io.write_byte value
-    end
   end
 
   # Struct for representing a matrix signal path.
