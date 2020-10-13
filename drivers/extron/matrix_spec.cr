@@ -30,4 +30,10 @@ DriverSpecs.mock_driver "Extron::Matrix" do
     conflict = exec :switch_map, { 1 => 1, 2 => 1 }
     conflict.get
   end
+
+  expect_raises PlaceOS::Driver::RemoteException do
+    invalid = exec :switch_to, input: 999
+    responds "E01\r\n"
+    invalid.get
+  end
 end
