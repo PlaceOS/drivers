@@ -1,4 +1,3 @@
-require "set"
 require "./sis"
 
 class Extron::Matrix < PlaceOS::Driver
@@ -42,10 +41,9 @@ class Extron::Matrix < PlaceOS::Driver
       end
     end
 
-    ties.each_with_object(Set(Output).new) do |tie, seen_outputs|
-      unless seen_outputs.add? tie.output
-        logger.warn { "conflict for output #{tie.output} in requested map" }
-      end
+    conflicts = ties - ties.uniq(&.output)
+    unless conflicts.empty?
+      raise ArgumentError.new "map contains conflicts for output(s) #{conflicts.map(&.output).join ","}"
     end
 
     send Command["\e+Q", ties.map { |tie| [tie.input, '*', tie.output, tie.layer] }, '\r'], Response::Qik do
