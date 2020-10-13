@@ -83,6 +83,18 @@ describe Response do
     end
   end
 
+  describe Response::SwitcherInformation do
+    it "parses" do
+      info = Response::SwitcherInformation.parse "V1X2 A3X4"
+      info.should be_a SwitcherInformation
+      info = info.as SwitcherInformation
+      info.video.inputs.should eq 1
+      info.video.outputs.should eq 2
+      info.audio.inputs.should eq 3
+      info.audio.outputs.should eq 4
+    end
+  end
+
   describe ".parse" do
     it "builds a parser that includes device errors" do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie

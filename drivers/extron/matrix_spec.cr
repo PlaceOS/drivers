@@ -1,4 +1,7 @@
 DriverSpecs.mock_driver "Extron::Matrix" do
+  should_send "I"
+  responds "V8X4 A8X4\r\n"
+
   switch = exec :switch, input: 3, output: 2
   should_send "3*2!"
   responds "Out2 In3 All\r\n"

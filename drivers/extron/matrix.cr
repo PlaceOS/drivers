@@ -12,6 +12,21 @@ class Extron::Matrix < PlaceOS::Driver
     transport.tokenizer = Tokenizer.new DELIMITER
   end
 
+  def connected
+    send Command['I'], Response::SwitcherInformation do |info|
+      @device_size = info
+    end
+  end
+
+  def disconnected
+    @device_size = nil
+  end
+
+  getter device_size do
+    empty = MatrixSize.new 0, 0
+    SwitcherInformation.new empty, empty
+  end
+
   alias Outputs = Array(Output)
 
   alias SignalMap = Hash(Input, Output | Outputs)
@@ -52,7 +67,7 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   # Send *command* to the device and yield a parsed response to *block*.
-  private def send(command, parser : SIS::Response::Parser(T), &block : T -> Nil) forall T
+  private def send(command, parser : SIS::Response::Parser(T), &block : T -> _) forall T
     send command do |data, task|
       case response = Response.parse data, parser
       in T
@@ -63,6 +78,10 @@ class Extron::Matrix < PlaceOS::Driver
         task.abort response
       end
     end
+  end
+
+  private def send(command, parser : SIS::Response::Parser(T)) forall T
+    send command, &.itself
   end
 
   # Response callback for async responses.

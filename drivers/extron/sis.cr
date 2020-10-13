@@ -55,4 +55,13 @@ module Extron::SIS
 
   # Struct for representing a broadcast signal path, or single output switch.
   record Switch, input : Input, layer : SwitchLayer
+
+
+  alias IOSize = UInt16
+
+  # IO capacity for a switching layer.
+  record MatrixSize, inputs : IOSize, outputs : IOSize
+
+  # IO capacity for a full device.
+  record SwitcherInformation, video : MatrixSize, audio : MatrixSize
 end
