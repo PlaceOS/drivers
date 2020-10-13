@@ -23,21 +23,16 @@ class Extron::Matrix < PlaceOS::Driver
   # the corresponding signal point. For example, to disconnect input 1 from all
   # outputs is is currently feeding `switch(1, 0)`.
   def switch(input : Input, output : Output, layer : SwitchLayer = SwitchLayer::All)
-    send Command[input, '*', output, layer] do |data, task|
-      case result = Response.parse data, as: Response::Tie
-      in Tie
-        task.success
-      in Error
-        result.retryable? ? task.retry result : task.abort result
-      in Response::ParseError
-        task.abort result
-      end
+    send Command[input, '*', output, layer], Response::Tie do |tie|
+      # TODO: update io status
     end
   end
 
   # Connect *input* to all outputs at the specified *layer*.
   def switch_to(input : Input, layer : SwitchLayer = SwitchLayer::All)
-    send Command[input, '*', layer]
+    send Command[input, '*', layer], Response::Switch do |switch|
+      # TODO: update io status
+    end
   end
 
   # Applies a `SignalMap` as a single operation. All included ties will take
@@ -58,17 +53,37 @@ class Extron::Matrix < PlaceOS::Driver
       end
     end
 
-    send Command["\e+Q", ties.map { |tie| [tie.input, '*', tie.output, tie.layer] }, '\r']
+    ties = ties.map { |tie| [tie.input, '*', tie.output, tie.layer] }
+    send Command["\e+Q", ties, '\r'], Response::Qik do |_|
+      # TODO: update IO status
+    end
   end
 
+  # Send *command* to the device and yield a parsed response to *block*.
+  private def send(command, parser : SIS::Response::Parser(T), &block : T, Task -> Nil) forall T
+    send command do |data, task|
+      case response = Response.parse data, parser
+      in T
+        result = block.call response, task
+        task.success result unless task.complete?
+      in Error
+        response.retryable? ? task.retry response : task.abort response
+      in Response::ParseError
+        task.abort response
+      end
+    end
+  end
+
+  # Response callback for async responses.
   def received(data, task)
     case response = Response.parse data, as: Response::Unsolicited
     in Tie
-      # TODO update status
+      # TODO update io status
     in Error, Response::ParseError
       logger.error { response }
-    in Response::Ignored
-      logger.debug { response.object }
+    in Ok
+      # Nothing to see here, on of the Ignorable responses
+      logger.debug { response }
     end
   end
 end
