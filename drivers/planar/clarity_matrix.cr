@@ -1,12 +1,12 @@
 module Planar; end
 
-# require "placeos-driver/interface/powerable"
+require "placeos-driver/interface/powerable"
 
 # Documentation: https://aca.im/driver_docs/Planar/020-1028-00%20RS232%20for%20Matrix.pdf
 #  also https://aca.im/driver_docs/Planar/020-0567-05_WallNet_guide.pdf
 
 class Planar::ClarityMatrix < PlaceOS::Driver
-  # include Interface::Powerable
+  include Interface::Powerable
 
   # Discovery Information
   generic_name :VideoWall
@@ -47,24 +47,25 @@ class Planar::ClarityMatrix < PlaceOS::Driver
   end
 
   # def power(state, broadcast_ip = false, options = {})
-  # def power(state : Bool, broadcast_ip : Bool = false, options : Hash(Symbol, Int32) = {} of Symbol => Int32) #guess
-  #     power? do
-  #         result = self[:power]
+  def power(state : Bool, broadcast_ip : Bool = false, **options) #guess
+     puts "power method running" 
+    # power? do
+    #       result = self[:power]
 
-  #         options[:delay] = 3000
-  #         options[:name] = :power
-  #         if is_affirmative?(state) && result == Off
-  #             send("op A1 display.power = on \r", options) # changed ** -> A1: "Power should only be sent to display A1"
-  #             power?
-  #             schedule.in(20.seconds) do
-  #                 recall(0)
-  #             end
-  #         elsif result == On
-  #             send("op A1 display.power = off \r", options) # changed ** -> A1: "Power should only be sent to display A1"
-  #             power?
-  #         end
-  #     end
-  # end
+    #       options[:delay] = 3000
+    #       options[:name] = :power
+    #       if is_affirmative?(state) && result == Off
+    #           send("op A1 display.power = on \r", options) # changed ** -> A1: "Power should only be sent to display A1"
+    #           power?
+    #           schedule.in(20.seconds) do
+    #               recall(0)
+    #           end
+    #       elsif result == On
+    #           send("op A1 display.power = off \r", options) # changed ** -> A1: "Power should only be sent to display A1"
+    #           power?
+    #       end
+    #   end
+  end
 
   # def switch_to(*)
   #     #send("op A1 slot.recall(0) \r")
@@ -79,10 +80,10 @@ class Planar::ClarityMatrix < PlaceOS::Driver
   #     send("op ** slot.recall (#{preset}) \r", options)
   # end
 
-  # def input_status(**options : Hash(String, Bool))
-  #   options[:wait] = true
-  #   send("op A1 slot.current ? \r", options)
-  # end
+  def input_status(**options)
+    options[:wait] = true
+    send("op A1 slot.current ? \r", options)
+  end
 
   def received(data, task)
     data = String.new(data)
@@ -101,7 +102,6 @@ class Planar::ClarityMatrix < PlaceOS::Driver
     when "current"
       self[:input] = value.to_i
     end
-    puts "status is #{status}"
 
     task.try &.success(data)
   end
