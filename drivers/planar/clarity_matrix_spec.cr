@@ -1,7 +1,10 @@
 DriverSpecs.mock_driver "Planar::ClarityMatrix" do
-  # If WallNet receives an empty line (no command text, followed by a CR or LF), it responds with “# Clarity ASCII protocol server ready (TCP).\r\n”
-  
-  it "should run a spec" do
-    "hello".should eq("hell")
-  end
+  # on connect it should do_poll the device
+  should_send("op A1 display.power ? \r")
+
+  exec(:power)
+  should_send("op A1 display.power ? \r")
+
+  exec(:switch_to)
+  should_send("op A1 slot.recall(0) \r")
 end
