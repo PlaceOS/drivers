@@ -101,12 +101,14 @@ class Planar::ClarityMatrix < PlaceOS::Driver
     when "current"
       self[:input] = value.to_i
     end
+    puts "status is #{status}"
 
     task.try &.success(data)
   end
 
   protected def do_poll
     puts "hello"
+    puts "a message to you"
     #  power?(self[:power]) { input_status priority: 0 if self[:power] == "ON" }
   end
 
