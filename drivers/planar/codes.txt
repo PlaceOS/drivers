@@ -1,0 +1,17 @@
+op ** display.power = on             // Power ON **check this
+op ** display.power = off            // Power OFF **and this is it A! not **??
+op A1 slot.recall(0)                          // Code for Slot 0
+op A1 slot.recall(1)                          // Code for Slot 1
+op A1 slot.recall(2)                          // Code for Slot 2
+op A1 slot.recall(3)                          // Code for Slot 3
+op A1 slot.recall(4)                          // Code for Slot 4
+op A1 slot.recall(5)                          // Code for Slot 5
+op A1 slot.recall(6)                          // Code for Slot 6
+op A1 slot.recall(7)                          // Code for Slot 7
+op A1 slot.recall(8)                          // Code for Slot 8
+op A1 slot.recall(9)                          // Code for Slot 9
+op A1 slot.recall(10)                        // Code for Slot 10
+op A1 slot.recall(11)                        // Code for Slot 11
+op A1 slot.recall(12)                        // Code for Slot 12
+op A1 display.power ?                   // Power Request
+op A1 slot.current ?                        // Input Request
