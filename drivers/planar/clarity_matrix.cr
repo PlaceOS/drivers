@@ -12,23 +12,14 @@ class Planar::ClarityMatrix < PlaceOS::Driver
   generic_name :VideoWall
   descriptive_name "Planar Clarity Matrix Video Wall"
 
-  #   implements :device # don't need?
-
   def on_load
     # Communication settings
     queue.wait = false
     transport.tokenizer = Tokenizer.new("\r")
   end
 
-  def on_unload
-  end
-
-  def on_update
-  end
-
   def connected
-    schedule.every(60.seconds) { do_poll }
-    do_poll
+    schedule.every(60.seconds, true) { do_poll }
   end
 
   def disconnected
@@ -56,11 +47,9 @@ class Planar::ClarityMatrix < PlaceOS::Driver
     # send("op A1 display.power = off \r")
     if state == true
       send("op A1 display.power = on \r") # changed ** -> A1: "Power should only be sent to display A1"
-      power?
       schedule.in(20.seconds) { recall(0) }
     else
       send("op A1 display.power = off \r") # changed ** -> A1: "Power should only be sent to display A1"
-      power?
     end
   end
 
