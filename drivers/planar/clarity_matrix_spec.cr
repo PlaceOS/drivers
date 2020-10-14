@@ -1,6 +1,8 @@
 DriverSpecs.mock_driver "Planar::ClarityMatrix" do
   # on connect it should do_poll the device
   should_send("op A1 display.power ? \r")
+  responds("A1 display.power ? ")
+  # status[:power].should eq(true)
 
   exec(:power)
   should_send("op A1 display.power ? \r")
