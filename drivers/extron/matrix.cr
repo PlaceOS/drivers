@@ -81,7 +81,7 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   private def send(command, parser : SIS::Response::Parser(T)) forall T
-    send command, &.itself
+    send command, parser, &.itself
   end
 
   # Response callback for async responses.
