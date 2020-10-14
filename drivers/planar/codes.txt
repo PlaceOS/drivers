@@ -1,5 +1,5 @@
 op ** display.power = on             // Power ON **check this
-op ** display.power = off            // Power OFF **and this is it A! not **??
+op ** display.power = off            // Power OFF **and this. is it A1 or **??
 op A1 slot.recall(0)                          // Code for Slot 0
 op A1 slot.recall(1)                          // Code for Slot 1
 op A1 slot.recall(2)                          // Code for Slot 2
