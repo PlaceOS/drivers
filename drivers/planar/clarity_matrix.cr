@@ -29,27 +29,24 @@ class Planar::ClarityMatrix < PlaceOS::Driver
     schedule.clear
   end
 
-  # def power?(options = {}, &block)
-  def power?(**options)
-    #  no optional block in crystal unless overloading
+  def power?
     # options[:emit] = block if block_given?
 
     # options[:wait] = true
     # options[:name] = :pwr_query
-    send("op A1 display.power ? \r", **options)
+    send("op A1 display.power ? \r")
   end
 
   # def power(state, broadcast_ip = false, options = {})
   # what does broadcast_ip do here??
   def power(state : Bool = false)
-    puts "power method running" 
     # self[:power] = state
     # send("op A1 display.power = off \r")
     if state == true
-      send("op A1 display.power = on \r") # changed ** -> A1: "Power should only be sent to display A1"
+      send("op A1 display.power = on \r")
       schedule.in(20.seconds) { recall(0) }
     else
-      send("op A1 display.power = off \r") # changed ** -> A1: "Power should only be sent to display A1"
+      send("op A1 display.power = off \r")
     end
   end
 
@@ -61,14 +58,14 @@ class Planar::ClarityMatrix < PlaceOS::Driver
     # video wall specific functions
   end
 
-  def recall(preset : Int32, **options)
+  def recall(preset : Int32)
       # options[:name] = :recall
-      send "op ** slot.recall #{preset} \r", **options # removed parentheses around preset
+      send "op ** slot.recall #{preset} \r"
   end
 
-  def input_status(**options)
+  def input_status
     # options[:wait] = true
-    send "op A1 slot.current ? \r", **options
+    send "op A1 slot.current ? \r"
   end
 
   def received(data, task)
@@ -93,8 +90,7 @@ class Planar::ClarityMatrix < PlaceOS::Driver
   end
 
   protected def do_poll
-    puts "running do_poll"
-    power?(priority: 0) 
-    # input_status(priority: 0) if self["power"] == "ON" # check if this block is running
+    power?
+    input_status if self["power"] == "ON"
   end
 end
