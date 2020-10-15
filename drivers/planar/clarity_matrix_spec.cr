@@ -5,7 +5,7 @@ DriverSpecs.mock_driver "Planar::ClarityMatrix" do
   # status[:power].should eq(true)
 
   exec(:power)
-  should_send("op A1 display.power ? \r")
+  should_send("op A1 display.power = off \r")
 
   exec(:switch_to)
   should_send("op A1 slot.recall(0) \r")
