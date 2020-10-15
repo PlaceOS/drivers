@@ -3,6 +3,10 @@ require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
 
+def is_affirmative(state : Bool)
+  state ? :ON : :OFF
+end
+
 module Epson; end
 
 module Epson::Projector; end
@@ -13,15 +17,17 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
-  # Discovery Information
-  tcp_port 1024
-  descriptive_name "Epson Projector"
-  generic_name :Display
-
   enum Input
     HDMI    = 0x30
     HDBaseT = 0x80
   end
+
+  include PlaceOS::Driver::Interface::InputSelection(Input)
+
+  # Discovery Information
+  tcp_port 1024
+  descriptive_name "Epson Projector"
+  generic_name :Display
 
   enum Error
     None                    =  0x9
@@ -66,7 +72,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     # Have to init comms
     send("ESC/VP.net\x10\x03\x00\x00\x00\x00")
     do_poll
-    schedule.every(52.seconds) { do_poll }
+    schedule.every(52.seconds, true) { do_poll }
   end
 
   def disconnected
@@ -86,12 +92,12 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     self[:stable_state] = false
     if state
       self[:power_target] = true
-      do_send(:PWR, true, timeout: 40000, name: :power)
+      do_send(:PWR, :ON, timeout: 40000, name: :power)
       logger.debug { "-- epson Proj, requested to power on" }
       do_send(:PWR, name: :power_state)
     else
       self[:power_target] = false
-      do_send(:PWR, false, timeout: 10000, name: :power)
+      do_send(:PWR, :OFF, timeout: 10000, name: :power)
       logger.debug { "-- epson Proj, requested to power off" }
       do_send(:PWR, name: :power_state)
     end
@@ -130,8 +136,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   )
     logger.debug { "-- epson Proj, requested mute state: #{state}" }
 
-    do_send(:MUTE, state, name: :video_mute) # Audio + Video
-    do_send(:MUTE)                           # request status
+    do_send(:MUTE, is_affirmative(state), name: :video_mute) # Audio + Video
+    do_send(:MUTE)                                           # request status
   end
 
   def unmute(index : Int32 | String = 0, layer : MuteLayer = MuteLayer::AudioVideo)
@@ -157,15 +163,16 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   #
   # epson Response code
   #
-  def received(data, resolve, command) # Data is default received as a string
+  def received(data, task) # Data is default received as a string
+    # resolve, command
     logger.debug { "epson Proj sent: #{data}" }
 
     if data == ":"
       return :success
     end
 
-    data = data.split(/=|\r:/)
-    case data[0].to_sym
+    data = String.new(data).split(/=|\r:/)
+    case data[0]
     when :ERR
       # Lookup error!
       if data[1].nil?
@@ -191,10 +198,10 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
       if !self[:stable_state] && self[:power_target] == self[:power]
         self[:stable_state] = true
-        self[:MUTE] = false if !self[:power]
+        self[:mute] = false if !self[:power]
       end
     when :MUTE
-      self[:MUTE] = data[1] == true
+      self[:mute] = data[1] == true
     when :VOL
       vol = data[1].to_i
       self[:volume] = vol
@@ -235,7 +242,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     do_send(:LAMP, priority: 0)
   end
 
-  protected def do_send(command, param = nil, **options)
+  protected def do_send(command : Symbol, param : (Int32 | Symbol | Input)? = nil, **options)
     # prepare the command
     cmd = if param.nil?
             "#{command}?\x0D"
@@ -246,20 +253,17 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     logger.debug { "queuing #{command}: #{cmd}" }
 
     # queue the request
-    queue(**({
-      name: command,
-    }.merge(options))) do
+    queue(**({name: command}.merge(**options))) do
       # prepare channel and connect to the projector (which will then send the random key)
       @channel = Channel(String).new
       transport.connect
 
-      message = cmd
-      logger.debug { "Sending: #{message}" }
+      logger.debug { "Sending: #{cmd}" }
 
       # send the request
       # NOTE:: the built in `send` function has implicit queuing, but we are
       # in a task callback here so should be calling transport send directly
-      transport.send(message)
+      transport.send(cmd)
     end
   end
 end
