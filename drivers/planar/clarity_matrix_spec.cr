@@ -9,4 +9,11 @@ DriverSpecs.mock_driver "Planar::ClarityMatrix" do
 
   exec(:switch_to)
   should_send("op A1 slot.recall(0) \r")
+
+  transmit("OPA1DISPLAY.POWER=ON")
+  # .get.should eq("ON")
+  # responds("ON")
+  # response = exec(:received)
+  
+  status["power"].should eq(false)
 end
