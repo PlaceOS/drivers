@@ -67,14 +67,11 @@ class Planar::ClarityMatrix < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data)
+    data = String.new(data) # OPA1DISPLAY.POWER=ON || OPA1SLOT.CURRENT=0
     logger.debug { "Vid Wall: #{data}" }
+    data = data.split(".")[1].split("=") # [POWER, ON] || [CURRENT, 0]
 
-    data = data.split(".") # OPA1DISPLAY.POWER=ON || OPA1SLOT.CURRENT=0
-    component = data[0]    # OPA1DISPLAY || OPA1SLOT
-    data = data[1].split("=")
-
-    status = data[0].downcase # POWER || CURRENT
+    status = data[0].downcase # power || current
     value = data[1]           # ON || 0
 
     case status
