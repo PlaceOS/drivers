@@ -1,5 +1,3 @@
-module Planar; end
-
 require "placeos-driver/interface/powerable"
 
 # Documentation: https://aca.im/driver_docs/Planar/020-1028-00%20RS232%20for%20Matrix.pdf
@@ -23,9 +21,6 @@ class Planar::ClarityMatrix < PlaceOS::Driver
   end
 
   def disconnected
-    # Disconnected may be called without calling connected
-    #   Hence the check if timer is nil here
-
     schedule.clear
   end
 
@@ -36,11 +31,10 @@ class Planar::ClarityMatrix < PlaceOS::Driver
     send "op A1 display.power ? \r", name: :pwr_query #, wait: true
   end
 
-  # def power(state, broadcast_ip = false, options = {}) # what does broadcast_ip do here??
   def power(state : Bool = false)
     self[:power] = state
     # send("op A1 display.power = off \r")
-    if state == true
+    if state
       send("op A1 display.power = on \r")
       schedule.in(20.seconds) { recall(0) }
     else
@@ -76,7 +70,7 @@ class Planar::ClarityMatrix < PlaceOS::Driver
 
     case status
     when "power"
-      self[:power] = value == "ON"
+      self["power"] = value == "ON"
     when "current"
       self[:input] = value.to_i
     end
