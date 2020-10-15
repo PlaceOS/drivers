@@ -118,7 +118,7 @@ class Place::Bookings < PlaceOS::Driver
       starting,
       ending,
       "",
-      [{name:  @calendar_id, email: @calendar_id}],
+      [PlaceCalendar::Event::Attendee.new(@calendar_id, @calendar_id)],
       @time_zone.name,
       owner,
       owner
