@@ -11,9 +11,10 @@ class Place::AreaCount < PlaceOS::Driver
   default_settings({
     building: "",
 
-    username: "",
-    password: "",
-    client_id: "",
+    # PlaceOS API creds, so we can query the zone metadata
+    username:      "",
+    password:      "",
+    client_id:     "",
     client_secret: "",
 
     # time in seconds
@@ -25,9 +26,9 @@ class Place::AreaCount < PlaceOS::Driver
     areas: {
       "zone-1234" => [
         {
-          id:       "lobby1",
-          name:     "George St Lobby",
-          building: "building-zone-id",
+          id:          "lobby1",
+          name:        "George St Lobby",
+          building:    "building-zone-id",
           coordinates: [{3, 5}, {5, 6}, {6, 1}],
         },
       ],
@@ -97,23 +98,28 @@ class Place::AreaCount < PlaceOS::Driver
   def request_locations
     @level_areas.each do |level_id, areas|
       begin
+        # Get location data for the level
         locations = location_service.device_locations(level_id).get.as_a
+
+        # Provide to the frontend
         self[level_id] = {
-          value: locations,
+          value:   locations,
           ts_hint: "complex",
-          ts_map: {
+          ts_map:  {
             x: "xloc",
             y: "yloc",
           },
-          ts_fields: {
+          ts_tag_keys: {"s2_cell_id"},
+          ts_fields:   {
             level: level_id,
           },
           ts_tags: {
-            building: areas.first.building
-          }
+            building: areas.first.building,
+          },
         }
-        areas.each do |area|
 
+        # Calculate the device counts for each area
+        areas.each do |area|
         end
       rescue error
         log_location_parsing(error, level_id)

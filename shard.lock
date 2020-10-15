@@ -144,6 +144,10 @@ shards:
     git: https://github.com/spider-gazelle/readers-writer.git
     version: 1.0.6
 
+  s2_cells:
+    git: https://github.com/spider-gazelle/s2_cells.git
+    version: 1.0.0
+
   simple_retry:
     git: https://github.com/spider-gazelle/simple_retry.git
     version: 1.1.0

@@ -4,6 +4,7 @@ module Cisco::Meraki; end
 
 require "uri"
 require "json"
+require "s2_cells"
 require "link-header"
 require "./scanning_api"
 require "placeos-driver/interface/locatable"
@@ -45,6 +46,11 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # Max requests a second made to the dashboard
     rate_limit: 4,
+
+    # Area index each point on a floor lands on
+    # 21 == ~4 meters squared, which given wifi variance is good enough for tracing
+    # S2 cell levels: https://s2geometry.io/resources/s2cell_statistics.html
+    s2_level: 21,
 
     # Level mappings, level name for human readability
     floorplan_mappings: {
@@ -88,6 +94,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @floorplan_sizes = {} of String => FloorPlan
   @max_location_age : Time::Span = 10.minutes
 
+  @s2_level : Int32 = 21
+
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
@@ -111,6 +119,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
+
+    @s2_level = setting?(Int32, :s2_level) || 21
 
     schedule.clear
     if @default_network.presence
@@ -350,13 +360,17 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       }.sort { |a, b|
         b.time <=> a.time
       }.map { |location|
+        lat = location.lat
+        lon = location.lng
+
         loc = {
           "location"          => "wireless",
           "coordinates_from"  => "bottom-left",
           "x"                 => location.x,
           "y"                 => location.y,
-          "lon"               => location.lng,
-          "lat"               => location.lat,
+          "lon"               => lon,
+          "lat"               => lat,
+          "s2_cell_id"        => S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
           "mac"               => location.mac,
           "variance"          => location.variance,
           "last_seen"         => location.time.to_unix,
@@ -408,14 +422,18 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         map_height = map_size.height
       end
 
+      lat = location.lat
+      lon = location.lng
+
       locations.map do |location|
         {
           location:         :wireless,
           coordinates_from: "bottom-left",
           x:                location.x,
           y:                location.y,
-          lon:              location.lng,
-          lat:              location.lat,
+          lon:              lon,
+          lat:              lat,
+          s2_cell_id:       S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
           mac:              location.mac,
           variance:         location.variance,
           last_seen:        location.time.to_unix,
