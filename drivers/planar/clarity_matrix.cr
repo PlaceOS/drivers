@@ -31,16 +31,14 @@ class Planar::ClarityMatrix < PlaceOS::Driver
 
   def power?
     # options[:emit] = block if block_given?
-
     # options[:wait] = true
     # options[:name] = :pwr_query
-    send("op A1 display.power ? \r")
+    send "op A1 display.power ? \r", name: :pwr_query #, wait: true
   end
 
-  # def power(state, broadcast_ip = false, options = {})
-  # what does broadcast_ip do here??
+  # def power(state, broadcast_ip = false, options = {}) # what does broadcast_ip do here??
   def power(state : Bool = false)
-    # self[:power] = state
+    self[:power] = state
     # send("op A1 display.power = off \r")
     if state == true
       send("op A1 display.power = on \r")
@@ -60,12 +58,12 @@ class Planar::ClarityMatrix < PlaceOS::Driver
 
   def recall(preset : Int32)
       # options[:name] = :recall
-      send "op ** slot.recall #{preset} \r"
+      send "op ** slot.recall #{preset} \r", name: :recall
   end
 
   def input_status
     # options[:wait] = true
-    send "op A1 slot.current ? \r"
+    send "op A1 slot.current ? \r", wait: true
   end
 
   def received(data, task)
