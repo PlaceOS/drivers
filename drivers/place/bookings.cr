@@ -113,10 +113,16 @@ class Place::Bookings < PlaceOS::Driver
 
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
-    calendar.create_event(title, starting, ending, [{
-      name:  @calendar_id,
-      email: @calendar_id,
-    }], [] of PlaceCalendar::Event::Attendee, @time_zone.name, owner, owner)
+    calendar.create_event(
+      title,
+      starting,
+      ending,
+      "",
+      [{name:  @calendar_id, email: @calendar_id}],
+      @time_zone.name,
+      owner,
+      owner
+    )
   end
 
   def poll_events : Nil
