@@ -41,11 +41,12 @@ class Place::Bookings < PlaceOS::Driver
     schedule.clear
     @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
 
-    schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_events }
+    schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) {
+      cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes + Random.rand(1000).milliseconds
+      schedule.every(cache_polling_period) { poll_events }
 
-    cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
-    cache_polling_period += Random.rand(90).seconds + Random.rand(1000).milliseconds
-    schedule.every(cache_polling_period) { poll_events }
+      poll_events
+    }
 
     time_zone = setting?(String, :calendar_time_zone).presence
     @time_zone = Time::Location.load(time_zone) if time_zone
