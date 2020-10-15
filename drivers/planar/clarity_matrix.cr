@@ -63,7 +63,7 @@ class Planar::ClarityMatrix < PlaceOS::Driver
 
   def input_status
     # options[:wait] = true
-    send "op A1 slot.current ? \r", wait: true
+    send "op A1 slot.current ? \r", wait: true, priority: 0
   end
 
   def received(data, task)
@@ -76,7 +76,7 @@ class Planar::ClarityMatrix < PlaceOS::Driver
 
     case status
     when "power"
-      self["power"] = value == "ON"
+      self[:power] = value == "ON"
     when "current"
       self[:input] = value.to_i
     end
