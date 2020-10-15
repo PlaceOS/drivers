@@ -13,14 +13,14 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
-  enum Inputs
-    HDMI
-    HDBaseT
+  enum Input
+    HDMI    = 0x30
+    HDBaseT = 0x80
   end
 
   # Discovery Information
   tcp_port 1024
-  descriptive_name "Epson Projectors"
+  descriptive_name "Epson Projector"
   generic_name :Display
 
   def on_load
@@ -79,17 +79,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     do_send(:PWR, **options)
   end
 
-  #
-  # Input selection
-  #
-  INPUTS = {
-    Inputs::HDMI    => 0x30,
-    Inputs::HDBaseT => 0x80,
-  }
-  INPUT_LOOKUP = INPUTS.invert
-
-  def switch_to(input : Inputs)
-    do_send(:SOURCE, INPUT_LOOKUP[input], name: :inpt_source)
+  def switch_to(input : Input)
+    do_send(:SOURCE, Input.from_value(input), name: :inpt_source)
     do_send(:SOURCE, name: :inpt_query)
 
     logger.debug { "-- epson LCD, requested to switch to: #{input}" }
@@ -142,29 +133,29 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     do_send(:SOURCE, name: :inpt_query, priority: 0)
   end
 
-  ERRORS = {
-     0 => "00: no error",
-     1 => "01: fan error",
-     3 => "03: lamp failure at power on",
-     4 => "04: high internal temperature",
-     6 => "06: lamp error",
-     7 => "07: lamp cover door open",
-     8 => "08: cinema filter error",
-     9 => "09: capacitor is disconnected",
-    10 => "0A: auto iris error",
-    11 => "0B: subsystem error",
-    12 => "0C: low air flow error",
-    13 => "0D: air flow sensor error",
-    14 => "0E: ballast power supply error",
-    15 => "0F: shutter error",
-    16 => "10: peltiert cooling error",
-    17 => "11: pump cooling error",
-    18 => "12: static iris error",
-    19 => "13: power supply unit error",
-    20 => "14: exhaust shutter error",
-    21 => "15: obstacle detection error",
-    22 => "16: IF board discernment error",
-  }
+  enum ERROR
+    "no error" = 00
+    "fan error" = 01
+    "lamp failure at power on" = 03
+    "high internal temperature" = 04
+    "lamp error" = 06
+    "lamp cover door open" = 07
+    "cinema filter error" = 08
+    "capacitor is disconnected" = 09
+    "auto iris error" = 0A
+    "subsystem error" = 0B
+    "low air flow error" = 0C
+    "air flow sensor error" = 0D
+    "ballast power supply error" = 0E
+    "shutter error" = 0F
+    "peltiert cooling error" = 10
+    "pump cooling error" = 11
+    "static iris error" = 12
+    "power supply unit error" = 13
+    "exhaust shutter error" = 14
+    "obstacle detection error" = 15
+    "IF board discernment error" = 16
+end
 
   #
   # epson Response code
