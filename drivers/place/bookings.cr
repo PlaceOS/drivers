@@ -116,7 +116,7 @@ class Place::Bookings < PlaceOS::Driver
     calendar.create_event(title, starting, ending, [{
       name:  @calendar_id,
       email: @calendar_id,
-    }], nil, @time_zone.name, owner, owner)
+    }], [] of PlaceCalendar::Event::Attendee, @time_zone.name, owner, owner)
   end
 
   def poll_events : Nil
