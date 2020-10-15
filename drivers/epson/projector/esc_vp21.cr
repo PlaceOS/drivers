@@ -13,15 +13,39 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
+  # Discovery Information
+  tcp_port 1024
+  descriptive_name "Epson Projector"
+  generic_name :Display
+
   enum Input
     HDMI    = 0x30
     HDBaseT = 0x80
   end
 
-  # Discovery Information
-  tcp_port 1024
-  descriptive_name "Epson Projector"
-  generic_name :Display
+  enum Error
+    None                    =  0x9
+    Fan                     =  0x1
+    LampAtPowerOn           =  0x3
+    HighInternalTemperature =  0x4
+    Lamp                    =  0x6
+    LampCoverDoorOpen       =  0x7
+    CinemaFilter            =  0x8
+    CapacitorDisconnected   =  0x9
+    AutoIris                =  0xA
+    Subsystem               =  0xB
+    LowAirFlow              =  0xC
+    AirFlowSensor           =  0xD
+    BallastPowerSupply      =  0xE
+    Shutter                 =  0xF
+    PeltiertCooling         = 0x10
+    PumpCooling             = 0x11
+    StaticIris              = 0x12
+    PowerSupplyUnit         = 0x13
+    ExhaustShutter          = 0x14
+    ObstacleDetection       = 0x15
+    BoardDiscernment        = 0x16
+  end
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r\n")
@@ -85,19 +109,16 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
     logger.debug { "-- epson LCD, requested to switch to: #{input}" }
     self[:input] = input # for a responsive UI
-    self[:MUTE] = false
+    self[:mute] = false
   end
 
-  #
   # Volume commands are sent using the inpt command
-  #
   def volume(vol : Int32, **options)
-    vol = 0 if vol < 0
-    vol = 255 if vol > 255
+    vol = vol.clamp(0, 255)
 
-    # Seems to only return ":" for this command
     self[:volume] = vol
     self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
+
     do_send(:VOL, vol, **options)
   end
 
@@ -133,30 +154,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     do_send(:SOURCE, name: :inpt_query, priority: 0)
   end
 
-  enum ERROR
-    "no error" = 00
-    "fan error" = 01
-    "lamp failure at power on" = 03
-    "high internal temperature" = 04
-    "lamp error" = 06
-    "lamp cover door open" = 07
-    "cinema filter error" = 08
-    "capacitor is disconnected" = 09
-    "auto iris error" = 0A
-    "subsystem error" = 0B
-    "low air flow error" = 0C
-    "air flow sensor error" = 0D
-    "ballast power supply error" = 0E
-    "shutter error" = 0F
-    "peltiert cooling error" = 10
-    "pump cooling error" = 11
-    "static iris error" = 12
-    "power supply unit error" = 13
-    "exhaust shutter error" = 14
-    "obstacle detection error" = 15
-    "IF board discernment error" = 16
-end
-
   #
   # epson Response code
   #
@@ -178,7 +175,7 @@ end
         return :abort
       else
         code = data[1].to_i(16)
-        self[:last_error] = ERRORS[code] || "#{data[1]}: unknown error code #{code}"
+        self[:last_error] = Error.from_value(code) || "#{data[1]}: unknown error code #{code}"
         logger.warn { "Epson PJ error was #{self[:last_error]}" }
         return :success
       end
@@ -187,9 +184,11 @@ end
       self[:power] = state < 3
       self[:warming] = state == 2
       self[:cooling] = state == 3
+
       if self[:warming] || self[:cooling]
         schedule.in(5.seconds) { power?(priority: 0) }
       end
+
       if !self[:stable_state] && self[:power_target] == self[:power]
         self[:stable_state] = true
         self[:MUTE] = false if !self[:power]
@@ -203,7 +202,7 @@ end
     when :LAMP
       self[:lamp_usage] = data[1].to_i
     when :SOURCE
-      self[:source] = INPUT_LOOKUP[data[1].to_i(16)] || :unknown
+      self[:source] = Input.from_value(data[1].to_i(16)) || :unknown
     end
 
     :success
@@ -232,6 +231,7 @@ end
         end
       end
     end
+
     do_send(:LAMP, priority: 0)
   end
 
