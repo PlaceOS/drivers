@@ -7,6 +7,7 @@ class Place::Bookings < PlaceOS::Driver
   generic_name :Bookings
 
   default_settings({
+    calendar_id:            nil,
     calendar_time_zone:     "Australia/Sydney",
     book_now_default_title: "Ad Hoc booking",
     disable_book_now:       false,
