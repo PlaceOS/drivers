@@ -32,7 +32,6 @@ class Planar::ClarityMatrix < PlaceOS::Driver
   end
 
   def power(state : Bool = false)
-    self[:power] = state
     # send("op A1 display.power = off \r")
     if state
       send("op A1 display.power = on \r")
@@ -55,7 +54,7 @@ class Planar::ClarityMatrix < PlaceOS::Driver
       send "op ** slot.recall #{preset} \r", name: :recall
   end
 
-  def input_status
+  def input?
     # options[:wait] = true
     send "op A1 slot.current ? \r", wait: true, priority: 0
   end
@@ -70,7 +69,8 @@ class Planar::ClarityMatrix < PlaceOS::Driver
 
     case status
     when "power"
-      self["power"] = value == "ON"
+      self[:power] = value
+      pp! value
     when "current"
       self[:input] = value.to_i
     end
@@ -80,6 +80,6 @@ class Planar::ClarityMatrix < PlaceOS::Driver
 
   protected def do_poll
     power?
-    input_status if self["power"] == "ON"
+    input? if self[:power]? &.try as_bool == "ON"
   end
 end
