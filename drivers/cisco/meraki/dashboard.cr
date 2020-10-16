@@ -60,6 +60,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   })
 
   def on_load
+    # We want to store our user => mac_address mappings in redis
+    @user_mac_mappings = PlaceOS::Driver::Storage.new(module_id, "user_macs")
     spawn { rate_limiter }
     on_update
   end
@@ -82,6 +84,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @queue_size = 0
   @wait_time : Time::Span = 300.milliseconds
 
+  @storage_lock : Mutex = Mutex.new
   @user_mac_mappings : PlaceOS::Driver::Storage? = nil
   @default_network : String = ""
   @floorplan_mappings : Hash(String, Hash(String, String)) = Hash(String, Hash(String, String)).new
@@ -96,8 +99,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @rate_limit = setting?(Int32, :rate_limit) || 4
     @wait_time = 1.second / @rate_limit
 
-    # We want to store our user => mac_address mappings in redis
-    @user_mac_mappings = PlaceOS::Driver::Storage.new(module_id, "user_macs")
     @default_network = setting?(String, :default_network_id) || ""
 
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
@@ -121,7 +122,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   end
 
   protected def user_mac_mappings
-    @user_mac_mappings.not_nil!
+    @storage_lock.synchronize {
+      yield @user_mac_mappings.not_nil!
+    }
   end
 
   # Perform fetch with the required API request limits in place
@@ -256,7 +259,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @[Security(PlaceOS::Driver::Level::Support)]
   def map_users_to_macs(network_id : String? = nil)
     network_id = network_id.presence || @default_network
-    storage = user_mac_mappings
 
     logger.debug { "mapping users to device MACs" }
     clients = poll_clients(network_id)
@@ -265,39 +267,42 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     updated_dev = 0
 
     logger.debug { "mapping found #{clients.size} devices" }
-    clients.each do |client|
-      user_id = client.user
-      next unless user_id
-      user_id = format_username(user_id)
-      user_mac = format_mac(client.mac)
 
-      # Check if mac mapping already exists
-      existing_user = storage[user_mac]?
-      next if existing_user == user_id
+    user_mac_mappings do |storage|
+      clients.each do |client|
+        user_id = client.user
+        next unless user_id
+        user_id = format_username(user_id)
+        user_mac = format_mac(client.mac)
 
-      # Remove any pervious mappings
-      if existing_user
-        updated_dev += 1
-        if user_macs = storage[existing_user]?
-          macs = Array(String).from_json(user_macs)
-          macs.delete(user_mac)
-          storage[existing_user] = macs.to_json
+        # Check if mac mapping already exists
+        existing_user = storage[user_mac]?
+        next if existing_user == user_id
+
+        # Remove any pervious mappings
+        if existing_user
+          updated_dev += 1
+          if user_macs = storage[existing_user]?
+            macs = Array(String).from_json(user_macs)
+            macs.delete(user_mac)
+            storage[existing_user] = macs.to_json
+          end
+        else
+          new_devices += 1
         end
-      else
-        new_devices += 1
-      end
 
-      # Update the user mappings
-      storage[user_mac] = user_id
-      macs = if user_macs = storage[user_id]?
-               tmp_macs = Array(String).from_json(user_macs)
-               tmp_macs.unshift(user_mac)
-               tmp_macs.uniq!
-               tmp_macs[0...9]
-             else
-               [user_mac]
-             end
-      storage[user_id] = macs
+        # Update the user mappings
+        storage[user_mac] = user_id
+        macs = if user_macs = storage[user_id]?
+                 tmp_macs = Array(String).from_json(user_macs)
+                 tmp_macs.unshift(user_mac)
+                 tmp_macs.uniq!
+                 tmp_macs[0...9]
+               else
+                 [user_mac]
+               end
+        storage[user_id] = macs
+      end
     end
 
     logger.debug { "mapping assigned #{new_devices} new devices, #{updated_dev} user updated" }
@@ -315,7 +320,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   def macs_assigned_to(username : String)
     username = format_username(username)
-    if macs = user_mac_mappings[username]?
+    if macs = user_mac_mappings { |s| s[username]? }
       Array(String).from_json(macs)
     else
       [] of String
@@ -323,7 +328,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   end
 
   def check_ownership_of(mac_address : String)
-    user_mac_mappings[format_mac(mac_address)]?
+    lookup = format_mac(mac_address)
+    user_mac_mappings { |s| s[lookup]? }
   end
 
   # returns locations based on most recently seen
@@ -331,7 +337,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   def locate_user(email : String? = nil, username : String? = nil)
     username = format_username(username.presence || email || "")
 
-    if macs = user_mac_mappings[username]?
+    if macs = user_mac_mappings { |s| s[username]? }
       location_max_age = @max_location_age.ago
 
       Array(String).from_json(macs).compact_map { |mac|
