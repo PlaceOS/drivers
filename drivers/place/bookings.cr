@@ -109,7 +109,7 @@ class Place::Bookings < PlaceOS::Driver
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
     title ||= @default_title
     starting = Time.utc.to_unix
-    ending = period_in_seconds.seconds.from_now.to_unix
+    ending = starting + period_in_seconds
 
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
