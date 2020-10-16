@@ -154,7 +154,7 @@ shards:
 
   tasker:
     git: https://github.com/spider-gazelle/tasker.git
-    version: 2.0.1
+    version: 2.0.2
 
   telnet:
     git: https://github.com/spider-gazelle/telnet.cr.git
