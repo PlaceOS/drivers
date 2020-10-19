@@ -108,7 +108,6 @@ class Place::Bookings < PlaceOS::Driver
 
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
     title ||= @default_title
-    owner ||= @calendar_id
     starting = Time.utc.to_unix
     ending = starting + period_in_seconds
 
@@ -121,8 +120,8 @@ class Place::Bookings < PlaceOS::Driver
       "",
       [PlaceCalendar::Event::Attendee.new(@calendar_id, @calendar_id)],
       @time_zone.name,
-      owner,
-      owner
+      nil,
+      @calendar_id
     )
   end
 
