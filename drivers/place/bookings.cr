@@ -119,7 +119,7 @@ class Place::Bookings < PlaceOS::Driver
       starting,
       ending,
       "",
-      [PlaceCalendar::Event::Attendee.new(@calendar_id, @calendar_id, nil, true, room_is_organizer)],
+      [PlaceCalendar::Event::Attendee.new(@calendar_id, @calendar_id, "accepted", true, room_is_organizer)],
       @time_zone.name,
       nil,
       @calendar_id
