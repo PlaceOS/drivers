@@ -113,7 +113,7 @@ class Place::Bookings < PlaceOS::Driver
 
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
-    calendar.create_event(
+    event = calendar.create_event(
       title,
       starting,
       ending,
@@ -123,6 +123,9 @@ class Place::Bookings < PlaceOS::Driver
       nil,
       @calendar_id
     )
+    # Update booking info after creating event
+    poll_events
+    event
   end
 
   def poll_events : Nil
