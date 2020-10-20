@@ -41,6 +41,11 @@ dependencies:
     github: placeos/driver
     version: ~> 3.0
 
+  # The PlaceOS API client
+  placeos:
+    github: placeos/crystal-client
+    version: ~> 2.1.6
+
   rwlock:
     github: spider-gazelle/readers-writer
 
