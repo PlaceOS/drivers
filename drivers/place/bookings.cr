@@ -113,6 +113,8 @@ class Place::Bookings < PlaceOS::Driver
 
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
+    host_calendar = owner.presence || @calendar_id
+
     room_is_organizer = owner.nil?
     event = calendar.create_event(
       title,
@@ -122,7 +124,7 @@ class Place::Bookings < PlaceOS::Driver
       [PlaceCalendar::Event::Attendee.new(@calendar_id, @calendar_id, "accepted", true, room_is_organizer)],
       @time_zone.name,
       nil,
-      @calendar_id
+      host_calendar
     )
     # Update booking info after creating event
     poll_events
