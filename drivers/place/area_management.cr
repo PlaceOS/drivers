@@ -263,10 +263,14 @@ class Place::AreaManagement < PlaceOS::Driver
 
     # normalised data
     adjusted_devices = wireless_devices * @duplication_factor
-    percentage_use = (adjusted_devices / total_capacity) * 100.0
 
-    # recommendations
-    individual_impact = 100.0 / total_capacity
+    if total_capacity <= 0
+      percentage_use = 100.0
+      individual_impact = 100.0
+    else
+      percentage_use = (adjusted_devices / total_capacity) * 100.0
+      individual_impact = 100.0 / total_capacity
+    end
     remaining_capacity = total_capacity - adjusted_devices
     recommendation = remaining_capacity + remaining_capacity * individual_impact
 
@@ -278,7 +282,7 @@ class Place::AreaManagement < PlaceOS::Driver
       estimated_people: adjusted_devices.to_i,
       percentage_use:   percentage_use,
 
-      # higher the number, higher the recommendation
+      # higher the number, better the recommendation
       recommendation: recommendation,
     }
   end
