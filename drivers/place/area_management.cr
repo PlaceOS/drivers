@@ -228,7 +228,7 @@ class Place::AreaManagement < PlaceOS::Driver
         end
 
         # Provide the frontend the area details
-        self["#{level_id}-areas"] = {
+        self["#{level_id}:areas"] = {
           value:     area_counts,
           ts_hint:   "complex",
           ts_fields: {
