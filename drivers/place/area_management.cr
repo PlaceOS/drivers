@@ -106,9 +106,9 @@ class Place::AreaManagement < PlaceOS::Driver
     )
 
     # Areas are defined in metadata, this is mainly here so we can write specs
-    if areas = setting?(Hash(String, Array(AreaSetting)), :areas)
+    if building_areas = setting?(Hash(String, Array(AreaSetting)), :areas)
       @level_areas.clear
-      areas.each do |zone_id, areas|
+      building_areas.each do |zone_id, areas|
         @level_areas[zone_id] = areas.map do |area|
           config = AreaConfig.new(area[:id], area[:name], area[:coordinates], area[:building])
           @areas[config.id] = config
