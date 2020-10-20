@@ -51,6 +51,7 @@ class Place::Calendar < PlaceOS::Driver
   @wait_time : Time::Span = 300.milliseconds
 
   def on_load
+    @channel = Channel(Nil).new(2)
     spawn { rate_limiter }
     on_update
   end
@@ -59,7 +60,6 @@ class Place::Calendar < PlaceOS::Driver
     @service_account = setting?(String, :calendar_service_account).presence
     @rate_limit = setting?(Int32, :rate_limit) || 3
     @wait_time = 1.second / @rate_limit
-    @channel = Channel(Nil).new(@rate_limit)
 
     @client_lock.synchronize do
       # Work around crystal limitation of splatting a union
