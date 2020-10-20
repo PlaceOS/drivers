@@ -403,23 +403,40 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   end
 
   def device_locations(zone_id : String, location : String? = nil)
-    return [] of Nil if location && location != "wireless"
+    logger.debug { "looking up device locations in #{zone_id}" }
+    return [] of Nil if location.presence && location != "wireless"
 
     # Find the floors associated with the provided zone id
     floors = [] of String
     @floorplan_mappings.each do |floor_id, data|
       floors << floor_id if data.values.includes?(zone_id)
     end
+    logger.debug { "found matching meraki floors: #{floors}" }
     return [] of Nil if floors.empty?
+
+    checking_count = @locations.size
+    wrong_floor = 0
+    too_old = 0
 
     # Find the devices that are on the matching floors
     oldest_location = @max_location_age.ago
-    @locations.compact_map { |mac, loc|
-      if loc.time > oldest_location && floors.includes?(loc.floor_plan_id)
-        loc.mac = mac
-        loc
+    matching = @locations.compact_map do |mac, loc|
+      if loc.time < oldest_location
+        too_old += 1
+        next
       end
-    }.group_by(&.floor_plan_id).flat_map { |_floor_id, locations|
+      if !floors.includes?(loc.floor_plan_id)
+        wrong_floor += 1
+        next
+      end
+      loc.mac = mac
+      loc
+    end
+
+    logger.debug { "found #{matching.size} matching devices\nchecked #{checking_count} locations, #{wrong_floor} were on the wrong floor, #{too_old} were too old" }
+
+    # Build the payload on the matching locations
+    matching.group_by(&.floor_plan_id).flat_map { |_floor_id, locations|
       map_width = -1.0
       map_height = -1.0
 
