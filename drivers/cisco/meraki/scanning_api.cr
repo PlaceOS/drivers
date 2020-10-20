@@ -16,6 +16,12 @@ module Cisco::Meraki
   class Location
     include JSON::Serializable
 
+    # NOTE:: This is not part of the location response,
+    # it is here to simplify processing
+    @[JSON::Field(ignore: true)]
+    property mac : String?
+
+    # Multiple types as the location when parsed might include javascript `"NaN"`
     property x : Float64 | String | Nil
     property y : Float64 | String | Nil
     property lng : Float64?

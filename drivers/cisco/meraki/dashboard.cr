@@ -4,6 +4,7 @@ module Cisco::Meraki; end
 
 require "uri"
 require "json"
+require "s2_cells"
 require "link-header"
 require "./scanning_api"
 require "placeos-driver/interface/locatable"
@@ -45,6 +46,11 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # Max requests a second made to the dashboard
     rate_limit: 4,
+
+    # Area index each point on a floor lands on
+    # 21 == ~4 meters squared, which given wifi variance is good enough for tracing
+    # S2 cell levels: https://s2geometry.io/resources/s2cell_statistics.html
+    s2_level: 21,
 
     # Level mappings, level name for human readability
     floorplan_mappings: {
@@ -91,6 +97,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @floorplan_sizes = {} of String => FloorPlan
   @max_location_age : Time::Span = 10.minutes
 
+  @s2_level : Int32 = 21
+
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
@@ -112,6 +120,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
+
+    @s2_level = setting?(Int32, :s2_level) || 21
 
     schedule.clear
     if @default_network.presence
@@ -318,8 +328,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     user.downcase
   end
 
-  def macs_assigned_to(username : String)
-    username = format_username(username)
+  def macs_assigned_to(email : String? = nil, username : String? = nil)
+    username = format_username(username.presence || email.presence.not_nil!)
     if macs = user_mac_mappings { |s| s[username]? }
       Array(String).from_json(macs)
     else
@@ -329,31 +339,45 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   def check_ownership_of(mac_address : String)
     lookup = format_mac(mac_address)
-    user_mac_mappings { |s| s[lookup]? }
+    if user = user_mac_mappings { |s| s[lookup]? }
+      {
+        location:    :wireless,
+        assigned_to: user,
+        mac_address: mac_address,
+      }
+    end
   end
 
   # returns locations based on most recently seen
   # versus most accurate location
   def locate_user(email : String? = nil, username : String? = nil)
-    username = format_username(username.presence || email || "")
+    username = format_username(username.presence || email.presence.not_nil!)
 
     if macs = user_mac_mappings { |s| s[username]? }
       location_max_age = @max_location_age.ago
 
       Array(String).from_json(macs).compact_map { |mac|
         if location = locate_mac(mac)
-          location if location.time > location_max_age
+          if location.time > location_max_age
+            location.mac = mac
+            location
+          end
         end
       }.sort { |a, b|
         b.time <=> a.time
       }.map { |location|
+        lat = location.lat
+        lon = location.lng
+
         loc = {
           "location"          => "wireless",
           "coordinates_from"  => "bottom-left",
           "x"                 => location.x,
           "y"                 => location.y,
-          "lng"               => location.lng,
-          "lat"               => location.lat,
+          "lon"               => lon,
+          "lat"               => lat,
+          "s2_cell_id"        => S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
+          "mac"               => location.mac,
           "variance"          => location.variance,
           "last_seen"         => location.time.to_unix,
           "meraki_floor_id"   => location.floor_plan_id,
@@ -378,6 +402,54 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   end
 
+  def device_locations(zone_id : String, location : String? = nil)
+    return [] of Nil if location && location != "wireless"
+
+    # Find the floors associated with the provided zone id
+    floors = [] of String
+    @floorplan_mappings.each do |floor_id, data|
+      floors << floor_id if data.values.includes?(zone_id)
+    end
+    return [] of Nil if floors.empty?
+
+    # Find the devices that are on the matching floors
+    oldest_location = @max_location_age.ago
+    @locations.compact_map { |mac, location|
+      if location.time > oldest_location && floors.includes?(location.floor_plan_id)
+        location.mac = mac
+        location
+      end
+    }.group_by(&.floor_plan_id).flat_map { |floor_id, locations|
+      map_width = -1.0
+      map_height = -1.0
+
+      if map_size = @floorplan_sizes[locations[0].floor_plan_id]?
+        map_width = map_size.width
+        map_height = map_size.height
+      end
+
+      lat = location.lat
+      lon = location.lng
+
+      locations.map do |location|
+        {
+          location:         :wireless,
+          coordinates_from: "bottom-left",
+          x:                location.x,
+          y:                location.y,
+          lon:              lon,
+          lat:              lat,
+          s2_cell_id:       S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
+          mac:              location.mac,
+          variance:         location.variance,
+          last_seen:        location.time.to_unix,
+          map_width:        map_width,
+          map_height:       map_height,
+        }
+      end
+    }
+  end
+
   @[Security(PlaceOS::Driver::Level::Support)]
   def cleanup_caches : Nil
     logger.debug { "removing IP and location data that is over 30 minutes old" }
@@ -387,9 +459,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @ip_lookup.each { |ip, lookup| remove_keys << ip if lookup.time < old }
     remove_keys.each { |ip| @ip_lookup.delete(ip) }
 
+    logger.debug { "removing #{remove_keys.size} IPs" }
+
     remove_keys.clear
     @locations.each { |mac, location| remove_keys << mac if location.time < old }
     remove_keys.each { |mac| @locations.delete(mac) }
+
+    logger.debug { "removing #{remove_keys.size} MACs" }
   end
 
   class FloorPlan

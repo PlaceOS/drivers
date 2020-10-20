@@ -1,10 +1,10 @@
 DriverSpecs.mock_driver "Cisco::Meraki::Dashboard" do
-  # it requests floor plans
+  # The dashboard should request the floorplan sizes on load
   expect_http_request do |request, response|
     headers = request.headers
     if headers["X-Cisco-Meraki-API-Key"]? == "configure for the dashboard API"
       response.status_code = 200
-      response << %([{"floorPlanId":"floor1","width":30.2,"height":60.0}])
+      response << %([{"floorPlanId":"floor-123","name":"Level 1","width":30.5,"height":20}])
     else
       response.status_code = 401
     end
@@ -13,7 +13,7 @@ DriverSpecs.mock_driver "Cisco::Meraki::Dashboard" do
   # Send the request
   retval = exec(:fetch, "/api/v0/organizations")
 
-  # The dashboard should send a HTTP request
+  # The dashboard should send a HTTP request with the API key
   expect_http_request do |request, response|
     headers = request.headers
     if headers["X-Cisco-Meraki-API-Key"]? == "configure for the dashboard API"
