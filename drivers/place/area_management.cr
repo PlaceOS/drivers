@@ -128,7 +128,7 @@ class Place::AreaManagement < PlaceOS::Driver
   def request_locations
     # Attempt to obtain the latest version of the metadata
     begin
-      response = client.metadata.children("zone-EmWLJNm0i~6")
+      response = client.metadata.children(@building_id)
 
       @level_details.clear
       response.each do |meta|
