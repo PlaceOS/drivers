@@ -48,7 +48,7 @@ module Place
     end
 
     def polygon : Polygon
-      @Polygon ||= Polygon.new(coordinates.map { |coords| Point.new(*coords) })
+      @polygon ||= Polygon.new(coordinates.map { |coords| Point.new(*coords) })
     end
   end
 end

@@ -337,11 +337,11 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   end
 
-  def check_ownership_of(mac_address : String)
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
     lookup = format_mac(mac_address)
     if user = user_mac_mappings { |s| s[lookup]? }
       {
-        location:    :wireless,
+        location:    "wireless",
         assigned_to: user,
         mac_address: mac_address,
       }
@@ -376,7 +376,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
           "y"                 => location.y,
           "lon"               => lon,
           "lat"               => lat,
-          "s2_cell_id"        => S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
+          "s2_cell_id"        => lat ? S2Cells::LatLon.new(lat.not_nil!, lon.not_nil!).to_token(@s2_level) : nil,
           "mac"               => location.mac,
           "variance"          => location.variance,
           "last_seen"         => location.time.to_unix,
@@ -414,12 +414,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # Find the devices that are on the matching floors
     oldest_location = @max_location_age.ago
-    @locations.compact_map { |mac, location|
-      if location.time > oldest_location && floors.includes?(location.floor_plan_id)
-        location.mac = mac
-        location
+    @locations.compact_map { |mac, loc|
+      if loc.time > oldest_location && floors.includes?(loc.floor_plan_id)
+        loc.mac = mac
+        loc
       end
-    }.group_by(&.floor_plan_id).flat_map { |floor_id, locations|
+    }.group_by(&.floor_plan_id).flat_map { |_floor_id, locations|
       map_width = -1.0
       map_height = -1.0
 
@@ -428,21 +428,21 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         map_height = map_size.height
       end
 
-      lat = location.lat
-      lon = location.lng
+      locations.map do |loc|
+        lat = loc.lat
+        lon = loc.lng
 
-      locations.map do |location|
         {
           location:         :wireless,
           coordinates_from: "bottom-left",
-          x:                location.x,
-          y:                location.y,
+          x:                loc.x,
+          y:                loc.y,
           lon:              lon,
           lat:              lat,
-          s2_cell_id:       S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
-          mac:              location.mac,
-          variance:         location.variance,
-          last_seen:        location.time.to_unix,
+          s2_cell_id:       lat ? S2Cells::LatLon.new(lat.not_nil!, lon.not_nil!).to_token(@s2_level) : nil,
+          mac:              loc.mac,
+          variance:         loc.variance,
+          last_seen:        loc.time.to_unix,
           map_width:        map_width,
           map_height:       map_height,
         }
