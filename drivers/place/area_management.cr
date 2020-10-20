@@ -75,7 +75,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
   # PlaceOS client config
   @building_id : String = ""
-  getter! client : PlaceOS::Client
+  @client : PlaceOS::Client? = nil
 
   @poll_rate : Time::Span = 60.seconds
   @location_service : String = "LocationServices"
@@ -166,7 +166,6 @@ class Place::AreaManagement < PlaceOS::Driver
 
         # Get location data for the level
         locations = location_service.device_locations(level_id).get.as_a
-        building_id = areas.first.building
 
         # Provide to the frontend
         self[level_id] = {
@@ -181,7 +180,7 @@ class Place::AreaManagement < PlaceOS::Driver
             pos_level: level_id,
           },
           ts_tags: {
-            pos_building: building_id,
+            pos_building: @building_id,
           },
         }
 
@@ -235,7 +234,7 @@ class Place::AreaManagement < PlaceOS::Driver
             pos_level: level_id,
           },
           ts_tags: {
-            pos_building: building_id,
+            pos_building: @building_id,
           },
         }
       rescue error
@@ -282,5 +281,9 @@ class Place::AreaManagement < PlaceOS::Driver
       # higher the number, higher the recommendation
       recommendation: recommendation,
     }
+  end
+
+  protected def client
+    @client.not_nil!
   end
 end
