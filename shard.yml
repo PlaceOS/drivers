@@ -41,9 +41,18 @@ dependencies:
     github: placeos/driver
     version: ~> 3.0
 
+  # The PlaceOS API client
+  placeos:
+    github: placeos/crystal-client
+    version: ~> 2.1.6
+
   rwlock:
     github: spider-gazelle/readers-writer
 
   # Driver deps:
   telnet:
     github: spider-gazelle/telnet.cr
+
+  # For lat lon location indexing
+  s2_cells:
+    github: spider-gazelle/s2_cells
