@@ -60,13 +60,13 @@ class Nec::Display < PlaceOS::Driver
 
     if state
       # 1 = Power On
-      data = [Command::Power.value, 1]
+      data = [0xC203D6, 1]
       logger.debug { "-- NEC LCD, requested to power on" }
       do_send(MsgType::Command, data, name: "power", delay: 5.seconds)
     else
       logger.debug { "-- NEC LCD, requested to power off" }
       # 4 = Power Off
-      data = [Command::Power.value, 4]
+      data = [0xC203D6, 4]
       do_send(MsgType::Command, data, name: "power", delay: 10.seconds, timeout: 10.seconds)
     end
   end
@@ -243,12 +243,10 @@ class Nec::Display < PlaceOS::Driver
     BrightnessStatus = 0x0010
     AutoSetup        = 0x001E
     PowerQuery       = 0x01D6
-    Power            = 0xC203D6
     Save             = 0x0C
   end
 
   private def format_value(value : Int, length : Int = 4) : String
-    length = 6 if value == 0xC203D6 # To deal with Command::Power
     length = 2 if value == 0x0C # To deal with Command::Save
     value.to_s(16, true).rjust(length, '0')
   end
