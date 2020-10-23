@@ -114,13 +114,14 @@ class Place::Bookings < PlaceOS::Driver
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
     host_calendar = owner.presence || @calendar_id
-    room_is_organizer = host_calendar == system.email
+    room_email = system.email.not_nil!
+    room_is_organizer = host_calendar == room_email
     event = calendar.create_event(
       title,
       starting,
       ending,
       "",
-      [PlaceCalendar::Event::Attendee.new(system.email, system.email, "accepted", true, room_is_organizer)],
+      [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer)],
       @time_zone.name,
       nil,
       host_calendar
