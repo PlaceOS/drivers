@@ -274,9 +274,9 @@ class Nec::Display < PlaceOS::Driver
       value.to_s(16, true).rjust(length, '0')
     end
 
-    def build(command : Nec::Display::Command | String, data : Int? = nil)
+    def build(command : Nec::Display::Command, data : Int? = nil)
       message = String.build do |str|
-        str << (command.is_a?(Nec::Display::Command) ? format_value(command.value) : command)
+        str << format_value(command.value)
         if d = data
           str << format_value(d)
         end
