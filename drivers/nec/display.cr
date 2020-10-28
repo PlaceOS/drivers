@@ -59,28 +59,28 @@ class Nec::Display < PlaceOS::Driver
     return if self[:power]? == state
 
     if state
-      # 1 = Power On
-      data = [0xC203D6, 1]
       logger.debug { "-- NEC LCD, requested to power on" }
-      do_send(MsgType::Command, data, name: "power", delay: 5.seconds)
+      # 1 = Power On
+      data = MsgType::Command.build(Command::SetPower, 1)
+      send(data, name: "power", delay: 5.seconds)
     else
       logger.debug { "-- NEC LCD, requested to power off" }
       # 4 = Power Off
-      data = [0xC203D6, 4]
-      do_send(MsgType::Command, data, name: "power", delay: 10.seconds, timeout: 10.seconds)
+      data = MsgType::Command.build(Command::SetPower, 4)
+      send(data, name: "power", delay: 10.seconds, timeout: 10.seconds)
     end
   end
 
   def power?(**options) : Bool
-    do_send(MsgType::Command, Command::PowerQuery, **options, name: "power?").get
+    data = MsgType::Command.build(Command::PowerQuery)
+    send(data, **options, name: "power?").get
     self[:power].as_bool
   end
 
   def switch_to(input : Input)
-    data = [Command::VideoInput.value, input.value]
-
     logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
-    do_send(MsgType::SetParameter, data, name: "input", delay: 6.seconds)
+    data = MsgType::SetParameter.build(Command::VideoInput, input.value)
+    send(data, name: "input", delay: 6.seconds)
   end
 
   enum Audio
@@ -93,43 +93,38 @@ class Nec::Display < PlaceOS::Driver
   end
 
   def switch_audio(input : Audio)
-    data = [Command::AudioInput.value, input.value]
-
     logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
-    do_send(MsgType::SetParameter, data, name: "audio")
+    data = MsgType::SetParameter.build(Command::AudioInput, input.value)
+    send(data, name: "audio")
   end
 
   def auto_adjust
-    data = [Command::AutoSetup.value, 1]
-    do_send(MsgType::SetParameter, data, name: "auto_adjust")
+    data = MsgType::SetParameter.build(Command::AutoSetup, 1)
+    send(data, name: "auto_adjust")
   end
 
   def brightness(val : Int32)
-    data = [Command::BrightnessStatus.value, val.clamp(0, 100)]
-
-    do_send(MsgType::SetParameter, data, name: "brightness")
-    do_send(MsgType::Command, Command::Save, name: "brightness_save") # Save the settings
+    data = MsgType::SetParameter.build(Command::BrightnessStatus, val.clamp(0, 100))
+    send(data, name: "brightness")
+    send(MsgType::Command.build(Command::Save), name: "brightness_save") # Save the settings
   end
 
   def contrast(val : Int32)
-    data = [Command::ContrastStatus.value, val.clamp(0, 100)]
-
-    do_send(MsgType::SetParameter, data, name: "contrast")
-    do_send(MsgType::Command, Command::Save, name: "contrast_save") # Save the settings
+    data = MsgType::SetParameter.build(Command::ContrastStatus, val.clamp(0, 100))
+    send(data, name: "contrast")
+    send(MsgType::Command.build(Command::Save), name: "contrast_save") # Save the settings
   end
 
   def volume(val : Int32)
-    data = [Command::VolumeStatus.value, val.clamp(0, 100)]
-
-    do_send(MsgType::SetParameter, data, name: "volume")
-    do_send(MsgType::Command, Command::Save, name: "volume_save") # Save the settings
+    data = MsgType::SetParameter.build(Command::VolumeStatus, val.clamp(0, 100))
+    send(data, name: "volume")
+    send(MsgType::Command.build(Command::Save), name: "volume_save") # Save the settings
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    data = [Command::MuteStatus.value, state ? 1 : 0]
-
     logger.debug { "requested to update mute to #{state}" }
-    do_send(MsgType::SetParameter, data, name: "mute_audio")
+    data = MsgType::SetParameter.build(Command::MuteStatus, state ? 1 : 0)
+    send(data, name: "mute_audio")
   end
 
   def do_poll
@@ -223,16 +218,6 @@ class Nec::Display < PlaceOS::Driver
     end
   end
 
-  # Types of messages sent to and from the LCD
-  enum MsgType : UInt8
-    Command           = 0x41 # 'A'
-    CommandReply      = 0x42 # 'B'
-    GetParameter      = 0x43 # 'C'
-    GetParameterReply = 0x44 # 'D'
-    SetParameter      = 0x45 # 'E'
-    SetParameterReply = 0x46 # 'F'
-  end
-
   enum Command
     VideoInput       = 0x0060
     AudioInput       = 0x022E
@@ -244,17 +229,19 @@ class Nec::Display < PlaceOS::Driver
     AutoSetup        = 0x001E
     PowerQuery       = 0x01D6
     Save             = 0x0C
+    SetPower         = 0xC203D6
   end
 
   private def format_value(value : Int, length : Int = 4) : String
     length = 2 if value == 0x0C # To deal with Command::Save
+    length = 6 if value == 0xC203D6 # To deal with Command::SetPower
     value.to_s(16, true).rjust(length, '0')
   end
 
   {% for name in Command.constants %}
     @[Security(Level::Administrator)]
     def {{name.id.underscore}}(priority : Int32 = 0)
-      do_send(MsgType::GetParameter, Command::{{name.id}}, priority: priority, name: {{name.id.underscore.stringify}})
+      send(MsgType::GetParameter.build(Command::{{name.id}}), priority: priority, name: {{name.id.underscore.stringify}})
     end
   {% end %}
 
@@ -273,36 +260,45 @@ class Nec::Display < PlaceOS::Driver
     end
   end
 
-  # Builds the command and creates the checksum
-  private def do_send(type : MsgType, data : Command | Array(Int), **options)
-    data = [data.value] if data.is_a?(Command)
-    data = data.join { |i| format_value(i) }.bytes
-    bytes = Bytes.new(data.size + 11)
+  # Types of messages sent to and from the LCD
+  enum MsgType : UInt8
+    Command           = 0x41 # 'A'
+    CommandReply      = 0x42 # 'B'
+    GetParameter      = 0x43 # 'C'
+    GetParameterReply = 0x44 # 'D'
+    SetParameter      = 0x45 # 'E'
+    SetParameterReply = 0x46 # 'F'
 
-    # Header
-    bytes[0] = 0x01 # SOH
-    bytes[1] = 0x30 # '0'
-    bytes[2] = 0x2A # '*'
-    bytes[3] = 0x30 # '0'
-    bytes[4] = type.value
-    message_length = format_value(data.size + 2, 2).bytes
-    bytes[5] = message_length[0]
-    bytes[6] = message_length[1]
-
-    # Message
-    bytes[7] = 0x02 # Start of messsage
-    data.each_with_index(8) { |b, i| bytes[i] = b }
-    bytes[8 + data.size] = 0x03 # End of message
-
-    # Checksum
-    checksum = 0x00_u8
-    bytes[1..8 + data.size].each do |b|
-      checksum = checksum ^ b
+    def format_value(value : Int, length : Int = 4) : String
+      length = 2 if value == 0x0C # To deal with Command::Save
+      value.to_s(16, true).rjust(length, '0')
     end
-    bytes[-2] = checksum
 
-    bytes[-1] = DELIMITER
+    def build(command : Nec::Display::Command | String, data : Int? = nil)
+      message = String.build do |str|
+        str << (command.is_a?(Nec::Display::Command) ? format_value(command.value) : command)
+        if d = data
+          str << format_value(d)
+        end
+      end
 
-    send(bytes, **options)
+      message = String.build do |str|
+        str << "0*0"
+        str.write_byte self.value                # Type
+        str << format_value(message.size + 2, 2) # Message length
+        str.write_byte 0x02                      # Start of messsage
+        str << message                           # Message
+        str.write_byte 0x03                      # End of message
+      end
+
+      String.build do |str|
+        str.write_byte 0x01                      # SOH
+        str << message
+        checksum = 0x00_u8
+        message.each_byte { |b| checksum = checksum ^ b }
+        str.write_byte checksum                  # Checksum
+        str.write_byte DELIMITER                 # Delimiter
+      end
+    end
   end
 end
