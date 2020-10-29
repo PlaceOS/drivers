@@ -252,12 +252,11 @@ class Nec::Display < PlaceOS::Driver
   {% end %}
 
   private def check_checksum(data : Bytes)
-    checksum = 0x00_u8
     # Loop through the second to the third last element
     if data.size >= 2
       checksum = data[1..-3].reduce { |a, b| a ^ b }
       # Check the checksum equals the second last element
-      logger.debug { "Error: checksum should be #{checksum.to_s(16)}" } unless checksum == data[-2]
+      logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless checksum == data[-2]
       checksum == data[-2]
     else
       true
