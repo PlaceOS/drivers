@@ -230,12 +230,18 @@ class Nec::Display < PlaceOS::Driver
     PowerQuery       = 0x01D6
     Save             = 0x0C
     SetPower         = 0xC203D6
-  end
 
-  private def format_value(value : Int, length : Int = 4) : String
-    length = 2 if value == 0x0C # To deal with Command::Save
-    length = 6 if value == 0xC203D6 # To deal with Command::SetPower
-    value.to_s(16, true).rjust(length, '0')
+    def to_s : String
+      case self
+      when .save?
+        length = 2
+      when .set_power?
+        length = 6
+      else
+        length = 4
+      end
+      value.to_s(16, true).rjust(length, '0')
+    end
   end
 
   {% for name in Command.constants %}
@@ -269,34 +275,27 @@ class Nec::Display < PlaceOS::Driver
     SetParameter      = 0x45 # 'E'
     SetParameterReply = 0x46 # 'F'
 
-    def format_value(value : Int, length : Int = 4) : String
-      length = 2 if value == 0x0C # To deal with Command::Save
-      value.to_s(16, true).rjust(length, '0')
-    end
-
     def build(command : Nec::Display::Command, data : Int? = nil)
-      message = format_value(command.value)
+      command = command.to_s
 
       message = String.build do |str|
         str << "0*0"
-        str.write_byte self.value                # Type
+        str.write_byte self.value                                # Type
 
-        message_length = message.size + 2
-        message_length += 4 if d = data          # If there is data, add 4 to the message length
-        str << format_value(message_length, 2)   # Message length
-        str.write_byte 0x02                      # Start of messsage
-        str << message                           # Message
-        str << format_value(d) if d              # Data if required
-        str.write_byte 0x03                      # End of message
+        message_length = command.size + 2
+        message_length += 4 if d = data                          # If there is data, add 4 to the message length
+        str << message_length.to_s(16, true).rjust(2, '0')       # Message length
+        str.write_byte 0x02                                      # Start of messsage
+        str << command                                           # Message
+        str << d.to_s(16, true).rjust(4, '0') if d               # Data if required
+        str.write_byte 0x03                                      # End of message
       end
 
       String.build do |str|
-        str.write_byte 0x01                      # SOH
-        str << message
-        checksum = 0x00_u8
-        message.each_byte { |b| checksum = checksum ^ b }
-        str.write_byte checksum                  # Checksum
-        str.write_byte DELIMITER                 # Delimiter
+        str.write_byte 0x01                                      # SOH
+        str << message                                           # Message
+        str.write_byte message.each_byte.reduce { |a, b| a ^ b } # Checksum
+        str.write_byte DELIMITER                                 # Delimiter
       end
     end
   end
