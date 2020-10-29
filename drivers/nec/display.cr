@@ -275,19 +275,18 @@ class Nec::Display < PlaceOS::Driver
     end
 
     def build(command : Nec::Display::Command, data : Int? = nil)
-      message = String.build do |str|
-        str << format_value(command.value)
-        if d = data
-          str << format_value(d)
-        end
-      end
+      message = format_value(command.value)
 
       message = String.build do |str|
         str << "0*0"
         str.write_byte self.value                # Type
-        str << format_value(message.size + 2, 2) # Message length
+
+        message_length = message.size + 2
+        message_length += 4 if d = data          # If there is data, add 4 to the message length
+        str << format_value(message_length, 2)   # Message length
         str.write_byte 0x02                      # Start of messsage
         str << message                           # Message
+        str << format_value(d) if d              # Data if required
         str.write_byte 0x03                      # End of message
       end
 
