@@ -102,19 +102,19 @@ class Nec::Display < PlaceOS::Driver
   def brightness(val : Int32)
     data = MsgType::SetParameter.build(Command::BrightnessStatus, val.clamp(0, 100))
     send(data, name: "brightness")
-    send(MsgType::Command.build(Command::Save), name: "brightness_save") # Save the settings
+    send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end
 
   def contrast(val : Int32)
     data = MsgType::SetParameter.build(Command::ContrastStatus, val.clamp(0, 100))
     send(data, name: "contrast")
-    send(MsgType::Command.build(Command::Save), name: "contrast_save") # Save the settings
+    send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end
 
   def volume(val : Int32)
     data = MsgType::SetParameter.build(Command::VolumeStatus, val.clamp(0, 100))
     send(data, name: "volume")
-    send(MsgType::Command.build(Command::Save), name: "volume_save") # Save the settings
+    send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end
 
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
