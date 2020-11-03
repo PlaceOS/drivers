@@ -11,13 +11,14 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   descriptive_name "Hitachi CP-TW Projector (no auth)"
   generic_name :Display
 
-  # Response time is slow
-  # and as a make break device it may take time
-  # to acctually setup the connection with the projector
-  # delay on_receive: 100
-  # wait_response timeout: 5000, retries: 3
-
   def on_load
+    # Response time is slow
+    # and as a make break device it may take time
+    # to actually setup the connection with the projector
+    queue.delay = 100.milliseconds
+    queue.timeout = 5.seconds
+    queue.retries = 3
+
     self[:power] = false
 
     # Stable by default (allows manual on and off)
@@ -198,11 +199,11 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
             if self[:input] == self[:input_target]
               self[:stable_input] = true
             elsif !self[:stable_input]# && @recover_input.nil?
-                logger.debug { "recovering input #{self[:input]} != target #{self[:input_target]}" }
-                # @recover_input = schedule.in(3.seconds) do
-                #   @recover_input = nil
-                #   switch_to(self[:input_target])
-                # end
+              logger.debug { "recovering input #{self[:input]} != target #{self[:input_target]}" }
+              # @recover_input = schedule.in(3.seconds) do
+              #   @recover_input = nil
+              #   switch_to(self[:input_target])
+              # end
             end
         when :error?
           self[:error_status] = ErrorCode.from_value?(data[1]) || :unknown
@@ -220,7 +221,7 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
           logger.debug { "unknown command query: #{command}" }
         end
 
-        :success
+        task.try &.success
       else
         task.try &.abort("data received for unknown command")
       end
@@ -237,6 +238,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     cmd = "BEEF030600 #{data}"
     # options[:hex_string] = true
     logger.debug { "requesting \"0x#{cmd}\" name: #{options[:name]}" }
-    send(cmd, **options)
+    send(cmd.hexbytes, **options)
   end
 end
