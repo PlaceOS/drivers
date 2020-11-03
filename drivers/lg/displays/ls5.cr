@@ -175,19 +175,34 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     end
   {% end %}
 
+  # This is only necessary for Command::PmMode and Command::NoSignalOff
+  # Both the responses for contrast/no_signal_off will have data[0] == 'g'
+  # Same thing for auto_off/pm_mode with data[0] == 'n'
+  # We will use the send and callback method to ensure these responses are processed properly
+  private def process_response(data, task)
+    if (resp_value = get_response_value(data)) == -1
+      task.abort
+    else
+      self[task.name] = task.name == "pm_mode" ? resp_value : resp_value == 1
+      task.success
+    end
+  end
+
   def pm_mode(mode : Int32 = 3)
-    do_send(Command::PmMode, mode, 's', name: "pm_mode")
+    command = build_command(Command::PmMode, mode, 's')
+    send(command, name: "pm_mode") { |data, task| process_response(data, task) }
+  end
+
+  def no_signal_off(state : Bool = false)
+    val = state ? 1 : 0
+    command = build_command(Command::NoSignalOff, val, 'f')
+    send(command, name: "no_signal_off") { |data, task| process_response(data, task) }
   end
 
   # 0 = Off, 1 = lock all except Power buttons, 2 = lock all buttons. Default to 2 as power off from local button results in network offline
   def local_button_lock(state : Bool = true)
     val = state ? 2 : 0
     do_send(Command::LocalButtonLock, val, 't', name: "local_button_lock")
-  end
-
-  def no_signal_off(state : Bool = false)
-    val = state ? 1 : 0
-    do_send(Command::NoSignalOff, val, 'f', name: "disable_no_signal_off")
   end
 
   def auto_off(state : Bool = false)
@@ -216,32 +231,12 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     end
   end
 
-  DUPLICATES = ["Contrast", "NoSignalOff", "AutoOff", "PmMode"]
-  def received(data, task)
-    command = Command.from_value(data[0]).to_s
 
-    # Both the responses for contrast/no_signal_off will have data[0] == 'g'
-    # Same thing for auto_off/pm_mode with data[0] == 'n'
-    # We will try using the task name to actually distinguish between these pairs
-    if DUPLICATES.includes?(command) && (task_name = task.try &.name)
-      case task_name
-      when .includes?("contrast")
-        command = "Contrast"
-      when .includes?("no_signal_off")
-        command = "NoSignalOff"
-      when .includes?("auto_off")
-        command = "AutoOff"
-      when .includes?("pm_mode")
-        command = "PmMode"
-      end
-    end
-    logger.debug { "Received command #{command}" }
-    data = String.new(data)
-    logger.debug { "LG sent #{data}" }
-
-    resp = data.split(' ').last
-
-    resp_value = 0
+  private def get_response_value(response : Bytes)
+    logger.debug { "LG sent #{response}" }
+    resp = String.new(response).split(' ').last
+    # Default to -1 which means an error
+    resp_value = -1
     if resp[0..1] == "OK" # Extract the response value
       # Special case for PM Mode
       if resp[2..3] == "0c"
@@ -249,27 +244,32 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
       else
         resp_value = resp[2..-2].to_i(16)
       end
-    else # Request failed. We don't want to retry
-      return task.try &.abort
     end
+    resp_value
+  end
+
+  def received(data, task)
+    return task.try &.abort if (resp_value = get_response_value(data)) == -1
+    command = Command.from_value(data[0])
+    logger.debug { "Received command #{command}" }
 
     case command
-    when "Power"
+    when .power?
       self[:hard_power] = resp_value == 1
       self[:power] = false unless self[:hard_power].as_bool
-    when "Input"
+    when .input?
       self[:input] = Input.from_value(resp_value)
-    when "AspectRatio"
+    when .aspect_ratio?
       self[:aspect_ratio] = Ratio.from_value(resp_value)
-    when "ScreenMute"
+    when .screen_mute?
       self[:power] = resp_value == 0
-    when "VolumeMute"
+    when .volume_mute?
       self[:audio_mute] = resp_value == 0
-    when "Contrast", "Brightness", "Sharpness", "Volume", "PmMode"
-      self[command.underscore] = resp_value
-    when "WakeOnLan", "NoSignalOff", "AutoOff"
-      self[command.underscore] = resp_value == 1
-    when "LocalButtonLock"
+    when .contrast?, .brightness?, .sharpness?, .volume?
+      self[command.to_s.underscore] = resp_value
+    when .wake_on_lan?, .auto_off?
+      self[command.to_s.underscore] = resp_value == 1
+    when .local_button_lock?
       self[:local_button_lock] = resp_value == 2
     else
       return task.try &.retry
@@ -282,16 +282,19 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   # [Command1]: identifies between the factory setting and the user setting modes.
   # Default c1 to 'k' which appears to be for user settings
   # and which most commands use (e.g. Mute, Screen off, Volume, Brightness)
-  private def do_send(command : Command, data : Int, c1 : Char = 'k', **options)
+  # Note: this is not a Command instance method as this needs access to @id
+  private def build_command(command : Command, data : Int, c1 : Char = 'k')
     # Command::PmMode and Command::AutoOff both are equal to 0x6E == 'n'
     # However, PmMode has c1 == 's' while AutoOff has c1 == 'm'
     # So this is how we can differentiate whether the command we want to send is PmMode
     if command.pm_mode? && c1 == 's'
-      data = "#{c1}#{command.value.chr} #{@id} 0c #{data.to_s(16, true).rjust(2, '0')}\r"
+      "#{c1}#{command.value.chr} #{@id} 0c #{data.to_s(16, true).rjust(2, '0')}\r"
     else
-      data = "#{c1}#{command.value.chr} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
+      "#{c1}#{command.value.chr} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
     end
-    logger.debug { "Sending command #{command}" }
-    send(data, **options)
+  end
+
+  private def do_send(command : Command, data : Int, c1 : Char = 'k', **options)
+    send(build_command(command, data, c1), **options)
   end
 end
