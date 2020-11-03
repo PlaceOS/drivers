@@ -212,7 +212,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
         info
       }
     else
-      logger.debug { "No MAC address provided" }
+      logger.warn { "No MAC address provided" }
     end
   end
 
