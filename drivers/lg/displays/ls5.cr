@@ -102,7 +102,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def hard_off
-    do_send(Command::Power, 0, name: "power", priority: 99)
+    do_send(Command::Power, 0, name: "power", priority: 99, clear_queue: true)
   end
 
   def switch_to(input : Input, **options)
