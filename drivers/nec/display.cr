@@ -151,7 +151,7 @@ class Nec::Display < PlaceOS::Driver
     if ascii_string[8..9] == "00"
       parse_response(ascii_string)
     # Annoyingly unique case to deal with power status query
-    elsif ascii_string[12..13] == "D6" && ascii_string[10..11] == "00"
+    elsif ascii_string[10..13] == "00D6"
       self[:power] = ascii_string[23] == '1'
     elsif ascii_string[8..9] == "BE"    # Wait response
       return task.try &.retry("-- NEC LCD, response was a wait command")
