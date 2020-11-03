@@ -1,3 +1,4 @@
+require "qr-code"
 require "base64"
 require "email"
 require "uri"
@@ -19,6 +20,11 @@ class Place::Smtp < PlaceOS::Driver
     tls_mode: EMail::Client::TLSMode::STARTTLS.to_s,
     username: "", # Username/Password for SMTP servers with basic authorization
     password: "",
+
+    email_templates: {visitor: {checkin: {
+      subject: "%{name} has arrived",
+      text:    "for your meeting at %{time}",
+    }}},
   })
 
   private def smtp_client : EMail::Client
@@ -34,6 +40,11 @@ class Place::Smtp < PlaceOS::Driver
   @port : Int32 = 587
   @tls_mode : EMail::Client::TLSMode = EMail::Client::TLSMode::STARTTLS
   @send_lock : Mutex = Mutex.new
+
+  #                   event_name => notify_who => html => template
+  alias Templates = Hash(String, Hash(String, Hash(String, String)))
+
+  @templates : Templates = Templates.new
 
   def on_load
     on_update
@@ -57,6 +68,8 @@ class Place::Smtp < PlaceOS::Driver
     @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || tls_mode
 
     @smtp_client = new_smtp_client
+
+    @templates = setting?(Templates, :email_templates) || Templates.new
   end
 
   # Create and configure an SMTP client
@@ -72,6 +85,36 @@ class Place::Smtp < PlaceOS::Driver
     email_config.use_tls(@tls_mode)
 
     EMail::Client.new(email_config)
+  end
+
+  def generate_svg_qrcode(text : String)
+    QRCode.new(text).as_svg
+  end
+
+  alias TemplateItems = Hash(String, String | Int64 | Float64 | Bool)
+
+  def send_template(
+    to : String | Array(String),
+    template : Tuple(String, String),
+    args : TemplateItems,
+    resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
+    attachments : Array(Attachment) = [] of Attachment,
+    cc : String | Array(String) = [] of String,
+    bcc : String | Array(String) = [] of String,
+    from : String | Array(String) | Nil = nil
+  )
+    template = @templates[template[0]][template[1]]
+
+    subject = build_template(template["subject"], args)
+    text = build_template(template["text"]?, args)
+    html = build_template(template["html"]?, args)
+
+    send_mail(to, subject, text || "", html || "", resource_attachments, attachments, cc, bcc, from)
+  end
+
+  def build_template(string : String?, args : TemplateItems)
+    args.each { |key, value| string = string.gsub("%{#{key}}", value) } if string
+    string
   end
 
   def send_mail(
