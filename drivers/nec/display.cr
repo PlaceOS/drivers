@@ -38,10 +38,6 @@ class Nec::Display < PlaceOS::Driver
     # Communication settings
     queue.delay = 120.milliseconds
     transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
-    on_update
-  end
-
-  def on_update
   end
 
   def connected
@@ -253,14 +249,10 @@ class Nec::Display < PlaceOS::Driver
 
   private def check_checksum(data : Bytes)
     # Loop through the second to the third last element
-    if data.size >= 2
-      checksum = data[1..-3].reduce { |a, b| a ^ b }
-      # Check the checksum equals the second last element
-      logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless checksum == data[-2]
-      checksum == data[-2]
-    else
-      true
-    end
+    checksum = data[1..-3].reduce { |a, b| a ^ b }
+    # Check the checksum equals the second last element
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless checksum == data[-2]
+    checksum == data[-2]
   end
 
   # Types of messages sent to and from the LCD
