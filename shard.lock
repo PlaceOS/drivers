@@ -14,7 +14,7 @@ shards:
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
-    version: 1.7.0
+    version: 1.8.0
 
   bisect:
     git: https://github.com/spider-gazelle/bisect.git
@@ -58,7 +58,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.6.5
+    version: 2.6.7
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -138,7 +138,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 4.5.1
+    version: 4.5.3
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -155,6 +155,10 @@ shards:
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
     version: 2.2.1
+
+  qr-code:
+    git: https://github.com/spider-gazelle/qr-code.git
+    version: 1.0.0
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git

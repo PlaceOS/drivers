@@ -56,3 +56,6 @@ dependencies:
   # For lat lon location indexing
   s2_cells:
     github: spider-gazelle/s2_cells
+
+  qr-code:
+    github: spider-gazelle/qr-code
