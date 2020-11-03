@@ -137,7 +137,8 @@ class Nec::Display < PlaceOS::Driver
 
   # LCD Response code
   def received(data, task)
-    logger.debug { "task is #{task.try &.name}" }
+    task_name = task.try &.name
+    logger.debug { "task is #{task_name}" }
 
     ascii_string = String.new(data)
     # Check for valid response
@@ -147,48 +148,37 @@ class Nec::Display < PlaceOS::Driver
 
     logger.debug { "NEC LCD responded with ascii_string #{ascii_string}" }
 
-    command = MsgType.from_value(data[4])
-
-    case command # Check the MsgType (B, D or F)
-    when .command_reply?
-      # Power on and off
-      if ascii_string[10..15] == "C203D6" # Means power comamnd
-        # 8..9 == "00" means no error
-        if ascii_string[8..9] == "00"
-          self[:power] = ascii_string[11] == '1'
-        else
-          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
-        end
-      elsif ascii_string[12..13] == "D6" # Power status response
-        # 10..11 == "00" means no error
-        if ascii_string[10..11] == "00"
-          self[:power] = ascii_string[23] == '1'
-        else
-          return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
-        end
-      end
-    when .get_parameter_reply?, .set_parameter_reply?
-      if ascii_string[8..9] == "00"
-        parse_response(ascii_string)
-      elsif ascii_string[8..9] == "BE"    # Wait response
-        return task.try &.retry("-- NEC LCD, response was a wait command")
-      else
-        return task.try &.abort("-- NEC LCD, command failed: #{command}\n-- NEC LCD, response was: #{ascii_string}")
-      end
+    if ascii_string[8..9] == "00"
+      parse_response(ascii_string)
+    # Annoyingly unique case to deal with power status query
+    elsif ascii_string[12..13] == "D6" && ascii_string[10..11] == "00"
+      self[:power] = ascii_string[23] == '1'
+    elsif ascii_string[8..9] == "BE"    # Wait response
+      return task.try &.retry("-- NEC LCD, response was a wait command")
+    else
+      return task.try &.abort("-- NEC LCD, command failed: #{task_name}\n-- NEC LCD, response was: #{ascii_string}")
     end
 
     task.try &.success
   end
 
   private def parse_response(data : String)
-    # 14..15 == type (we don't care)
-    value = data[20..23].to_i(16)
-    command = Command.from_value(data[10..13].to_i(16))
+    logger.debug { "data is #{data}" }
 
-    logger.debug { "command is 0x#{data[10..13]}" }
-    logger.debug { command }
-    logger.debug { "value is 0x#{data[20..23]}" }
-    logger.debug { value }
+    if data.size >= 15
+      command = (
+        # For most commands
+        Command.from_value?(data[10..13].to_i(16)) ||\
+        # For Command::SetPower
+        Command.from_value?(data[10..15].to_i(16))
+      ).not_nil!
+    else # This is a short command and is most likely Command::Save
+      # This line will error if this is not Command::Save which is fine
+      command = Command.from_value(data[9..10].to_i(16))
+      # Don't do any processing for Command::Save
+      return if command.save?
+    end
+    value = (command.set_power? ? data[16..19] : data[20..23]).to_i(16)
 
     case command
     when .video_input?
@@ -208,9 +198,10 @@ class Nec::Display < PlaceOS::Driver
     when .auto_setup?
       # auto_setup
       # nothing needed to do here (we are delaying the next command by 4 seconds)
+    when .set_power?
+      self[:power] = value == 1
     else
-      logger.info { "-- NEC LCD, unknown response: #{data[10..13]}" }
-      logger.info { "-- NEC LCD, full response was: #{data}" }
+      logger.debug { "-- NEC LCD, unknown response received: #{data}" }
     end
   end
 
