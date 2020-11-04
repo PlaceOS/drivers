@@ -57,7 +57,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   @input_stable : Bool = true
   @input_target : Input? = nil
   @power_stable : Bool = true
-  @power_target : Bool = true
+  @power_target : Bool? = nil
 
   def on_load
     transport.tokenizer = Tokenizer.new do |io|
@@ -259,8 +259,12 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]?.try &.as_bool
-          @input_stable = current_input == (input_target = @input_target)
-          switch_to(input_target) if input_target && !@input_stable
+          if @input_target.nil? || current_input == @input_target
+            @input_stable = true
+            @input_target = nil
+          else
+            switch_to(@input_target.not_nil!)
+          end
         end
       when .speaker?
         self[:speaker] = SpeakerMode.from_value(value)
@@ -288,11 +292,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   private def check_power_state
-    return if @power_stable
-    if self[:power]? == @power_target
+    if @power_target.nil? || self[:power]? == @power_target
       @power_stable = true
+      @power_target = nil
     else
-      power(@power_target)
+      power(@power_target.not_nil!)
     end
   end
 
