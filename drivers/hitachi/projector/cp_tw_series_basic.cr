@@ -11,6 +11,9 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   descriptive_name "Hitachi CP-TW Projector (no auth)"
   generic_name :Display
 
+  @recover_power : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+  @recover_input : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+
   def on_load
     # Response time is slow
     # and as a make break device it may take time
@@ -27,16 +30,11 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
 
     # Meta data for inquiring interfaces
     self[:type] = :projector
-
-    on_update
-  end
-
-  def on_update
   end
 
   def connected
-      schedule.every(50.seconds, true) { poll_1 }
-      schedule.every(10.minutes, true) { poll_2 }
+    schedule.every(50.seconds, true) { poll_1 }
+    schedule.every(10.minutes, true) { poll_2 }
   end
 
   def poll_1
@@ -57,13 +55,12 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
 
   def disconnected
       schedule.clear
-      # @recover_power = nil
-      # @recover_input = nil
+      @recover_power = nil
+      @recover_input = nil
   end
 
   def power(state : Bool)
     self[:stable_power] = false
-
     if state
       logger.debug { "-- requested to power on" }
       self[:power_target] = true
@@ -186,27 +183,27 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
 
           if self[:power] == self[:power_target]
             self[:stable_power] = true
-          elsif !self[:stable_power]# && @recover_power.nil?
+          elsif !self[:stable_power] && @recover_power.nil?
             logger.debug { "recovering power state #{self[:power]} != target #{self[:power_target]}" }
-            # @recover_power = schedule.in(3.seconds) do
-            #   @recover_power = nil
-            #   power(self[:power_target])
-            # end
+            @recover_power = schedule.in(3.seconds) do
+              @recover_power = nil
+              power(self[:power_target].as_bool)
+            end
           end
         when :input?
-            self[:input] = InputCode.from_value?(data[1]) || :unknown
+            self[:input] = InputCode.from_value?(data[1]) || "unknown"
 
             if self[:input] == self[:input_target]
               self[:stable_input] = true
-            elsif !self[:stable_input]# && @recover_input.nil?
+            elsif !self[:stable_input]?.try &.as_bool && @recover_input.nil?
               logger.debug { "recovering input #{self[:input]} != target #{self[:input_target]}" }
-              # @recover_input = schedule.in(3.seconds) do
-              #   @recover_input = nil
-              #   switch_to(self[:input_target])
-              # end
+              @recover_input = schedule.in(3.seconds) do
+                @recover_input = nil
+                switch_to(self[:input_target].to_s)
+              end
             end
         when :error?
-          self[:error_status] = ErrorCode.from_value?(data[1]) || :unknown
+          self[:error_status] = ErrorCode.from_value?(data[1]) || "unknown"
         when :freeze?
           self[:frozen] = data[1] == 1
         when :audio_mute?
@@ -234,10 +231,10 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     end
   end
 
+  # Note: commands have spaces in between every pair of bits for readability
   private def do_send(data : String, **options)
     cmd = "BEEF030600 #{data}"
-    # options[:hex_string] = true
     logger.debug { "requesting \"0x#{cmd}\" name: #{options[:name]}" }
-    send(cmd.hexbytes, **options)
+    send(cmd.delete(' ').hexbytes, **options)
   end
 end
