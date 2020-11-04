@@ -1,6 +1,5 @@
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
-# require "placeos-driver/interface/switchable"
 
 class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   include Interface::Powerable
@@ -180,7 +179,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
           self[:cooling] = data[1] == 2
 
           if @power_target.nil? || self[:power]? == @power_target
-            logger.debug { "power stable "}
             @stable_power = true
             @power_target = nil
           elsif @power_target && !@stable_power && @recover_power.nil?
@@ -193,7 +191,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
         when "input?"
           self[:input] = Input.from_value?(data[1]) || "unknown"
           if @input_target.nil? || self[:input]? == @input_target
-            logger.debug { "input stable "}
             @stable_input = true
             @input_target = nil
           elsif @input_target && !@stable_input && @recover_input.nil?
@@ -220,7 +217,7 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
       else
         task.try &.abort("data received for unknown command")
       end
-    when :busy
+    when .busy?
       if data[1] == 4 && data[2] == 0
         task.try &.abort("authentication enabled, please disable")
       else
@@ -233,8 +230,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   private def do_send(data : String, **options)
     cmd = "BEEF030600 #{data}"
     logger.debug { "requesting \"0x#{cmd}\" name: #{options[:name]}" }
-    cmd = cmd.delete(' ').hexbytes
-    logger.debug { cmd }
-    send(cmd, **options)
+    send(cmd.delete(' ').hexbytes, **options)
   end
 end
