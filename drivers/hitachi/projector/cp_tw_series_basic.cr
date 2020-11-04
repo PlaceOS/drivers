@@ -14,6 +14,11 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   @recover_power : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
   @recover_input : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
 
+  # Stable by default (allows manual on and off)
+  @stable_power : Bool = true
+  @stable_input : Bool = true
+  @input_target : String = "hdmi"
+
   def on_load
     # Response time is slow
     # and as a make break device it may take time
@@ -21,12 +26,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     queue.delay = 100.milliseconds
     queue.timeout = 5.seconds
     queue.retries = 3
-
-    self[:power] = false
-
-    # Stable by default (allows manual on and off)
-    self[:stable_power] = true
-    self[:stable_input] = true
 
     # Meta data for inquiring interfaces
     self[:type] = :projector
@@ -60,17 +59,16 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    self[:stable_power] = false
+    @stable_power = false
+    @power_target = state
     if state
       logger.debug { "-- requested to power on" }
-      self[:power_target] = true
       do_send("BA D2 01 00 00 60 01 00", name: :power)
     else
       logger.debug { "-- requested to power off" }
-      self[:power_target] = false
       do_send("2A D3 01 00 00 60 00 00", name: :power)
     end
-    power?.get
+    power?
   end
 
   INPUTS = {
@@ -78,8 +76,8 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     "hdmi2" => "6E D6 01 00 00 20 0D 00"
   }
   def switch_to(input : String)
-    self[:stable_input] = false
-    self[:input_target] = input
+    @stable_input = false
+    @input_target = input
     do_send(INPUTS[input], name: :input)
     input?
   end
@@ -181,25 +179,25 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
           self[:power] = data[1] == 1
           self[:cooling] = data[1] == 2
 
-          if self[:power] == self[:power_target]
-            self[:stable_power] = true
-          elsif !self[:stable_power] && @recover_power.nil?
-            logger.debug { "recovering power state #{self[:power]} != target #{self[:power_target]}" }
+          if self[:power]? == @power_target
+            @stable_power = true
+          elsif !@stable_power && @recover_power.nil?
+            logger.debug { "recovering power state #{self[:power]} != target #{@power_target}" }
             @recover_power = schedule.in(3.seconds) do
               @recover_power = nil
-              power(self[:power_target].as_bool)
+              power(@power_target)
             end
           end
         when :input?
             self[:input] = InputCode.from_value?(data[1]) || "unknown"
 
-            if self[:input] == self[:input_target]
-              self[:stable_input] = true
-            elsif !self[:stable_input]?.try &.as_bool && @recover_input.nil?
-              logger.debug { "recovering input #{self[:input]} != target #{self[:input_target]}" }
+            if self[:input]? == @input_target
+              @stable_input = true
+            elsif !@stable_input && @recover_input.nil?
+              logger.debug { "recovering input #{self[:input]} != target #{@input_target}" }
               @recover_input = schedule.in(3.seconds) do
                 @recover_input = nil
-                switch_to(self[:input_target].to_s)
+                switch_to(@input_target)
               end
             end
         when :error?
