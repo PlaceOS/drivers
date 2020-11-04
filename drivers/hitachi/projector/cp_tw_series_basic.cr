@@ -13,11 +13,11 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
 
   @recover_power : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
   @recover_input : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
-
   # Stable by default (allows manual on and off)
   @stable_power : Bool = true
   @stable_input : Bool = true
-  @input_target : String = "hdmi"
+  @power_target : Bool? = nil
+  @input_target : String? = nil
 
   def on_load
     # Response time is slow
@@ -63,10 +63,10 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     @power_target = state
     if state
       logger.debug { "-- requested to power on" }
-      do_send("BA D2 01 00 00 60 01 00", name: :power)
+      do_send("BA D2 01 00 00 60 01 00", name: "power")
     else
       logger.debug { "-- requested to power off" }
-      do_send("2A D3 01 00 00 60 00 00", name: :power)
+      do_send("2A D3 01 00 00 60 00 00", name: "power")
     end
     power?
   end
@@ -78,7 +78,7 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   def switch_to(input : String)
     @stable_input = false
     @input_target = input
-    do_send(INPUTS[input], name: :input)
+    do_send(INPUTS[input], name: "input")
     input?
   end
 
@@ -93,18 +93,18 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
 
   def mute_video(state : Bool = true)
     if state
-      do_send("6E F1 01 00 A0 20 01 00", name: :mute)
+      do_send("6E F1 01 00 A0 20 01 00", name: "mute_video")
     else
-      do_send("FE F0 01 00 A0 20 00 00", name: :mute)
+      do_send("FE F0 01 00 A0 20 00 00", name: "mute_video")
     end
     picture_mute?
   end
 
   def mute_audio(state : Bool = true)
     if state
-      do_send("D6 D2 01 00 02 20 01 00", name: :mute_audio)
+      do_send("D6 D2 01 00 02 20 01 00", name: "mute_audio")
     else
-      do_send("46 D3 01 00 02 20 00 00", name: :mute_audio)
+      do_send("46 D3 01 00 02 20 00 00", name: "mute_audio")
     end
     audio_mute?
   end
@@ -127,16 +127,16 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   {% end %}
 
   def lamp_hours_reset
-    do_send("58 DC 06 00 30 70 00 00", name: :lamp_hours_reset)
+    do_send("58 DC 06 00 30 70 00 00", name: "lamp_hours_reset")
     lamp?
   end
 
   def filter_hours_reset
-    do_send("98 C6 06 00 40 70 00 00", name: :filter_hours_reset)
+    do_send("98 C6 06 00 40 70 00 00", name: "filter_hours_reset")
     filter?
   end
 
-  enum ResponseCode
+  enum Response
     Ack   = 0x06
     Nak   = 0x15
     Error = 0x1c
@@ -144,13 +144,13 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     Busy  = 0x1f
   end
 
-  enum InputCode
+  enum Input
     Hdmi    = 0x03
     Hdmi2   = 0x0d
     HdbaSet = 0x11
   end
 
-  enum ErrorCode
+  enum Error
     Normal
     Cover
     Fan
@@ -165,9 +165,9 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     logger.debug { "received 0x#{data}" }
     command = task.try &.name
 
-    case ResponseCode.from_value(data[0])
+    case Response.from_value(data[0])
     when .ack?
-      :success
+      task.try &.success
     when .nak?
       task.try &.abort("NAK response")
     when .error?
@@ -175,47 +175,47 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     when .data?
       if command
         case command
-        when :power?
+        when "power?"
           self[:power] = data[1] == 1
           self[:cooling] = data[1] == 2
 
-          if self[:power]? == @power_target
+          if @power_target.nil? || self[:power]? == @power_target
+            logger.debug { "power stable "}
             @stable_power = true
-          elsif !@stable_power && @recover_power.nil?
+            @power_target = nil
+          elsif @power_target && !@stable_power && @recover_power.nil?
             logger.debug { "recovering power state #{self[:power]} != target #{@power_target}" }
             @recover_power = schedule.in(3.seconds) do
               @recover_power = nil
-              power(@power_target)
+              power(@power_target.not_nil!)
             end
           end
-        when :input?
-            self[:input] = InputCode.from_value?(data[1]) || "unknown"
-
-            if self[:input]? == @input_target
-              @stable_input = true
-            elsif !@stable_input && @recover_input.nil?
-              logger.debug { "recovering input #{self[:input]} != target #{@input_target}" }
-              @recover_input = schedule.in(3.seconds) do
-                @recover_input = nil
-                switch_to(@input_target)
-              end
+        when "input?"
+          self[:input] = Input.from_value?(data[1]) || "unknown"
+          if @input_target.nil? || self[:input]? == @input_target
+            logger.debug { "input stable "}
+            @stable_input = true
+            @input_target = nil
+          elsif @input_target && !@stable_input && @recover_input.nil?
+            logger.debug { "recovering input #{self[:input]} != target #{@input_target}" }
+            @recover_input = schedule.in(3.seconds) do
+              @recover_input = nil
+              switch_to(@input_target.not_nil!)
             end
-        when :error?
-          self[:error_status] = ErrorCode.from_value?(data[1]) || "unknown"
-        when :freeze?
+          end
+        when "error?"
+          self[:error_status] = Error.from_value?(data[1]) || "unknown"
+        when "freeze?"
           self[:frozen] = data[1] == 1
-        when :audio_mute?
+        when "audio_mute?"
           self[:audio_mute] = data[1] == 1
-        when :picture_mute?
-          self[:mute] = data[1] == 1
-        when :lamp?
-          self[:lamp] = data[1] + (data[2] << 8)
-        when :filter?
-          self[:filter] = data[1] + (data[2] << 8)
-        else
-          logger.debug { "unknown command query: #{command}" }
+        when "picture_mute?"
+          self[:picture_mute] = data[1] == 1
+        when "lamp?"
+          self[:lamp] = data[1] * data[2]
+        when "filter?"
+          self[:filter] = data[1] * data[2]
         end
-
         task.try &.success
       else
         task.try &.abort("data received for unknown command")
@@ -229,10 +229,12 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     end
   end
 
-  # Note: commands have spaces in between every pair of bits for readability
+  # Note: commands have spaces in between each byte for readability
   private def do_send(data : String, **options)
     cmd = "BEEF030600 #{data}"
     logger.debug { "requesting \"0x#{cmd}\" name: #{options[:name]}" }
-    send(cmd.delete(' ').hexbytes, **options)
+    cmd = cmd.delete(' ').hexbytes
+    logger.debug { cmd }
+    send(cmd, **options)
   end
 end
