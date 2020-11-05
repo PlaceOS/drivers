@@ -26,7 +26,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   default_settings({
     rs232_control: false,
-    display_id: 1
+    display_id:    1,
   })
 
   @display_id : Int32 = 0
@@ -119,8 +119,8 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-  mute_video(state) if layer.video? || layer.audio_video?
-  mute_audio(state) if layer.audio? || layer.audio_video?
+    mute_video(state) if layer.video? || layer.audio_video?
+    mute_audio(state) if layer.audio? || layer.audio_video?
   end
 
   def mute_video(state : Bool = true)
@@ -142,6 +142,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     Scan    = 0x09
     Program = 0x06
   end
+
   def aspect_ratio(ratio : Ratio)
     do_send(Command::AspectRatio, ratio.value, name: "aspect_ratio", delay: 1.second)
   end
@@ -235,7 +236,6 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
       logger.warn { "No MAC address provided" }
     end
   end
-
 
   private def get_response_value(response : Bytes)
     logger.debug { "LG sent #{response}" }
