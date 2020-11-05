@@ -34,6 +34,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   @rs232 : Bool = false
   @id : String = ""
   @last_broadcast : String? = nil
+  @connected : Bool = false
 
   DELIMITER = 0x78_u8 # 'x'
 
@@ -51,6 +52,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def connected
+    @connected = true
     wake_on_lan
     no_signal_off
     auto_off
@@ -62,6 +64,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   end
 
   def disconnected
+    @connected = false
     schedule.clear
   end
 
@@ -98,7 +101,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     end
     # To power on, unmute the display
     # To power off, mute the display
-    mute(!state) if self[:connected]
+    mute(!state) if @connected
   end
 
   def hard_off
@@ -150,7 +153,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
         volume_mute?
         volume?
       end
-    elsif self[:connected]?.try &.as_bool
+    elsif @connected
       screen_mute?
 
       if @id_num == 1
