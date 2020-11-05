@@ -12,9 +12,7 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
 
   @recover_power : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
   @recover_input : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
-  # Stable by default (allows manual on and off)
-  @stable_power : Bool = true
-  @stable_input : Bool = true
+  # nil by default (allows manual on and off)
   @power_target : Bool? = nil
   @input_target : String? = nil
 
@@ -58,7 +56,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    @stable_power = false
     @power_target = state
     if state
       logger.debug { "-- requested to power on" }
@@ -76,7 +73,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   }
 
   def switch_to(input : String)
-    @stable_input = false
     @input_target = input
     do_send(INPUTS[input], name: "input")
     input?
@@ -179,10 +175,9 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
           self[:power] = data[1] == 1
           self[:cooling] = data[1] == 2
 
-          if @power_target.nil? || self[:power]? == @power_target
-            @stable_power = true
+          if self[:power]? == @power_target
             @power_target = nil
-          elsif @power_target && !@stable_power && @recover_power.nil?
+          elsif @power_target && @recover_power.nil?
             logger.debug { "recovering power state #{self[:power]} != target #{@power_target}" }
             @recover_power = schedule.in(3.seconds) do
               @recover_power = nil
@@ -191,10 +186,9 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
           end
         when "input?"
           self[:input] = Input.from_value?(data[1]) || "unknown"
-          if @input_target.nil? || self[:input]? == @input_target
-            @stable_input = true
+          if self[:input]? == @input_target
             @input_target = nil
-          elsif @input_target && !@stable_input && @recover_input.nil?
+          elsif @input_target && @recover_input.nil?
             logger.debug { "recovering input #{self[:input]} != target #{@input_target}" }
             @recover_input = schedule.in(3.seconds) do
               @recover_input = nil
