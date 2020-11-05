@@ -24,7 +24,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     redirect_uri: "",
 
     # time in seconds
-    poll_rate: 60,
+    poll_rate:    60,
     booking_type: "desk",
   })
 
@@ -37,6 +37,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   @password : String = ""
   @client_id : String = ""
   @redirect_uri : String = ""
+
+  @running_a_spec : Bool = false
 
   def on_load
     on_update
@@ -55,7 +57,12 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     @booking_type = setting?(String, :booking_type).presence || "desk"
     @place_domain = URI.parse(config.uri.not_nil!)
 
+    @running_a_spec = setting?(Bool, :running_a_spec) || false
+
     map_zones
+    schedule.clear
+    schedule.every(@poll_rate) { query_desk_bookings }
+    schedule.in(5.seconds) { query_desk_bookings }
   end
 
   # ===================================
@@ -84,7 +91,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
         location:    :desk_booking,
         assigned_to: email,
         mac_address: mac_address,
-        name:        name
+        name:        name,
       }
     end
   end
@@ -111,15 +118,15 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
       end
 
       {
-        location: :desk_booking,
+        location:    :desk_booking,
         at_location: booking.checked_in,
-        map_id: booking.asset_id,
-        level: level,
-        building: building,
-        mac: booking.user_id,
+        map_id:      booking.asset_id,
+        level:       level,
+        building:    building,
+        mac:         booking.user_id,
 
         booking_start: booking.booking_start,
-        booking_end: booking.booking_end,
+        booking_end:   booking.booking_end,
       }
     end
   end
@@ -237,6 +244,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   end
 
   protected def token : String
+    # Don't perform OAuth if we are testing the driver
+    return "spec-test" if @running_a_spec
     return @access_token if valid_token?
     authenticate
   end
