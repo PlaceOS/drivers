@@ -93,7 +93,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @storage_lock : Mutex = Mutex.new
   @user_mac_mappings : PlaceOS::Driver::Storage? = nil
   @default_network : String = ""
-  @floorplan_mappings : Hash(String, Hash(String, String)) = Hash(String, Hash(String, String)).new
+  @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @floorplan_sizes = {} of String => FloorPlan
   @max_location_age : Time::Span = 10.minutes
 
@@ -118,7 +118,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @time_multiplier = 1.0_f64 / (@maximum_drift_time.to_i - @maximum_confidence_time.to_i).to_f64
     @confidence_multiplier = 1.0_f64 / (@maximum_uncertainty.to_i - @acceptable_confidence.to_i).to_f64
 
-    @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
+    @floorplan_mappings = setting?(Hash(String, Hash(String, String | Float64)), :floorplan_mappings) || @floorplan_mappings
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
 
     @s2_level = setting?(Int32, :s2_level) || 21
@@ -436,13 +436,16 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     logger.debug { "found #{matching.size} matching devices\nchecked #{checking_count} locations, #{wrong_floor} were on the wrong floor, #{too_old} were too old" }
 
     # Build the payload on the matching locations
-    matching.group_by(&.floor_plan_id).flat_map { |_floor_id, locations|
+    matching.group_by(&.floor_plan_id).flat_map { |floor_id, locations|
       map_width = -1.0
       map_height = -1.0
 
-      if map_size = @floorplan_sizes[locations[0].floor_plan_id]?
+      if map_size = @floorplan_sizes[floor_id]?
         map_width = map_size.width
         map_height = map_size.height
+      elsif mappings = @floorplan_mappings[floor_id]?
+        map_width = (mappings["width"]? || map_width).as(Float64)
+        map_height = (mappings["height"]? || map_width).as(Float64)
       end
 
       locations.map do |loc|
