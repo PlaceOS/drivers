@@ -53,6 +53,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   def connected
     @connected = true
+    self[:connected] = true
     wake_on_lan
     no_signal_off
     auto_off
@@ -65,6 +66,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   def disconnected
     @connected = false
+    self[:connected] = false
     schedule.clear
   end
 
