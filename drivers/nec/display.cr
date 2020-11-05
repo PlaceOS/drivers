@@ -7,21 +7,21 @@ class Nec::Display < PlaceOS::Driver
   include Interface::AudioMuteable
 
   enum Input
-    Vga         = 1
-    Rgbhv       = 2
-    Dvi         = 3
-    HdmiSet     = 4
-    Video1      = 5
-    Video2      = 6
-    Svideo      = 7
-    Tuner       = 9
-    Tv          = 10
-    Dvd1        = 12
-    Option      = 13
-    Dvd2        = 14
-    DisplayPort = 15
-    Hdmi        = 17
-    Hdmi2       = 18
+    Vga         =   1
+    Rgbhv       =   2
+    Dvi         =   3
+    HdmiSet     =   4
+    Video1      =   5
+    Video2      =   6
+    Svideo      =   7
+    Tuner       =   9
+    Tv          =  10
+    Dvd1        =  12
+    Option      =  13
+    Dvd2        =  14
+    DisplayPort =  15
+    Hdmi        =  17
+    Hdmi2       =  18
     Hdmi3       = 130
     Usb         = 135
   end
@@ -150,10 +150,9 @@ class Nec::Display < PlaceOS::Driver
 
     if ascii_string[8..9] == "00"
       parse_response(ascii_string)
-    # Annoyingly unique case to deal with power status query
-    elsif ascii_string[10..13] == "00D6"
+    elsif ascii_string[10..13] == "00D6" # Annoyingly unique case to deal with power status query
       self[:power] = ascii_string[23] == '1'
-    elsif ascii_string[8..9] == "BE"    # Wait response
+    elsif ascii_string[8..9] == "BE" # Wait response
       return task.try &.retry("-- NEC LCD, response was a wait command")
     else
       return task.try &.abort("-- NEC LCD, command failed: #{task_name}\n-- NEC LCD, response was: #{ascii_string}")
@@ -168,7 +167,7 @@ class Nec::Display < PlaceOS::Driver
     if data.size >= 15
       command = (
         # For most commands
-        Command.from_value?(data[10..13].to_i(16)) ||\
+        Command.from_value?(data[10..13].to_i(16)) || \
         # For Command::SetPower
         Command.from_value?(data[10..15].to_i(16))
       ).not_nil!
@@ -206,16 +205,16 @@ class Nec::Display < PlaceOS::Driver
   end
 
   enum Command
-    VideoInput       = 0x0060
-    AudioInput       = 0x022E
-    VolumeStatus     = 0x0062
-    MuteStatus       = 0x008D
-    PowerOnDelay     = 0x02D8
-    ContrastStatus   = 0x0012
-    BrightnessStatus = 0x0010
-    AutoSetup        = 0x001E
-    PowerQuery       = 0x01D6
-    Save             = 0x0C
+    VideoInput       =   0x0060
+    AudioInput       =   0x022E
+    VolumeStatus     =   0x0062
+    MuteStatus       =   0x008D
+    PowerOnDelay     =   0x02D8
+    ContrastStatus   =   0x0012
+    BrightnessStatus =   0x0010
+    AutoSetup        =   0x001E
+    PowerQuery       =   0x01D6
+    Save             =     0x0C
     SetPower         = 0xC203D6
 
     def to_s : String
@@ -260,15 +259,15 @@ class Nec::Display < PlaceOS::Driver
 
       message = String.build do |str|
         str << "0*0"
-        str.write_byte self.value                                # Type
+        str.write_byte self.value # Type
 
         message_length = command.size + 2
-        message_length += 4 if d = data                          # If there is data, add 4 to the message length
-        str << message_length.to_s(16, true).rjust(2, '0')       # Message length
-        str.write_byte 0x02                                      # Start of messsage
-        str << command                                           # Message
-        str << d.to_s(16, true).rjust(4, '0') if d               # Data if required
-        str.write_byte 0x03                                      # End of message
+        message_length += 4 if d = data                    # If there is data, add 4 to the message length
+        str << message_length.to_s(16, true).rjust(2, '0') # Message length
+        str.write_byte 0x02                                # Start of messsage
+        str << command                                     # Message
+        str << d.to_s(16, true).rjust(4, '0') if d         # Data if required
+        str.write_byte 0x03                                # End of message
       end
 
       String.build do |str|
