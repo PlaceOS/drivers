@@ -58,7 +58,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.6.7
+    version: 2.6.8
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -154,7 +154,7 @@ shards:
 
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
-    version: 2.2.1
+    version: 2.2.2
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
