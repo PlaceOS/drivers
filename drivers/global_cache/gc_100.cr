@@ -6,6 +6,8 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   DELIMITER = "\r"
 
+  # @relay_config maps the GC100 into a linear set of ir and relays so models can be swapped in and out
+  # E.g. @relay_config = {"relay" => {0 => "2:1",1 => "2:2",2 => "2:3",3 => "3:1"}}
   @relay_config : Hash(String, Hash(Int32, String)) = {} of String => Hash(Int32, String)
   @port_config : Hash(String, Tuple(String, Int32)) = {} of String => Tuple(String, Int32)
 
@@ -15,9 +17,6 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     self[:num_ir] = 0
   end
 
-  # @relay_config maps the GC100 into a linear set of ir and relays so models can be swapped in and out
-  # Example
-  # @relay_config = {"relay" => {0 => '2:1',1 => '2:2',2 => '2:3',3 => '3:1'}}
   def connected
     @relay_config = {} of String => Hash(Int32, String)
     @port_config = {} of String => Tuple(String, Int32)
@@ -42,8 +41,8 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   def relay(index : Int32, state : Bool, **options)
     if index < self[:num_relays].as_i
-      logger.debug { "relays = #{(self[:relay_config]["relay"]? || self[:relay_config]["relaysensor"]?).not_nil!}" }
       relays = (self[:relay_config]["relay"]? || self[:relay_config]["relaysensor"]?).not_nil!.as_h
+      logger.debug { "relays = #{relays}" }
       connector = relays[index.to_s]
       do_send("setstate,#{connector},#{state ? 1 : 0}", **options)
     else
@@ -55,9 +54,15 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     do_send("sendir,1:#{index},#{command}", **options)
   end
 
-  def set_ir(index : Int32, mode : Int32, **options)
+  enum IrMode
+    IR
+    SENSOR
+    SENSOR_NOTIFY
+    IR_NOCARRIER
+  end
+  def set_ir(index : Int32, mode : IrMode, **options)
     if index < self[:num_ir].as_i
-      connector = self[:relay_config]["ir"][index]
+      connector = self[:relay_config]["ir"][index.to_s]
       do_send("set_IR,#{connector},#{mode}", **options)
     else
       logger.warn { "Attempted to set IR mode on GlobalCache that does not exist: #{index}" }
@@ -93,8 +98,8 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
     case data[0]
     when "state", "statechange"
-      type, index = self["config"][data[1]]
-      self["#{type}#{index}"] = data[2] == '1' # Is relay index on?
+      type, index = self[:port_config][data[1]]
+      self["#{type}#{index}"] = data[2] == "1" # Is relay index on?
     when "device"
       address = data[1]
       number, type = data[2].split(' ') # The response was "device,2,3 RELAY"
