@@ -69,23 +69,21 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     end
   end
 
-  def relay_status?(index : Int32, **options, &block)
+  def relay_status?(index : Int32, **options)
     if index < self[:num_relays].as_i
-      connector = self[:relay_config]["relay"][index]
-      options[:emit] = block if block_given?
-      do_send("getstate,#{connector}", options)
+      connector = self[:relay_config]["relay"][index.to_s]
+      do_send("getstate,#{connector}", **options)
     else
-      logger.warn "Attempted to check IO on GlobalCache that does not exist: #{index}"
+      logger.warn { "Attempted to check IO on GlobalCache that does not exist: #{index}" }
     end
   end
 
-  def io_status?(index : Int32, **options, &block)
-    if index < self[:num_ir].to_i
-      connector = self[:relay_config]["ir"][index]
-      options[:emit] = block if block_given?
-      do_send("getstate,#{connector}", options)
+  def ir_status?(index : Int32, **options)
+    if index < self[:num_ir].as_i
+      connector = self[:relay_config]["ir"][index.to_s]
+      do_send("getstate,#{connector}", **options)
     else
-      logger.warn "Attempted to check IO on GlobalCache that does not exist: #{index}"
+      logger.warn { "Attempted to check IO on GlobalCache that does not exist: #{index}" }
     end
   end
 

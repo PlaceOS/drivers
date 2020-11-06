@@ -27,4 +27,15 @@ DriverSpecs.mock_driver "GlobalCache::Gc100" do
 
   exec(:set_ir, 0, "ir")
   should_send("set_IR,3:1,IR\r")
+  responds("TODO 1\r")
+
+  exec(:relay_status?, 2)
+  should_send("getstate,2:3\r")
+  responds("state,2:3,0\r")
+  status[:relay2].should eq(false)
+
+  exec(:ir_status?, 0)
+  should_send("getstate,3:1\r")
+  responds("state,3:1,1\r")
+  status[:ir0].should eq(true)
 end
