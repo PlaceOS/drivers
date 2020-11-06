@@ -6,30 +6,22 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   DELIMITER = "\r"
 
-  @gc_config : Hash(String, Hash(Int32, String) | Array(Int32 | String)) = {} of String => Hash(Int32, String) | Array(Int32 | String)
+  @relay_config : Hash(String, Hash(Int32, String)) = {} of String => Hash(Int32, String)
+  @port_config : Hash(String, Tuple(String, Int32)) = {} of String => Tuple(String, Int32)
 
   def on_load
     transport.tokenizer = Tokenizer.new(DELIMITER)
     self[:num_relays] = 0
     self[:num_ir] = 0
-    # For testing
-    self[:config] = {
-      "relay" => {
-        0 => "2:1",
-        1 => "2:2",
-        2 => "2:3",
-        3 => "3:1",
-      }
-    }
   end
 
-  # Config maps the GC100 into a linear set of ir and relays so models can be swapped in and out
-  #  config => {:relay => {0 => '2:1',1 => '2:2',2 => '2:3',3 => '3:1'}} etc
+  # @relay_config maps the GC100 into a linear set of ir and relays so models can be swapped in and out
+  # Example
+  # @relay_config = {"relay" => {0 => '2:1',1 => '2:2',2 => '2:3',3 => '3:1'}}
   def connected
-    @gc_config = {} of String => Hash(Int32, String) | Array(Int32 | String)
+    @relay_config = {} of String => Hash(Int32, String)
+    @port_config = {} of String => Tuple(String, Int32)
     self[:config_indexed] = false
-
-    logger.debug { "config indexed = #{self[:config_indexed]}" }
 
     schedule.every(10.seconds, true) do
       logger.debug { "-- Polling GC100" }
@@ -50,8 +42,9 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   def relay(index : Int32, state : Bool, **options)
     if index < self[:num_relays].as_i
-      relays = self[:config]["relay"] || self[:config]["relaysensor"]
-      connector = relays[index]
+      logger.debug { "relays = #{(self[:relay_config]["relay"]? || self[:relay_config]["relaysensor"]?).not_nil!}" }
+      relays = (self[:relay_config]["relay"]? || self[:relay_config]["relaysensor"]?).not_nil!.as_h
+      connector = relays[index.to_s]
       do_send("setstate,#{connector},#{state ? 1 : 0}", **options)
     else
       logger.warn { "Attempted to set relay on GlobalCache that does not exist: #{index}" }
@@ -64,7 +57,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   def set_ir(index : Int32, mode : Int32, **options)
     if index < self[:num_ir].as_i
-      connector = self[:config]["ir"][index]
+      connector = self[:relay_config]["ir"][index]
       do_send("set_IR,#{connector},#{mode}", **options)
     else
       logger.warn { "Attempted to set IR mode on GlobalCache that does not exist: #{index}" }
@@ -73,7 +66,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   def relay_status?(index : Int32, **options, &block)
     if index < self[:num_relays].as_i
-      connector = self[:config]["relay"][index]
+      connector = self[:relay_config]["relay"][index]
       options[:emit] = block if block_given?
       do_send("getstate,#{connector}", options)
     else
@@ -83,7 +76,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   def io_status?(index : Int32, **options, &block)
     if index < self[:num_ir].to_i
-      connector = self[:config]["ir"][index]
+      connector = self[:relay_config]["ir"][index]
       options[:emit] = block if block_given?
       do_send("getstate,#{connector}", options)
     else
@@ -96,7 +89,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     data = String.new(data[0..-2])
     logger.debug { "GlobalCache sent #{data}" }
     data = data.split(',')
-    task_name = task.try &.name
+    task_name = task.try &.name || "unknown"
 
     case data[0]
     when "state", "statechange"
@@ -108,32 +101,31 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
       type = type.downcase
 
-      value = @gc_config || {} of String => Hash(Int32, String) | Array(Int32 | String)
-      value[type] ||= {} of Int32 => String
-      current = value[type].size
+      @relay_config[type] ||= {} of Int32 => String
+      current = @relay_config[type].size
 
-      dev_index = 1
-      (current..(current + number.to_i - 1)).each do |i|
+      (current..(current + number.to_i - 1)).each_with_index(1) do |i, dev_index|
         port = "#{address}:#{dev_index}"
-        value[type][i] = port
-        value[port] = [type, i]
-        dev_index += 1
+        @relay_config[type][i] = port
+        @port_config[port] = {type, i}
       end
-      @gc_config = value
-      logger.debug { "config is #{@gc_config}" }
 
       return task.try &.success
     when "endlistdevices"
-      self[:num_relays] = @gc_config["relay"].size if @gc_config["relay"]?
-      if @gc_config["relaysensor"]
-        @gc_config["relaysensor"][1] = "1:2"
-        @gc_config["relaysensor"][2] = "1:3"
-        @gc_config["relaysensor"][3] = "1:4"
-        self[:num_relays] = @gc_config["relaysensor"].size
+      self[:num_relays] = @relay_config["relay"].size if @relay_config["relay"]?
+      if @relay_config["relaysensor"]?
+        @relay_config["relaysensor"][1] = "1:2"
+        @relay_config["relaysensor"][2] = "1:3"
+        @relay_config["relaysensor"][3] = "1:4"
+        self[:num_relays] = @relay_config["relaysensor"].size
       end
-      self[:num_ir] = @gc_config["ir"].size if @gc_config["ir"]?
-      self[:config] = @gc_config
-      @gc_config = {} of String => Hash(Int32, String) | Array(Int32 | String)
+      self[:num_ir] = @relay_config["ir"].size if @relay_config["ir"]?
+      self[:relay_config] = @relay_config
+      self[:port_config] = @port_config
+      logger.debug { "self[:relay_config] is #{self[:relay_config]}" }
+      logger.debug { "self[:port_config] is #{self[:port_config]}" }
+      @relay_config = {} of String => Hash(Int32, String)
+      @port_config = {} of String => Tuple(String, Int32)
       self[:config_indexed] = true
 
       return task.try &.success
