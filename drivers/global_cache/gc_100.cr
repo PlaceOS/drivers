@@ -4,12 +4,12 @@ class GlobalCache::Gc100 < PlaceOS::Driver
   descriptive_name "GlobalCache IO Gateway"
   generic_name :DigitalIO
 
-  DELIMITER = 0x0D_u8
+  DELIMITER = "\r"
 
-  @config : Hash(String, Hash(Int32, String) | Array(Int32 | String)) = {} of String => Hash(Int32, String) | Array(Int32 | String)
+  @gc_config : Hash(String, Hash(Int32, String) | Array(Int32 | String)) = {} of String => Hash(Int32, String) | Array(Int32 | String)
 
   def on_load
-    transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
+    transport.tokenizer = Tokenizer.new(DELIMITER)
     self[:num_relays] = 0
     self[:num_ir] = 0
     # For testing
@@ -26,8 +26,10 @@ class GlobalCache::Gc100 < PlaceOS::Driver
   # Config maps the GC100 into a linear set of ir and relays so models can be swapped in and out
   #  config => {:relay => {0 => '2:1',1 => '2:2',2 => '2:3',3 => '3:1'}} etc
   def connected
-    @config = {} of String => Hash(Int32, String) | Array(Int32 | String)
+    @gc_config = {} of String => Hash(Int32, String) | Array(Int32 | String)
     self[:config_indexed] = false
+
+    logger.debug { "config indexed = #{self[:config_indexed]}" }
 
     schedule.every(10.seconds, true) do
       logger.debug { "-- Polling GC100" }
@@ -90,7 +92,8 @@ class GlobalCache::Gc100 < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data)
+    # Remove the delimiter
+    data = String.new(data[0..-2])
     logger.debug { "GlobalCache sent #{data}" }
     data = data.split(',')
     task_name = task.try &.name
@@ -105,8 +108,8 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
       type = type.downcase
 
-      value = @config || {} of String => Hash(Int32, String) | Array(Int32 | String)
-      value[type] = value[type] || {} of Int32 => String
+      value = @gc_config || {} of String => Hash(Int32, String) | Array(Int32 | String)
+      value[type] ||= {} of Int32 => String
       current = value[type].size
 
       dev_index = 1
@@ -116,21 +119,21 @@ class GlobalCache::Gc100 < PlaceOS::Driver
         value[port] = [type, i]
         dev_index += 1
       end
-      @config = value
+      @gc_config = value
+      logger.debug { "config is #{@gc_config}" }
 
-      # return :ignore
-      return
+      return task.try &.success
     when "endlistdevices"
-      self[:num_relays] = @config["relay"].size if @config["relay"]?
-      if @config["relaysensor"]
-        @config["relaysensor"][1] = "1:2"
-        @config["relaysensor"][2] = "1:3"
-        @config["relaysensor"][3] = "1:4"
-        self[:num_relays] = @config["relaysensor"].size
+      self[:num_relays] = @gc_config["relay"].size if @gc_config["relay"]?
+      if @gc_config["relaysensor"]
+        @gc_config["relaysensor"][1] = "1:2"
+        @gc_config["relaysensor"][2] = "1:3"
+        @gc_config["relaysensor"][3] = "1:4"
+        self[:num_relays] = @gc_config["relaysensor"].size
       end
-      self[:num_ir] = @config["ir"].size if @config["ir"]?
-      self[:config] = @config
-      @config = {} of String => Hash(Int32, String) | Array(Int32 | String)
+      self[:num_ir] = @gc_config["ir"].size if @gc_config["ir"]?
+      self[:config] = @gc_config
+      @gc_config = {} of String => Hash(Int32, String) | Array(Int32 | String)
       self[:config_indexed] = true
 
       return task.try &.success
