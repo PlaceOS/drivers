@@ -1,5 +1,7 @@
-require "../dna_spaces"
 require "json"
+require "../dna_spaces"
+require "./location"
+require "./device"
 require "./*"
 
 # This is used to map the various events into a simpler data structure
@@ -38,7 +40,7 @@ class Cisco::DNASpaces::ProfileUpdateWrapper < Cisco::DNASpaces::Events
   getter eventType : String = "PROFILE_UPDATE"
 
   @[JSON::Field(key: "deviceProfileUpdate")]
-  getter payload : ProfileUpdate
+  getter payload : Device
 end
 
 class Cisco::DNASpaces::LocationChangeWrapper < Cisco::DNASpaces::Events
