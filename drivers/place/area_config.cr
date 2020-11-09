@@ -18,12 +18,12 @@ module Place
 
     def initialize(@id, name, coordinates, building_id = nil, @area_type = "Feature", @feature_type = "section")
       @geometry = Geometry.new(coordinates)
-      @properties = {
-        "name" => name,
-      }
+      @properties = Hash(String, Bool | Float64 | Int64 | String).new
+      @properties["name"] = name
       @properties["building_id"] = building_id if building_id
     end
 
+    @[JSON::Field(ignore: true)]
     @polygon : Polygon? = nil
 
     property id : String
@@ -33,18 +33,31 @@ module Place
     property feature_type : String
 
     property geometry : Geometry
-    property properties : Hash(String, String)
+    property properties : Hash(String, Bool | Float64 | Int64 | String)
 
-    def name
-      self.properties["name"]
+    @[JSON::Field(ignore: true)]
+    @adjusted_coords : Array(Tuple(Float64, Float64))? = nil
+
+    def name : String
+      self.properties["name"].as(String)
     end
 
-    def building
-      self.properties["building_id"]?
+    def building : String?
+      if id = self.properties["building_id"]?
+        id.as(String)
+      end
     end
 
     def coordinates
-      self.geometry.coordinates
+      if coords = @adjusted_coords
+        coords
+      else
+        self.geometry.coordinates
+      end
+    end
+
+    def coordinates(map_width : Float64, map_height : Float64)
+      @adjusted_coords = self.geometry.coordinates.map { |(x, y)| {x * map_width, y * map_height} }
     end
 
     def polygon : Polygon
