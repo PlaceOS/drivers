@@ -119,9 +119,6 @@ class Place::AreaManagement < PlaceOS::Driver
 
     schedule.clear
     schedule.every(@poll_rate) { request_locations }
-
-    schedule.every(55.seconds) { check_level_areas }
-    schedule.in(5.seconds) { check_level_areas }
   end
 
   protected def location_service
