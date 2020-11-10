@@ -18,7 +18,7 @@ module Place
 
     def initialize(@id, name, coordinates, building_id = nil, @area_type = "Feature", @feature_type = "section")
       @geometry = Geometry.new(coordinates)
-      @properties = Hash(String, Bool | Float64 | Int64 | String).new
+      @properties = Hash(String, Bool | Float64 | Int64 | String | Hash).new
       @properties["name"] = name
       @properties["building_id"] = building_id if building_id
     end
