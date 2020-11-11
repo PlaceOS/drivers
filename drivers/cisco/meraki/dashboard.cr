@@ -67,7 +67,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   def on_load
     # We want to store our user => mac_address mappings in redis
-    @user_mac_mappings = PlaceOS::Driver::Storage.new(module_id, "user_macs")
+    @user_mac_mappings = PlaceOS::Driver::RedisStorage.new(module_id, "user_macs")
     spawn { rate_limiter }
     on_update
   end
@@ -91,7 +91,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @wait_time : Time::Span = 300.milliseconds
 
   @storage_lock : Mutex = Mutex.new
-  @user_mac_mappings : PlaceOS::Driver::Storage? = nil
+  @user_mac_mappings : PlaceOS::Driver::RedisStorage? = nil
   @default_network : String = ""
   @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @floorplan_sizes = {} of String => FloorPlan

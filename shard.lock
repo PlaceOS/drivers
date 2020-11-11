@@ -46,7 +46,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.2
+    version: 1.0.3
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -58,7 +58,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.6.7
+    version: 2.6.8
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -134,7 +134,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.19
+    version: 3.6.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
@@ -154,7 +154,7 @@ shards:
 
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
-    version: 2.2.1
+    version: 2.2.2
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
