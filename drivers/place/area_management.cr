@@ -149,6 +149,14 @@ class Place::AreaManagement < PlaceOS::Driver
             desk_ids:       [] of String,
           }
         end
+
+        if regions = meta[:metadata]["map_regions"]?
+          area_data = Array(AreaConfig).from_json(regions.details["areas"].to_json)
+          @level_areas[zone.id] = area_data
+          area_data.each { |area| @areas[area.id] = area }
+        else
+          @level_areas.delete(zone.id)
+        end
       end
     rescue error
       logger.error(exception: error) { "obtaining level metadata" }
@@ -209,21 +217,52 @@ class Place::AreaManagement < PlaceOS::Driver
           capacity:         details,
         }
 
-        # Calculate the device counts for each area
-        area_counts = [] of AreaDetails
-        areas.each do |area|
-          count = 0
+        # we need to know the map dimensions to be able to count people in areas
+        map_width = -1.0
+        map_height = -1.0
 
-          polygon = area.polygon
-          xy_locs.each do |loc|
-            count += 1 if polygon.contains(loc["x"].as_f, loc["y"].as_f)
+        if tmp_loc = xy_locs[0]?
+          # ensure map width and height are known
+          map_width_raw = tmp_loc["map_width"]?.try(&.raw)
+          case map_width_raw
+          when Int64, Float64
+            map_width = map_width_raw.to_f
           end
 
-          area_counts << {
-            area_id: area.id,
-            name:    area.name,
-            count:   count,
-          }
+          map_height_raw = tmp_loc["map_height"]?.try(&.raw)
+          case map_height_raw
+          when Int64, Float64
+            map_height = map_height_raw.to_f
+          end
+        end
+
+        # Calculate the device counts for each area
+        area_counts = [] of AreaDetails
+        if map_width && map_height
+          areas.each do |area|
+            count = 0
+
+            # Ensure the area is configured
+            area.coordinates(map_width, map_height)
+            polygon = area.polygon
+
+            # Calculate counts, our config uses browser coordinate systems,
+            # so need to adjust any x,y values being received for this
+            xy_locs.each do |loc|
+              case loc["coordinates_from"]?.try(&.raw)
+              when "bottom-left"
+                count += 1 if polygon.contains(loc["x"].as_f, map_height - loc["y"].as_f)
+              else
+                count += 1 if polygon.contains(loc["x"].as_f, loc["y"].as_f)
+              end
+            end
+
+            area_counts << {
+              area_id: area.id,
+              name:    area.name,
+              count:   count,
+            }
+          end
         end
 
         # Provide the frontend the area details

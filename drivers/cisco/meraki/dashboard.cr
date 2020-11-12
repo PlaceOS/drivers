@@ -51,6 +51,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # 21 == ~4 meters squared, which given wifi variance is good enough for tracing
     # S2 cell levels: https://s2geometry.io/resources/s2cell_statistics.html
     s2_level: 21,
+    debug_webhook: false,
 
     # Level mappings, level name for human readability
     floorplan_mappings: {
@@ -67,7 +68,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   def on_load
     # We want to store our user => mac_address mappings in redis
-    @user_mac_mappings = PlaceOS::Driver::Storage.new(module_id, "user_macs")
+    @user_mac_mappings = PlaceOS::Driver::RedisStorage.new(module_id, "user_macs")
     spawn { rate_limiter }
     on_update
   end
@@ -91,13 +92,14 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @wait_time : Time::Span = 300.milliseconds
 
   @storage_lock : Mutex = Mutex.new
-  @user_mac_mappings : PlaceOS::Driver::Storage? = nil
+  @user_mac_mappings : PlaceOS::Driver::RedisStorage? = nil
   @default_network : String = ""
   @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @floorplan_sizes = {} of String => FloorPlan
   @max_location_age : Time::Span = 10.minutes
 
   @s2_level : Int32 = 21
+  @debug_webhook : Bool = false
 
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
@@ -122,6 +124,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
 
     @s2_level = setting?(Int32, :s2_level) || 21
+    @debug_webhook = setting?(Bool, :debug_webhook) || false
 
     schedule.clear
     if @default_network.presence
@@ -549,12 +552,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       # Extract coordinate data against the MAC address and save IP address mappings
       observations = seen.data.observations.reject(&.locations.empty?)
 
-      ignore_older = @maximum_drift_time.ago
-      drift_older = @maximum_confidence_time.ago
+      ignore_older = @maximum_drift_time.ago.in Time::Location::UTC
+      drift_older = @maximum_confidence_time.ago.in Time::Location::UTC
       observations.each do |observation|
         client_mac = format_mac(observation.client_mac)
         existing = @locations[client_mac]?
 
+        logger.debug { "parsing new observation for #{client_mac}" } if @debug_webhook
         location = parse(existing, ignore_older, drift_older, observation.latest_record.time, observation.locations)
         if location
           @locations[client_mac] = location
@@ -584,7 +588,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       loc.get_x.nil? || loc.variance > @maximum_uncertainty || loc.time < ignore_older
     end
 
-    return existing if locations.empty?
+    if locations.empty?
+      logger.debug { %(
+        no location in observation met minimum requirements, observation was ignored
+        ignoring older than: #{ignore_older}, latest location in this set: #{latest}, was too old: #{latest < ignore_older}
+      ) } if @debug_webhook
+      return existing
+    end
 
     # ensure oldest -> newest
     locations = locations.sort { |a, b| a.time <=> b.time }
@@ -592,7 +602,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # estimate the location given the current observations
     location = existing || locations.shift
     locations.each do |new_loc|
-      next unless new_loc.time > location.time
+      next unless new_loc.time >= location.time
 
       # If acceptable then this is newer
       if new_loc.variance < @acceptable_confidence

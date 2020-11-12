@@ -116,9 +116,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(Command::HardOff, 0)
   end
 
-  def power?(**options)
+  def power?(**options) : Bool
     do_send(Command::PanelMute, Bytes.empty, **options).get
-    self[:power]
+    !!self[:power]?.try(&.as_bool)
   end
 
   # Mutes both audio/video
@@ -140,10 +140,10 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # Emulate audio mute
   def mute_audio(state : Bool = true)
     # Do nothing if already in desired state
-    return if self[:audio_mute]?.try &.as_bool == state
+    return if self[:audio_mute]?.try(&.as_bool) == state
     self[:audio_mute] = state
     if state
-      @previous_volume = self[:volume].as_i
+      @previous_volume = self[:volume]?.try(&.as_i) || 0
       volume(0)
     else
       volume(@previous_volume)
@@ -289,7 +289,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   private def check_power_state
     return if @power_stable
-    if self[:power]? == @power_target
+    if self[:power]?.try(&.as_bool) == @power_target
       @power_stable = true
     else
       power(@power_target)

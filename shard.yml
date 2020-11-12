@@ -1,5 +1,5 @@
 name: drivers
-version: 2.1.0
+version: 2.2.0
 crystal: 0.35.1
 
 # compile target
@@ -39,7 +39,7 @@ dependencies:
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 3.0
+    version: ~> 3.6
 
   # The PlaceOS API client
   placeos:

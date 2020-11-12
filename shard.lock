@@ -46,7 +46,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.2
+    version: 1.0.3
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -134,7 +134,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.19
+    version: 3.6.1
 
   placeos-models:
     git: https://github.com/placeos/models.git
