@@ -134,7 +134,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.6.0
+    version: 3.6.1
 
   placeos-models:
     git: https://github.com/placeos/models.git
