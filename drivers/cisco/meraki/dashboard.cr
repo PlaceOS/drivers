@@ -552,8 +552,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       # Extract coordinate data against the MAC address and save IP address mappings
       observations = seen.data.observations.reject(&.locations.empty?)
 
-      ignore_older = @maximum_drift_time.ago
-      drift_older = @maximum_confidence_time.ago
+      ignore_older = @maximum_drift_time.ago.in Time::Location::UTC
+      drift_older = @maximum_confidence_time.ago.in Time::Location::UTC
       observations.each do |observation|
         client_mac = format_mac(observation.client_mac)
         existing = @locations[client_mac]?
