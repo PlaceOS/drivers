@@ -38,6 +38,53 @@ class Cisco::DNASpaces < PlaceOS::Driver
     }
   end
 
+  private def process_events(channel, client)
+    loop do
+      select
+      when data = channel.receive
+        logger.debug { "received push #{data}" }
+      # TODO:: update state
+      when timeout(20.seconds)
+        logger.debug { "no events received for 20 seconds, expected heartbeat at 15 seconds" }
+        channel.close
+        client.close
+        break
+      end
+    end
+  end
+
+  def stream_events
+    client = HTTP::Client.new URI.parse(config.uri.not_nil!)
+    client.get("/api/partners/v1/firehose/events", HTTP::Headers{
+      "X-API-KEY" => @api_key,
+    }) do |response|
+      if !response.success?
+        logger.warn { "failed to connect to firehose api #{response.status_code}" }
+        raise "failed to connect to firehose api #{response.status_code}"
+      end
+
+      channel = Channel(String).new
+      spawn { process_events(channel, client) }
+
+      begin
+        loop do
+          if response.body_io.closed?
+            channel.close
+            break
+          end
+          if data = response.body_io.gets
+            channel.send data
+          else
+            channel.close
+            break
+          end
+        end
+      rescue IO::Error
+        channel.close
+      end
+    end
+  end
+
   def locate_user(email : String? = nil, username : String? = nil)
     logger.debug { "searching for #{email}, #{username}" }
     [] of JSON::Any
