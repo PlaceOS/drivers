@@ -74,7 +74,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     map_bookings(bookings)
   end
 
-  def macs_assigned_to(email : String? = nil, username : String? = nil)
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
     logger.debug { "listing MAC addresses assigned to #{email}, #{username}" }
     found = [] of String
     @known_users.each { |user_id, (user_email, _name)|
@@ -83,7 +83,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     found
   end
 
-  def check_ownership_of(mac_address : String)
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
     logger.debug { "searching for owner of #{mac_address}" }
     if user_details = @known_users[mac_address]?
       email, name = user_details

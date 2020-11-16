@@ -331,7 +331,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     user.downcase
   end
 
-  def macs_assigned_to(email : String? = nil, username : String? = nil)
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
     username = format_username(username.presence || email.presence.not_nil!)
     if macs = user_mac_mappings { |s| s[username]? }
       Array(String).from_json(macs)
