@@ -46,7 +46,7 @@ class Cisco::DNASpaces::UserPresence
   getter presence_event_type : String
 
   @[JSON::Field(key: "wasInActive")]
-  getter was_in_active : String
+  getter was_in_active : Bool
 
   getter user : User
   getter location : Location
