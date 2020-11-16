@@ -13,4 +13,10 @@ class Cisco::DNASpaces::Location
   getter tags : Array(String)
 
   getter parent : Location?
+
+  def details(mappings = {} of String => String)
+    parent.try &.details(mappings)
+    tags.each { |tag| mappings[tag] = location_id }
+    mappings
+  end
 end

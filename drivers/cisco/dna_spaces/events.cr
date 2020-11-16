@@ -10,6 +10,7 @@ abstract class Cisco::DNASpaces::Events
 
   # event type hint
   use_json_discriminator "eventType", {
+    "KEEP_ALIVE"             => KeepAlive,
     "DEVICE_ENTRY"           => DeviceEntryWrapper,
     "DEVICE_EXIT"            => DeviceExitWrapper,
     "PROFILE_UPDATE"         => ProfileUpdateWrapper,
@@ -20,6 +21,29 @@ abstract class Cisco::DNASpaces::Events
     "USER_PRESENCE"          => UserPresenceWrapper,
     "APP_ACTIVATION"         => AppActivactionWrapper,
   }
+
+  @[JSON::Field(key: "recordUid")]
+  getter record_uid : String
+
+  @[JSON::Field(key: "recordTimestamp")]
+  getter record_timestamp : Int64
+
+  @[JSON::Field(key: "spacesTenantId")]
+  getter spaces_tenant_id : String
+
+  @[JSON::Field(key: "spacesTenantName")]
+  getter spaces_tenant_name : String
+
+  @[JSON::Field(key: "partnerTenantId")]
+  getter partner_tenant_id : String
+end
+
+class Cisco::DNASpaces::KeepAlive < Cisco::DNASpaces::Events
+  getter eventType : String = "KEEP_ALIVE"
+
+  def payload
+    nil
+  end
 end
 
 class Cisco::DNASpaces::DeviceEntryWrapper < Cisco::DNASpaces::Events
