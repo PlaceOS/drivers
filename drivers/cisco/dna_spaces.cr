@@ -22,7 +22,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
   def on_load
     on_update
-    spawn { start_streaming_events }
+    spawn(same_thread: true) { start_streaming_events }
   end
 
   def on_unload
@@ -37,6 +37,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @max_location_age : Time::Span = 10.minutes
   @s2_level : Int32 = 21
   @floorplan_mappings : Hash(String, Hash(String, String)) = Hash(String, Hash(String, String)).new
+  @debug_stream : Bool = false
+  @events_received : UInt64 = 0_u64
 
   def on_update
     @api_key = setting(String, :dna_spaces_api_key)
@@ -44,6 +46,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
     @s2_level = setting?(Int32, :s2_level) || 21
     @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
+    @debug_webhook = setting?(Bool, :debug_stream) || false
 
     schedule.clear
     schedule.every(30.minutes) { cleanup_caches }
@@ -83,7 +86,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     logger.debug {
       "MAC Locations: #{locations &.keys}"
     }
-    {tracking: locations &.size}
+    {tracking: locations &.size, events_received: @events_received}
   end
 
   @map_details : Hash(String, MapInfo) = {} of String => MapInfo
@@ -135,7 +138,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
     loop do
       select
       when data = @channel.receive
-        logger.debug { "received push #{data}" }
+        logger.debug { "received push #{data}" } if @debug_stream
+        @events_received = @events_received &+ 1_u64
         begin
           event = Cisco::DNASpaces::Events.from_json(data)
           payload = event.payload
@@ -207,7 +211,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
       # We use a channel for event processing so we can make use of timeouts
       @channel = Channel(String).new
-      spawn { process_events(client) }
+      spawn(same_thread: true) { process_events(client) }
 
       begin
         loop do
