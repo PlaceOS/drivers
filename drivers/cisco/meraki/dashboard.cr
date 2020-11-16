@@ -50,7 +50,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # Area index each point on a floor lands on
     # 21 == ~4 meters squared, which given wifi variance is good enough for tracing
     # S2 cell levels: https://s2geometry.io/resources/s2cell_statistics.html
-    s2_level: 21,
+    s2_level:      21,
     debug_webhook: false,
 
     # Level mappings, level name for human readability
@@ -346,7 +346,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       {
         location:    "wireless",
         assigned_to: user,
-        mac_address: mac_address,
+        mac_address: lookup,
       }
     end
   end
