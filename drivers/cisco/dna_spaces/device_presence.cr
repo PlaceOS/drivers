@@ -7,7 +7,7 @@ class Cisco::DNASpaces::DevicePresence
   getter presence_event_type : String
 
   @[JSON::Field(key: "wasInActive")]
-  getter was_in_active : String
+  getter was_in_active : Bool
   getter device : Device
   getter location : Location
 
