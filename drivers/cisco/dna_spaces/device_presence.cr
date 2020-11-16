@@ -19,7 +19,7 @@ class Cisco::DNASpaces::DevicePresence
   @[JSON::Field(key: "visitId")]
   getter visit_id : String
 
-  @[JSON::Field(key: "days_since_last_visit")]
+  @[JSON::Field(key: "daysSinceLastVisit")]
   getter days_since_last_visit : Int32
 
   @[JSON::Field(key: "entryTimestamp")]
