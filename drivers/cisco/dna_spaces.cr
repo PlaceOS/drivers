@@ -22,7 +22,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
   def on_load
     on_update
-    spawn { stream_events }
+    spawn { start_streaming_events }
   end
 
   def on_unload
@@ -122,7 +122,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   # we want to stream events until driver is terminated
-  protected def stream_events
+  protected def start_streaming_events
     SimpleRetry.try_to(
       base_interval: 10.milliseconds,
       max_interval: 5.seconds
@@ -144,16 +144,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
             device_mac = format_mac(payload.device.mac_address)
             locations &.delete(device_mac)
           when DeviceLocationUpdate
-            # payload.device.mac_address
-            # payload.device.email
-            # payload.raw_user_id
-            # payload.x_pos
-            # payload.y_pos
-            # payload.latitude
-            # payload.longitude
-            # payload.confidence_factor
-            # payload.map_id
-
             # Keep track of device location
             device_mac = format_mac(payload.device.mac_address)
             existing = nil
