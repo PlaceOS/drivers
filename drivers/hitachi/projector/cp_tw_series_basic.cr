@@ -59,10 +59,10 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     @power_target = state
     if state
       logger.debug { "-- requested to power on" }
-      do_send("BA D2 01 00 00 60 01 00", name: "power")
+      do_send2(:PowerOn, name: "power")
     else
       logger.debug { "-- requested to power off" }
-      do_send("2A D3 01 00 00 60 00 00", name: "power")
+      do_send2(:PowerOff, name: "power")
     end
     power?
   end
@@ -224,7 +224,31 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   # Note: commands have spaces in between each byte for readability
   private def do_send(data : String, **options)
     cmd = "BEEF030600 #{data}"
-    logger.debug { "requesting \"0x#{cmd}\" name: #{options[:name]}" }
+    logger.debug { "Sending \"0x#{cmd}\" name: #{options[:name]}" }
     send(cmd.delete(' ').hexbytes, **options)
+  end
+
+  enum Action
+    Set = 0x01
+    Get = 0x02
+  end
+
+  COMMANDS = {
+    PowerOn:  Bytes[0xBA, 0xD2, 0x00, 0x60, 0x10],
+    PowerOff: Bytes[0x2A, 0xD3, 0x00, 0x60, 0x00],
+    PowerGet: Bytes[0x19, 0xD3, 0x00, 0x60, 0x00]
+  }
+
+  private def do_send2(command : String | Symbol, action : Action = Action::Set, **options)
+    logger.debug { "Sending #{command} name: #{options[:name]}" }
+    command = COMMANDS[command]
+    data = Bytes[
+      0xBE, 0xEF, 0x03, 0x06, 0x00, # Header
+      command[0], command[1],       # CRC
+      action.value, 0x00,           # Action
+      command[2], command[3],       # Type
+      command[4], 0x00              # Setting code
+    ]
+    send(data, **options)
   end
 end
