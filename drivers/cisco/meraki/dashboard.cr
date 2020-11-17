@@ -35,12 +35,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # Max Uncertainty in meters - we don't accept positions that are less certain
     maximum_uncertainty: 25.0,
 
-    # Age we keep a confident value (without drifting towards less confidence)
-    maximum_confidence_time: 40,
-
-    # Age at which we discard a drifting value (accepting a less confident value)
-    maximum_drift_time: 160,
-
     # can we use the meraki dashboard API for user lookups
     default_network_id: "network_id",
 
@@ -79,11 +73,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   @acceptable_confidence : Float64 = 5.0
   @maximum_uncertainty : Float64 = 25.0
-  @maximum_confidence_time : Time::Span = 40.seconds
-  @maximum_drift_time : Time::Span = 160.seconds
 
   @time_multiplier : Float64 = 0.0
   @confidence_multiplier : Float64 = 0.0
+  @max_location_age : Time::Span = 6.minutes
+  @drift_location_age : Time::Span = 4.minutes
+  @confidence_time : Time::Span = 2.minutes
 
   @rate_limit : Int32 = 4
   @channel : Channel(Nil) = Channel(Nil).new(1)
@@ -96,7 +91,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @default_network : String = ""
   @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @floorplan_sizes = {} of String => FloorPlan
-  @max_location_age : Time::Span = 10.minutes
 
   @s2_level : Int32 = 21
   @debug_webhook : Bool = false
@@ -114,15 +108,18 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
     @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
-    @maximum_confidence_time = (setting?(Int32, :maximum_confidence_time) || 40).seconds
-    @maximum_drift_time = (setting?(Int32, :maximum_drift_time) || 160).seconds
+
+    @max_location_age = (setting?(UInt32, :max_location_age) || 6).minutes
+    # Age we keep a confident value (without drifting towards less confidence)
+    @confidence_time = @max_location_age / 3
+    # Age at which we discard a drifting value (accepting a less confident value)
+    @drift_location_age = @max_location_age - @confidence_time
 
     # How much confidence do we have in this new value, relative to an old confident value
-    @time_multiplier = 1.0_f64 / (@maximum_drift_time.to_i - @maximum_confidence_time.to_i).to_f64
+    @time_multiplier = 1.0_f64 / (@drift_location_age.to_i - @confidence_time.to_i).to_f64
     @confidence_multiplier = 1.0_f64 / (@maximum_uncertainty.to_i - @acceptable_confidence.to_i).to_f64
 
     @floorplan_mappings = setting?(Hash(String, Hash(String, String | Float64)), :floorplan_mappings) || @floorplan_mappings
-    @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
 
     @s2_level = setting?(Int32, :s2_level) || 21
     @debug_webhook = setting?(Bool, :debug_webhook) || false
@@ -555,20 +552,23 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       # Extract coordinate data against the MAC address and save IP address mappings
       observations = seen.data.observations.reject(&.locations.empty?)
 
-      ignore_older = @maximum_drift_time.ago.in Time::Location::UTC
-      drift_older = @maximum_confidence_time.ago.in Time::Location::UTC
+      ignore_older = @max_location_age.ago.in Time::Location::UTC
+      drift_older = @drift_location_age.ago.in Time::Location::UTC
+      current_time = Time.utc
+      current_time_unix = current_time.to_unix
+
       observations.each do |observation|
         client_mac = format_mac(observation.client_mac)
         existing = @locations[client_mac]?
 
         logger.debug { "parsing new observation for #{client_mac}" } if @debug_webhook
-        location = parse(existing, ignore_older, drift_older, observation.latest_record.time, observation.locations)
+        location = parse(existing, ignore_older, drift_older, current_time_unix, observation.latest_record.time, observation.locations)
         if location
           @locations[client_mac] = location
           locations_updated += 1
         end
-        update_ipv4(observation)
-        update_ipv6(observation)
+        update_ipv4(observation, current_time)
+        update_ipv6(observation, current_time)
       end
     rescue e
       logger.error { "failed to parse meraki scanning API payload\n#{e.inspect_with_backtrace}" }
@@ -581,25 +581,33 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     SUCCESS_RESPONSE
   end
 
-  protected def parse(existing, ignore_older, drift_older, latest, locations) : Location?
+  protected def parse(existing, ignore_older, drift_older, current_time, latest_raw, locations_raw) : Location?
+    # deal with times in a relative way
+    adjust_by = (current_time - latest_raw.to_unix).seconds
+
+    # existing.time is our ajusted time
     if existing_time = existing.try &.time
       existing = nil if existing_time < ignore_older
     end
 
-    # remove junk
-    locations = locations.reject do |loc|
-      loc.get_x.nil? || loc.variance > @maximum_uncertainty || loc.time < ignore_older
+    # remove locations that don't have an x,y or very uncertain or very old
+    locations = locations_raw.reject do |loc|
+      loc.time = loc.time + adjust_by
+      loc.get_x.nil? || loc.variance > @maximum_uncertainty
     end
 
     if locations.empty?
-      logger.debug { %(
-        no location in observation met minimum requirements, observation was ignored
-        ignoring older than: #{ignore_older}, latest location in this set: #{latest}, was too old: #{latest < ignore_older}
-      ) } if @debug_webhook
+      logger.debug {
+        if locations_raw.empty?
+          "ignored as no location data provided"
+        else
+          "ignored as no location in observation met minimum requirements, had coordinates: #{!!locations_raw[0].get_x}, uncertainty: #{locations_raw[0].variance}"
+        end
+      } if @debug_webhook
       return existing
     end
 
-    # ensure oldest -> newest
+    # ensure oldest -> newest (we adjusted these already)
     locations = locations.sort { |a, b| a.time <=> b.time }
 
     # estimate the location given the current observations
@@ -634,7 +642,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         confidence_factor = 0.0 if confidence_factor < 0
 
         time_diff = new_loc.time.to_unix - location.time.to_unix
-        time_factor = @time_multiplier * (time_diff - @maximum_confidence_time.to_i).to_f
+        time_factor = @time_multiplier * (time_diff - @confidence_time.to_i).to_f
         time_factor = 0.0 if time_factor < 0
 
         # Average of the confidence factors
@@ -660,22 +668,22 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     location
   end
 
-  protected def update_ipv4(observation)
+  protected def update_ipv4(observation, current_time)
     ipv4 = observation.ipv4
     return unless ipv4
-    time = observation.latest_record.time
-    lookup = @ip_lookup[ipv4]? || Lookup.new(time, observation.client_mac)
-    lookup.time = time
+
+    lookup = @ip_lookup[ipv4]? || Lookup.new(current_time, observation.client_mac)
+    lookup.time = current_time
     lookup.mac = observation.client_mac
     @ip_lookup[ipv4] = lookup
   end
 
-  protected def update_ipv6(observation)
+  protected def update_ipv6(observation, current_time)
     ipv6 = observation.ipv6.try &.downcase
     return unless ipv6
-    time = observation.latest_record.time
-    lookup = @ip_lookup[ipv6]? || Lookup.new(time, observation.client_mac)
-    lookup.time = time
+
+    lookup = @ip_lookup[ipv6]? || Lookup.new(current_time, observation.client_mac)
+    lookup.time = current_time
     lookup.mac = observation.client_mac
     @ip_lookup[ipv6] = lookup
   end
