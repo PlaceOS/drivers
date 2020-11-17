@@ -100,6 +100,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   @s2_level : Int32 = 21
   @debug_webhook : Bool = false
+  @debug_payload : Bool = false
 
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
@@ -125,6 +126,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     @s2_level = setting?(Int32, :s2_level) || 21
     @debug_webhook = setting?(Bool, :debug_webhook) || false
+    @debug_payload = setting?(Bool, :debug_payload) || false
 
     schedule.clear
     if @default_network.presence
@@ -523,6 +525,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   # Webhook endpoint for scanning API, expects version 3
   def scanning_api(method : String, headers : Hash(String, Array(String)), body : String)
     logger.debug { "scanning API received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body } if @debug_payload
 
     # Return the scanning API validator code on a GET request
     return {HTTP::Status::OK.to_i, EMPTY_HEADERS, @scanning_validator} if method == "GET"
