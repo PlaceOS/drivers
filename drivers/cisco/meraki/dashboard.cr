@@ -215,43 +215,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     {ip_mappings: @ip_lookup.size, tracking: @locations.size, client_details: @client_details.size}
   end
 
-  class Client
-    include JSON::Serializable
-
-    property id : String
-    property mac : String
-    property description : String?
-
-    property ip : String?
-    property ip6 : String?
-
-    @[JSON::Field(key: "ip6Local")]
-    property ip6_local : String?
-
-    property user : String?
-
-    # 2020-09-29T07:53:08Z
-    @[JSON::Field(key: "firstSeen")]
-    property first_seen : String
-
-    @[JSON::Field(key: "lastSeen")]
-    property last_seen : String
-
-    property manufacturer : String?
-    property os : String?
-
-    @[JSON::Field(key: "recentDeviceMac")]
-    property recent_device_mac : String?
-    property ssid : String?
-    property vlan : Int32?
-    property switchport : String?
-    property status : String
-    property notes : String?
-
-    @[JSON::Field(ignore: true)]
-    property time_added : Time? = nil
-  end
-
   @[Security(PlaceOS::Driver::Level::Support)]
   def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
     network_id = network_id.presence || @default_network
@@ -370,9 +333,15 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
       Array(String).from_json(macs).compact_map { |mac|
         if location = locate_mac(mac)
-          if location.time > location_max_age
-            # We set the mac here so it's using the formatted version
-            location.mac = mac
+          client = @client_details[mac]?
+
+          # We set these here to speed up processing
+          location.client = client
+          location.mac = mac
+
+          if client && client.time_added > location_max_age
+            location
+          elsif location.time > location_max_age
             location
           end
         end
@@ -441,9 +410,20 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # Find the devices that are on the matching floors
     oldest_location = @max_location_age.ago
     matching = @locations.compact_map do |mac, loc|
+      # We set this here to speed up processing
+      client = @client_details[mac]?
+      loc.client = client
+
       if loc.time < oldest_location
-        too_old += 1
-        next
+        if client
+          if client.time_added < oldest_location
+            too_old += 1
+            next
+          end
+        else
+          too_old += 1
+          next
+        end
       end
       if !floors.includes?(loc.floor_plan_id)
         wrong_floor += 1
@@ -513,19 +493,27 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     logger.debug { "removed #{remove_keys.size} IPs" }
 
-    # MACs
-    remove_keys.clear
-    @locations.each { |mac, location| remove_keys << mac if location.time < old }
-    remove_keys.each { |mac| @locations.delete(mac) }
-
-    logger.debug { "removed #{remove_keys.size} MACs" }
-
     # Client details
     remove_keys.clear
     @client_details.each { |mac, client| remove_keys << mac if client.time_added.not_nil! < old }
     remove_keys.each { |mac| @client_details.delete(mac) }
 
     logger.debug { "removed #{remove_keys.size} client details" }
+
+    # MACs
+    remove_keys.clear
+    @locations.each do |mac, location|
+      if location.time < old
+        if client = @client_details[mac]?
+          remove_keys << mac if client.time_added.not_nil! < old
+        else
+          remove_keys << mac
+        end
+      end
+    end
+    remove_keys.each { |mac| @locations.delete(mac) }
+
+    logger.debug { "removed #{remove_keys.size} MACs" }
   end
 
   class FloorPlan
