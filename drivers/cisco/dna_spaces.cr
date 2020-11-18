@@ -96,7 +96,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     map = @map_lock.synchronize { @map_details[map_id]? }
     if !map
       response = get("/api/partners/v1/maps/#{map_id}?partnerTenantId=#{@tenant_id}", headers: {
-        "X-API-KEY" => @api_key
+        "X-API-KEY" => @api_key,
       })
       if !response.success?
         message = "failed to obtain map id #{map_id}, code #{response.status_code}"
@@ -120,7 +120,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
       remove_keys.each { |mac| locs.delete(mac) }
     end
 
-    logger.debug { "removedd #{remove_keys.size} MACs" }
+    logger.debug { "removed #{remove_keys.size} MACs" }
     nil
   end
 
@@ -128,8 +128,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
   protected def start_streaming_events
     SimpleRetry.try_to(
       base_interval: 10.milliseconds,
-      max_interval: 5.seconds,
-    ) { stream_events unless @terminated }
+      max_interval: 5.seconds
+      ) { stream_events unless @terminated }
   end
 
   # Processes events as they come in, forces a disconnect if no events are sent
@@ -138,7 +138,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     loop do
       select
       when data = @channel.receive
-      	logger.debug { "received push #{data}" } if @debug_stream
+        logger.debug { "received push #{data}" } if @debug_stream
         @events_received = @events_received &+ 1_u64
         begin
           event = Cisco::DNASpaces::Events.from_json(data)
@@ -190,9 +190,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
           logger.error(exception: error) { "parsing DNA Spaces event: #{data}" }
         end
       when timeout(20.seconds)
-  			logger.debug { "no events received for 20 seconds, expected heartbeat at 15 seconds" }
-      	@channel.close
-      	break
+        logger.debug { "no events received for 20 seconds, expected heartbeat at 15 seconds" }
+        @channel.close
+        break
       end
     end
   ensure
@@ -202,7 +202,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   protected def stream_events
     client = HTTP::Client.new URI.parse(config.uri.not_nil!)
     client.get("/api/partners/v1/firehose/events", HTTP::Headers{
-      "X-API-KEY" => @api_key
+      "X-API-KEY" => @api_key,
     }) do |response|
       if !response.success?
         logger.warn { "failed to connect to firehose api #{response.status_code}" }
@@ -210,10 +210,10 @@ class Cisco::DNASpaces < PlaceOS::Driver
       end
 
       # We use a channel for event processing so we can make use of timeouts
-    	@channel = Channel(String).new
-    	spawn(same_thread: true) { process_events(client) }
+      @channel = Channel(String).new
+      spawn(same_thread: true) { process_events(client) }
 
-    	begin
+      begin
         loop do
           if response.body_io.closed?
             @channel.close
@@ -226,9 +226,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
             @channel.close
             break
           end
-    		end
+        end
       rescue IO::Error
-    		@channel.close
+        @channel.close
       end
     end
 
@@ -256,17 +256,17 @@ class Cisco::DNASpaces < PlaceOS::Driver
         lon = location.longitude
 
         loc = {
-          "location"          => "wireless",
-          "coordinates_from"  => "bottom-left",
-          "x"                 => location.x_pos,
-          "y"                 => location.y_pos,
-          "lon"               => lon,
-          "lat"               => lat,
-          "s2_cell_id"        => S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
-          "mac"               => format_mac(location.device.mac_address),
-          "variance"          => location.unc,
-          "last_seen"         => location.last_seen,
-          "dna_floor_id"      => location.map_id,
+          "location"         => "wireless",
+          "coordinates_from" => "bottom-left",
+          "x"                => location.x_pos,
+          "y"                => location.y_pos,
+          "lon"              => lon,
+          "lat"              => lat,
+          "s2_cell_id"       => S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
+          "mac"              => format_mac(location.device.mac_address),
+          "variance"         => location.unc,
+          "last_seen"        => location.last_seen,
+          "dna_floor_id"     => location.map_id,
         }
 
         # Add meraki map information to the response
