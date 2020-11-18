@@ -46,8 +46,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   DESC
 
   default_settings({
-    display_id: 0,
-    rs232_control: false
+    display_id:    0,
+    rs232_control: false,
   })
 
   @id : UInt8 = 0
@@ -113,9 +113,9 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     do_send(Command::HardOff, 0)
   end
 
-  def power?(**options)
+  def power?(**options) : Bool
     do_send(Command::PanelMute, Bytes.empty, **options).get
-    self[:power]
+    !!self[:power]?.try(&.as_bool)
   end
 
   # Mutes both audio/video
@@ -124,8 +124,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-  mute_video(state) if layer.video? || layer.audio_video?
-  mute_audio(state) if layer.audio? || layer.audio_video?
+    mute_video(state) if layer.video? || layer.audio_video?
+    mute_audio(state) if layer.audio? || layer.audio_video?
   end
 
   # Adds video mute state compatible with projectors
@@ -137,10 +137,10 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # Emulate audio mute
   def mute_audio(state : Bool = true)
     # Do nothing if already in desired state
-    return if self[:audio_mute]?.try &.as_bool == state
+    return if self[:audio_mute]?.try(&.as_bool) == state
     self[:audio_mute] = state
     if state
-      @previous_volume = self[:volume].as_i
+      @previous_volume = self[:volume]?.try(&.as_i) || 0
       volume(0)
     else
       volume(@previous_volume)
@@ -177,17 +177,17 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   DEVICE_SETTINGS = {
     network_standby: Bool,
-    auto_off_timer: Bool,
-    auto_power: Bool,
-    volume: Int32,
-    contrast: Int32,
-    brightness: Int32,
-    sharpness: Int32,
-    colour: Int32,
-    tint: Int32,
-    red_gain: Int32,
-    green_gain: Int32,
-    blue_gain: Int32
+    auto_off_timer:  Bool,
+    auto_power:      Bool,
+    volume:          Int32,
+    contrast:        Int32,
+    brightness:      Int32,
+    sharpness:       Int32,
+    colour:          Int32,
+    tint:            Int32,
+    red_gain:        Int32,
+    green_gain:      Int32,
+    blue_gain:       Int32,
   }
   {% for name, kind in DEVICE_SETTINGS %}
     @[Security(Level::Administrator)]
@@ -235,11 +235,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     when .ack?
       case command
       when .status?
-        self[:hard_off]   = hard_off = values[0] == 0
-        self[:power]      = false if hard_off
-        self[:volume]     = values[1]
+        self[:hard_off] = hard_off = values[0] == 0
+        self[:power] = false if hard_off
+        self[:volume] = values[1]
         self[:audio_mute] = values[2] == 1
-        self[:input]      = Input.from_value(values[3])
+        self[:input] = Input.from_value(values[3])
         check_power_state
       when .panel_mute?
         self[:power] = value == 0
