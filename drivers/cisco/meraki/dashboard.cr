@@ -247,6 +247,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     property switchport : String?
     property status : String
     property notes : String?
+
+    @[JSON::Field(ignore: true)]
+    property time_added : Time? = nil
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
@@ -268,6 +271,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     clients
   end
 
+  @client_details : Hash(String, Client) = {} of String => Client
+
   @[Security(PlaceOS::Driver::Level::Support)]
   def map_users_to_macs(network_id : String? = nil)
     network_id = network_id.presence || @default_network
@@ -277,15 +282,20 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     new_devices = 0
     updated_dev = 0
+    now = Time.utc
 
     logger.debug { "mapping found #{clients.size} devices" }
 
     user_mac_mappings do |storage|
       clients.each do |client|
+        # So we can merge additional details into device location responses
+        user_mac = format_mac(client.mac)
+        client.time_added = now
+        @client_details[user_mac] = client
+
         user_id = client.user
         next unless user_id
         user_id = format_username(user_id)
-        user_mac = format_mac(client.mac)
 
         # Check if mac mapping already exists
         existing_user = storage[user_mac]?
@@ -361,6 +371,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       Array(String).from_json(macs).compact_map { |mac|
         if location = locate_mac(mac)
           if location.time > location_max_age
+            # We set the mac here so it's using the formatted version
             location.mac = mac
             location
           end
@@ -397,6 +408,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
           loc["map_height"] = map_size.height
         end
 
+        # Add additional client information if it's available
+        if client = @client_details[location.mac]
+          loc["manufacturer"] = client.manufacturer if client.manufacturer
+          loc["os"] = client.os if client.os
+          loc["ssid"] = client.ssid if client.ssid
+        end
+
         loc
       }
     else
@@ -431,6 +449,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         wrong_floor += 1
         next
       end
+      # ensure the formatted mac is being used
       loc.mac = mac
       loc
     end
@@ -454,6 +473,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         lat = loc.lat
         lon = loc.lng
 
+        # Add additional client information if it's available
+        if client = @client_details[loc.mac]
+          manufacturer = client.manufacturer
+          os = client.os
+          ssid = client.ssid
+        end
+
         {
           location:         :wireless,
           coordinates_from: "bottom-left",
@@ -467,6 +493,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
           last_seen:        loc.time.to_unix,
           map_width:        map_width,
           map_height:       map_height,
+          manufacturer:     manufacturer,
+          os:               os,
+          ssid:             ssid,
         }
       end
     }
@@ -476,18 +505,27 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   def cleanup_caches : Nil
     logger.debug { "removing IP and location data that is over 30 minutes old" }
 
+    # IP Addresses
     old = 30.minutes.ago
     remove_keys = [] of String
     @ip_lookup.each { |ip, lookup| remove_keys << ip if lookup.time < old }
     remove_keys.each { |ip| @ip_lookup.delete(ip) }
 
-    logger.debug { "removing #{remove_keys.size} IPs" }
+    logger.debug { "removed #{remove_keys.size} IPs" }
 
+    # MACs
     remove_keys.clear
     @locations.each { |mac, location| remove_keys << mac if location.time < old }
     remove_keys.each { |mac| @locations.delete(mac) }
 
-    logger.debug { "removing #{remove_keys.size} MACs" }
+    logger.debug { "removed #{remove_keys.size} MACs" }
+
+    # Client details
+    remove_keys.clear
+    @client_details.each { |mac, client| remove_keys << mac if client.time_added.not_nil! < old }
+    remove_keys.each { |mac| @client_details.delete(mac) }
+
+    logger.debug { "removed #{remove_keys.size} client details" }
   end
 
   class FloorPlan
