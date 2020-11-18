@@ -215,6 +215,16 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     {ip_mappings: @ip_lookup.size, tracking: @locations.size, client_details: @client_details.size}
   end
 
+  # Returns the list of users who can be located
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def locateable
+    too_old = location_max_age = @max_location_age.ago
+    @client_details.compact_map do |mac, client|
+      location = @locations[mac]
+      client.user if location && ((location.time > too_old) || (client.time_added > too_old))
+    end
+  end
+
   @[Security(PlaceOS::Driver::Level::Support)]
   def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
     network_id = network_id.presence || @default_network
@@ -495,7 +505,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # Client details
     remove_keys.clear
-    @client_details.each { |mac, client| remove_keys << mac if client.time_added.not_nil! < old }
+    @client_details.each { |mac, client| remove_keys << mac if client.time_added < old }
     remove_keys.each { |mac| @client_details.delete(mac) }
 
     logger.debug { "removed #{remove_keys.size} client details" }
@@ -505,7 +515,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @locations.each do |mac, location|
       if location.time < old
         if client = @client_details[mac]?
-          remove_keys << mac if client.time_added.not_nil! < old
+          remove_keys << mac if client.time_added < old
         else
           remove_keys << mac
         end
