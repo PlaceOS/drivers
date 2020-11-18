@@ -220,7 +220,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   def locateable
     too_old = location_max_age = @max_location_age.ago
     @client_details.compact_map do |mac, client|
-      location = @locations[mac]
+      location = @locations[mac]?
       client.user if location && ((location.time > too_old) || (client.time_added > too_old))
     end
   end
