@@ -409,7 +409,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         end
 
         # Add additional client information if it's available
-        if client = @client_details[location.mac]
+        if client = @client_details[location.mac]?
           loc["manufacturer"] = client.manufacturer if client.manufacturer
           loc["os"] = client.os if client.os
           loc["ssid"] = client.ssid if client.ssid
@@ -474,7 +474,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         lon = loc.lng
 
         # Add additional client information if it's available
-        if client = @client_details[loc.mac]
+        if client = @client_details[loc.mac]?
           manufacturer = client.manufacturer
           os = client.os
           ssid = client.ssid
