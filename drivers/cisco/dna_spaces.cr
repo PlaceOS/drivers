@@ -246,6 +246,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
       macs.compact_map { |mac|
         if location = locate_mac(mac)
           if location.last_seen > location_max_age
+            # we update the mac_address to a formatted version
+            location.device.mac_address = mac
             location
           end
         end
@@ -263,10 +265,13 @@ class Cisco::DNASpaces < PlaceOS::Driver
           "lon"              => lon,
           "lat"              => lat,
           "s2_cell_id"       => S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
-          "mac"              => format_mac(location.device.mac_address),
+          "mac"              => location.device.mac_address,
           "variance"         => location.unc,
           "last_seen"        => location.last_seen,
           "dna_floor_id"     => location.map_id,
+          "ssid"             => location.ssid,
+          "manufacturer"     => location.device.manufacturer,
+          "os"               => location.device.os,
         }
 
         # Add meraki map information to the response
@@ -336,6 +341,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
         wrong_floor += 1
         next
       end
+
+      # ensure the formatted mac is being used
+      loc.device.mac_address = mac
       loc
     })
 
@@ -362,11 +370,14 @@ class Cisco::DNASpaces < PlaceOS::Driver
           lon:              lon,
           lat:              lat,
           s2_cell_id:       S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
-          mac:              format_mac(loc.device.mac_address),
+          mac:              loc.device.mac_address,
           variance:         loc.unc,
           last_seen:        loc.last_seen,
           map_width:        map_width,
           map_height:       map_height,
+          ssid:             loc.ssid,
+          manufacturer:     loc.device.manufacturer,
+          os:               loc.device.os,
         }
       end
     }

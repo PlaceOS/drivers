@@ -27,8 +27,9 @@ class Cisco::DNASpaces::Device
   # otherFields
   # socialNetworkInfo
 
+  # We make this editable so we can store the formatted version here
   @[JSON::Field(key: "macAddress")]
-  getter mac_address : String
+  property mac_address : String
   getter manufacturer : String
   getter os : String
 
