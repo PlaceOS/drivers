@@ -210,9 +210,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @[Security(PlaceOS::Driver::Level::Support)]
   def inspect_state
     logger.debug {
-      "IP Mappings: #{@ip_lookup.keys}\n\nMAC Locations: #{@locations.keys}"
+      "IP Mappings: #{@ip_lookup.keys}\n\nMAC Locations: #{@locations.keys}\n\nClient Details: #{@client_details.keys}"
     }
-    {ip_mappings: @ip_lookup.size, tracking: @locations.size}
+    {ip_mappings: @ip_lookup.size, tracking: @locations.size, client_details: @client_details.size}
   end
 
   class Client
