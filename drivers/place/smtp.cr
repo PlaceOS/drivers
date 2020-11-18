@@ -161,9 +161,9 @@ class Place::Smtp < PlaceOS::Driver
 
       case attachment
       in Attachment
-        message.attach(attachment_io, file_name: attachment[:file_name])
+        message.attach(io: attachment_io, file_name: attachment[:file_name])
       in ResourceAttachment
-        message.message_resource(attachment_io, file_name: attachment[:file_name], cid: attachment[:content_id])
+        message.message_resource(io: attachment_io, file_name: attachment[:file_name], cid: attachment[:content_id])
       end
     end
 
