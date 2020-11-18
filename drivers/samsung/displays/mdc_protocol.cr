@@ -118,7 +118,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
 
   def power?(**options) : Bool
     do_send(Command::PanelMute, Bytes.empty, **options).get
-    !!self[:power]?.try(&.as_bool)
+    self[:power]?.try(&.as_bool)
   end
 
   # Mutes both audio/video
