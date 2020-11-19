@@ -138,7 +138,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 4.5.3
+    version: 4.6.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -158,7 +158,7 @@ shards:
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
-    version: 1.0.0
+    version: 1.0.1
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
@@ -199,6 +199,14 @@ shards:
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
     version: 1.4.2
+
+  stumpy_core:
+    git: https://github.com/l3kn/stumpy_core.git
+    version: 1.9.1
+
+  stumpy_png:
+    git: https://github.com/stumpycr/stumpy_png.git
+    version: 5.0.0
 
   tasker:
     git: https://github.com/spider-gazelle/tasker.git
