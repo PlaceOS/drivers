@@ -158,7 +158,8 @@ class Place::Smtp < PlaceOS::Driver
       # Base64 decode to memory, then attach to email
       attachment_io = IO::Memory.new
       Base64.decode(attachment[:content], attachment_io)
-
+      attachment_io.rewind
+      
       case attachment
       in Attachment
         message.attach(io: attachment_io, file_name: attachment[:file_name])
