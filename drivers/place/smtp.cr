@@ -1,4 +1,5 @@
 require "qr-code"
+require "qr-code/export/png"
 require "base64"
 require "email"
 require "uri"
@@ -91,6 +92,10 @@ class Place::Smtp < PlaceOS::Driver
     QRCode.new(text).as_svg
   end
 
+  def generate_png_qrcode(text : String, size : Int32 = 128)
+    QRCode.new(text).as_png(size: size)
+  end
+
   alias TemplateItems = Hash(String, String | Int64 | Float64 | Bool)
 
   def send_template(
@@ -159,7 +164,7 @@ class Place::Smtp < PlaceOS::Driver
       attachment_io = IO::Memory.new
       Base64.decode(attachment[:content], attachment_io)
       attachment_io.rewind
-      
+
       case attachment
       in Attachment
         message.attach(io: attachment_io, file_name: attachment[:file_name])
