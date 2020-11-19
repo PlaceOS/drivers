@@ -61,7 +61,6 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     power_on:     "PON",
     power_off:    "POF",
     power_query:  "QPW",
-    freeze:       "OFZ",
     input:        "IMS",
     volume:       "AVL",
     volume_query: "QAV",
@@ -79,7 +78,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
       logger.debug { "requested to power off" }
       do_send(:power_off, retries: 10, name: :power, delay: 8.seconds)
     end
-    do_send(:power_query)
+    power?
   end
 
   def power?(**options) : Bool
@@ -88,20 +87,16 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
   end
 
   INPUTS = {
-    Inputs::HDMI  => "HD1",
-    Inputs::HDMI2 => "HD2",
-    Inputs::VGA   => "RG1",
+    Inputs::HDMI  => "HM1",
+    Inputs::HDMI2 => "HM2",
+    Inputs::VGA   => "PC1",
     Inputs::DVI   => "DVI"
   }
   INPUT_LOOKUP = INPUTS.invert
 
   def switch_to(input : Inputs)
-    # Display doesn't automatically unmute
-    unmute if self[:mute]?
-
     logger.debug { "requested to switch to: #{input}" }
     do_send(:input, INPUTS[input], delay: 2.seconds)
-
     self[:input] = input # for a responsive UI
   end
 
@@ -204,38 +199,24 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     val = resp[1]?
 
     case cmd
-    when :power_on
-      self[:power] = true
-    when :power_off
-      self[:power] = false
-    when :power_query
-      self[:power] = val.not_nil!.to_i == 1
-    when :freeze
-      self[:frozen] = val.not_nil!.to_i == 1
-    when :input
-      self[:input] = INPUT_LOOKUP[val]
-    when :mute
-      state = self[:mute] = val.not_nil!.to_i == 1
-      self[:mute0] = state
-      self[:mute0_video] = state
-      self[:mute0_audio] = state
-    else
-      case task.name
-      when "lamp"
-        ival = resp[0].to_i
-        self[:power] = {1, 2}.includes?(ival)
-        self[:warming] = ival == 1
-        self[:cooling] = ival == 3
+    when :power_on, :power_off, :power_query
+      self[:power] = cmd == :power_on if cmd == :power_on || cmd == :power_off
+      self[:power] = val.not_nil!.to_i == 1 if cmd == :power_query
 
-        # check target states here
-        if power_target = @power_target
-          if self[:power]? == self[:power_target]?
-            @power_target = nil
-          else
-            power(power_target)
-          end
+      # Ensure selected power state is achieved
+      if power_target = @power_target
+        if self[:power] == power_target
+          @power_target = nil
+        else
+          power(power_target)
         end
       end
+    when :input
+      self[:input] = INPUT_LOOKUP[val]
+    when :volume, :volume_query
+      self[:volume] = val.not_nil!.to_i
+    when :audio_mute
+      self[:audio_mute] = val.not_nil!.to_i == 1
     end
 
     task.success
