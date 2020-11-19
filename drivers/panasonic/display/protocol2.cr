@@ -1,5 +1,5 @@
-# require "digest/md5"
-# require "placeos-driver/interface/muteable"
+require "digest/md5"
+require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
 
@@ -14,8 +14,8 @@ require "placeos-driver/interface/switchable"
 # 5. You have to disconnect explicitly, display won't close the connection
 
 class Panasonic::Display::Protocol2 < PlaceOS::Driver
-  # include Interface::Powerable
-  # include Interface::Muteable
+  include Interface::Powerable
+  include Interface::Muteable
 
   enum Inputs
     HDMI
@@ -36,7 +36,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     # Communication settings
     transport.tokenizer = Tokenizer.new("\r")
 
-    schedule.every(40.seconds) { do_poll }
+    schedule.every(60.seconds) { do_poll }
 
     on_update
   end
@@ -65,7 +65,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     input:        "IMS",
     volume:       "AVL",
     volume_query: "QAV",
-    mute:         "AMT"
+    audio_mute:   "AMT"
   }
   RESPONSES = COMMANDS.to_h.invert
 
@@ -110,7 +110,8 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     self[:input]?
   end
 
-  # Mutes audio + video
+  # Mutes only audio
+  # TODO: find out if there is a video mute command
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
@@ -118,12 +119,12 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
   )
     logger.debug { "requested mute state: #{state}" }
     actual = state ? 1 : 0
-    do_send(:mute, actual)
+    do_send(:audio_mute, actual)
   end
 
-  def muted? : Bool
+  def mute? : Bool
     do_send(:audio_mute).get
-    !!self[:mute]?.try(&.as_bool)
+    !!self[:audio_mute]?.try(&.as_bool)
   end
 
   def volume(val : Int32)
@@ -139,7 +140,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
 
   def do_poll
     if power?(priority: 0)
-      muted?
+      mute?
       volume?
     end
   end
@@ -176,6 +177,9 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     # us to close it and a new connection is required per-command
     transport.disconnect
 
+    # remove the leading 00
+    data = data[2..-1]
+
     # Check for error response
     if data[0] == 'E'
       self[:last_error] = error_msg = ERRORS[data]
@@ -195,7 +199,6 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     return unless task
 
     # Process the response
-    data = data[2..-1]
     resp = data.split(':')
     cmd = RESPONSES[resp[0]]?
     val = resp[1]?
@@ -227,14 +230,11 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
         # check target states here
         if power_target = @power_target
           if self[:power]? == self[:power_target]?
-            @stable_power = nil
+            @power_target = nil
           else
             power(power_target)
           end
         end
-      when "lamp_hours"
-        # Resp looks like: "001682"
-        self[:lamp_usage] = data.to_i
       end
     end
 

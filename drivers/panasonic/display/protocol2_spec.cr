@@ -1,4 +1,4 @@
-DriverSpecs.mock_driver "Panasonic::Projector::NTControl" do
+DriverSpecs.mock_driver "Panasonic::Display::Protocol2" do
   # Execute a command (triggers the connection)
   exec(:power?)
 
@@ -8,16 +8,17 @@ DriverSpecs.mock_driver "Panasonic::Projector::NTControl" do
 
   # Check the request was sent with the correct password
   password = "d4a58eaea919558fb54a33a2effa8b94"
-  should_send("#{password}00Q$S\r")
+  should_send("#{password}00QPW\r")
 
   # Respond with the status then check the state updated
   transmit("00PON\r")
   status[:power].should be_true
 
-  exec(:lamp_hours?)
+
+  exec(:mute?)
   expect_reconnect
   transmit "NTCONTROL 1 09b075be\r"
-  should_send("#{password}00Q$L:1\r")
+  should_send("#{password}00AMT\r")
   transmit("001682\r")
-  status[:lamp_usage].should eq(1682)
+  status[:audio_mute].should eq(false)
 end
