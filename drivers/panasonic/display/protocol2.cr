@@ -100,13 +100,12 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     self[:input] = input # for a responsive UI
   end
 
-  # TODO: find out if needed
+  # There is no input query command
   def input?
     self[:input]?
   end
 
-  # Mutes only audio
-  # TODO: find out if there is a video mute command
+  # There is no video mute command so this only mutes audio
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
