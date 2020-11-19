@@ -88,12 +88,12 @@ class Place::Smtp < PlaceOS::Driver
     EMail::Client.new(email_config)
   end
 
-  def generate_svg_qrcode(text : String)
+  def generate_svg_qrcode(text : String) : String
     QRCode.new(text).as_svg
   end
 
-  def generate_png_qrcode(text : String, size : Int32 = 128)
-    QRCode.new(text).as_png(size: size)
+  def generate_png_qrcode(text : String, size : Int32 = 128) : String
+    Base64.strict_encode QRCode.new(text).as_png(size: size)
   end
 
   alias TemplateItems = Hash(String, String | Int64 | Float64 | Bool)
