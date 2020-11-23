@@ -88,10 +88,9 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     if user_details = @known_users[mac_address]?
       email, name = user_details
       {
-        location:    :desk_booking,
+        location:    "desk_booking",
         assigned_to: email,
-        mac_address: mac_address,
-        name:        name,
+        mac_address: name,
       }
     end
   end
