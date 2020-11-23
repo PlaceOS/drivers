@@ -90,7 +90,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
       {
         location:    "desk_booking",
         assigned_to: email,
-        mac_address: name,
+        mac_address: mac_address,
       }
     end
   end
