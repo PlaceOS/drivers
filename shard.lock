@@ -1,12 +1,20 @@
 version: 2.0
 shards:
+  CrystalEmail:
+    git: https://github.com/Nephos/CrystalEmail.git
+    version: 0.2.4
+
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
     version: 3.4.0
 
+  active-model:
+    git: https://github.com/spider-gazelle/active-model.git
+    version: 2.0.2
+
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
-    version: 1.7.0
+    version: 1.8.1
 
   bisect:
     git: https://github.com/spider-gazelle/bisect.git
@@ -24,6 +32,10 @@ shards:
     git: https://github.com/kostya/cron_parser.git
     version: 0.3.0
 
+  db:
+    git: https://github.com/crystal-lang/crystal-db.git
+    version: 0.10.0
+
   debug:
     git: https://github.com/Sija/debug.cr.git
     version: 2.0.0
@@ -34,7 +46,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.2
+    version: 1.0.3
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -46,7 +58,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.6.5
+    version: 2.6.8
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -56,13 +68,25 @@ shards:
     git: https://github.com/place-labs/hound-dog.git
     version: 2.5.3
 
+  http-params-serializable:
+    git: https://github.com/vladfaust/http-params-serializable.git
+    version: 0.4.0
+
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git
     version: 0.2.1
 
+  json_mapping:
+    git: https://github.com/crystal-lang/json_mapping.cr.git
+    version: 0.1.0
+
   jwt:
     git: https://github.com/crystal-community/jwt.git
     version: 1.4.2
+
+  link-header:
+    git: https://github.com/spider-gazelle/link-header.git
+    version: 1.0.1
 
   log_helper:
     git: https://github.com/spider-gazelle/log_helper.git
@@ -76,13 +100,17 @@ shards:
     git: https://github.com/aca-labs/murmur3.git
     version: 0.1.1+git.commit.7cbe25c0ca8d052c9d98c377c824dcb0e038c790
 
+  neuroplastic:
+    git: https://github.com/spider-gazelle/neuroplastic.git
+    version: 1.7.1
+
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
     version: 1.0.0
 
   office365:
     git: https://github.com/PlaceOS/office365.git
-    version: 1.2.0
+    version: 1.2.1
 
   openssl_ext:
     git: https://github.com/stakach/openssl_ext.git
@@ -98,7 +126,11 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 4.2.0
+    version: 4.2.2
+
+  placeos:
+    git: https://github.com/placeos/crystal-client.git
+    version: 2.1.6
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -106,7 +138,11 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.5.13
+    version: 3.6.2
+
+  placeos-models:
+    git: https://github.com/placeos/models.git
+    version: 4.6.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -122,7 +158,11 @@ shards:
 
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
-    version: 2.2.1
+    version: 2.2.2
+
+  qr-code:
+    git: https://github.com/spider-gazelle/qr-code.git
+    version: 1.0.1
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
@@ -136,6 +176,14 @@ shards:
     git: https://github.com/caspiano/rendezvous-hash.git
     version: 0.3.1
 
+  rethinkdb:
+    git: https://github.com/kingsleyh/crystal-rethinkdb.git
+    version: 0.2.1
+
+  rethinkdb-orm:
+    git: https://github.com/spider-gazelle/rethinkdb-orm.git
+    version: 3.1.1
+
   retriable:
     git: https://github.com/Sija/retriable.cr.git
     version: 0.2.2
@@ -143,6 +191,10 @@ shards:
   rwlock:
     git: https://github.com/spider-gazelle/readers-writer.git
     version: 1.0.6
+
+  s2_cells:
+    git: https://github.com/spider-gazelle/s2_cells.git
+    version: 1.0.0
 
   simple_retry:
     git: https://github.com/spider-gazelle/simple_retry.git
@@ -152,9 +204,17 @@ shards:
     git: https://github.com/spider-gazelle/ssh2.cr.git
     version: 1.4.2
 
+  stumpy_core:
+    git: https://github.com/l3kn/stumpy_core.git
+    version: 1.9.1
+
+  stumpy_png:
+    git: https://github.com/stumpycr/stumpy_png.git
+    version: 5.0.0
+
   tasker:
     git: https://github.com/spider-gazelle/tasker.git
-    version: 2.0.1
+    version: 2.0.2
 
   telnet:
     git: https://github.com/spider-gazelle/telnet.cr.git
@@ -167,4 +227,8 @@ shards:
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
+
+  yaml_mapping:
+    git: https://github.com/crystal-lang/yaml_mapping.cr.git
+    version: 0.1.0
 

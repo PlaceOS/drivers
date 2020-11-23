@@ -1,5 +1,5 @@
 name: drivers
-version: 2.1.0
+version: 2.2.0
 crystal: 0.35.1
 
 # compile target
@@ -27,6 +27,9 @@ dependencies:
   ntlm:
     github: spider-gazelle/ntlm
 
+  link-header:
+    github: spider-gazelle/link-header
+
   place_calendar:
     github: PlaceOS/calendar
 
@@ -36,7 +39,12 @@ dependencies:
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 3.0
+    version: ~> 3.6
+
+  # The PlaceOS API client
+  placeos:
+    github: placeos/crystal-client
+    version: ~> 2.1.6
 
   rwlock:
     github: spider-gazelle/readers-writer
@@ -48,3 +56,14 @@ dependencies:
   pars:
     github: place-labs/pars
     branch: master
+
+  # For lat lon location indexing
+  s2_cells:
+    github: spider-gazelle/s2_cells
+
+  qr-code:
+    github: spider-gazelle/qr-code
+
+  # For QR .png file export
+  stumpy_png:
+    github: stumpycr/stumpy_png
