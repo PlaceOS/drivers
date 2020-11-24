@@ -44,7 +44,7 @@ module Extron::SIS::Response
   # as standalone message.
   Clock = Raw.map { |date| Time.parse_utc date, "%a, %b %d, %Y, %T" }
 
-  # Quick response, occurs following quick tie, or siwtching interaction from
+  # Quick response, occurs following quick tie, or switching interaction from
   # the device's front panel.
   Qik = Parse.string("Qik") >> Parse.const(Ok.new)
 
