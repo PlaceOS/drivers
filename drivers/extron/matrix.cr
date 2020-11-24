@@ -46,7 +46,7 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   # Applies a `SignalMap` as a single operation. All included ties will take
-  # simultaneoulsy on the device.
+  # simultaneously on the device.
   def switch_map(map : SignalMap, layer : SwitchLayer = SwitchLayer::All)
     ties = map.flat_map do |(input, outputs)|
       if outputs.is_a? Enumerable
