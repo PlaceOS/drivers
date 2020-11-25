@@ -14,7 +14,7 @@ DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
     running_a_spec: true,
   })
 
-  response = exec(:query_desk_bookings)
+  resp = exec(:query_desk_bookings)
 
   expect_http_request do |request, response|
     headers = request.headers
@@ -54,7 +54,7 @@ DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
     end
   end
 
-  response.get.should eq(JSON.parse(%({
+  resp.get.should eq(JSON.parse(%({
     "steve@place.tech": [{
       "id": 1234,
       "user_id": "user-12345",
@@ -72,7 +72,7 @@ DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
     }]
   })))
 
-  response = exec(:device_locations, "zone-level2")
+  resp = exec(:device_locations, "zone-level2")
 
   expect_http_request do |request, response|
     headers = request.headers
@@ -109,7 +109,7 @@ DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
     booking_end:   12345678,
   } }.to_json)
 
-  response.get.should eq(location_expected)
+  resp.get.should eq(location_expected)
 
   # Won't need to lookup the zone details on second request
   exec(:device_locations, "zone-level2").get.should eq(location_expected)
