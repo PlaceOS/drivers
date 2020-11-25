@@ -3,16 +3,6 @@ require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
 
-def is_affirmative(state : Bool)
-  state ? :ON : :OFF
-end
-
-module Epson; end
-
-module Epson::Projector; end
-
-# Documentation: documentation link
-
 class Epson::Projector::EscVp21 < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
@@ -21,7 +11,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     HDMI    = 0x30
     HDBaseT = 0x80
   end
-
   include PlaceOS::Driver::Interface::InputSelection(Input)
 
   # Discovery Information
@@ -53,67 +42,53 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     BoardDiscernment        = 0x16
   end
 
+  @volume_min : Int32 = 0
+  @volume_max : Int32 = 255
+  @power_target : Bool? = nil
+
+  # used to coordinate the projector password hash
+  @channel : Channel(String) = Channel(String).new
+
   def on_load
     transport.tokenizer = Tokenizer.new("\r\n")
-
-    self[:volume_min] = 0
-    self[:volume_max] = 255
-
-    self[:power] = 0
-    self[:stable_state] = true
-
     self[:type] = :projector
-  end
-
-  def on_update
   end
 
   def connected
     # Have to init comms
     send("ESC/VP.net\x10\x03\x00\x00\x00\x00")
-    do_poll
     schedule.every(52.seconds, true) { do_poll }
   end
 
   def disconnected
-    self[:power] = false
     schedule.clear
-
+    self[:power] = false
     @channel.close unless @channel.closed?
   end
 
-  # used to coordinate the projector password hash
-  @channel : Channel(String) = Channel(String).new
-
-  #
   # Power commands
-  #
   def power(state : Bool)
-    self[:stable_state] = false
     if state
-      self[:power_target] = true
-      do_send(:PWR, :ON, timeout: 40000, name: :power)
+      @power_target = true
       logger.debug { "-- epson Proj, requested to power on" }
-      do_send(:PWR, name: :power_state)
+      do_send(:PWR, :ON, timeout: 40000, name: "power")
     else
-      self[:power_target] = false
-      do_send(:PWR, :OFF, timeout: 10000, name: :power)
+      @power_target = false
       logger.debug { "-- epson Proj, requested to power off" }
-      do_send(:PWR, name: :power_state)
+      do_send(:PWR, :OFF, timeout: 10000, name: "power")
     end
+    do_send(:PWR, name: :power_state)
   end
 
-  def power?(**options, &block)
-    options[:emit] = block unless block.nil?
-    options[:name] = :power_state
-    do_send(:PWR, **options)
+  def power?(**options) : Bool
+    do_send(:PWR, **options, name: :power?)#.get
+    !!self[:power]?.try(&.as_bool)
   end
 
   def switch_to(input : Input)
-    do_send(:SOURCE, Input.from_value(input), name: :inpt_source)
-    do_send(:SOURCE, name: :inpt_query)
-
-    logger.debug { "-- epson LCD, requested to switch to: #{input}" }
+    logger.debug { "-- epson Proj, requested to switch to: #{input}" }
+    do_send(:SOURCE, input.value, name: :input_source)
+    do_send(:SOURCE, name: :input_query)
     self[:input] = input # for a responsive UI
     self[:mute] = false
   end
@@ -121,11 +96,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   # Volume commands are sent using the inpt command
   def volume(vol : Int32, **options)
     vol = vol.clamp(0, 255)
-
+    do_send(:VOL, vol, **options)
     self[:volume] = vol
     self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
-
-    do_send(:VOL, vol, **options)
   end
 
   # Mutes audio + video
@@ -136,39 +109,25 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   )
     logger.debug { "-- epson Proj, requested mute state: #{state}" }
 
-    do_send(:MUTE, is_affirmative(state), name: :video_mute) # Audio + Video
-    do_send(:MUTE)                                           # request status
-  end
-
-  def unmute(index : Int32 | String = 0, layer : MuteLayer = MuteLayer::AudioVideo)
-    mute false, index, layer
+    do_send(:MUTE, state, name: :video_mute) # Audio + Video
+    do_send(:MUTE) # request status
   end
 
   # Audio mute
-  def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    mute state, index, MuteLayer::Audio
-
-    val = state ? 0 : self[:unmute_volume]
+  def mute_audio(state : Bool = true)
+    val = state ? 0 : self[:unmute_volume].as_i
     volume(val)
   end
 
-  def unmute_audio(index : Int32 | String = 0)
-    mute_audio(false, index)
-  end
-
   def input?
-    do_send(:SOURCE, name: :inpt_query, priority: 0)
+    do_send(:SOURCE, name: :input_query, priority: 0)
   end
 
-  #
-  # epson Response code
-  #
-  def received(data, task) # Data is default received as a string
-    # resolve, command
+  def received(data, task)
     logger.debug { "epson Proj sent: #{data}" }
 
     if data == ":"
-      return :success
+      return task.try(&.success)
     end
 
     data = String.new(data).split(/=|\r:/)
@@ -177,14 +136,12 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       # Lookup error!
       if data[1].nil?
         warning = "Epson PJ sent error response"
-        warning << " for #{command[:data].inspect}" if command
-        logger.warn { warning }
-        return :abort
+        # warning << " for #{command[:data].inspect}" if command
+        return task.try(&.abort(warning))
       else
         code = data[1].to_i(16)
         self[:last_error] = Error.from_value(code) || "#{data[1]}: unknown error code #{code}"
-        logger.warn { "Epson PJ error was #{self[:last_error]}" }
-        return :success
+        return task.try(&.success("Epson PJ error was #{self[:last_error]}"))
       end
     when :PWR
       state = data[1].to_i
@@ -212,58 +169,34 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       self[:source] = Input.from_value(data[1].to_i(16)) || :unknown
     end
 
-    :success
+    task.try(&.success)
   end
 
   def inspect_error
     do_send(:ERR, priority: 0)
   end
 
-  protected def do_poll(*args)
-    power?(priority: 0) do
-      if self[:power]
-        if self[:stable_state] == false && self[:power_target] == false
-          power(false)
+  protected def do_poll
+    if power?(priority: 0)
+      if power_target = @power_target
+        if self[:power] != power_target
+          power(power_target)
         else
-          self[:stable_state] = true
-          do_send(:SOURCE, name: :inpt_query, priority: 0)
-          do_send(:MUTE, name: :MUTE_query, priority: 0)
-          do_send(:VOL, name: :vol_query, priority: 0)
+          @power_target = nil
         end
-      elsif self[:stable_state] == false
-        if self[:power_target] == true
-          power(true)
-        else
-          self[:stable_state] = true
-        end
+      else
+        do_send(:SOURCE, name: :input_query, priority: 0)
+        do_send(:MUTE, name: :mute_query, priority: 0)
+        do_send(:VOL, name: :volume_query, priority: 0)
       end
     end
 
     do_send(:LAMP, priority: 0)
   end
 
-  protected def do_send(command : Symbol, param : (Int32 | Symbol | Input)? = nil, **options)
+  protected def do_send(command : Symbol, param = nil, **options)
     # prepare the command
-    cmd = if param.nil?
-            "#{command}?\x0D"
-          else
-            "#{command} #{param}\x0D"
-          end
-
+    cmd = param ? "#{command} #{param}\x0D" : "#{command}?\x0D"
     logger.debug { "queuing #{command}: #{cmd}" }
-
-    # queue the request
-    queue(**({name: command}.merge(**options))) do
-      # prepare channel and connect to the projector (which will then send the random key)
-      @channel = Channel(String).new
-      transport.connect
-
-      logger.debug { "Sending: #{cmd}" }
-
-      # send the request
-      # NOTE:: the built in `send` function has implicit queuing, but we are
-      # in a task callback here so should be calling transport send directly
-      transport.send(cmd)
-    end
   end
 end
