@@ -9,7 +9,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
     running_a_spec: true,
   })
 
-  response = exec(:query_bookings, "desk")
+  resp = exec(:query_bookings, "desk")
 
   expect_http_request do |request, response|
     headers = request.headers
@@ -49,7 +49,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
     end
   end
 
-  response.get.should eq(JSON.parse(%({
+  resp.get.should eq(JSON.parse(%({
     "steve@place.tech": [{
       "id": 1234,
       "user_id": "user-12345",

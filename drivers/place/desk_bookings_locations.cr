@@ -86,7 +86,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def check_ownership_of(mac_address : String) : OwnershipMAC?
     logger.debug { "searching for owner of #{mac_address}" }
     if user_details = @known_users[mac_address]?
-      email, name = user_details
+      email, _name = user_details
       {
         location:    "desk_booking",
         assigned_to: email,
