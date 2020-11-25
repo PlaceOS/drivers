@@ -14,7 +14,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   include PlaceOS::Driver::Interface::InputSelection(Input)
 
   # Discovery Information
-  tcp_port 1024
+  tcp_port 3629
   descriptive_name "Epson Projector"
   generic_name :Display
 
@@ -42,8 +42,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     BoardDiscernment        = 0x16
   end
 
-  @volume_min : Int32 = 0
-  @volume_max : Int32 = 255
   @power_target : Bool? = nil
 
   # used to coordinate the projector password hash
@@ -96,7 +94,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   # Volume commands are sent using the inpt command
   def volume(vol : Int32, **options)
     vol = vol.clamp(0, 255)
-    do_send(:VOL, vol, **options)
+    do_send(:VOL, vol, **options, name: :volume)
     self[:volume] = vol
     self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
   end
@@ -109,8 +107,13 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   )
     logger.debug { "-- epson Proj, requested mute state: #{state}" }
 
-    do_send(:MUTE, state, name: :video_mute) # Audio + Video
-    do_send(:MUTE) # request status
+    # Video mute
+    if layer.audio_video? || layer.video?
+      do_send(:MUTE, state, name: :video_mute)
+      do_send(:MUTE) # request status
+    end
+
+    mute_audio if layer.audio_video? || layer.audio?
   end
 
   # Audio mute
