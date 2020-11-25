@@ -17,30 +17,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   descriptive_name "Epson Projector"
   generic_name :Display
 
-  enum Error
-    None                    =  0x9
-    Fan                     =  0x1
-    LampAtPowerOn           =  0x3
-    HighInternalTemperature =  0x4
-    Lamp                    =  0x6
-    LampCoverDoorOpen       =  0x7
-    CinemaFilter            =  0x8
-    CapacitorDisconnected   =  0x9
-    AutoIris                =  0xA
-    Subsystem               =  0xB
-    LowAirFlow              =  0xC
-    AirFlowSensor           =  0xD
-    BallastPowerSupply      =  0xE
-    Shutter                 =  0xF
-    PeltiertCooling         = 0x10
-    PumpCooling             = 0x11
-    StaticIris              = 0x12
-    PowerSupplyUnit         = 0x13
-    ExhaustShutter          = 0x14
-    ObstacleDetection       = 0x15
-    BoardDiscernment        = 0x16
-  end
-
   @power_target : Bool? = nil
 
   def on_load
@@ -59,7 +35,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     self[:power] = false
   end
 
-  # Power commands
   def power(state : Bool)
     if state
       @power_target = true
@@ -74,7 +49,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def power?(**options) : Bool
-    do_send(:PWR, **options, name: :power?)#.get
+    do_send(:PWR, **options, name: :power?).get
     !!self[:power]?.try(&.as_bool)
   end
 
@@ -94,7 +69,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
   end
 
-  # Mutes audio + video
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
@@ -111,15 +85,39 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     mute_audio if layer.audio? || layer.audio_video?
   end
 
-  # Audio mute
   def mute_audio(state : Bool = true)
     val = state ? 0 : self[:unmute_volume].as_i
     volume(val)
   end
 
   def input?
-    do_send(:SOURCE, name: :input_query, priority: 0)
+    do_send(:SOURCE, name: :input_query, priority: 0).get
+    self[:input]
   end
+
+  ERRORS = [
+    "00: no error",
+    "01: fan error",
+    "03: lamp failure at power on",
+    "04: high internal temperature",
+    "06: lamp error",
+    "07: lamp cover door open",
+    "08: cinema filter error",
+    "09: capacitor is disconnected",
+    "0A: auto iris error",
+    "0B: subsystem error",
+    "0C: low air flow error",
+    "0D: air flow sensor error",
+    "0E: ballast power supply error",
+    "0F: shutter error",
+    "10: peltiert cooling error",
+    "11: pump cooling error",
+    "12: static iris error",
+    "13: power supply unit error",
+    "14: exhaust shutter error",
+    "15: obstacle detection error",
+    "16: IF board discernment error"
+  ]
 
   def received(data, task)
     logger.debug { "epson Proj sent: #{data}" }
@@ -138,7 +136,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
         return task.try(&.abort(warning))
       else
         code = data[1].to_i(16)
-        self[:last_error] = Error.from_value(code) || "#{data[1]}: unknown error code #{code}"
+        self[:last_error] = ERRORS[code]? || "#{data[1]}: unknown error code #{code}"
         return task.try(&.success("Epson PJ error was #{self[:last_error]}"))
       end
     when :PWR
