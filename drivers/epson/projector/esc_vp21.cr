@@ -1,4 +1,3 @@
-require "digest/md5"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
@@ -44,9 +43,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   @power_target : Bool? = nil
 
-  # used to coordinate the projector password hash
-  @channel : Channel(String) = Channel(String).new
-
   def on_load
     transport.tokenizer = Tokenizer.new("\r\n")
     self[:type] = :projector
@@ -61,7 +57,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def disconnected
     schedule.clear
     self[:power] = false
-    @channel.close unless @channel.closed?
   end
 
   # Power commands
@@ -69,11 +64,11 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     if state
       @power_target = true
       logger.debug { "-- epson Proj, requested to power on" }
-      do_send(:PWR, :ON, timeout: 40000, name: "power")
+      do_send(:PWR, :ON, delay: 40.seconds, name: "power")
     else
       @power_target = false
       logger.debug { "-- epson Proj, requested to power off" }
-      do_send(:PWR, :OFF, timeout: 10000, name: "power")
+      do_send(:PWR, :OFF, delay: 10.seconds, name: "power")
     end
     do_send(:PWR, name: :power_state)
   end
@@ -108,12 +103,12 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     logger.debug { "-- epson Proj, requested mute state: #{state}" }
 
     # Video mute
-    if layer.audio_video? || layer.video?
+    if layer.video? || layer.audio_video?
       do_send(:MUTE, state, name: :video_mute)
       do_send(:MUTE) # request status
     end
 
-    mute_audio if layer.audio_video? || layer.audio?
+    mute_audio if layer.audio? || layer.audio_video?
   end
 
   # Audio mute
@@ -156,9 +151,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
         schedule.in(5.seconds) { power?(priority: 0) }
       end
 
-      if !self[:stable_state] && self[:power_target] == self[:power]
-        self[:stable_state] = true
-        self[:mute] = false if !self[:power]
+      if (power_target = @power_target) && self[:power] == power_target
+        @power_target = nil
+        self[:mute] = false unless power_target
       end
     when :MUTE
       self[:mute] = data[1] == true
@@ -179,7 +174,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     do_send(:ERR, priority: 0)
   end
 
-  protected def do_poll
+  def do_poll
     if power?(priority: 0)
       if power_target = @power_target
         if self[:power] != power_target
@@ -197,9 +192,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     do_send(:LAMP, priority: 0)
   end
 
-  protected def do_send(command : Symbol, param = nil, **options)
-    # prepare the command
+  private def do_send(command : Symbol, param = nil, **options)
     cmd = param ? "#{command} #{param}\x0D" : "#{command}?\x0D"
-    logger.debug { "queuing #{command}: #{cmd}" }
+    logger.debug { "Epson proj sending #{command}: #{cmd}" }
+    send(cmd, **options)
   end
 end
