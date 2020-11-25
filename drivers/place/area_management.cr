@@ -1,5 +1,6 @@
 module Place; end
 
+require "set"
 require "placeos"
 require "./area_config"
 require "./area_polygon"
@@ -80,8 +81,20 @@ class Place::AreaManagement < PlaceOS::Driver
   @poll_rate : Time::Span = 60.seconds
   @location_service : String = "LocationServices"
 
+  @rate_limit : Channel(Nil) = Channel(Nil).new
+  @update_lock : Mutex = Mutex.new
+  @terminated = false
+
   def on_load
+    spawn { rate_limiter }
+    spawn(same_thread: true) { update_scheduler }
+
     on_update
+  end
+
+  def on_unload
+    @terminated = true
+    @rate_limit.close
   end
 
   def on_update
@@ -118,171 +131,204 @@ class Place::AreaManagement < PlaceOS::Driver
     end
 
     schedule.clear
-    schedule.every(@poll_rate) { request_locations }
+    schedule.every(@poll_rate) { synchronize_all_levels }
   end
 
+  # The location services provider
   protected def location_service
     system[@location_service]
   end
 
-  def request_locations
+  # Updates a single zone, syncing the metadata
+  protected def update_level_details(level_details, zone, metadata)
+    return unless zone.tags.includes?("level")
+
+    if desks = metadata["desks"]?
+      ids = desks.details.as_a.map { |desk| desk["id"].as_s }
+      level_details[zone.id] = {
+        total_desks:    ids.size,
+        total_capacity: zone.capacity,
+        desk_ids:       ids,
+      }
+    else
+      level_details[zone.id] = {
+        total_desks:    zone.count,
+        total_capacity: zone.capacity,
+        desk_ids:       [] of String,
+      }
+    end
+
+    if regions = metadata["map_regions"]?
+      area_data = Array(AreaConfig).from_json(regions.details["areas"].to_json)
+      @level_areas[zone.id] = area_data
+      area_data.each { |area| @areas[area.id] = area }
+    else
+      @level_areas.delete(zone.id)
+    end
+  end
+
+  # Grabs all the level zones in the building and syncs the metadata
+  protected def sync_level_details
     # Attempt to obtain the latest version of the metadata
-    begin
-      response = client.metadata.children(@building_id)
+    response = client.metadata.children(@building_id)
 
-      @level_details.clear
-      response.each do |meta|
-        zone = meta[:zone]
-        next unless zone.tags.includes?("level")
+    level_details = {} of String => LevelCapacity
+    response.each do |meta|
+      update_level_details(level_details, meta[:zone], meta[:metadata])
+    end
+    @level_details = level_details
+  rescue error
+    logger.error(exception: error) { "obtaining level metadata" }
+  end
 
-        if desks = meta[:metadata]["desks"]?
-          ids = desks.details.as_a.map { |desk| desk["id"].as_s }
-          @level_details[zone.id] = {
-            total_desks:    ids.size,
-            total_capacity: zone.capacity,
-            desk_ids:       ids,
-          }
-        else
-          @level_details[zone.id] = {
-            total_desks:    zone.count,
-            total_capacity: zone.capacity,
-            desk_ids:       [] of String,
-          }
-        end
+  protected def update_level_locations(level_counts, level_id, details)
+    areas = @level_areas[level_id]? || [] of AreaConfig
 
-        if regions = meta[:metadata]["map_regions"]?
-          area_data = Array(AreaConfig).from_json(regions.details["areas"].to_json)
-          @level_areas[zone.id] = area_data
-          area_data.each { |area| @areas[area.id] = area }
-        else
-          @level_areas.delete(zone.id)
-        end
+    # Provide the frontend with the list of all known desk ids on a level
+    self["#{level_id}:desk_ids"] = details[:desk_ids]
+
+    # Get location data for the level
+    locations = location_service.device_locations(level_id).get.as_a
+
+    # Provide to the frontend
+    self[level_id] = {
+      value:   locations,
+      ts_hint: "complex",
+      ts_map:  {
+        x: "xloc",
+        y: "yloc",
+      },
+      ts_tag_keys: {"s2_cell_id"},
+      ts_fields:   {
+        pos_level: level_id,
+      },
+      ts_tags: {
+        pos_building: @building_id,
+      },
+    }
+
+    # Grab the x,y locations
+    wireless_count = 0
+    desk_count = 0
+    xy_locs = locations.select do |loc|
+      case loc["location"].as_s
+      when "wireless"
+        wireless_count += 1
+
+        # Keep if x, y coords are present
+        !loc["x"].raw.nil?
+      when "desk"
+        desk_count += 1
+        false
+      else
+        false
       end
-    rescue error
-      logger.error(exception: error) { "obtaining level metadata" }
     end
 
-    # level => user count
-    level_counts = {} of String => RawLevelDetails
+    # build the level overview
+    level_counts[level_id] = {
+      wireless_devices: wireless_count,
+      desk_usage:       desk_count,
+      capacity:         details,
+    }
 
-    @level_details.each do |level_id, details|
-      areas = @level_areas[level_id]? || [] of AreaConfig
+    # we need to know the map dimensions to be able to count people in areas
+    map_width = -1.0
+    map_height = -1.0
 
-      begin
-        # Provide the frontend with the list of all known desk ids on a level
-        self["#{level_id}:desk_ids"] = details[:desk_ids]
+    if tmp_loc = xy_locs[0]?
+      # ensure map width and height are known
+      map_width_raw = tmp_loc["map_width"]?.try(&.raw)
+      case map_width_raw
+      when Int64, Float64
+        map_width = map_width_raw.to_f
+      end
 
-        # Get location data for the level
-        locations = location_service.device_locations(level_id).get.as_a
+      map_height_raw = tmp_loc["map_height"]?.try(&.raw)
+      case map_height_raw
+      when Int64, Float64
+        map_height = map_height_raw.to_f
+      end
+    end
 
-        # Provide to the frontend
-        self[level_id] = {
-          value:   locations,
-          ts_hint: "complex",
-          ts_map:  {
-            x: "xloc",
-            y: "yloc",
-          },
-          ts_tag_keys: {"s2_cell_id"},
-          ts_fields:   {
-            pos_level: level_id,
-          },
-          ts_tags: {
-            pos_building: @building_id,
-          },
-        }
+    # Calculate the device counts for each area
+    area_counts = [] of AreaDetails
+    if map_width && map_height
+      areas.each do |area|
+        count = 0
 
-        # Grab the x,y locations
-        wireless_count = 0
-        desk_count = 0
-        xy_locs = locations.select do |loc|
-          case loc["location"].as_s
-          when "wireless"
-            wireless_count += 1
+        # Ensure the area is configured
+        area.coordinates(map_width, map_height)
+        polygon = area.polygon
 
-            # Keep if x, y coords are present
-            !loc["x"].raw.nil?
-          when "desk"
-            desk_count += 1
-            false
+        # Calculate counts, our config uses browser coordinate systems,
+        # so need to adjust any x,y values being received for this
+        xy_locs.each do |loc|
+          case loc["coordinates_from"]?.try(&.raw)
+          when "bottom-left"
+            count += 1 if polygon.contains(loc["x"].as_f, map_height - loc["y"].as_f)
           else
-            false
+            count += 1 if polygon.contains(loc["x"].as_f, loc["y"].as_f)
           end
         end
 
-        # build the level overview
-        level_counts[level_id] = {
-          wireless_devices: wireless_count,
-          desk_usage:       desk_count,
-          capacity:         details,
+        area_counts << {
+          area_id: area.id,
+          name:    area.name,
+          count:   count,
         }
-
-        # we need to know the map dimensions to be able to count people in areas
-        map_width = -1.0
-        map_height = -1.0
-
-        if tmp_loc = xy_locs[0]?
-          # ensure map width and height are known
-          map_width_raw = tmp_loc["map_width"]?.try(&.raw)
-          case map_width_raw
-          when Int64, Float64
-            map_width = map_width_raw.to_f
-          end
-
-          map_height_raw = tmp_loc["map_height"]?.try(&.raw)
-          case map_height_raw
-          when Int64, Float64
-            map_height = map_height_raw.to_f
-          end
-        end
-
-        # Calculate the device counts for each area
-        area_counts = [] of AreaDetails
-        if map_width && map_height
-          areas.each do |area|
-            count = 0
-
-            # Ensure the area is configured
-            area.coordinates(map_width, map_height)
-            polygon = area.polygon
-
-            # Calculate counts, our config uses browser coordinate systems,
-            # so need to adjust any x,y values being received for this
-            xy_locs.each do |loc|
-              case loc["coordinates_from"]?.try(&.raw)
-              when "bottom-left"
-                count += 1 if polygon.contains(loc["x"].as_f, map_height - loc["y"].as_f)
-              else
-                count += 1 if polygon.contains(loc["x"].as_f, loc["y"].as_f)
-              end
-            end
-
-            area_counts << {
-              area_id: area.id,
-              name:    area.name,
-              count:   count,
-            }
-          end
-        end
-
-        # Provide the frontend the area details
-        self["#{level_id}:areas"] = {
-          value:     area_counts,
-          ts_hint:   "complex",
-          ts_fields: {
-            pos_level: level_id,
-          },
-          ts_tags: {
-            pos_building: @building_id,
-          },
-        }
-      rescue error
-        log_location_parsing(error, level_id)
-        sleep 200.milliseconds
       end
     end
 
-    self[:overview] = level_counts.transform_values { |details| build_level_stats(**details) }
+    # Provide the frontend the area details
+    self["#{level_id}:areas"] = {
+      value:     area_counts,
+      ts_hint:   "complex",
+      ts_fields: {
+        pos_level: level_id,
+      },
+      ts_tags: {
+        pos_building: @building_id,
+      },
+    }
+  rescue error
+    log_location_parsing(error, level_id)
+    sleep 200.milliseconds
+  end
+
+  @level_counts : Hash(String, RawLevelDetails) = {} of String => RawLevelDetails
+
+  def request_locations
+    @update_lock.synchronize do
+      sync_level_details
+
+      # level => user count
+      level_counts = {} of String => RawLevelDetails
+      @level_details.each do |level_id, details|
+        update_level_locations(level_counts, level_id, details)
+      end
+      @level_counts = level_counts
+      update_overview
+    end
+  end
+
+  def request_level_locations(level_id : String) : Nil
+    @update_lock.synchronize do
+      zone = client.zones.fetch(level_id)
+      if !zone.tags.includes?("level")
+        logger.warn { "attempted to update location for #{zone.name} (#{level_id}) which is not tagged as a level" }
+        return
+      end
+      metadata = client.metadata.fetch(level_id)
+
+      update_level_details @level_details, zone, metadata
+      update_level_locations @level_counts, level_id, @level_details[level_id]
+      update_overview
+    end
+  end
+
+  protected def update_overview
+    self[:overview] = @level_counts.transform_values { |details| build_level_stats(**details) }
   end
 
   protected def log_location_parsing(error, level_id)
@@ -328,5 +374,57 @@ class Place::AreaManagement < PlaceOS::Driver
 
   protected def client
     @client.not_nil!
+  end
+
+  # This is to limit the number of "real-time" updates
+  # batching operations to provide fast updates that don't waste CPU cycles
+  protected def rate_limiter
+    sleep 3
+
+    loop do
+      begin
+        break if @rate_limit.closed?
+        @rate_limit.send(nil)
+      rescue error
+        logger.error(exception: error) { "issue with rate limiter" }
+      ensure
+        sleep 3
+      end
+    end
+  rescue
+    # Possible error with logging exception, restart rate limiter silently
+    spawn { rate_limiter } unless @terminated
+  end
+
+  @update_levels : Set(String) = Set.new([] of String)
+  @update_all : Bool = true
+  @schedule_lock : Mutex = Mutex.new
+
+  def update_available(level_id : String)
+    @schedule_lock.synchronize { @update_levels << level_id }
+  end
+
+  def synchronize_all_levels
+    @schedule_lock.synchronize { @update_all = true }
+  end
+
+  protected def update_scheduler
+    loop do
+      @rate_limit.receive
+      @schedule_lock.synchronize do
+        begin
+          if @update_all
+            request_locations
+          else
+            @update_levels.each { |level_id| request_level_locations level_id }
+          end
+        rescue error
+          logger.error(exception: error) { "error updating floors" }
+        ensure
+          @update_levels.clear
+          @update_all = false
+        end
+      end
+    end
   end
 end
