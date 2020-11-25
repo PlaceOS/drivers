@@ -400,8 +400,8 @@ class Place::AreaManagement < PlaceOS::Driver
   @update_all : Bool = true
   @schedule_lock : Mutex = Mutex.new
 
-  def update_available(level_id : String)
-    @schedule_lock.synchronize { @update_levels << level_id }
+  def update_available(level_ids : Array(String))
+    @schedule_lock.synchronize { @update_levels.concat level_ids }
   end
 
   def synchronize_all_levels
