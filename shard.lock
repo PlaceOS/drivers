@@ -116,6 +116,10 @@ shards:
     git: https://github.com/stakach/openssl_ext.git
     version: 1.2.2
 
+  pars:
+    git: https://github.com/place-labs/pars.git
+    version: 1.1.0+git.commit.16bf2c909110cc148818f7af298afeded538123c
+
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
     version: 1.1.0
