@@ -20,7 +20,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   @power_target : Bool? = nil
 
   def on_load
-    transport.tokenizer = Tokenizer.new("\r\n")
+    transport.tokenizer = Tokenizer.new("\r")
     self[:type] = :projector
   end
 
@@ -45,7 +45,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       logger.debug { "-- epson Proj, requested to power off" }
       do_send(:PWR, :OFF, delay: 10.seconds, name: "power")
     end
-    do_send(:PWR, name: :power_state)
+    power?
   end
 
   def power?(**options) : Bool
@@ -69,6 +69,10 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
   end
 
+  def volume?
+    do_send(:VOL, name: :volume?, priority: 0)
+  end
+
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
@@ -79,7 +83,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     # Video mute
     if layer.video? || layer.audio_video?
       do_send(:MUTE, state, name: :video_mute)
-      do_send(:MUTE) # request status
+      video_mute?
     end
 
     mute_audio if layer.audio? || layer.audio_video?
@@ -88,6 +92,11 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def mute_audio(state : Bool = true)
     val = state ? 0 : self[:unmute_volume].as_i
     volume(val)
+  end
+
+  def video_mute?
+    do_send(:MUTE, name: :video_mute?, priority: 0).get
+    !!self[:video_mute]?.try(&.as_bool)
   end
 
   def input?
@@ -120,49 +129,48 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   ]
 
   def received(data, task)
+    data = String.new(data[0..-2])
     logger.debug { "epson Proj sent: #{data}" }
 
     if data == ":"
       return task.try(&.success)
     end
 
-    data = String.new(data).split(/=|\r:/)
+    data = data.split(/=|\r:/)
     case data[0]
-    when :ERR
+    when ":ERR"
       # Lookup error!
-      if data[1].nil?
-        warning = "Epson PJ sent error response"
-        # warning << " for #{command[:data].inspect}" if command
-        return task.try(&.abort(warning))
-      else
+      if data[1]?
         code = data[1].to_i(16)
         self[:last_error] = ERRORS[code]? || "#{data[1]}: unknown error code #{code}"
         return task.try(&.success("Epson PJ error was #{self[:last_error]}"))
+      else
+        return task.try(&.abort("Epson PJ sent error response for #{task.not_nil!.name || "unknown"}"))
       end
-    when :PWR
+    when ":PWR"
       state = data[1].to_i
       self[:power] = state < 3
       self[:warming] = state == 2
       self[:cooling] = state == 3
 
-      if self[:warming] || self[:cooling]
+      if self[:warming].as_bool || self[:cooling].as_bool
         schedule.in(5.seconds) { power?(priority: 0) }
       end
 
       if (power_target = @power_target) && self[:power] == power_target
         @power_target = nil
-        self[:mute] = false unless power_target
+        self[:video_mute] = false unless self[:power].as_bool
       end
-    when :MUTE
-      self[:mute] = data[1] == true
-    when :VOL
+    when ":MUTE"
+      self[:video_mute] = data[1] == true
+    when ":VOL"
       vol = data[1].to_i
       self[:volume] = vol
       self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
-    when :LAMP
+    when ":LAMP"
       self[:lamp_usage] = data[1].to_i
-    when :SOURCE
-      self[:source] = Input.from_value(data[1].to_i(16)) || :unknown
+    when ":SOURCE"
+      self[:input] = Input.from_value(data[1].to_i(16)) || :unknown
     end
 
     task.try(&.success)
@@ -181,17 +189,16 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
           @power_target = nil
         end
       else
-        do_send(:SOURCE, name: :input_query, priority: 0)
-        do_send(:MUTE, name: :mute_query, priority: 0)
-        do_send(:VOL, name: :volume_query, priority: 0)
+        input?
+        video_mute?
+        volume?
       end
     end
-
     do_send(:LAMP, priority: 0)
   end
 
-  private def do_send(command : Symbol, param = nil, **options)
-    cmd = param ? "#{command} #{param}\x0D" : "#{command}?\x0D"
+  private def do_send(command, param = nil, **options)
+    cmd = param ? "#{command} #{param}\r" : "#{command}?\r"
     logger.debug { "Epson proj sending #{command}: #{cmd}" }
     send(cmd, **options)
   end
