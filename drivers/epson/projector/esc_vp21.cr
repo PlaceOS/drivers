@@ -18,6 +18,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   generic_name :Display
 
   @power_target : Bool? = nil
+  @unmute_volume : Int32? = nil
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r")
@@ -56,6 +57,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def switch_to(input : Input)
     logger.debug { "-- epson Proj, requested to switch to: #{input}" }
     do_send(:input, input.value.to_s(16), name: :input)
+
+     # for a responsive UI
     self[:input] = input # for a responsive UI
     self[:video_mute] = false
     input?
@@ -69,8 +72,10 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   # Volume commands are sent using the inpt command
   def volume(vol : Int32, **options)
     vol = vol.clamp(0, 255)
-    self[:unmute_volume] = self[:volume] if mute = vol == 0 # Store the "pre mute" volume, so it can be restored on unmute
+    @unmute_volume = self[:volume].as_i if (mute = vol == 0) && self[:volume]?
     do_send(:volume, vol, **options, name: :volume)
+
+     # for a responsive UI
     self[:volume] = vol
     self[:audio_mute] = mute
     volume?
@@ -103,10 +108,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def mute_audio(state : Bool)
-    logger.debug { "self[:unmute_volume].as_i is #{self[:unmute_volume].as_i}" }
-    logger.debug { "state is #{state}" }
-    val = state ? 0 : self[:unmute_volume].as_i
-    logger.debug { "val is #{val}" }
+    val = state ? 0 : @unmute_volume.not_nil!
     volume(val)
   end
 
@@ -185,16 +187,15 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       end
     when :av_mute
       self[:video_mute] = self[:audio_mute] = data[1] == "ON"
-      self[:unmute_volume] = self[:volume] if (vol = self[:volume]?.try(&.as_i)) && vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
       self[:volume] = 0
     when :video_mute
       self[:video_mute] = data[1] == "ON"
     when :volume
       vol = data[1].to_i
       self[:volume] = vol
-      self[:unmute_volume] = vol if vol > 0 # Store the "pre mute" volume, so it can be restored on unmute
       mute = vol == 0
       self[:audio_mute] = mute if mute
+      @unmute_volume ||= vol unless mute
     when :lamp
       self[:lamp_usage] = data[1].to_i
     when :input
