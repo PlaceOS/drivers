@@ -12,8 +12,8 @@ DriverSpecs.mock_driver "Epson::Projector::EscVp21" do
   responds(":SOURCE=30\r")
   status[:input].should eq("HDMI")
   # video_mute?
-  should_send("MUTE?\r")
-  responds(":MUTE=0\r")
+  should_send("MSEL?\r")
+  responds(":MSEL=0\r")
   status[:video_mute].should eq(false)
   # volume?
   should_send("VOL?\r")
@@ -23,4 +23,37 @@ DriverSpecs.mock_driver "Epson::Projector::EscVp21" do
   should_send("LAMP?\r")
   responds(":LAMP=20\r")
   status[:lamp_usage].should eq(20)
+
+  exec(:mute)
+  should_send("MUTE ON\r")
+  responds(":\r")
+  should_send("MUTE?\r")
+  responds(":MUTE=ON\r")
+  status[:video_mute].should eq(true)
+  status[:audio_mute].should eq(true)
+  status[:volume].should eq(0)
+
+  exec(:switch_to, "HDBaseT")
+  should_send("SOURCE 80\r")
+  responds(":\r")
+  should_send("SOURCE?\r")
+  responds(":SOURCE=80\r")
+  status[:input].should eq("HDBaseT")
+  status[:video_mute].should eq(false)
+
+  exec(:mute_audio, false)
+  should_send("VOL 10\r")
+  responds(":\r")
+  should_send("VOL?\r")
+  responds(":VOL=10\r")
+  status[:volume].should eq(10)
+  status[:audio_mute].should eq(false)
+
+  exec(:volume, 50)
+  should_send("VOL 50\r")
+  responds(":\r")
+  should_send("VOL?\r")
+  responds(":VOL=50\r")
+  status[:volume].should eq(50)
+  status[:audio_mute].should eq(false)
 end
