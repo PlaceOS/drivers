@@ -32,12 +32,31 @@ class Nec::NpSeries < PlaceOS::Driver
   descriptive_name "NEC Projector"
   generic_name :Display
 
+  default_settings({
+    volume_min: 0,
+    volume_max: 63,
+  })
+
+  @power_target : Bool? = nil
+  @input_target : Input? = nil
+  @volume_min : Int32 = 0
+  @volume_max : Int32 = 63
+
   DELIMITER = 0x0D_u8
 
   def on_load
     # Communication settings
     queue.delay = 100.milliseconds
     transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
+    self[:error] = [] of String
+    on_update
+  end
+
+  def on_update
+    @power_target = nil
+    @input_target = nil
+    @volume_min = setting(Int32, :volume_min)
+    @volume_max = setting(Int32, :volume_max)
   end
 
   def connected
@@ -48,7 +67,40 @@ class Nec::NpSeries < PlaceOS::Driver
 
   def disconnected
     schedule.clear
+    # Disconnect often occurs on power off
+    # We may have not received a status response before the disconnect occurs
+    self[:power] = false
   end
+
+  # Command Listing
+  # Second byte used to detect command type
+  COMMAND = {
+    # Mute controls
+    mute_picture: "$02,$10,$00,$00,$00,$12",
+    unmute_picture: "$02,$11,$00,$00,$00,$13",
+    mute_audio_cmd: "02H 12H 00H 00H 00H 14H",
+    unmute_audio: "02H 13H 00H 00H 00H 15H",
+    mute_onscreen: "02H 14H 00H 00H 00H 16H",
+    unmute_onscreen: "02H 15H 00H 00H 00H 17H",
+
+    freeze_picture: "$01,$98,$00,$00,$01,$01,$9B",
+    unfreeze_picture: "$01,$98,$00,$00,$01,$02,$9C",
+
+    status_lamp: "00H 81H 00H 00H 00H 81H", # Running sense (ret 81)
+    status_input: "$00,$85,$00,$00,$01,$02,$88", # Input status (ret 85)
+    status_mute: "00H 85H 00H 00H 01H 03H 89H", # MUTE STATUS REQUEST (Check 10H on byte 5)
+    status_error: "00H 88H 00H 00H 00H 88H", # ERROR STATUS REQUEST (ret 88)
+    status_model: "00H 85H 00H 00H 01H 04H 8A", # request model name (both of these are related)
+
+    # lamp hours / remaining information
+    lamp_information: "03H 8AH 00H 00H 00H 8DH", # LAMP INFORMATION REQUEST
+    filter_information: "03H 8AH 00H 00H 00H 8DH",
+    projector_information: "03H 8AH 00H 00H 00H 8DH",
+
+    background_black: "$03,$B1,$00,$00,$02,$0B,$01,$C2", # set mute to be a black screen
+    background_blue: "$03,$B1,$00,$00,$02,$0B,$00,$C1", # set mute to be a blue screen
+    background_logo: "$03,$B1,$00,$00,$02,$0B,$02,$C3" # set mute to be the company logo
+  }
 
   def power(state : Bool)
     # Do nothing if already in desired state
