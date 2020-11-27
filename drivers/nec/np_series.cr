@@ -2,7 +2,7 @@ require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 
-class Nec::NpSeries < PlaceOS::Driver
+class Nec::Projector < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
@@ -72,24 +72,24 @@ class Nec::NpSeries < PlaceOS::Driver
     # Mute controls
     mute_picture:    "$02,$10,$00,$00,$00,$12",
     unmute_picture:  "$02,$11,$00,$00,$00,$13",
-    mute_audio_cmd:      "02H 12H 00H 00H 00H 14H",
-    unmute_audio:    "02H 13H 00H 00H 00H 15H",
-    mute_onscreen:   "02H 14H 00H 00H 00H 16H",
-    unmute_onscreen: "02H 15H 00H 00H 00H 17H",
+    mute_audio_cmd:  "02 12 00 00 00 14",
+    unmute_audio:    "02 13 00 00 00 15",
+    mute_onscreen:   "02 14 00 00 00 16",
+    unmute_onscreen: "02 15 00 00 00 17",
 
     freeze_picture:   "$01,$98,$00,$00,$01,$01,$9B",
     unfreeze_picture: "$01,$98,$00,$00,$01,$02,$9C",
 
-    status_lamp:  "00H 81H 00H 00H 00H 81H",     # Running sense (ret 81)
+    status_lamp:  Bytes[0x00, 0x81, 0x00, 0x00, 0x00, 0x81], # Running sense (ret 81)
     status_input: "$00,$85,$00,$00,$01,$02,$88", # Input status (ret 85)
-    status_mute:  "00H 85H 00H 00H 01H 03H 89H", # MUTE STATUS REQUEST (Check 10H on byte 5)
-    status_error: "00H 88H 00H 00H 00H 88H",     # ERROR STATUS REQUEST (ret 88)
-    status_model: "00H 85H 00H 00H 01H 04H 8A",  # request model name (both of these are related)
+    status_mute:  "00 85 00 00 01 03 89", # MUTE STATUS REQUEST (Check 10H on byte 5)
+    status_error: "00 88 00 00 00 88",     # ERROR STATUS REQUEST (ret 88)
+    status_model: "00 85 00 00 01 04 8A",  # request model name (both of these are related)
 
     # lamp hours / remaining information
-    lamp_information:      "03H 8AH 00H 00H 00H 8DH", # LAMP INFORMATION REQUEST
-    filter_information:    "03H 8AH 00H 00H 00H 8DH",
-    projector_information: "03H 8AH 00H 00H 00H 8DH",
+    lamp_information:      "03 8A 00 00 00 8D", # LAMP INFORMATION REQUEST
+    filter_information:    "03 8A 00 00 00 8D",
+    projector_information: "03 8A 00 00 00 8D",
 
     background_black: "$03,$B1,$00,$00,$02,$0B,$01,$C2", # set mute to be a black screen
     background_blue:  "$03,$B1,$00,$00,$02,$0B,$00,$C1", # set mute to be a blue screen
@@ -151,12 +151,10 @@ class Nec::NpSeries < PlaceOS::Driver
   def switch_audio(input : Audio)
     # C0 == HDMI Audio
     command = Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0xC0, input.value]
-    send_checksum(command, name: :switch_audio)
+    send_checksum(command, name: "switch_audio")
   end
 
   def power(state : Bool)
-    #:lamp_on =>        "$02,$00,$00,$00,$00,$02",
-    #:lamp_off =>        "$02,$01,$00,$00,$00,$03",
     @power_target = state
 
     if state
@@ -197,7 +195,40 @@ class Nec::NpSeries < PlaceOS::Driver
     end
   end
 
+  # Values of first byte in response of successful commands
+  enum Success
+    Status = 0x20
+    Freeze = 0x21
+    Mute   = 0x22
+    Lamp   = 0x23
+  end
+
+  enum Response
+    Power = 0x81
+    Error = 0x88
+    SetInput = 0x03
+    Lamp = 0x00
+    Lamp2 = 0x01
+    Mute = 0x10
+    Mute1 = 0x11
+    Mute2 = 0x12
+    Mute3 = 0x13
+    Mute4 = 0x14
+    Mute5 = 0x15
+  end
+
   def received(data, task)
+    logger.debug { "NEC projector sent: 0x#{data.hexstring}" }
+
+    # Only process response if successful
+    # Otherwise return success to prevent retries on commands we were not expecting
+    return task.try(&.success) unless Success.from_value?(data[0]) && (resp = Response.from_value?(data[1]))
+
+    case resp
+    when .power?
+    end
+
+    task.try(&.success)
   end
 
   private def check_checksum(data : Bytes)

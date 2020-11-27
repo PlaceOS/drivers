@@ -1,4 +1,4 @@
-DriverSpecs.mock_driver "Nec::NpSeries" do
+DriverSpecs.mock_driver "Nec::Projector" do
   # # do_poll
   # # power?
   # should_send("\x010*0A06\x0201D6\x03\x1F\x0D")
