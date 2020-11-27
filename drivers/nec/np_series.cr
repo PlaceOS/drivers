@@ -4,7 +4,7 @@ require "placeos-driver/interface/switchable"
 
 class Nec::NpSeries < PlaceOS::Driver
   include Interface::Powerable
-  include Interface::AudioMuteable
+  include Interface::Muteable
 
   enum Input
     Vga         =   1
@@ -76,31 +76,74 @@ class Nec::NpSeries < PlaceOS::Driver
   # Second byte used to detect command type
   COMMAND = {
     # Mute controls
-    mute_picture: "$02,$10,$00,$00,$00,$12",
-    unmute_picture: "$02,$11,$00,$00,$00,$13",
-    mute_audio_cmd: "02H 12H 00H 00H 00H 14H",
-    unmute_audio: "02H 13H 00H 00H 00H 15H",
-    mute_onscreen: "02H 14H 00H 00H 00H 16H",
+    mute_picture:    "$02,$10,$00,$00,$00,$12",
+    unmute_picture:  "$02,$11,$00,$00,$00,$13",
+    mute_audio_cmd:      "02H 12H 00H 00H 00H 14H",
+    unmute_audio:    "02H 13H 00H 00H 00H 15H",
+    mute_onscreen:   "02H 14H 00H 00H 00H 16H",
     unmute_onscreen: "02H 15H 00H 00H 00H 17H",
 
-    freeze_picture: "$01,$98,$00,$00,$01,$01,$9B",
+    freeze_picture:   "$01,$98,$00,$00,$01,$01,$9B",
     unfreeze_picture: "$01,$98,$00,$00,$01,$02,$9C",
 
-    status_lamp: "00H 81H 00H 00H 00H 81H", # Running sense (ret 81)
+    status_lamp:  "00H 81H 00H 00H 00H 81H",     # Running sense (ret 81)
     status_input: "$00,$85,$00,$00,$01,$02,$88", # Input status (ret 85)
-    status_mute: "00H 85H 00H 00H 01H 03H 89H", # MUTE STATUS REQUEST (Check 10H on byte 5)
-    status_error: "00H 88H 00H 00H 00H 88H", # ERROR STATUS REQUEST (ret 88)
-    status_model: "00H 85H 00H 00H 01H 04H 8A", # request model name (both of these are related)
+    status_mute:  "00H 85H 00H 00H 01H 03H 89H", # MUTE STATUS REQUEST (Check 10H on byte 5)
+    status_error: "00H 88H 00H 00H 00H 88H",     # ERROR STATUS REQUEST (ret 88)
+    status_model: "00H 85H 00H 00H 01H 04H 8A",  # request model name (both of these are related)
 
     # lamp hours / remaining information
-    lamp_information: "03H 8AH 00H 00H 00H 8DH", # LAMP INFORMATION REQUEST
-    filter_information: "03H 8AH 00H 00H 00H 8DH",
+    lamp_information:      "03H 8AH 00H 00H 00H 8DH", # LAMP INFORMATION REQUEST
+    filter_information:    "03H 8AH 00H 00H 00H 8DH",
     projector_information: "03H 8AH 00H 00H 00H 8DH",
 
     background_black: "$03,$B1,$00,$00,$02,$0B,$01,$C2", # set mute to be a black screen
-    background_blue: "$03,$B1,$00,$00,$02,$0B,$00,$C1", # set mute to be a blue screen
-    background_logo: "$03,$B1,$00,$00,$02,$0B,$02,$C3" # set mute to be the company logo
+    background_blue:  "$03,$B1,$00,$00,$02,$0B,$00,$C1", # set mute to be a blue screen
+    background_logo:  "$03,$B1,$00,$00,$02,$0B,$02,$C3", # set mute to be the company logo
   }
+
+  {% for name, data in COMMAND %}
+    def {{name.id}}(**options)
+      send(COMMAND[{{name.id}}], **options, name: {{name.id.stringify}})
+    end
+  {% end %}
+
+  def volume(vol : Int32)
+    #         volume base command              D1    D2    D3    D4    D5 + CKS
+    command = [0x03, 0x10, 0x00, 0x00, 0x05, 0x05, 0x00, 0x00, 0x00, 0x00]
+    # D3 = 00 (absolute vol) or 01 (relative vol)
+    # D4 = value (lower bits 0 to 63)
+    # D5 = value (higher bits always 00h)
+
+    vol = vol.clamp(@volume_min, @volume_max)
+    command[-2] = vol
+
+    send_checksum(command)
+    self[:volume] = vol
+  end
+
+  # Mutes both audio/video
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    mute_video(state) if layer.video? || layer.audio_video?
+    mute_audio(state) if layer.audio? || layer.audio_video?
+  end
+
+  def mute_video(state : Bool)
+    if state
+      mute_picture
+      mute_onscreen
+    else
+      unmute_picture
+    end
+  end
+
+  def mute_audio(state : Bool)
+    state ? mute_audio_cmd : unmute_audio
+  end
 
   def power(state : Bool)
     # Do nothing if already in desired state
@@ -167,12 +210,6 @@ class Nec::NpSeries < PlaceOS::Driver
     data = MsgType::SetParameter.build(Command::VolumeStatus, val.clamp(0, 100))
     send(data, name: "volume")
     send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
-  end
-
-  def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    logger.debug { "requested to update mute to #{state}" }
-    data = MsgType::SetParameter.build(Command::MuteStatus, state ? 1 : 0)
-    send(data, name: "mute_audio")
   end
 
   def do_poll
