@@ -28,7 +28,7 @@ class Nec::Projector < PlaceOS::Driver
 
   default_settings({
     volume_min: 0,
-    volume_max: 63,
+    volume_max: 63
   })
 
   @power_target : Bool? = nil
@@ -93,7 +93,7 @@ class Nec::Projector < PlaceOS::Driver
 
     background_black: "$03,$B1,$00,$00,$02,$0B,$01,$C2", # set mute to be a black screen
     background_blue:  "$03,$B1,$00,$00,$02,$0B,$00,$C1", # set mute to be a blue screen
-    background_logo:  "$03,$B1,$00,$00,$02,$0B,$02,$C3", # set mute to be the company logo
+    background_logo:  "$03,$B1,$00,$00,$02,$0B,$02,$C3"  # set mute to be the company logo
   }
 
   {% for name, data in COMMAND %}
