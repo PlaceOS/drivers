@@ -81,10 +81,10 @@ class Nec::Projector < PlaceOS::Driver
     unfreeze_picture: "$01,$98,$00,$00,$01,$02,$9C",
 
     status_lamp:  Bytes[0x00, 0x81, 0x00, 0x00, 0x00, 0x81], # Running sense (ret 81)
-    status_input: "$00,$85,$00,$00,$01,$02,$88", # Input status (ret 85)
-    status_mute:  "00 85 00 00 01 03 89", # MUTE STATUS REQUEST (Check 10H on byte 5)
-    status_error: "00 88 00 00 00 88",     # ERROR STATUS REQUEST (ret 88)
-    status_model: "00 85 00 00 01 04 8A",  # request model name (both of these are related)
+    status_input: "$00,$85,$00,$00,$01,$02,$88",             # Input status (ret 85)
+    status_mute:  "00 85 00 00 01 03 89",                    # MUTE STATUS REQUEST (Check 10H on byte 5)
+    status_error: "00 88 00 00 00 88",                       # ERROR STATUS REQUEST (ret 88)
+    status_model: "00 85 00 00 01 04 8A",                    # request model name (both of these are related)
 
     # lamp hours / remaining information
     lamp_information:      "03 8A 00 00 00 8D", # LAMP INFORMATION REQUEST
@@ -213,7 +213,7 @@ class Nec::Projector < PlaceOS::Driver
 
   # Values of first byte in response of successful commands
   enum Success
-    Query = 0x20
+    Query  = 0x20
     Freeze = 0x21
     Mute   = 0x22
     Lamp   = 0x23
@@ -223,9 +223,9 @@ class Nec::Projector < PlaceOS::Driver
     Power = 0x81
     Error = 0x88
     Input = 0x03
-    Lamp = 0x00
+    Lamp  = 0x00
     Lamp2 = 0x01
-    Mute = 0x10
+    Mute  = 0x10
     Mute1 = 0x11
     Mute2 = 0x12
     Mute3 = 0x13
@@ -289,13 +289,13 @@ class Nec::Projector < PlaceOS::Driver
     when .lamp?
       case type.value
       when 0x10
-          # Picture, Volume, Keystone, Image adjust mode
-          #    how to play this?
-          #    TODO:: process volume control
-          return true
+        # Picture, Volume, Keystone, Image adjust mode
+        #    how to play this?
+        #    TODO:: process volume control
+        return true
       when 0x8A
-          # process_projector_information(data, req)
-          return true
+        # process_projector_information(data, req)
+        return true
       when 0xB1
         # This is the audio switch command
         # TODO:: data[-2] == 0:Normal, 1:Error
