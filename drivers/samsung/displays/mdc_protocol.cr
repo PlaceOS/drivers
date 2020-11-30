@@ -222,10 +222,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     hex = data.hexstring
     logger.debug { "Samsung sent: #{hex}" }
 
-    # Calculate checksum of response
-    checksum = data[1..-2].sum(0) & 0xFF
-
-    if data[-1] != checksum
+    # Verify the checksum of the response
+    if data[-1] != (checksum = data[1..-2].sum(0) & 0xFF)
       logger.error { "Invalid response, checksum should be: #{checksum.to_s(16)}" }
       return task.try &.retry
     end
