@@ -195,7 +195,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
               end
 
               if found.empty?
-                logger.debug { "ignoring device #{device_mac} location as map_id is empty, location id #{found}, visit #{payload.visit_id}" }
+                logger.debug { "ignoring device #{device_mac} location as map_id is empty, location id #{payload.location.location_id}, visit #{payload.visit_id}" }
                 next
               end
             end
