@@ -29,7 +29,7 @@ class XYSense::LocationService < PlaceOS::Driver
     },
 
     # You might want to get bookings for the whole building
-    zone_filter: ["placeos-zone-id"]
+    zone_filter: ["placeos-zone-id"],
   })
 
   @floor_mappings : Hash(String, NamedTuple(zone_id: String)) = {} of String => NamedTuple(zone_id: String)
@@ -312,11 +312,11 @@ class XYSense::LocationService < PlaceOS::Driver
           }
         else
           {
-            location:    :area,
-            map_id:      space_name,
-            level:       include_sensor_on,
-            capacity:    capacity,
-            headcount:   space.headcount,
+            location:  :area,
+            map_id:    space_name,
+            level:     include_sensor_on,
+            capacity:  capacity,
+            headcount: space.headcount,
 
             xy_sense_space_id:  space.space_id,
             xy_sense_status:    space.status,
