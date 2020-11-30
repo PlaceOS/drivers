@@ -182,7 +182,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
             existing = nil
 
             # ignore locations where we don't have enough details to put the device on a map
-            if payload.map_id.empty?
+            if payload.map_id.presence
+              @location_id_maps[payload.location.location_id] = payload.map_id
+            else
               loc_id = payload.location.location_id
               if map_id = @location_id_maps[loc_id]?
                 payload.map_id = map_id
@@ -190,8 +192,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
                 logger.debug { "ignoring device #{device_mac} location as map_id is empty, visit id #{payload.visit_id}" }
                 next
               end
-            else
-              @location_id_maps[payload.location.location_id] = payload.map_id
             end
 
             locations do |loc|
