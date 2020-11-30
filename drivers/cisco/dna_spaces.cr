@@ -154,6 +154,10 @@ class Cisco::DNASpaces < PlaceOS::Driver
     ) { stream_events unless @terminated }
   end
 
+  # as sometimes the map id is missing, but in the same location
+  # location id => map id
+  @location_id_maps = {} of String => String
+
   # Processes events as they come in, forces a disconnect if no events are sent
   # for a period of time as the remote should be sending them periodically
   protected def process_events(client)
@@ -176,6 +180,20 @@ class Cisco::DNASpaces < PlaceOS::Driver
             # Keep track of device location
             device_mac = format_mac(payload.device.mac_address)
             existing = nil
+
+            # ignore locations where we don't have enough details to put the device on a map
+            if payload.map_id.empty?
+              loc_id = payload.location.location_id
+              if map_id = @location_id_maps[loc_id]?
+                payload.map_id = map_id
+              else
+                logger.debug { "ignoring device #{device_mac} location as map_id is empty, visit id #{payload.visit_id}" }
+                next
+              end
+            else
+              @location_id_maps[payload.location.location_id] = payload.map_id
+            end
+
             locations do |loc|
               existing = loc[device_mac]?
               loc[device_mac] = payload
