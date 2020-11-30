@@ -189,7 +189,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
               if map_id = @location_id_maps[loc_id]?
                 payload.map_id = map_id
               else
-                logger.debug { "ignoring device #{device_mac} location as map_id is empty, visit id #{payload.visit_id}" }
+                logger.debug { "ignoring device #{device_mac} location as map_id is empty, location id #{loc_id}, visit #{payload.visit_id}" }
                 next
               end
             end
