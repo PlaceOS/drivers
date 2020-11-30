@@ -362,7 +362,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
         too_old += 1
         next
       end
-      if !floors.includes?(loc.location_mappings.values)
+      if (floors & loc.location_mappings.values).empty?
         wrong_floor += 1
         next
       end
