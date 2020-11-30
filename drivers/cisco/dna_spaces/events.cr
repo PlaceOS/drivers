@@ -20,7 +20,7 @@ abstract class Cisco::DNASpaces::Events
     "DEVICE_PRESENCE"        => DevicePresenceWrapper,
     "USER_PRESENCE"          => UserPresenceWrapper,
     "APP_ACTIVATION"         => AppActivactionWrapper,
-    "DEVICE_COUNT"           => DeviceCountWrapper
+    "DEVICE_COUNT"           => DeviceCountWrapper,
   }
 
   @[JSON::Field(key: "recordUid")]
