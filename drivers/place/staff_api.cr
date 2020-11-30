@@ -93,7 +93,7 @@ class Place::StaffAPI < PlaceOS::Driver
     # Get the existing bookings from the API to check if there is space
     response = get("/api/staff/v1/bookings", params, {
       "Accept"        => "application/json",
-      "Authorization" => token,
+      "Authorization" => "Bearer #{token}",
     })
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
 
@@ -134,7 +134,7 @@ class Place::StaffAPI < PlaceOS::Driver
     ).as(OAuth2::AccessToken::Bearer)
 
     @access_expires = (access_token.expires_in.not_nil! - 300).seconds.from_now
-    @access_token = "Bearer #{access_token.access_token}"
+    @access_token = access_token.access_token
   end
 
   protected def token : String
