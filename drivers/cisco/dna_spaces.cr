@@ -52,8 +52,29 @@ class Cisco::DNASpaces < PlaceOS::Driver
     schedule.every(30.minutes) { cleanup_caches }
   end
 
+  class LocationInfo
+    include JSON::Serializable
+
+    getter location : Location
+
+    @[JSON::Field(key: "locationDetails")]
+    getter details : LocationDetails
+  end
+
   def get_location_info(location_id : String)
-    Events.from_json(location_id).payload
+    response = get("/api/partners/v1/locations/#{location_id}?partnerTenantId=#{@tenant_id}", headers: {
+      "X-API-KEY" => @api_key,
+    })
+
+    raise "failed to obtain location id #{location_id}, code #{response.status_code}" unless response.success?
+    LocationInfo.from_json(response.body.not_nil!)
+  end
+
+  @description_lock : Mutex = Mutex.new
+  @location_descriptions : Hash(String, String) = {} of String => String
+
+  def seen_locations
+    @description_lock.synchronize { @location_descriptions.dup }
   end
 
   # MAC Address => Location (including user)
@@ -147,6 +168,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
           when DeviceExit
             device_mac = format_mac(payload.device.mac_address)
             locations &.delete(device_mac)
+          when DeviceEntry
+            # This is used entirely for
+            @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
           when DeviceLocationUpdate
             # Keep track of device location
             device_mac = format_mac(payload.device.mac_address)
