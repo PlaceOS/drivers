@@ -1,5 +1,6 @@
 module Cisco; end
 
+require "set"
 require "s2_cells"
 require "simple_retry"
 require "placeos-driver/interface/locatable"
@@ -85,7 +86,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @loc_lock.synchronize { yield @locations }
   end
 
-  @user_lookup : Hash(String, Array(String)) = {} of String => Array(String)
+  @user_lookup : Hash(String, Set(String)) = {} of String => Set(String)
   @user_loc : Mutex = Mutex.new
 
   def user_lookup
@@ -189,17 +190,17 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
                 user_lookup do |lookup|
                   lookup[old_user_id]?.try &.delete(device_mac)
-                  devices = lookup[old_user_id]? || [] of String
+                  devices = lookup[old_user_id]? || Set(String).new
                   devices.delete(device_mac)
                   lookup.delete(old_user_id) if devices.empty?
 
-                  devices = lookup[user_id]? || [] of String
+                  devices = lookup[user_id]? || Set(String).new
                   devices << device_mac
                   lookup[user_id] = devices
                 end
               else
                 user_lookup do |lookup|
-                  devices = lookup[user_id]? || [] of String
+                  devices = lookup[user_id]? || Set(String).new
                   devices << device_mac
                   lookup[user_id] = devices
                 end
@@ -322,7 +323,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   # Will return an array of MAC address strings
   # lowercase with no seperation characters abcdeffd1234 etc
   def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
-    user_lookup(username.presence || email.presence.not_nil!) || [] of String
+    user_lookup(username.presence || email.presence.not_nil!).try(&.to_a) || [] of String
   end
 
   # Will return `nil` or `{"location": "wireless", "assigned_to": "bob123", "mac_address": "abcd"}`
