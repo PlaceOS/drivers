@@ -20,6 +20,7 @@ abstract class Cisco::DNASpaces::Events
     "DEVICE_PRESENCE"        => DevicePresenceWrapper,
     "USER_PRESENCE"          => UserPresenceWrapper,
     "APP_ACTIVATION"         => AppActivactionWrapper,
+    "DEVICE_COUNT"           => DeviceCountWrapper
   }
 
   @[JSON::Field(key: "recordUid")]
@@ -107,4 +108,11 @@ class Cisco::DNASpaces::AppActivactionWrapper < Cisco::DNASpaces::Events
 
   @[JSON::Field(key: "appActivation")]
   getter payload : AppActivaction
+end
+
+class Cisco::DNASpaces::DeviceCountWrapper < Cisco::DNASpaces::Events
+  getter eventType : String = "DEVICE_COUNT"
+
+  @[JSON::Field(key: "deviceCounts")]
+  getter payload : DeviceCount
 end
