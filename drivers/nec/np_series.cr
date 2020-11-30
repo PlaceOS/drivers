@@ -219,19 +219,19 @@ class Nec::Projector < PlaceOS::Driver
     Lamp   = 0x23
   end
 
-  enum Type
-    Power = 0x81
-    Error = 0x88
-    Input = 0x03
-    Lamp  = 0x00
-    Lamp2 = 0x01
-    Mute  = 0x10
-    Mute1 = 0x11
-    Mute2 = 0x12
-    Mute3 = 0x13
-    Mute4 = 0x14
-    Mute5 = 0x15
-  end
+  # enum Type
+  #   Power = 0x81
+  #   Error = 0x88
+  #   Input = 0x03
+  #   Lamp  = 0x00
+  #   Lamp2 = 0x01
+  #   Mute  = 0x10
+  #   Mute1 = 0x11
+  #   Mute2 = 0x12
+  #   Mute3 = 0x13
+  #   Mute4 = 0x14
+  #   Mute5 = 0x15
+  # end
 
   private def process_response(data, task, req = nil)
     logger.debug { "NEC projector sent: 0x#{data.hexstring}" }
@@ -254,17 +254,18 @@ class Nec::Projector < PlaceOS::Driver
 
     # Only process response if successful
     # Otherwise return success to prevent retries on commands we were not expecting
-    return task.try(&.success) unless (s = Success.from_value?(data[0])) && (type = Type.from_value?(data[1]))
+    return task.try(&.success) unless (s = Success.from_value?(data[0]))# && (type = Type.from_value?(data[1]))
 
     case s
     when .query?
-      case type
-      when .power?
-      when .error?
+      case data[1]
+      when 0x81
+        return process_power_status(data, task)
+      when 0x88 # TODO
+        # return process_error_status(data, task)
       when 0x85
         # Return if we can't work out what was requested initially
         return task.try(&.success) unless req
-
         case req[-2]
         when 0x02
           return process_input_state(data, task)
@@ -274,12 +275,12 @@ class Nec::Projector < PlaceOS::Driver
       end
     when .freeze? # TODO
     when .mute?
-      case type
-      when .input?
+      case data[1]
+      when 0x03
         return process_input_switch(data, task, req)
-      when .lamp?, .lamp2?
+      when (0..1)
         return process_lamp_command(data, task, req)
-      when .mute?, .mute1?, .mute2?, .mute3?, .mute4?, .mute5?
+      when (0x10..0x15)
         status_mute # update mute status's (dry)
         return task.try(&.success)
       end
@@ -290,7 +291,7 @@ class Nec::Projector < PlaceOS::Driver
         # how to play this?
         # TODO:: process volume control
         return task.try(&.success)
-      when 0x8A
+      when 0x8A # TODO
         # process_projector_information(data, req)
         return task.try(&.success)
       when 0xB1
@@ -306,6 +307,51 @@ class Nec::Projector < PlaceOS::Driver
 
   def received(data, task)
     process_response(data, task)
+  end
+
+  # Process the lamp status response
+  # Intimately entwined with the power power command
+  # (as we need to control ensure we are in the correct target state)
+  private def process_power_status(data, task)
+    logger.debug { "-- NEC projector sent a response to a power status command" }
+
+    self[:power] = (data[-2] & 0b10) > 0x0
+
+    # Projector cooling || power on off processing
+    if (data[-2] & 0b100000) > 0 || (data[-2] & 0b10000000) > 0
+      if @power_target
+        self[:cooling] = false
+        self[:warming] = true
+        logger.debug { "power warming..." }
+      else
+        self[:warming] = false
+        self[:cooling] = true
+        logger.debug  { "power cooling..." }
+      end
+
+      schedule.in(3.seconds) { power? }
+    # Signal processing
+    elsif (data[-2] & 0b1000000) > 0
+      schedule.in(3.seconds) { power? }
+    else # We are in a stable state!
+      if power_target = @power_target
+        if self[:power] == power_target
+          @power_target = nil
+        else # We are in an undesirable state and will try to correct it
+          logger.debug { "NEC projector in an undesirable power state... (Correcting)" }
+          power(power_target)
+        end
+      else
+        logger.debug { "NEC projector is in a good power state..." }
+        self[:warming] = false
+        self[:cooling] = false
+        # Ensure the input is in the correct state unless the lamp is off
+        status_input if self[:power]?.try(&.as_bool) # calls status mute
+      end
+    end
+
+    logger.debug { "Current state {power: #{self[:power]}, warming: #{self[:warming]}, cooling: #{self[:cooling]}}" }
+    task.try(&.success)
   end
 
   # NEC has different values for the input status when compared to input selection  
