@@ -176,7 +176,7 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def power?(**options) : Bool
-    send_checksum(COMMAND[:status_lamp], **options)
+    send_checksum(COMMAND[:status_lamp], **options).get
     !!self[:power]?.try(&.as_bool)
   end
 
@@ -267,40 +267,37 @@ class Nec::Projector < PlaceOS::Driver
 
         case req[-2]
         when 0x02
-          return process_input_state(data, task, req)
+          return process_input_state(data, task)
         when 0x03
-          # process_mute_state(data, req)
-          return true
+          return process_mute_state(data, task)
         end
       end
-    when .freeze?
-      # TODO
+    when .freeze? # TODO
     when .mute?
       case type
       when .input?
-        # return process_input_switch(data, req)
+        return process_input_switch(data, task, req)
       when .lamp?, .lamp2?
-        # process_lamp_command(data, req)
-        return true
+        return process_lamp_command(data, task, req)
       when .mute?, .mute1?, .mute2?, .mute3?, .mute4?, .mute5?
         status_mute # update mute status's (dry)
-        return true
+        return task.try(&.success)
       end
     when .lamp?
-      case type.value
+      case data[1] # TODO: add these cases to Type
       when 0x10
         # Picture, Volume, Keystone, Image adjust mode
-        #    how to play this?
-        #    TODO:: process volume control
-        return true
+        # how to play this?
+        # TODO:: process volume control
+        return task.try(&.success)
       when 0x8A
         # process_projector_information(data, req)
-        return true
+        return task.try(&.success)
       when 0xB1
         # This is the audio switch command
         # TODO:: data[-2] == 0:Normal, 1:Error
         # If error do we retry? Or does it mean something else
-        return true
+        return task.try(&.success)
       end
     end
 
@@ -333,7 +330,7 @@ class Nec::Projector < PlaceOS::Driver
       0x04 => Input::Component
     }
   }
-  private def process_input_state(data, task, req)
+  private def process_input_state(data, task)
     return task.try(&.success) unless self[:power]?.try(&.as_bool) && (first = INPUT_MAP[data[-15]])
 
     logger.debug { "-- NEC projector sent a response to an input state command" }
@@ -361,6 +358,33 @@ class Nec::Projector < PlaceOS::Driver
       end
     end
 
+    task.try(&.success)
+  end
+
+  private def process_mute_state(data, task)
+    logger.debug { "-- NEC projector responded to mute state command" }
+    self[:picture_mute] = data[-17] == 0x01
+    self[:audio_mute] = data[-16] == 0x01
+    self[:onscreen_mute] = data[-15] == 0x01
+    self[:mute] = data[-17] == 0x01 # Same as picture mute
+    task.try(&.success)
+  end
+
+  private def process_input_switch(data, task, req)
+    logger.debug { "-- NEC projector responded to switch input command" }
+    if data[-2] != 0xFF
+        status_input # Double check with a status update
+        return task.try(&.success)
+    end
+    task.try(&.retry("-- NEC projector failed to switch input with command: #{req.try(&.hexstring) || "unknown"}"))
+  end
+
+  private def process_lamp_command(data, task, req)
+    logger.debug { "-- NEC projector sent a response to a power command" }
+    # Ensure a change of power state was the last command sent
+    if req && (0..1).includes?(req[1])
+      power? # Queues the status power command
+    end
     task.try(&.success)
   end
 end
