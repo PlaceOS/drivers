@@ -46,7 +46,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
     @s2_level = setting?(Int32, :s2_level) || 21
     @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
-    @debug_webhook = setting?(Bool, :debug_stream) || false
+    @debug_stream = setting?(Bool, :debug_stream) || false
 
     schedule.clear
     schedule.every(30.minutes) { cleanup_caches }
