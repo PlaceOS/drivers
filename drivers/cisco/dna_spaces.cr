@@ -185,16 +185,16 @@ class Cisco::DNASpaces < PlaceOS::Driver
             if payload.map_id.presence
               @location_id_maps[payload.location.location_id] = payload.map_id
             else
-              found = ""
+              found = false
               payload.location_mappings.values.each do |loc_id|
                 if map_id = @location_id_maps[loc_id]?
                   payload.map_id = map_id
-                  found = loc_id
+                  found = true
                   break
                 end
               end
 
-              if found.empty?
+              if !found
                 logger.debug { "ignoring device #{device_mac} location as map_id is empty, location id #{payload.location.location_id}, visit #{payload.visit_id}" }
                 next
               end
