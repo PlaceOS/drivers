@@ -20,9 +20,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     timezone:         "GMT",
     date_time_format: "%c",
     time_format:      "%l:%M%p",
-    date_format:      "%A, %-d %B"
+    date_format:      "%A, %-d %B",
   })
-
 
   accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
 
@@ -50,7 +49,6 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   @visitor_emails_sent : UInt64 = 0_u64
   @visitor_email_errors : UInt64 = 0_u64
-
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
   @date_time_format : String = "%c"
@@ -108,32 +106,30 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.attendee_name,
         guest_details.host,
         guest_details.event_id,
-        #guest_details.event_title,
+        # guest_details.event_title,
         guest_details.event_starting,
         guest_details.system_id,
       )
     end
-
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
-    self[:last_error]  = {
+    self[:last_error] = {
       error: error.message,
       time:  Time.local.to_s,
       user:  payload,
     }
   end
-  
 
   @[Security(Level::Support)]
   def send_visitor_qr_email(
     visitor_email : String,
-    visitor_name :  String,
-    host_email :    String,
-    event_id :      String,
+    visitor_name : String,
+    host_email : String,
+    event_id : String,
     # event_title :   String,
-    event_start :   Int64,
-    system_id :     String,
+    event_start : Int64,
+    system_id : String
   )
     room = get_room_details(system_id)
 
@@ -143,28 +139,25 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     mailer.send_template(
       visitor_email,
-      {"visitor_invited","visitor"},    # Template selection: "visitor_invited" action, "visitor" email
+      {"visitor_invited", "visitor"}, # Template selection: "visitor_invited" action, "visitor" email
       {
-        visitor_email: visitor_email,
-        visitor_name:  visitor_name,
-        host_name:     get_host_name(host_email),
-        room_name:     room.display_name.presence || room.name,
-        # event_title:   event_title,
-        event_start:   local_start_time.to_s(@time_format),
-        event_date:    local_start_time.to_s(@date_format)
-      },
+      visitor_email: visitor_email,
+      visitor_name:  visitor_name,
+      host_name:     get_host_name(host_email),
+      room_name:     room.display_name.presence || room.name,
+      # event_title:   event_title,
+      event_start: local_start_time.to_s(@time_format),
+      event_date:  local_start_time.to_s(@date_format),
+    },
       [
         {
           file_name:  "qr.png",
           content:    qr_png,
           content_id: visitor_email,
-        }
+        },
       ]
     )
   end
-
-
-
 
   # ===================================
   # PLACEOS API AUTHENTICATION:
@@ -200,8 +193,6 @@ class Place::VisitorMailer < PlaceOS::Driver
   protected def valid_token?
     Time.utc < @access_expires
   end
-
-
 
   # ===================================
   # PlaceOS API requests
@@ -240,8 +231,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
   end
 
-
-
   protected def get_host_name(host_email, retries = 0)
     # Grab the room details
     response = get("/api/staff/v1/people/#{host_email}", headers: {
@@ -269,8 +258,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
   end
 end
-
-
 
 # Deal with bad SSL certificate
 class OpenSSL::SSL::Context::Client

@@ -129,7 +129,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     SimpleRetry.try_to(
       base_interval: 10.milliseconds,
       max_interval: 5.seconds
-      ) { stream_events unless @terminated }
+    ) { stream_events unless @terminated }
   end
 
   # Processes events as they come in, forces a disconnect if no events are sent
