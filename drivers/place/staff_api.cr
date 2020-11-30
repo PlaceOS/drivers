@@ -97,18 +97,7 @@ class Place::StaffAPI < PlaceOS::Driver
     })
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
 
-    bookings = Array(Booking).from_json(response.body)
-
-    new_bookings = Hash(String, Array(Booking)).new do |hash, key|
-      hash[key] = [] of Booking
-    end
-
-    bookings.each do |booking|
-      next if booking.rejected
-      new_bookings[booking.user_email] << booking
-    end
-
-    new_bookings
+    Array(Booking).from_json(response.body)
   end
 
   # For accessing PlaceOS APIs
