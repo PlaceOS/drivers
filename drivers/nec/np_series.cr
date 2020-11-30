@@ -213,13 +213,13 @@ class Nec::Projector < PlaceOS::Driver
 
   # Values of first byte in response of successful commands
   enum Success
-    Status = 0x20
+    Query = 0x20
     Freeze = 0x21
     Mute   = 0x22
     Lamp   = 0x23
   end
 
-  enum Response
+  enum Type
     Power = 0x81
     Error = 0x88
     Input = 0x03
@@ -236,6 +236,7 @@ class Nec::Projector < PlaceOS::Driver
   private def process_response(data, task, req = nil)
     logger.debug { "NEC projector sent: 0x#{data.hexstring}" }
 
+    # Command failed
     if (data[0] & 0xA0) == 0xA0
       # We were changing power state at time of failure we should keep trying
       if req && [0x00, 0x01].includes?(req[1])
@@ -243,60 +244,67 @@ class Nec::Projector < PlaceOS::Driver
         power?
         return task.try(&.success)
       end
-      # logger.warn "-- NEC projector, sent fail code for command: 0x#{byte_to_hex(req)}" if req
-      # logger.warn "-- NEC projector, response was: 0x#{byte_to_hex(response)}"
-      return task.try(&.abort)
+      return task.try(&.abort("-- NEC projector, sent fail code for command: 0x#{req.try(&.hexstring) || "unknown"}"))
     end
 
-    # Check checksum
+    # Verify checksum
     unless check_checksum(data)
-      # logger.warn "-- NEC projector, checksum failed for command: 0x#{byte_to_hex(req)}" if req
-      return task.try(&.abort)
+      return task.try(&.abort("-- NEC projector, checksum failed for command: 0x#{req.try(&.hexstring) || "unknown"}"))
     end
 
     # Only process response if successful
     # Otherwise return success to prevent retries on commands we were not expecting
-    return task.try(&.success) unless Success.from_value?(data[0]) && (resp = Response.from_value?(data[1]))
+    return task.try(&.success) unless (s = Success.from_value?(data[0])) && (type = Type.from_value?(data[1]))
 
-    case resp
-    when .power?
-    when .error?
-    # when 0x85
-    #   # Return if we can't work out what was requested initially
-    #   return true unless req
+    case s
+    when .query?
+      case type
+      when .power?
+      when .error?
+      when 0x85
+        # Return if we can't work out what was requested initially
+        return task.try(&.success) unless req
 
-    #   case req[-2]
-    #       when 0x02
-    #           return process_input_state(data, command)
-    #       when 0x03
-    #           process_mute_state(data, req)
-    #           return true
-    #   end
-    when .input?
-    when .lamp?, .lamp2?
-    when .mute?, .mute1?, .mute2?, .mute3?, .mute4?, .mute5?
-    when 0x23
-      # case data[1]
-      # when 0x10
-      #     #
-      #     # Picture, Volume, Keystone, Image adjust mode
-      #     #    how to play this?
-      #     #
-      #     #    TODO:: process volume control
-      #     #
-      #     return true
-      # when 0x8A
-      #     process_projector_information(data, req)
-      #     return true
-
-      # when 0xB1
-      #     # This is the audio switch command
-      #     # TODO:: data[-2] == 0:Normal, 1:Error
-      #     # If error do we retry? Or does it mean something else
-      #     return true
+        case req[-2]
+        when 0x02
+          # return process_input_state(data, command)
+        when 0x03
+          # process_mute_state(data, req)
+          return true
+        end
+      end
+    when .freeze?
+      # TODO
+    when .mute?
+      case type
+      when .input?
+        # return process_input_switch(data, req)
+      when .lamp?, .lamp2?
+        # process_lamp_command(data, req)
+        return true
+      when .mute?, .mute1?, .mute2?, .mute3?, .mute4?, .mute5?
+        status_mute # update mute status's (dry)
+        return true
+      end
+    when .lamp?
+      case type.value
+      when 0x10
+          # Picture, Volume, Keystone, Image adjust mode
+          #    how to play this?
+          #    TODO:: process volume control
+          return true
+      when 0x8A
+          # process_projector_information(data, req)
+          return true
+      when 0xB1
+        # This is the audio switch command
+        # TODO:: data[-2] == 0:Normal, 1:Error
+        # If error do we retry? Or does it mean something else
+        return true
+      end
     end
 
-    task.try(&.success)
+    task.try(&.success("-- NEC projector, no status updates defined for response for command: 0x#{req.try(&.hexstring) || "unknown"}"))
   end
 
   def received(data, task)
