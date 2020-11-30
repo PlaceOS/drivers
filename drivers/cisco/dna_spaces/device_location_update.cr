@@ -21,7 +21,7 @@ class Cisco::DNASpaces::DeviceLocationUpdate
   getter device_classification : String
 
   @[JSON::Field(key: "mapId")]
-  getter map_id : String
+  property map_id : String
 
   @[JSON::Field(key: "xPos")]
   getter x_pos : Float64
