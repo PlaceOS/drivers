@@ -239,7 +239,7 @@ class Nec::Projector < PlaceOS::Driver
     # Command failed
     if (data[0] & 0xA0) == 0xA0
       # We were changing power state at time of failure we should keep trying
-      if req && [0x00, 0x01].includes?(req[1])
+      if req && (0..1).includes?(req[1])
         # command[:delay_on_receive] = 6000
         power?
         return task.try(&.success)
@@ -267,7 +267,7 @@ class Nec::Projector < PlaceOS::Driver
 
         case req[-2]
         when 0x02
-          # return process_input_state(data, command)
+          return process_input_state(data, task, req)
         when 0x03
           # process_mute_state(data, req)
           return true
@@ -309,5 +309,58 @@ class Nec::Projector < PlaceOS::Driver
 
   def received(data, task)
     process_response(data, task)
+  end
+
+  # NEC has different values for the input status when compared to input selection  
+  INPUT_MAP = {
+    0x01 => {
+      0x01 => Input::VGA,
+      0x02 => Input::Composite,
+      0x03 => Input::SVideo,
+      0x06 => Input::HDMI,
+      0x07 => Input::Viewer,
+      0x21 => Input::HDMI,
+      0x22 => Input::DisplayPort
+    },
+    0x02 => {
+      0x01 => Input::RGBHV,
+      0x04 => Input::Component2,
+      0x06 => Input::HDMI2,
+      0x07 => Input::LAN,
+      0x21 => Input::HDMI2
+    },
+    0x03 => {
+      0x04 => Input::Component
+    }
+  }
+  private def process_input_state(data, task, req)
+    return task.try(&.success) unless self[:power]?.try(&.as_bool) && (first = INPUT_MAP[data[-15]])
+
+    logger.debug { "-- NEC projector sent a response to an input state command" }
+
+    self[:input] = current_input = first[data[-14]] || "unknown"
+    if data[-17] == 0x01
+      # TODO
+      # command[:delay_on_receive] = 3000 # still processing signal
+      status_input
+    else
+      status_mute # get mute status one signal has settled
+    end
+
+    logger.debug { "The input selected was: #{current_input}" }
+
+    # Notify of bad input selection for debugging
+    # We ensure at the very least power state and input are always correct
+    if (input_target = @input_target)
+      # If we have reached the input_target, clear @input_target so input can be set again
+      if current_input == input_target
+        @input_target = nil
+      else
+        logger.debug { "-- NEC input state may not be correct, desired: #{input_target} current: #{current_input}" }
+        switch_to(input_target)
+      end
+    end
+
+    task.try(&.success)
   end
 end
