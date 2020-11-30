@@ -195,6 +195,22 @@ class Nec::Projector < PlaceOS::Driver
     end
   end
 
+  private def check_checksum(data : Bytes)
+    # Loop through the second to the third last element
+    checksum = data[1..-3].reduce { |a, b| a ^ b }
+    # Check the checksum equals the second last element
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless checksum == data[-2]
+    checksum == data[-2]
+  end
+
+  private def send_checksum(command, **options)
+    command = command.delete(' ').hexbytes if command.is_a?(String)
+    req = Bytes.new(command.size + 1)
+    req.copy_from(command)
+    req[-1] = command.reduce(&.+)
+    send(req, **options) { |data, task| process_response(data, task, req) }
+  end
+
   # Values of first byte in response of successful commands
   enum Success
     Status = 0x20
@@ -206,7 +222,7 @@ class Nec::Projector < PlaceOS::Driver
   enum Response
     Power = 0x81
     Error = 0x88
-    SetInput = 0x03
+    Input = 0x03
     Lamp = 0x00
     Lamp2 = 0x01
     Mute = 0x10
@@ -217,8 +233,26 @@ class Nec::Projector < PlaceOS::Driver
     Mute5 = 0x15
   end
 
-  def received(data, task)
+  private def process_response(data, task, req = nil)
     logger.debug { "NEC projector sent: 0x#{data.hexstring}" }
+
+    if (data[0] & 0xA0) == 0xA0
+      # We were changing power state at time of failure we should keep trying
+      if req && [0x00, 0x01].includes?(req[1])
+        # command[:delay_on_receive] = 6000
+        power?
+        return task.try(&.success)
+      end
+      # logger.warn "-- NEC projector, sent fail code for command: 0x#{byte_to_hex(req)}" if req
+      # logger.warn "-- NEC projector, response was: 0x#{byte_to_hex(response)}"
+      return task.try(&.abort)
+    end
+
+    # Check checksum
+    unless check_checksum(data)
+      # logger.warn "-- NEC projector, checksum failed for command: 0x#{byte_to_hex(req)}" if req
+      return task.try(&.abort)
+    end
 
     # Only process response if successful
     # Otherwise return success to prevent retries on commands we were not expecting
@@ -226,24 +260,46 @@ class Nec::Projector < PlaceOS::Driver
 
     case resp
     when .power?
+    when .error?
+    # when 0x85
+    #   # Return if we can't work out what was requested initially
+    #   return true unless req
+
+    #   case req[-2]
+    #       when 0x02
+    #           return process_input_state(data, command)
+    #       when 0x03
+    #           process_mute_state(data, req)
+    #           return true
+    #   end
+    when .input?
+    when .lamp?, .lamp2?
+    when .mute?, .mute1?, .mute2?, .mute3?, .mute4?, .mute5?
+    when 0x23
+      # case data[1]
+      # when 0x10
+      #     #
+      #     # Picture, Volume, Keystone, Image adjust mode
+      #     #    how to play this?
+      #     #
+      #     #    TODO:: process volume control
+      #     #
+      #     return true
+      # when 0x8A
+      #     process_projector_information(data, req)
+      #     return true
+
+      # when 0xB1
+      #     # This is the audio switch command
+      #     # TODO:: data[-2] == 0:Normal, 1:Error
+      #     # If error do we retry? Or does it mean something else
+      #     return true
     end
 
     task.try(&.success)
   end
 
-  private def check_checksum(data : Bytes)
-    # Loop through the second to the third last element
-    checksum = data[1..-3].reduce { |a, b| a ^ b }
-    # Check the checksum equals the second last element
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless checksum == data[-2]
-    checksum == data[-2]
-  end
-
-  private def send_checksum(command, **options)
-    command = command.delete(' ').hexbytes if command.is_a?(String)
-    data = Bytes.new(command.size + 1)
-    data.copy_from(command)
-    data[-1] = command.reduce(&.+)
-    send(data, **options)
+  def received(data, task)
+    process_response(data, task)
   end
 end
