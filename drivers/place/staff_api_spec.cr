@@ -29,28 +29,13 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
         "checked_in": true,
         "rejected": false,
         "approved": false
-      },{
-        "id": 5678,
-        "user_id": "user-67890",
-        "user_email": "bob@place.tech",
-        "user_name": "Bob T",
-        "asset_id": "desk-2-13",
-        "zones": ["zone-build1", "zone-level2"],
-        "booking_type": "Bob T",
-        "booking_start": 123456,
-        "booking_end": 12345678,
-        "timezone": "NewZealand/Queenstown",
-        "checked_in": false,
-        "rejected": true,
-        "approved": false
       }])
     else
       response.status_code = 401
     end
   end
 
-  resp.get.should eq(JSON.parse(%({
-    "steve@place.tech": [{
+  resp.get.should eq(JSON.parse(%([{
       "id": 1234,
       "user_id": "user-12345",
       "user_email": "steve@place.tech",
@@ -64,6 +49,5 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "checked_in": true,
       "rejected": false,
       "approved": false
-    }]
-  })))
+    }])))
 end
