@@ -54,9 +54,7 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def connected
-    schedule.every(50.seconds, true) do
-      do_poll
-    end
+    schedule.every(50.seconds, true) { do_poll }
   end
 
   def disconnected
@@ -196,18 +194,17 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   private def check_checksum(data : Bytes)
-    # Loop through the second to the third last element
-    checksum = data[1..-3].reduce { |a, b| a ^ b }
-    # Check the checksum equals the second last element
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless checksum == data[-2]
-    checksum == data[-2]
+    checksum = data.sum(0) & 0xFF
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless result = checksum == data[-2]
+    result
   end
 
   private def send_checksum(command, **options)
     command = command.delete(' ').hexbytes if command.is_a?(String)
     req = Bytes.new(command.size + 1)
     req.copy_from(command)
-    req[-1] = command.reduce(&.+)
+    req[-1] = (command.sum(0) & 0xFF).to_u8
+    logger.debug { "Nec proj sending #{req.hexstring}"}
     send(req, **options) { |data, task| process_response(data, task, req) }
   end
 
@@ -261,8 +258,8 @@ class Nec::Projector < PlaceOS::Driver
       case data[1]
       when 0x81
         return process_power_status(data, task)
-      when 0x88 # TODO
-        # return process_error_status(data, task)
+      when 0x88
+        return process_error_status(data, task)
       when 0x85
         # Return if we can't work out what was requested initially
         return task.try(&.success) unless req
@@ -291,9 +288,8 @@ class Nec::Projector < PlaceOS::Driver
         # how to play this?
         # TODO:: process volume control
         return task.try(&.success)
-      when 0x8A # TODO
-        # process_projector_information(data, req)
-        return task.try(&.success)
+      when 0x8A
+        return process_projector_information(data, task)
       when 0xB1
         # This is the audio switch command
         # TODO:: data[-2] == 0:Normal, 1:Error
@@ -431,6 +427,79 @@ class Nec::Projector < PlaceOS::Driver
     if req && (0..1).includes?(req[1])
       power? # Queues the status power command
     end
+    task.try(&.success)
+  end
+
+  # Provide all the error information required
+  ERROR_CODES = [{
+    0b1 => "Lamp cover error",
+    0b10 => "Temperature error (Bimetal)",
+    #0b100 == not used
+    0b1000 => "Fan Error",
+    0b10000 => "Fan Error",
+    0b100000 => "Power Error",
+    0b1000000 => "Lamp Error",
+    0b10000000 => "Lamp has reached its end of life"
+  }, {
+    0b1 => "Lamp has been used beyond its limit",
+    0b10 => "Formatter error",
+    0b100 => "Lamp no.2 Error"
+  }, {
+    #0b1 => "not used",
+    0b10 => "FPGA error",
+    0b100 => "Temperature error (Sensor)",
+    0b1000 => "Lamp housing error",
+    0b10000 => "Lamp data error",
+    0b100000 => "Mirror cover error",
+    0b1000000 => "Lamp no.2 has reached its end of life",
+    0b10000000 => "Lamp no.2 has been used beyond its limit"
+  }, {
+    0b1 => "Lamp no.2 housing error",
+    0b10 => "Lamp no.2 data error",
+    0b100 => "High temperature due to dust pile-up",
+    0b1000 => "A foreign object sensor error"
+  }]
+  private def process_error_status(data, task)
+    logger.debug { "-- NEC projector sent a response to an error status command" }
+    errors = [] of String
+    error = data[5..8]
+    error.each_index do |byte_no|
+      if error[byte_no] > 0 # run throught each byte
+        ERROR_CODES[byte_no].each_key do |key| # if error indicated run though each key
+          if (key & error[byte_no]) > 0 # check individual bits
+            errors << ERROR_CODES[byte_no][key] # add errors to the error list
+          end
+        end
+      end
+    end
+    self[:error] = errors
+    task.try(&.success)
+  end
+
+  # Process projector information response
+  # lamp1 hours + filter hours
+  private def process_projector_information(data, task)
+    logger.debug { "-- NEC projector sent a response to a projector information command" }
+
+    lamp = 0
+    filter = 0
+
+    # get lamp usage
+    shift = 0
+    data[87..90].each do |byte|
+      lamp += byte << shift
+      shift += 8
+    end
+
+    # get filter usage
+    shift = 0
+    data[91..94].each do |byte|
+      filter += byte << shift
+      shift += 8
+    end
+
+    self[:lamp_usage] = lamp / 3600 # Lamp usage in hours
+    self[:filter_usage] = filter / 3600
     task.try(&.success)
   end
 end
