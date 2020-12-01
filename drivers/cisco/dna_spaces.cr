@@ -111,7 +111,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     {tracking: locations &.size, events_received: @events_received}
   end
 
-  @map_details : Hash(String, MapInfo) = {} of String => MapInfo
+  @map_details : Hash(String, Dimension) = {} of String => Dimension
   @map_lock : Mutex = Mutex.new
 
   def get_map_details(map_id : String)
@@ -125,8 +125,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
         logger.warn { message }
         return nil
       end
-      map = MapInfo.from_json(response.body.not_nil!)
-      @map_lock.synchronize { @map_details[map_id] = map.dimension }
+      map = MapInfo.from_json(response.body.not_nil!).dimension
+      @map_lock.synchronize { @map_details[map_id] = map }
     end
     map
   end
