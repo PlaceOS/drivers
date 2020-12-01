@@ -90,6 +90,13 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.get_directories
   end
 
+  # Perform an arbitrary visitor query.
+  # FIXME: tempory for system debugging
+  @[Security(Level::Administrator)]
+  def __query_visitors(filter : String) : Array(Lnl_Visitor)
+    client.get_instances Lnl_Visitor, filter
+  end
+
   # Gets the version of the attached OnGuard system.
   def version
     client.version
