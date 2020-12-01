@@ -134,4 +134,21 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     body.dig("property_value_map", "id").should eq(1)
     res.status_code = 200
   end
+
+  exec(:__raw_get, resource: "/instances?version=1.0&type_name=Lnl_Visitor&filter=email=\"foo@bar.com\"")
+  expect_http_request do |req, res|
+    req.method.should eq("GET")
+    req.path.should eq("/instances")
+    req.query_params["type_name"]?.should eq("Lnl_Visitor")
+    req.query_params["filter"]?.should eq(%(email="foo@bar.com"))
+    respond_with 200, {
+      total_pages: 1,
+      total_items: 1,
+      count: 1,
+      item_list: [{
+        type_name: "Lnl_Visitor",
+        property_value_map: example_visitor.merge id: 1
+      }]
+    }
+  end
 end

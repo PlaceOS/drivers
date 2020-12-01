@@ -20,6 +20,9 @@ class Lenel::OpenAccess < PlaceOS::Driver
 
   private getter client : OpenAccess::Client do
     transport = PlaceOS::HTTPClient.new self
+    transport.before_request do |req|
+      logger.debug { req.inspect }
+    end
     app_id = setting String, :application_id
     OpenAccess::Client.new transport, app_id
   end
@@ -90,11 +93,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.get_directories
   end
 
-  # Perform an arbitrary visitor query.
+  # Perform an arbitrary get query.
   # FIXME: tempory for system debugging
   @[Security(Level::Administrator)]
-  def __query_visitors(filter : String) : Array(Lnl_Visitor)
-    client.get_instances Lnl_Visitor, filter
+  def __raw_get(resource : String)
+    client.__raw_get resource
   end
 
   # Gets the version of the attached OnGuard system.

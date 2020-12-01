@@ -27,6 +27,12 @@ class Lenel::OpenAccess::Client
   end
 
 
+  # FIXME: temp for debugging
+  def __raw_get(resource : String)
+    ~transport.get(path: resource)
+  end
+
+
   #######
   # Error handling
 
