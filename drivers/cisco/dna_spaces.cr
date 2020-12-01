@@ -325,8 +325,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
         # Add meraki map information to the response
         if map_size = get_map_details(location.map_id)
-          loc["map_width"] = map_size.width
-          loc["map_height"] = map_size.height
+          loc["map_width"] = map_size.length
+          loc["map_height"] = map_size.width
         end
 
         # Add our zone IDs to the response
@@ -403,8 +403,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
       map_height = -1.0
 
       if map_size = get_map_details(map_id)
-        map_width = map_size.width
-        map_height = map_size.height
+        map_width = map_size.length
+        map_height = map_size.width
       end
 
       locations.map do |loc|
