@@ -39,9 +39,9 @@ module Extron::SIS
     end
   end
 
-  alias Input = UInt8
+  alias Input = UInt16
 
-  alias Output = UInt8
+  alias Output = UInt16
 
   # Layers for targetting signal distribution operations.
   enum SwitchLayer : UInt8
@@ -49,6 +49,7 @@ module Extron::SIS
     Aud = 0x24 # '$'
     Vid = 0x25 # '%'
     RGB = 0x26 # '&'
+
     def includes_video?
       All || Vid || RGB
     end
@@ -64,10 +65,8 @@ module Extron::SIS
   # Struct for representing a broadcast signal path, or single output switch.
   record Switch, input : Input, layer : SwitchLayer
 
-  alias IOSize = UInt16
-
   # IO capacity for a switching layer.
-  record MatrixSize, inputs : IOSize, outputs : IOSize
+  record MatrixSize, inputs : Input, outputs : Output
 
   # IO capacity for a full device.
   record SwitcherInformation, video : MatrixSize, audio : MatrixSize
