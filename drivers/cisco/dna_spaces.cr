@@ -126,7 +126,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
         return nil
       end
       map = MapInfo.from_json(response.body.not_nil!)
-      @map_lock.synchronize { @map_details[map_id] = map }
+      @map_lock.synchronize { @map_details[map_id] = map.dimension }
     end
     map
   end
@@ -308,7 +308,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
         loc = {
           "location"         => "wireless",
-          "coordinates_from" => "bottom-left",
+          "coordinates_from" => "top-left",
           "x"                => location.x_pos,
           "y"                => location.y_pos,
           "lon"              => lon,
@@ -325,8 +325,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
         # Add meraki map information to the response
         if map_size = get_map_details(location.map_id)
-          loc["map_width"] = map_size.image_width
-          loc["map_height"] = map_size.image_height
+          loc["map_width"] = map_size.width
+          loc["map_height"] = map_size.height
         end
 
         # Add our zone IDs to the response
@@ -403,8 +403,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
       map_height = -1.0
 
       if map_size = get_map_details(map_id)
-        map_width = map_size.image_width
-        map_height = map_size.image_height
+        map_width = map_size.width
+        map_height = map_size.height
       end
 
       locations.map do |loc|
@@ -413,7 +413,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
         {
           location:         :wireless,
-          coordinates_from: "bottom-left",
+          coordinates_from: "top-left",
           x:                loc.x_pos,
           y:                loc.y_pos,
           lon:              lon,
