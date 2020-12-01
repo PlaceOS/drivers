@@ -98,7 +98,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   # Find a visitor by email address.
   def lookup_visitor(email : String) : Lnl_Visitor?
     visitors = client.get_instances Lnl_Visitor, filter: %(email = "#{email}")
-    logger.warn { "duplicate visitor records exist for #{email}" }
+    logger.warn { "duplicate visitor records exist for #{email}" } if visitors.size > 1
     visitors.first?
   end
 
