@@ -67,9 +67,9 @@ module Extron::SIS::Response
   })
 
   MatrixSize = Parse.do({
-    inputs <= num(IOSize),
+    inputs <= num(Input),
     _ <= Parse.char('X'),
-    outputs <= num(IOSize),
+    outputs <= num(Output),
     Parse.const SIS::MatrixSize.new inputs, outputs,
   })
 
