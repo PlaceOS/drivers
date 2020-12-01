@@ -1,10 +1,10 @@
 DriverSpecs.mock_driver "Nec::Projector" do
   # do_poll
   # power?
-  # exec(:power?)
+  exec(:power?)
   should_send("\x00\x81\x00\x00\x00\x81\x02")
-  # responds("\x0100*B12\x020200D60000040001\x03\x1F\x0D")
-  # status[:power].should eq(true)
+  responds(Bytes[0x20,0x81,0x01,0x00,0x10,0b_0000_0010,0xB4])
+  status[:power].should eq(true)
   # # mute_status
   # should_send("\x010*0C06\x02008D\x03\x12\x0D")
   # responds("\x0100*D12\x0200008D0000000002\x03\x12\x0D")

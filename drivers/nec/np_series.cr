@@ -36,12 +36,9 @@ class Nec::Projector < PlaceOS::Driver
   @volume_min : Int32 = 0
   @volume_max : Int32 = 63
 
-  DELIMITER = 0x0D_u8
-
   def on_load
     # Communication settings
     queue.delay = 100.milliseconds
-    transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
     self[:error] = [] of String
     on_update
   end
@@ -54,7 +51,7 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def connected
-    schedule.every(50.seconds, true) { do_poll }
+    # schedule.every(50.seconds, true) { do_poll }
   end
 
   def disconnected
@@ -108,7 +105,7 @@ class Nec::Projector < PlaceOS::Driver
     # D4 = value (lower bits 0 to 63)
     # D5 = value (higher bits always 00h)
 
-    send_checksum(command)
+    do_send(command)
     self[:volume] = vol
   end
 
@@ -149,7 +146,7 @@ class Nec::Projector < PlaceOS::Driver
   def switch_audio(input : Audio)
     # C0 == HDMI Audio
     command = Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0xC0, input.value]
-    send_checksum(command, name: "switch_audio")
+    do_send(command, name: "switch_audio")
   end
 
   def power(state : Bool)
@@ -174,14 +171,14 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def power?(**options) : Bool
-    send_checksum(COMMAND[:status_lamp], **options).get
+    do_send(COMMAND[:status_lamp], **options).get
     !!self[:power]?.try(&.as_bool)
   end
 
   def switch_to(input : Input)
     @input_target = input
     command = Bytes[0x02, 0x03, 0x00, 0x00, 0x02, 0x01, input.value]
-    send_checksum(command, name: "input")
+    do_send(command, name: "input")
   end
 
   def do_poll
@@ -193,18 +190,18 @@ class Nec::Projector < PlaceOS::Driver
     end
   end
 
-  private def check_checksum(data : Bytes)
-    checksum = data.sum(0) & 0xFF
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless result = checksum == data[-2]
+  private def checksum_valid?(data : Bytes)
+    checksum = data[0..-2].sum(0) & 0xFF
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless result = checksum == data[-1]
     result
   end
 
-  private def send_checksum(command, **options)
+  private def do_send(command, **options)
     command = command.delete(' ').hexbytes if command.is_a?(String)
     req = Bytes.new(command.size + 1)
     req.copy_from(command)
     req[-1] = (command.sum(0) & 0xFF).to_u8
-    logger.debug { "Nec proj sending #{req.hexstring}"}
+    logger.debug { "Nec proj sending 0x#{req.hexstring}"}
     send(req, **options) { |data, task| process_response(data, task, req) }
   end
 
@@ -245,7 +242,7 @@ class Nec::Projector < PlaceOS::Driver
     end
 
     # Verify checksum
-    unless check_checksum(data)
+    unless checksum_valid?(data)
       return task.try(&.abort("-- NEC projector, checksum failed for command: 0x#{req.try(&.hexstring) || "unknown"}"))
     end
 
@@ -311,7 +308,7 @@ class Nec::Projector < PlaceOS::Driver
   private def process_power_status(data, task)
     logger.debug { "-- NEC projector sent a response to a power status command" }
 
-    self[:power] = (data[-2] & 0b10) > 0x0
+    self[:power] = (data[-2] & 0b10) > 0
 
     # Projector cooling || power on off processing
     if (data[-2] & 0b100000) > 0 || (data[-2] & 0b10000000) > 0
@@ -341,8 +338,9 @@ class Nec::Projector < PlaceOS::Driver
         logger.debug { "NEC projector is in a good power state..." }
         self[:warming] = false
         self[:cooling] = false
+        # TODO
         # Ensure the input is in the correct state unless the lamp is off
-        status_input if self[:power]?.try(&.as_bool) # calls status mute
+        # status_input if self[:power]?.try(&.as_bool) # calls status mute
       end
     end
 
