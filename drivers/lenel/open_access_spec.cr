@@ -83,7 +83,7 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     req.method.should eq("GET")
     req.path.should eq("/count")
     req.query_params["type_name"]?.should eq("Lnl_Visitor")
-    req.query_params["filter"]?.should eq(%(email="foo@bar.com"))
+    req.query_params["filter"]?.should eq(%(email = "foo@bar.com"))
     respond_with 200, { total_items: 0 }
   end
   expect_http_request do |req, res|
@@ -110,7 +110,7 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     req.method.should eq("GET")
     req.path.should eq("/instances")
     req.query_params["type_name"]?.should eq("Lnl_Visitor")
-    req.query_params["filter"]?.should eq(%(email="foo@bar.com"))
+    req.query_params["filter"]?.should eq(%(email = "foo@bar.com"))
     respond_with 200, {
       total_pages: 1,
       total_items: 1,
