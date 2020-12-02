@@ -1,10 +1,30 @@
+# NOTES
+# (*1) Projector ID
+# (*2) Model code: "xxH" inscription
+# (*3) Checksum: "CKS" inscription
+# (*4) Response error number
+# (*5) Term “RGB” and “COMPUTER”
+# (*6) Term “DVI” and “COMPUTER”
+
 DriverSpecs.mock_driver "Nec::Projector" do
+  p_id = 0x00_u8
+  mdlc = 0x10_u8
+
   # do_poll
   # power?
   exec(:power?)
-  should_send("\x00\x81\x00\x00\x00\x81\x02")
-  responds(Bytes[0x20,0x81,0x01,0x00,0x10,0b_0000_0010,0xB4])
+  should_send(Bytes[0x00,0x81,0x00,0x00,0x00,0x81,0x02])
+  responds(Bytes[0x20,0x81,p_id,mdlc,0x10,0b_0000_0010,0xC3])
   status[:power].should eq(true)
+  # input?
+  should_send(Bytes[0x00,0x85,0x00,0x00,0x01,0x02,0x88])
+  responds(Bytes[0x20,0x85,p_id,mdlc,0x10,
+    # Data, simplified for sanity
+    # We only care about the ones with 0x
+    #-17    -15  -14
+    0x00,2,0x01,0x06,5,6,7,8,9,10,11,12,13,14,15,16,
+    0x4C]) # Checksum
+  status[:input].should eq("HDMI")
   # # mute_status
   # should_send("\x010*0C06\x02008D\x03\x12\x0D")
   # responds("\x0100*D12\x0200008D0000000002\x03\x12\x0D")

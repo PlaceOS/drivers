@@ -68,23 +68,23 @@ class Nec::Projector < PlaceOS::Driver
     mute_picture:    "$02,$10,$00,$00,$00,$12",
     unmute_picture:  "$02,$11,$00,$00,$00,$13",
     mute_audio_cmd:  "02 12 00 00 00 14",
-    unmute_audio:    "02 13 00 00 00 15",
+    unmute_audio_cmd:    "02 13 00 00 00 15",
     mute_onscreen:   "02 14 00 00 00 16",
     unmute_onscreen: "02 15 00 00 00 17",
 
     freeze_picture:   "$01,$98,$00,$00,$01,$01,$9B",
     unfreeze_picture: "$01,$98,$00,$00,$01,$02,$9C",
 
-    status_lamp:  Bytes[0x00, 0x81, 0x00, 0x00, 0x00, 0x81], # Running sense (ret 81)
-    status_input: "$00,$85,$00,$00,$01,$02,$88",             # Input status (ret 85)
-    status_mute:  "00 85 00 00 01 03 89",                    # MUTE STATUS REQUEST (Check 10H on byte 5)
-    status_error: "00 88 00 00 00 88",                       # ERROR STATUS REQUEST (ret 88)
-    status_model: "00 85 00 00 01 04 8A",                    # request model name (both of these are related)
+    lamp?:  Bytes[0x00,0x81,0x00,0x00,0x00,0x81], # Running sense (ret 81)
+    input?: Bytes[0x00,0x85,0x00,0x00,0x01,0x02], # Input status (ret 85)
+    mute?:  Bytes[0x00,0x85,0x00,0x00,0x01,0x03], # MUTE STATUS REQUEST (Check 10H on byte 5)
+    error?: Bytes[0x00,0x88,0x00,0x00,0x00,0x88], # ERROR STATUS REQUEST (ret 88)
+    model?: Bytes[0x00,0x85,0x00,0x00,0x01,0x04], # Request model name (both of these are related)
 
-    # lamp hours / remaining information
-    lamp_information:      "03 8A 00 00 00 8D", # LAMP INFORMATION REQUEST
-    filter_information:    "03 8A 00 00 00 8D",
-    projector_information: "03 8A 00 00 00 8D",
+    # lamp hours / remaining info
+    lamp_info:      "03 8A 00 00 00 8D", # LAMP INFORMATION REQUEST
+    filter_info:    "03 8A 00 00 00 8D",
+    projector_info: "03 8A 00 00 00 8D",
 
     background_black: "$03,$B1,$00,$00,$02,$0B,$01,$C2", # set mute to be a black screen
     background_blue:  "$03,$B1,$00,$00,$02,$0B,$00,$C1", # set mute to be a blue screen
@@ -93,7 +93,7 @@ class Nec::Projector < PlaceOS::Driver
 
   {% for name, data in COMMAND %}
     def {{name.id}}(**options)
-      send(COMMAND[{{name.id}}], **options, name: {{name.id.stringify}})
+      do_send(COMMAND[{{name.id.stringify}}], **options, name: {{name.id.stringify}})
     end
   {% end %}
 
@@ -129,7 +129,7 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def mute_audio(state : Bool)
-    state ? mute_audio_cmd : unmute_audio
+    state ? mute_audio_cmd : unmute_audio_cmd
   end
 
   def switch_to(input : Input)
@@ -171,7 +171,7 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def power?(**options) : Bool
-    do_send(COMMAND[:status_lamp], **options).get
+    do_send(COMMAND[:lamp?], **options, name: "power?").get
     !!self[:power]?.try(&.as_bool)
   end
 
@@ -183,16 +183,15 @@ class Nec::Projector < PlaceOS::Driver
 
   def do_poll
     if power?(priority: 0)
-      status_input(priority: 0)
-      status_mute(priority: 0)
+      mute?(priority: 0)
       background_black(priority: 0)
-      lamp_information(priority: 0)
+      lamp_info(priority: 0)
     end
   end
 
   private def checksum_valid?(data : Bytes)
     checksum = data[0..-2].sum(0) & 0xFF
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless result = checksum == data[-1]
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16,true)}" } unless result = checksum == data[-1]
     result
   end
 
@@ -275,7 +274,7 @@ class Nec::Projector < PlaceOS::Driver
       when (0..1)
         return process_lamp_command(data, task, req)
       when (0x10..0x15)
-        status_mute # update mute status's (dry)
+        mute? # update mute status's (dry)
         return task.try(&.success)
       end
     when .lamp?
@@ -286,7 +285,7 @@ class Nec::Projector < PlaceOS::Driver
         # TODO:: process volume control
         return task.try(&.success)
       when 0x8A
-        return process_projector_information(data, task)
+        return process_projector_info(data, task)
       when 0xB1
         # This is the audio switch command
         # TODO:: data[-2] == 0:Normal, 1:Error
@@ -340,7 +339,7 @@ class Nec::Projector < PlaceOS::Driver
         self[:cooling] = false
         # TODO
         # Ensure the input is in the correct state unless the lamp is off
-        # status_input if self[:power]?.try(&.as_bool) # calls status mute
+        input? if self[:power].as_bool # Calls status mute
       end
     end
 
@@ -379,9 +378,9 @@ class Nec::Projector < PlaceOS::Driver
     if data[-17] == 0x01
       # TODO
       # command[:delay_on_receive] = 3000 # still processing signal
-      status_input
+      input?
     else
-      status_mute # get mute status one signal has settled
+      mute? # get mute status one signal has settled
     end
 
     logger.debug { "The input selected was: #{current_input}" }
@@ -413,8 +412,8 @@ class Nec::Projector < PlaceOS::Driver
   private def process_input_switch(data, task, req)
     logger.debug { "-- NEC projector responded to switch input command" }
     if data[-2] != 0xFF
-        status_input # Double check with a status update
-        return task.try(&.success)
+      input? # Double check with a status update
+      return task.try(&.success)
     end
     task.try(&.retry("-- NEC projector failed to switch input with command: #{req.try(&.hexstring) || "unknown"}"))
   end
@@ -428,7 +427,7 @@ class Nec::Projector < PlaceOS::Driver
     task.try(&.success)
   end
 
-  # Provide all the error information required
+  # Provide all the error info required
   ERROR_CODES = [{
     0b1 => "Lamp cover error",
     0b10 => "Temperature error (Bimetal)",
@@ -474,10 +473,10 @@ class Nec::Projector < PlaceOS::Driver
     task.try(&.success)
   end
 
-  # Process projector information response
+  # Process projector info response
   # lamp1 hours + filter hours
-  private def process_projector_information(data, task)
-    logger.debug { "-- NEC projector sent a response to a projector information command" }
+  private def process_projector_info(data, task)
+    logger.debug { "-- NEC projector sent a response to a projector info command" }
 
     lamp = 0
     filter = 0
