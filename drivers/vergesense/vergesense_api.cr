@@ -34,6 +34,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
     @debug_payload = setting?(Bool, :debug_payload) || false
   end
 
+  # Performs initial sync by loading buildings / floors / spaces
   def init_sync
     begin
       init_buildings
@@ -113,12 +114,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
     end
   end
 
-  private def update_single_floor_status(floor_key, floor)
-    if floor_key && floor
-      self[floor_key] = floor.not_nil!.to_json
-    end
-  end
-
+  # Finds a space on a given floor and updates it in place.
   private def update_floor_space(remote_space)
     floor = @floors[remote_space.floor_key]?
     if floor
@@ -130,6 +126,12 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         floor_space.motion_detected = remote_space.motion_detected
         floor_space.timestamp = remote_space.timestamp
       end
+    end
+  end
+
+  private def update_single_floor_status(floor_key, floor)
+    if floor_key && floor
+      self[floor_key] = floor.not_nil!.to_json
     end
   end
 
