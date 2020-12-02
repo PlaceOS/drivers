@@ -482,25 +482,13 @@ class Nec::Projector < PlaceOS::Driver
   private def process_projector_info(data, task)
     logger.debug { "-- NEC projector sent a response to a projector info command" }
 
-    lamp = 0
-    filter = 0
-
-    # TODO: cleanup here
     # get lamp usage
-    shift = 0
-    data[87..90].each do |byte|
-      lamp += byte << shift
-      shift += 8
-    end
+    lamp = data[87..90].each_with_index.sum { |byte, index| byte.to_i << (index * 8) }
+    logger.debug { "lamp is #{lamp}" }
 
     # get filter usage
-    shift = 0
-    data[91..94].each do |byte|
-      filter += byte << shift
-      shift += 8
-    end
-
-    logger.debug { "lamp is #{lamp} filter is #{filter}" }
+    filter = data[91..94].each_with_index.sum { |byte, index| byte.to_i << (index * 8) }
+    logger.debug { "filter is #{filter}" }
 
     self[:lamp_usage] = lamp / 3600 # Lamp usage in hours
     self[:filter_usage] = filter / 3600

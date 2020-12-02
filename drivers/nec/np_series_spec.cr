@@ -44,12 +44,27 @@ DriverSpecs.mock_driver "Nec::Projector" do
   response.copy_from(Bytes[0x23,0x8A,p_id,mdlc,0x62,0x0B]) # header
   # data
   # lamp usage
-  response[87] = 0x24
+  response[87] = 0xC0
+  response[88] = 0x65
+  response[89] = 0x52
   # filter usage
-  response[91] = 0x48
+  response[92] = 0xE4
+  response[93] = 0x57
   # checksum
-  response[-1] = 0x96
+  response[-1] = 0xDC
   responds(response)
-  status[:lamp_usage].should eq(0.01)
-  status[:filter_usage].should eq(0.02)
+  status[:lamp_usage].should eq(1500)
+  status[:filter_usage].should eq(1600)
+
+  exec(:volume, 100)
+  should_send(Bytes[0x03,0x10,0x00,0x00,0x05,0x05,0x00,0x00,0x3F,0x00,0x5C])
+  responds(Bytes[0x23,0x10,p_id,mdlc,0x02,0x00,0x45])
+  status[:volume].should eq(63)
+
+  exec(:mute)
+  # mute_picture
+  should_send(Bytes[0x02,0x10,0x00,0x00,0x00,0x12,0x24])
+  responds(Bytes[0x22,0x10,p_id,mdlc,0x32,0x00,0x74])
+  # TODO: handle this response
+  # status[:picture_mute] = true
 end
