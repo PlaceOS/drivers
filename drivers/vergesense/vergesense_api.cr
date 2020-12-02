@@ -36,6 +36,8 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
   # Performs initial sync by loading buildings / floors / spaces
   def init_sync
+    return if @completed_initial_sync
+
     begin
       init_buildings
 
@@ -75,14 +77,10 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
   end
 
   private def init_buildings
-    return if @completed_initial_sync
-
     @buildings = Array(Building).from_json(get_request("/buildings"))
   end
 
   private def init_floors
-    return if @completed_initial_sync
-
     @buildings.not_nil!.each do |building|
       building_with_floors = BuildingWithFloors.from_json(get_request("/buildings/#{building.building_ref_id}"))
       if building_with_floors
@@ -96,8 +94,6 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
   end
 
   private def init_spaces
-    return if @completed_initial_sync
-
     spaces = Array(Space).from_json(get_request("/spaces"))
     spaces.each do |remote_space|
       update_floor_space(remote_space)
@@ -107,10 +103,14 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
   end
 
   private def init_floors_status
-    return if @completed_initial_sync
-
     @floors.each do |floor_key, floor|
       update_single_floor_status(floor_key, floor)
+    end
+  end
+
+  private def update_single_floor_status(floor_key, floor)
+    if floor_key && floor
+      self[floor_key] = floor.not_nil!.to_json
     end
   end
 
@@ -126,12 +126,6 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         floor_space.motion_detected = remote_space.motion_detected
         floor_space.timestamp = remote_space.timestamp
       end
-    end
-  end
-
-  private def update_single_floor_status(floor_key, floor)
-    if floor_key && floor
-      self[floor_key] = floor.not_nil!.to_json
     end
   end
 
