@@ -51,7 +51,7 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def connected
-    # schedule.every(50.seconds, true) { do_poll }
+    schedule.every(50.seconds, true) { do_poll }
   end
 
   def disconnected
@@ -65,15 +65,15 @@ class Nec::Projector < PlaceOS::Driver
   # Second byte used to detect command type
   COMMAND = {
     # Mute controls
-    mute_picture:    "$02,$10,$00,$00,$00,$12",
-    unmute_picture:  "$02,$11,$00,$00,$00,$13",
-    mute_audio_cmd:  "02 12 00 00 00 14",
-    unmute_audio_cmd:    "02 13 00 00 00 15",
-    mute_onscreen:   "02 14 00 00 00 16",
-    unmute_onscreen: "02 15 00 00 00 17",
+    mute_picture:     Bytes[0x02,0x10,0x00,0x00,0x00,0x12],
+    unmute_picture:   Bytes[0x02,0x11,0x00,0x00,0x00,0x13],
+    mute_audio_cmd:   Bytes[0x02,0x12,0x00,0x00,0x00,0x14],
+    unmute_audio_cmd: Bytes[0x02,0x13,0x00,0x00,0x00,0x15],
+    mute_onscreen:    Bytes[0x02,0x14,0x00,0x00,0x00,0x16],
+    unmute_onscreen:  Bytes[0x02,0x15,0x00,0x00,0x00,0x17],
 
-    freeze_picture:   "$01,$98,$00,$00,$01,$01,$9B",
-    unfreeze_picture: "$01,$98,$00,$00,$01,$02,$9C",
+    freeze_picture:   Bytes[0x01,0x98,0x00,0x00,0x01,0x01],
+    unfreeze_picture: Bytes[0x01,0x98,0x00,0x00,0x01,0x02],
 
     lamp?:  Bytes[0x00,0x81,0x00,0x00,0x00,0x81], # Running sense (ret 81)
     input?: Bytes[0x00,0x85,0x00,0x00,0x01,0x02], # Input status (ret 85)
@@ -82,17 +82,18 @@ class Nec::Projector < PlaceOS::Driver
     model?: Bytes[0x00,0x85,0x00,0x00,0x01,0x04], # Request model name (both of these are related)
 
     # lamp hours / remaining info
-    lamp_info:      "03 8A 00 00 00 8D", # LAMP INFORMATION REQUEST
-    filter_info:    "03 8A 00 00 00 8D",
-    projector_info: "03 8A 00 00 00 8D",
+    lamp_info:        Bytes[0x03,0x8A,0x00,0x00,0x00,0x8D], # LAMP INFORMATION REQUEST
+    filter_info:      Bytes[0x03,0x8A,0x00,0x00,0x00,0x8D],
+    projector_info:   Bytes[0x03,0x8A,0x00,0x00,0x00,0x8D],
 
-    background_black: "$03,$B1,$00,$00,$02,$0B,$01,$C2", # set mute to be a black screen
-    background_blue:  "$03,$B1,$00,$00,$02,$0B,$00,$C1", # set mute to be a blue screen
-    background_logo:  "$03,$B1,$00,$00,$02,$0B,$02,$C3"  # set mute to be the company logo
+    background_black: Bytes[0x03,0xB1,0x00,0x00,0x02,0x0B,0x01], # set mute to be a black screen
+    background_blue:  Bytes[0x03,0xB1,0x00,0x00,0x02,0x0B,0x00], # set mute to be a blue screen
+    background_logo:  Bytes[0x03,0xB1,0x00,0x00,0x02,0x0B,0x02]  # set mute to be the company logo
   }
 
   {% for name, data in COMMAND %}
     def {{name.id}}(**options)
+      pp "sending " + {{name.id.stringify}} + " with"
       do_send(COMMAND[{{name.id.stringify}}], **options, name: {{name.id.stringify}})
     end
   {% end %}
@@ -200,6 +201,7 @@ class Nec::Projector < PlaceOS::Driver
     req = Bytes.new(command.size + 1)
     req.copy_from(command)
     req[-1] = (command.sum(0) & 0xFF).to_u8
+    pp "Nec proj sending 0x#{req.hexstring}"
     logger.debug { "Nec proj sending 0x#{req.hexstring}"}
     send(req, **options) { |data, task| process_response(data, task, req) }
   end
@@ -227,6 +229,7 @@ class Nec::Projector < PlaceOS::Driver
   # end
 
   private def process_response(data, task, req = nil)
+    pp "NEC projector sent: 0x#{data.hexstring}"
     logger.debug { "NEC projector sent: 0x#{data.hexstring}" }
 
     # Command failed
@@ -379,10 +382,11 @@ class Nec::Projector < PlaceOS::Driver
       # TODO
       # command[:delay_on_receive] = 3000 # still processing signal
       input?
-    else
-      mute? # get mute status one signal has settled
+    else # TODO: figure out if this is needed from old ruby driver
+      # mute? # get mute status one signal has settled
     end
 
+    pp "The input selected was: #{current_input}"
     logger.debug { "The input selected was: #{current_input}" }
 
     # Notify of bad input selection for debugging
@@ -481,6 +485,7 @@ class Nec::Projector < PlaceOS::Driver
     lamp = 0
     filter = 0
 
+    # TODO: cleanup here
     # get lamp usage
     shift = 0
     data[87..90].each do |byte|
@@ -494,6 +499,8 @@ class Nec::Projector < PlaceOS::Driver
       filter += byte << shift
       shift += 8
     end
+
+    logger.debug { "lamp is #{lamp} filter is #{filter}" }
 
     self[:lamp_usage] = lamp / 3600 # Lamp usage in hours
     self[:filter_usage] = filter / 3600

@@ -7,12 +7,11 @@
 # (*6) Term “DVI” and “COMPUTER”
 
 DriverSpecs.mock_driver "Nec::Projector" do
-  p_id = 0x00_u8
-  mdlc = 0x10_u8
+  p_id = 0x00_u8 # Projector ID
+  mdlc = 0x10_u8 # Model code
 
   # do_poll
   # power?
-  exec(:power?)
   should_send(Bytes[0x00,0x81,0x00,0x00,0x00,0x81,0x02])
   responds(Bytes[0x20,0x81,p_id,mdlc,0x10,0b_0000_0010,0xC3])
   status[:power].should eq(true)
@@ -25,67 +24,32 @@ DriverSpecs.mock_driver "Nec::Projector" do
     0x00,2,0x01,0x06,5,6,7,8,9,10,11,12,13,14,15,16,
     0x4C]) # Checksum
   status[:input].should eq("HDMI")
-  # # mute_status
-  # should_send("\x010*0C06\x02008D\x03\x12\x0D")
-  # responds("\x0100*D12\x0200008D0000000002\x03\x12\x0D")
-  # status[:audio_mute].should eq(false)
-  # # volume_status
-  # should_send("\x010*0C06\x020062\x03\x6A\x0D")
-  # responds("\x0100*D12\x020000620000000032\x03\x69\x0D")
-  # status[:volume].should eq(50)
-  # # video_input
-  # should_send("\x010*0C06\x020060\x03\x68\x0D")
-  # responds("\x0100*D12\x020000600000000011\x03\x6A\x0D")
-  # status[:input].should eq("Hdmi")
-  # # audio_input
-  # should_send("\x010*0C06\x02022E\x03\x1B\x0D")
-  # responds("\x0100*D12\x0200022E0000000001\x03\x18\x0D")
-  # status[:audio].should eq("Audio1")
-
-  # exec(:mute_audio)
-  # should_send("\x010*0E0A\x02008D0001\x03\x62\x0D")
-  # responds("\x0100*F12\x0200008D0000000001\x03\x13\x0D")
-  # status[:audio_mute].should eq(true)
-  # status[:volume].should eq(0)
-
-  # exec(:unmute_audio)
-  # should_send("\x010*0E0A\x02008D0000\x03\x63\x0D")
-  # responds("\x0100*F12\x0200008D0000000000\x03\x12\x0D")
-  # status[:audio_mute].should eq(false)
-
-  # exec(:volume, 25)
-  # should_send("\x010*0E0A\x0200620019\x03\x13\x0D")
-  # responds("\x0100*F12\x020000620000640019\x03\x60\x0D")
-  # should_send("\x010*0A04\x020C\x03\x1D\x0D")
-  # responds("\x0100*B06\x0200C\x03\x2C\x0D")
-  # status[:audio_mute].should eq(false)
-  # status[:volume].should eq(25)
-
-  # exec(:brightness_status)
-  # should_send("\x010*0C06\x020010\x03\x6F\x0D")
-  # responds("\x0100*D12\x020000100000000000\x03\x6D\x0D")
-  # status[:brightness].should eq(0)
-
-  # exec(:brightness, 100)
-  # should_send("\x010*0E0A\x0200100064\x03\x1C\x0D")
-  # responds("\x0100*F12\x020000100000640064\x03\x6F\x0D")
-  # should_send("\x010*0A04\x020C\x03\x1D\x0D")
-  # responds("\x0100*B06\x0200C\x03\x2C\x0D")
-  # status[:brightness].should eq(100)
-
-  # exec(:switch_to, "tv")
-  # should_send("\x010*0E0A\x020060000A\x03\x68\x0D")
-  # responds("\x0100*F12\x02000060000000000A\x03\x19\x0D")
-  # status[:input].should eq("Tv")
-
-  # exec(:switch_audio, "audio_2")
-  # sleep 6 # since switch_to has 6 seconds of delay
-  # should_send("\x010*0E0A\x02022E0002\x03\x68\x0D")
-  # responds("\x0100*F12\x0200022E0000000002\x03\x19\x0D")
-  # status[:audio].should eq("Audio2")
-
-  # exec(:power, false)
-  # should_send("\x010*0A0C\x02C203D60004\x03\x1D\x0D")
-  # responds("\x0100*B0E\x0200C203D60004\x03\x18\x0D")
-  # status[:power].should eq(false)
+  # mute?
+  should_send(Bytes[0x00,0x85,0x00,0x00,0x01,0x03,0x89])
+  responds(Bytes[0x20,0x85,p_id,mdlc,0x10,
+    #-17  -16  -15
+    0x00,0x00,0x00,4,5,6,7,8,9,10,11,12,13,14,15,16,
+    0x47]) # Checksum
+  status[:picture_mute].should eq(false)
+  status[:audio_mute].should eq(false)
+  status[:onscreen_mute].should eq(false)
+  status[:mute].should eq(false)
+  # background_black
+  should_send(Bytes[0x03,0xB1,0x00,0x00,0x02,0x0B,0x01,0xC2])
+  responds(Bytes[0x23,0xB1,p_id,mdlc,0x02,0x0B,0xF1])
+  # lamp_info
+  should_send(Bytes[0x03,0x8A,0x00,0x00,0x00,0x8D,0x1A])
+  # 5 for header, 1 for checksum and 98 for data
+  response = Bytes.new(104)
+  response.copy_from(Bytes[0x23,0x8A,p_id,mdlc,0x62,0x0B]) # header
+  # data
+  # lamp usage
+  response[87] = 0x24
+  # filter usage
+  response[91] = 0x48
+  # checksum
+  response[-1] = 0x96
+  responds(response)
+  status[:lamp_usage].should eq(0.01)
+  status[:filter_usage].should eq(0.02)
 end
