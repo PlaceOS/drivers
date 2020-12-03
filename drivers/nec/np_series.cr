@@ -107,7 +107,6 @@ class Nec::Projector < PlaceOS::Driver
     # D5 = value (higher bits always 00h)
 
     do_send(command)
-    self[:volume] = vol # TODO: remove
   end
 
   # Mutes both audio/video
@@ -220,7 +219,7 @@ class Nec::Projector < PlaceOS::Driver
     Mute3               = 8723 # [0x22,0x13]
     Mute4               = 8724 # [0x22,0x14]
     Mute5               = 8725 # [0x22,0x15]
-    VolumeOrImageAdjust = 8721 # [0x23,0x10]
+    VolumeOrImageAdjust = 8976 # [0x23,0x10]
     Info                = 9098 # [0x23,0x8A]
     AudioSwitch         = 9137 # [0x23,0xB1]
 
@@ -274,7 +273,8 @@ class Nec::Projector < PlaceOS::Driver
       mute? # update mute status
       task.try(&.success)
     when .volume_or_image_adjust?
-      # TODO:: process volume control
+      self[:volume] = req[-3] if req && data[-3] == 5 && data[-2] == 0
+      # We don't care about image adjust
       task.try(&.success)
     when .info?
       process_projector_info(data, task)
