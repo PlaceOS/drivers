@@ -28,7 +28,7 @@ class Nec::Projector < PlaceOS::Driver
 
   default_settings({
     volume_min: 0,
-    volume_max: 63
+    volume_max: 63,
   })
 
   @power_target : Bool? = nil
@@ -65,30 +65,30 @@ class Nec::Projector < PlaceOS::Driver
   # Second byte used to detect command type
   COMMAND = {
     # Mute controls
-    mute_picture:     Bytes[0x02,0x10,0x00,0x00,0x00,0x12],
-    unmute_picture:   Bytes[0x02,0x11,0x00,0x00,0x00,0x13],
-    mute_audio_cmd:   Bytes[0x02,0x12,0x00,0x00,0x00,0x14],
-    unmute_audio_cmd: Bytes[0x02,0x13,0x00,0x00,0x00,0x15],
-    mute_onscreen:    Bytes[0x02,0x14,0x00,0x00,0x00,0x16],
-    unmute_onscreen:  Bytes[0x02,0x15,0x00,0x00,0x00,0x17],
+    mute_picture:     Bytes[0x02, 0x10, 0x00, 0x00, 0x00, 0x12],
+    unmute_picture:   Bytes[0x02, 0x11, 0x00, 0x00, 0x00, 0x13],
+    mute_audio_cmd:   Bytes[0x02, 0x12, 0x00, 0x00, 0x00, 0x14],
+    unmute_audio_cmd: Bytes[0x02, 0x13, 0x00, 0x00, 0x00, 0x15],
+    mute_onscreen:    Bytes[0x02, 0x14, 0x00, 0x00, 0x00, 0x16],
+    unmute_onscreen:  Bytes[0x02, 0x15, 0x00, 0x00, 0x00, 0x17],
 
-    freeze_picture:   Bytes[0x01,0x98,0x00,0x00,0x01,0x01],
-    unfreeze_picture: Bytes[0x01,0x98,0x00,0x00,0x01,0x02],
+    freeze_picture:   Bytes[0x01, 0x98, 0x00, 0x00, 0x01, 0x01],
+    unfreeze_picture: Bytes[0x01, 0x98, 0x00, 0x00, 0x01, 0x02],
 
-    lamp?:  Bytes[0x00,0x81,0x00,0x00,0x00,0x81], # Running sense (ret 81)
-    input?: Bytes[0x00,0x85,0x00,0x00,0x01,0x02], # Input status (ret 85)
-    mute?:  Bytes[0x00,0x85,0x00,0x00,0x01,0x03], # MUTE STATUS REQUEST (Check 10H on byte 5)
-    error?: Bytes[0x00,0x88,0x00,0x00,0x00,0x88], # ERROR STATUS REQUEST (ret 88)
-    model?: Bytes[0x00,0x85,0x00,0x00,0x01,0x04], # Request model name (both of these are related)
+    lamp?:  Bytes[0x00, 0x81, 0x00, 0x00, 0x00, 0x81], # Running sense (ret 81)
+    input?: Bytes[0x00, 0x85, 0x00, 0x00, 0x01, 0x02], # Input status (ret 85)
+    mute?:  Bytes[0x00, 0x85, 0x00, 0x00, 0x01, 0x03], # MUTE STATUS REQUEST (Check 10H on byte 5)
+    error?: Bytes[0x00, 0x88, 0x00, 0x00, 0x00, 0x88], # ERROR STATUS REQUEST (ret 88)
+    model?: Bytes[0x00, 0x85, 0x00, 0x00, 0x01, 0x04], # Request model name (both of these are related)
 
     # lamp hours / remaining info
-    lamp_info:        Bytes[0x03,0x8A,0x00,0x00,0x00,0x8D], # LAMP INFORMATION REQUEST
-    filter_info:      Bytes[0x03,0x8A,0x00,0x00,0x00,0x8D],
-    projector_info:   Bytes[0x03,0x8A,0x00,0x00,0x00,0x8D],
+    lamp_info:      Bytes[0x03, 0x8A, 0x00, 0x00, 0x00, 0x8D], # LAMP INFORMATION REQUEST
+    filter_info:    Bytes[0x03, 0x8A, 0x00, 0x00, 0x00, 0x8D],
+    projector_info: Bytes[0x03, 0x8A, 0x00, 0x00, 0x00, 0x8D],
 
-    background_black: Bytes[0x03,0xB1,0x00,0x00,0x02,0x0B,0x01], # set mute to be a black screen
-    background_blue:  Bytes[0x03,0xB1,0x00,0x00,0x02,0x0B,0x00], # set mute to be a blue screen
-    background_logo:  Bytes[0x03,0xB1,0x00,0x00,0x02,0x0B,0x02]  # set mute to be the company logo
+    background_black: Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0x0B, 0x01], # set mute to be a black screen
+    background_blue:  Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0x0B, 0x00], # set mute to be a blue screen
+    background_logo:  Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0x0B, 0x02], # set mute to be the company logo
   }
 
   {% for name, data in COMMAND %}
@@ -193,7 +193,7 @@ class Nec::Projector < PlaceOS::Driver
 
   private def checksum_valid?(data : Bytes)
     checksum = data[0..-2].sum(0) & 0xFF
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16,true)}" } unless result = checksum == data[-1]
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16, true)}" } unless result = checksum == data[-1]
     result
   end
 
@@ -203,26 +203,26 @@ class Nec::Projector < PlaceOS::Driver
     req.copy_from(command)
     req[-1] = (command.sum(0) & 0xFF).to_u8
     pp "Nec proj sending 0x#{req.hexstring}"
-    logger.debug { "Nec proj sending 0x#{req.hexstring}"}
+    logger.debug { "Nec proj sending 0x#{req.hexstring}" }
     send(req, **options) { |data, task| process_response(data, task, req) }
   end
 
   # TODO: add responses for freeze commands
   enum Response : UInt16
-    Power = 8321 # [0x20,0x81]
-    InputOrMuteQuery = 8325 # [0x20,0x85]
-    Error = 8328 # [0x20,0x88]
-    InputSwitch = 8707 # [0x22,0x03]
-    Lamp = 8704 # [0x22,0x00]
-    Lamp2 = 8705 # [0x22,0x01]
-    Mute = 8721 # [0x22,0x11]
-    Mute2 = 8722 # [0x22,0x12]
-    Mute3 = 8723 # [0x22,0x13]
-    Mute4 = 8724 # [0x22,0x14]
-    Mute5 = 8725 # [0x22,0x15]
+    Power               = 8321 # [0x20,0x81]
+    InputOrMuteQuery    = 8325 # [0x20,0x85]
+    Error               = 8328 # [0x20,0x88]
+    InputSwitch         = 8707 # [0x22,0x03]
+    Lamp                = 8704 # [0x22,0x00]
+    Lamp2               = 8705 # [0x22,0x01]
+    Mute                = 8721 # [0x22,0x11]
+    Mute2               = 8722 # [0x22,0x12]
+    Mute3               = 8723 # [0x22,0x13]
+    Mute4               = 8724 # [0x22,0x14]
+    Mute5               = 8725 # [0x22,0x15]
     VolumeOrImageAdjust = 8721 # [0x23,0x10]
-    Info = 9098 # [0x23,0x8A]
-    AudioSwitch = 9137 # [0x23,0xB1]
+    Info                = 9098 # [0x23,0x8A]
+    AudioSwitch         = 9137 # [0x23,0xB1]
 
     def self.from_bytes(response)
       value = IO::Memory.new(response[0..1]).read_bytes(UInt16, IO::ByteFormat::BigEndian)
@@ -307,7 +307,7 @@ class Nec::Projector < PlaceOS::Driver
       else
         self[:warming] = false
         self[:cooling] = true
-        logger.debug  { "power cooling..." }
+        logger.debug { "power cooling..." }
       end
 
       schedule.in(3.seconds) { power? }
@@ -336,7 +336,7 @@ class Nec::Projector < PlaceOS::Driver
     task.try(&.success)
   end
 
-  # NEC has different values for the input status when compared to input selection  
+  # NEC has different values for the input status when compared to input selection
   INPUT_MAP = {
     0x01 => {
       0x01 => Input::VGA,
@@ -345,19 +345,20 @@ class Nec::Projector < PlaceOS::Driver
       0x06 => Input::HDMI,
       0x07 => Input::Viewer,
       0x21 => Input::HDMI,
-      0x22 => Input::DisplayPort
+      0x22 => Input::DisplayPort,
     },
     0x02 => {
       0x01 => Input::RGBHV,
       0x04 => Input::Component2,
       0x06 => Input::HDMI2,
       0x07 => Input::LAN,
-      0x21 => Input::HDMI2
+      0x21 => Input::HDMI2,
     },
     0x03 => {
-      0x04 => Input::Component
-    }
+      0x04 => Input::Component,
+    },
   }
+
   private def process_input_state(data, task)
     return task.try(&.success) unless self[:power]?.try(&.as_bool) && (first = INPUT_MAP[data[-15]])
 
@@ -418,33 +419,34 @@ class Nec::Projector < PlaceOS::Driver
 
   # Provide all the error info required
   ERROR_CODES = [{
-    0b1 => "Lamp cover error",
-    0b10 => "Temperature error (Bimetal)",
-    #0b100 == not used
-    0b1000 => "Fan Error",
-    0b10000 => "Fan Error",
-    0b100000 => "Power Error",
-    0b1000000 => "Lamp Error",
-    0b10000000 => "Lamp has reached its end of life"
+           0b1 => "Lamp cover error",
+          0b10 => "Temperature error (Bimetal)",
+       # 0b100 => not used
+        0b1000 => "Fan Error",
+       0b10000 => "Fan Error",
+      0b100000 => "Power Error",
+     0b1000000 => "Lamp Error",
+    0b10000000 => "Lamp has reached its end of life",
   }, {
-    0b1 => "Lamp has been used beyond its limit",
-    0b10 => "Formatter error",
-    0b100 => "Lamp no.2 Error"
+      0b1 => "Lamp has been used beyond its limit",
+     0b10 => "Formatter error",
+    0b100 => "Lamp no.2 Error",
   }, {
-    #0b1 => "not used",
-    0b10 => "FPGA error",
-    0b100 => "Temperature error (Sensor)",
-    0b1000 => "Lamp housing error",
-    0b10000 => "Lamp data error",
-    0b100000 => "Mirror cover error",
-    0b1000000 => "Lamp no.2 has reached its end of life",
-    0b10000000 => "Lamp no.2 has been used beyond its limit"
+         # 0b1 => "not used"
+          0b10 => "FPGA error",
+         0b100 => "Temperature error (Sensor)",
+        0b1000 => "Lamp housing error",
+       0b10000 => "Lamp data error",
+      0b100000 => "Mirror cover error",
+     0b1000000 => "Lamp no.2 has reached its end of life",
+    0b10000000 => "Lamp no.2 has been used beyond its limit",
   }, {
-    0b1 => "Lamp no.2 housing error",
-    0b10 => "Lamp no.2 data error",
-    0b100 => "High temperature due to dust pile-up",
-    0b1000 => "A foreign object sensor error"
+       0b1 => "Lamp no.2 housing error",
+      0b10 => "Lamp no.2 data error",
+     0b100 => "High temperature due to dust pile-up",
+    0b1000 => "A foreign object sensor error",
   }]
+
   private def process_error_status(data, task)
     logger.debug { "-- NEC projector sent a response to an error status command" }
     errors = [] of String
