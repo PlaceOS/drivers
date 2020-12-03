@@ -100,14 +100,14 @@ class Nec::Projector < PlaceOS::Driver
 
   def volume(vol : Int32)
     vol = vol.clamp(@volume_min, @volume_max)
-    # volume base command                           D1    D2    D3   D4    D5 + CKS
+    # volume base command                           D1    D2    D3   D4    D5
     command = Bytes[0x03, 0x10, 0x00, 0x00, 0x05, 0x05, 0x00, 0x00, vol, 0x00]
     # D3 = 00 (absolute vol) or 01 (relative vol)
     # D4 = value (lower bits 0 to 63)
     # D5 = value (higher bits always 00h)
 
     do_send(command)
-    self[:volume] = vol
+    self[:volume] = vol # TODO: remove
   end
 
   # Mutes both audio/video
@@ -134,9 +134,10 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   def switch_to(input : Input)
-    logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
-    data = MsgType::SetParameter.build(Command::VideoInput, input.value)
-    send(data, name: "input", delay: 6.seconds)
+    logger.debug { "-- NEC projector, requested to switch to: #{input}" }
+    @input_target = input
+    command = Bytes[0x02, 0x03, 0x00, 0x00, 0x02, 0x01, input.value]
+    do_send(command, name: "input")
   end
 
   enum Audio
@@ -154,12 +155,12 @@ class Nec::Projector < PlaceOS::Driver
     @power_target = state
 
     if state
-      command = Bytes[0x02, 0x00, 0x00, 0x00, 0x00, 0x02]
-      send(command, name: "power", timeout: 15.seconds, delay: 1.second)
+      command = Bytes[0x02, 0x00, 0x00, 0x00, 0x00]
+      do_send(command, name: "power", timeout: 15.seconds, delay: 1.second)
     else
-      command = Bytes[0x02, 0x01, 0x00, 0x00, 0x00, 0x03]
+      command = Bytes[0x02, 0x01, 0x00, 0x00, 0x00]
       # Jump ahead of any other queued commands as they are no longer important
-      send(
+      do_send(
         command,
         name: "power",
         timeout: 60.seconds, # don't want retries occuring very fast
@@ -206,27 +207,28 @@ class Nec::Projector < PlaceOS::Driver
     send(req, **options) { |data, task| process_response(data, task, req) }
   end
 
-  # Values of first byte in response of successful commands
-  enum Success
-    Query  = 0x20
-    Freeze = 0x21
-    Mute   = 0x22
-    Lamp   = 0x23
-  end
+  # TODO: add responses for freeze commands
+  enum Response : UInt16
+    Power = 8321 # [0x20,0x81]
+    InputOrMuteQuery = 8325 # [0x20,0x85]
+    Error = 8328 # [0x20,0x88]
+    InputSwitch = 8707 # [0x22,0x03]
+    Lamp = 8704 # [0x22,0x00]
+    Lamp2 = 8705 # [0x22,0x01]
+    Mute = 8721 # [0x22,0x11]
+    Mute2 = 8722 # [0x22,0x12]
+    Mute3 = 8723 # [0x22,0x13]
+    Mute4 = 8724 # [0x22,0x14]
+    Mute5 = 8725 # [0x22,0x15]
+    VolumeOrImageAdjust = 8721 # [0x23,0x10]
+    Info = 9098 # [0x23,0x8A]
+    AudioSwitch = 9137 # [0x23,0xB1]
 
-  # enum Type
-  #   Power = 0x81
-  #   Error = 0x88
-  #   Input = 0x03
-  #   Lamp  = 0x00
-  #   Lamp2 = 0x01
-  #   Mute  = 0x10
-  #   Mute1 = 0x11
-  #   Mute2 = 0x12
-  #   Mute3 = 0x13
-  #   Mute4 = 0x14
-  #   Mute5 = 0x15
-  # end
+    def self.from_bytes(response)
+      value = IO::Memory.new(response[0..1]).read_bytes(UInt16, IO::ByteFormat::BigEndian)
+      Response.from_value?(value)
+    end
+  end
 
   private def process_response(data, task, req = nil)
     pp "NEC projector sent: 0x#{data.hexstring}"
@@ -250,54 +252,38 @@ class Nec::Projector < PlaceOS::Driver
 
     # Only process response if successful
     # Otherwise return success to prevent retries on commands we were not expecting
-    return task.try(&.success) unless (s = Success.from_value?(data[0]))# && (type = Type.from_value?(data[1]))
-
-    case s
-    when .query?
-      case data[1]
-      when 0x81
-        return process_power_status(data, task)
-      when 0x88
-        return process_error_status(data, task)
-      when 0x85
-        # Return if we can't work out what was requested initially
-        return task.try(&.success) unless req
-        case req[-2]
-        when 0x02
-          return process_input_state(data, task)
-        when 0x03
-          return process_mute_state(data, task)
-        end
-      end
-    when .freeze? # TODO
-    when .mute?
-      case data[1]
-      when 0x03
-        return process_input_switch(data, task, req)
-      when (0..1)
-        return process_lamp_command(data, task, req)
-      when (0x10..0x15)
-        mute? # update mute status's (dry)
-        return task.try(&.success)
-      end
-    when .lamp?
-      case data[1] # TODO: add these cases to Type
-      when 0x10
-        # Picture, Volume, Keystone, Image adjust mode
-        # how to play this?
-        # TODO:: process volume control
-        return task.try(&.success)
-      when 0x8A
-        return process_projector_info(data, task)
-      when 0xB1
-        # This is the audio switch command
-        # TODO:: data[-2] == 0:Normal, 1:Error
-        # If error do we retry? Or does it mean something else
-        return task.try(&.success)
-      end
+    unless resp = Response.from_bytes(data)
+      return task.try(&.success("-- NEC projector, no status updates defined for response for command: 0x#{req.try(&.hexstring) || "unknown"}"))
     end
 
-    task.try(&.success("-- NEC projector, no status updates defined for response for command: 0x#{req.try(&.hexstring) || "unknown"}"))
+    case resp
+    when .power?
+      process_power_status(data, task)
+    when .input_or_mute_query?
+      # Return if we can't work out what was requested initially
+      return task.try(&.success) unless req && (2..3).includes?(req[-2])
+      process_input_state(data, task) if req[-2] == 2
+      process_mute_state(data, task) if req[-2] == 3
+    when .error?
+      process_error_status(data, task)
+    when .input_switch?
+      process_input_switch(data, task, req)
+    when .lamp?, .lamp2?
+      process_lamp_command(data, task, req)
+    when .mute?, .mute2?, .mute3?, .mute4?, .mute5?
+      mute? # update mute status
+      task.try(&.success)
+    when .volume_or_image_adjust?
+      # TODO:: process volume control
+      task.try(&.success)
+    when .info?
+      process_projector_info(data, task)
+    when .audio_switch?
+      # This is the audio switch command
+      # TODO:: data[-2] == 0:Normal, 1:Error
+      # If error do we retry? Or does it mean something else
+      task.try(&.success)
+    end
   end
 
   def received(data, task)
@@ -406,10 +392,9 @@ class Nec::Projector < PlaceOS::Driver
 
   private def process_mute_state(data, task)
     logger.debug { "-- NEC projector responded to mute state command" }
-    self[:picture_mute] = data[-17] == 0x01
+    self[:mute] = self[:picture_mute] = data[-17] == 0x01
     self[:audio_mute] = data[-16] == 0x01
     self[:onscreen_mute] = data[-15] == 0x01
-    self[:mute] = data[-17] == 0x01 # Same as picture mute
     task.try(&.success)
   end
 
@@ -463,13 +448,14 @@ class Nec::Projector < PlaceOS::Driver
   private def process_error_status(data, task)
     logger.debug { "-- NEC projector sent a response to an error status command" }
     errors = [] of String
-    error = data[5..8]
-    error.each_index do |byte_no|
-      if error[byte_no] > 0 # run throught each byte
-        ERROR_CODES[byte_no].each_key do |key| # if error indicated run though each key
-          if (key & error[byte_no]) > 0 # check individual bits
-            errors << ERROR_CODES[byte_no][key] # add errors to the error list
-          end
+    # Run through each byte
+    data[5..8].each_with_index do |byte, byte_no|
+      # If there is an error
+      if byte > 0
+        # Go through each individual bit
+        ERROR_CODES[byte_no].each_key do |bit_check|
+          # Add the error if the bit corresponding to an error is set
+          errors.push(ERROR_CODES[byte_no][bit_check]) if (bit_check & byte) > 0
         end
       end
     end
@@ -477,21 +463,15 @@ class Nec::Projector < PlaceOS::Driver
     task.try(&.success)
   end
 
-  # Process projector info response
-  # lamp1 hours + filter hours
   private def process_projector_info(data, task)
     logger.debug { "-- NEC projector sent a response to a projector info command" }
-
-    # get lamp usage
+    # Calculate lamp/filter usage in seconds
     lamp = data[87..90].each_with_index.sum { |byte, index| byte.to_i << (index * 8) }
-    logger.debug { "lamp is #{lamp}" }
-
-    # get filter usage
     filter = data[91..94].each_with_index.sum { |byte, index| byte.to_i << (index * 8) }
-    logger.debug { "filter is #{filter}" }
-
-    self[:lamp_usage] = lamp / 3600 # Lamp usage in hours
+    # Convert seconds to hours
+    self[:lamp_usage] = lamp / 3600
     self[:filter_usage] = filter / 3600
+    logger.debug { "lamp usage is #{self[:lamp_usage]} hours, filter usage is #{self[:filter_usage]} hours" }
     task.try(&.success)
   end
 end
