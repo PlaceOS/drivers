@@ -224,7 +224,7 @@ class Nec::Projector < PlaceOS::Driver
     Info                = 9098 # [0x23,0x8A]
     AudioSwitch         = 9137 # [0x23,0xB1]
 
-    def self.from_bytes(response)
+    def self.from_bytes?(response)
       value = IO::Memory.new(response[0..1]).read_bytes(UInt16, IO::ByteFormat::BigEndian)
       Response.from_value?(value)
     end
@@ -252,7 +252,7 @@ class Nec::Projector < PlaceOS::Driver
 
     # Only process response if successful
     # Otherwise return success to prevent retries on commands we were not expecting
-    unless resp = Response.from_bytes(data)
+    unless resp = Response.from_bytes?(data)
       return task.try(&.success("-- NEC projector, no status updates defined for response for command: 0x#{req.try(&.hexstring) || "unknown"}"))
     end
 
