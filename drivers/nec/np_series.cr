@@ -86,6 +86,7 @@ class Nec::Projector < PlaceOS::Driver
     filter_info:    Bytes[0x03, 0x8A, 0x00, 0x00, 0x00, 0x8D],
     projector_info: Bytes[0x03, 0x8A, 0x00, 0x00, 0x00, 0x8D],
 
+    # TODO: figure out where these are in the docs as they conflict with audio_switch
     background_black: Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0x0B, 0x01], # set mute to be a black screen
     background_blue:  Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0x0B, 0x00], # set mute to be a blue screen
     background_logo:  Bytes[0x03, 0xB1, 0x00, 0x00, 0x02, 0x0B, 0x02], # set mute to be the company logo
@@ -117,6 +118,7 @@ class Nec::Projector < PlaceOS::Driver
   )
     mute_video(state) if layer.video? || layer.audio_video?
     mute_audio(state) if layer.audio? || layer.audio_video?
+    mute? # TODO: remove
   end
 
   def mute_video(state : Bool)
@@ -141,7 +143,7 @@ class Nec::Projector < PlaceOS::Driver
 
   enum Audio
     HDMI
-    VGA
+    VGA # Computer in docs
   end
 
   def switch_audio(input : Audio)
@@ -214,10 +216,11 @@ class Nec::Projector < PlaceOS::Driver
     InputSwitch         = 8707 # [0x22,0x03]
     Lamp                = 8704 # [0x22,0x00]
     Lamp2               = 8705 # [0x22,0x01]
-    Mute                = 8721 # [0x22,0x11]
-    Mute2               = 8722 # [0x22,0x12]
+    PictureMute         = 8720 # [0x22,0x10]
+    Mute1               = 8721 # [0x22,0x11]
+    AudioMute           = 8722 # [0x22,0x12]
     Mute3               = 8723 # [0x22,0x13]
-    Mute4               = 8724 # [0x22,0x14]
+    OnscreenMute        = 8724 # [0x22,0x14]
     Mute5               = 8725 # [0x22,0x15]
     VolumeOrImageAdjust = 8976 # [0x23,0x10]
     Info                = 9098 # [0x23,0x8A]
@@ -269,8 +272,8 @@ class Nec::Projector < PlaceOS::Driver
       process_input_switch(data, task, req)
     when .lamp?, .lamp2?
       process_lamp_command(data, task, req)
-    when .mute?, .mute2?, .mute3?, .mute4?, .mute5?
-      mute? # update mute status
+    when .picture_mute?, .mute1?, .audio_mute?, .mute3?, .onscreen_mute?, .mute5?
+      # TODO
       task.try(&.success)
     when .volume_or_image_adjust?
       self[:volume] = req[-3] if req && data[-3] == 5 && data[-2] == 0
@@ -278,10 +281,8 @@ class Nec::Projector < PlaceOS::Driver
       task.try(&.success)
     when .info?
       process_projector_info(data, task)
-    when .audio_switch?
-      # This is the audio switch command
-      # TODO:: data[-2] == 0:Normal, 1:Error
-      # If error do we retry? Or does it mean something else
+    when .audio_switch? # TODO: also seems to the seem as setting background response
+      self[:audio_input] = Audio.from_value(data[-2]) if data[-3] == 0xC0
       task.try(&.success)
     end
   end
@@ -324,10 +325,8 @@ class Nec::Projector < PlaceOS::Driver
         end
       else
         logger.debug { "NEC projector is in a good power state..." }
-        self[:warming] = false
-        self[:cooling] = false
-        # TODO
-        # Ensure the input is in the correct state unless the lamp is off
+        self[:warming] = self[:cooling] = false
+        # Ensure the input is in the correct state if power/lamp is on
         input? if self[:power].as_bool # Calls status mute
       end
     end

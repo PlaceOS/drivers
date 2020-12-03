@@ -88,4 +88,9 @@ DriverSpecs.mock_driver "Nec::Projector" do
   status[:picture_mute].should eq(true)
   status[:audio_mute].should eq(true)
   status[:onscreen_mute].should eq(true)
+
+  exec(:switch_audio, "VGA")
+  should_send(Bytes[0x03,0xB1,0x00,0x00,0x02,0xC0,0x01,0x77])
+  responds(Bytes[0x23,0xB1,p_id,mdlc,0xC0,0x01,0xA5])
+  status[:audio_input].should eq("VGA")
 end
