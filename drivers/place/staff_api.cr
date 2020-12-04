@@ -44,6 +44,13 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # ZONE METADATA
+  # ===================================
+  def metadata(id : String, key : String? = nil)
+    placeos_client.metadata.fetch(id, key)
+  end
+
+  # ===================================
   # ZONE INFORMATION
   # ===================================
   def zone(zone_id : String)
