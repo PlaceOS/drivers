@@ -51,6 +51,29 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # BOOKINGS ACTIONS
+  # ===================================
+  @[Security(Level::Support)]
+  def reject(booking_id : String | Int64)
+    response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue rejecting booking #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  @[Security(Level::Support)]
+  def approve(booking_id : String | Int64)
+    response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue approving booking #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  # ===================================
   # BOOKINGS QUERY
   # ===================================
   class Booking

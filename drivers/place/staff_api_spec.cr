@@ -13,7 +13,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
 
   expect_http_request do |request, response|
     headers = request.headers
-    if headers["Authorization"]? == "spec-test"
+    if headers["Authorization"]? == "Bearer spec-test"
       response.status_code = 200
       response << %([{
         "id": 1234,
