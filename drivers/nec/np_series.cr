@@ -118,7 +118,6 @@ class Nec::Projector < PlaceOS::Driver
   )
     mute_video(state) if layer.video? || layer.audio_video?
     mute_audio(state) if layer.audio? || layer.audio_video?
-    mute? # TODO: remove
   end
 
   def mute_video(state : Bool)
@@ -216,12 +215,12 @@ class Nec::Projector < PlaceOS::Driver
     InputSwitch         = 8707 # [0x22,0x03]
     Lamp                = 8704 # [0x22,0x00]
     Lamp2               = 8705 # [0x22,0x01]
-    PictureMute         = 8720 # [0x22,0x10]
-    Mute1               = 8721 # [0x22,0x11]
-    AudioMute           = 8722 # [0x22,0x12]
-    Mute3               = 8723 # [0x22,0x13]
-    OnscreenMute        = 8724 # [0x22,0x14]
-    Mute5               = 8725 # [0x22,0x15]
+    PictureMuteOn       = 8720 # [0x22,0x10]
+    PictureMuteOff      = 8721 # [0x22,0x11]
+    AudioMuteOn         = 8722 # [0x22,0x12]
+    AudioMuteOff        = 8723 # [0x22,0x13]
+    OnscreenMuteOn      = 8724 # [0x22,0x14]
+    OnscreenMuteOff     = 8725 # [0x22,0x15]
     VolumeOrImageAdjust = 8976 # [0x23,0x10]
     Info                = 9098 # [0x23,0x8A]
     AudioSwitch         = 9137 # [0x23,0xB1]
@@ -260,31 +259,34 @@ class Nec::Projector < PlaceOS::Driver
 
     case resp
     when .power?
-      process_power_status(data, task)
+      process_power_status(data)
     when .input_or_mute_query?
       # Return if we can't work out what was requested initially
       return task.try(&.success) unless req && (2..3).includes?(req[-2])
-      process_input_state(data, task) if req[-2] == 2
-      process_mute_state(data, task) if req[-2] == 3
+      process_input_state(data) if req[-2] == 2
+      process_mute_state(data) if req[-2] == 3
     when .error?
-      process_error_status(data, task)
+      process_error_status(data)
     when .input_switch?
-      process_input_switch(data, task, req)
+      return process_input_switch(data, task, req)
     when .lamp?, .lamp2?
-      process_lamp_command(data, task, req)
-    when .picture_mute?, .mute1?, .audio_mute?, .mute3?, .onscreen_mute?, .mute5?
-      # TODO
-      task.try(&.success)
+      process_lamp_command(data, req)
+    when .picture_mute_on?, .picture_mute_off?
+      self[:mute] = self[:picture_mute] = resp.picture_mute_on?
+    when .audio_mute_on?, .audio_mute_off?
+      self[:audio_mute] = resp.audio_mute_on?
+    when .onscreen_mute_on?, .onscreen_mute_off?
+      self[:onscreen_mute] = resp.onscreen_mute_on?
     when .volume_or_image_adjust?
       self[:volume] = req[-3] if req && data[-3] == 5 && data[-2] == 0
       # We don't care about image adjust
-      task.try(&.success)
     when .info?
-      process_projector_info(data, task)
+      process_projector_info(data)
     when .audio_switch? # TODO: also seems to the seem as setting background response
       self[:audio_input] = Audio.from_value(data[-2]) if data[-3] == 0xC0
-      task.try(&.success)
     end
+
+    task.try(&.success)
   end
 
   def received(data, task)
@@ -294,7 +296,7 @@ class Nec::Projector < PlaceOS::Driver
   # Process the lamp status response
   # Intimately entwined with the power power command
   # (as we need to control ensure we are in the correct target state)
-  private def process_power_status(data, task)
+  private def process_power_status(data)
     logger.debug { "-- NEC projector sent a response to a power status command" }
 
     self[:power] = (data[-2] & 0b10) > 0
@@ -332,7 +334,6 @@ class Nec::Projector < PlaceOS::Driver
     end
 
     logger.debug { "Current state {power: #{self[:power]}, warming: #{self[:warming]}, cooling: #{self[:cooling]}}" }
-    task.try(&.success)
   end
 
   # NEC has different values for the input status when compared to input selection
@@ -358,8 +359,8 @@ class Nec::Projector < PlaceOS::Driver
     },
   }
 
-  private def process_input_state(data, task)
-    return task.try(&.success) unless self[:power]?.try(&.as_bool) && (first = INPUT_MAP[data[-15]])
+  private def process_input_state(data)
+    return unless self[:power]?.try(&.as_bool) && (first = INPUT_MAP[data[-15]])
 
     logger.debug { "-- NEC projector sent a response to an input state command" }
 
@@ -386,16 +387,13 @@ class Nec::Projector < PlaceOS::Driver
         switch_to(input_target)
       end
     end
-
-    task.try(&.success)
   end
 
-  private def process_mute_state(data, task)
+  private def process_mute_state(data)
     logger.debug { "-- NEC projector responded to mute state command" }
     self[:mute] = self[:picture_mute] = data[-17] == 0x01
     self[:audio_mute] = data[-16] == 0x01
     self[:onscreen_mute] = data[-15] == 0x01
-    task.try(&.success)
   end
 
   private def process_input_switch(data, task, req)
@@ -407,13 +405,12 @@ class Nec::Projector < PlaceOS::Driver
     task.try(&.retry("-- NEC projector failed to switch input with command: #{req.try(&.hexstring) || "unknown"}"))
   end
 
-  private def process_lamp_command(data, task, req)
+  private def process_lamp_command(data, req)
     logger.debug { "-- NEC projector sent a response to a power command" }
     # Ensure a change of power state was the last command sent
     if req && (0..1).includes?(req[1])
       power? # Queues the status power command
     end
-    task.try(&.success)
   end
 
   # Provide all the error info required
@@ -446,7 +443,7 @@ class Nec::Projector < PlaceOS::Driver
     0b1000 => "A foreign object sensor error",
   }]
 
-  private def process_error_status(data, task)
+  private def process_error_status(data)
     logger.debug { "-- NEC projector sent a response to an error status command" }
     errors = [] of String
     # Run through each byte
@@ -461,10 +458,9 @@ class Nec::Projector < PlaceOS::Driver
       end
     end
     self[:error] = errors
-    task.try(&.success)
   end
 
-  private def process_projector_info(data, task)
+  private def process_projector_info(data)
     logger.debug { "-- NEC projector sent a response to a projector info command" }
     # Calculate lamp/filter usage in seconds
     lamp = data[87..90].each_with_index.sum { |byte, index| byte.to_i << (index * 8) }
@@ -473,6 +469,5 @@ class Nec::Projector < PlaceOS::Driver
     self[:lamp_usage] = lamp / 3600
     self[:filter_usage] = filter / 3600
     logger.debug { "lamp usage is #{self[:lamp_usage]} hours, filter usage is #{self[:filter_usage]} hours" }
-    task.try(&.success)
   end
 end

@@ -65,29 +65,16 @@ DriverSpecs.mock_driver "Nec::Projector" do
   # mute_picture
   should_send(Bytes[0x02,0x10,0x00,0x00,0x00,0x12,0x24])
   responds(Bytes[0x22,0x10,p_id,mdlc,0x32,0x00,0x74])
-  # TODO: handle this response
-  # status[:mute] = true
-  # status[:picture_mute] = true
+  status[:mute] = true
+  status[:picture_mute] = true
   # mute_onscreen
   should_send(Bytes[0x02,0x14,0x00,0x00,0x00,0x16,0x2C])
   responds(Bytes[0x22,0x14,p_id,mdlc,0x00,0x46])
-  # TODO: handle this response
-  # status[:onscreen_mute] = true
+  status[:onscreen_mute] = true
   # mute_audio
   should_send(Bytes[0x02,0x12,0x00,0x00,0x00,0x14,0x28])
   responds(Bytes[0x22,0x12,p_id,mdlc,0x00,0x44])
-  # TODO: handle this response
-  # status[:audio_mute] = true
-  # mute?
-  should_send(Bytes[0x00,0x85,0x00,0x00,0x01,0x03,0x89])
-  responds(Bytes[0x20,0x85,p_id,mdlc,0x10,
-    #-17  -16  -15
-    0x01,0x01,0x01,4,5,6,7,8,9,10,11,12,13,14,15,16,
-    0x4A]) # Checksum
-  status[:mute].should eq(true)
-  status[:picture_mute].should eq(true)
-  status[:audio_mute].should eq(true)
-  status[:onscreen_mute].should eq(true)
+  status[:audio_mute] = true
 
   exec(:switch_audio, "VGA")
   should_send(Bytes[0x03,0xB1,0x00,0x00,0x02,0xC0,0x01,0x77])
