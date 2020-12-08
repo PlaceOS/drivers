@@ -94,7 +94,6 @@ class Nec::Projector < PlaceOS::Driver
 
   {% for name, data in COMMAND %}
     def {{name.id}}(**options)
-      pp "sending " + {{name.id.stringify}} + " with"
       do_send(COMMAND[{{name.id.stringify}}], **options, name: {{name.id.stringify}})
     end
   {% end %}
@@ -167,7 +166,7 @@ class Nec::Projector < PlaceOS::Driver
         delay: 30.seconds,
         clear_queue: true,
         priority: 100,
-        # delay_on_receive: 200 # give it a little bit of breathing room
+        # TODO delay_on_receive: 200 # give it a little bit of breathing room
       )
     end
   end
@@ -202,12 +201,11 @@ class Nec::Projector < PlaceOS::Driver
     req = Bytes.new(command.size + 1)
     req.copy_from(command)
     req[-1] = (command.sum(0) & 0xFF).to_u8
-    pp "Nec proj sending 0x#{req.hexstring}"
     logger.debug { "Nec proj sending 0x#{req.hexstring}" }
     send(req, **options) { |data, task| process_response(data, task, req) }
   end
 
-  # TODO: add responses for freeze commands
+  # TODO: add responses for freeze commands if we need to process them
   enum Response : UInt16
     Power               = 8321 # [0x20,0x81]
     InputOrMuteQuery    = 8325 # [0x20,0x85]
@@ -232,7 +230,6 @@ class Nec::Projector < PlaceOS::Driver
   end
 
   private def process_response(data, task, req = nil)
-    pp "NEC projector sent: 0x#{data.hexstring}"
     logger.debug { "NEC projector sent: 0x#{data.hexstring}" }
 
     # Command failed
@@ -366,14 +363,13 @@ class Nec::Projector < PlaceOS::Driver
 
     self[:input] = current_input = first[data[-14]] || "unknown"
     if data[-17] == 0x01
-      # TODO
+      # TODO: figure out how to write in crystal and if needed
       # command[:delay_on_receive] = 3000 # still processing signal
       input?
     else # TODO: figure out if this is needed from old ruby driver
       # mute? # get mute status one signal has settled
     end
 
-    pp "The input selected was: #{current_input}"
     logger.debug { "The input selected was: #{current_input}" }
 
     # Notify of bad input selection for debugging
