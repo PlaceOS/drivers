@@ -200,6 +200,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
               end
             end
 
+            payload.last_seen = payload.last_seen // 1000
+
             locations do |loc|
               existing = loc[device_mac]?
               loc[device_mac] = payload
