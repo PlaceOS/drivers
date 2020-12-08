@@ -15,7 +15,7 @@ class Cisco::DNASpaces::DeviceLocationUpdate
   getter visit_id : String
 
   @[JSON::Field(key: "lastSeen")]
-  getter last_seen : Int64
+  property last_seen : Int64
 
   @[JSON::Field(key: "deviceClassification")]
   getter device_classification : String
