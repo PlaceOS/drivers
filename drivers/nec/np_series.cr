@@ -196,8 +196,7 @@ class Nec::Projector < PlaceOS::Driver
     result
   end
 
-  private def do_send(command, **options)
-    command = command.delete(' ').hexbytes if command.is_a?(String)
+  private def do_send(command : Bytes, **options)
     req = Bytes.new(command.size + 1)
     req.copy_from(command)
     req[-1] = (command.sum(0) & 0xFF).to_u8
