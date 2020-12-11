@@ -3,7 +3,9 @@ require "jwt"
 
 module Floorsense; end
 
-# Documentation: https://documenter.getpostman.com/view/8843075/SVmwvctF?version=latest#3bfbb050-722d-4433-889a-8793fa90af9c
+# Documentation: 
+# https://apiguide.smartalock.com/
+# https://documenter.getpostman.com/view/8843075/SVmwvctF?version=latest#3bfbb050-722d-4433-889a-8793fa90af9c
 
 class Floorsense::Desks < PlaceOS::Driver
   # Discovery Information
