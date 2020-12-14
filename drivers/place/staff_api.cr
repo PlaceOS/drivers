@@ -50,6 +50,10 @@ class Place::StaffAPI < PlaceOS::Driver
     placeos_client.metadata.fetch(id, key)
   end
 
+  def metadata_children(id : String, key : String? = nil)
+    placeos_client.metadata.children(id, key)
+  end
+
   # ===================================
   # ZONE INFORMATION
   # ===================================

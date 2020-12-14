@@ -10,15 +10,10 @@ class Place::AreaManagement < PlaceOS::Driver
   generic_name :AreaManagement
   description %(counts trackable objects, such as laptops, in building areas)
 
+  accessor staff_api : StaffAPI_1
+
   default_settings({
     building: "zone-12345",
-
-    # PlaceOS API creds, so we can query the zone metadata
-    placeos_domain: "https://domain.name",
-    username:       "",
-    password:       "",
-    client_id:      "",
-    client_secret:  "",
 
     # time in seconds
     poll_rate: 60,
@@ -76,7 +71,6 @@ class Place::AreaManagement < PlaceOS::Driver
 
   # PlaceOS client config
   @building_id : String = ""
-  @client : PlaceOS::Client? = nil
 
   @poll_rate : Time::Span = 60.seconds
   @location_service : String = "LocationServices"
@@ -103,20 +97,6 @@ class Place::AreaManagement < PlaceOS::Driver
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
     @location_service = setting?(String, :location_service).presence || "LocationServices"
     @duplication_factor = setting?(Float64, :duplication_factor) || 0.8
-
-    # We expect the configuration to be stored in the zone metadata
-    # we use the Place Client to extract the data
-    username = setting(String, :username)
-    password = setting(String, :password)
-    client_id = setting(String, :client_id)
-    client_secret = setting(String, :client_secret)
-    placeos_domain = setting(String, :placeos_domain)
-    @client = PlaceOS::Client.new(placeos_domain,
-      email: username,
-      password: password,
-      client_id: client_id,
-      client_secret: client_secret
-    )
 
     # Areas are defined in metadata, this is mainly here so we can write specs
     if building_areas = setting?(Hash(String, Array(AreaSetting)), :areas)
@@ -167,10 +147,14 @@ class Place::AreaManagement < PlaceOS::Driver
     end
   end
 
+  alias Zone = PlaceOS::Client::API::Models::Zone
+  alias Metadata = Hash(String, PlaceOS::Client::API::Models::Metadata)
+  alias ChildMetadata = Array(NamedTuple(zone: Zone, metadata: Metadata))
+
   # Grabs all the level zones in the building and syncs the metadata
   protected def sync_level_details
     # Attempt to obtain the latest version of the metadata
-    response = client.metadata.children(@building_id)
+    response = ChildMetadata.from_json(staff_api.metadata_children(@building_id).get.to_json)
 
     level_details = {} of String => LevelCapacity
     response.each do |meta|
@@ -314,12 +298,12 @@ class Place::AreaManagement < PlaceOS::Driver
 
   def request_level_locations(level_id : String) : Nil
     @update_lock.synchronize do
-      zone = client.zones.fetch(level_id)
+      zone = Zone.from_json(staff_api.zone(level_id).get.to_json)
       if !zone.tags.includes?("level")
         logger.warn { "attempted to update location for #{zone.name} (#{level_id}) which is not tagged as a level" }
         return
       end
-      metadata = client.metadata.fetch(level_id)
+      metadata = Metadata.from_json(staff_api.metadata(level_id).get.to_json)
 
       update_level_details @level_details, zone, metadata
       update_level_locations @level_counts, level_id, @level_details[level_id]
@@ -370,10 +354,6 @@ class Place::AreaManagement < PlaceOS::Driver
       # higher the number, better the recommendation
       recommendation: recommendation,
     }
-  end
-
-  protected def client
-    @client.not_nil!
   end
 
   # This is to limit the number of "real-time" updates
