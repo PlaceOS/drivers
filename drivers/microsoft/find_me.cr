@@ -75,7 +75,7 @@ class Microsoft::FindMe < PlaceOS::Driver
 
     logger.debug { "user details request returned #{data}" }
 
-    Array(Microsoft::Location).from_json(data)
+    Array(Microsoft::Location).from_json(data).reject{ |loc| loc.status == "NoData" }
   end
 
   def users_on(building : String, level : String, extended_data : Bool = true)
@@ -86,7 +86,7 @@ class Microsoft::FindMe < PlaceOS::Driver
     data = make_request("GET", uri)
 
     begin
-      Array(Microsoft::Location).from_json data
+      Array(Microsoft::Location).from_json(data).reject{ |loc| loc.status == "NoData" }
     rescue error
       logger.debug { "failed to parse location data\n#{data}" }
       raise error
