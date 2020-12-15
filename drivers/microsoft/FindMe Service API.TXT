@@ -1,0 +1,58 @@
+*List of available buildings and levels. Returns number of people "findable" on each level*
+
+GET /FindMeService/api/MeetingRooms/BuildingLevelsWithMeetingRooms 
+
+[{"Building":"SYDNEY","Level":"0","Online":13},{"Building":"SYDNEY","Level":"2","Online":14},{"Building":"SYDNEY","Level":"3","Online":18}]
+
+*List of meeting rooms in a building/level*
+
+GET /FindMeService/api/MeetingRooms/Level/SYDNEY/2
+
+[{"Alias":"cf2020","Name":"Minogue","Building":"SYDNEY","Level":"2","LocationDescription":"2020","X":null,"Y":null,"Capacity":4,"Features":null,"CanBeBooked":true,"PhotoUrl":null,"HasAV":false,"HasDeskPhone":true,"HasSpeakerPhone":false,"HasWhiteboard":true}]
+
+You need to honour the CanBeBooked flag - don't try to book room that can't be booked!
+
+*Meetings for all rooms on a given level*
+
+Due to the design of our kiosk and web site we always get all meetings for all rooms.
+
+GET /FindMeService/api/MeetingRooms/Meetings/SYDNEY/2/2015-11-12T02:11:41/2015-11-15T02:11:41 
+GET /FindMeService/api/MeetingRooms/Meetings/Building/Level/StartDate/EndDate 
+
+[{"ConferenceRoomAlias":"cfsydinx","Start":"2015-11-11T23:30:00+00:00","End":"2015-11-12T00:00:00+00:00","Subject":"<meeting title>","Location":"Pty MR Syd L2 INXS (10) RT Int","BookingUserAlias":null,"StartTimeZoneName":null,"EndTimeZoneName":null},{"ConferenceRoomAlias":"cfsydinx","Start":"2015-11-12T23:00:00+00:00","End":"2015-11-13T00:00:00+00:00","Subject":"<meeting title>","Location":"Pty MR Syd L2 INXS (10) RT Int","BookingUserAlias":null,"StartTimeZoneName":null,"EndTimeZoneName":null},{"ConferenceRoomAlias":"cfsydsky","Start":"2015-11-13T01:00:00+00:00","End":"2015-11-13T03:00:00+00:00","Subject":"<meeting title>","Location":"Sydney team: Pty MR Syd L2 Skyhooks (10) RT","BookingUserAlias":null,"StartTimeZoneName":null,"EndTimeZoneName":null}]
+
+*Schedule a Meeting*
+
+POST /FindMeService/api/MeetingRooms/ScheduleMeeting
+
+{"ConferenceRoomAlias":"cf2205","Start":"2015-11-13T18:00:00","End":"2015-11-13T18:30:00","Subject":"<meeting subject","Location":"Sia","BookingUserAlias":"dwatson","StartTimeZoneName":"AUS Eastern Standard Time","EndTimeZoneName":"AUS Eastern Standard Time"}
+
+Call will return HTTP 500 if the booking fails, with details in the response body. Note that because the FindMe service account is only inviting a conference room to a meeting (just like you invite a person to a meeting), this call will return successfully even if the conference room rejects the invitation (e.g. if there is already a meeting booked).  It's therefore very important to only let users request booking for periods you know are available for the room.
+
+*Details of a specific list of users*
+
+GET /FindMeService/api/ObjectLocation/Users/dwatson
+GET /FindMeService/api/ObjectLocation/Users/user1,user2,user3
+
+[{"Alias":"dwatson","LastUpdate":"2015-11-12T02:25:50.017Z","Confidence":100,"Coordinates":{"Building":"SYDNEY","Level":"2","X":76,"Y":29,"LocationDescription":"2140","MapByLocationId":true},"GPS":{"Latitude":-33.796597429,"Longitude":151.1382508278,"Accuracy":0.0,"LocationDescription":null},"LocationIdentifier":null,"Status":"Located","LocatedUsing":"FixedLocation","Type":"Person","Comments":null,"ExtendedUserData":{"Alias":null,"DisplayName":null,"EmailAddress":null,"LyncSipAddress":null}}]
+
+*Full details of all users on a given level*
+
+GET /FindMeService/api/ObjectLocation/Level/SYDNEY/2?getExtendedData=true
+
+[{"Alias":"dwatson","LastUpdate":"2015-11-12T02:05:49.43Z","Confidence":100,"Coordinates":{"Building":"SYDNEY","Level":"2","X":76,"Y":29,"LocationDescription":"2140","MapByLocationId":true},"GPS":{"Latitude":-33.796597429,"Longitude":151.1382508278,"Accuracy":0.0,"LocationDescription":null},"LocationIdentifier":null,"Status":"Located","LocatedUsing":"FixedLocation","Type":"Person","Comments":null,"ExtendedUserData":{"Alias":"dwatson","DisplayName":"David Watson","EmailAddress":"David.Watson@microsoft.com","LyncSipAddress":"dwatson@microsoft.com"}}]
+
+The getExtendedData parameter does an extra query to AD to populate the ExtendedUserData object. Although this is cached, we recommend not using it unless you need this extra data.  ExtendedUserData is always returned for individual user queries
+
+*Name from alias resolution*
+
+GET /FindMeService/api/User/FullNames?param=dwatson
+GET /FindMeService/api/User/FullNames?param=userId1,userId2
+
+["David Watson"]
+
+*Photo*
+
+GET /FindMeService/api/User/Photo/dwatson
+
+Returns image (Content-Type image/jpeg)
