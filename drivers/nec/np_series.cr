@@ -447,7 +447,7 @@ class Nec::Projector < PlaceOS::Driver
       if byte > 0
         # Go through each individual bit
         ERROR_CODES[byte_no].each_key do |bit_check|
-          # Add the error if the bit corresponding to an error is set
+          # Add the error if the bit corresponding to it is set
           errors.push(ERROR_CODES[byte_no][bit_check]) if (bit_check & byte) > 0
         end
       end
