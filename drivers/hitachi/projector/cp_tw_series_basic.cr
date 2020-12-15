@@ -14,7 +14,7 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   @recover_input : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
   # nil by default (allows manual on and off)
   @power_target : Bool? = nil
-  @input_target : String? = nil
+  @input_target : Input? = nil
 
   def on_load
     # Response time is slow
@@ -38,7 +38,7 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     if self[:power]?.try &.as_bool
       input?(priority: 0)
       audio_mute?(priority: 0)
-      picture_mute?(priority: 0)
+      video_mute?(priority: 0)
       freeze?(priority: 0)
     end
   end
@@ -59,22 +59,17 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     @power_target = state
     if state
       logger.debug { "requested to power on" }
-      do_send("BA D2 01 00 00 60 01 00", name: "power")
+      do_send(:power_on)
     else
       logger.debug { "requested to power off" }
-      do_send("2A D3 01 00 00 60 00 00", name: "power")
+      do_send(:power_off)
     end
     power?
   end
 
-  INPUTS = {
-    "hdmi"  => "0E D2 01 00 00 20 03 00",
-    "hdmi2" => "6E D6 01 00 00 20 0D 00",
-  }
-
-  def switch_to(input : String)
+  def switch_to(input : Input)
     @input_target = input
-    do_send(INPUTS[input], name: "input")
+    do_send(input.to_s.downcase)
     input?
   end
 
@@ -89,51 +84,29 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
 
   def mute_video(state : Bool = true)
     if state
-      do_send("6E F1 01 00 A0 20 01 00", name: "mute_video")
+      do_send(:mute_video)
     else
-      do_send("FE F0 01 00 A0 20 00 00", name: "mute_video")
+      do_send(:unmute_video)
     end
-    picture_mute?
+    video_mute?
   end
 
   def mute_audio(state : Bool = true)
     if state
-      do_send("D6 D2 01 00 02 20 01 00", name: "mute_audio")
+      do_send(:mute_audio)
     else
-      do_send("46 D3 01 00 02 20 00 00", name: "mute_audio")
+      do_send(:unmute_audio)
     end
     audio_mute?
   end
 
-  QueryRequests = {
-    power:        "19 D3 02 00 00 60 00 00",
-    input:        "CD D2 02 00 00 20 00 00",
-    error:        "D9 D8 02 00 20 60 00 00",
-    freeze:       "B0 D2 02 00 02 30 00 00",
-    audio_mute:   "75 D3 02 00 02 20 00 00",
-    picture_mute: "CD F0 02 00 A0 20 00 00",
-    lamp:         "C2 FF 02 00 90 10 00 00",
-    filter:       "C2 F0 02 00 A0 10 00 00",
-  }
-
-  def self.query_requests
-    QueryRequests
-  end
-
-  {% for name, data in QueryRequests %}
-    @[Security(Level::Administrator)]
-    def {{name.id}}?(**options)
-      do_send({{data}}, **options, name: {{name.id.stringify}} + '?')
-    end
-  {% end %}
-
   def lamp_hours_reset
-    do_send("58 DC 06 00 30 70 00 00", name: "lamp_hours_reset")
+    do_send(:lamp_hours_reset)
     lamp?
   end
 
   def filter_hours_reset
-    do_send("98 C6 06 00 40 70 00 00", name: "filter_hours_reset")
+    do_send(:filter_hours_reset)
     filter?
   end
 
@@ -190,14 +163,17 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
             end
           end
         when "input?"
-          self[:input] = Input.from_value?(data[1]) || "unknown"
-          if self[:input]? == @input_target
-            @input_target = nil
-          elsif @input_target && @recover_input.nil?
-            logger.debug { "recovering input #{self[:input]} != target #{@input_target}" }
-            @recover_input = schedule.in(3.seconds) do
-              @recover_input = nil
-              switch_to(@input_target.not_nil!)
+          input = Input.from_value?(data[1])
+          self[:input] = input || "unknown"
+          if @input_target
+            if input == @input_target
+              @input_target = nil
+            elsif @recover_input.nil?
+              logger.debug { "recovering input #{self[:input]} != target #{@input_target}" }
+              @recover_input = schedule.in(3.seconds) do
+                @recover_input = nil
+                switch_to(@input_target.not_nil!)
+              end
             end
           end
         when "error?"
@@ -206,8 +182,8 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
           self[:frozen] = data[1] == 1
         when "audio_mute?"
           self[:audio_mute] = data[1] == 1
-        when "picture_mute?"
-          self[:picture_mute] = data[1] == 1
+        when "video_mute?"
+          self[:video_mute] = data[1] == 1
         when "lamp?"
           self[:lamp] = data[1] * data[2]
         when "filter?"
@@ -227,9 +203,45 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   end
 
   # Note: commands have spaces in between each byte for readability
-  private def do_send(data : String, **options)
-    cmd = "BEEF030600 #{data}"
-    logger.debug { "requesting \"0x#{cmd}\" name: #{options[:name]}" }
-    send(cmd.delete(' ').hexbytes, **options)
+  Commands = {
+    # SetRequests
+    power_on: "BA D2 01 00 00 60 01 00",
+    power_off: "2A D3 01 00 00 60 00 00",
+    hdmi: "0E D2 01 00 00 20 03 00",
+    hdmi2: "6E D6 01 00 00 20 0D 00",
+    mute_video: "6E F1 01 00 A0 20 01 00",
+    unmute_video: "FE F0 01 00 A0 20 00 00",
+    mute_audio: "D6 D2 01 00 02 20 01 00",
+    unmute_audio: "46 D3 01 00 02 20 00 00",
+    lamp_hours_reset: "58 DC 06 00 30 70 00 00",
+    filter_hours_reset: "98 C6 06 00 40 70 00 00",
+    # GetRequests
+    power?:        "19 D3 02 00 00 60 00 00",
+    input?:        "CD D2 02 00 00 20 00 00",
+    error?:        "D9 D8 02 00 20 60 00 00",
+    freeze?:       "B0 D2 02 00 02 30 00 00",
+    audio_mute?:   "75 D3 02 00 02 20 00 00",
+    video_mute?: "CD F0 02 00 A0 20 00 00",
+    lamp?:         "C2 FF 02 00 90 10 00 00",
+    filter?:       "C2 F0 02 00 A0 10 00 00",
+  }
+
+  def self.commands
+    Commands
+  end
+
+  GetRequests = %i(power? input? error? freeze? audio_mute? video_mute? lamp? filter?)
+  {% for name in GetRequests %}
+    @[Security(Level::Administrator)]
+    def {{name.id}}(**options)
+      do_send({{name.id.stringify}}, **options)
+    end
+  {% end %}
+
+  private def do_send(cmd, **options)
+    data = "BEEF030600 #{Commands[cmd]}"
+    logger.debug { "requesting \"0x#{data}\" name: #{cmd}" }
+    # Remove spaces that have been added for readability
+    send(data.delete(' ').hexbytes, **options, name: cmd)
   end
 end
