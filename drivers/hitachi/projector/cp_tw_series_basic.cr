@@ -226,10 +226,6 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     filter?:     "C2 F0 02 00 A0 10 00 00",
   }
 
-  def self.commands
-    Commands
-  end
-
   GetRequests = %i(power? input? error? freeze? audio_mute? video_mute? lamp? filter?)
   {% for name in GetRequests %}
     @[Security(Level::Administrator)]

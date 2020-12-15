@@ -2,7 +2,7 @@ require "placeos-driver"
 require "./cp_tw_series_basic"
 
 DriverSpecs.mock_driver "Hitachi::Projector::CpTwSeriesBasic" do
-  c = Hitachi::Projector::CpTwSeriesBasic.commands
+  c = Hitachi::Projector::CpTwSeriesBasic::Commands
 
   # connected
   # power?
