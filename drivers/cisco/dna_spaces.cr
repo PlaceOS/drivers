@@ -19,6 +19,20 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
     # Time before a user location is considered probably too old (in minutes)
     max_location_age: 10,
+
+    floorplan_mappings: {
+      location_a4cb0: {
+        "level_name" => "optional name",
+        "building"   => "zone-GAsXV0nc",
+        "level"      => "zone-GAsmleH",
+        "offset_x"   => 12.4,
+        "offset_y"   => 5.2,
+        "map_width"  => 50.3,
+        "map_height" => 100.9,
+      },
+    },
+
+    debug_stream: false,
   })
 
   def on_load
@@ -37,7 +51,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @channel : Channel(String) = Channel(String).new
   @max_location_age : Time::Span = 10.minutes
   @s2_level : Int32 = 21
-  @floorplan_mappings : Hash(String, Hash(String, String)) = Hash(String, Hash(String, String)).new
+  @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @debug_stream : Bool = false
   @events_received : UInt64 = 0_u64
 
@@ -46,7 +60,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @tenant_id = setting(String, :tenant_id)
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
     @s2_level = setting?(Int32, :s2_level) || 21
-    @floorplan_mappings = setting?(Hash(String, Hash(String, String)), :floorplan_mappings) || @floorplan_mappings
+    @floorplan_mappings = setting?(Hash(String, Hash(String, String | Float64)), :floorplan_mappings) || @floorplan_mappings
     @debug_stream = setting?(Bool, :debug_stream) || false
 
     schedule.clear
@@ -325,18 +339,41 @@ class Cisco::DNASpaces < PlaceOS::Driver
           "os"               => location.device.os,
         }
 
-        # Add meraki map information to the response
-        if map_size = get_map_details(location.map_id)
-          loc["map_width"] = map_size.length
-          loc["map_height"] = map_size.width
-        end
+        map_width = 0.0
+        map_height = 0.0
+        offset_x = 0.0
+        offset_y = 0.0
 
         # Add our zone IDs to the response
         location.location_mappings.each do |tag, location_id|
           if level_data = @floorplan_mappings[location_id]?
-            level_data.each { |k, v| loc[k] = v }
+            level_data.each do |key, value|
+              case key
+              when "offset_x"
+                offset_x = value.as(Float64)
+                loc["x"] = location.x_pos - offset_x
+              when "offset_y"
+                offset_y = value.as(Float64)
+                loc["y"] = location.y_pos - offset_y
+              when "map_width"
+                map_width = value.as(Float64)
+              when "map_height"
+                map_height = value.as(Float64)
+              else
+                loc[key] = value
+              end
+            end
             break
           end
+        end
+
+        # Add map information to the response
+        if map_width > 0.0 && map_height > 0.0
+          loc["map_width"] = map_width
+          loc["map_height"] = map_height
+        elsif map_size = get_map_details(location.map_id)
+          loc["map_width"] = map_width > 0.0 ? map_width : (map_size.length - offset_x)
+          loc["map_height"] = map_height > 0.0 ? map_height : (map_size.width - offset_y)
         end
 
         loc
@@ -370,8 +407,16 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
     # Find the floors associated with the provided zone id
     floors = [] of String
+    adjustments = {} of String => Tuple(Float64, Float64, Float64, Float64)
     @floorplan_mappings.each do |floor_id, data|
-      floors << floor_id if data.values.includes?(zone_id)
+      if data.values.includes?(zone_id)
+        floors << floor_id
+        offset_x = (data["offset_x"]? || 0.0).as(Float64)
+        offset_y = (data["offset_y"]? || 0.0).as(Float64)
+        map_width = (data["map_width"]? || -1.0).as(Float64)
+        map_height = (data["map_height"]? || -1.0).as(Float64)
+        adjustments[floor_id] = {offset_x, offset_y, map_width, map_height}
+      end
     end
     logger.debug { "found matching meraki floors: #{floors}" }
     return [] of Nil if floors.empty?
@@ -403,10 +448,22 @@ class Cisco::DNASpaces < PlaceOS::Driver
     matching.group_by(&.map_id).flat_map { |map_id, locations|
       map_width = -1.0
       map_height = -1.0
+      offset_x = 0.0
+      offset_y = 0.0
 
-      if map_size = get_map_details(map_id)
-        map_width = map_size.length
-        map_height = map_size.width
+      # any adjustments required for these locations?
+      locations.first.location_mappings.each do |tag, location_id|
+        if level_data = adjustments[location_id]?
+          offset_x, offset_y, map_width, map_height = level_data
+          break
+        end
+      end
+
+      if map_width == -1.0 || map_height == -1.0
+        if map_size = get_map_details(map_id)
+          map_width = map_width > -1.0 ? map_width : (map_size.length - offset_x)
+          map_height = map_height > -1.0 ? map_height : (map_size.width - offset_y)
+        end
       end
 
       locations.map do |loc|
@@ -416,8 +473,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
         {
           location:         :wireless,
           coordinates_from: "top-left",
-          x:                loc.x_pos,
-          y:                loc.y_pos,
+          x:                loc.x_pos - offset_x,
+          y:                loc.y_pos - offset_y,
           lon:              lon,
           lat:              lat,
           s2_cell_id:       S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
