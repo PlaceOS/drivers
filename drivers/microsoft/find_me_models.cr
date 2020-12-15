@@ -83,6 +83,9 @@ module Microsoft
     @[JSON::Field(key: "GPS")]
     getter gps : GPS?
 
+    @[JSON::Field(key: "LocationIdentifier")]
+    getter location_id : String
+
     @[JSON::Field(key: "Status")]
     getter status : String
 
