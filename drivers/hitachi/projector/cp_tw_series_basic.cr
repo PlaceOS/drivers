@@ -58,10 +58,10 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   def power(state : Bool)
     @power_target = state
     if state
-      logger.debug { "-- requested to power on" }
+      logger.debug { "requested to power on" }
       do_send("BA D2 01 00 00 60 01 00", name: "power")
     else
-      logger.debug { "-- requested to power off" }
+      logger.debug { "requested to power off" }
       do_send("2A D3 01 00 00 60 00 00", name: "power")
     end
     power?
