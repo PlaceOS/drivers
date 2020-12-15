@@ -50,13 +50,13 @@ module Microsoft
     include JSON::Serializable
 
     @[JSON::Field(key: "Alias")]
-    getter username : String
+    getter username : String?
 
     @[JSON::Field(key: "DisplayName")]
-    getter display_name : String
+    getter display_name : String?
 
     @[JSON::Field(key: "EmailAddress")]
-    getter email_address : String
+    getter email_address : String?
   end
 
   # Example Response:
