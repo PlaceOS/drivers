@@ -78,21 +78,21 @@ module Microsoft
     getter confidence : Float64
 
     @[JSON::Field(key: "Coordinates")]
-    getter coordinates : Coordinates
+    getter coordinates : Coordinates?
 
     @[JSON::Field(key: "GPS")]
-    getter gps : GPS
+    getter gps : GPS?
 
     @[JSON::Field(key: "Status")]
     getter status : String
 
     @[JSON::Field(key: "LocatedUsing")]
-    getter located_using : String
+    getter located_using : String?
 
     @[JSON::Field(key: "Type")]
-    getter type : String
+    getter type : String?
 
     @[JSON::Field(key: "ExtendedUserData")]
-    getter user_data : UserData
+    getter user_data : UserData?
   end
 end
