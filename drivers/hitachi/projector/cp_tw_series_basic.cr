@@ -205,25 +205,25 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
   # Note: commands have spaces in between each byte for readability
   Commands = {
     # SetRequests
-    power_on: "BA D2 01 00 00 60 01 00",
-    power_off: "2A D3 01 00 00 60 00 00",
-    hdmi: "0E D2 01 00 00 20 03 00",
-    hdmi2: "6E D6 01 00 00 20 0D 00",
-    mute_video: "6E F1 01 00 A0 20 01 00",
-    unmute_video: "FE F0 01 00 A0 20 00 00",
-    mute_audio: "D6 D2 01 00 02 20 01 00",
-    unmute_audio: "46 D3 01 00 02 20 00 00",
-    lamp_hours_reset: "58 DC 06 00 30 70 00 00",
+    power_on:           "BA D2 01 00 00 60 01 00",
+    power_off:          "2A D3 01 00 00 60 00 00",
+    hdmi:               "0E D2 01 00 00 20 03 00",
+    hdmi2:              "6E D6 01 00 00 20 0D 00",
+    mute_video:         "6E F1 01 00 A0 20 01 00",
+    unmute_video:       "FE F0 01 00 A0 20 00 00",
+    mute_audio:         "D6 D2 01 00 02 20 01 00",
+    unmute_audio:       "46 D3 01 00 02 20 00 00",
+    lamp_hours_reset:   "58 DC 06 00 30 70 00 00",
     filter_hours_reset: "98 C6 06 00 40 70 00 00",
     # GetRequests
-    power?:        "19 D3 02 00 00 60 00 00",
-    input?:        "CD D2 02 00 00 20 00 00",
-    error?:        "D9 D8 02 00 20 60 00 00",
-    freeze?:       "B0 D2 02 00 02 30 00 00",
-    audio_mute?:   "75 D3 02 00 02 20 00 00",
+    power?:      "19 D3 02 00 00 60 00 00",
+    input?:      "CD D2 02 00 00 20 00 00",
+    error?:      "D9 D8 02 00 20 60 00 00",
+    freeze?:     "B0 D2 02 00 02 30 00 00",
+    audio_mute?: "75 D3 02 00 02 20 00 00",
     video_mute?: "CD F0 02 00 A0 20 00 00",
-    lamp?:         "C2 FF 02 00 90 10 00 00",
-    filter?:       "C2 F0 02 00 A0 10 00 00",
+    lamp?:       "C2 FF 02 00 90 10 00 00",
+    filter?:     "C2 F0 02 00 A0 10 00 00",
   }
 
   def self.commands
