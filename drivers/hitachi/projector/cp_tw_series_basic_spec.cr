@@ -1,14 +1,8 @@
+require "placeos-driver"
+require "./cp_tw_series_basic"
+
 DriverSpecs.mock_driver "Hitachi::Projector::CpTwSeriesBasic" do
-  q = {
-    power:        "19 D3 02 00 00 60 00 00",
-    input:        "CD D2 02 00 00 20 00 00",
-    error:        "D9 D8 02 00 20 60 00 00",
-    freeze:       "B0 D2 02 00 02 30 00 00",
-    audio_mute:   "75 D3 02 00 02 20 00 00",
-    picture_mute: "CD F0 02 00 A0 20 00 00",
-    lamp:         "C2 FF 02 00 90 10 00 00",
-    filter:       "C2 F0 02 00 A0 10 00 00",
-  }
+  q = Hitachi::Projector::CpTwSeriesBasic.query_requests
 
   # connected
   # power?

@@ -115,6 +115,11 @@ class Hitachi::Projector::CpTwSeriesBasic < PlaceOS::Driver
     lamp:         "C2 FF 02 00 90 10 00 00",
     filter:       "C2 F0 02 00 A0 10 00 00",
   }
+
+  def self.query_requests
+    QueryRequests
+  end
+
   {% for name, data in QueryRequests %}
     @[Security(Level::Administrator)]
     def {{name.id}}?(**options)
