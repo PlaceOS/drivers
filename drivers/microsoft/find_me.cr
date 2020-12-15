@@ -78,15 +78,15 @@ class Microsoft::FindMe < PlaceOS::Driver
     Array(Microsoft::Location).from_json(data).reject{ |loc| loc.status == "NoData" }
   end
 
-  def users_on(building : String, level : String, extended_data : Bool = true)
+  def users_on(building : String, level : String)
     # Same response as above with or without ExtendedUserData
     uri = "/FindMeService/api/ObjectLocation/Level/#{building}/#{level}"
-    uri += "?getExtendedData=true" if extended_data
+    # uri += "?getExtendedData=true" if extended_data
 
     data = make_request("GET", uri)
 
     begin
-      Array(Microsoft::Location).from_json(data).reject{ |loc| loc.status == "NoData" }
+      Array(Microsoft::Location).from_json(data).reject{ |loc| {"NoRecentData", "NoData"}.includes?(loc.status) }
     rescue error
       logger.debug { "failed to parse location data\n#{data}" }
       raise error
