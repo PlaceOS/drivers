@@ -90,6 +90,18 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def get_groups(user_id : String)
+    logger.debug { "getting group membership for user: #{user_id}" }
+    client &.get_groups(user_id)
+  end
+
+  @[Security(Level::Support)]
+  def get_members(group_id : String)
+    logger.debug { "listing members of group: #{group_id}" }
+    client &.get_members(group_id)
+  end
+
+  @[Security(Level::Support)]
   def list_users(query : String? = nil, limit : Int32? = nil)
     logger.debug { "listing user details, query #{query}" }
     client &.list_users(query, limit)
