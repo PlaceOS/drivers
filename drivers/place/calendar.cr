@@ -89,6 +89,12 @@ class Place::Calendar < PlaceOS::Driver
     @queue_size
   end
 
+  @[Security(Level::Administrator)]
+  def access_token(user_id : String?)
+    logger.info { "access token requested #{user_id}" }
+    client &.access_token(user_id)
+  end
+
   @[Security(Level::Support)]
   def get_groups(user_id : String)
     logger.debug { "getting group membership for user: #{user_id}" }
