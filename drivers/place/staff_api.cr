@@ -44,6 +44,24 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # User details
+  # ===================================
+  def user(id : String)
+    placeos_client.users.fetch(id)
+  end
+
+  @[Security(Level::Support)]
+  def update_user(id : String, body_json : String) : Nil
+    response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: {
+      "Accept"        => "application/json",
+      "Content-Type"  => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
+  end
+
+  # ===================================
   # ZONE METADATA
   # ===================================
   def metadata(id : String, key : String? = nil)
