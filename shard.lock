@@ -6,7 +6,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 3.4.0
+    version: 3.4.1
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -58,7 +58,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.6.8
+    version: 2.7.0
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -66,7 +66,7 @@ shards:
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
-    version: 2.5.3
+    version: 2.6.0
 
   http-params-serializable:
     git: https://github.com/vladfaust/http-params-serializable.git
@@ -94,7 +94,7 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.3.1
+    version: 0.4.0
 
   murmur3:
     git: https://github.com/aca-labs/murmur3.git
@@ -110,7 +110,7 @@ shards:
 
   office365:
     git: https://github.com/PlaceOS/office365.git
-    version: 1.2.1
+    version: 1.3.1
 
   openssl_ext:
     git: https://github.com/stakach/openssl_ext.git
@@ -126,11 +126,11 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 4.2.2
+    version: 4.3.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.1.6
+    version: 2.1.7
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -142,7 +142,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 4.6.0
+    version: 4.8.3
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -182,7 +182,7 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 3.1.1
+    version: 3.1.2
 
   retriable:
     git: https://github.com/Sija/retriable.cr.git
