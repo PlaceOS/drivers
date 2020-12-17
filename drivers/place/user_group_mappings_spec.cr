@@ -33,8 +33,8 @@ DriverSpecs.mock_driver "Place::LogicExample" do
 
   settings({
     group_mappings: {
-      "5f4694-96f3-4209-a432-b04ac06ca7" => "intune",
-      "admins"                           => "im an admin",
+      "5f4694-96f3-4209-a432-b04ac06ca7" => {"place_id" => "intune"},
+      "admins"                           => {"place_id" => "im an admin"},
     },
   })
 
