@@ -90,7 +90,7 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   @[Security(Level::Administrator)]
-  def access_token(user_id : String?)
+  def access_token(user_id : String? = nil)
     logger.info { "access token requested #{user_id}" }
     client &.access_token(user_id)
   end
