@@ -14,8 +14,14 @@ class Place::UserGroupMappings < PlaceOS::Driver
   default_settings({
     # ID => place_name
     group_mappings: {
-      "group_id"  => "manager",
-      "group2_id" => "boss",
+      "group_id" => {
+        place_id:    "manager",
+        description: "managers of the level2 building",
+      },
+      "group2_id" => {
+        place_id:    "boss",
+        description: "people that can access everything",
+      },
     },
   })
 
@@ -31,12 +37,12 @@ class Place::UserGroupMappings < PlaceOS::Driver
     on_update
   end
 
-  @group_mappings : Hash(String, String) = {} of String => String
+  @group_mappings : Hash(String, Hash(String, String)) = {} of String => Hash(String, String)
   @users_checked : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
   def on_update
-    @group_mappings = setting?(Hash(String, String), :group_mappings) || {} of String => String
+    @group_mappings = setting?(Hash(String, Hash(String, String)), :group_mappings) || {} of String => Hash(String, String)
   end
 
   protected def new_user_login(user_json)
@@ -71,7 +77,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
 
     # Build the list of placeos groups based on the mappings and update the user model
     groups = [] of String
-    @group_mappings.each { |group_id, place_group| groups << place_group if users_groups.includes? group_id }
+    @group_mappings.each { |group_id, place_group| groups << place_group["place_id"] if users_groups.includes? group_id }
     staff_api.update_user(id, {groups: groups}.to_json).get
   end
 end
