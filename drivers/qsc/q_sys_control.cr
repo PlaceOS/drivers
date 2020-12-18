@@ -17,6 +17,7 @@ class Qsc::QSysControl< PlaceOS::Driver
   @change_group_id : Int32 = 30
   @em_id : Int32 = 0 # TODO: figure out suitable default
   @emergency_subscribe : PlaceOS::Driver::Subscriptions::Subscription? = nil
+  @history = {} of String => Symbol
   @change_groups = {} of Symbol => Group
 
   def on_load
@@ -128,8 +129,7 @@ class Qsc::QSysControl< PlaceOS::Driver
   # Compatibility Methods
   def fader(fader_ids : Ids, level : Int32)
     level = level / 10
-    # TODO: fader_type: :fader
-    ensure_array(fader_ids).each { |f_id| set_value(f_id, level, name: "fader#{f_id}") }
+    ensure_array(fader_ids).each { |f_id| set_value(f_id, level, name: "fader#{f_id}", fader_type: :fader) }
   end
 
   def faders(fader_ids : Ids, level : Int32)
@@ -138,8 +138,7 @@ class Qsc::QSysControl< PlaceOS::Driver
 
   def mute(mute_ids : Ids, state : Bool = true)
     level = state ? 1 : 0
-    # TODO: fader_type: :mute
-    ensure_array(mute_ids).each { |m_id| set_value(m_id, level) }
+    ensure_array(mute_ids).each { |m_id| set_value(m_id, level, fader_type: :mute) }
   end
 
   def mutes(mute_ids : Array(Int32), state : Bool)
@@ -166,23 +165,20 @@ class Qsc::QSysControl< PlaceOS::Driver
   def query_fader(fader_ids : Ids)
     fad = ensure_array(fader_ids)[0]
     #TODO
-    get_status(fad)#, fader_type: :fader)
+    get_status(fad, fader_type: :fader)
   end
 
   def query_faders(fader_ids : Ids)
-    # TODO: fader_type: :fader
-    ensure_array(fader_ids).each { |f_id| get_status(f_id) }
+    ensure_array(fader_ids).each { |f_id| get_status(f_id, fader_type: :fader) }
   end
 
   def query_mute(fader_ids : Ids)
     fad = ensure_array(fader_ids)[0]
-    # TODO: fader_type: :mute
-    get_status(fad)
+    get_status(fad, fader_type: :mute)
   end
 
   def query_mutes(fader_ids : Ids)
-    # TODO: fader_type: :mute
-    ensure_array(fader_ids).each { |fad| get_status(fad) }
+    ensure_array(fader_ids).each { |fad| get_status(fad, fader_type: :mute) }
   end
 
   def phone_number(number : String, control_id : Int32)
@@ -252,11 +248,10 @@ class Qsc::QSysControl< PlaceOS::Driver
     process_response(data, task)
   end
 
-  private def process_response(data, task, req = nil)
+  private def process_response(data, task, fader_type : Symbol? = nil)
+    data = String.new(data)
     logger.debug { "QSys sent: #{data}" }
-    # rc == will disconnect
-
-    resp = shellsplit(String.new(data))
+    resp = shellsplit(data)
 
     case resp[0]
     when "cv"
@@ -266,22 +261,97 @@ class Qsc::QSysControl< PlaceOS::Driver
       position = resp[4].to_i
 
       self["pos_#{control_id}"] = position
+
+      if type = fader_type || @history[control_id]?
+        @history[control_id] = type
+
+        case type
+        when :fader
+          self["fader#{control_id}"] = (value.to_f * 10).to_i
+        when :mute
+          self["fader#{control_id}_mute"] = value.to_i == 1
+        end
+      else
+        value = resp[2]
+        if value == "false" || value == "true"
+          self[control_id] = value == "true"
+        else
+          self[control_id] = value.gsub('_', ' ')
+        end
+        logger.debug { "Received response from unknown ID type: #{control_id} == #{value}" }
+      end
     when "cvv" # Control status, Array of control status
+      control_id = resp[1]
+      count = resp[2].to_i
+
+      if type = fader_type || @history[control_id]?
+        @history[control_id] = type
+
+        # Skip strings and extract the values
+        next_count = count + 3
+        count = resp[next_count].to_i
+        1.upto(count) do |index|
+          value = resp[next_count + index]
+
+          case type
+          when :fader
+            self["fader#{control_id}"] = (value.to_f * 10).to_i
+          when :mute
+            self["fader#{control_id}_mute"] = value == 1
+          end
+        end
+      else
+        # Don't skip strings here
+        next_count = 2
+        1.upto(count) do |index|
+          value = resp[next_count + index]
+
+          if value == "false" || value == "true"
+            self[control_id] = value == "true"
+          else
+            self[control_id] = value.gsub('_', ' ')
+          end
+        end
+        logger.debug { "Received response from unknown ID type: #{control_id}" }
+
+        # Jump to the position values
+        next_count = count + 3
+        count = resp[next_count].to_i
+      end
+
+      # Grab the positions
+      next_count = next_count + count + 1
+      count = resp[next_count].to_i
+      1.upto(count) do |index|
+        value = resp[next_count + index]
+        self["pos_#{control_id}"] = value
+      end
     when "sr" # About response
+      self[:design_name] = resp[1]
+      self[:is_primary] = resp[3] == '1'
+      self[:is_active] = resp[4] == '1'
     when "core_not_active", "bad_change_group_handle", "bad_command", "bad_id", "control_read_only", "too_many_change_groups"
+      return task.try(&.abort("Error response received: #{data}"))
     when "login_required"
+      login if @username
+      return task.try(&.abort("Login is required!"))
     when "login_success"
+      logger.debug { "Login success!" }
     when "login_failed"
+      return task.try(&.abort("Invalid login details provided"))
     when "rc"
+      logger.warn { "System is notifying us of a disconnect!" }
     when "cmvv"
+      logger.debug { "received cmvv response" }
     else
+      logger.warn { "Unknown response received #{data}" }
     end
 
     task.try(&.success)
   end
 
-  private def do_send(req, **options)
-    send(req, **options) { |data, task| process_response(data, task, req) }
+  private def do_send(req, fader_type : Symbol? = nil, **options)
+    send(req, **options) { |data, task| process_response(data, task, fader_type) }
   end
 
   private def ensure_array(object)
