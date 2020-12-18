@@ -1,6 +1,6 @@
 # require "placeos-driver/interface/muteable"
 
-class Qsc::QSysControl< PlaceOS::Driver
+class Qsc::QSysControl < PlaceOS::Driver
   # include Interface::Muteable
 
   # Discovery Information
@@ -164,7 +164,6 @@ class Qsc::QSysControl< PlaceOS::Driver
   # For inter-module compatibility
   def query_fader(fader_ids : Ids)
     fad = ensure_array(fader_ids)[0]
-    #TODO
     get_status(fad, fader_type: :fader)
   end
 
@@ -221,8 +220,8 @@ class Qsc::QSysControl< PlaceOS::Driver
     @change_group_id += 1
 
     @change_groups[name] = {
-      id: next_id,
-      controls: Set(Int32).new
+      id:       next_id,
+      controls: Set(Int32).new,
     }
 
     # create change group and poll every 2 seconds
@@ -233,8 +232,8 @@ class Qsc::QSysControl< PlaceOS::Driver
 
   private def update_change_group(name, id, controls) : Group
     @change_groups[name] = {
-      id: id,
-      controls: controls
+      id:       id,
+      controls: controls,
     }
   end
 
