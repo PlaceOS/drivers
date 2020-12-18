@@ -1,8 +1,6 @@
-# require "placeos-driver/interface/powerable"
 # require "placeos-driver/interface/muteable"
 
 class Qsc::QSysControl< PlaceOS::Driver
-  # include Interface::Powerable
   # include Interface::Muteable
 
   # Discovery Information
@@ -127,9 +125,7 @@ class Qsc::QSysControl< PlaceOS::Driver
     send("ct \"#{control_id}\"\n", wait: false)
   end
 
-  # ---------------------
   # Compatibility Methods
-  # ---------------------
   def fader(fader_ids : Ids, level : Int32)
     level = level / 10
     # TODO: fader_type: :fader
@@ -189,9 +185,6 @@ class Qsc::QSysControl< PlaceOS::Driver
     ensure_array(fader_ids).each { |fad| get_status(fad) }
   end
 
-  # ----------------------
-  # Soft phone information
-  # ----------------------
   def phone_number(number : String, control_id : Int32)
     set_string(control_id, number)
   end
@@ -255,15 +248,31 @@ class Qsc::QSysControl< PlaceOS::Driver
     end
   end
 
+  def received(data, task)
+    logger.debug { "QSys sent: #{data}" }
+    # rc == will disconnect
+
+    resp = shellsplit(String.new(data))
+  end
+
   private def ensure_array(object)
     object.is_a?(Array) ? object : [object]
   end
 
-  def received(data, task)
-    logger.debug { "received #{data}" }
-  end
-
-  private def do_send(data, **options)
-    send(data, **options)
+  # Quick dirty port of https://github.com/ruby/ruby/blob/master/lib/shellwords.rb
+  private def shellsplit(line : String) : Array(String)
+    words = [] of String
+    field = ""
+    pattern = /\G\s*(?>([^\s\\\'\"]+)|'([^\']*)'|"((?:[^\"\\]|\\.)*)"|(\\.?)|(\S))(\s|\z)?/m
+    line.scan(pattern) do |match|
+      _, word, sq, dq, esc, garbage, sep = match.to_a
+      raise ArgumentError.new("Unmatched quote: #{line.inspect}") if garbage
+      field += (word || sq || dq.try(&.gsub(/\\([$`"\\\n])/, "\\1")) || esc.not_nil!.gsub(/\\(.)/, "\\1"))
+      if sep
+        words << field
+        field = ""
+      end
+    end
+    words
   end
 end
