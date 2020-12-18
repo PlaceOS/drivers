@@ -49,7 +49,7 @@ class Qsc::QSysControl< PlaceOS::Driver
         end
 
         update_change_group(:emergency, group_id, Set.new([em_id]))
-        send("cga #{group_id} #{em_id}\n", wait: false)
+        do_send("cga #{group_id} #{em_id}\n", wait: false)
       end
     end
   end
@@ -62,10 +62,10 @@ class Qsc::QSysControl< PlaceOS::Driver
       controls = group[:controls]
 
       # Re-create change groups and poll every 2 seconds
-      send("cgc #{group_id}\n", wait: false)
-      send("cgsna #{group_id} 2000\n", wait: false)
+      do_send("cgc #{group_id}\n", wait: false)
+      do_send("cgsna #{group_id} 2000\n", wait: false)
       controls.each do |id|
-        send("cga #{group_id} #{id}\n", wait: false)
+        do_send("cga #{group_id} #{id}\n", wait: false)
       end
     end
 
@@ -80,41 +80,41 @@ class Qsc::QSysControl< PlaceOS::Driver
   end
 
   def get_status(control_id : Int32, **options)
-    send("cg #{control_id}\n", **options)
+    do_send("cg #{control_id}\n", **options)
   end
 
   def set_position(control_id : Int32, position : Int32, ramp_time : Val? = nil)
     if ramp_time
-      send("cspr \"#{control_id}\" #{position} #{ramp_time}\n", wait: false)
+      do_send("cspr \"#{control_id}\" #{position} #{ramp_time}\n", wait: false)
       schedule.in(ramp_time.seconds + 200.milliseconds) { get_status(control_id) }
     else
-      send("csp \"#{control_id}\" #{position}\n")
+      do_send("csp \"#{control_id}\" #{position}\n")
     end
   end
 
   def set_value(control_id : Int32, value : Val, ramp_time : Val? = nil, **options)
     if ramp_time
-      send("csvr \"#{control_id}\" #{value} #{ramp_time}\n", **options, wait: false)
+      do_send("csvr \"#{control_id}\" #{value} #{ramp_time}\n", **options, wait: false)
       schedule.in(ramp_time.seconds + 200.milliseconds) { get_status(control_id) }
     else
-      send("csv \"#{control_id}\" #{value}\n", **options)
+      do_send("csv \"#{control_id}\" #{value}\n", **options)
     end
   end
 
   def about
-    send("sg\n", name: :status, priority: 0)
+    do_send("sg\n", name: :status, priority: 0)
   end
 
   def login(username : String? = nil, password : String? = nil)
     username ||= @username
     password ||= @password
-    send("login #{username} #{password}\n", name: :login, priority: 99)
+    do_send("login #{username} #{password}\n", name: :login, priority: 99)
   end
 
   # Used to set a dial number/string
   def set_string(control_ids : Ids, text : String)
     ensure_array(control_ids).each do |id|
-      send("css \"#{id}\" \"#{text}\"\n").get
+      do_send("css \"#{id}\" \"#{text}\"\n").get
       self[id] = text
     end
   end
@@ -122,7 +122,7 @@ class Qsc::QSysControl< PlaceOS::Driver
   # Used to trigger dialing etc
   def trigger(control_id : Int32)
     logger.debug { "Sending trigger to Qsys: ct #{control_id}" }
-    send("ct \"#{control_id}\"\n", wait: false)
+    do_send("ct \"#{control_id}\"\n", wait: false)
   end
 
   # Compatibility Methods
@@ -155,11 +155,11 @@ class Qsc::QSysControl< PlaceOS::Driver
   end
 
   def snapshot(name : String, index : Int32, ramp_time : Val = 1.5)
-    send("ssl \"#{name}\" #{index} #{ramp_time}\n", wait: false)
+    do_send("ssl \"#{name}\" #{index} #{ramp_time}\n", wait: false)
   end
 
   def save_snapshot(name : String, index : Int32)
-    send("sss \"#{name}\" #{index}\n", wait: false)
+    do_send("sss \"#{name}\" #{index}\n", wait: false)
   end
 
   # For inter-module compatibility
@@ -208,7 +208,7 @@ class Qsc::QSysControl< PlaceOS::Driver
     ensure_array(control_ids).each do |id|
       unless controls.includes?(id)
         controls << id
-        send("cga #{group_id} #{id}\n", wait: false)
+        do_send("cga #{group_id} #{id}\n", wait: false)
       end
     end
 
@@ -230,8 +230,8 @@ class Qsc::QSysControl< PlaceOS::Driver
     }
 
     # create change group and poll every 2 seconds
-    send("cgc #{next_id}\n", wait: false)
-    send("cgsna #{next_id} 2000\n", wait: false)
+    do_send("cgc #{next_id}\n", wait: false)
+    do_send("cgsna #{next_id} 2000\n", wait: false)
     @change_groups[name]
   end
 
@@ -244,15 +244,44 @@ class Qsc::QSysControl< PlaceOS::Driver
 
   private def poll_change_group(name)
     if group = @change_groups[name]
-      send("cgpna #{group[:id]}\n", wait: false)
+      do_send("cgpna #{group[:id]}\n", wait: false)
     end
   end
 
   def received(data, task)
+    process_response(data, task)
+  end
+
+  private def process_response(data, task, req = nil)
     logger.debug { "QSys sent: #{data}" }
     # rc == will disconnect
 
     resp = shellsplit(String.new(data))
+
+    case resp[0]
+    when "cv"
+      control_id = resp[1]
+      # string rep = resp[2]
+      value = resp[3]
+      position = resp[4].to_i
+
+      self["pos_#{control_id}"] = position
+    when "cvv" # Control status, Array of control status
+    when "sr" # About response
+    when "core_not_active", "bad_change_group_handle", "bad_command", "bad_id", "control_read_only", "too_many_change_groups"
+    when "login_required"
+    when "login_success"
+    when "login_failed"
+    when "rc"
+    when "cmvv"
+    else
+    end
+
+    task.try(&.success)
+  end
+
+  private def do_send(req, **options)
+    send(req, **options) { |data, task| process_response(data, task, req) }
   end
 
   private def ensure_array(object)
