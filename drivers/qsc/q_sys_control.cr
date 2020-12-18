@@ -50,10 +50,7 @@ class Qsc::QSysControl< PlaceOS::Driver
           self[:emergency] = value
         end
 
-        @change_groups[:emergency] = {
-          id: group_id,
-          controls: Set.new([em_id])
-        }
+        update_change_group(:emergency, group_id, Set.new([em_id]))
         send("cga #{group_id} #{em_id}\n", wait: false)
       end
     end
@@ -125,9 +122,9 @@ class Qsc::QSysControl< PlaceOS::Driver
   end
 
   # Used to trigger dialing etc
-  def trigger(action : String)
-    logger.debug { "Sending trigger to Qsys: ct #{action}" }
-    send("ct \"#{action}\"\n", wait: false)
+  def trigger(control_id : Int32)
+    logger.debug { "Sending trigger to Qsys: ct #{control_id}" }
+    send("ct \"#{control_id}\"\n", wait: false)
   end
 
   # ---------------------
@@ -181,24 +178,81 @@ class Qsc::QSysControl< PlaceOS::Driver
     ensure_array(fader_ids).each { |f_id| get_status(f_id) }
   end
 
-  private def create_change_group(name : Symbol) : Group
-    group = @change_groups[name]?
-    return group if group
+  def query_mute(fader_ids : Ids)
+    fad = ensure_array(fader_ids)[0]
+    # TODO: fader_type: :mute
+    get_status(fad)
+  end
+
+  def query_mutes(fader_ids : Ids)
+    # TODO: fader_type: :mute
+    ensure_array(fader_ids).each { |fad| get_status(fad) }
+  end
+
+  # ----------------------
+  # Soft phone information
+  # ----------------------
+  def phone_number(number : String, control_id : Int32)
+    set_string(control_id, number)
+  end
+
+  def phone_dial(control_id : Int32)
+    trigger(control_id)
+    schedule.in(200.milliseconds) { poll_change_group(:phone) }
+  end
+
+  def phone_hangup(control_id : Int32)
+    phone_dial(control_id)
+  end
+
+  def phone_watch(control_ids : Ids)
+    # Ensure change group exists
+    group = create_change_group(:phone)
+    group_id = group[:id]
+    controls = group[:controls]
+
+    # Add ids to change group
+    ensure_array(control_ids).each do |id|
+      unless controls.includes?(id)
+        controls << id
+        send("cga #{group_id} #{id}\n", wait: false)
+      end
+    end
+
+    update_change_group(:phone, group_id, controls)
+  end
+
+  private def create_change_group(name) : Group
+    if group = @change_groups[name]?
+      return group
+    end
 
     # Provide a unique group id
     next_id = @change_group_id
     @change_group_id += 1
 
-    group = {
+    @change_groups[name] = {
       id: next_id,
       controls: Set(Int32).new
     }
-    @change_groups[name] = group
 
     # create change group and poll every 2 seconds
     send("cgc #{next_id}\n", wait: false)
     send("cgsna #{next_id} 2000\n", wait: false)
-    group
+    @change_groups[name]
+  end
+
+  private def update_change_group(name, id, controls) : Group
+    @change_groups[name] = {
+      id: id,
+      controls: controls
+    }
+  end
+
+  private def poll_change_group(name)
+    if group = @change_groups[name]
+      send("cgpna #{group[:id]}\n", wait: false)
+    end
   end
 
   private def ensure_array(object)
