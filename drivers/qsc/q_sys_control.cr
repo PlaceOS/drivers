@@ -28,6 +28,19 @@ class Qsc::QSysControl < PlaceOS::Driver
   def on_update
     @username = setting?(String, :username)
     @password = setting?(String, :password)
+    login if @username
+
+    @change_groups.each do |_, group|
+      group_id = group[:id]
+      controls = group[:controls]
+
+      # Re-create change groups and poll every 2 seconds
+      do_send("cgc #{group_id}\n", wait: false)
+      do_send("cgsna #{group_id} 2000\n", wait: false)
+      controls.each do |id|
+        do_send("cga #{group_id} #{id}\n", wait: false)
+      end
+    end
 
     em_id = setting?(Int32, :emergency)
 
@@ -57,22 +70,6 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def connected
-    logger.debug { "Connected" }
-    logger.debug { "Username is #{@username}" }
-    login if @username
-
-    @change_groups.each do |_, group|
-      group_id = group[:id]
-      controls = group[:controls]
-
-      # Re-create change groups and poll every 2 seconds
-      do_send("cgc #{group_id}\n", wait: false)
-      do_send("cgsna #{group_id} 2000\n", wait: false)
-      controls.each do |id|
-        do_send("cga #{group_id} #{id}\n", wait: false)
-      end
-    end
-
     schedule.every(40.seconds) do
       logger.debug { "Maintaining Connection" }
       about
@@ -255,9 +252,6 @@ class Qsc::QSysControl < PlaceOS::Driver
     logger.debug { "QSys sent: #{data}" }
     resp = shellsplit(data)
 
-    logger.debug { "resp is " }
-    logger.debug { resp }
-
     case resp[0]
     when "cv"
       control_id = resp[1]
@@ -356,6 +350,7 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   private def do_send(req, fader_type : Symbol? = nil, **options)
+    pp "sending #{req}"
     send(req, **options) { |data, task| process_response(data, task, fader_type) }
   end
 
