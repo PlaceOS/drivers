@@ -10,8 +10,18 @@ DriverSpecs.mock_driver "Qsc::QSysControl" do
 
   exec(:about)
   should_send("sg\n")
-  responds("sr designname two 1 1\r\n")
-  status[:design_name].should eq("designname")
+  responds("sr \"MyDesign\" \"NIEC2bxnVZ6a\" 1 1\r\n")
+  status[:design_name].should eq("MyDesign")
   status[:is_primary].should eq(true)
   status[:is_active].should eq(true)
+
+  exec(:phone_watch, 0)
+  should_send("cgc 30\n")
+  responds("none\r\n")
+  should_send("cgsna 30 2000\n")
+  responds("none\r\n")
+  should_send("cga 30 0\n")
+  responds("none\r\n")
+
+  # exec(:phone_watch, [1,2])
 end
