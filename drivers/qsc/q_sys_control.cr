@@ -15,12 +15,13 @@ class Qsc::QSysControl < PlaceOS::Driver
   @username : String? = nil
   @password : String? = nil
   @change_group_id : Int32 = 30
-  @em_id : Int32 = 0 # TODO: figure out suitable default
+  @em_id : Int32? = nil
   @emergency_subscribe : PlaceOS::Driver::Subscriptions::Subscription? = nil
   @history = {} of String => Symbol
   @change_groups = {} of Symbol => Group
 
   def on_load
+    transport.tokenizer = Tokenizer.new("\r\n")
     on_update
   end
 
@@ -56,6 +57,8 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def connected
+    logger.debug { "Connected" }
+    logger.debug { "Username is #{@username}" }
     login if @username
 
     @change_groups.each do |_, group|
@@ -252,6 +255,9 @@ class Qsc::QSysControl < PlaceOS::Driver
     logger.debug { "QSys sent: #{data}" }
     resp = shellsplit(data)
 
+    logger.debug { "resp is " }
+    logger.debug { resp }
+
     case resp[0]
     when "cv"
       control_id = resp[1]
@@ -327,8 +333,8 @@ class Qsc::QSysControl < PlaceOS::Driver
       end
     when "sr" # About response
       self[:design_name] = resp[1]
-      self[:is_primary] = resp[3] == '1'
-      self[:is_active] = resp[4] == '1'
+      self[:is_primary] = resp[3] == "1"
+      self[:is_active] = resp[4] == "1"
     when "core_not_active", "bad_change_group_handle", "bad_command", "bad_id", "control_read_only", "too_many_change_groups"
       return task.try(&.abort("Error response received: #{data}"))
     when "login_required"
