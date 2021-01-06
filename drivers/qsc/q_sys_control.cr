@@ -55,7 +55,6 @@ class Qsc::QSysControl < PlaceOS::Driver
 
     # Emergency ID exists
     if em_id
-      logger.debug { "em_id" }
       group = create_change_group(:emergency)
       group_id = group[:id]
       controls = group[:controls]
