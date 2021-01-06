@@ -62,14 +62,22 @@ module Microsoft
   class Location
     include JSON::Serializable
 
-    ISO8601 = "%FT%T.%N%z"
+    module RFC3339Converter
+      def self.from_json(value : JSON::PullParser) : Time
+        Time::Format::RFC_3339.parse(value.read_string)
+      end
+
+      def self.to_json(value : Time, json : JSON::Builder)
+        json.string(Time::Format::RFC_3339.format(value, 1))
+      end
+    end
 
     @[JSON::Field(key: "Alias")]
     getter username : String
 
     @[JSON::Field(
       key: "LastUpdate",
-      converter: Time::Format.new(Microsoft::Location::ISO8601)
+      converter: Microsoft::Location::RFC3339Converter
     )]
     getter last_update : Time
 
