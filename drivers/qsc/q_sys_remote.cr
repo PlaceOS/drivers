@@ -13,8 +13,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   @id : Int32 = 0
 
-  JsonRpcVer = "2.0"
   Delimiter = "\0"
+  JsonRpcVer = "2.0"
 
   alias Val = NamedTuple(Name: String, Value: Int32)
   alias Vals = Val | Array(Val)
@@ -105,6 +105,80 @@ class Qsc::QSysRemote < PlaceOS::Driver
       :Name => name,
       :Controls => values
     }, **options)
+  end
+
+  def component_trigger(component : String, trigger : String, **options)
+    do_send(next_id, "Component.Trigger", {
+      :Name => component,
+      :Controls => [{:Name => trigger}]
+    }, **options)
+  end
+
+  def get_components(**options)
+    do_send(next_id, "Component.GetComponents", **options)
+  end
+
+  def change_group_add_controls(group_id : Int32, *controls, **options)
+    do_send(next_id, "ChangeGroup.AddControl", {
+      :Id => group_id,
+      :Controls => controls
+    }, **options)
+  end
+
+  def change_group_remove_controls(group_id : Int32, *controls, **options)
+    do_send(next_id, "ChangeGroup.Remove", {
+      :Id => group_id,
+      :Controls => controls
+    }, **options)
+  end
+
+  def change_group_add_component(group_id : Int32, component_name : String, *controls, **options)
+    controls.to_a.flat_map { |ctrl| {:Name => ctrl } }
+
+    do_send(next_id, "ChangeGroup.AddComponentControl", {
+      :Id => group_id,
+      :Component => {
+        :Name => component_name,
+        :Controls => controls
+      }
+    }, **options)
+  end
+
+  # Returns values for all the controls
+  def poll_change_group(group_id : Int32, **options)
+    do_send(next_id, "ChangeGroup.Poll", {:Id => group_id}, **options)
+  end
+
+  # Removes the change group
+  def destroy_change_group(group_id : Int32, **options)
+    do_send(next_id, "ChangeGroup.Destroy", {:Id => group_id}, **options)
+  end
+
+  # Removes all controls from change group
+  def clear_change_group(group_id : Int32, **options)
+    do_send(next_id, "ChangeGroup.Clear", {:Id => group_id}, **options)
+  end
+
+  # Where every is the number of seconds between polls
+  def auto_poll_change_group(group_id : Int32, every : Int32, **options)
+    do_send(next_id, "ChangeGroup.AutoPoll", {
+      :Id => group_id,
+      :Rate => every
+    }, **options)#, wait: false)
+  end
+
+  # Example usage:
+  # mixer 'Parade', {1 => [2,3,4], 3 => 6}, true
+  # def mixer(name, inouts, mute = false, *_,  **options)
+  def mixer(name : String, inouts : Hash(Int32, Array(Int32)), mute : Bool = false, **options)
+    inouts.each do |input, outputs|
+      do_send(next_id, "Mixer.SetCrossPointMute", {
+          :Mixer => name,
+          :Inputs => input.to_s,
+          :Outputs => outputs.join(' '),
+          :Value => mute
+      }, **options)
+    end
   end
 
   def received(data, task)
