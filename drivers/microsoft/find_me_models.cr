@@ -21,19 +21,13 @@ module Microsoft
     getter building : String
 
     @[JSON::Field(key: "Level")]
-    getter building : String
+    getter level : String
 
     @[JSON::Field(key: "X")]
     getter x : Float64
 
     @[JSON::Field(key: "Y")]
     getter y : Float64
-
-    @[JSON::Field(key: "Building")]
-    getter building : String
-
-    @[JSON::Field(key: "Building")]
-    getter building : String
   end
 
   class GPS
@@ -68,11 +62,16 @@ module Microsoft
   class Location
     include JSON::Serializable
 
+    ISO8601 = "%FT%T.%N%z"
+
     @[JSON::Field(key: "Alias")]
     getter username : String
 
-    @[JSON::Field(key: "LastUpdate")]
-    getter last_update : String
+    @[JSON::Field(
+      key: "LastUpdate",
+      converter: Time::Format.new(Microsoft::Location::ISO8601)
+    )]
+    getter last_update : Time
 
     @[JSON::Field(key: "Confidence")]
     getter confidence : Float64
@@ -84,7 +83,7 @@ module Microsoft
     getter gps : GPS?
 
     @[JSON::Field(key: "LocationIdentifier")]
-    getter location_id : String
+    getter location_id : String?
 
     @[JSON::Field(key: "Status")]
     getter status : String
