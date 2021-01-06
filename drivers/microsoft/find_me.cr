@@ -4,8 +4,6 @@ require "ntlm"
 require "./find_me_models"
 
 class Microsoft::FindMe < PlaceOS::Driver
-  # include Interface::Locatable
-
   # Discovery Information
   uri_base "https://findme.companyname.com"
   descriptive_name "Microsoft FindMe Service"
@@ -71,11 +69,11 @@ class Microsoft::FindMe < PlaceOS::Driver
 
   def user_details(usernames : String | Array(String))
     users = usernames.is_a?(String) ? [usernames] : usernames
-    data = make_request("GET", "/FindMeService/api/ObjectLocation/Users/#{users.join(",")}")
+    data = make_request("GET", "/FindMeService/api/ObjectLocation/Users/#{users.join(",")}?getExtendedData=true")
 
     logger.debug { "user details request returned #{data}" }
 
-    Array(Microsoft::Location).from_json(data).reject{ |loc| loc.status == "NoData" }
+    Array(Microsoft::Location).from_json(data).reject { |loc| {"NoRecentData", "NoData"}.includes?(loc.status) }
   end
 
   def users_on(building : String, level : String)
@@ -86,7 +84,7 @@ class Microsoft::FindMe < PlaceOS::Driver
     data = make_request("GET", uri)
 
     begin
-      Array(Microsoft::Location).from_json(data).reject{ |loc| {"NoRecentData", "NoData"}.includes?(loc.status) }
+      Array(Microsoft::Location).from_json(data).reject { |loc| {"NoRecentData", "NoData"}.includes?(loc.status) }
     rescue error
       logger.debug { "failed to parse location data\n#{data}" }
       raise error
