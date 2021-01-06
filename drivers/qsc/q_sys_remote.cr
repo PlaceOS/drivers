@@ -16,6 +16,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
   JsonRpcVer = "2.0"
   Delimiter = "\0"
 
+  alias Val = NamedTuple(Name: String, Value: Int32)
+  alias Vals = Val | Array(Val)
+
   def on_load
     transport.tokenizer = Tokenizer.new(Delimiter)
     on_update
@@ -61,6 +64,47 @@ class Qsc::QSysRemote < PlaceOS::Driver
       },
       priority: 99
     )
+  end
+
+  def control_set(name : String, value : Int32, ramp : Float64? = nil, **options)
+    if ramp
+      params = {
+        :Name =>  name,
+        :Value => value,
+        :Ramp => ramp
+      } 
+    else
+      params = {
+          :Name =>  name,
+          :Value => value
+      }
+    end
+
+    do_send(next_id, "Control.Set", params, **options)
+  end
+
+  def control_get(*names, **options)
+    do_send(next_id, "Control.Get", names.to_a.flatten, **options)
+  end
+
+  # Example usage:
+  # component_get 'My AMP', 'ent.xfade.gain', 'ent.xfade.gain2'
+  def component_get(name : String, *controls, **options)
+    do_send(next_id, "Component.Get", {
+      :Name => name,
+      :Controls => controls.to_a.flat_map { |ctrl| { :Name => ctrl } }
+    }, **options)
+  end
+
+  # Example usage:
+  # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Value" => -100 }, {...}
+  def component_set(name : String, values : Vals, **options)
+    values = values.is_a?(Array) ? values : [values]
+
+    do_send(next_id, "Component.Set", {
+      :Name => name,
+      :Controls => values
+    }, **options)
   end
 
   def received(data, task)
