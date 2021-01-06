@@ -11,14 +11,14 @@ class Qsc::QSysControl < PlaceOS::Driver
   descriptive_name "QSC Audio DSP External Control"
   generic_name :Mixer
 
-  alias Group = NamedTuple(id: Int32, controls: Set(Int32))
-  alias Ids = Int32 | Array(Int32)
+  alias Group = NamedTuple(id: Int32, controls: Set(String))
+  alias Ids = String | Array(String)
   alias Val = Int32 | Float64
 
   @username : String? = nil
   @password : String? = nil
   @change_group_id : Int32 = 30
-  @em_id : Int32? = nil
+  @em_id : String? = nil
   @emergency_subscribe : PlaceOS::Driver::Subscriptions::Subscription? = nil
   @history = {} of String => Symbol
   @change_groups = {} of Symbol => Group
@@ -46,7 +46,7 @@ class Qsc::QSysControl < PlaceOS::Driver
       end
     end
 
-    em_id = setting?(Int32, :emergency)
+    em_id = setting?(String, :emergency)
 
     # Emergency ID changed
     if (e = @emergency_subscribe) && @em_id != em_id
@@ -84,11 +84,11 @@ class Qsc::QSysControl < PlaceOS::Driver
     schedule.clear
   end
 
-  def get_status(control_id : Int32, **options)
+  def get_status(control_id : String, **options)
     do_send("cg #{control_id}\n", **options)
   end
 
-  def set_position(control_id : Int32, position : Int32, ramp_time : Val? = nil)
+  def set_position(control_id : String, position : Int32, ramp_time : Val? = nil)
     if ramp_time
       do_send("cspr \"#{control_id}\" #{position} #{ramp_time}\n")#, wait: false)
       schedule.in(ramp_time.seconds + 200.milliseconds) { get_status(control_id) }
@@ -97,7 +97,7 @@ class Qsc::QSysControl < PlaceOS::Driver
     end
   end
 
-  def set_value(control_id : Int32, value : Val, ramp_time : Val? = nil, **options)
+  def set_value(control_id : String, value : Val, ramp_time : Val? = nil, **options)
     if ramp_time
       do_send("csvr \"#{control_id}\" #{value} #{ramp_time}\n", **options)#, wait: false)
       schedule.in(ramp_time.seconds + 200.milliseconds) { get_status(control_id) }
@@ -125,7 +125,7 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   # Used to trigger dialing etc
-  def trigger(control_id : Int32)
+  def trigger(control_id : String)
     logger.debug { "Sending trigger to Qsys: ct #{control_id}" }
     do_send("ct \"#{control_id}\"\n")#, wait: false)
   end
@@ -145,15 +145,15 @@ class Qsc::QSysControl < PlaceOS::Driver
     ensure_array(mute_ids).each { |m_id| set_value(m_id, level, fader_type: :mute) }
   end
 
-  def mutes(mute_ids : Array(Int32), state : Bool)
+  def mutes(mute_ids : Ids, state : Bool)
     mute(mute_ids, state)
   end
 
-  def unmute(mute_ids : Array(Int32))
+  def unmute(mute_ids : Ids)
     mute(mute_ids, false)
   end
 
-  def mute_toggle(mute_id : Int32)
+  def mute_toggle(mute_id : Ids)
     mute(mute_id, !self["fader#{mute_id}_mute"].try(&.as_bool))
   end
 
@@ -184,16 +184,16 @@ class Qsc::QSysControl < PlaceOS::Driver
     ensure_array(fader_ids).each { |fad| get_status(fad, fader_type: :mute) }
   end
 
-  def phone_number(number : String, control_id : Int32)
+  def phone_number(number : String, control_id : String)
     set_string(control_id, number)
   end
 
-  def phone_dial(control_id : Int32)
+  def phone_dial(control_id : String)
     trigger(control_id)
     schedule.in(200.milliseconds) { poll_change_group(:phone) }
   end
 
-  def phone_hangup(control_id : Int32)
+  def phone_hangup(control_id : String)
     phone_dial(control_id)
   end
 
@@ -225,7 +225,7 @@ class Qsc::QSysControl < PlaceOS::Driver
 
     @change_groups[name] = {
       id:       next_id,
-      controls: Set(Int32).new,
+      controls: Set(String).new,
     }
 
     # create change group and poll every 2 seconds
