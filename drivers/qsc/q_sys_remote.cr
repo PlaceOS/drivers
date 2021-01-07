@@ -1,8 +1,6 @@
 # TODO: figure out if I should use this
 # require "placeos-driver/interface/muteable"
 
-# https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm
-
 class Qsc::QSysRemote < PlaceOS::Driver
   # include Interface::Muteable
 
@@ -12,12 +10,16 @@ class Qsc::QSysRemote < PlaceOS::Driver
   generic_name :Mixer
 
   @id : Int32 = 0
+  @db_based_faders : Val? = nil
+  @integer_faders : Val? = nil
 
   Delimiter = "\0"
   JsonRpcVer = "2.0"
 
-  alias Val = NamedTuple(Name: String, Value: Int32)
-  alias Vals = Val | Array(Val)
+  alias Val = Int32 | Float64
+  alias ValTup = NamedTuple(Name: String, Value: Val) | NamedTuple(Name: String, Position: Val)
+  alias Vals = ValTup | Array(ValTup)
+  alias Ids = String | Array(String)
 
   def on_load
     transport.tokenizer = Tokenizer.new(Delimiter)
@@ -25,8 +27,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   def on_update
-    # @db_based_faders = setting(:db_based_faders)
-    # @integer_faders = setting(:integer_faders)
+    @db_based_faders = setting?(Float64, :db_based_faders)
+    @integer_faders = setting?(Int32, :integer_faders)
   end
 
   def connected
@@ -66,7 +68,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
     )
   end
 
-  def control_set(name : String, value : Int32, ramp : Float64? = nil, **options)
+  def control_set(name : String, value : Val, ramp : Val? = nil, **options)
     if ramp
       params = {
         :Name =>  name,
@@ -89,20 +91,20 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   # Example usage:
   # component_get 'My AMP', 'ent.xfade.gain', 'ent.xfade.gain2'
-  def component_get(name : String, *controls, **options)
+  def component_get(c_name : String, *controls, **options)
     do_send(next_id, "Component.Get", {
-      :Name => name,
+      :Name => c_name,
       :Controls => controls.to_a.flat_map { |ctrl| { :Name => ctrl } }
     }, **options)
   end
 
   # Example usage:
   # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Value" => -100 }, {...}
-  def component_set(name : String, values : Vals, **options)
-    values = values.is_a?(Array) ? values : [values]
+  def component_set(c_name : String, values : Vals, **options)
+    values = ensure_array(values)
 
     do_send(next_id, "Component.Set", {
-      :Name => name,
+      :Name => c_name,
       :Controls => values
     }, **options)
   end
@@ -118,21 +120,21 @@ class Qsc::QSysRemote < PlaceOS::Driver
     do_send(next_id, "Component.GetComponents", **options)
   end
 
-  def change_group_add_controls(group_id : Int32, *controls, **options)
+  def change_group_add_controls(group_id : Val, *controls, **options)
     do_send(next_id, "ChangeGroup.AddControl", {
       :Id => group_id,
       :Controls => controls
     }, **options)
   end
 
-  def change_group_remove_controls(group_id : Int32, *controls, **options)
+  def change_group_remove_controls(group_id : Val, *controls, **options)
     do_send(next_id, "ChangeGroup.Remove", {
       :Id => group_id,
       :Controls => controls
     }, **options)
   end
 
-  def change_group_add_component(group_id : Int32, component_name : String, *controls, **options)
+  def change_group_add_component(group_id : Val, component_name : String, *controls, **options)
     controls.to_a.flat_map { |ctrl| {:Name => ctrl } }
 
     do_send(next_id, "ChangeGroup.AddComponentControl", {
@@ -145,22 +147,22 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   # Returns values for all the controls
-  def poll_change_group(group_id : Int32, **options)
+  def poll_change_group(group_id : Val, **options)
     do_send(next_id, "ChangeGroup.Poll", {:Id => group_id}, **options)
   end
 
   # Removes the change group
-  def destroy_change_group(group_id : Int32, **options)
+  def destroy_change_group(group_id : Val, **options)
     do_send(next_id, "ChangeGroup.Destroy", {:Id => group_id}, **options)
   end
 
   # Removes all controls from change group
-  def clear_change_group(group_id : Int32, **options)
+  def clear_change_group(group_id : Val, **options)
     do_send(next_id, "ChangeGroup.Clear", {:Id => group_id}, **options)
   end
 
   # Where every is the number of seconds between polls
-  def auto_poll_change_group(group_id : Int32, every : Int32, **options)
+  def auto_poll_change_group(group_id : Val, every : Val, **options)
     do_send(next_id, "ChangeGroup.AutoPoll", {
       :Id => group_id,
       :Rate => every
@@ -172,15 +174,98 @@ class Qsc::QSysRemote < PlaceOS::Driver
   # def mixer(name, inouts, mute = false, *_,  **options)
   def mixer(name : String, inouts : Hash(Int32, Int32 | Array(Int32)), mute : Bool = false, **options)
     inouts.each do |input, outputs|
-      outs = outputs.is_a?(Array) ? outputs : [outputs]
+      outputs = ensure_array(outputs)
 
       do_send(next_id, "Mixer.SetCrossPointMute", {
           :Mixer => name,
           :Inputs => input.to_s,
-          :Outputs => outs.join(' '),
+          :Outputs => outputs.join(' '),
           :Value => mute
       }, **options)
     end
+  end
+
+  Faders = {
+    matrix_in: {
+      type: :"Mixer.SetInputGain",
+      pri: :Inputs
+    },
+    matrix_out: {
+      type: :"Mixer.SetOutputGain",
+      pri: :Outputs
+    },
+    matrix_crosspoint: {
+      type: :"Mixer.SetCrossPointGain",
+      pri: :Inputs,
+      sec: :Outputs
+    }
+  }
+  def matrix_fader(name : String, level : Val, index : Array(Int32), type : String = "matrix_out", **options)
+    info = Faders[type]
+
+    if sec = info[:sec]?
+      params = {
+        :Mixer => name,
+        :Value => level,
+        info[:pri] => index[0],
+        sec => index[1]
+      }
+    else
+      params = {
+        :Mixer => name,
+        :Value => level,
+        info[:pri] => index
+      }
+    end
+
+    do_send(next_id, info[:type], params, **options)
+  end
+
+  Mutes = {
+    matrix_in: {
+      type: :"Mixer.SetInputMute",
+      pri: :Inputs
+    },
+    matrix_out: {
+      type: :"Mixer.SetOutputMute",
+      pri: :Outputs
+    }
+  }
+  def matrix_mute(name : String, value : Val, index : Array(Int32), type : String = "matrix_out", **options)
+    info = Mutes[type]
+
+    do_send(next_id, info[:type], {
+      :Mixer => name,
+      :Value => value,
+      info[:pri] => index
+    }, **options)
+  end
+
+  def fader(fader_ids : Ids, level : Val, component : String? = nil, type : String = "fader", use_value : Bool = false)
+    faders = ensure_array(fader_ids)
+    if component
+      if @db_based_faders || use_value
+        level = level / 10 if @integer_faders && !use_value
+        fads = faders.map { |fad| {Name: fad, Value: level} }
+      else
+        level = level / 1000 if @integer_faders
+        fads = faders.map { |fad| {Name: fad, Position: level} }
+      end
+      logger.debug { "fads = #{fads}"}
+      logger.debug { "fads.class = #{fads.class}"}
+      logger.debug { fads.class === Vals }
+      # TODO: figure out how to get compiling
+      # component_set(component, fads, name: "level_#{faders[0]}").get
+      component_get(component, faders)
+    else
+      reqs = faders.map { |fad| control_set(fad, level) }
+      reqs.last.get
+      control_get(faders)
+    end
+  end
+
+  def faders(ids : Ids, level : Val, component : String? = nil, type : String = "fader")
+    fader(ids, level, component, type)
   end
 
   def received(data, task)
@@ -212,5 +297,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
     cmd = req.to_json + Delimiter
 
     send(cmd, **options)
+  end
+
+  private def ensure_array(object)
+    object.is_a?(Array) ? object : [object]
   end
 end
