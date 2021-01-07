@@ -29,29 +29,29 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def on_update
-    @username = setting?(String, :username)
-    @password = setting?(String, :password)
-    login if @username
+    # @username = setting?(String, :username)
+    # @password = setting?(String, :password)
+    # login if @username
 
-    @change_groups.each do |_, group|
-      logger.debug { "change groups" }
-      group_id = group[:id]
-      controls = group[:controls]
+    # @change_groups.each do |_, group|
+    #   logger.debug { "change groups" }
+    #   group_id = group[:id]
+    #   controls = group[:controls]
 
-      # Re-create change groups and poll every 2 seconds
-      do_send("cgc #{group_id}\n")#, wait: false)
-      do_send("cgsna #{group_id} 2000\n")#, wait: false)
-      controls.each do |id|
-        do_send("cga #{group_id} #{id}\n")#, wait: false)
-      end
-    end
+    #   # Re-create change groups and poll every 2 seconds
+    #   do_send("cgc #{group_id}\n")#, wait: false)
+    #   do_send("cgsna #{group_id} 2000\n")#, wait: false)
+    #   controls.each do |id|
+    #     do_send("cga #{group_id} #{id}\n")#, wait: false)
+    #   end
+    # end
 
     em_id = setting?(String, :emergency)
 
-    # Emergency ID changed
-    if (e = @emergency_subscribe) && @em_id != em_id
-      subscriptions.unsubscribe(e)
-    end
+    # # Emergency ID changed
+    # if (e = @emergency_subscribe) && @em_id != em_id
+    #   subscriptions.unsubscribe(e)
+    # end
 
     # Emergency ID exists
     if em_id
@@ -74,10 +74,10 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def connected
-    schedule.every(40.seconds) do
-      logger.debug { "Maintaining Connection" }
-      about
-    end
+    # schedule.every(40.seconds) do
+    #   logger.debug { "Maintaining Connection" }
+    #   about
+    # end
   end
 
   def disconnected
@@ -229,8 +229,8 @@ class Qsc::QSysControl < PlaceOS::Driver
     }
 
     # create change group and poll every 2 seconds
-    do_send("cgc #{next_id}\n")#, wait: false)
-    do_send("cgsna #{next_id} 2000\n")#, wait: false)
+    do_send("cgc #{next_id}\n", wait: false)
+    do_send("cgsna #{next_id} 2000\n", wait: false)
     @change_groups[name]
   end
 
