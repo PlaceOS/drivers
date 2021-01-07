@@ -15,11 +15,28 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   Delimiter = "\0"
   JsonRpcVer = "2.0"
+  Errors = {
+    -32700 => "Parse error. Invalid JSON was received by the server.",
+    -32600 => "Invalid request. The JSON sent is not a valid Request object.",
+    -32601 => "Method not found.",
+    -32602 => "Invalid params.",
+    -32603 => "Server error.",
+
+    2 => "Invalid Page Request ID",
+    3 => "Bad Page Request - could not create the requested Page Request",
+    4 => "Missing file",
+    5 => "Change Groups exhausted",
+    6 => "Unknown change croup",
+    7 => "Unknown component name",
+    8 => "Unknown control",
+    9 => "Illegal mixer channel index",
+    10 => "Logon required"
+}
 
   alias Num = Int32 | Float64
   alias NumTup = NamedTuple(Name: String, Value: Num)
   alias PosTup = NamedTuple(Name: String, Position: Num)
-  alias Nums = NumTup | PosTup | Array(NumTup) | Array(PosTup)
+  alias Values = NumTup | PosTup | Array(NumTup) | Array(PosTup)
   alias Ids = String | Array(String)
 
   def on_load
@@ -101,7 +118,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   # Example usage:
   # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Value" => -100 }, {...}
-  def component_set(c_name : String, values : Nums, **options)
+  def component_set(c_name : String, values : Values, **options)
     values = ensure_array(values)
 
     do_send(next_id, "Component.Set", {
@@ -297,6 +314,68 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   def received(data, task)
+    data = String.new(data)
+    response = JSON.parse(data)
+
+    logger.debug { "QSys sent:" }
+    logger.debug { response }
+
+    if err = response["error"]
+      logger.warn { "Error code #{c = err["code"]} - #{Errors[c]}" }
+      return task.try(&.abort(err["message"]))
+    end
+
+    case result = response["result"]
+    when Hash
+      if controls = result["Controls"]? # Probably Component.Get
+        process(controls, name: result[:Name])
+      elsif platform = result["Platform"]? # StatusGet
+        self[:platform] = platform
+        self[:state] = result["State"]
+        self[:design_name] = result["DesignName"]
+        self[:design_code] = result["DesignCode"]
+        self[:is_redundant] = result["IsRedundant"]
+        self[:is_emulator] = result["IsEmulator"]
+        self[:status] = result["Status"]
+      end
+    when Array # Control.Get
+      process(result)
+    end
+
+    task.try(&.success)
+  end
+
+  BoolVals = ["true", "false"]
+  private def process(values, name = nil)
+    component = name.present? ? "_#{name}" : ""
+    values.each do |value|
+      name = value["Name"]
+
+      next unless val = value["Value"]?
+
+      pos = value["Position"]
+      str = value["String"]
+
+      if BoolVals.include?(str)
+        self["fader#{name}#{component}_mute"] = str == "true"
+      else
+        # Seems like string values can be independant of the other values
+        # This should mostly work to detect a string value
+        if val == 0 && pos == 0 && str[0] != '0'
+          self["#{name}#{component}"] = str
+          next
+        end
+
+        if pos
+          # Float between 0 and 1
+          self["fader#{name}#{component}"] = @integer_faders ? (pos * 1000).to_i : pos
+        elsif val.is_a?(String)
+          self["#{name}#{component}"] = val
+        else
+          self["fader#{name}#{component}"] = @integer_faders ? (val * 10).to_i : val
+        end
+      end
+    end
   end
 
   def next_id
