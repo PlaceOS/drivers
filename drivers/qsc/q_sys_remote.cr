@@ -10,8 +10,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
   generic_name :Mixer
 
   @id : Int32 = 0
-  @db_based_faders : Val? = nil
-  @integer_faders : Val? = nil
+  @db_based_faders : Float64? = nil
+  @integer_faders : Int32? = nil
 
   Delimiter = "\0"
   JsonRpcVer = "2.0"
@@ -69,7 +69,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
     )
   end
 
-  def control_set(name : String, value : Val, ramp : Val? = nil, **options)
+  def control_set(name : String, value : Val | Bool, ramp : Val? = nil, **options)
     if ramp
       params = {
         :Name =>  name,
@@ -242,27 +242,39 @@ class Qsc::QSysRemote < PlaceOS::Driver
     }, **options)
   end
 
-  def fader(fader_ids : Ids, level : Val, component : String? = nil, type : String = "fader", use_value : Bool = false)
+  def fader(fader_ids : Ids, value : Val | Bool, component : String? = nil, type : String = "fader", use_value : Bool = false, **options)
     faders = ensure_array(fader_ids)
-    if component
+    if component && (val = value.as?(Val))
       if @db_based_faders || use_value
-        level = level / 10 if @integer_faders && !use_value
-        fads = faders.map { |fad| {Name: fad, Value: level} }
+        val = val / 10 if @integer_faders && !use_value
+        fads = faders.map { |fad| {Name: fad, Value: val} }
       else
-        level = level / 1000 if @integer_faders
-        fads = faders.map { |fad| {Name: fad, Position: level} }
+        val = val / 1000 if @integer_faders
+        fads = faders.map { |fad| {Name: fad, Position: val} }
       end
       component_set(component, fads, name: "level_#{faders[0]}").get
       component_get(component, faders)
     else
-      reqs = faders.map { |fad| control_set(fad, level) }
+      reqs = faders.map { |fad| control_set(fad, value) }
       reqs.last.get
       control_get(faders)
     end
   end
 
-  def faders(ids : Ids, level : Val, component : String? = nil, type : String = "fader")
-    fader(ids, level, component, type)
+  def faders(ids : Ids, value : Val | Bool, component : String? = nil, type : String = "fader", **options)
+    fader(ids, value, component, type, **options)
+  end
+
+  def mute(fader_id : Ids, state : Bool = true, component : String? = nil, type : String = "fader", **options)
+    fader(fader_id, state, component, type, state, **options)
+  end
+
+  def mutes(ids : Ids, state : Bool = true, component : String? = nil, type : String = "fader", **options)
+    mute(ids, state, component, type, **options)
+  end
+
+  def unmute(fader_id : Ids, component : String? = nil, type : String = "fader", **options)
+    mute(fader_id, false, component, type, **options)
   end
 
   def received(data, task)
