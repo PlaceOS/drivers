@@ -170,12 +170,14 @@ class Qsc::QSysRemote < PlaceOS::Driver
   # Example usage:
   # mixer 'Parade', {1 => [2,3,4], 3 => 6}, true
   # def mixer(name, inouts, mute = false, *_,  **options)
-  def mixer(name : String, inouts : Hash(Int32, Array(Int32)), mute : Bool = false, **options)
+  def mixer(name : String, inouts : Hash(Int32, Int32 | Array(Int32)), mute : Bool = false, **options)
     inouts.each do |input, outputs|
+      outs = outputs.is_a?(Array) ? outputs : [outputs]
+
       do_send(next_id, "Mixer.SetCrossPointMute", {
           :Mixer => name,
           :Inputs => input.to_s,
-          :Outputs => outputs.join(' '),
+          :Outputs => outs.join(' '),
           :Value => mute
       }, **options)
     end
