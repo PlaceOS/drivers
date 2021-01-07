@@ -17,8 +17,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
   JsonRpcVer = "2.0"
 
   alias Val = Int32 | Float64
-  alias ValTup = NamedTuple(Name: String, Value: Val) | NamedTuple(Name: String, Position: Val)
-  alias Vals = ValTup | Array(ValTup)
+  alias ValTup = NamedTuple(Name: String, Value: Val)
+  alias PosTup = NamedTuple(Name: String, Position: Val)
+  alias Vals = ValTup | PosTup | Array(ValTup) | Array(PosTup)
   alias Ids = String | Array(String)
 
   def on_load
@@ -251,11 +252,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
         level = level / 1000 if @integer_faders
         fads = faders.map { |fad| {Name: fad, Position: level} }
       end
-      logger.debug { "fads = #{fads}"}
-      logger.debug { "fads.class = #{fads.class}"}
-      logger.debug { fads.class === Vals }
-      # TODO: figure out how to get compiling
-      # component_set(component, fads, name: "level_#{faders[0]}").get
+      component_set(component, fads, name: "level_#{faders[0]}").get
       component_get(component, faders)
     else
       reqs = faders.map { |fad| control_set(fad, level) }
