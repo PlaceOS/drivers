@@ -16,10 +16,10 @@ class Qsc::QSysRemote < PlaceOS::Driver
   Delimiter = "\0"
   JsonRpcVer = "2.0"
 
-  alias Val = Int32 | Float64
-  alias ValTup = NamedTuple(Name: String, Value: Val)
-  alias PosTup = NamedTuple(Name: String, Position: Val)
-  alias Vals = ValTup | PosTup | Array(ValTup) | Array(PosTup)
+  alias Num = Int32 | Float64
+  alias NumTup = NamedTuple(Name: String, Numue: Num)
+  alias PosTup = NamedTuple(Name: String, Position: Num)
+  alias Nums = NumTup | PosTup | Array(NumTup) | Array(PosTup)
   alias Ids = String | Array(String)
 
   def on_load
@@ -69,17 +69,17 @@ class Qsc::QSysRemote < PlaceOS::Driver
     )
   end
 
-  def control_set(name : String, value : Val | Bool, ramp : Val? = nil, **options)
+  def control_set(name : String, value : Num | Bool, ramp : Num? = nil, **options)
     if ramp
       params = {
         :Name =>  name,
-        :Value => value,
+        :Numue => value,
         :Ramp => ramp
       } 
     else
       params = {
           :Name =>  name,
-          :Value => value
+          :Numue => value
       }
     end
 
@@ -100,8 +100,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   # Example usage:
-  # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Value" => -100 }, {...}
-  def component_set(c_name : String, values : Vals, **options)
+  # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Numue" => -100 }, {...}
+  def component_set(c_name : String, values : Nums, **options)
     values = ensure_array(values)
 
     do_send(next_id, "Component.Set", {
@@ -121,21 +121,21 @@ class Qsc::QSysRemote < PlaceOS::Driver
     do_send(next_id, "Component.GetComponents", **options)
   end
 
-  def change_group_add_controls(group_id : Val, *controls, **options)
+  def change_group_add_controls(group_id : Num, *controls, **options)
     do_send(next_id, "ChangeGroup.AddControl", {
       :Id => group_id,
       :Controls => controls
     }, **options)
   end
 
-  def change_group_remove_controls(group_id : Val, *controls, **options)
+  def change_group_remove_controls(group_id : Num, *controls, **options)
     do_send(next_id, "ChangeGroup.Remove", {
       :Id => group_id,
       :Controls => controls
     }, **options)
   end
 
-  def change_group_add_component(group_id : Val, component_name : String, *controls, **options)
+  def change_group_add_component(group_id : Num, component_name : String, *controls, **options)
     controls.to_a.flat_map { |ctrl| {:Name => ctrl } }
 
     do_send(next_id, "ChangeGroup.AddComponentControl", {
@@ -148,22 +148,22 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   # Returns values for all the controls
-  def poll_change_group(group_id : Val, **options)
+  def poll_change_group(group_id : Num, **options)
     do_send(next_id, "ChangeGroup.Poll", {:Id => group_id}, **options)
   end
 
   # Removes the change group
-  def destroy_change_group(group_id : Val, **options)
+  def destroy_change_group(group_id : Num, **options)
     do_send(next_id, "ChangeGroup.Destroy", {:Id => group_id}, **options)
   end
 
   # Removes all controls from change group
-  def clear_change_group(group_id : Val, **options)
+  def clear_change_group(group_id : Num, **options)
     do_send(next_id, "ChangeGroup.Clear", {:Id => group_id}, **options)
   end
 
   # Where every is the number of seconds between polls
-  def auto_poll_change_group(group_id : Val, every : Val, **options)
+  def auto_poll_change_group(group_id : Num, every : Num, **options)
     do_send(next_id, "ChangeGroup.AutoPoll", {
       :Id => group_id,
       :Rate => every
@@ -181,7 +181,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
           :Mixer => name,
           :Inputs => input.to_s,
           :Outputs => outputs.join(' '),
-          :Value => mute
+          :Numue => mute
       }, **options)
     end
   end
@@ -201,20 +201,20 @@ class Qsc::QSysRemote < PlaceOS::Driver
       sec: :Outputs
     }
   }
-  def matrix_fader(name : String, level : Val, index : Array(Int32), type : String = "matrix_out", **options)
+  def matrix_fader(name : String, level : Num, index : Array(Int32), type : String = "matrix_out", **options)
     info = Faders[type]
 
     if sec = info[:sec]?
       params = {
         :Mixer => name,
-        :Value => level,
+        :Numue => level,
         info[:pri] => index[0],
         sec => index[1]
       }
     else
       params = {
         :Mixer => name,
-        :Value => level,
+        :Numue => level,
         info[:pri] => index
       }
     end
@@ -232,22 +232,24 @@ class Qsc::QSysRemote < PlaceOS::Driver
       pri: :Outputs
     }
   }
-  def matrix_mute(name : String, value : Val, index : Array(Int32), type : String = "matrix_out", **options)
+  def matrix_mute(name : String, value : Num, index : Array(Int32), type : String = "matrix_out", **options)
     info = Mutes[type]
 
     do_send(next_id, info[:type], {
       :Mixer => name,
-      :Value => value,
+      :Numue => value,
       info[:pri] => index
     }, **options)
   end
 
-  def fader(fader_ids : Ids, value : Val | Bool, component : String? = nil, type : String = "fader", use_value : Bool = false, **options)
+  # value can either be a number to set actual numeric values like decibels
+  # or Bool to deal with mute state
+  def fader(fader_ids : Ids, value : Num | Bool, component : String? = nil, type : String = "fader", use_value : Bool = false, **options)
     faders = ensure_array(fader_ids)
-    if component && (val = value.as?(Val))
+    if component && (val = value.as?(Num))
       if @db_based_faders || use_value
         val = val / 10 if @integer_faders && !use_value
-        fads = faders.map { |fad| {Name: fad, Value: val} }
+        fads = faders.map { |fad| {Name: fad, Numue: val} }
       else
         val = val / 1000 if @integer_faders
         fads = faders.map { |fad| {Name: fad, Position: val} }
@@ -261,7 +263,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
     end
   end
 
-  def faders(ids : Ids, value : Val | Bool, component : String? = nil, type : String = "fader", **options)
+  def faders(ids : Ids, value : Num | Bool, component : String? = nil, type : String = "fader", **options)
     fader(ids, value, component, type, **options)
   end
 
