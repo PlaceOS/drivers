@@ -17,7 +17,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
   JsonRpcVer = "2.0"
 
   alias Num = Int32 | Float64
-  alias NumTup = NamedTuple(Name: String, Numue: Num)
+  alias NumTup = NamedTuple(Name: String, Value: Num)
   alias PosTup = NamedTuple(Name: String, Position: Num)
   alias Nums = NumTup | PosTup | Array(NumTup) | Array(PosTup)
   alias Ids = String | Array(String)
@@ -73,13 +73,13 @@ class Qsc::QSysRemote < PlaceOS::Driver
     if ramp
       params = {
         :Name =>  name,
-        :Numue => value,
+        :Value => value,
         :Ramp => ramp
       } 
     else
       params = {
           :Name =>  name,
-          :Numue => value
+          :Value => value
       }
     end
 
@@ -100,7 +100,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   # Example usage:
-  # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Numue" => -100 }, {...}
+  # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Value" => -100 }, {...}
   def component_set(c_name : String, values : Nums, **options)
     values = ensure_array(values)
 
@@ -181,7 +181,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
           :Mixer => name,
           :Inputs => input.to_s,
           :Outputs => outputs.join(' '),
-          :Numue => mute
+          :Value => mute
       }, **options)
     end
   end
@@ -207,14 +207,14 @@ class Qsc::QSysRemote < PlaceOS::Driver
     if sec = info[:sec]?
       params = {
         :Mixer => name,
-        :Numue => level,
+        :Value => level,
         info[:pri] => index[0],
         sec => index[1]
       }
     else
       params = {
         :Mixer => name,
-        :Numue => level,
+        :Value => level,
         info[:pri] => index
       }
     end
@@ -237,7 +237,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
     do_send(next_id, info[:type], {
       :Mixer => name,
-      :Numue => value,
+      :Value => value,
       info[:pri] => index
     }, **options)
   end
@@ -249,7 +249,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
     if component && (val = value.as?(Num))
       if @db_based_faders || use_value
         val = val / 10 if @integer_faders && !use_value
-        fads = faders.map { |fad| {Name: fad, Numue: val} }
+        fads = faders.map { |fad| {Name: fad, Value: val} }
       else
         val = val / 1000 if @integer_faders
         fads = faders.map { |fad| {Name: fad, Position: val} }
@@ -277,6 +277,23 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   def unmute(fader_id : Ids, component : String? = nil, type : String = "fader", **options)
     mute(fader_id, false, component, type, **options)
+  end
+
+  def query_fader(fader_id : Ids, component : String? = nil, type : String = "fader")
+    faders = ensure_array(fader_id)
+    component ? component_get(component, faders) : control_get(faders)
+  end
+
+  def query_faders(ids : Ids, component : String? = nil, type : String = "fader", **options)
+    query_fader(ids, component, type, **options)
+  end
+
+  def query_mute(fader_id : Ids, component : String? = nil, type : String = "fader")
+    query_fader(fader_id, component, type)
+  end
+
+  def query_mutes(ids : Ids, component : String? = nil, type : String = "fader", **options)
+    query_fader(ids, component, type, **options)
   end
 
   def received(data, task)
