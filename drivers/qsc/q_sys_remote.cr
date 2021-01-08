@@ -19,24 +19,24 @@ class Qsc::QSysRemote < PlaceOS::Driver
   @username : String? = nil
   @password : String? = nil
 
-  Delimiter = "\0"
+  Delimiter  = "\0"
   JsonRpcVer = "2.0"
-  Errors = {
+  Errors     = {
     -32700 => "Parse error. Invalid JSON was received by the server.",
     -32600 => "Invalid request. The JSON sent is not a valid Request object.",
     -32601 => "Method not found.",
     -32602 => "Invalid params.",
     -32603 => "Server error.",
-    2 => "Invalid Page Request ID",
-    3 => "Bad Page Request - could not create the requested Page Request",
-    4 => "Missing file",
-    5 => "Change Groups exhausted",
-    6 => "Unknown change croup",
-    7 => "Unknown component name",
-    8 => "Unknown control",
-    9 => "Illegal mixer channel index",
-    10 => "Logon required"
-}
+         2 => "Invalid Page Request ID",
+         3 => "Bad Page Request - could not create the requested Page Request",
+         4 => "Missing file",
+         5 => "Change Groups exhausted",
+         6 => "Unknown change croup",
+         7 => "Unknown component name",
+         8 => "Unknown control",
+         9 => "Illegal mixer channel index",
+        10 => "Logon required",
+  }
 
   alias Num = Int32 | Float64
   alias ValTup = NamedTuple(Name: String, Value: Num)
@@ -82,8 +82,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
     do_send(
       cmd: :Logon,
       params: {
-        :User => @username,
-        :Password => @password
+        :User     => @username,
+        :Password => @password,
       },
       priority: 99
     )
@@ -92,14 +92,14 @@ class Qsc::QSysRemote < PlaceOS::Driver
   def control_set(name : String, value : Num | Bool, ramp : Num? = nil, **options)
     if ramp
       params = {
-        :Name =>  name,
+        :Name  => name,
         :Value => value,
-        :Ramp => ramp
-      } 
+        :Ramp  => ramp,
+      }
     else
       params = {
-          :Name =>  name,
-          :Value => value
+        :Name  => name,
+        :Value => value,
       }
     end
 
@@ -112,8 +112,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   def component_get(c_name : String, controls : Array(String), **options)
     do_send(next_id, "Component.Get", {
-      :Name => c_name,
-      :Controls => controls.map { |ctrl| { :Name => ctrl } }
+      :Name     => c_name,
+      :Controls => controls.map { |ctrl| {:Name => ctrl} },
     }, **options)
   end
 
@@ -123,15 +123,15 @@ class Qsc::QSysRemote < PlaceOS::Driver
     values = ensure_array(values)
 
     do_send(next_id, "Component.Set", {
-      :Name => c_name,
-      :Controls => values
+      :Name     => c_name,
+      :Controls => values,
     }, **options)
   end
 
   def component_trigger(component : String, trigger : String, **options)
     do_send(next_id, "Component.Trigger", {
-      :Name => component,
-      :Controls => [{:Name => trigger}]
+      :Name     => component,
+      :Controls => [{:Name => trigger}],
     }, **options)
   end
 
@@ -141,25 +141,25 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   def change_group_add_controls(group_id : Num, *controls, **options)
     do_send(next_id, "ChangeGroup.AddControl", {
-      :Id => group_id,
-      :Controls => controls
+      :Id       => group_id,
+      :Controls => controls,
     }, **options)
   end
 
   def change_group_remove_controls(group_id : Num, *controls, **options)
     do_send(next_id, "ChangeGroup.Remove", {
-      :Id => group_id,
-      :Controls => controls
+      :Id       => group_id,
+      :Controls => controls,
     }, **options)
   end
 
   def change_group_add_component(group_id : Num, component_name : String, controls : Array(String), **options)
     do_send(next_id, "ChangeGroup.AddComponentControl", {
-      :Id => group_id,
+      :Id        => group_id,
       :Component => {
-        :Name => component_name,
-        :Controls => controls.map { |ctrl| {:Name => ctrl } }
-      }
+        :Name     => component_name,
+        :Controls => controls.map { |ctrl| {:Name => ctrl} },
+      },
     }, **options)
   end
 
@@ -181,9 +181,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
   # Where every is the number of seconds between polls
   def auto_poll_change_group(group_id : Num, every : Num, **options)
     do_send(next_id, "ChangeGroup.AutoPoll", {
-      :Id => group_id,
-      :Rate => every
-    }, **options)#, wait: false)
+      :Id   => group_id,
+      :Rate => every,
+    }, **options) # , wait: false)
   end
 
   # Example usage:
@@ -194,10 +194,10 @@ class Qsc::QSysRemote < PlaceOS::Driver
       outputs = ensure_array(outputs)
 
       do_send(next_id, "Mixer.SetCrossPointMute", {
-          :Mixer => name,
-          :Inputs => input.to_s,
-          :Outputs => outputs.join(' '),
-          :Value => mute
+        :Mixer   => name,
+        :Inputs  => input.to_s,
+        :Outputs => outputs.join(' '),
+        :Value   => mute,
       }, **options)
     end
   end
@@ -205,33 +205,34 @@ class Qsc::QSysRemote < PlaceOS::Driver
   Faders = {
     matrix_in: {
       type: :"Mixer.SetInputGain",
-      pri: :Inputs
+      pri:  :Inputs,
     },
     matrix_out: {
       type: :"Mixer.SetOutputGain",
-      pri: :Outputs
+      pri:  :Outputs,
     },
     matrix_crosspoint: {
       type: :"Mixer.SetCrossPointGain",
-      pri: :Inputs,
-      sec: :Outputs
-    }
+      pri:  :Inputs,
+      sec:  :Outputs,
+    },
   }
+
   def matrix_fader(name : String, level : Num, index : Array(Int32), type : String = "matrix_out", **options)
     info = Faders[type]
 
     if sec = info[:sec]?
       params = {
-        :Mixer => name,
-        :Value => level,
+        :Mixer     => name,
+        :Value     => level,
         info[:pri] => index[0],
-        sec => index[1]
+        sec        => index[1],
       }
     else
       params = {
-        :Mixer => name,
-        :Value => level,
-        info[:pri] => index
+        :Mixer     => name,
+        :Value     => level,
+        info[:pri] => index,
       }
     end
 
@@ -241,20 +242,21 @@ class Qsc::QSysRemote < PlaceOS::Driver
   Mutes = {
     matrix_in: {
       type: :"Mixer.SetInputMute",
-      pri: :Inputs
+      pri:  :Inputs,
     },
     matrix_out: {
       type: :"Mixer.SetOutputMute",
-      pri: :Outputs
-    }
+      pri:  :Outputs,
+    },
   }
+
   def matrix_mute(name : String, value : Num, index : Array(Int32), type : String = "matrix_out", **options)
     info = Mutes[type]
 
     do_send(next_id, info[:type], {
-      :Mixer => name,
-      :Value => value,
-      info[:pri] => index
+      :Mixer     => name,
+      :Value     => value,
+      info[:pri] => index,
     }, **options)
   end
 
@@ -352,6 +354,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   BoolVals = ["true", "false"]
+
   private def process(values : Array, name : JSON::Any? = nil)
     component = name.try(&.as_s?) ? "_#{name}" : ""
     values.each do |value|
@@ -360,7 +363,6 @@ class Qsc::QSysRemote < PlaceOS::Driver
       next unless val = value["Value"]?
 
       pos = value["Position"]?
-      pos = (pos.as_i? || pos.as_f?).not_nil! if pos
       str = value["String"]?.try(&.as_s)
 
       if BoolVals.includes?(str)
@@ -373,7 +375,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
           next
         end
 
-        self["fader#{name}#{component}_pos"] = @integer_faders ? (pos * 1000).to_i : pos if pos
+        if pos && (pos = pos.as_i? || pos.as_f?)
+          self["fader#{name}#{component}_pos"] = @integer_faders ? (pos * 1000).to_i : pos
+        end
 
         if val.as_s?
           self["#{name}#{component}"] = val
@@ -389,49 +393,19 @@ class Qsc::QSysRemote < PlaceOS::Driver
     @id
   end
 
-  # class Command
-  #   include JSON::Serializable
-
-  #   property jsonrpc : String
-  #   property id : Int32?
-  #   property method : String
-  #   property params : Params | Int32 | Array(String)
-  # end
-
-  # class Params
-  # end
-
-  # class Response
-  #   include JSON::Serializable
-
-  #   property jsonrpc : String
-  #   property id : Int32?
-  #   property result : HashResult | Array(ValTup) | Array(PosTup)
-  # end
-
-  # class HashResult
-  #   "Platform" => "Core 500i",
-  #   "State" => "Active",
-  #   "DesignName" => "SAF‐MainPA",
-  #   "DesignCode" => "qALFilm6IcAz",
-  #   "IsRedundant" => false,
-  #   "IsEmulator" => true,
-  #   "Status"
-  # end
-
   private def do_send(id : Int32? = nil, cmd = nil, params = {} of String => String, **options)
     if id
       req = {
         jsonrpc: JsonRpcVer,
-        id: id,
-        method: cmd,
-        params: params
+        id:      id,
+        method:  cmd,
+        params:  params,
       }
     else
       req = {
         jsonrpc: JsonRpcVer,
-        method: cmd,
-        params: params
+        method:  cmd,
+        params:  params,
       }
     end
 
