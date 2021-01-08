@@ -117,8 +117,6 @@ class Qsc::QSysRemote < PlaceOS::Driver
     }, **options)
   end
 
-  # Example usage:
-  # component_set 'My APM', { "Name" => 'ent.xfade.gain', "Value" => -100 }, {...}
   def component_set(c_name : String, values : Values, **options)
     values = ensure_array(values)
 
@@ -139,21 +137,21 @@ class Qsc::QSysRemote < PlaceOS::Driver
     do_send(next_id, "Component.GetComponents", **options)
   end
 
-  def change_group_add_controls(group_id : Num, *controls, **options)
+  def change_group_add_controls(group_id : String, controls : Array(String), **options)
     do_send(next_id, "ChangeGroup.AddControl", {
       :Id       => group_id,
       :Controls => controls,
     }, **options)
   end
 
-  def change_group_remove_controls(group_id : Num, *controls, **options)
+  def change_group_remove_controls(group_id : String, controls : Array(String), **options)
     do_send(next_id, "ChangeGroup.Remove", {
       :Id       => group_id,
       :Controls => controls,
     }, **options)
   end
 
-  def change_group_add_component(group_id : Num, component_name : String, controls : Array(String), **options)
+  def change_group_add_component(group_id : String, component_name : String, controls : Array(String), **options)
     do_send(next_id, "ChangeGroup.AddComponentControl", {
       :Id        => group_id,
       :Component => {
@@ -164,22 +162,22 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   # Returns values for all the controls
-  def poll_change_group(group_id : Num, **options)
+  def poll_change_group(group_id : String, **options)
     do_send(next_id, "ChangeGroup.Poll", {:Id => group_id}, **options)
   end
 
   # Removes the change group
-  def destroy_change_group(group_id : Num, **options)
+  def destroy_change_group(group_id : String, **options)
     do_send(next_id, "ChangeGroup.Destroy", {:Id => group_id}, **options)
   end
 
   # Removes all controls from change group
-  def clear_change_group(group_id : Num, **options)
+  def clear_change_group(group_id : String, **options)
     do_send(next_id, "ChangeGroup.Clear", {:Id => group_id}, **options)
   end
 
   # Where every is the number of seconds between polls
-  def auto_poll_change_group(group_id : Num, every : Num, **options)
+  def auto_poll_change_group(group_id : String, every : Num, **options)
     do_send(next_id, "ChangeGroup.AutoPoll", {
       :Id   => group_id,
       :Rate => every,
@@ -188,13 +186,12 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   # Example usage:
   # mixer 'Parade', {1 => [2,3,4], 3 => 6}, true
-  # def mixer(name, inouts, mute = false, *_,  **options)
   def mixer(name : String, inouts : Hash(Int32, Int32 | Array(Int32)), mute : Bool = false, **options)
     inouts.each do |input, outputs|
       outputs = ensure_array(outputs)
 
       do_send(next_id, "Mixer.SetCrossPointMute", {
-        :Mixer   => name,
+        :Name   => name,
         :Inputs  => input.to_s,
         :Outputs => outputs.join(' '),
         :Value   => mute,
@@ -223,16 +220,16 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
     if sec = info[:sec]?
       params = {
-        :Mixer     => name,
-        :Value     => level,
+        :Name     => name,
         info[:pri] => index[0],
         sec        => index[1],
+        :Value     => level,
       }
     else
       params = {
-        :Mixer     => name,
-        :Value     => level,
+        :Name     => name,
         info[:pri] => index,
+        :Value     => level,
       }
     end
 
@@ -254,9 +251,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
     info = Mutes[type]
 
     do_send(next_id, info[:type], {
-      :Mixer     => name,
-      :Value     => value,
+      :Name     => name,
       info[:pri] => index,
+      :Value     => value,
     }, **options)
   end
 
