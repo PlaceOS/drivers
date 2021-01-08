@@ -1,14 +1,12 @@
-DriverSpecs.mock_driver "XYSense::LocationService" do
+DriverSpecs.mock_driver "Microsoft::FindMeLocationService" do
   system({
-    StaffAPI: {StaffAPI},
-    FindMe:   {FindMe},
+    FindMe: {FindMe},
   })
 
   now = Time.local
   start = now.at_beginning_of_day.to_unix
   ending = now.at_end_of_day.to_unix
 
-  exec(:query_desk_bookings).get
   resp = exec(:device_locations, "zone-id").get
   puts resp
   resp.should eq([
@@ -32,28 +30,17 @@ DriverSpecs.mock_driver "XYSense::LocationService" do
       "findme_type"      => "Person",
     }, {
       "location"        => "desk",
-      "at_location"     => true,
+      "at_location"     => 1,
       "map_id"          => "table-11.097",
       "level"           => "zone-id",
       "building"        => "zone-building",
       "mac"             => "acorder003",
       "last_seen"       => 1608185586,
+      "capacity"        => 1,
       "findme_building" => "SYDNEY",
       "findme_level"    => "L14",
       "findme_status"   => "NoRecentData",
       "findme_type"     => "Person",
-      "booking_start"   => start,
-      "booking_end"     => ending,
-      "booked_for"      => "zdoo@org.com",
-    }, {
-      "location"      => "desk",
-      "at_location"   => false,
-      "map_id"        => "table-123",
-      "level"         => "zone-id",
-      "building"      => "zone-building",
-      "mac"           => "user-1234",
-      "booking_start" => start,
-      "booking_end"   => ending,
     },
   ])
 end
@@ -92,57 +79,5 @@ class FindMe < DriverSpecs::MockDriver
               "userTypes": []
           }
        ])
-  end
-end
-
-class StaffAPI < DriverSpecs::MockDriver
-  def query_bookings(type : String, zones : Array(String))
-    logger.debug { "Querying desk bookings!" }
-
-    now = Time.local
-    start = now.at_beginning_of_day.to_unix
-    ending = now.at_end_of_day.to_unix
-    [{
-      id:            1,
-      booking_type:  type,
-      booking_start: start,
-      booking_end:   ending,
-      asset_id:      "table-123",
-      user_id:       "user-1234",
-      user_email:    "user1234@org.com",
-      user_name:     "Bob Jane",
-      zones:         zones + ["zone-building"],
-      checked_in:    true,
-      rejected:      false,
-    },
-    {
-      id:            2,
-      booking_type:  type,
-      booking_start: start,
-      booking_end:   ending,
-      asset_id:      "table-11.097",
-      user_id:       "user-456",
-      user_email:    "zdoo@org.com",
-      user_name:     "Zee Doo",
-      zones:         zones + ["zone-building"],
-      checked_in:    false,
-      rejected:      false,
-    }]
-  end
-
-  def zone(zone_id : String)
-    logger.info { "requesting zone #{zone_id}" }
-
-    if zone_id == "placeos-zone-id"
-      {
-        id:   zone_id,
-        tags: ["level"],
-      }
-    else
-      {
-        id:   zone_id,
-        tags: ["building"],
-      }
-    end
   end
 end
