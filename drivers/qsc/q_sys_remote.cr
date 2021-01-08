@@ -1,6 +1,8 @@
 # TODO: figure out if I should use this
 # require "placeos-driver/interface/muteable"
 
+# Documentation: https://aca.im/driver_docs/QSC/QRCDocumentation.pdf
+
 class Qsc::QSysRemote < PlaceOS::Driver
   # include Interface::Muteable
 
@@ -12,6 +14,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
   @id : Int32 = 0
   @db_based_faders : Float64? = nil
   @integer_faders : Int32? = nil
+  @username : String? = nil
+  @password : String? = nil
 
   Delimiter = "\0"
   JsonRpcVer = "2.0"
@@ -21,7 +25,6 @@ class Qsc::QSysRemote < PlaceOS::Driver
     -32601 => "Method not found.",
     -32602 => "Invalid params.",
     -32603 => "Server error.",
-
     2 => "Invalid Page Request ID",
     3 => "Bad Page Request - could not create the requested Page Request",
     4 => "Missing file",
@@ -47,6 +50,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
   def on_update
     @db_based_faders = setting?(Float64, :db_based_faders)
     @integer_faders = setting?(Int32, :integer_faders)
+    @username = setting?(String, :username)
+    @password = setting?(String, :password)
+    logon if @username && @password
   end
 
   def connected
@@ -55,13 +61,13 @@ class Qsc::QSysRemote < PlaceOS::Driver
       no_op
     end
     @id = 0
-    logon
   end
 
   def disconnected
     schedule.clear
   end
 
+  # This command does nothing but is useful for making sure the socket is left open
   def no_op
     do_send(cmd: :NoOp, priority: 0)
   end
@@ -70,17 +76,12 @@ class Qsc::QSysRemote < PlaceOS::Driver
     do_send(next_id, cmd: :StatusGet, params: 0, priority: 0)
   end
 
-  def logon(username : String? = nil, password : String? = nil)
-    username ||= setting?(String, :username)
-    password ||= setting?(String, :password)
-    # Don't login if there is no username or password set
-    return unless username || password
-
+  def logon
     do_send(
       cmd: :Logon,
       params: {
-        :User => username,
-        :Password => password
+        :User => @username,
+        :Password => @password
       },
       priority: 99
     )
@@ -314,18 +315,29 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data)
+    data = String.new(data[0..-2])
     response = JSON.parse(data)
 
     logger.debug { "QSys sent:" }
     logger.debug { response }
 
-    if err = response["error"]
-      logger.warn { "Error code #{c = err["code"]} - #{Errors[c]}" }
+    if err = response["error"]?
+      code = err["code"]
+      logger.warn { "Error code #{code} - #{Errors[code]}" }
+
+      if code == 10
+        if @username && @password
+          logon.get
+          return task.try(&.retry("Logged on and retrying command"))
+        else
+          return task.try(&.abort("Login required but no username and/or password in settings"))
+        end
+      end
+
       return task.try(&.abort(err["message"]))
     end
 
-    case result = response["result"]
+    case result = response["result"]?
     when Hash
       if controls = result["Controls"]? # Probably Component.Get
         process(controls, name: result[:Name])
@@ -340,6 +352,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
       end
     when Array # Control.Get
       process(result)
+    else
+      return task.try(&.success("Unknown response"))
     end
 
     task.try(&.success)
@@ -390,18 +404,21 @@ class Qsc::QSysRemote < PlaceOS::Driver
         jsonrpc: JsonRpcVer,
         method: cmd,
         params: params
-    }
+      }
     else
       req = {
         jsonrpc: JsonRpcVer,
         method: cmd,
         params: params
-    }
+      }
     end
 
-    logger.debug { "requesting: #{req}" }
+    logger.debug { "sending: #{req}" }
 
     cmd = req.to_json + Delimiter
+
+    logger.debug { "sending json" }
+    logger.debug { cmd.inspect }
 
     send(cmd, **options)
   end
