@@ -13,7 +13,7 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
       "Password" => "pass",
     },
   }.to_json + "\0")
-  responds({"TODO" => "TODO"}.to_json + "\0")
+  responds({"TODO" => "response not defined in docs"}.to_json + "\0")
 
   exec(:no_op)
   should_send({
@@ -21,7 +21,7 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
     method:  "NoOp",
     params:  {} of String => String,
   }.to_json + "\0")
-  responds({"TODO" => "TODO"}.to_json + "\0")
+  responds({"TODO" => "response not defined in docs"}.to_json + "\0")
 
   exec(:get_status)
   should_send({
