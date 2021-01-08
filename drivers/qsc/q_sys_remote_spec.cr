@@ -31,7 +31,7 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
   }.to_json + "\0")
   responds({
     "jsonrpc" => "2.0",
-    "id" => 0,
+    "id" => 1,
     "result" => {
       "Platform" => "Core 500i",
       "State" => "Active",

@@ -337,40 +337,34 @@ class Qsc::QSysRemote < PlaceOS::Driver
       return task.try(&.abort(err["message"]))
     end
 
-    case result = response["result"]?
-    when Hash
-      if controls = result["Controls"]? # Probably Component.Get
-        process(controls, name: result[:Name])
-      elsif platform = result["Platform"]? # StatusGet
-        self[:platform] = platform
-        self[:state] = result["State"]
-        self[:design_name] = result["DesignName"]
-        self[:design_code] = result["DesignCode"]
-        self[:is_redundant] = result["IsRedundant"]
-        self[:is_emulator] = result["IsEmulator"]
-        self[:status] = result["Status"]
+    return task.try(&.success("Unknown response")) unless result = response["result"]?
+
+    case result
+    when .as_h?
+      if result["Controls"]? # Probably Component.Get
+        process(result["Controls"].as_a, result["Name"]?)
+      elsif result["Platform"]? # StatusGet
+        result.as_h.each { |k, v| self[k.underscore] = v }
       end
-    when Array # Control.Get
-      process(result)
-    else
-      return task.try(&.success("Unknown response"))
+    when .as_a? # Control.Get
+      process(result.as_a)
     end
 
     task.try(&.success)
   end
 
   BoolVals = ["true", "false"]
-  private def process(values, name = nil)
-    component = name.present? ? "_#{name}" : ""
+  private def process(values : Array, name : JSON::Any? = nil)
+    component = name.try(&.as_s?) ? "_#{name}" : ""
     values.each do |value|
       name = value["Name"]
 
       next unless val = value["Value"]?
 
-      pos = value["Position"]
-      str = value["String"]
+      pos = value["Position"].as_f
+      str = value["String"].as_s
 
-      if BoolVals.include?(str)
+      if BoolVals.includes?(str)
         self["fader#{name}#{component}_mute"] = str == "true"
       else
         # Seems like string values can be independant of the other values
@@ -380,12 +374,12 @@ class Qsc::QSysRemote < PlaceOS::Driver
           next
         end
 
-        if pos
-          # Float between 0 and 1
+        if pos # is a Float between 0 and 1
           self["fader#{name}#{component}"] = @integer_faders ? (pos * 1000).to_i : pos
-        elsif val.is_a?(String)
+        elsif val.as_s?
           self["#{name}#{component}"] = val
         else
+          val = val.as_f
           self["fader#{name}#{component}"] = @integer_faders ? (val * 10).to_i : val
         end
       end
