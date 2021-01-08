@@ -14,8 +14,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
   generic_name :Mixer
 
   @id : Int32 = 0
-  @db_based_faders : Float64? = nil
-  @integer_faders : Int32? = nil
+  @db_based_faders : Bool? = nil
+  @integer_faders : Bool? = nil
   @username : String? = nil
   @password : String? = nil
 
@@ -50,8 +50,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   def on_update
-    @db_based_faders = setting?(Float64, :db_based_faders)
-    @integer_faders = setting?(Int32, :integer_faders)
+    @db_based_faders = setting?(Bool, :db_based_faders)
+    @integer_faders = setting?(Bool, :integer_faders)
     @username = setting?(String, :username)
     @password = setting?(String, :password)
     logon if @username && @password
@@ -366,20 +366,19 @@ class Qsc::QSysRemote < PlaceOS::Driver
       if BoolVals.includes?(str)
         self["fader#{name}#{component}_mute"] = str == "true"
       else
-        # Seems like string values can be independant of the other values
+        # Seems like string values can be independent of the other values
         # This should mostly work to detect a string value
         if val == 0 && pos == 0 && str && str[0] != '0'
           self["#{name}#{component}"] = str
           next
         end
 
-        if pos # is a Float between 0 and 1
-          self["fader#{name}#{component}"] = @integer_faders ? (pos * 1000).to_i : pos
-        elsif val.as_s?
+        self["fader#{name}#{component}_pos"] = @integer_faders ? (pos * 1000).to_i : pos if pos
+
+        if val.as_s?
           self["#{name}#{component}"] = val
-        else
-          val = (val.as_i? || val.as_f?).not_nil!
-          self["fader#{name}#{component}"] = @integer_faders ? (val * 10).to_i : val
+        elsif val = (val.as_i? || val.as_f?)
+          self["fader#{name}#{component}_val"] = @integer_faders ? (val * 10).to_i : val
         end
       end
     end

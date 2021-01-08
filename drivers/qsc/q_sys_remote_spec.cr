@@ -77,7 +77,7 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
        }
     ]
   }.to_json + "\0")
-  status[:faderMainGain].should eq(-12)
+  status[:faderMainGain_val].should eq(-12)
 
   exec(:component_get, "My APM", ["ent.xfade.gain", "ent.xfade.gain2"])
   should_send({
@@ -112,6 +112,10 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
       ]
     }
   }.to_json + "\0")
+  status["faderent.xfade.gain_My APM_pos"].should eq(0)
+  status["faderent.xfade.gain_My APM_val"].should eq(-100)
+  status["faderent.xfade.gain2_My APM_pos"].should eq(0)
+  status["faderent.xfade.gain2_My APM_val"].should eq(-50)
 
   # exec(:fader, "1", 1, "component")
 end
