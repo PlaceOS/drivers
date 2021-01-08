@@ -5,7 +5,7 @@ require "./models"
 class Vergesense::VergesenseAPI < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Vergesense API"
-  generic_name :VergesenseAPI
+  generic_name :Vergesense
   uri_base "https://api.vergesense.com"
   description "for more information visit: https://vergesense.readme.io/"
 
@@ -110,7 +110,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
   private def update_single_floor_status(floor_key, floor)
     if floor_key && floor
-      self[floor_key] = floor.not_nil!.to_json
+      self[floor_key] = floor.not_nil!
     end
   end
 

@@ -116,7 +116,25 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
   # Testing initial status save
   exec(:init_sync).get
 
-  status["HQ1-FL1"].should eq("{\"floor_ref_id\":\"FL1\",\"name\":\"Floor 1\",\"capacity\":84,\"max_capacity\":60,\"spaces\":[{\"building_ref_id\":\"HQ1\",\"floor_ref_id\":\"FL1\",\"space_ref_id\":\"CR_0721\",\"space_type\":\"conference_room\",\"name\":\"Conference Room 0721\",\"capacity\":4,\"max_capacity\":3,\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[93.850772,44.676952],[93.850739,44.676929],[93.850718,44.67695],[93.850751,44.676973],[93.850772,44.676952],[93.850772,44.676952]]]},\"people\":{\"count\":2}}]}")
+  status["HQ1-FL1"].should eq({
+    "floor_ref_id" => "FL1",
+    "name"         => "Floor 1",
+    "capacity"     => 84,
+    "max_capacity" => 60,
+    "spaces"       => [
+      {
+        "building_ref_id" => "HQ1",
+        "floor_ref_id"    => "FL1",
+        "space_ref_id"    => "CR_0721",
+        "space_type"      => "conference_room",
+        "name"            => "Conference Room 0721",
+        "capacity"        => 4,
+        "max_capacity"    => 3,
+        "geometry"        => {"type" => "Polygon", "coordinates" => [[[93.850772, 44.676952], [93.850739, 44.676929], [93.850718, 44.67695], [93.850751, 44.676973], [93.850772, 44.676952], [93.850772, 44.676952]]]},
+        "people"          => {"count" => 2},
+      },
+    ],
+  })
 
   # Testing webhook save
   webhook_space_report_event = %({
@@ -152,5 +170,28 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
 
   exec(:space_report_api, method: "update", headers: {"test" => ["test"]}, body: webhook_space_report_event).get
 
-  status["HQ1-FL1"].should eq("{\"floor_ref_id\":\"FL1\",\"name\":\"Floor 1\",\"capacity\":84,\"max_capacity\":60,\"spaces\":[{\"building_ref_id\":\"HQ1\",\"floor_ref_id\":\"FL1\",\"space_ref_id\":\"CR_0721\",\"space_type\":\"conference_room\",\"name\":\"Conference Room 0721\",\"capacity\":4,\"max_capacity\":3,\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[93.850772,44.676952],[93.850739,44.676929],[93.850718,44.67695],[93.850751,44.676973],[93.850772,44.676952],[93.850772,44.676952]]]},\"people\":{\"count\":21,\"coordinates\":[[[2.2673,4.3891],[6.2573,1.5303]]]},\"timestamp\":\"2019-08-21T21:10:25Z\",\"motion_detected\":true}]}")
+  status["HQ1-FL1"].should eq({
+    "floor_ref_id" => "FL1",
+    "name"         => "Floor 1",
+    "capacity"     => 84,
+    "max_capacity" => 60,
+    "spaces"       => [
+      {
+        "building_ref_id" => "HQ1",
+        "floor_ref_id"    => "FL1",
+        "space_ref_id"    => "CR_0721",
+        "space_type"      => "conference_room",
+        "name"            => "Conference Room 0721",
+        "capacity"        => 4,
+        "max_capacity"    => 3,
+        "geometry"        => {"type" => "Polygon", "coordinates" => [[[93.850772, 44.676952], [93.850739, 44.676929], [93.850718, 44.67695], [93.850751, 44.676973], [93.850772, 44.676952], [93.850772, 44.676952]]]},
+        "people"          => {
+          "count"       => 21,
+          "coordinates" => [[[2.2673, 4.3891], [6.2573, 1.5303]]],
+        },
+        "timestamp"       => "2019-08-21T21:10:25Z",
+        "motion_detected" => true,
+      },
+    ],
+  })
 end
