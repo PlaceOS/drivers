@@ -143,7 +143,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
         ends_at:     booking.booking_end,
         mac:         booking.user_id,
         staff_email: booking.user_email,
-        staff_name:  booking.user_name
+        staff_name:  booking.user_name,
       }
     end
   end
