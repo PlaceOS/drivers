@@ -4,6 +4,7 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
     password: "pass"
   })
 
+  # logon
   should_send({
     jsonrpc: "2.0",
     method: "Logon",
@@ -24,8 +25,8 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
 
   exec(:get_status)
   should_send({
-    id: 1,
     jsonrpc: "2.0",
+    id: 1,
     method: "StatusGet",
     params: 0
   }.to_json + "\0")
@@ -45,6 +46,38 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
       }
     }
   }.to_json + "\0")
+  status[:platform].should eq("Core 500i")
+  status[:state].should eq("Active")
+  status[:design_name].should eq("SAF‐MainPA")
+  status[:design_code].should eq("qALFilm6IcAz")
+  status[:is_redundant].should eq(false)
+  status[:is_emulator].should eq(true)
+  status[:status].should eq({
+    "Code" => 0,
+    "String" => "OK"
+  })
+
+  exec(:control_set, "MainGain", -12)
+  should_send({
+    "jsonrpc" => "2.0",
+    "id" => 2,
+    "method" => "Control.Set",
+    "params" => {
+       "Name" => "MainGain",
+       "Value" => -12
+    }
+  }.to_json + "\0")
+  responds({
+    "jsonrpc" => "2.0",
+    "id" => 1234,
+    "result" => [
+       {
+        "Name" => "MainGain",
+        "Value" => -12
+       }
+    ]
+  }.to_json + "\0")
+  status[:faderMainGain].should eq(-12)
 
   # exec(:fader, "1", 1, "component")
 end

@@ -1,3 +1,5 @@
+require "json"
+
 # TODO: figure out if I should use this
 # require "placeos-driver/interface/muteable"
 
@@ -361,15 +363,16 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
       next unless val = value["Value"]?
 
-      pos = value["Position"].as_f
-      str = value["String"].as_s
+      pos = value["Position"]?
+      pos = (pos.as_i? || pos.as_f?).not_nil! if pos
+      str = value["String"]?.try(&.as_s)
 
       if BoolVals.includes?(str)
         self["fader#{name}#{component}_mute"] = str == "true"
       else
         # Seems like string values can be independant of the other values
         # This should mostly work to detect a string value
-        if val == 0 && pos == 0 && str[0] != '0'
+        if val == 0 && pos == 0 && str && str[0] != '0'
           self["#{name}#{component}"] = str
           next
         end
@@ -379,7 +382,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
         elsif val.as_s?
           self["#{name}#{component}"] = val
         else
-          val = val.as_f
+          val = (val.as_i? || val.as_f?).not_nil!
           self["fader#{name}#{component}"] = @integer_faders ? (val * 10).to_i : val
         end
       end
@@ -391,11 +394,26 @@ class Qsc::QSysRemote < PlaceOS::Driver
     @id
   end
 
+  class Command
+    include JSON::Serializable
+
+    property jsonrpc : String
+    property id : Int32?
+    property method : String
+    property params : Params | Int32 | Array(String)
+  end
+
+  class Params
+  end
+
+  class Response
+  end
+
   private def do_send(id : Int32? = nil, cmd = nil, params = {} of String => String, **options)
     if id
       req = {
-        id: id,
         jsonrpc: JsonRpcVer,
+        id: id,
         method: cmd,
         params: params
       }
