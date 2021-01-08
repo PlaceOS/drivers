@@ -39,9 +39,9 @@ class Qsc::QSysRemote < PlaceOS::Driver
 }
 
   alias Num = Int32 | Float64
-  alias NumTup = NamedTuple(Name: String, Value: Num)
+  alias ValTup = NamedTuple(Name: String, Value: Num)
   alias PosTup = NamedTuple(Name: String, Position: Num)
-  alias Values = NumTup | PosTup | Array(NumTup) | Array(PosTup)
+  alias Values = ValTup | PosTup | Array(ValTup) | Array(PosTup)
   alias Ids = String | Array(String)
 
   def on_load
@@ -106,16 +106,14 @@ class Qsc::QSysRemote < PlaceOS::Driver
     do_send(next_id, "Control.Set", params, **options)
   end
 
-  def control_get(*names, **options)
-    do_send(next_id, "Control.Get", names.to_a.flatten, **options)
+  def control_get(names : Array(String), **options)
+    do_send(next_id, "Control.Get", names, **options)
   end
 
-  # Example usage:
-  # component_get 'My AMP', 'ent.xfade.gain', 'ent.xfade.gain2'
-  def component_get(c_name : String, *controls, **options)
+  def component_get(c_name : String, controls : Array(String), **options)
     do_send(next_id, "Component.Get", {
       :Name => c_name,
-      :Controls => controls.to_a.flat_map { |ctrl| { :Name => ctrl } }
+      :Controls => controls.map { |ctrl| { :Name => ctrl } }
     }, **options)
   end
 
@@ -155,14 +153,12 @@ class Qsc::QSysRemote < PlaceOS::Driver
     }, **options)
   end
 
-  def change_group_add_component(group_id : Num, component_name : String, *controls, **options)
-    controls.to_a.flat_map { |ctrl| {:Name => ctrl } }
-
+  def change_group_add_component(group_id : Num, component_name : String, controls : Array(String), **options)
     do_send(next_id, "ChangeGroup.AddComponentControl", {
       :Id => group_id,
       :Component => {
         :Name => component_name,
-        :Controls => controls
+        :Controls => controls.map { |ctrl| {:Name => ctrl } }
       }
     }, **options)
   end
@@ -394,20 +390,35 @@ class Qsc::QSysRemote < PlaceOS::Driver
     @id
   end
 
-  class Command
-    include JSON::Serializable
+  # class Command
+  #   include JSON::Serializable
 
-    property jsonrpc : String
-    property id : Int32?
-    property method : String
-    property params : Params | Int32 | Array(String)
-  end
+  #   property jsonrpc : String
+  #   property id : Int32?
+  #   property method : String
+  #   property params : Params | Int32 | Array(String)
+  # end
 
-  class Params
-  end
+  # class Params
+  # end
 
-  class Response
-  end
+  # class Response
+  #   include JSON::Serializable
+
+  #   property jsonrpc : String
+  #   property id : Int32?
+  #   property result : HashResult | Array(ValTup) | Array(PosTup)
+  # end
+
+  # class HashResult
+  #   "Platform" => "Core 500i",
+  #   "State" => "Active",
+  #   "DesignName" => "SAF‐MainPA",
+  #   "DesignCode" => "qALFilm6IcAz",
+  #   "IsRedundant" => false,
+  #   "IsEmulator" => true,
+  #   "Status"
+  # end
 
   private def do_send(id : Int32? = nil, cmd = nil, params = {} of String => String, **options)
     if id

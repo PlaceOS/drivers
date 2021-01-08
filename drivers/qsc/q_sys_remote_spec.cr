@@ -79,5 +79,39 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
   }.to_json + "\0")
   status[:faderMainGain].should eq(-12)
 
+  exec(:component_get, "My APM", ["ent.xfade.gain", "ent.xfade.gain2"])
+  should_send({
+    "jsonrpc" => "2.0",
+    "id" => 3,
+    "method" => "Component.Get",
+    "params" => {
+      "Name" => "My APM",
+      "Controls" => [
+        { "Name" => "ent.xfade.gain" },
+        { "Name" => "ent.xfade.gain2" }
+      ]
+    }
+  }.to_json + "\0")
+  responds({
+    "jsonrpc" => "2.0",
+    "result" => {
+      "Name" => "My APM",
+      "Controls" => [
+        {
+          "Name" => "ent.xfade.gain",
+          "Value" => -100.0,
+          "String" => "‐100.0dB",
+          "Position" => 0
+        },
+        {
+          "Name" => "ent.xfade.gain2",
+          "Value" => -50.0,
+          "String" => "‐50.0dB",
+          "Position" => 0
+        }
+      ]
+    }
+  }.to_json + "\0")
+
   # exec(:fader, "1", 1, "component")
 end
