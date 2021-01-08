@@ -105,7 +105,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     if user_details = @known_users[mac_address]?
       email, _name = user_details
       {
-        location:    "desk",
+        location:    "booking",
         assigned_to: email,
         mac_address: mac_address,
       }
@@ -134,15 +134,16 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
       end
 
       {
-        location:    :desk,
-        at_location: booking.checked_in,
-        map_id:      booking.asset_id,
-        level:       level,
+        location:    :booking,
+        checked_in:  booking.checked_in,
+        asset_id:    booking.asset_id,
+        booking_id:  booking.id,
         building:    building,
+        level:       level,
+        ends_at:     booking.booking_end,
         mac:         booking.user_id,
-
-        booking_start: booking.booking_start,
-        booking_end:   booking.booking_end,
+        staff_email: booking.user_email,
+        staff_name:  booking.user_name
       }
     end
   end
