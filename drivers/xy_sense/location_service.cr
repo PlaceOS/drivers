@@ -12,56 +12,28 @@ class XYSense::LocationService < PlaceOS::Driver
   description %(collects desk booking data from the staff API and overlays XY Sense data for visualising on a map)
 
   accessor area_manager : AreaManagement_1
-  accessor staff_api : StaffAPI_1
   accessor xy_sense : XYSense_1
   bind XYSense_1, :floors, :floor_details_changed
 
   default_settings({
-    # time in seconds
-    poll_rate:    20,
-    booking_type: "desk",
-
     floor_mappings: {
       "xy-sense-floor-id": {
         zone_id: "placeos-zone-id",
         name:    "friendly name for documentation",
       },
     },
-
-    # You might want to get bookings for the whole building
-    zone_filter: ["placeos-zone-id"],
   })
 
   @floor_mappings : Hash(String, NamedTuple(zone_id: String)) = {} of String => NamedTuple(zone_id: String)
   @zone_filter : Array(String) = [] of String
-  @poll_rate : Time::Span = 60.seconds
-  @booking_type : String = "desk"
 
   def on_load
-    monitor("staff/booking/changed") do |_subscription, payload|
-      logger.debug { "received booking changed event #{payload}" }
-      booking_changed(Booking.from_json(payload))
-    end
     on_update
   end
 
   def on_update
-    @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
-
-    @booking_type = setting?(String, :booking_type).presence || "desk"
-
     @floor_mappings = setting(Hash(String, NamedTuple(zone_id: String)), :floor_mappings)
-    @zone_filter = setting?(Array(String), :zone_filter) || @floor_mappings.map { |_, detail| detail[:zone_id] }
-
-    # Resets @zone_mappings - used by location services
-    map_zones
-
-    # Regulary syncs the state of desk bookings
-    schedule.clear
-    schedule.every(@poll_rate) { query_desk_bookings }
-
-    # gets initial state
-    schedule.in(5.seconds) { query_desk_bookings }
+    @zone_filter = @floor_mappings.map { |_, detail| detail[:zone_id] }
   end
 
   # ===================================
@@ -158,118 +130,38 @@ class XYSense::LocationService < PlaceOS::Driver
   end
 
   # ===================================
-  # Monitoring desk bookings
-  # ===================================
-  protected def booking_changed(event)
-    return unless event.booking_type == @booking_type
-    matching_zones = @zone_filter & event.zones
-    return if matching_zones.empty?
-
-    logger.debug { "booking event is in a matching zone" }
-
-    case event.action
-    when "create"
-      return unless event.in_progress?
-      # Check if this event is happening now
-      logger.debug { "adding new booking" }
-      @bookings[event.user_email] << event
-    when "cancelled", "rejected"
-      # delete the booking from the levels
-      found = false
-      @bookings[event.user_email].reject! { |booking| found = true if booking.id == event.id }
-      return unless found
-    when "check_in"
-      return unless event.in_progress?
-      @bookings[event.user_email].each { |booking| booking.checked_in = true if booking.id == event.id }
-    when "changed"
-      # Check if this booking is for today and update as required
-      @bookings[event.user_email].reject! { |booking| booking.id == event.id }
-      @bookings[event.user_email] << event if event.in_progress?
-    else
-      # ignore the update (approve)
-      logger.debug { "booking event was ignored" }
-      return
-    end
-
-    area_manager.update_available(matching_zones)
-  end
-
-  # ===================================
   # Locatable Interface functions
   # ===================================
   def locate_user(email : String? = nil, username : String? = nil)
-    logger.debug { "searching for #{email}, #{username}" }
-    bookings = @bookings[email]? || [] of Booking
-    map_bookings(bookings)
+    logger.debug { "sensor incapable of locating #{email} or #{username}" }
+    [] of Nil
   end
 
   def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
-    logger.debug { "listing MAC addresses assigned to #{email}, #{username}" }
-    found = [] of String
-    @known_users.each { |user_id, (user_email, _name)|
-      found << user_id if email == user_email
-    }
-    found
+    logger.debug { "sensor incapable of tracking #{email} or #{username}" }
+    [] of String
   end
 
   def check_ownership_of(mac_address : String) : OwnershipMAC?
-    logger.debug { "searching for owner of #{mac_address}" }
-    if user_details = @known_users[mac_address]?
-      email, name = user_details
-      {
-        location:    "desk",
-        assigned_to: email,
-        mac_address: mac_address,
-      }
-    end
+    logger.debug { "sensor incapable of tracking #{mac_address}" }
+    nil
   end
 
   def device_locations(zone_id : String, location : String? = nil)
-    logger.debug { "searching devices in zone #{zone_id}" }
+    logger.debug { "searching locatable in zone #{zone_id}" }
     return [] of Nil unless @zone_filter.includes?(zone_id)
 
-    bookings = [] of Booking
-    @bookings.each_value(&.each { |booking|
-      next unless zone_id.in?(booking.zones)
-      bookings << booking
-    })
-    map_bookings(bookings, zone_id)
-  end
-
-  protected def space_info(zone_id, asset_id)
-    if zone_id
-      if space_mappings = @occupancy_mappings[zone_id]?
-        space_mappings[asset_id]?
-      end
-    end
-  end
-
-  protected def map_bookings(bookings, include_sensor_on : String? = nil)
-    sensors_matched = Set.new([] of String)
-    booked = bookings.map do |booking|
-      level = nil
-      building = nil
-      booking.zones.each do |zone_id|
-        tags = @zone_mappings[zone_id]
-        level = zone_id if tags.includes? "level"
-        building = zone_id if tags.includes? "building"
-        break if level && building
-      end
-
-      space = space_info(level, booking.asset_id)
-
-      if space
-        sensors_matched << space.space_id
+    @occupancy_mappings[zone_id].compact_map do |space_name, space|
+      # Assume this means we're looking at a desk
+      capacity = space.details.capacity
+      if capacity == 1
+        next if location.presence && location != "desk"
         {
           location:    :desk,
-          at_location: space.headcount >= 1,
-          map_id:      booking.asset_id,
-          level:       level,
-          building:    building,
-          mac:         booking.user_id,
-
-          booking_start: booking.booking_start,
-          booking_end:   booking.booking_end,
+          at_location: space.headcount,
+          map_id:      space_name,
+          level:       zone_id,
+          capacity:    capacity,
 
           xy_sense_space_id:  space.space_id,
           xy_sense_status:    space.status,
@@ -277,130 +169,20 @@ class XYSense::LocationService < PlaceOS::Driver
           xy_sense_category:  space.details.category,
         }
       else
+        next if location.presence && location != "area"
         {
-          location:    :desk,
-          at_location: booking.checked_in,
-          map_id:      booking.asset_id,
-          level:       level,
-          building:    building,
-          mac:         booking.user_id,
+          location:    :area,
+          at_location: space.headcount,
+          map_id:      space_name,
+          level:       zone_id,
+          capacity:    capacity,
 
-          booking_start: booking.booking_start,
-          booking_end:   booking.booking_end,
+          xy_sense_space_id:  space.space_id,
+          xy_sense_status:    space.status,
+          xy_sense_collected: space.collected.to_unix,
+          xy_sense_category:  space.details.category,
         }
       end
     end
-
-    # Merge in the desk usage where it's sensor only
-    if include_sensor_on
-      booked + @occupancy_mappings[include_sensor_on].compact_map { |space_name, space|
-        next if sensors_matched.includes? space.space_id
-
-        # Assume this means we're looking at a desk
-        capacity = space.details.capacity
-        if capacity == 1
-          {
-            location:    :desk,
-            at_location: space.headcount == 1,
-            map_id:      space_name,
-            level:       include_sensor_on,
-
-            xy_sense_space_id:  space.space_id,
-            xy_sense_status:    space.status,
-            xy_sense_collected: space.collected.to_unix,
-            xy_sense_category:  space.details.category,
-          }
-        else
-          {
-            location:  :area,
-            map_id:    space_name,
-            level:     include_sensor_on,
-            capacity:  capacity,
-            headcount: space.headcount,
-
-            xy_sense_space_id:  space.space_id,
-            xy_sense_status:    space.status,
-            xy_sense_collected: space.collected.to_unix,
-            xy_sense_category:  space.details.category,
-          }
-        end
-      }
-    else
-      booked
-    end
-  end
-
-  # ===================================
-  # DESK AND ZONE QUERIES
-  # ===================================
-  # zone id => tags
-  @zone_mappings = {} of String => Array(String)
-
-  protected def map_zones
-    @zone_mappings = Hash(String, Array(String)).new do |hash, zone_id|
-      # Map zones_ids to tags (level, building etc)
-      hash[zone_id] = staff_api.zone(zone_id).get["tags"].as_a.map(&.as_s)
-    end
-  end
-
-  class Booking
-    include JSON::Serializable
-
-    # This is to support events
-    property action : String?
-
-    property id : Int64
-    property booking_type : String
-    property booking_start : Int64
-    property booking_end : Int64
-    property timezone : String?
-
-    # events use resource_id instead of asset_id
-    property asset_id : String?
-    property resource_id : String?
-
-    def asset_id : String
-      (@asset_id || @resource_id).not_nil!
-    end
-
-    property user_id : String
-    property user_email : String
-    property user_name : String
-
-    property zones : Array(String)
-
-    property checked_in : Bool?
-    property rejected : Bool?
-
-    def in_progress?
-      now = Time.utc.to_unix
-      now >= @booking_start && now < @booking_end
-    end
-  end
-
-  # Email => Array of bookings
-  @bookings : Hash(String, Array(Booking)) = Hash(String, Array(Booking)).new
-
-  # UserID =>  {Email, Name}
-  @known_users : Hash(String, Tuple(String, String)) = Hash(String, Tuple(String, String)).new
-
-  def query_desk_bookings : Nil
-    bookings = [] of JSON::Any
-    @zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a }
-    bookings = bookings.map { |booking| Booking.from_json(booking.to_json) }
-
-    logger.debug { "queried desk bookings, found #{bookings.size}" }
-
-    new_bookings = Hash(String, Array(Booking)).new do |hash, key|
-      hash[key] = [] of Booking
-    end
-
-    bookings.each do |booking|
-      next if booking.rejected
-      new_bookings[booking.user_email] << booking
-      @known_users[booking.user_id] = {booking.user_email, booking.user_name}
-    end
-
-    @bookings = new_bookings
   end
 end
