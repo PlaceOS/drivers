@@ -4,10 +4,6 @@ DriverSpecs.mock_driver "Vergesense::LocationService" do
     AreaManagement: {AreaManagement},
   })
 
-  now = Time.local
-  start = now.at_beginning_of_day.to_unix
-  ending = now.at_end_of_day.to_unix
-
   resp = exec(:device_locations, "zone-level").get
   resp.should eq([
     {"location" => "area", "at_location" => 21, "map_id" => "Conference Room 0721", "level" => "zone-level", "building" => "zone-building", "capacity" => 30, "vergesense_space_id" => "CR_0721", "vergesense_space_type" => "conference_room"},
