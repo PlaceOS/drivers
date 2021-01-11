@@ -46,15 +46,13 @@ class Qsc::QSysControl < PlaceOS::Driver
     #   end
     # end
 
-    em_id = setting?(String, :emergency)
-
     # # Emergency ID changed
     # if (e = @emergency_subscribe) && @em_id != em_id
     #   subscriptions.unsubscribe(e)
     # end
 
     # Emergency ID exists
-    if em_id
+    if em_id = setting?(String, :emergency)
       group = create_change_group(:emergency)
       group_id = group[:id]
       controls = group[:controls]
