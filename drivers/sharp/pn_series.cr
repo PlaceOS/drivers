@@ -23,7 +23,6 @@ class Sharp::PnSeries < PlaceOS::Driver
       "INPS" + self.value.to_s.rjust(4, '0')
     end
   end
-
   include PlaceOS::Driver::Interface::InputSelection(Input)
 
   tcp_port 10008
@@ -201,11 +200,14 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data)
+    pp "-- Sharp LCD, received: #{data}"
+    data = String.new(data[0..-3])
     logger.debug { "-- Sharp LCD, received: #{data}" }
+    pp "-- Sharp LCD, received: #{data}"
     value = nil
 
     if data == "Password:OK"
+      pp "password okay"
       do_poll
     elsif data == "Password:Login incorrect"
       schedule.in(5.seconds) { send_credentials }
@@ -262,6 +264,7 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   private def do_send(data, **options)
+    pp "sending #{data}"
     send("#{data}#{DELIMITER}", **options)
   end
 end
