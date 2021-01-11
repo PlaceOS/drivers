@@ -3,9 +3,6 @@ require "json"
 # Documentation: https://aca.im/driver_docs/QSC/QRCDocumentation.pdf
 
 class Qsc::QSysRemote < PlaceOS::Driver
-  # include Interface::Muteable
-
-  # Discovery Information
   tcp_port 1710
   descriptive_name "QSC Audio DSP"
   generic_name :Mixer
