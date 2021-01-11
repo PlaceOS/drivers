@@ -1,8 +1,5 @@
 require "json"
 
-# TODO: figure out if I should use this
-# require "placeos-driver/interface/muteable"
-
 # Documentation: https://aca.im/driver_docs/QSC/QRCDocumentation.pdf
 
 class Qsc::QSysRemote < PlaceOS::Driver
