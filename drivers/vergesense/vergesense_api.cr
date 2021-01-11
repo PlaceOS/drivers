@@ -19,36 +19,40 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
   @floors : Hash(String, Floor) = {} of String => Floor
 
   @debug_payload : Bool = false
-  @completed_initial_sync : Bool = false
+  @poll_every : Time::Span? = nil
+  @sync_lock : Mutex = Mutex.new
 
   def on_load
     on_update
-
-    # Unable to perform initial sync as the driver loads
-    # Waiting a small bit
     schedule.in(200.milliseconds) { init_sync }
   end
 
   def on_update
     @api_key = setting(String, :vergesense_api_key)
     @debug_payload = setting?(Bool, :debug_payload) || false
+
+    @poll_every = setting?(Int32, :poll_every).try &.seconds
+
+    schedule.clear
+    if poll_time = @poll_every
+      schedule.every(poll_time) { init_sync }
+    end
   end
 
   # Performs initial sync by loading buildings / floors / spaces
   def init_sync
-    return if @completed_initial_sync
-
     begin
-      init_buildings
+      @sync_lock.synchronize do
+        init_buildings
 
-      if @buildings
-        init_floors
-        init_spaces
-        init_floors_status
-        @completed_initial_sync = true
+        if @buildings
+          init_floors
+          init_spaces
+          init_floors_status
+        end
       end
     rescue e
-      logger.error { "failed to perform initial vergesense API sync\n#{e.inspect_with_backtrace}" }
+      logger.error { "failed to perform vergesense API sync\n#{e.inspect_with_backtrace}" }
     end
   end
 

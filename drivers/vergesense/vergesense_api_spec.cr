@@ -11,6 +11,8 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
     end
   end
 
+  puts "SENT BUILDINGS"
+
   expect_http_request do |request, response|
     case request.path
     when "/buildings/HQ1"
@@ -81,6 +83,8 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
     end
   end
 
+  puts "SENT FLOORS"
+
   expect_http_request do |request, response|
     case request.path
     when "/spaces"
@@ -113,8 +117,7 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
     end
   end
 
-  # Testing initial status save
-  exec(:init_sync).get
+  puts "SENT SPACES"
 
   status["HQ1-FL1"].should eq({
     "floor_ref_id" => "FL1",
