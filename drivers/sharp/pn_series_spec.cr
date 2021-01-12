@@ -9,7 +9,7 @@ DriverSpecs.mock_driver "Sharp::PnSeries" do
   # Settings can only be accessed after on_load and connected
   settings({
     username: "user",
-    password: "pass"
+    password: "pass",
   })
 
   # Retrying send_credentials

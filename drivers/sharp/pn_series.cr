@@ -10,14 +10,14 @@ class Sharp::PnSeries < PlaceOS::Driver
   include Interface::Muteable
 
   enum Input
-    DVI = 1
-    HDMI = 10
-    HDMI2 = 13
-    HDMI3 = 18
+    DVI         =  1
+    HDMI        = 10
+    HDMI2       = 13
+    HDMI3       = 18
     DisplayPort = 14
-    VGA = 2
-    VGA2 = 16
-    Component = 3
+    VGA         =  2
+    VGA2        = 16
+    Component   =  3
 
     def data
       "INPS" + self.value.to_s.rjust(4, '0')
@@ -102,22 +102,23 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   AUDIO = {
-    audio1: "ASDP   2",
-    audio2: "ASDP   3",
-    dvi: "ASDP   1",
-    dvi_alt: "ASDA   1",
-    hdmi: "ASHP   0",
-    hdmi_3mm: "ASHP   1",
-    hdmi_rca: "ASHP   2",
-    vga: "ASAP   1",
-    component: "ASCA   1"
+    audio1:    "ASDP   2",
+    audio2:    "ASDP   3",
+    dvi:       "ASDP   1",
+    dvi_alt:   "ASDA   1",
+    hdmi:      "ASHP   0",
+    hdmi_3mm:  "ASHP   1",
+    hdmi_rca:  "ASHP   2",
+    vga:       "ASAP   1",
+    component: "ASCA   1",
   }
   AUDIO_RESPONSE = AUDIO.to_h.invert
+
   def switch_audio(input : String)
     logger.debug { "-- Sharp LCD, requested to switch audio to: #{input}" }
 
     do_send(AUDIO[input], name: "audio")
-    mute_status(40) # higher status than polling commands - lower than input switching
+    mute_status(40)   # higher status than polling commands - lower than input switching
     volume_status(40) # Mute response requests volume
   end
 
@@ -157,13 +158,13 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   OPERATION_CODE = {
-    video_input: "INPS",
-    volume_status: "VOLM",
-    mute_status: "MUTE",
-    power_on_delay: "PWOD",
-    contrast_status: "CONT",
+    video_input:       "INPS",
+    volume_status:     "VOLM",
+    mute_status:       "MUTE",
+    power_on_delay:    "PWOD",
+    contrast_status:   "CONT",
     brightness_status: "VLMP",
-    model_number: "INF1"
+    model_number:      "INF1",
   }
   {% for name, cmd in OPERATION_CODE %}
     @[Security(Level::Administrator)]
@@ -191,7 +192,8 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   private def send_credentials
-    do_send(setting?(String?, :username) || "", priority: 100, delay: 500.milliseconds)#, wait: false)
+    do_send(setting?(String?, :username) || "", priority: 100, delay: 500.milliseconds)# , wait: false)
+    # TODO: figure out equivalent in crystal for delay_on_receive
     do_send(setting?(String?, :password) || "", priority: 100)#, delay_on_receive: 1000)
   end
 
