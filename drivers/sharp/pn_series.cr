@@ -19,7 +19,7 @@ class Sharp::PnSeries < PlaceOS::Driver
     VGA2 = 16
     Component = 3
 
-    def to_s
+    def data
       "INPS" + self.value.to_s.rjust(4, '0')
     end
   end
@@ -61,19 +61,19 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    # delay = self[:power_on_delay]?.try(&.as_i) || 5000
+    delay = self[:power_on_delay]?.try(&.as_i) || 5
 
     # If the requested state is different from the current state
     if state != !!self[:power]?.try(&.as_bool)
       if state
         logger.debug { "-- Sharp LCD, requested to power on" }
-        do_send("POWR   1", name: :POWR)#, timeout: delay + 15000)
+        do_send("POWR   1", name: :POWR, timeout: delay.seconds + 15.seconds)
         self[:warming] = true
         self[:power] = true
-        do_send("POWR????", name: :POWR)#, timeout: 10000) # clears warming
+        do_send("POWR????", name: :POWR, timeout: 10.seconds) # clears warming
       else
         logger.debug { "-- Sharp LCD, requested to power off" }
-        do_send("POWR   0", name: :POWR)#, timeout: 15000)
+        do_send("POWR   0", name: :POWR, timeout: 15.seconds)
         self[:power] = false
       end
     end
@@ -83,7 +83,7 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   def power?(**options)
-    do_send("POWR????", **options, name: :POWR).get# timeout: 10000)
+    do_send("POWR????", **options, name: :POWR, timeout: 10.seconds).get
     self[:power].as_bool
   end
 
@@ -94,8 +94,7 @@ class Sharp::PnSeries < PlaceOS::Driver
 
   def switch_to(input : Input)
     logger.debug { "-- Sharp LCD, requested to switch to: #{input}" }
-    do_send(input.to_s, name: :input)#, delay: 2000, timeout: 20000) # does an auto adjust on switch to vga
-    self[:input] = input
+    do_send(input.data, name: :input, delay: 2.seconds, timeout: 20.seconds) # does an auto adjust on switch to vga
     brightness_status(40) # higher status than polling commands - lower than input switching (vid then audio is common)
     contrast_status(40)
   end
@@ -111,6 +110,7 @@ class Sharp::PnSeries < PlaceOS::Driver
     vga: "ASAP   1",
     component: "ASCA   1"
   }
+  AUDIO_RESPONSE = AUDIO.to_h.invert
   def switch_audio(input : String)
     logger.debug { "-- Sharp LCD, requested to switch audio to: #{input}" }
 
@@ -120,7 +120,7 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   def auto_adjust
-    do_send("AGIN   1")#, timeout: 20000)
+    do_send("AGIN   1", timeout: 20.seconds)
   end
 
   def brightness(val : Int32)
@@ -193,7 +193,7 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   private def send_credentials
-    do_send(setting?(String?, :username) || "", priority: 100)#, delay: 500, wait: false)
+    do_send(setting?(String?, :username) || "", priority: 100, delay: 500.milliseconds)#, wait: false)
     do_send(setting?(String?, :password) || "", priority: 100)#, delay_on_receive: 1000)
   end
 
@@ -211,7 +211,7 @@ class Sharp::PnSeries < PlaceOS::Driver
       return task.try(&.success)
     elsif data == "WAIT"
       logger.debug { "-- Sharp LCD, wait" }
-      return nil
+      return
     elsif data == "ERR"
       return task.try(&.abort("-- Sharp LCD, error"))
     elsif data.size < 8 # Out of order send?
@@ -240,8 +240,7 @@ class Sharp::PnSeries < PlaceOS::Driver
         volume_status(90) # high priority
       end
     when "CONT" # Contrast status
-      value = value.to_i / 2 if self[:input]? == "VGA" && @dbl_contrast
-      self[:contrast] = value
+      self[:contrast] = value.to_i / (self[:input]? == "VGA" && @dbl_contrast ? 2 : 1)
     when "VLMP" # brightness status
       self[:brightness] = value.to_i
     when "PWOD"
@@ -250,13 +249,15 @@ class Sharp::PnSeries < PlaceOS::Driver
       self[:model_number] = value
       logger.debug { "-- Sharp LCD, model number #{self[:model_number]}" }
       determine_contrast_mode
+    when "ASDP", "ASDA", "ASHP", "ASAP", "ASCA" # audio switching commands
+      self[:audio_input] = AUDIO_RESPONSE[data] || "unknown"
     end
 
     task.try(&.success)
   end
 
-  private def do_send(data, **options)
+  private def do_send(data, delay = 100.milliseconds, **options)
     pp "sending #{data}"
-    send("#{data}#{DELIMITER}", **options)
+    send("#{data}#{DELIMITER}", **options, delay: delay)
   end
 end
