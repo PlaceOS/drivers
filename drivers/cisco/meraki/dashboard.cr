@@ -58,6 +58,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # Time before a user location is considered probably too old
     max_location_age: 10,
+
+    # Ignore certain usernames from the dashboard
+    ignore_usernames: ["host/"],
+
+    # Enable / Disable dashboard username lookup completely
+    disable_username_lookup: false,
   })
 
   def on_load
@@ -95,6 +101,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @s2_level : Int32 = 21
   @debug_webhook : Bool = false
   @debug_payload : Bool = false
+  @ignore_usernames : Array(String) = [] of String
 
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
@@ -125,9 +132,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @debug_webhook = setting?(Bool, :debug_webhook) || false
     @debug_payload = setting?(Bool, :debug_payload) || false
 
+    @ignore_usernames = setting?(Array(String), :ignore_usernames) || [] of String
+    disable_username_lookup = setting?(Bool, :disable_username_lookup) || false
+
     schedule.clear
     if @default_network.presence
-      schedule.every(2.minutes) { map_users_to_macs }
+      schedule.every(2.minutes) { map_users_to_macs } unless disable_username_lookup
       schedule.every(29.minutes, immediate: true) { sync_floorplan_sizes }
     end
     schedule.every(30.minutes) { cleanup_caches }
@@ -185,7 +195,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   EMPTY_HEADERS    = {} of String => String
   SUCCESS_RESPONSE = {HTTP::Status::OK, EMPTY_HEADERS, nil}
 
-  class Lookup
+  struct Lookup
     include JSON::Serializable
 
     property time : Time
@@ -264,44 +274,72 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         # So we can merge additional details into device location responses
         user_mac = format_mac(client.mac)
         client.time_added = now
-        @client_details[user_mac] = client
 
         user_id = client.user
-        next unless user_id
-        user_id = format_username(user_id)
 
-        # Check if mac mapping already exists
-        existing_user = storage[user_mac]?
-        next if existing_user == user_id
-
-        # Remove any pervious mappings
-        if existing_user
-          updated_dev += 1
-          if user_macs = storage[existing_user]?
-            macs = Array(String).from_json(user_macs)
-            macs.delete(user_mac)
-            storage[existing_user] = macs.to_json
+        if user_id
+          @ignore_usernames.each do |name|
+            if user_id.starts_with?(name)
+              client.user = user_id = nil
+              break
+            end
           end
-        else
-          new_devices += 1
         end
 
-        # Update the user mappings
-        storage[user_mac] = user_id
-        macs = if user_macs = storage[user_id]?
-                 tmp_macs = Array(String).from_json(user_macs)
-                 tmp_macs.unshift(user_mac)
-                 tmp_macs.uniq!
-                 tmp_macs[0...9]
-               else
-                 [user_mac]
-               end
-        storage[user_id] = macs
+        # Attempt to lookup username via learning
+        if user_id.nil?
+          if known_id = storage[user_mac]?
+            client.user = known_id
+          end
+        end
+
+        @client_details[user_mac] = client
+        next unless user_id
+
+        was_update, was_new = map_user_mac(user_mac, user_id, storage)
+        updated_dev += 1 if was_update
+        new_devices += 1 if was_new
       end
     end
 
     logger.debug { "mapping assigned #{new_devices} new devices, #{updated_dev} user updated" }
     nil
+  end
+
+  protected def map_user_mac(user_mac, user_id, storage)
+    updated_dev = false
+    new_devices = false
+    user_id = format_username(user_id)
+
+    # Check if mac mapping already exists
+    existing_user = storage[user_mac]?
+    return {false, false} if existing_user == user_id
+
+    # Remove any pervious mappings
+    if existing_user
+      updated_dev = true
+      if user_macs = storage[existing_user]?
+        macs = Array(String).from_json(user_macs)
+        macs.delete(user_mac)
+        storage[existing_user] = macs.to_json
+      end
+    else
+      new_devices = true
+    end
+
+    # Update the user mappings
+    storage[user_mac] = user_id
+    macs = if user_macs = storage[user_id]?
+             tmp_macs = Array(String).from_json(user_macs)
+             tmp_macs.unshift(user_mac)
+             tmp_macs.uniq!
+             tmp_macs[0...9]
+           else
+             [user_mac]
+           end
+    storage[user_id] = macs
+
+    {updated_dev, new_devices}
   end
 
   def format_username(user : String)
@@ -388,7 +426,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         end
 
         # Add additional client information if it's available
-        if client = @client_details[location.mac]?
+        if client = location.client
           loc["manufacturer"] = client.manufacturer if client.manufacturer
           loc["os"] = client.os if client.os
           loc["ssid"] = client.ssid if client.ssid
@@ -495,19 +533,23 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   def cleanup_caches : Nil
     logger.debug { "removing IP and location data that is over 30 minutes old" }
 
-    # IP Addresses
+    # IP => MAC mappings
     old = 30.minutes.ago
     remove_keys = [] of String
     @ip_lookup.each { |ip, lookup| remove_keys << ip if lookup.time < old }
     remove_keys.each { |ip| @ip_lookup.delete(ip) }
+    logger.debug { "removed #{remove_keys.size} IP => MAC mappings" }
 
-    logger.debug { "removed #{remove_keys.size} IPs" }
+    # IP => Username mappings
+    remove_keys.clear
+    @ip_usernames.each { |ip, lookup| remove_keys << ip if lookup.time < old }
+    remove_keys.each { |ip| @ip_usernames.delete(ip) }
+    logger.debug { "removed #{remove_keys.size} IP => Username mappings" }
 
     # Client details
     remove_keys.clear
     @client_details.each { |mac, client| remove_keys << mac if client.time_added < old }
     remove_keys.each { |mac| @client_details.delete(mac) }
-
     logger.debug { "removed #{remove_keys.size} client details" }
 
     # MACs
@@ -522,7 +564,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       end
     end
     remove_keys.each { |mac| @locations.delete(mac) }
-
     logger.debug { "removed #{remove_keys.size} MACs" }
   end
 
@@ -603,8 +644,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
           @locations[client_mac] = location
           locations_updated += 1
         end
-        update_ipv4(observation, current_time)
-        update_ipv6(observation, current_time)
+        update_ipv4(observation.ipv4, client_mac, current_time)
+        update_ipv6(observation.ipv6.try(&.downcase), client_mac, current_time)
       end
     rescue e
       logger.error { "failed to parse meraki scanning API payload\n#{e.inspect_with_backtrace}" }
@@ -704,24 +745,32 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     location
   end
 
-  protected def update_ipv4(observation, current_time)
-    ipv4 = observation.ipv4
+  protected def update_ipv4(ipv4, client_mac, current_time)
     return unless ipv4
 
-    lookup = @ip_lookup[ipv4]? || Lookup.new(current_time, observation.client_mac)
+    lookup = @ip_lookup[ipv4]? || Lookup.new(current_time, client_mac)
     lookup.time = current_time
-    lookup.mac = observation.client_mac
+    lookup.mac = client_mac
     @ip_lookup[ipv4] = lookup
+
+    if lookup = @ip_usernames[ipv4]
+      username = lookup.mac
+      user_mac_mappings { |storage| map_user_mac(client_mac, username, storage) }
+    end
   end
 
-  protected def update_ipv6(observation, current_time)
-    ipv6 = observation.ipv6.try &.downcase
+  protected def update_ipv6(ipv6, client_mac, current_time)
     return unless ipv6
 
-    lookup = @ip_lookup[ipv6]? || Lookup.new(current_time, observation.client_mac)
+    lookup = @ip_lookup[ipv6]? || Lookup.new(current_time, client_mac)
     lookup.time = current_time
-    lookup.mac = observation.client_mac
+    lookup.mac = client_mac
     @ip_lookup[ipv6] = lookup
+
+    if lookup = @ip_usernames[ipv6]
+      username = lookup.mac
+      user_mac_mappings { |storage| map_user_mac(client_mac, username, storage) }
+    end
   end
 
   def format_mac(address : String)
@@ -741,5 +790,23 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   rescue
     # Possible error with logging exception, restart rate limiter silently
     spawn { rate_limiter }
+  end
+
+  # ip => {username, time}
+  @ip_usernames : Hash(String, Lookup) = {} of String => Lookup
+
+  @[Security(PlaceOS::Driver::Level::Administrator)]
+  def ip_username_mappings(ip_map : Array(Tuple(String, String, String, String?))) : Nil
+    now = Time.utc
+    user_mac_mappings do |storage|
+      ip_map.each do |(ip, username, domain, hostname)|
+        username = format_username(username)
+        @ip_usernames[ip] = Lookup.new(now, username)
+
+        if lookup = @ip_lookup[ip]?
+          map_user_mac(lookup.mac, username, storage)
+        end
+      end
+    end
   end
 end
