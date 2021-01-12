@@ -61,7 +61,7 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    delay = self[:power_on_delay]?.try(&.as_i) || 5000
+    # delay = self[:power_on_delay]?.try(&.as_i) || 5000
 
     # If the requested state is different from the current state
     if state != !!self[:power]?.try(&.as_bool)
@@ -114,7 +114,7 @@ class Sharp::PnSeries < PlaceOS::Driver
   def switch_audio(input : String)
     logger.debug { "-- Sharp LCD, requested to switch audio to: #{input}" }
 
-    do_send(AUDIO[input], name: :audio)
+    do_send(AUDIO[input], name: "audio")
     mute_status(40) # higher status than polling commands - lower than input switching
     volume_status(40) # Mute response requests volume
   end
@@ -147,7 +147,7 @@ class Sharp::PnSeries < PlaceOS::Driver
     do_send("VOLM#{val.clamp(@volume_min, @volume_max).to_s.rjust(4, ' ')}")
   end
 
-  # Mutes both audio/video
+  # There seems to only be audio mute available
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
@@ -181,7 +181,6 @@ class Sharp::PnSeries < PlaceOS::Driver
       model_number unless self[:model_number]? # only query the model number if we don't already have it
       power_on_delay
       mute_status
-      volume_status
     end
   end
 
@@ -189,9 +188,8 @@ class Sharp::PnSeries < PlaceOS::Driver
     # As of 09/2015 only the PN-L802B does not have double contrast on RGB input.
     # All prior models do double the contrast and don't have an L so let's assume it's the L in the model number that determines this for now
     # (we can confirm the logic as more models are released)
-    if self[:model_number]? =~ /L/
-      self[:dbl_contrast] = false
-    end
+    @dbl_contrast = false if self[:model_number].as_s.includes?('L')
+    logger.debug { "dbl_contrast is #{@dbl_contrast}" }
   end
 
   private def send_credentials
@@ -200,15 +198,12 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   def received(data, task)
-    pp "-- Sharp LCD, received: #{data}"
     data = String.new(data[0..-3])
     logger.debug { "-- Sharp LCD, received: #{data}" }
     pp "-- Sharp LCD, received: #{data}"
-    value = nil
 
     if data == "Password:OK"
-      pp "password okay"
-      do_poll
+      return task.try(&.success("Login successful"))
     elsif data == "Password:Login incorrect"
       schedule.in(5.seconds) { send_credentials }
       return task.try(&.success("Sharp LCD, bad login or logged off. Attempting login.."))
@@ -219,42 +214,39 @@ class Sharp::PnSeries < PlaceOS::Driver
       return nil
     elsif data == "ERR"
       return task.try(&.abort("-- Sharp LCD, error"))
+    elsif data.size < 8 # Out of order send?
+      return task.try(&.abort("Sharp sent out of order response: #{data}"))
     end
 
-    if !(command = task.try(&.name))
-      return task.try(&.abort("Sharp sent out of order response: #{data}")) if data.size < 8 # Out of order send?
-      command = data[0..3]
-      value = data[4..7].to_i
-    else
-      value = data.to_i
-      logger.debug { "setting value ret: #{command}" }
-    end
+    command, value = data.split
+    pp "command is #{command}"
+    pp "value is #{value}"
 
     case command
-    when :POWR # Power status
+    when "POWR" # Power status
       self[:warming] = false
-      self[:power] = value > 0
-    when :INPS # Input status
-      input = Input.from_value?(value)
+      self[:power] = value.to_i > 0
+    when "INPS" # Input status
+      input = Input.from_value?(value.to_i)
       self[:input] = input || "unknown"
       logger.debug { "-- Sharp LCD, input #{self[:input]} == #{value}" }
-    when :VOLM # Volume status
-      self[:volume] = value unless self[:audio_mute]?.try(&.as_bool)
-    when :MUTE # Mute status
-      self[:audio_mute] = value == 1
-      if value == 1
+    when "VOLM" # Volume status
+      self[:volume] = value.to_i unless self[:audio_mute]?.try(&.as_bool)
+    when "MUTE" # Mute status
+      self[:audio_mute] = (mute = value.to_i == 1)
+      if mute
         self[:volume] = 0
       else
         volume_status(90) # high priority
       end
-    when :CONT # Contrast status
-      value = value / 2 if self[:input]? == "VGA" && @dbl_contrast
+    when "CONT" # Contrast status
+      value = value.to_i / 2 if self[:input]? == "VGA" && @dbl_contrast
       self[:contrast] = value
-    when :VLMP # brightness status
-      self[:brightness] = value
-    when :PWOD
-      self[:power_on_delay] = value
-    when :INF1
+    when "VLMP" # brightness status
+      self[:brightness] = value.to_i
+    when "PWOD"
+      self[:power_on_delay] = value.to_i
+    when "INF1"
       self[:model_number] = value
       logger.debug { "-- Sharp LCD, model number #{self[:model_number]}" }
       determine_contrast_mode
