@@ -78,6 +78,7 @@ class Sharp::PnSeries < PlaceOS::Driver
       end
     end
 
+    power?
     mute_status(0)
     volume_status(0)
   end
@@ -94,7 +95,8 @@ class Sharp::PnSeries < PlaceOS::Driver
 
   def switch_to(input : Input)
     logger.debug { "-- Sharp LCD, requested to switch to: #{input}" }
-    do_send(input.data, name: :input, delay: 2.seconds, timeout: 20.seconds) # does an auto adjust on switch to vga
+    do_send(input.data, name: :input, delay: 2.seconds, timeout: 20.seconds).get # does an auto adjust on switch to vga
+    video_input(40)
     brightness_status(40) # higher status than polling commands - lower than input switching (vid then audio is common)
     contrast_status(40)
   end
@@ -140,10 +142,6 @@ class Sharp::PnSeries < PlaceOS::Driver
       @vol_status = nil
       volume_status
     end
-
-    self[:volume] = val
-    self[:audio_mute] = false
-
     do_send("VOLM#{val.clamp(@volume_min, @volume_max).to_s.rjust(4, ' ')}")
   end
 
@@ -200,7 +198,6 @@ class Sharp::PnSeries < PlaceOS::Driver
   def received(data, task)
     data = String.new(data[0..-3])
     logger.debug { "-- Sharp LCD, received: #{data}" }
-    pp "-- Sharp LCD, received: #{data}"
 
     if data == "Password:OK"
       return task.try(&.success("Login successful"))
@@ -219,8 +216,6 @@ class Sharp::PnSeries < PlaceOS::Driver
     end
 
     command, value = data.split
-    pp "command is #{command}"
-    pp "value is #{value}"
 
     case command
     when "POWR" # Power status
@@ -257,7 +252,6 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   private def do_send(data, delay = 100.milliseconds, **options)
-    pp "sending #{data}"
     send("#{data}#{DELIMITER}", **options, delay: delay)
   end
 end

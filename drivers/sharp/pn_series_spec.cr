@@ -40,9 +40,11 @@ DriverSpecs.mock_driver "Sharp::PnSeries" do
   exec(:switch_to, "hdmi")
   should_send("INPS0010\x0D\x0A")
   responds("WAIT\x0D\x0A")
+  responds("OK\x0D\x0A")
+  sleep 2
+  should_send("INPS????\x0D\x0A")
   responds("INPS  10\x0D\x0A")
   status[:input].should eq("HDMI")
-  sleep 2
   should_send("VLMP????\x0D\x0A")
   responds("VLMP  15\x0D\x0A")
   status[:brightness].should eq(15)
@@ -55,8 +57,14 @@ DriverSpecs.mock_driver "Sharp::PnSeries" do
   responds("ASCA   1\x0D\x0A")
   status[:audio_input].should eq("component")
 
+  exec(:volume, 100)
+  should_send("VOLM  31\x0D\x0A")
+  responds("ASCA   1\x0D\x0A")
+
   exec(:power, false)
   should_send("POWR   0\x0D\x0A")
+  responds("OK\x0D\x0A")
+  should_send("POWR????\x0D\x0A")
   responds("POWR   0\x0D\x0A")
   status[:warming].should eq(false)
   status[:power].should eq(false)
