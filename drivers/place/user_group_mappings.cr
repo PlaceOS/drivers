@@ -1,8 +1,5 @@
 module Place; end
 
-require "oauth2"
-require "google"
-
 class Place::UserGroupMappings < PlaceOS::Driver
   descriptive_name "User Group Mappings"
   generic_name :UserGroupMappings
@@ -37,12 +34,12 @@ class Place::UserGroupMappings < PlaceOS::Driver
     on_update
   end
 
-  @group_mappings : Hash(String, Hash(String, String)) = {} of String => Hash(String, String)
+  @group_mappings : Hash(String, NamedTuple(place_id: String)) = {} of String => NamedTuple(place_id: String)
   @users_checked : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
   def on_update
-    @group_mappings = setting?(Hash(String, Hash(String, String)), :group_mappings) || {} of String => Hash(String, String)
+    @group_mappings = setting?(Hash(String, NamedTuple(place_id: String)), :group_mappings) || {} of String => NamedTuple(place_id: String)
   end
 
   protected def new_user_login(user_json)
@@ -77,7 +74,9 @@ class Place::UserGroupMappings < PlaceOS::Driver
 
     # Build the list of placeos groups based on the mappings and update the user model
     groups = [] of String
-    @group_mappings.each { |group_id, place_group| groups << place_group["place_id"] if users_groups.includes? group_id }
+    @group_mappings.each { |group_id, place_group| groups << place_group[:place_id] if users_groups.includes? group_id }
     staff_api.update_user(id, {groups: groups}.to_json).get
+
+    logger.debug { "checked #{users_groups.size}, found #{groups.size} matching: #{groups}" }
   end
 end
