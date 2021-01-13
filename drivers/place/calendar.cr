@@ -2,6 +2,8 @@ module Place; end
 
 require "place_calendar"
 require "placeos-driver/interface/mailer"
+require "qr-code"
+require "qr-code/export/png"
 
 class Place::Calendar < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
@@ -30,6 +32,10 @@ class Place::Calendar < PlaceOS::Driver
 
     # defaults to calendar_service_account if not configured
     mailer_from: "email_or_office_userPrincipalName",
+    email_templates: {visitor: {checkin: {
+      subject: "%{name} has arrived",
+      text:    "for your meeting at %{time}",
+    }}},
   })
 
   alias GoogleParams = NamedTuple(
@@ -70,6 +76,7 @@ class Place::Calendar < PlaceOS::Driver
     @wait_time = 1.second / @rate_limit
 
     @mailer_from = setting?(String, :mailer_from).presence || @service_account
+    @templates = setting?(Templates, :email_templates) || Templates.new
 
     @client_lock.synchronize do
       # Work around crystal limitation of splatting a union
@@ -99,8 +106,16 @@ class Place::Calendar < PlaceOS::Driver
     @queue_size
   end
 
+  def generate_svg_qrcode(text : String) : String
+    QRCode.new(text).as_svg
+  end
+
+  def generate_png_qrcode(text : String, size : Int32 = 128) : String
+    Base64.strict_encode QRCode.new(text).as_png(size: size)
+  end
+
   @[Security(Level::Support)]
-  def send_email(
+  def send_mail(
     to : String | Array(String),
     subject : String,
     message_plaintext : String? = nil,
