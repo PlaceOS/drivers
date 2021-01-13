@@ -1,8 +1,11 @@
 module Place; end
 
 require "place_calendar"
+require "placeos-driver/interface/mailer"
 
 class Place::Calendar < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::Mailer
+
   descriptive_name "PlaceOS Calendar"
   generic_name :Calendar
 
@@ -24,6 +27,9 @@ class Place::Calendar < PlaceOS::Driver
       client_secret: "",
     },
     rate_limit: 5,
+
+    # defaults to calendar_service_account if not configured
+    mailer_from: "email_or_office_userPrincipalName",
   })
 
   alias GoogleParams = NamedTuple(
@@ -50,6 +56,8 @@ class Place::Calendar < PlaceOS::Driver
   @queue_size = 0
   @wait_time : Time::Span = 300.milliseconds
 
+  @mailer_from : String? = nil
+
   def on_load
     @channel = Channel(Nil).new(2)
     spawn { rate_limiter }
@@ -60,6 +68,8 @@ class Place::Calendar < PlaceOS::Driver
     @service_account = setting?(String, :calendar_service_account).presence
     @rate_limit = setting?(Int32, :rate_limit) || 3
     @wait_time = 1.second / @rate_limit
+
+    @mailer_from = setting?(String, :mailer_from).presence || @service_account
 
     @client_lock.synchronize do
       # Work around crystal limitation of splatting a union
@@ -87,6 +97,56 @@ class Place::Calendar < PlaceOS::Driver
 
   def queue_size
     @queue_size
+  end
+
+  @[Security(Level::Support)]
+  def send_email(
+    to : String | Array(String),
+    subject : String,
+    message_plaintext : String? = nil,
+    message_html : String? = nil,
+    resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
+    attachments : Array(Attachment) = [] of Attachment,
+    cc : String | Array(String) = [] of String,
+    bcc : String | Array(String) = [] of String,
+    from : String | Array(String) | Nil = nil
+  )
+    client do |_client|
+      if _client.client_id == :office365
+        content_type = message_html.presence ? "HTML" : "Text"
+        content = message_html.presence || message_plaintext.not_nil!
+
+        attach = attachments.map { |a| Office365::Attachment.new(a[:file_name], a[:content]) }
+        attach.concat resource_attachments.map { |a|
+          tmp_attach = Office365::Attachment.new(a[:file_name], a[:content])
+          tmp_attach.content_id = a[:content_id]
+          tmp_attach
+        }
+
+        _client.calendar.as(PlaceCalendar::Office365).client.send_mail(
+          @mailer_from.not_nil!,
+          Office365::Message.new(
+            subject,
+            content,
+            content_type,
+            to_array(to),
+            to_array(cc),
+            to_array(bcc),
+            body_preview: nil,
+            attachments: attach
+          )
+        )
+      end
+    end
+  end
+
+  protected def to_array(emails : String | Array(String)) : Array(String)
+    case emails
+    in String
+      [emails]
+    in Array(String)
+      emails
+    end
   end
 
   @[Security(Level::Administrator)]
