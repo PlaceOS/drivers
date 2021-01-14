@@ -135,7 +135,6 @@ class Nec::Display < PlaceOS::Driver
     end
   end
 
-  # LCD Response code
   def received(data, task)
     ascii_string = String.new(data)
     # Check for valid response
@@ -238,8 +237,8 @@ class Nec::Display < PlaceOS::Driver
     # Loop through the second to the third last element
     checksum = data[1..-3].reduce { |a, b| a ^ b }
     # Check the checksum equals the second last element
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless checksum == data[-2]
-    checksum == data[-2]
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless result = checksum == data[-2]
+    result
   end
 
   # Types of messages sent to and from the LCD
@@ -259,11 +258,11 @@ class Nec::Display < PlaceOS::Driver
         str.write_byte self.value # Type
 
         message_length = command.size + 2
-        message_length += 4 if d = data                    # If there is data, add 4 to the message length
+        message_length += 4 if data                        # If there is data, add 4 to the message length
         str << message_length.to_s(16, true).rjust(2, '0') # Message length
         str.write_byte 0x02                                # Start of messsage
         str << command                                     # Message
-        str << d.to_s(16, true).rjust(4, '0') if d         # Data if required
+        str << data.to_s(16, true).rjust(4, '0') if data   # Data if required
         str.write_byte 0x03                                # End of message
       end
 
