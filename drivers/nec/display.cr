@@ -37,6 +37,7 @@ class Nec::Display < PlaceOS::Driver
   def on_load
     # Communication settings
     queue.delay = 120.milliseconds
+    queue.timeout = 5.seconds
     transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
   end
 
