@@ -137,9 +137,6 @@ class Nec::Display < PlaceOS::Driver
 
   # LCD Response code
   def received(data, task)
-    task_name = task.try &.name
-    logger.debug { "task is #{task_name}" }
-
     ascii_string = String.new(data)
     # Check for valid response
     if !check_checksum(data)
@@ -155,7 +152,7 @@ class Nec::Display < PlaceOS::Driver
     elsif ascii_string[8..9] == "BE" # Wait response
       return task.try &.retry("-- NEC LCD, response was a wait command")
     else
-      return task.try &.abort("-- NEC LCD, command failed: #{task_name}\n-- NEC LCD, response was: #{ascii_string}")
+      return task.try &.abort("-- NEC LCD, command failed: #{task.try(&.name)}\n-- NEC LCD, response was: #{ascii_string}")
     end
 
     task.try &.success
