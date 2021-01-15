@@ -187,6 +187,16 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def list_groups(query : String?)
+    logger.debug { "listing groups, filtering by #{query}" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.list_groups(query)
+      end
+    end
+  end
+
+  @[Security(Level::Support)]
   def list_events(calendar_id : String, period_start : Int64, period_end : Int64, time_zone : String? = nil, user_id : String? = nil)
     location = time_zone ? Time::Location.load(time_zone) : Time::Location.local
     period_start = Time.unix(period_start).in location

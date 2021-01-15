@@ -6,7 +6,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 3.4.2
+    version: 3.5.0
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -110,7 +110,7 @@ shards:
 
   office365:
     git: https://github.com/PlaceOS/office365.git
-    version: 1.7.1
+    version: 1.8.0
 
   openssl_ext:
     git: https://github.com/stakach/openssl_ext.git
@@ -142,7 +142,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 4.8.3
+    version: 4.9.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
