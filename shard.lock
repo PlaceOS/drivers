@@ -58,7 +58,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.7.1
+    version: 2.8.0
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -126,7 +126,7 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 4.6.1
+    version: 4.7.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -182,7 +182,7 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 3.1.2
+    version: 3.2.0
 
   retriable:
     git: https://github.com/Sija/retriable.cr.git

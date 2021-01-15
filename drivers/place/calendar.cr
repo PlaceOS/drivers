@@ -31,7 +31,7 @@ class Place::Calendar < PlaceOS::Driver
     rate_limit: 5,
 
     # defaults to calendar_service_account if not configured
-    mailer_from: "email_or_office_userPrincipalName",
+    mailer_from:     "email_or_office_userPrincipalName",
     email_templates: {visitor: {checkin: {
       subject: "%{name} has arrived",
       text:    "for your meeting at %{time}",
@@ -126,42 +126,26 @@ class Place::Calendar < PlaceOS::Driver
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil
   )
-    client do |_client|
-      if _client.client_id == :office365
-        content_type = message_html.presence ? "HTML" : "Text"
-        content = message_html.presence || message_plaintext.not_nil!
+    sender = case from
+             in String
+               from
+             in Array(String)
+               from.first? || @mailer_from.not_nil!
+             in Nil
+               @mailer_from.not_nil!
+             end
 
-        attach = attachments.map { |a| Office365::Attachment.new(a[:file_name], a[:content]) }
-        attach.concat resource_attachments.map { |a|
-          tmp_attach = Office365::Attachment.new(a[:file_name], a[:content])
-          tmp_attach.content_id = a[:content_id]
-          tmp_attach
-        }
-
-        _client.calendar.as(PlaceCalendar::Office365).client.send_mail(
-          @mailer_from.not_nil!,
-          Office365::Message.new(
-            subject,
-            content,
-            content_type,
-            to_array(to),
-            to_array(cc),
-            to_array(bcc),
-            body_preview: nil,
-            attachments: attach
-          )
-        )
-      end
-    end
-  end
-
-  protected def to_array(emails : String | Array(String)) : Array(String)
-    case emails
-    in String
-      [emails]
-    in Array(String)
-      emails
-    end
+    client &.calendar.send_mail(
+      sender,
+      to,
+      subject,
+      message_plaintext,
+      message_html,
+      resource_attachments,
+      attachments,
+      cc,
+      bcc
+    )
   end
 
   @[Security(Level::Administrator)]
