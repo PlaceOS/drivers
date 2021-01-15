@@ -135,6 +135,8 @@ class Place::Calendar < PlaceOS::Driver
                @mailer_from.not_nil!
              end
 
+    logger.debug { "an email was sent from: #{sender}, to: #{to}" }
+
     client &.calendar.send_mail(
       sender,
       to,
