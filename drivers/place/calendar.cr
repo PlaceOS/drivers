@@ -186,12 +186,24 @@ class Place::Calendar < PlaceOS::Driver
     client &.list_calendars(user_id)
   end
 
+  # NOTE:: GraphAPI Only! - here for use with configuration
   @[Security(Level::Support)]
   def list_groups(query : String?)
-    logger.debug { "listing groups, filtering by #{query}" }
+    logger.debug { "listing groups, filtering by #{query}, note: graphAPI only" }
     client do |_client|
       if _client.client_id == :office365
         _client.calendar.as(PlaceCalendar::Office365).client.list_groups(query)
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  @[Security(Level::Support)]
+  def get_group(group_id : String)
+    logger.debug { "getting group #{group_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.get_group(group_id)
       end
     end
   end
