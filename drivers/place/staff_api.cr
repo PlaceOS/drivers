@@ -102,6 +102,26 @@ class Place::StaffAPI < PlaceOS::Driver
     true
   end
 
+  @[Security(Level::Support)]
+  def booking_state(booking_id : String | Int64, state : String)
+    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  @[Security(Level::Support)]
+  def booking_check_in(booking_id : String | Int64, state : Bool = true)
+    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue checking in booking #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
   # ===================================
   # BOOKINGS QUERY
   # ===================================
