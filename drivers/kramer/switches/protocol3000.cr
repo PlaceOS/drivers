@@ -1,6 +1,10 @@
+require "placeos-driver/interface/muteable"
+
 # Documentation: https://aca.im/driver_docs/Kramer/protocol_3000_2.10_user.pdf
 
 class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
+  include Interface::Muteable
+
   # Discovery Information
   tcp_port 23
   descriptive_name "Kramer Protocol 3000 Switcher"
@@ -63,25 +67,42 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     VideoUSB = 13
     AudioVideoUSB = 123
   end
-  # def route(map, type = :audio_video)
-  #   map.each do |input, outputs|
-  #     input = input.to_s if input.is_a?(Symbol)
-  #     input = input.to_i if input.is_a?(String)
+  private def route(map : Hash(String | Int32, Array(String)), type : RouteType = RouteType::AudioVideo)
+    map.each do |input, outputs|
+      outputs.each do |output|
+        do_send(CMDS["route"], type.value, output, input)
+      end
+    end
+  end
 
-  #     outputs.each do |output|
-  #       do_send(CMDS[:route], ROUTE_TYPES[type], output, input)
-  #     end
-  #   end
-  # end
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    mute_video(index, state) if layer.video? || layer.audio_video?
+    mute_audio(index, state) if layer.audio? || layer.audio_video?
+  end
 
-  private def do_send(command, *args, **options)
-    cmd = args.empty? ? "##{@destination}#{command}\r" : "##{@destination}#{command} #{args.join(',')}\r"
+  def mute_video(index : Int32 | String = 0, state : Bool = true)
+    do_send(CMDS["video_mute"], index, state ? 1 : 0)
+  end
 
-    logger.debug { "Kramer sending: #{cmd}" }
-    send(cmd, **options)
+  def mute_audio(index : Int32 | String = 0, state : Bool = true)
+    do_send(CMDS["audio_mute"], index, state ? 1 : 0)
+  end
+
+  def help
+    do_send(CMDS["help"])
+  end
+
+  def model
+    do_send(CMDS["model"])
   end
 
   def received(data, task)
+    data = String.new(data[0..-3]) # Remove delimiter "\x0D\x0A"
+    logger.debug { "Kramer sent #{data}" }
     task.try &.success
   end
 
@@ -120,5 +141,12 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
 
   def get_machine_info
     do_send(CMDS["info"], priority: 99)
+  end
+
+  private def do_send(command, *args, **options)
+    cmd = args.empty? ? "##{@destination}#{command}\r" : "##{@destination}#{command} #{args.join(',')}\r"
+
+    logger.debug { "Kramer sending: #{cmd}" }
+    send(cmd, **options)
   end
 end
