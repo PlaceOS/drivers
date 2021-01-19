@@ -136,7 +136,6 @@ class Nec::Display < PlaceOS::Driver
     end
   end
 
-  SUCCESS = ["00", "02"]
   def received(data, task)
     ascii_string = String.new(data)
     # Check for valid response
@@ -146,8 +145,10 @@ class Nec::Display < PlaceOS::Driver
 
     logger.debug { "NEC LCD responded with ascii_string #{ascii_string}" }
 
-    if SUCCESS.includes?(ascii_string[8..9])
+    if ascii_string[8..9] == "00"
       parse_response(ascii_string)
+    elsif ascii_string[10..13] == "00D6" # Annoyingly unique case to deal with power status query
+      self[:power] = ascii_string[23] == '1'
     elsif ascii_string[8..9] == "BE" # Wait response
       logger.debug { "-- NEC LCD, response was a wait command" }
       return
@@ -161,10 +162,7 @@ class Nec::Display < PlaceOS::Driver
   private def parse_response(data : String)
     logger.debug { "data is #{data}" }
 
-    # Annoyingly unique case to deal with power status query
-    if data[10..13]? == "00D6"
-      command = Command::PowerQuery
-    elsif data.size >= 15
+    if data.size >= 15
       command = (
         # For most commands
         Command.from_value?(data[10..13].to_i(16)) || \
@@ -197,7 +195,7 @@ class Nec::Display < PlaceOS::Driver
     when .auto_setup?
       # auto_setup
       # nothing needed to do here (we are delaying the next command by 4 seconds)
-    when .set_power?, .power_query?
+    when .set_power?
       self[:power] = value == 1
     else
       logger.debug { "-- NEC LCD, unknown response received: #{data}" }
