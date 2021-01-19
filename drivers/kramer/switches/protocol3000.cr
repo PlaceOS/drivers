@@ -51,11 +51,11 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     get_machine_info
   end
 
-  def switch_video(input : String | Int32, output : Array(String))
+  def switch_video(input : String, output : Array(String))
     do_send(CMDS["switch_video"], build_switch_data({input => output}))
   end
 
-  def switch_audio(input : String | Int32, output : Array(String))
+  def switch_audio(input : String, output : Array(String))
     do_send(CMDS["switch_video"], build_switch_data({input => output}))
   end
 
@@ -67,7 +67,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     VideoUSB = 13
     AudioVideoUSB = 123
   end
-  private def route(map : Hash(String | Int32, Array(String)), type : RouteType = RouteType::AudioVideo)
+  def route(map : Hash(String, Array(String)), type : RouteType = RouteType::AudioVideo)
     map.each do |input, outputs|
       outputs.each do |output|
         do_send(CMDS["route"], type.value, output, input)
@@ -103,6 +103,66 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   def received(data, task)
     data = String.new(data[0..-3]) # Remove delimiter "\x0D\x0A"
     logger.debug { "Kramer sent #{data}" }
+
+    # Extract and check the machine number if we've defined it
+    components = data.split('@')
+    return if components.size > 1 && @device_id && components[0] != @device_id
+
+    data = components[-1].strip
+    components = data.split(/\s+|,/)
+
+    cmd = components[0]
+    args = components[1..-1]
+    args.pop if args[-1] == "OK"
+
+    if cmd == "OK"
+      return task.try &.success
+    elsif cmd[0..2] == "ERR" || args[0][0..2] == "ERR"
+      if cmd[0..2] == "ERR"
+        error = cmd[3..-1]
+        errfor = nil
+      else
+        error = args[0][3..-1]
+        errfor = " on #{cmd}"
+      end
+      self[:last_error] = error
+      return task.try &.abort("Kramer command error #{error}#{errfor}")
+    end
+
+    logger.debug { "Kramer cmd: #{cmd}, args: #{args}" }
+
+    case c = CMDS[cmd]
+    when "info"
+        self[:video_inputs] = args[1].to_i
+        self[:video_outputs] = args[3].to_i
+    when "route"
+      # response looks like ~01@ROUTE 12,1,4 OK
+      layer = args[0].to_i
+      dest = args[1].to_i
+      src = args[2].to_i
+      self["#{RouteType.from_value(layer)}#{dest}"] = src
+    when "switch", "switch_audio", "switch_video"
+      # return string like "in>out,in>out,in>out OK"
+      case c
+      when "switch_audio" then type = "audio"
+      when "switch_video" then type = "video"
+      else type = "av" end
+
+      args.each do |map|
+        inout = map.split('>')
+        self["#{type}#{inout[1]}"] = inout[0].to_i
+      end
+    when "audio_mute"
+      # Response looks like: ~01@VMUTE 1,0 OK
+      output = args[0]
+      mute = args[1]
+      self["audio#{output}_muted"] = mute[0] == '1'
+    when "video_mute"
+      output = args[0]
+      mute = args[1]
+      self["video#{output}_muted"] = mute[0] == '1'
+    end
+
     task.try &.success
   end
 
@@ -120,7 +180,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   }
   CMDS.merge!(CMDS.invert)
 
-  private def build_switch_data(map : Hash(String | Int32, Array(String)))
+  def build_switch_data(map : Hash(String, Array(String)))
     data = String.build do |str|
       map.each do |input, outputs|
         str << outputs.join { |output| "#{input}>#{output}," }
