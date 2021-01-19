@@ -140,7 +140,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
       response = client.get("#{@base_path}/venues/#{venue_code}/bookings?#{params}", headers: headers)
     end
 
-raise "request failed with #{response.status_code}: #{response.body}" unless (200...300).includes?(response.status_code)
+    raise "request failed with #{response.status_code}: #{response.body}" unless (200...300).includes?(response.status_code)
 
     # when there's no results, it seems to return just an empty response rather than an empty array?
     if response.body.presence != nil
