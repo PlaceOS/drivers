@@ -149,7 +149,17 @@ class Place::StaffAPI < PlaceOS::Driver
     property approved : Bool
   end
 
-  def query_bookings(type : String, period_start : Int64? = nil, period_end : Int64? = nil, zones : Array(String) = [] of String, user : String? = nil)
+  def query_bookings(
+    type : String,
+    period_start : Int64? = nil,
+    period_end : Int64? = nil,
+    zones : Array(String) = [] of String,
+    user : String? = nil,
+    email : String? = nil,
+    state : String? = nil,
+    created_before : Int64? = nil,
+    created_after : Int64? = nil
+  )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
     period_end ||= 30.minutes.from_now.to_unix
@@ -161,6 +171,10 @@ class Place::StaffAPI < PlaceOS::Driver
     }
     params["zones"] = zones.join(",") unless zones.empty?
     params["user"] = user if user && !user.empty?
+    params["email"] = email if email && !email.empty?
+    params["state"] = state if state && !state.empty?
+    params["created_before"] = created_before.to_s if created_before
+    params["created_after"] = created_after.to_s if created_after
 
     # Get the existing bookings from the API to check if there is space
     response = get("/api/staff/v1/bookings", params, {
