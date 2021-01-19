@@ -159,7 +159,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
   end
 
   def query_bookings_epoch(venue_code : String, starts_at : Int32, ends_at : Int32)
-    query_bookings(venue_code, Time.epoch(starts_at).local, Time.epoch(ends_at).local)
+    query_bookings(venue_code, Time.unix(starts_at), Time.unix(ends_at))
   end
 
   protected def save_ssl_credentials
