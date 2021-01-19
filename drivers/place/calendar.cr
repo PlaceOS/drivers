@@ -186,6 +186,17 @@ class Place::Calendar < PlaceOS::Driver
     client &.list_calendars(user_id)
   end
 
+  # NOTE:: GraphAPI Only!
+  @[Security(Level::Support)]
+  def get_user_manager(user_id : String)
+    logger.debug { "getting manager details for #{user_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.get_user_manager(user_id).to_place_calendar
+      end
+    end
+  end
+
   # NOTE:: GraphAPI Only! - here for use with configuration
   @[Security(Level::Support)]
   def list_groups(query : String?)
