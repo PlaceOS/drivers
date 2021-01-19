@@ -145,10 +145,11 @@ class Nec::Display < PlaceOS::Driver
 
     logger.debug { "NEC LCD responded with ascii_string #{ascii_string}" }
 
-    if ascii_string[8..9] == "00"
-      parse_response(ascii_string)
-    elsif ascii_string[10..13] == "00D6" # Annoyingly unique case to deal with power status query
+    # Annoyingly unique case to deal with power status query
+    if MsgType.from_value(data[4]).command_reply? && ascii_string[10..13] == "00D6"
       self[:power] = ascii_string[23] == '1'
+    elsif ascii_string[8..9] == "00"
+      parse_response(ascii_string)
     elsif ascii_string[8..9] == "BE" # Wait response
       logger.debug { "-- NEC LCD, response was a wait command" }
       return
