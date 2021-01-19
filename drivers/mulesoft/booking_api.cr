@@ -158,6 +158,10 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
     end
   end
 
+  def query_bookings_epoch(venue_code : String, starts_at : Int, ends_at : Int)
+    query_bookings(venue_code, Time.epoch(starts_at).local, Time.epoch(ends_at).local)
+  end
+
   protected def save_ssl_credentials
     [:ssl_key, :ssl_cert].each do |key|
       raise "Required setting #{key} left blank" unless setting(String, key).presence
