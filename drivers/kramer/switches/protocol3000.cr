@@ -51,6 +51,29 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     do_send(CMDS["switch_video"], build_switch_data({input => output}))
   end
 
+  def switch_audio(input : String | Int32, output : Array(String))
+    do_send(CMDS["switch_video"], build_switch_data({input => output}))
+  end
+
+  enum RouteType
+    Video = 1
+    Audio = 2
+    USB = 3
+    AudioVideo = 12
+    VideoUSB = 13
+    AudioVideoUSB = 123
+  end
+  # def route(map, type = :audio_video)
+  #   map.each do |input, outputs|
+  #     input = input.to_s if input.is_a?(Symbol)
+  #     input = input.to_i if input.is_a?(String)
+
+  #     outputs.each do |output|
+  #       do_send(CMDS[:route], ROUTE_TYPES[type], output, input)
+  #     end
+  #   end
+  # end
+
   private def do_send(command, *args, **options)
     cmd = args.empty? ? "##{@destination}#{command}\r" : "##{@destination}#{command} #{args.join(',')}\r"
 
