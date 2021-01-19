@@ -147,6 +147,18 @@ class Place::StaffAPI < PlaceOS::Driver
     property checked_in : Bool
     property rejected : Bool
     property approved : Bool
+
+    property approver_id : String?
+    property approver_email : String?
+    property approver_name : String?
+
+    property booked_by_id : String
+    property booked_by_email : String
+    property booked_by_name : String
+
+    property process_state : String?
+    property last_changed : Int64?
+    property created : Int64?
   end
 
   def query_bookings(
@@ -158,7 +170,9 @@ class Place::StaffAPI < PlaceOS::Driver
     email : String? = nil,
     state : String? = nil,
     created_before : Int64? = nil,
-    created_after : Int64? = nil
+    created_after : Int64? = nil,
+    approved : Bool? = nil,
+    rejected : Bool? = nil
   )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
@@ -175,6 +189,8 @@ class Place::StaffAPI < PlaceOS::Driver
     params["state"] = state if state && !state.empty?
     params["created_before"] = created_before.to_s if created_before
     params["created_after"] = created_after.to_s if created_after
+    params["approved"] = approved.to_s unless approved.nil?
+    params["rejected"] = rejected.to_s unless rejected.nil?
 
     # Get the existing bookings from the API to check if there is space
     response = get("/api/staff/v1/bookings", params, {
@@ -183,7 +199,9 @@ class Place::StaffAPI < PlaceOS::Driver
     })
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
 
-    Array(Booking).from_json(response.body)
+    # Just parse it here instead of using the Bookings object
+    # it will be parsed into an object on the far end
+    JSON.parse(response.body)
   end
 
   # For accessing PlaceOS APIs
