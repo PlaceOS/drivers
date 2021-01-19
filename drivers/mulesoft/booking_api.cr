@@ -158,7 +158,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
     end
   end
 
-  def query_bookings_epoch(venue_code : String, starts_at : Int, ends_at : Int)
+  def query_bookings_epoch(venue_code : String, starts_at : Int32, ends_at : Int32)
     query_bookings(venue_code, Time.epoch(starts_at).local, Time.epoch(ends_at).local)
   end
 
