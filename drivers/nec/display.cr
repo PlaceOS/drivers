@@ -137,48 +137,58 @@ class Nec::Display < PlaceOS::Driver
   end
 
   def received(data, task)
-    ascii_string = String.new(data)
-    # Check for valid response
-    if !check_checksum(data)
-      return task.try &.retry("-- NEC LCD, invalid response was: #{ascii_string}")
+    header = data[0..6]
+    message = data[7..-3]
+    checksum = data[-2]
+
+    unless checksum == data[1..-3].reduce { |a, b| a ^ b }
+      return task.try &.retry("invalid checksum in device response")
     end
 
-    logger.debug { "NEC LCD responded with ascii_string #{ascii_string}" }
-
-    # Annoyingly unique case to deal with power status query
-    if MsgType.from_value(data[4]).command_reply? && ascii_string[10..13] == "00D6"
-      self[:power] = ascii_string[23] == '1'
-    elsif ascii_string[8..9] == "00"
-      parse_response(ascii_string)
-    elsif ascii_string[8..9] == "BE" # Wait response
-      logger.debug { "-- NEC LCD, response was a wait command" }
-      return
+    begin
+      case MsgType.from_value header[4]
+      when .command_reply?
+        parse_command_reply message
+      when .get_parameter_reply?, .set_parameter_reply?
+        parse_response message
+      else
+        raise "unknown message type"
+      end
+    rescue e
+      task.try &.abort e.message
     else
-      return task.try &.abort("-- NEC LCD, command failed: #{task.try(&.name)}\n-- NEC LCD, response was: #{ascii_string}")
+      task.try &.success
     end
-
-    task.try &.success
   end
 
-  private def parse_response(data : String)
-    logger.debug { "data is #{data}" }
+  # Command replies each use a different packet structure
+  private def parse_command_reply(message : Bytes)
+    response = String.new(message[1..-2]).hexbytes
 
-    if data.size >= 15
-      command = (
-        # For most commands
-        Command.from_value?(data[10..13].to_i(16)) || \
-        # For Command::SetPower
-        Command.from_value?(data[10..15].to_i(16))
-      ).not_nil!
-    else # This is a short command and is most likely Command::Save
-      # This line will error if this is not Command::Save which is fine
-      command = Command.from_value(data[9..10].to_i(16))
-      # Don't do any processing for Command::Save
-      return if command.save?
+    if response[1..3] == Bytes[0xC2, 0x03, 0xD6] # Set power
+      result_code = response[0]
+      raise "unsupported operation" unless result_code == 0
+      self[:power] = response[5] == 1
+    elsif response[2..3] == Bytes[0xD6, 0x00] # Power query
+      result_code = response[1]
+      raise "unsupported operation" unless result_code == 0
+      self[:power] = response[7] == 1
+    else
+      logger.warn { "unhandled command reply: #{message}" }
     end
-    value = (command.set_power? ? data[16..19] : data[20..23]).to_i(16)
+  end
 
-    case command
+  # Get and set parameter replies share common structure
+  private def parse_response(message : Bytes)
+    response = String.new(message[1..-2]).hexbytes
+
+    result_code = response[0]
+    raise "unsupported operation" unless result_code == 0
+
+    op_code = response[1].to_u16 << 8 | response[2]
+    value = response[6].to_u16 << 8 | response[7]
+
+    case Command.from_value op_code
     when .video_input?
       self[:input] = Input.from_value(value)
     when .audio_input?
@@ -195,11 +205,9 @@ class Nec::Display < PlaceOS::Driver
       self[:volume] = 0 if value == 1
     when .auto_setup?
       # auto_setup
-      # nothing needed to do here (we are delaying the next command by 4 seconds)
-    when .set_power?
-      self[:power] = value == 1
+      # nothing needed to do here (we are delaying the njxt command by 4 seconds)
     else
-      logger.debug { "-- NEC LCD, unknown response received: #{data}" }
+      logger.warn { "unhandled device response: #{message}" }
     end
   end
 
