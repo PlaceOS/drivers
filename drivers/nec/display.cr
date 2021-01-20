@@ -56,12 +56,12 @@ class Nec::Display < PlaceOS::Driver
     return if self[:power]? == state
 
     if state
-      logger.debug { "-- NEC LCD, requested to power on" }
+      logger.debug { "requested to power on" }
       # 1 = Power On
       data = MsgType::Command.build(Command::SetPower, 1)
       send(data, name: "power", delay: 5.seconds)
     else
-      logger.debug { "-- NEC LCD, requested to power off" }
+      logger.debug { "requested to power off" }
       # 4 = Power Off
       data = MsgType::Command.build(Command::SetPower, 4)
       send(data, name: "power", delay: 10.seconds, timeout: 10.seconds)
@@ -75,7 +75,7 @@ class Nec::Display < PlaceOS::Driver
   end
 
   def switch_to(input : Input)
-    logger.debug { "-- NEC LCD, requested to switch to: #{input}" }
+    logger.debug { "requested to switch to: #{input}" }
     data = MsgType::SetParameter.build(Command::VideoInput, input.value)
     send(data, name: "input", delay: 6.seconds)
   end
@@ -90,7 +90,7 @@ class Nec::Display < PlaceOS::Driver
   end
 
   def switch_audio(input : Audio)
-    logger.debug { "-- NEC LCD, requested to switch audio to: #{input}" }
+    logger.debug { "requested to switch audio to: #{input}" }
     data = MsgType::SetParameter.build(Command::AudioInput, input.value)
     send(data, name: "audio")
   end
@@ -245,14 +245,6 @@ class Nec::Display < PlaceOS::Driver
       send(MsgType::GetParameter.build(Command::{{name.id}}), priority: priority, name: {{name.id.underscore.stringify}})
     end
   {% end %}
-
-  private def check_checksum(data : Bytes)
-    # Loop through the second to the third last element
-    checksum = data[1..-3].reduce { |a, b| a ^ b }
-    # Check the checksum equals the second last element
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16)}" } unless result = checksum == data[-2]
-    result
-  end
 
   # Types of messages sent to and from the LCD
   enum MsgType : UInt8
