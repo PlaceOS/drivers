@@ -84,6 +84,7 @@ class Place::StaffAPI < PlaceOS::Driver
   # ===================================
   @[Security(Level::Support)]
   def reject(booking_id : String | Int64)
+    logger.debug { "rejecting booking #{booking_id}" }
     response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
@@ -94,6 +95,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def approve(booking_id : String | Int64)
+    logger.debug { "approving booking #{booking_id}" }
     response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
@@ -104,6 +106,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def booking_state(booking_id : String | Int64, state : String)
+    logger.debug { "updating booking #{booking_id} state to: #{state}" }
     response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
@@ -114,6 +117,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def booking_check_in(booking_id : String | Int64, state : Bool = true)
+    logger.debug { "checking in booking #{booking_id} to: #{state}" }
     response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
