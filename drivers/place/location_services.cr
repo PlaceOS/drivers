@@ -10,6 +10,12 @@ class Place::LocationServices < PlaceOS::Driver
 
   default_settings({
     debug_webhook: false,
+
+    # various groups of people one might be interested in contacting
+    emergency_contacts: {
+      "Fire Wardens" => "5542c9f-eaa7-4e74",
+      "First Aid"    => "ed9f7608-488f-aeef",
+    },
   })
 
   def on_load
@@ -17,9 +23,16 @@ class Place::LocationServices < PlaceOS::Driver
   end
 
   @debug_webhook : Bool = false
+  @emergency_contacts : Hash(String, String) = {} of String => String
 
   def on_update
     @debug_webhook = setting?(Bool, :debug_webhook) || false
+    @emergency_contacts = setting?(Hash(String, String), :emergency_contacts) || Hash(String, String).new
+
+    if !@emergency_contacts.empty?
+      schedule.clear
+      schedule.every(6.hours, immediate: true) { update_contacts_list }
+    end
   end
 
   # Runs through all the services that support the Locatable interface
@@ -84,5 +97,23 @@ class Place::LocationServices < PlaceOS::Driver
     system.implementing(Interface::Locatable).ip_username_mappings(ip_map)
 
     SUCCESS_RESPONSE
+  end
+
+  @[Security(Level::Support)]
+  def update_contacts_list
+    if @emergency_contacts.empty?
+      self[:emergency_contacts] = nil
+      return
+    end
+
+    if !system.exists?(:Calendar)
+      logger.warn { "contacts requested however no directory service available" }
+      return
+    end
+
+    directory = system[:Calendar]
+    self[:emergency_contacts] = @emergency_contacts.transform_values { |id|
+      directory.get_members(id).get.as(JSON::Any)
+    }
   end
 end
