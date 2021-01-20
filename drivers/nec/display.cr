@@ -163,7 +163,9 @@ class Nec::Display < PlaceOS::Driver
 
   # Command replies each use a different packet structure
   private def parse_command_reply(message : Bytes)
-    response = String.new(message[1..-2]).hexbytes
+    # Don't do any processing if this is the response for the save command
+    return if (string = String.new(message[1..-2])) == "00C"
+    response = string.hexbytes
 
     if response[1..3] == Bytes[0xC2, 0x03, 0xD6] # Set power
       result_code = response[0]
@@ -205,7 +207,7 @@ class Nec::Display < PlaceOS::Driver
       self[:volume] = 0 if value == 1
     when .auto_setup?
       # auto_setup
-      # nothing needed to do here (we are delaying the njxt command by 4 seconds)
+      # nothing needed to do here (we are delaying the next command by 4 seconds)
     else
       logger.warn { "unhandled device response: #{message}" }
     end
