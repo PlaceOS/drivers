@@ -111,9 +111,15 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     data = components[-1].strip
     components = data.split(/\s+|,/)
 
+    pp "Got here"
+
     cmd = components[0]
     args = components[1..-1]
     args.pop if args[-1] == "OK"
+
+    pp "Got here2"
+    pp "Kramer cmd: #{cmd}, args: #{args}"
+    logger.debug { "Kramer cmd: #{cmd}, args: #{args}" }
 
     if cmd == "OK"
       return task.try &.success
@@ -128,8 +134,6 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
       self[:last_error] = error
       return task.try &.abort("Kramer command error #{error}#{errfor}")
     end
-
-    logger.debug { "Kramer cmd: #{cmd}, args: #{args}" }
 
     case c = CMDS[cmd]
     when "info"
