@@ -55,7 +55,7 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
   def fetch_and_post
     period_start = Time.utc.to_unix
     period_end = @time_period.from_now.to_unix
-    zones = {@building}
+    zones = [@building]
     payload = staff_api.query_bookings(@booking_category, period_start, period_end, zones).get.to_json
     logger.debug { "Posting: #{payload}" } if @debug
 
