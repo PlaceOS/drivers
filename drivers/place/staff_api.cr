@@ -61,6 +61,18 @@ class Place::StaffAPI < PlaceOS::Driver
     raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
   end
 
+  @[Security(Level::Support)]
+  def resource_token
+    response = post("/api/engine/v2/users/resource_token", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    JSON.parse(response.body)
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
