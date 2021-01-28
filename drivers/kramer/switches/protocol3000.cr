@@ -101,7 +101,8 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data[0..-3]) # Remove delimiter "\x0D\x0A"
+    # Remoe initialiser `~` and delimiter "\x0D\x0A"
+    data = String.new(data[1..-3])
     logger.debug { "Kramer sent #{data}" }
 
     # Extract and check the machine number if we've defined it
@@ -111,14 +112,10 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     data = components[-1].strip
     components = data.split(/\s+|,/)
 
-    pp "Got here"
-
     cmd = components[0]
     args = components[1..-1]
-    args.pop if args[-1] == "OK"
+    args.pop if args[-1]? == "OK"
 
-    pp "Got here2"
-    pp "Kramer cmd: #{cmd}, args: #{args}"
     logger.debug { "Kramer cmd: #{cmd}, args: #{args}" }
 
     if cmd == "OK"
