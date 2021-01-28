@@ -12,7 +12,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
 
   @device_id : String? = nil
   @destination : String? = nil
-  @login_level : String? = nil
+  @login_level : Bool? = nil
   @password : String? = nil
 
   DELIMITER = "\x0D\x0A"
@@ -25,7 +25,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   def on_update
     @device_id = setting?(String, :kramer_id)
     @destination = "#{@device_id}@" if @device_id
-    @login_level = setting?(String, :kramer_login)
+    @login_level = setting?(Bool, :kramer_login)
     @password = setting?(String, :kramer_password) if @login_level
 
     state
@@ -200,7 +200,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     end
   end
 
-  def get_machine_info
+  private def get_machine_info
     do_send(CMDS["info"], priority: 99)
   end
 
@@ -208,6 +208,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     cmd = args.empty? ? "##{@destination}#{command}\r" : "##{@destination}#{command} #{args.join(',')}\r"
 
     logger.debug { "Kramer sending: #{cmd}" }
+    pp "Kramer sending: #{cmd}"
     send(cmd, **options)
   end
 end
