@@ -51,12 +51,12 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     get_machine_info
   end
 
-  def switch_video(input : String, output : Array(String))
+  def switch_video(input : Int32, output : Array(Int32))
     do_send(CMDS["switch_video"], build_switch_data({input => output}))
   end
 
-  def switch_audio(input : String, output : Array(String))
-    do_send(CMDS["switch_video"], build_switch_data({input => output}))
+  def switch_audio(input : Int32, output : Array(Int32))
+    do_send(CMDS["switch_audio"], build_switch_data({input => output}))
   end
 
   enum RouteType
@@ -67,7 +67,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     VideoUSB = 13
     AudioVideoUSB = 123
   end
-  def route(map : Hash(String, Array(String)), type : RouteType = RouteType::AudioVideo)
+  def route(map : Hash(Int32, Array(Int32)), type : RouteType = RouteType::AudioVideo)
     map.each do |input, outputs|
       outputs.each do |output|
         do_send(CMDS["route"], type.value, output, input)
@@ -101,7 +101,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   end
 
   def received(data, task)
-    # Remoe initialiser `~` and delimiter "\x0D\x0A"
+    # Remove initialiser `~` and delimiter "\x0D\x0A"
     data = String.new(data[1..-3])
     logger.debug { "Kramer sent #{data}" }
 
@@ -151,6 +151,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
 
       args.each do |map|
         inout = map.split('>')
+        logger.debug { "inout is #{inout}" }
         self["#{type}#{inout[1]}"] = inout[0].to_i
       end
     when "audio_mute"
@@ -181,7 +182,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   }
   CMDS.merge!(CMDS.invert)
 
-  def build_switch_data(map : Hash(String, Array(String)))
+  private def build_switch_data(map : Hash(Int32, Array(Int32)))
     data = String.build do |str|
       map.each do |input, outputs|
         str << outputs.join { |output| "#{input}>#{output}," }
