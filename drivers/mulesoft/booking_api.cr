@@ -112,9 +112,9 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
       next_booking = nil
     end
 
-    self[:previous_booking] = previous_booking ? @bookings[previous_booking].to_placeos.to_json : nil
-    self[:current_booking] = current_booking ? @bookings[current_booking].to_placeos.to_json : nil
-    self[:next_booking] = next_booking ? @bookings[next_booking].to_placeos.to_json : nil
+    self[:previous_booking] = previous_booking ? @bookings[previous_booking].to_placeos : nil
+    self[:current_booking] = current_booking ? @bookings[current_booking].to_placeos : nil
+    self[:next_booking] = next_booking ? @bookings[next_booking].to_placeos : nil
   end
 
   def query_bookings(venue_code : String, starts_at : Time = Time.local.at_beginning_of_day, ends_at : Time = Time.local.at_end_of_day)
@@ -150,7 +150,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
       self[:venue_name] = results.venue_name
 
       @bookings = results.bookings.sort { |a, b| a.event_start <=> b.event_start }
-      self[:bookings] = @bookings.map(&.to_placeos).to_json
+      self[:bookings] = @bookings.map(&.to_placeos)
     else
       self[:venue_code] = nil
       self[:venue_name] = nil
