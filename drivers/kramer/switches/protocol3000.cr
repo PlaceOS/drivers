@@ -141,7 +141,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
       layer = args[0].to_i
       dest = args[1].to_i
       src = args[2].to_i
-      self["#{RouteType.from_value(layer)}#{dest}"] = src
+      self["#{RouteType.from_value(layer).to_s.underscore}#{dest}"] = src
     when "switch", "switch_audio", "switch_video"
       # return string like "in>out,in>out,in>out OK"
       case c
