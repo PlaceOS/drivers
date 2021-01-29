@@ -115,7 +115,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.0.0
+    version: 2.0.1
 
   pars:
     git: https://github.com/place-labs/pars.git
@@ -127,19 +127,19 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 4.8.1
+    version: 4.8.2
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.2.0
+    version: 4.2.3
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
-    version: 2.0.4
+    version: 3.3.0
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.7.0
+    version: 4.0.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
