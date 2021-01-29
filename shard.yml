@@ -44,7 +44,7 @@ dependencies:
   # The PlaceOS API client
   placeos:
     github: placeos/crystal-client
-    version: ~> 2.1.6
+    version: ~> 2.2
 
   rwlock:
     github: spider-gazelle/readers-writer
