@@ -70,7 +70,12 @@ class Place::StaffAPI < PlaceOS::Driver
 
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
-    JSON.parse(response.body)
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
   end
 
   # ===================================
