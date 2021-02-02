@@ -116,4 +116,20 @@ class Place::LocationServices < PlaceOS::Driver
       directory.get_members(id).get.as(JSON::Any)
     }
   end
+
+  # locates all the of the emergency contacts
+  def locate_contacts(list_name : String)
+    contacts = status(Hash(String, Array(NamedTuple(
+      email: String,
+      username: String
+    ))), :emergency_contacts)
+
+    list = contacts[list_name]
+    results = {} of String => Array(JSON::Any)
+    list.each do |person|
+      email = person[:email]
+      results[email] = locate_user(email, person[:username])
+    end
+    results
+  end
 end
