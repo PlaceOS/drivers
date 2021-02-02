@@ -10,7 +10,6 @@ targets:
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
-    version: ~> 3.1
 
   email:
     github: arcage/crystal-email
@@ -35,16 +34,16 @@ dependencies:
 
   placeos-compiler:
     github: placeos/compiler
-    version: ~> 2.0
+    version: ~> 3.3
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 3.6
+    version: ~> 4.0
 
   # The PlaceOS API client
   placeos:
     github: placeos/crystal-client
-    version: ~> 2.1.6
+    version: ~> 2.2
 
   rwlock:
     github: spider-gazelle/readers-writer

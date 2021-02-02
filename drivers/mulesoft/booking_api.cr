@@ -4,7 +4,7 @@ require "./models"
 
 class MuleSoft::BookingsAPI < PlaceOS::Driver
   descriptive_name "MuleSoft Bookings API"
-  generic_name :MuleSoftBookingsAPI
+  generic_name :Bookings
   description %(Retrieves and creates bookings using the MuleSoft API)
   uri_base "https://dev.api.sydney.edu.au"
 
@@ -112,9 +112,9 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
       next_booking = nil
     end
 
-    self[:previous_booking] = previous_booking ? @bookings[previous_booking].to_placeos.to_json : nil
-    self[:current_booking] = current_booking ? @bookings[current_booking].to_placeos.to_json : nil
-    self[:next_booking] = next_booking ? @bookings[next_booking].to_placeos.to_json : nil
+    self[:previous_booking] = previous_booking ? @bookings[previous_booking].to_placeos : nil
+    self[:current_booking] = current_booking ? @bookings[current_booking].to_placeos : nil
+    self[:next_booking] = next_booking ? @bookings[next_booking].to_placeos : nil
   end
 
   def query_bookings(venue_code : String, starts_at : Time = Time.local.at_beginning_of_day, ends_at : Time = Time.local.at_end_of_day)
@@ -140,7 +140,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
       response = client.get("#{@base_path}/venues/#{venue_code}/bookings?#{params}", headers: headers)
     end
 
-    raise "request failed with #{response.status_code}" unless (200...300).includes?(response.status_code)
+    raise "request failed with #{response.status_code}: #{response.body}" unless (200...300).includes?(response.status_code)
 
     # when there's no results, it seems to return just an empty response rather than an empty array?
     if response.body.presence != nil
@@ -150,12 +150,16 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
       self[:venue_name] = results.venue_name
 
       @bookings = results.bookings.sort { |a, b| a.event_start <=> b.event_start }
-      self[:bookings] = @bookings.map(&.to_placeos).to_json
+      self[:bookings] = @bookings.map(&.to_placeos)
     else
       self[:venue_code] = nil
       self[:venue_name] = nil
       self[:bookings] = nil
     end
+  end
+
+  def query_bookings_epoch(venue_code : String, starts_at : Int32, ends_at : Int32)
+    query_bookings(venue_code, Time.unix(starts_at), Time.unix(ends_at))
   end
 
   protected def save_ssl_credentials

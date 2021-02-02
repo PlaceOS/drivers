@@ -1,8 +1,13 @@
 module Place; end
 
 require "place_calendar"
+require "placeos-driver/interface/mailer"
+require "qr-code"
+require "qr-code/export/png"
 
 class Place::Calendar < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::Mailer
+
   descriptive_name "PlaceOS Calendar"
   generic_name :Calendar
 
@@ -24,6 +29,13 @@ class Place::Calendar < PlaceOS::Driver
       client_secret: "",
     },
     rate_limit: 5,
+
+    # defaults to calendar_service_account if not configured
+    mailer_from:     "email_or_office_userPrincipalName",
+    email_templates: {visitor: {checkin: {
+      subject: "%{name} has arrived",
+      text:    "for your meeting at %{time}",
+    }}},
   })
 
   alias GoogleParams = NamedTuple(
@@ -50,6 +62,8 @@ class Place::Calendar < PlaceOS::Driver
   @queue_size = 0
   @wait_time : Time::Span = 300.milliseconds
 
+  @mailer_from : String? = nil
+
   def on_load
     @channel = Channel(Nil).new(2)
     spawn { rate_limiter }
@@ -60,6 +74,9 @@ class Place::Calendar < PlaceOS::Driver
     @service_account = setting?(String, :calendar_service_account).presence
     @rate_limit = setting?(Int32, :rate_limit) || 3
     @wait_time = 1.second / @rate_limit
+
+    @mailer_from = setting?(String, :mailer_from).presence || @service_account
+    @templates = setting?(Templates, :email_templates) || Templates.new
 
     @client_lock.synchronize do
       # Work around crystal limitation of splatting a union
@@ -87,6 +104,50 @@ class Place::Calendar < PlaceOS::Driver
 
   def queue_size
     @queue_size
+  end
+
+  def generate_svg_qrcode(text : String) : String
+    QRCode.new(text).as_svg
+  end
+
+  def generate_png_qrcode(text : String, size : Int32 = 128) : String
+    Base64.strict_encode QRCode.new(text).as_png(size: size)
+  end
+
+  @[Security(Level::Support)]
+  def send_mail(
+    to : String | Array(String),
+    subject : String,
+    message_plaintext : String? = nil,
+    message_html : String? = nil,
+    resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
+    attachments : Array(Attachment) = [] of Attachment,
+    cc : String | Array(String) = [] of String,
+    bcc : String | Array(String) = [] of String,
+    from : String | Array(String) | Nil = nil
+  )
+    sender = case from
+             in String
+               from
+             in Array(String)
+               from.first? || @mailer_from.not_nil!
+             in Nil
+               @mailer_from.not_nil!
+             end
+
+    logger.debug { "an email was sent from: #{sender}, to: #{to}" }
+
+    client &.calendar.send_mail(
+      sender,
+      to,
+      subject,
+      message_plaintext,
+      message_html,
+      resource_attachments,
+      attachments,
+      cc,
+      bcc
+    )
   end
 
   @[Security(Level::Administrator)]
@@ -123,6 +184,39 @@ class Place::Calendar < PlaceOS::Driver
   def list_calendars(user_id : String)
     logger.debug { "listing calendars for #{user_id}" }
     client &.list_calendars(user_id)
+  end
+
+  # NOTE:: GraphAPI Only!
+  @[Security(Level::Support)]
+  def get_user_manager(user_id : String)
+    logger.debug { "getting manager details for #{user_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.get_user_manager(user_id).to_place_calendar
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only! - here for use with configuration
+  @[Security(Level::Support)]
+  def list_groups(query : String?)
+    logger.debug { "listing groups, filtering by #{query}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.list_groups(query)
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  @[Security(Level::Support)]
+  def get_group(group_id : String)
+    logger.debug { "getting group #{group_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.get_group(group_id)
+      end
+    end
   end
 
   @[Security(Level::Support)]

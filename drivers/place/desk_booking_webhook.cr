@@ -21,6 +21,8 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     days_from_now: 14,
 
     booking_category: "desk",
+      
+    debug: false,
   })
 
   def on_load
@@ -37,6 +39,7 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
   @custom_headers = {} of String => String
   @building = ""
   @post_uri = ""
+  @debug : Bool = false
 
   def on_update
     @post_uri = setting(String, :post_uri)
@@ -44,6 +47,7 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     @custom_headers = setting(Hash(String, String), :custom_headers)
     @time_period = setting(Int32, :days_from_now).days
     @booking_category = setting(String, :booking_category)
+    @debug = setting(Bool, :debug)
 
     fetch_and_post
   end
@@ -51,14 +55,17 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
   def fetch_and_post
     period_start = Time.utc.to_unix
     period_end = @time_period.from_now.to_unix
-    zones = {@building}
+    zones = [@building]
     payload = staff_api.query_bookings(@booking_category, period_start, period_end, zones).get.to_json
+    
 
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
     headers["Content-Type"] = "application/json; charset=UTF-8"
 
+    logger.debug { "Posting: #{payload} \n with Headers: #{headers}"} if @debug
     response = HTTP::Client.post @post_uri, headers, body: payload
-    response.status_code
+    raise "Request failed with #{response.status_code}: #{response.body}" unless response.status_code < 300
+    "#{response.status_code}: #{response.body}"
   end
 end

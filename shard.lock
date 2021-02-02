@@ -1,3 +1,4 @@
+# NOTICE: This lockfile contains some overrides from shard.override.yml
 version: 2.0
 shards:
   CrystalEmail:
@@ -6,11 +7,11 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 3.4.2
+    version: 3.5.2
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
-    version: 2.0.2
+    version: 2.0.3
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
@@ -22,7 +23,7 @@ shards:
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
-    version: 1.0.0
+    version: 1.0.1
 
   crc16:
     git: https://github.com/maiha/crc16.cr.git
@@ -46,7 +47,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.3
+    version: 1.0.4
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -58,7 +59,7 @@ shards:
 
   google:
     git: https://github.com/PlaceOS/google.git
-    version: 2.7.1
+    version: 3.0.0
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -69,8 +70,8 @@ shards:
     version: 2.6.0
 
   http-params-serializable:
-    git: https://github.com/vladfaust/http-params-serializable.git
-    version: 0.4.0
+    git: https://github.com/caspiano/http-params-serializable.git
+    version: 0.4.1+git.commit.1610a206f676269c1b862281cda3ed82548ced34
 
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git
@@ -82,7 +83,7 @@ shards:
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
-    version: 1.4.2
+    version: 1.5.0
 
   link-header:
     git: https://github.com/spider-gazelle/link-header.git
@@ -110,11 +111,11 @@ shards:
 
   office365:
     git: https://github.com/PlaceOS/office365.git
-    version: 1.6.1
+    version: 1.11.1
 
   openssl_ext:
-    git: https://github.com/stakach/openssl_ext.git
-    version: 1.2.2
+    git: https://github.com/spider-gazelle/openssl_ext.git
+    version: 2.1.0
 
   pars:
     git: https://github.com/place-labs/pars.git
@@ -126,23 +127,23 @@ shards:
 
   place_calendar:
     git: https://github.com/PlaceOS/calendar.git
-    version: 4.6.0
+    version: 4.8.2
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.1.9
+    version: 2.2.0
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
-    version: 2.0.4
+    version: 3.3.1
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 3.6.3
+    version: 4.1.1
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 4.8.3
+    version: 4.10.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -165,7 +166,7 @@ shards:
     version: 1.0.1
 
   redis:
-    git: https://github.com/stefanwille/crystal-redis.git
+    git: https://github.com/maiha/crystal-redis.git
     version: 2.6.0
 
   redis-cluster:
@@ -182,10 +183,10 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 3.1.2
+    version: 3.2.0
 
-  retriable:
-    git: https://github.com/Sija/retriable.cr.git
+  retriable: # Overridden
+    git: https://github.com/sija/retriable.cr.git
     version: 0.2.2
 
   rwlock:
@@ -202,10 +203,10 @@ shards:
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
-    version: 1.4.2
+    version: 1.5.1
 
   stumpy_core:
-    git: https://github.com/l3kn/stumpy_core.git
+    git: https://github.com/stumpycr/stumpy_core.git
     version: 1.9.1
 
   stumpy_png:

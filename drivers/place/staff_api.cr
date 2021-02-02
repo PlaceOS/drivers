@@ -61,6 +61,23 @@ class Place::StaffAPI < PlaceOS::Driver
     raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
   end
 
+  @[Security(Level::Support)]
+  def resource_token
+    response = post("/api/engine/v2/users/resource_token", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
@@ -84,6 +101,7 @@ class Place::StaffAPI < PlaceOS::Driver
   # ===================================
   @[Security(Level::Support)]
   def reject(booking_id : String | Int64)
+    logger.debug { "rejecting booking #{booking_id}" }
     response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
@@ -94,11 +112,34 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def approve(booking_id : String | Int64)
+    logger.debug { "approving booking #{booking_id}" }
     response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
     })
     raise "issue approving booking #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  @[Security(Level::Support)]
+  def booking_state(booking_id : String | Int64, state : String)
+    logger.debug { "updating booking #{booking_id} state to: #{state}" }
+    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  @[Security(Level::Support)]
+  def booking_check_in(booking_id : String | Int64, state : Bool = true)
+    logger.debug { "checking in booking #{booking_id} to: #{state}" }
+    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue checking in booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
 
@@ -127,9 +168,33 @@ class Place::StaffAPI < PlaceOS::Driver
     property checked_in : Bool
     property rejected : Bool
     property approved : Bool
+
+    property approver_id : String?
+    property approver_email : String?
+    property approver_name : String?
+
+    property booked_by_id : String
+    property booked_by_email : String
+    property booked_by_name : String
+
+    property process_state : String?
+    property last_changed : Int64?
+    property created : Int64?
   end
 
-  def query_bookings(type : String, period_start : Int64? = nil, period_end : Int64? = nil, zones : Array(String) = [] of String, user : String? = nil)
+  def query_bookings(
+    type : String,
+    period_start : Int64? = nil,
+    period_end : Int64? = nil,
+    zones : Array(String) = [] of String,
+    user : String? = nil,
+    email : String? = nil,
+    state : String? = nil,
+    created_before : Int64? = nil,
+    created_after : Int64? = nil,
+    approved : Bool? = nil,
+    rejected : Bool? = nil
+  )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
     period_end ||= 30.minutes.from_now.to_unix
@@ -141,6 +206,12 @@ class Place::StaffAPI < PlaceOS::Driver
     }
     params["zones"] = zones.join(",") unless zones.empty?
     params["user"] = user if user && !user.empty?
+    params["email"] = email if email && !email.empty?
+    params["state"] = state if state && !state.empty?
+    params["created_before"] = created_before.to_s if created_before
+    params["created_after"] = created_after.to_s if created_after
+    params["approved"] = approved.to_s unless approved.nil?
+    params["rejected"] = rejected.to_s unless rejected.nil?
 
     # Get the existing bookings from the API to check if there is space
     response = get("/api/staff/v1/bookings", params, {
@@ -149,7 +220,9 @@ class Place::StaffAPI < PlaceOS::Driver
     })
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
 
-    Array(Booking).from_json(response.body)
+    # Just parse it here instead of using the Bookings object
+    # it will be parsed into an object on the far end
+    JSON.parse(response.body)
   end
 
   # For accessing PlaceOS APIs
