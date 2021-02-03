@@ -6,4 +6,4 @@ install:
   - docker-compose up -d
   - sleep 10
 script:
-  - docker exec -it drivers sh
+  - docker exec -it drivers crystal spec
