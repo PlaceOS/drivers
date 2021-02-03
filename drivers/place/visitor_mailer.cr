@@ -9,14 +9,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   generic_name :VisitorMailer
   description %(emails visitors when they are invited and notifies hosts when they check in)
 
-  # The PlaceOS API
-  uri_base "https://staff.app.api.com"
-
   default_settings({
-    username:         "",
-    password:         "",
-    client_id:        "",
-    redirect_uri:     "",
     timezone:         "GMT",
     date_time_format: "%c",
     time_format:      "%l:%M%p",
@@ -24,6 +17,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   })
 
   accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
+  accessor staff_api : StaffAPI_1
 
   def on_load
     # Guest has been marked as attending a meeting in person
@@ -38,10 +32,6 @@ class Place::VisitorMailer < PlaceOS::Driver
   @uri : URI? = nil
   @host : String = ""
   @origin : String = ""
-  @username : String = ""
-  @password : String = ""
-  @client_id : String = ""
-  @redirect_uri : String = ""
   @time_zone : Time::Location = Time::Location.load("GMT")
 
   @users_checked_in : UInt64 = 0_u64
@@ -56,11 +46,6 @@ class Place::VisitorMailer < PlaceOS::Driver
   @date_format : String = "%A, %-d %B"
 
   def on_update
-    @username = setting(String, :username)
-    @password = setting(String, :password)
-    @client_id = setting(String, :client_id)
-    @redirect_uri = setting(String, :redirect_uri)
-
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
@@ -160,41 +145,6 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   # ===================================
-  # PLACEOS API AUTHENTICATION:
-  # ===================================
-
-  @access_token : String = ""
-  @access_expires : Time = Time.unix(0)
-
-  protected def authenticate : String
-    # Create oauth client, optionally pass custom URIs if needed,
-    # if the authorize or token URIs are not the standard ones
-    # (they can also be absolute URLs)
-    oauth2_client = OAuth2::Client.new(@host, @client_id, "",
-      redirect_uri: @redirect_uri,
-      authorize_uri: "#{@origin}/auth/oauth/authorize",
-      token_uri: "#{@origin}/auth/oauth/token")
-
-    access_token = oauth2_client.get_access_token_using_resource_owner_credentials(
-      @username,
-      @password,
-      "public"
-    ).as(OAuth2::AccessToken::Bearer)
-
-    @access_expires = (access_token.expires_in.not_nil! - 300).seconds.from_now
-    @access_token = "Bearer #{access_token.access_token}"
-  end
-
-  protected def token : String
-    return @access_token if valid_token?
-    authenticate
-  end
-
-  protected def valid_token?
-    Time.utc < @access_expires
-  end
-
-  # ===================================
   # PlaceOS API requests
   # ===================================
 
@@ -207,66 +157,22 @@ class Place::VisitorMailer < PlaceOS::Driver
     property map_id : String?
   end
 
-  protected def get_room_details(system_id, retries = 0)
-    # Grab the room details
-    response = get("/api/engine/v2/systems/#{system_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    # Retry a few times
-    if !response.success?
-      raise "issue loading system details #{system_id}: #{response.status_code}" if retries > 3
-      sleep 1
-      return get_room_details(system_id, retries + 1)
-    end
-
-    begin
-      SystemDetails.from_json(response.body)
-    rescue error
-      logger.debug {
-        "failed to parse system details\n#{response.headers.inspect}\n#{response.body.inspect}"
-      }
-      raise error
-    end
+  protected def get_room_details(system_id : String, retries = 0)
+    SystemDetails.from_json staff_api.get_system(system_id).get.to_json
+  rescue error
+    raise "issue loading system details #{system_id}" if retries > 3
+    sleep 1
+    get_room_details(system_id, retries + 1)
   end
 
   protected def get_host_name(host_email, retries = 0)
-    # Grab the room details
-    response = get("/api/staff/v1/people/#{host_email}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    # Retry a few times
-    if !response.success?
-      if retries > 3
-        logger.error { "issue loading host details #{host_email}: #{response.status_code}" }
-        return "your host"
-      end
-      sleep 1
-      return get_host_name(host_email, retries + 1)
+    staff_api.staff_details(host_email).get["name"].as_s.split('(')[0]
+  rescue error
+    if retries > 3
+      logger.error { "issue loading host details #{host_email}" }
+      return "your host"
     end
-
-    begin
-      JSON.parse(response.body)["name"].as_s.split('(')[0]
-    rescue error
-      logger.error {
-        "failed to parse host details\n#{response.headers.inspect}\n#{response.body.inspect}"
-      }
-      "your host"
-    end
-  end
-end
-
-# Deal with bad SSL certificate
-class OpenSSL::SSL::Context::Client
-  def initialize(method : LibSSL::SSLMethod = Context.default_method)
-    super(method)
-
-    self.verify_mode = OpenSSL::SSL::VerifyMode::NONE
-    {% if compare_versions(LibSSL::OPENSSL_VERSION, "1.0.2") >= 0 %}
-      self.default_verify_param = "ssl_server"
-    {% end %}
+    sleep 1
+    get_host_name(host_email, retries + 1)
   end
 end

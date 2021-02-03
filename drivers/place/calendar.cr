@@ -177,7 +177,7 @@ class Place::Calendar < PlaceOS::Driver
   @[Security(Level::Support)]
   def get_user(user_id : String)
     logger.debug { "getting user details for #{user_id}" }
-    client &.get_user(user_id)
+    client &.get_user_by_email(user_id)
   end
 
   @[Security(Level::Support)]

@@ -43,6 +43,39 @@ class Place::StaffAPI < PlaceOS::Driver
     @running_a_spec = setting?(Bool, :running_a_spec) || false
   end
 
+  def get_system(id : String)
+    response = get("/api/engine/v2/systems/#{id}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response for system id #{id}: #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing system #{id}:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  # Staff details returns the information from AD
+  def staff_details(email : String)
+    response = get("/api/staff/v1/people/#{email}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response for stafff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing staff #{email}:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
   # ===================================
   # User details
   # ===================================
