@@ -17,7 +17,7 @@ module PlaceOS::Drivers::Api
 
     # Builds and validates the selected repository
     def get_repository_path
-      Helper.get_repository_path(params["repository"]?)
+      Compiler::Helper.get_repository_path(params["repository"]?)
     end
   end
 end

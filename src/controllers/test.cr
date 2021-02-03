@@ -25,7 +25,7 @@ module PlaceOS::Drivers::Api
       spec = URI.decode(params["id"])
       count = (params["count"]? || 50).to_i
 
-      render json: GitCommands.commits(spec, count, get_repository_path)
+      render json: Compiler::GitCommands.commits(spec, count, get_repository_path)
     end
 
     # Run the spec and return success if the exit status is 0

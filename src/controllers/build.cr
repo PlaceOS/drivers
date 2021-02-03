@@ -8,7 +8,7 @@ module PlaceOS::Drivers::Api
     def index
       compiled = params["compiled"]?
       if compiled
-        render json: PlaceOS::Drivers::Compiler.compiled_drivers
+        render json: PlaceOS::Compiler.compiled_drivers
       else
         result = Dir.cd(get_repository_path) do
           Dir.glob("drivers/**/*.cr").reject! do |path|
@@ -22,12 +22,12 @@ module PlaceOS::Drivers::Api
 
     def show
       driver_source = URI.decode(params["id"])
-      render json: PlaceOS::Drivers::Compiler.compiled_drivers(driver_source)
+      render json: PlaceOS::Compiler.compiled_drivers(driver_source)
     end
 
     # grab the list of available repositories
     get "/repositories" do
-      render json: PlaceOS::Drivers::Compiler.repositories
+      render json: PlaceOS::Compiler.repositories
     end
 
     # grab the list of available versions of file / which are built
@@ -35,13 +35,13 @@ module PlaceOS::Drivers::Api
       driver_source = URI.decode(params["id"])
       count = (params["count"]? || 50).to_i
 
-      render json: PlaceOS::Drivers::GitCommands.commits(driver_source, count, get_repository_path)
+      render json: PlaceOS::Compiler::GitCommands.commits(driver_source, count, get_repository_path)
     end
 
     # Commits at repo level
     get "/repository_commits" do
       count = (params["count"]? || 50).to_i
-      render json: PlaceOS::Drivers::GitCommands.repository_commits(get_repository_path, count)
+      render json: PlaceOS::Compiler::GitCommands.repository_commits(get_repository_path, count)
     end
 
     # build a drvier, optionally based on the version specified
@@ -49,7 +49,7 @@ module PlaceOS::Drivers::Api
       driver = params["driver"]
       commit = params["commit"]? || "HEAD"
 
-      result = PlaceOS::Drivers::Compiler.build_driver(driver, commit, get_repository_path)
+      result = PlaceOS::Compiler.build_driver(driver, commit, get_repository_path)
 
       if result[:exit_status] == 0
         render :not_acceptable, text: result[:output] unless File.exists?(result[:executable])
@@ -68,18 +68,18 @@ module PlaceOS::Drivers::Api
 
       # Check repository to prevent abuse (don't want to delete the wrong thing)
       repository = get_repository_path
-      PlaceOS::Drivers::GitCommands.checkout(driver_source, commit || "HEAD", repository) do
+      PlaceOS::Compiler::GitCommands.checkout(driver_source, commit || "HEAD", repository) do
         head :not_found unless File.exists?(File.join(repository, driver_source))
       end
 
       files = if commit
                 [Compiler.executable_name(driver_source, commit, nil)]
               else
-                PlaceOS::Drivers::Compiler.compiled_drivers(driver_source)
+                PlaceOS::Compiler.compiled_drivers(driver_source)
               end
 
       files.each do |file|
-        File.delete File.join(PlaceOS::Drivers::Compiler.bin_dir, file)
+        File.delete File.join(PlaceOS::Compiler.bin_dir, file)
       end
       head :ok
     end
