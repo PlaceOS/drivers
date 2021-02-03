@@ -10,10 +10,6 @@ class Place::VisitorMailer < PlaceOS::Driver
   description %(emails visitors when they are invited and notifies hosts when they check in)
 
   default_settings({
-    username:         "",
-    password:         "",
-    client_id:        "",
-    redirect_uri:     "",
     timezone:         "GMT",
     date_time_format: "%c",
     time_format:      "%l:%M%p",
