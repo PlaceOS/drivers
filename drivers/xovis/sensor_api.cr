@@ -7,6 +7,8 @@ class Xovis::SensorAPI < PlaceOS::Driver
   generic_name :XovisSensor
   descriptive_name "Xovis Flow Sensor"
 
+  uri_base "https://192.168.0.1"
+
   default_settings({
     basic_auth: {
       username: "account",
@@ -19,6 +21,16 @@ class Xovis::SensorAPI < PlaceOS::Driver
   end
 
   def on_update
+  end
+
+  # Alternative to using basic auth, but here really only for testing with postman
+  @[Security(Level::Support)]
+  def get_token
+    response = get("/api/auth/token", headers: {
+      "Accept" => "text"
+    })
+    raise "issue obtaining token: #{response.status_code}" unless response.success?
+    response.body
   end
 
   def example
