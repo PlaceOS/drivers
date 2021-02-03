@@ -21,7 +21,7 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     days_from_now: 14,
 
     booking_category: "desk",
-      
+
     debug: false,
   })
 
@@ -57,13 +57,12 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     period_end = @time_period.from_now.to_unix
     zones = [@building]
     payload = staff_api.query_bookings(@booking_category, period_start, period_end, zones).get.to_json
-    
 
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
     headers["Content-Type"] = "application/json; charset=UTF-8"
 
-    logger.debug { "Posting: #{payload} \n with Headers: #{headers}"} if @debug
+    logger.debug { "Posting: #{payload} \n with Headers: #{headers}" } if @debug
     response = HTTP::Client.post @post_uri, headers, body: payload
     raise "Request failed with #{response.status_code}: #{response.body}" unless response.status_code < 300
     "#{response.status_code}: #{response.body}"

@@ -121,8 +121,7 @@ class Place::LocationServices < PlaceOS::Driver
   def locate_contacts(list_name : String)
     contacts = status(Hash(String, Array(NamedTuple(
       email: String,
-      username: String
-    ))), :emergency_contacts)
+      username: String))), :emergency_contacts)
 
     list = contacts[list_name]
     results = {} of String => Array(JSON::Any)
