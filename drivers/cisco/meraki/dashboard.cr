@@ -753,7 +753,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     lookup.mac = client_mac
     @ip_lookup[ipv4] = lookup
 
-    if lookup = @ip_usernames[ipv4]
+    if lookup = @ip_usernames[ipv4]?
       username = lookup.mac
       user_mac_mappings { |storage| map_user_mac(client_mac, username, storage) }
     end
@@ -767,7 +767,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     lookup.mac = client_mac
     @ip_lookup[ipv6] = lookup
 
-    if lookup = @ip_usernames[ipv6]
+    if lookup = @ip_usernames[ipv6]?
       username = lookup.mac
       user_mac_mappings { |storage| map_user_mac(client_mac, username, storage) }
     end
