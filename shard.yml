@@ -1,6 +1,5 @@
 name: drivers
 version: 2.2.0
-crystal: 0.35.1
 
 # compile target
 targets:
