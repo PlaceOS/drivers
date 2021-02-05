@@ -23,7 +23,7 @@ shards:
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
-    version: 1.0.1
+    version: 1.1.0
 
   crc16:
     git: https://github.com/maiha/crc16.cr.git
@@ -47,7 +47,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.4
+    version: 1.0.5
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -111,7 +111,7 @@ shards:
 
   office365:
     git: https://github.com/PlaceOS/office365.git
-    version: 1.12.0
+    version: 1.12.1
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -139,7 +139,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 4.1.1
+    version: 4.1.2
 
   placeos-models:
     git: https://github.com/placeos/models.git
