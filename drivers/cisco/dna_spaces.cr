@@ -111,14 +111,16 @@ class Cisco::DNASpaces < PlaceOS::Driver
     }.to_json)
     raise "failed to obtain API key, code #{response.status_code}\n#{response.body}" unless response.success?
 
+    logger.debug { "application activated: #{response.body}" }
+
     payload = NamedTuple(
       status: Bool,
       message: String,
-      data: Array(NamedTuple(apiKey: String))).from_json(response.body.not_nil!)
+      data: NamedTuple(apiKey: String)).from_json(response.body.not_nil!)
 
     raise "unexpected failure obtaining API key: #{payload[:message]}" unless payload[:status]
 
-    api_key = payload[:data][0][:apiKey]
+    api_key = payload[:data][:apiKey]
     define_setting(:dna_spaces_api_key, api_key)
     define_setting(:tenant_id, tenant_id)
     define_setting(:dna_spaces_activation_key, "")
