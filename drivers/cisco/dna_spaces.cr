@@ -37,9 +37,14 @@ class Cisco::DNASpaces < PlaceOS::Driver
     debug_stream: false,
   })
 
+  @streaming = false
+
   def on_load
     on_update
-    spawn(same_thread: true) { start_streaming_events } unless @api_key.empty?
+    if !@api_key.empty?
+      @streaming = true
+      spawn(same_thread: true) { start_streaming_events }
+    end
   end
 
   def on_unload
@@ -77,6 +82,11 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
       # Activate the API key using the activation_token
       schedule.in(5.seconds) { activate } if @api_key.empty?
+    end
+
+    if !@streaming && !@api_key.empty?
+      @streaming = true
+      spawn(same_thread: true) { start_streaming_events }
     end
   end
 
@@ -120,12 +130,20 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
     raise "unexpected failure obtaining API key: #{payload[:message]}" unless payload[:status]
 
+    logger.debug { "saving API key: #{tenant_id}, #{api_key}" }
+
     api_key = payload[:data][:apiKey]
-    define_setting(:dna_spaces_api_key, api_key)
     define_setting(:tenant_id, tenant_id)
+    define_setting(:dna_spaces_api_key, api_key)
     define_setting(:dna_spaces_activation_key, "")
 
-    on_update
+    logger.debug { "settings saved! Starting stream" }
+    @api_key = api_key
+    @tenant_id = tenant_id
+    if !@streaming
+      @streaming = true
+      spawn(same_thread: true) { start_streaming_events }
+    end
   end
 
   class LocationInfo
@@ -223,10 +241,13 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
   # we want to stream events until driver is terminated
   protected def start_streaming_events
+    @streaming = true
     SimpleRetry.try_to(
       base_interval: 10.milliseconds,
       max_interval: 5.seconds
     ) { stream_events unless @terminated }
+  ensure
+    @streaming = false
   end
 
   # as sometimes the map id is missing, but in the same location
