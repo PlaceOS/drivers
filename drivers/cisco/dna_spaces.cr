@@ -1,6 +1,7 @@
 module Cisco; end
 
 require "set"
+require "jwt"
 require "s2_cells"
 require "simple_retry"
 require "placeos-driver/interface/locatable"
@@ -14,8 +15,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
   uri_base "https://partners.dnaspaces.io"
 
   default_settings({
-    dna_spaces_api_key: "X-API-KEY",
-    tenant_id:          "sfdsfsdgg",
+    dna_spaces_activation_key: "provide this and the API / tenant ids will be generated automatically",
+    dna_spaces_api_key:        "X-API-KEY",
+    tenant_id:                 "sfdsfsdgg",
 
     # Time before a user location is considered probably too old (in minutes)
     max_location_age: 10,
@@ -37,7 +39,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
   def on_load
     on_update
-    spawn(same_thread: true) { start_streaming_events }
+    spawn(same_thread: true) { start_streaming_events } unless @api_key.empty?
   end
 
   def on_unload
@@ -45,6 +47,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @channel.close
   end
 
+  @activation_token : String = ""
   @api_key : String = ""
   @tenant_id : String = ""
   @terminated : Bool = false
@@ -56,8 +59,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @events_received : UInt64 = 0_u64
 
   def on_update
-    @api_key = setting(String, :dna_spaces_api_key)
-    @tenant_id = setting(String, :tenant_id)
     @max_location_age = (setting?(UInt32, :max_location_age) || 10).minutes
     @s2_level = setting?(Int32, :s2_level) || 21
     @floorplan_mappings = setting?(Hash(String, Hash(String, String | Float64)), :floorplan_mappings) || @floorplan_mappings
@@ -65,6 +66,64 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
     schedule.clear
     schedule.every(30.minutes) { cleanup_caches }
+
+    @activation_token = setting?(String, :dna_spaces_activation_key) || ""
+    if @activation_token.empty?
+      @api_key = setting(String, :dna_spaces_api_key)
+      @tenant_id = setting(String, :tenant_id)
+    else
+      @api_key = setting?(String, :dna_spaces_api_key) || ""
+      @tenant_id = setting?(String, :tenant_id) || ""
+
+      # Activate the API key using the activation_token
+      schedule.in(5.seconds) { activate } if @api_key.empty?
+    end
+  end
+
+  @[Security(Level::Support)]
+  def activate
+    return if @activation_token.empty?
+
+    response = get("/client/v1/partner/partnerPublicKey/")
+    raise "failed to obtain partner public key, code #{response.status_code}" unless response.success?
+
+    logger.debug { "public key requested: #{response.body}" }
+
+    payload = NamedTuple(
+      status: Bool,
+      message: String,
+      data: Array(ActivactionPublicKey)).from_json(response.body.not_nil!)
+
+    raise "unexpected failure obtaining partner public key: #{payload[:message]}" unless payload[:status]
+
+    public_key = payload[:data][0].public_key
+    payload, header = JWT.decode(@activation_token, public_key, JWT::Algorithm::RS256)
+    app_id = payload["appId"].as_s
+    ref_id = payload["activationRefId"].as_s
+    tenant_id = payload["tenantId"].as_i64.to_s
+
+    response = post("/client/v1/partner/activateOnPremiseApp", headers: {
+      "Content-Type"  => "application/json",
+      "Authorization" => "Bearer #{@activation_token}",
+    }, body: {
+      appId:           app_id,
+      activationRefId: ref_id,
+    }.to_json)
+    raise "failed to obtain API key, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    payload = NamedTuple(
+      status: Bool,
+      message: String,
+      data: Array(NamedTuple(apiKey: String))).from_json(response.body.not_nil!)
+
+    raise "unexpected failure obtaining API key: #{payload[:message]}" unless payload[:status]
+
+    api_key = payload[:data][0][:apiKey]
+    define_setting(:dna_spaces_api_key, api_key)
+    define_setting(:tenant_id, tenant_id)
+    define_setting(:dna_spaces_activation_key, "")
+
+    on_update
   end
 
   class LocationInfo
