@@ -67,8 +67,8 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
 
   def poll_bookings
     now = Time.local @time_zone
-    from = now.at_beginning_of_day
-    to = now.at_end_of_day
+    from = now.at_beginning_of_month
+    to = now.at_end_of_month
 
     logger.debug { "polling bookings #{@venue_code}, from #{from}, to #{to}, in #{@time_zone.name}" }
 
