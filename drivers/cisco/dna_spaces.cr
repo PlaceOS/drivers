@@ -130,9 +130,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
     raise "unexpected failure obtaining API key: #{payload[:message]}" unless payload[:status]
 
+    api_key = payload[:data][:apiKey]
     logger.debug { "saving API key: #{tenant_id}, #{api_key}" }
 
-    api_key = payload[:data][:apiKey]
     define_setting(:tenant_id, tenant_id)
     define_setting(:dna_spaces_api_key, api_key)
     define_setting(:dna_spaces_activation_key, "")
