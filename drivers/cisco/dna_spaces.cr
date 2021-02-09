@@ -38,6 +38,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
   })
 
   @streaming = false
+  @last_received = 0_i64
+  @stream_active = false
 
   def on_load
     on_update
@@ -50,6 +52,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
   def on_unload
     @terminated = true
     @channel.close
+    @stream_active = false
+    update_monitoring_status(running: false)
   end
 
   @activation_token : String = ""
@@ -71,6 +75,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
     schedule.clear
     schedule.every(30.minutes) { cleanup_caches }
+    schedule.every(5.minutes) { update_monitoring_status }
+    schedule.in(5.seconds) { update_monitoring_status }
 
     @activation_token = setting?(String, :dna_spaces_activation_key) || ""
     if @activation_token.empty?
@@ -352,9 +358,12 @@ class Cisco::DNASpaces < PlaceOS::Driver
       "X-API-KEY" => @api_key,
     }) do |response|
       if !response.success?
+        @stream_active = false
         logger.warn { "failed to connect to firehose api #{response.status_code}" }
         raise "failed to connect to firehose api #{response.status_code}"
       end
+
+      @stream_active = true
 
       # We use a channel for event processing so we can make use of timeouts
       @channel = Channel(String).new
@@ -368,6 +377,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
           end
 
           if data = response.body_io.gets
+            @last_received = Time.utc.to_unix_ms
             @channel.send data
           else
             @channel.close
@@ -380,6 +390,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     end
 
     # Trigger the retry behaviour
+    @stream_active = false
     raise "stream closed"
   end
 
@@ -584,6 +595,35 @@ class Cisco::DNASpaces < PlaceOS::Driver
       user = user.split("\\")[1]
     end
     user.downcase
+  end
+
+  # This provides the DNA Spaces dashboard with stream consumption status
+  protected def update_monitoring_status(running = true) : Nil
+    response = post("/api/partners/v1/monitoring/status", headers: {
+      "Content-Type"  => "application/json",
+      "X-API-KEY" => @api_key,
+    }, body: {
+      data: {
+        overallStatus: {
+          status: running ? "up" : "down",
+          notices: [] of Nil,
+        },
+        instanceDetails: {
+          ipAddress: "",
+          instanceId: module_id,
+        },
+        cloudFirehose: {
+          status: @stream_active ? "connected" : "disconnected",
+          lastReceived: @last_received
+        },
+        localFirehose: {
+          status: "disconnected",
+          lastReceived: 0
+        },
+        subsystems: [] of Nil,
+      }
+    }.to_json)
+    raise "failed to update status, code #{response.status_code}\n#{response.body}" unless response.success?
   end
 end
 
