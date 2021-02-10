@@ -52,8 +52,8 @@ class Kramer::Switcher::VsHdmi < PlaceOS::Driver
   def received(data, task)
     logger.debug { "Kramer sent 0x#{data.hexstring}" }
 
-    # Check if we are the destination
-    return unless data[0].bit(6)
+    # Only process response if we are the destination
+    return unless data[0].bit(6) == 1
     input = data[1] & 0b111_111
     output = data[2] & 0b111_111
     command = Command.from_value(data[0] & 0b111_111)
