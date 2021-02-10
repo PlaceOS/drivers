@@ -25,4 +25,7 @@ DriverSpecs.mock_driver "Kramer::Switcher::VsHdmi" do
   status[:video3].should eq(1)
   status[:video5].should eq(4)
   status[:video6].should eq(4)
+
+  # Command::IdentifyMachine version response
+  transmit(Bytes[0x7D, 0x83, 0x85, 0x81])
 end
