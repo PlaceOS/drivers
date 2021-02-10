@@ -6,8 +6,6 @@ class Kramer::Switcher::VsHdmi < PlaceOS::Driver
   descriptive_name "Kramer Protocol 2000 Switcher"
   generic_name :Switcher
 
-  @limits_known : Bool = false
-
   def on_load
     queue.delay = 150.milliseconds
     queue.wait = false
@@ -18,11 +16,10 @@ class Kramer::Switcher::VsHdmi < PlaceOS::Driver
   end
 
   private def get_machine_type
-    #              id com,    video
     command = Bytes[62, 0x81, 0x81, 0xFF]
-    send(command, name: :inputs) # num inputs
+    send(command, name: :inputs) # no. video inputs
     command = Bytes[62, 0x82, 0x81, 0xFF]
-    send(command, name: :outputs) # num outputs
+    send(command, name: :outputs) # no. of video outputs
   end
 
   enum Command
@@ -33,9 +30,7 @@ class Kramer::Switcher::VsHdmi < PlaceOS::Driver
     IdentifyMachine = 61
   end
 
-  def switch(map : Hash(Int32, Array(Int32)))
-    # instr, inp,  outp, machine number
-    # Switch video
+  def switch_video(map : Hash(Int32, Array(Int32)))
     command = Bytes[1, 0x80, 0x80, 0xFF]
 
     map.each do |input, outputs|
@@ -56,17 +51,14 @@ class Kramer::Switcher::VsHdmi < PlaceOS::Driver
     return unless data[0].bit(6) == 1
     input = data[1] & 0b111_111
     output = data[2] & 0b111_111
-    command = Command.from_value(data[0] & 0b111_111)
-    pp "command is #{command}"
 
-    case command
+    case Command.from_value(data[0] & 0b111_111)
     when .define_machine?
       if input == 1
         self[:video_inputs] = output
       elsif input == 2
         self[:video_outputs] = output
       end
-      @limits_known = true # Set here in case unsupported
     when .status_video?
       if output == 0 # Then input has been applied to all the outputs
         logger.debug { "Kramer switched #{input} -> All" }
