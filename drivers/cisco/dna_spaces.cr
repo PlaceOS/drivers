@@ -599,7 +599,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
   # This provides the DNA Spaces dashboard with stream consumption status
   @[Security(PlaceOS::Driver::Level::Administrator)]
-  protected def update_monitoring_status(running : Bool = true) : Nil
+  def update_monitoring_status(running : Bool = true) : Nil
     response = post("/api/partners/v1/monitoring/status", headers: {
       "Content-Type" => "application/json",
       "X-API-KEY"    => @api_key,
