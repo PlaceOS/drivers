@@ -23,10 +23,10 @@ class Kramer::Switcher::VsHdmi < PlaceOS::Driver
   end
 
   enum Command
-    ResetVideo = 0
-    SwitchVideo = 1
-    StatusVideo = 5
-    DefineMachine = 62
+    ResetVideo      =  0
+    SwitchVideo     =  1
+    StatusVideo     =  5
+    DefineMachine   = 62
     IdentifyMachine = 61
   end
 
