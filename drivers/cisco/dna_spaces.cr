@@ -600,28 +600,28 @@ class Cisco::DNASpaces < PlaceOS::Driver
   # This provides the DNA Spaces dashboard with stream consumption status
   protected def update_monitoring_status(running = true) : Nil
     response = post("/api/partners/v1/monitoring/status", headers: {
-      "Content-Type"  => "application/json",
-      "X-API-KEY" => @api_key,
+      "Content-Type" => "application/json",
+      "X-API-KEY"    => @api_key,
     }, body: {
       data: {
         overallStatus: {
-          status: running ? "up" : "down",
+          status:  running ? "up" : "down",
           notices: [] of Nil,
         },
         instanceDetails: {
-          ipAddress: "",
+          ipAddress:  "",
           instanceId: module_id,
         },
         cloudFirehose: {
-          status: @stream_active ? "connected" : "disconnected",
-          lastReceived: @last_received
+          status:       @stream_active ? "connected" : "disconnected",
+          lastReceived: @last_received,
         },
         localFirehose: {
-          status: "disconnected",
-          lastReceived: 0
+          status:       "disconnected",
+          lastReceived: 0,
         },
         subsystems: [] of Nil,
-      }
+      },
     }.to_json)
     raise "failed to update status, code #{response.status_code}\n#{response.body}" unless response.success?
   end
