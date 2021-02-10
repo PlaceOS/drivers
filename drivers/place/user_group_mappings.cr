@@ -20,6 +20,14 @@ class Place::UserGroupMappings < PlaceOS::Driver
         description: "people that can access everything",
       },
     },
+
+    # Group name prefix => group mappings
+    group_prefix: {
+      "group_name_prefix_" => {
+        strip_prefix: false,
+        place_id:     "optional-place-id",
+      },
+    },
   })
 
   class UserLogin
@@ -34,12 +42,18 @@ class Place::UserGroupMappings < PlaceOS::Driver
     on_update
   end
 
-  @group_mappings : Hash(String, NamedTuple(place_id: String)) = {} of String => NamedTuple(place_id: String)
+  alias Mapping = NamedTuple(place_id: String)
+  alias Prefix = NamedTuple(strip_prefix: Bool?, place_id: String?)
+
+  @group_mappings : Hash(String, Mapping) = {} of String => Mapping
+  @group_prefixes : Hash(String, Prefix) = {} of String => Prefix
   @users_checked : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
   def on_update
-    @group_mappings = setting?(Hash(String, NamedTuple(place_id: String)), :group_mappings) || {} of String => NamedTuple(place_id: String)
+    @group_mappings = setting?(Hash(String, Mapping), :group_mappings) || {} of String => Mapping
+    @group_prefixes = setting?(Hash(String, Prefix), :group_prefix) || {} of String => Prefix
+    @group_prefixes = @group_prefixes.transform_keys(&.downcase)
   end
 
   protected def new_user_login(user_json)
@@ -70,11 +84,27 @@ class Place::UserGroupMappings < PlaceOS::Driver
     # Request user details from GraphAPI or Google
     users_groups = calendar_api.get_groups(email).get
     logger.debug { "found user groups: #{users_groups.to_pretty_json}" }
-    users_groups = users_groups.as_a.map { |group| group["id"].as_s }
+    users_groups = users_groups.as_a
+
+    users_group_ids = users_groups.map { |group| group["id"].as_s }
+    users_group_names = users_groups.map { |group| group["name"].as_s.downcase }
 
     # Build the list of placeos groups based on the mappings and update the user model
     groups = [] of String
-    @group_mappings.each { |group_id, place_group| groups << place_group[:place_id] if users_groups.includes? group_id }
+    @group_mappings.each { |group_id, place_group| groups << place_group[:place_id] if users_group_ids.includes? group_id }
+    @group_prefixes.each do |group_prefix, place_group|
+      users_group_names.each do |name|
+        if name.starts_with?(group_prefix)
+          if place_name = place_group[:place_id]
+            groups << place_name
+          elsif place_group[:strip_prefix]
+            groups << name.split(group_prefix, 2)[-1]
+          else
+            groups << name
+          end
+        end
+      end
+    end
     staff_api.update_user(id, {groups: groups}.to_json).get
 
     logger.debug { "checked #{users_groups.size}, found #{groups.size} matching: #{groups}" }
