@@ -11,14 +11,14 @@ DriverSpecs.mock_driver "Kramer::Switcher::VsHdmi" do
   status[:video_outputs].should eq(16)
 
   exec(:switch_video, {
-    5 => [8]
+    5 => [8],
   })
   should_send(Bytes[1, 0x85, 0x88, 0xFF])
   status[:video8].should eq(5)
 
   exec(:switch_video, {
-    1 => [2,3],
-    4 => [5,6]
+    1 => [2, 3],
+    4 => [5, 6],
   })
   should_send(Bytes[1, 138, 144, 0xFF])
   status[:video2].should eq(1)

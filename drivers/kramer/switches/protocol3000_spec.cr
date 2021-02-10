@@ -9,9 +9,9 @@ DriverSpecs.mock_driver "Kramer::Switcher::Protocol3000" do
   responds("~01@ OK\x0D\x0A")
 
   settings({
-    kramer_id: "01",
-    kramer_login: true,
-    kramer_password: "pass"
+    kramer_id:       "01",
+    kramer_login:    true,
+    kramer_password: "pass",
   })
   # on_update
   # state

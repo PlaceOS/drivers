@@ -60,13 +60,14 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   end
 
   enum RouteType
-    Video = 1
-    Audio = 2
-    USB = 3
-    AudioVideo = 12
-    VideoUSB = 13
+    Video         =   1
+    Audio         =   2
+    USB           =   3
+    AudioVideo    =  12
+    VideoUSB      =  13
     AudioVideoUSB = 123
   end
+
   def route(map : Hash(Int32, Array(Int32)), type : RouteType = RouteType::AudioVideo)
     map.each do |input, outputs|
       outputs.each do |output|
@@ -134,8 +135,8 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
 
     case c = CMDS[cmd]
     when "info"
-        self[:video_inputs] = args[1].to_i
-        self[:video_outputs] = args[3].to_i
+      self[:video_inputs] = args[1].to_i
+      self[:video_outputs] = args[3].to_i
     when "route"
       # response looks like ~01@ROUTE 12,1,4 OK
       layer = args[0].to_i
@@ -147,7 +148,8 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
       case c
       when "switch_audio" then type = "audio"
       when "switch_video" then type = "video"
-      else type = "av" end
+      else                     type = "av"
+      end
 
       args.each do |map|
         inout = map.split('>')
@@ -169,16 +171,16 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   end
 
   CMDS = {
-    "info" => "INFO-IO?",
-    "login" => "LOGIN",
-    "route" => "ROUTE",
-    "switch" => "AV",
+    "info"         => "INFO-IO?",
+    "login"        => "LOGIN",
+    "route"        => "ROUTE",
+    "switch"       => "AV",
     "switch_audio" => "AUD",
     "switch_video" => "VID",
-    "audio_mute" => "MUTE",
-    "video_mute" => "VMUTE",
-    "help" => "HELP",
-    "model" => "MODEL?"
+    "audio_mute"   => "MUTE",
+    "video_mute"   => "VMUTE",
+    "help"         => "HELP",
+    "model"        => "MODEL?",
   }
   CMDS.merge!(CMDS.invert)
 
