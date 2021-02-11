@@ -110,6 +110,24 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.get_instances Lnl_BadgeType
   end
 
+  @[Security(Level::Administrator)]
+  def create_badge(
+    type : Int32,
+    personid : Int32,
+    uselimit : Int32? = nil,
+    activate : Time? = nil,
+    deactivate : Time? = nil
+  ) : Lnl_Badge
+    logger.debug { "creating badge badge for cardholder id #{personid}" }
+    client.add_instance Lnl_Badge, **args
+  end
+
+  @[Security(Level::Administrator)]
+  def delete_badge(id : Int32) : Nil
+    logger.debug { "deleting badge #{id}" }
+    client.delete_instance Lnl_Badge, id: id
+  end
+
   def lookup_visitor(email : String) : Lnl_Visitor?
     visitors = client.get_instances Lnl_Visitor, filter: %(email = "#{email}")
     logger.warn { "duplicate visitor records exist for #{email}" } if visitors.size > 1

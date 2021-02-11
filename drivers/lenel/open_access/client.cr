@@ -111,8 +111,8 @@ class Lenel::OpenAccess::Client
   ########
   # CRUD ops for system info
 
-  # Creates a new entry of *type*.
-  def add_instance(type type_name : T.class, **property_value_map : **U) : T forall T, U
+  # Creates a new istance of *entity*.
+  def add_instance(entity type_name : T.class, **property_value_map : **U) : T forall T, U
     Models.subset T, U
     (~transport.post(
       path: "/instances?version=1.0",
