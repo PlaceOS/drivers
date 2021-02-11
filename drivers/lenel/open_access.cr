@@ -105,14 +105,17 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.version
   end
 
-  # Find a visitor by email address.
+  @[Security(Level::Support)]
+  def badge_types
+    client.get_instances Lnl_BadgeType
+  end
+
   def lookup_visitor(email : String) : Lnl_Visitor?
     visitors = client.get_instances Lnl_Visitor, filter: %(email = "#{email}")
     logger.warn { "duplicate visitor records exist for #{email}" } if visitors.size > 1
     visitors.first?
   end
 
-  # Creates a new visitor record.
   @[Security(Level::Support)]
   def create_visitor(
     email : String,
@@ -130,18 +133,43 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.add_instance Lnl_Visitor, **args
   end
 
-  # Deletes a visitor record.
   @[Security(Level::Administrator)]
   def delete_visitor(id : Int32) : Nil
     logger.debug { "deleting visitor #{id}" }
     client.delete_instance Lnl_Visitor, id: id
   end
+
+
+  def lookup_card_holder(email : String) : Lnl_CardHolder?
+    cardholders = client.get_instances Lnl_CardHolder, filter: %(email = "#{email}")
+    logger.warn { "duplicate records exist for #{email}" } if cardholders.size > 1
+    cardholders.first?
+  end
+
+  @[Security(Level::Support)]
+  def create_card_holder(
+    email : String,
+    firstname : String,
+    lastname : String,
+  ) : Lnl_CardHolder
+    logger.debug { "creating cardholder record for #{email}" }
+
+    unless client.get_count(Lnl_CardHolder, filter: %(email = "#{email}")).zero?
+      raise ArgumentError.new "record already exists for #{email}"
+    end
+
+    client.add_instance Lnl_CardHolder, **args
+  end
+
+  @[Security(Level::Administrator)]
+  def delete_card_holder(id : Int32) : Nil
+    logger.debug { "deleting cardholder #{id}" }
+    client.delete_instance Lnl_CardHolder, id: id
+  end
 end
 
 
 ################################################################################
-#
-# FIXME
 #
 # Warning: nasty hacks below. These are intended as a _temporary_ measure to
 # modify the behaviour of the driver framework as a POC.

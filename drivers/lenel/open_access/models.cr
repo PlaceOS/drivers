@@ -78,6 +78,12 @@ module Lenel::OpenAccess::Models
     defaultaccessgroup : Int32,
     usemobilecredential : Bool
 
+  lnl CardHolder,
+    id : Int32,
+    firstname : String,
+    lastname : String,
+    email : String
+
   lnl Visitor,
     id : Int32,
     firstname : String,
