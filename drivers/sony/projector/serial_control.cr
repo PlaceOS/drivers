@@ -11,11 +11,8 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
   descriptive_name "Sony Projector (RS232 Control)"
   generic_name :Display
 
-  def on_load
-  end
-
   def connected
-    # schedule.every(60.seconds) { do_poll }
+    schedule.every(60.seconds) { do_poll }
   end
 
   def disconnected
@@ -80,6 +77,10 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     layer : MuteLayer = MuteLayer::AudioVideo
   )
     do_send(Type::Set, Command::Mute, Bytes[0, state ? 0 : 1])#, delay_on_receive: 500)
+  end
+
+  def mute?
+    do_send(Type::Get, Command::Mute, priority: 0)
   end
 
   METHODS = ["Contrast", "Brightness", "Color", "Hue", "Sharpness"]
@@ -167,20 +168,19 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
   def received(data, task)
     logger.debug { "sony proj sent: 0x#{data.hexstring}" }
 
-    cmd = data[0..1]
-    type = data[2]
-    resp = data[3..4]
+    cmd = data[1..2]
+    type = data[3]
+    resp = data[4..5]
 
     # Check if an ACK/NAK
     if type == 0x03
       if cmd == Bytes[0, 0]
         return task.try &.success
-      else # Command failed TODO
-        # logger.debug { "Command failed with 0x#{byte_to_hex(cmd[0])} - 0x#{byte_to_hex(cmd[1])}" }
-        return task.try &.abort
+      else # Command failed
+        return task.try &.abort("Command failed with 0x#{cmd.map(&.to_s(16, true)).join}")
       end
     else
-      case command = Command.from_bytes(data[0..1])
+      case command = Command.from_bytes(cmd)
       when .power_on?
         self[:power] = true
       when .power_off?
