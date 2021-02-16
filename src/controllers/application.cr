@@ -7,12 +7,8 @@ module PlaceOS::Drivers::Api
 
     # Support request tracking
     def set_request_id
-      request_id = UUID.random.to_s
-      Log.context.set(
-        client_ip: client_ip,
-        request_id: request_id
-      )
-      response.headers["X-Request-ID"] = request_id
+      Log.context.set(client_ip: client_ip)
+      response.headers["X-Request-ID"] = Log.context.metadata[:request_id].as_s
     end
 
     # Builds and validates the selected repository
