@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 3.5.2
+    version: 4.1.0
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -47,7 +47,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.5
+    version: 1.0.7
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -139,11 +139,11 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 4.1.3
+    version: 4.2.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 4.11.0
+    version: 4.12.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -183,7 +183,7 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 3.2.1
+    version: 3.2.2
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git
