@@ -39,6 +39,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
   end
 
   def on_update
+    schedule.clear
     @running_a_spec = !!setting(Bool, :running_a_spec)
 
     @username = setting(String, :username)
