@@ -168,6 +168,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       "X-Cisco-Meraki-API-Key" => @api_key,
       "Content-Type"           => "application/json",
       "Accept"                 => "application/json",
+      "User-Agent"             => "PlaceOS/2.0 PlaceTechnology",
     }
 
     uri = URI.parse(location)
