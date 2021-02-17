@@ -130,7 +130,7 @@ shards:
 
   responsible:
     git: https://github.com/place-labs/responsible.git
-    version: 1.2.0
+    version: 1.2.2
 
   rwlock:
     git: https://github.com/spider-gazelle/readers-writer.git
