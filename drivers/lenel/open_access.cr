@@ -31,6 +31,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
     schedule.every 5.minutes, &->check_comms
   end
 
+  def on_unload
+    client.logout
+  end
+
   def on_update
     logger.debug { "settings updated" }
     client.app_id = setting String, :application_id
@@ -55,7 +59,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     logger.debug { "requesting access token for #{username}" }
 
     begin
-      auth = client.add_authentication username, password, directory
+      auth = client.login username, password, directory
       client.token = auth[:session_token]
 
       renewal_time = auth[:token_expiration_time] - 5.minutes
@@ -75,7 +79,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   def check_comms
     logger.debug { "checking service connectivity" }
     if client.token
-      client.get_keepalive
+      client.keepalive
       logger.info { "client online and authenticated" }
     else
       client.version
@@ -90,7 +94,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   # Query the directories available for auth.
   @[Security(Level::Support)]
   def list_directories
-    client.get_directories
+    client.directories
   end
 
   # Perform an arbitrary get query.
@@ -107,7 +111,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def badge_types
-    client.get_instances Lnl_BadgeType
+    client.lookup Lnl_BadgeType
   end
 
   @[Security(Level::Administrator)]
@@ -119,17 +123,17 @@ class Lenel::OpenAccess < PlaceOS::Driver
     deactivate : Time? = nil
   ) : Lnl_Badge
     logger.debug { "creating badge badge for cardholder id #{personid}" }
-    client.add_instance Lnl_Badge, **args
+    client.create Lnl_Badge, **args
   end
 
   @[Security(Level::Administrator)]
   def delete_badge(id : Int32) : Nil
     logger.debug { "deleting badge #{id}" }
-    client.delete_instance Lnl_Badge, id: id
+    client.delete Lnl_Badge, id: id
   end
 
   def lookup_visitor(email : String) : Lnl_Visitor?
-    visitors = client.get_instances Lnl_Visitor, filter: %(email = "#{email}")
+    visitors = client.lookup Lnl_Visitor, filter: %(email = "#{email}")
     logger.warn { "duplicate visitor records exist for #{email}" } if visitors.size > 1
     visitors.first?
   end
@@ -144,22 +148,22 @@ class Lenel::OpenAccess < PlaceOS::Driver
   ) : Lnl_Visitor
     logger.debug { "creating visitor record for #{email}" }
 
-    unless client.get_count(Lnl_Visitor, filter: %(email = "#{email}")).zero?
+    unless client.count(Lnl_Visitor, filter: %(email = "#{email}")).zero?
       raise ArgumentError.new "visitor record already exists for #{email}"
     end
 
-    client.add_instance Lnl_Visitor, **args
+    client.create Lnl_Visitor, **args
   end
 
   @[Security(Level::Administrator)]
   def delete_visitor(id : Int32) : Nil
     logger.debug { "deleting visitor #{id}" }
-    client.delete_instance Lnl_Visitor, id: id
+    client.delete Lnl_Visitor, id: id
   end
 
 
   def lookup_card_holder(email : String) : Lnl_CardHolder?
-    cardholders = client.get_instances Lnl_CardHolder, filter: %(email = "#{email}")
+    cardholders = client.lookup Lnl_CardHolder, filter: %(email = "#{email}")
     logger.warn { "duplicate records exist for #{email}" } if cardholders.size > 1
     cardholders.first?
   end
@@ -172,17 +176,17 @@ class Lenel::OpenAccess < PlaceOS::Driver
   ) : Lnl_CardHolder
     logger.debug { "creating cardholder record for #{email}" }
 
-    unless client.get_count(Lnl_CardHolder, filter: %(email = "#{email}")).zero?
+    unless client.count(Lnl_CardHolder, filter: %(email = "#{email}")).zero?
       raise ArgumentError.new "record already exists for #{email}"
     end
 
-    client.add_instance Lnl_CardHolder, **args
+    client.create Lnl_CardHolder, **args
   end
 
   @[Security(Level::Administrator)]
   def delete_card_holder(id : Int32) : Nil
     logger.debug { "deleting cardholder #{id}" }
-    client.delete_instance Lnl_CardHolder, id: id
+    client.delete Lnl_CardHolder, id: id
   end
 end
 

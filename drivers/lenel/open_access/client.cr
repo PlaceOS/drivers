@@ -33,9 +33,6 @@ class Lenel::OpenAccess::Client
   end
 
 
-  #######
-  # Error handling
-
   Responsible.on_server_error do |response|
     raise OpenAccess::Error.from_response response
   end
@@ -44,9 +41,6 @@ class Lenel::OpenAccess::Client
     raise OpenAccess::Error.from_response response
   end
 
-
-  ########
-  # Systen metadata
 
   # Gets the version of the attached OnGuard system.
   def version
@@ -58,12 +52,8 @@ class Lenel::OpenAccess::Client
     )
   end
 
-
-  ########
-  # Auth
-
   # Enumerates the directories available for auth.
-  def get_directories
+  def directories
     (~transport.get(
       path: "/directories?version=1.0",
     ) >> NamedTuple(
@@ -79,7 +69,7 @@ class Lenel::OpenAccess::Client
   end
 
   # Creates a new auth session.
-  def add_authentication(
+  def login(
     username user_name : String,
     password : String,
     directory_id : String?,
@@ -94,25 +84,21 @@ class Lenel::OpenAccess::Client
   end
 
   # Removes an auth session.
-  def delete_authentication : Nil
+  def logout : Nil
     ~transport.delete(
       path: "/authentication?version=1.0",
     )
   end
 
   # Request a connection keepalive to prevent session timeout.
-  def get_keepalive : Nil
+  def keepalive : Nil
     ~transport.get(
       path: "/keepalive?version=1.0",
     )
   end
 
-
-  ########
-  # CRUD ops for system info
-
   # Creates a new istance of *entity*.
-  def add_instance(entity type_name : T.class, **property_value_map : **U) : T forall T, U
+  def create(entity type_name : T.class, **property_value_map : **U) : T forall T, U
     Models.subset T, U
     (~transport.post(
       path: "/instances?version=1.0",
@@ -124,8 +110,8 @@ class Lenel::OpenAccess::Client
   end
 
   # Creates *instance*.
-  def add_instance(instance : T) : T forall T
-    add_instance T, **instance.to_named_tuple
+  def create(instance : T) : T forall T
+    create T, **instance.to_named_tuple
   end
 
   # Retrieves instances of a particular *type*.
@@ -135,7 +121,7 @@ class Lenel::OpenAccess::Client
   # + exclusion `LastName != "Lake"`
   # + wildcards `LastName like "La%"`
   # + boolean operators `LastName = "Lake" OR FirstName = "Lisa"`
-  def get_instances(
+  def lookup(
     type type_name : T.class,
     filter : String? = nil,
     page_number : Int32? = nil,
@@ -161,7 +147,7 @@ class Lenel::OpenAccess::Client
   # Counts the number of instances of *type*.
   #
   # *filter* may optionally be used to specify a subset of these.
-  def get_count(type type_name : T.class, filter : String? = nil) forall T
+  def count(type type_name : T.class, filter : String? = nil) forall T
     params = HTTP::Params.encode args.merge type_name: T.name
     (~transport.get(
       path: "/count?version=1.0&#{params}"
@@ -172,7 +158,7 @@ class Lenel::OpenAccess::Client
 
   # Updates a record of *type*. Passed properties must include the types key and
   # any fields to update.
-  def modify_instance(type type_name : T.class, **property_value_map : **U) : T forall T, U
+  def update(type type_name : T.class, **property_value_map : **U) : T forall T, U
     Models.subset T, U
     (~transport.put(
       path: "/instances?version=1.0",
@@ -184,12 +170,12 @@ class Lenel::OpenAccess::Client
   end
 
   # Updates an entry to match the data in *instance*.
-  def modify_instance(instance : T) : T forall T
-    modify_instance T, **instance.to_named_tuple
+  def update(instance : T) : T forall T
+    update T, **instance.to_named_tuple
   end
 
   # Deletes an instance of *type*.
-  def delete_instance(type type_name : T.class, **property_value_map : **U) : Nil forall T, U
+  def delete(type type_name : T.class, **property_value_map : **U) : Nil forall T, U
     Models.subset T, U
     ~transport.delete(
       path: "/instances?version=1.0",
@@ -198,7 +184,7 @@ class Lenel::OpenAccess::Client
   end
 
   # Deletes *instance*.
-  def delete_instance(instance : T) : Nil forall T
-    delete_instance T, **instance.to_named_tuple
+  def delete(instance : T) : Nil forall T
+    delete T, **instance.to_named_tuple
   end
 end
