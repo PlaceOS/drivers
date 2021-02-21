@@ -1,114 +1,96 @@
 require "json"
 
-# Models used by the OpenAccess system.
+# DTO's for OpenAccess entities.
 #
-# NOTE: naming here must match that used by OpenAccess - struct names are passed
-# as meaningful information within API requests.
+# These are intentionally lightweight. In cases where a entity holds a
+# relationship to another, these are _not_ auto-resolved. Original ID references
+# are kept in place. Types here a simply a thin wrapper for JSON serialization.
 module Lenel::OpenAccess::Models
-  # Defines a new Lenel data type.
-  private macro lnl(name, *attrs)
-    record Lnl_{{name}}, {{*attrs}} do
-      include JSON::Serializable
+  # Base type for Lenel data objects.
+  abstract struct Element
+    include JSON::Serializable
 
-      # Name of the type as expected by the OpenAccess API endpoints.
-      def self.name
-        "Lnl_{{name}}"
-      end
+    # Name of the type as expected by the OpenAccess API endpoints.
+    def self.type_name
+      "Lnl_#{name.rpartition("::").last}"
+    end
 
-      # Allows the type to be used directly in building request bodies
-      def self.to_json(json : JSON::Builder)
-        json.string name
-      end
-
-      # Convert all fields of this record to a `NamedTuple`.
-      #
-      # This can be used to splat it's contents into arguments.
-      def to_named_tuple
-        {% verbatim do %}
-          {% if @type.instance_vars.empty? %}
-            NamedTuple.new
-          {% else %}
-            {
-              {% for property in @type.instance_vars.map &.name %}
-                {{property.id}}: {{property.id}},
-              {% end %}
-            }
-          {% end %}
+    # Override the default JSON::Serializable behaviour to make keys case
+    # inensitive when deserialising.
+    #
+    # The Lenel API 'features' multiple case conventions, with varying
+    # consistency. It appears to be non-case sensitive for requests sent to it,
+    # however as the parser here _is_ case sensitive this normalises all keys to
+    # their downcased attribute equivalents.
+    def initialize(*, __pull_for_json_serializable pull : ::JSON::PullParser)
+      {% begin %}
+        {% properties = {} of Nil => Nil %}
+        {% for ivar in @type.instance_vars %}
+          {% properties[ivar.id] = ivar.type %}
+          %var{ivar.id} = nil
         {% end %}
-      end
+
+        pull.read_begin_object
+        until pull.kind.end_object?
+          key = pull.read_object_key
+            case key.downcase
+            {% for name, type in properties %}
+              when {{name.stringify}}
+                %var{name} = ::Union({{type}}).new pull
+            {% end %}
+            else
+              pull.skip
+            end
+        end
+        pull.read_next
+
+        {% for name, type in properties %}
+          @{{name}} = %var{name}.as {{type}}
+        {% end %}
+      {% end %}
+    end
+
+    # Provide a compile-time check to ensure *properties* is a subset of *self*.
+    def self.partial(**properties : **T) : T forall T
+      {% for key in T.keys %}
+        {% raise %(no "#{key}" property on #{@type.name}) unless @type.has_method? key %}
+      {% end %}
+      properties
     end
   end
 
-  # Checks if *type* has an accessor for every key in *named_tuple*.
-  #
-  # This can be to provide type checks for methods with variadic args.
-  macro subset(type, named_tuple)
-    \{% for prop in {{named_tuple}}.keys.reject { |key| {{type}}.has_method? key} %}
-      \{{ raise "no property \"#{prop}\" in #{{{type}}}" }}
-    \{% end %}
+  abstract struct Person < Element
+    getter id : Int32
+    getter firstname : String
+    getter lastname : String
   end
 
-  lnl AccessGroup,
-    id : Int32,
-    segmentid : Int32,
-    name : String
-
-  lnl Badge,
-    badgekey : Int32,
-    activate : Time,
-    deactivate : Time,
-    id : Int64,
-    personid : Int32,
-    status : Int32,
-    type : Int32,
-    uselimit : Int32
-
-  enum BadgeTypeClass
-    Standard
-    Temporary
-    Visitor
-    Guest
-    SpecialPurpose
+  struct Badge < Element
+    getter badgekey : Int32
+    getter activate : Time
+    getter deactivate : Time
+    getter id : Int64
+    getter personid : Int32
+    getter status : Int32
+    getter type : Int32
+    getter uselimit : Int32
   end
 
-  lnl BadgeType,
-    id : Int32,
-    name : String,
-    badgetypeclass : BadgeTypeClass,
-    defaultaccessgroup : Int32,
-    usemobilecredential : Bool
+  struct BadgeType < Element
+    enum BadgeTypeClass
+      Standard
+      Temporary
+      Visitor
+      Guest
+      SpecialPurpose
+    end
+    getter id : Int32
+    getter name : String
+    getter badgetypeclass : BadgeTypeClass
+    getter usermobilecredential : Bool
+  end
 
-  lnl CardHolder,
-    id : Int32,
-    firstname : String,
-    lastname : String,
-    email : String
-
-  lnl Visitor,
-    id : Int32,
-    firstname : String,
-    lastname : String,
-    email : String,
-    organization : String,
-    title : String
-
-  lnl Visit,
-    id : Int32,
-    cardholderid : Int32,
-    delgatedid : Int32,
-    email_include_def_recipents : Bool,
-    email_include_host : Bool,
-    email_include_visitor : Bool,
-    email_list : String,
-    lastchanged : Time,
-    name : String,
-    scheduled_timein : Time,
-    scheduled_timeout : Time,
-    signinlocationid : Int32,
-    timein : Time,
-    timeout : Time,
-    type : Int32,
-    visit_eventid : Int32,
-    visit_key : String,
-    visitor_id : String
+  struct Cardholder < Person
+    getter email : String
+  end
 end

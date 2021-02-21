@@ -97,24 +97,21 @@ class Lenel::OpenAccess::Client
     )
   end
 
-  # Creates a new istance of *entity*.
-  def create(entity type_name : T.class, **property_value_map : **U) : T forall T, U
-    Models.subset T, U
+  # Creates a new instance of *entity*.
+  def create(entity : T.class, **props) : T forall T
     (~transport.post(
       path: "/instances?version=1.0",
-      body: args.to_json
+      body: {
+        type_name: T.type_name,
+        property_value_map: T.partial(**props)
+      }.to_json
     ) >> NamedTuple(
       type_name: String,
       property_value_map: T,
     ))[:property_value_map]
   end
 
-  # Creates *instance*.
-  def create(instance : T) : T forall T
-    create T, **instance.to_named_tuple
-  end
-
-  # Retrieves instances of a particular *type*.
+  # Retrieves instances of a particular *entity*.
   #
   # The search criteria specified in *filter* is a subset of SQL. This supports
   # operations such as as:
@@ -122,14 +119,14 @@ class Lenel::OpenAccess::Client
   # + wildcards `LastName like "La%"`
   # + boolean operators `LastName = "Lake" OR FirstName = "Lisa"`
   def lookup(
-    type type_name : T.class,
+    entity type_name : T.class,
     filter : String? = nil,
     page_number : Int32? = nil,
     page_size : Int32? = nil,
     order_by : String? = nil,
   ) : Array(T) forall T
     params = HTTP::Params.new
-    args.merge(type_name: T.name).each do |key, val|
+    args.merge(type_name: T.type_name).each do |key, val|
       params.add key.to_s, val unless val.nil?
     end
     (~transport.get(
@@ -144,11 +141,11 @@ class Lenel::OpenAccess::Client
     ))[:item_list].map { |item| item[:property_value_map] }
   end
 
-  # Counts the number of instances of *type*.
+  # Counts the number of instances of *entity*.
   #
   # *filter* may optionally be used to specify a subset of these.
-  def count(type type_name : T.class, filter : String? = nil) forall T
-    params = HTTP::Params.encode args.merge type_name: T.name
+  def count(entity type_name : T.class, filter : String? = nil) forall T
+    params = HTTP::Params.encode args.merge type_name: T.type_name
     (~transport.get(
       path: "/count?version=1.0&#{params}"
     ) >> NamedTuple(
@@ -156,35 +153,29 @@ class Lenel::OpenAccess::Client
     ))[:total_items]
   end
 
-  # Updates a record of *type*. Passed properties must include the types key and
+  # Updates a record of *entity*. Passed properties must include the types key and
   # any fields to update.
-  def update(type type_name : T.class, **property_value_map : **U) : T forall T, U
-    Models.subset T, U
+  def update(entity : T.class, **props) : T forall T
     (~transport.put(
       path: "/instances?version=1.0",
-      body: args.to_json
+      body: {
+        type_name: T.type_name,
+        property_value_map: T.partial(**props)
+      }.to_json
     ) >> NamedTuple(
       type_name: String,
       property_value_map: T,
     ))[:property_value_map]
   end
 
-  # Updates an entry to match the data in *instance*.
-  def update(instance : T) : T forall T
-    update T, **instance.to_named_tuple
-  end
-
-  # Deletes an instance of *type*.
-  def delete(type type_name : T.class, **property_value_map : **U) : Nil forall T, U
-    Models.subset T, U
+  # Deletes an instance of *entity*.
+  def delete(entity : T.class, **props) : Nil forall T
     ~transport.delete(
       path: "/instances?version=1.0",
-      body: args.to_json,
+      body: {
+        type_name: T.type_name,
+        property_value_map: T.partial(**props)
+      }.to_json
     )
-  end
-
-  # Deletes *instance*.
-  def delete(instance : T) : Nil forall T
-    delete T, **instance.to_named_tuple
   end
 end

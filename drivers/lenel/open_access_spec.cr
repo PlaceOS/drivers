@@ -68,87 +68,104 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
   end
 
 
-  # Visitor creation, search and destroy
+  # Cardholder CRUD
 
-  example_visitor = {
-    email: "foo@bar.com",
+  example_cardholder = {
+    email: "sales@vandelayindustries.com",
     firstname: "Kel",
     lastname: "Varnsen",
-    organization: "Vandelay Industries",
-    title: "Sales",
   }
 
-  created_visitor = exec(:create_visitor, **example_visitor)
+  created_cardholder = exec(:create_cardholder, **example_cardholder)
   expect_http_request do |req, res|
     req.method.should eq("GET")
     req.path.should eq("/count")
-    req.query_params["type_name"]?.should eq("Lnl_Visitor")
-    req.query_params["filter"]?.should eq(%(email = "foo@bar.com"))
+    req.query_params["type_name"]?.should eq("Lnl_Cardholder")
+    req.query_params["filter"]?.should eq(%(email = "sales@vandelayindustries.com"))
     respond_with 200, { total_items: 0 }
   end
   expect_http_request do |req, res|
     req.method.should eq("POST")
     req.path.should eq("/instances")
     body = JSON.parse req.body.not_nil!
-    body["type_name"]?.should eq("Lnl_Visitor")
+    body["type_name"]?.should eq("Lnl_Cardholder")
     body["property_value_map"]?.try do |prop|
-      prop["email"].should eq("foo@bar.com")
+      prop["email"].should eq("sales@vandelayindustries.com")
       prop["firstname"].should eq("Kel")
       prop["lastname"].should eq("Varnsen")
-      prop["organization"].should eq("Vandelay Industries")
     end
     respond_with 200, {
-      type_name: "Lnl_Visitor",
-      property_value_map: example_visitor.merge id: 1
+      type_name: "Lnl_Cardholder",
+      property_value_map: {
+        ID: 1,
+        EMAIL: "sales@vandelyindustries.com",
+        FIRSTNAME: "Kel",
+        LASTNAME: "Varnsen"
+      }
     }
   end
-  created_visitor = created_visitor.get.not_nil!
-  created_visitor["id"]?.should eq(1)
+  created_cardholder = created_cardholder.get.not_nil!
+  created_cardholder["id"]?.should eq(1)
 
-  queried_visitor = exec(:lookup_visitor, email: "foo@bar.com")
+  queried_cardholder = exec(:lookup_cardholder, email: "sales@vandelayindustries.com")
   expect_http_request do |req, res|
     req.method.should eq("GET")
     req.path.should eq("/instances")
-    req.query_params["type_name"]?.should eq("Lnl_Visitor")
-    req.query_params["filter"]?.should eq(%(email = "foo@bar.com"))
+    req.query_params["type_name"]?.should eq("Lnl_Cardholder")
+    req.query_params["filter"]?.should eq(%(email = "sales@vandelayindustries.com"))
     respond_with 200, {
       total_pages: 1,
       total_items: 1,
       count: 1,
       item_list: [{
-        type_name: "Lnl_Visitor",
-        property_value_map: example_visitor.merge id: 1
+        type_name: "Lnl_Cardholder",
+        property_value_map: {
+          ID: 1,
+          EMAIL: "sales@vandelyindustries.com",
+          FIRSTNAME: "Kel",
+          LASTNAME: "Varnsen"
+        }
       }]
     }
   end
-  queried_visitor = queried_visitor.get.not_nil!
-  queried_visitor["id"]?.should eq(1)
-  queried_visitor["firstname"]?.should eq("Kel")
+  queried_cardholder = queried_cardholder.get.not_nil!
+  queried_cardholder["id"]?.should eq(1)
+  queried_cardholder["firstname"]?.should eq("Kel")
 
-  exec(:delete_visitor, id: 1)
+  exec(:delete_cardholder, id: 1)
   expect_http_request do |req, res|
     req.method.should eq("DELETE")
     req.path.should eq("/instances")
     body = JSON.parse req.body.not_nil!
-    body["type_name"]?.should eq("Lnl_Visitor")
+    body["type_name"]?.should eq("Lnl_Cardholder")
     body.dig("property_value_map", "id").should eq(1)
     res.status_code = 200
   end
 
-  exec(:__raw_get, resource: "/instances?version=1.0&type_name=Lnl_Visitor&filter=email=\"foo@bar.com\"")
+  created_badge = exec(:create_badge, type: 1, personid: 1)
   expect_http_request do |req, res|
-    req.method.should eq("GET")
+    req.method.should eq("POST")
     req.path.should eq("/instances")
-    req.query_params["type_name"]?.should eq("Lnl_Visitor")
-    req.query_params["filter"]?.should eq(%(email="foo@bar.com"))
+    body = JSON.parse req.body.not_nil!
+    body["type_name"]?.should eq("Lnl_Badge")
+    body["property_value_map"]?.try do |prop|
+      prop["type"].should eq(1)
+      prop["personid"].should eq(1)
+    end
     respond_with 200, {
-      total_pages: 1,
-      total_items: 1,
-      count: 1,
-      item_list: [{
-        type_name: "Lnl_Visitor",
-        property_value_map: example_visitor.merge id: 1
-      }]
+      type_name: "Lnl_Badge",
+      property_value_map: {
+        BADGEKEY: 0,
+        ACTIVATE: Time.utc.to_rfc3339,
+        DEACTIVATE: 2.weeks.from_now.to_rfc3339,
+        ID: 1,
+        PERSONID: 1,
+        STATUS: 1,
+        TYPE: 1,
+        USELIMIT: 0
+      }
     }
   end
+  created_badge = created_badge.get.not_nil!
+  created_badge["id"]?.should eq(1)
 end

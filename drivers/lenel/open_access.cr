@@ -31,10 +31,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     schedule.every 5.minutes, &->check_comms
   end
 
-  def on_unload
-    client.logout
-  end
-
   def on_update
     logger.debug { "settings updated" }
     client.app_id = setting String, :application_id
@@ -105,13 +101,14 @@ class Lenel::OpenAccess < PlaceOS::Driver
   end
 
   # Gets the version of the attached OnGuard system.
+  @[Security(Level::Support)]
   def version
     client.version
   end
 
   @[Security(Level::Support)]
   def badge_types
-    client.lookup Lnl_BadgeType
+    client.lookup BadgeType
   end
 
   @[Security(Level::Administrator)]
@@ -121,72 +118,43 @@ class Lenel::OpenAccess < PlaceOS::Driver
     uselimit : Int32? = nil,
     activate : Time? = nil,
     deactivate : Time? = nil
-  ) : Lnl_Badge
-    logger.debug { "creating badge badge for cardholder id #{personid}" }
-    client.create Lnl_Badge, **args
+  )
+    logger.debug { "creating badge badge for cardholder #{personid}" }
+    client.create Badge, **args
   end
 
   @[Security(Level::Administrator)]
   def delete_badge(id : Int32) : Nil
     logger.debug { "deleting badge #{id}" }
-    client.delete Lnl_Badge, id: id
-  end
-
-  def lookup_visitor(email : String) : Lnl_Visitor?
-    visitors = client.lookup Lnl_Visitor, filter: %(email = "#{email}")
-    logger.warn { "duplicate visitor records exist for #{email}" } if visitors.size > 1
-    visitors.first?
+    client.delete Badge, **args
   end
 
   @[Security(Level::Support)]
-  def create_visitor(
-    email : String,
-    firstname : String,
-    lastname : String,
-    organization : String? = nil,
-    title : String? = nil,
-  ) : Lnl_Visitor
-    logger.debug { "creating visitor record for #{email}" }
-
-    unless client.count(Lnl_Visitor, filter: %(email = "#{email}")).zero?
-      raise ArgumentError.new "visitor record already exists for #{email}"
+  def lookup_cardholder(email : String)
+    cardholders = client.lookup Cardholder, filter: %(email = "#{email}")
+    if cardholders.size > 1
+      logger.warn { "duplicate records exist for #{email}" }
     end
-
-    client.create Lnl_Visitor, **args
-  end
-
-  @[Security(Level::Administrator)]
-  def delete_visitor(id : Int32) : Nil
-    logger.debug { "deleting visitor #{id}" }
-    client.delete Lnl_Visitor, id: id
-  end
-
-
-  def lookup_card_holder(email : String) : Lnl_CardHolder?
-    cardholders = client.lookup Lnl_CardHolder, filter: %(email = "#{email}")
-    logger.warn { "duplicate records exist for #{email}" } if cardholders.size > 1
     cardholders.first?
   end
 
   @[Security(Level::Support)]
-  def create_card_holder(
+  def create_cardholder(
     email : String,
     firstname : String,
     lastname : String,
-  ) : Lnl_CardHolder
+  )
     logger.debug { "creating cardholder record for #{email}" }
-
-    unless client.count(Lnl_CardHolder, filter: %(email = "#{email}")).zero?
+    unless client.count(Cardholder, filter: %(email = "#{email}")).zero?
       raise ArgumentError.new "record already exists for #{email}"
     end
-
-    client.create Lnl_CardHolder, **args
+    client.create Cardholder, **args
   end
 
   @[Security(Level::Administrator)]
-  def delete_card_holder(id : Int32) : Nil
+  def delete_cardholder(id : Int32) : Nil
     logger.debug { "deleting cardholder #{id}" }
-    client.delete Lnl_CardHolder, id: id
+    client.delete Cardholder, **args
   end
 end
 
