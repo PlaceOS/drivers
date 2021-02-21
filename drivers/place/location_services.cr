@@ -105,6 +105,13 @@ class Place::LocationServices < PlaceOS::Driver
 
     # username, macs, domain
     username, macs, domain = Tuple(String, Array(String), String?).from_json(body)
+    username = username.strip
+    macs = macs.compact_map do |mac|
+      mac = mac.strip.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
+      mac if mac.size == 12
+    end
+    return {HTTP::Status::NOT_ACCEPTABLE, {} of String => String, nil} if username.empty? || macs.empty?
+
     system.implementing(Interface::Locatable).mac_address_mappings(username, macs, domain)
 
     SUCCESS_RESPONSE
