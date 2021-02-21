@@ -99,6 +99,17 @@ class Place::LocationServices < PlaceOS::Driver
     SUCCESS_RESPONSE
   end
 
+  def mac_address_mappings(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "MAC mappings webhook received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body } if @debug_webhook
+
+    # username, macs, domain
+    username, macs, domain = Tuple(String, Array(String), String?).from_json(body)
+    system.implementing(Interface::Locatable).mac_address_mappings(username, macs, domain)
+
+    SUCCESS_RESPONSE
+  end
+
   @[Security(Level::Support)]
   def update_contacts_list
     if @emergency_contacts.empty?

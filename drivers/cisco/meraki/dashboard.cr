@@ -810,4 +810,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       end
     end
   end
+
+  @[Security(PlaceOS::Driver::Level::Administrator)]
+  def mac_address_mappings(username : String, macs : Array(String), domain : String = "")
+    username = format_username(username)
+    user_mac_mappings do |storage|
+      macs.each { |mac| map_user_mac(format_mac(mac), username, storage) }
+    end
+  end
 end
