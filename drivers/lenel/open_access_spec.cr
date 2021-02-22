@@ -98,14 +98,11 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
       type_name: "Lnl_Cardholder",
       property_value_map: {
         ID: 1,
-        EMAIL: "sales@vandelyindustries.com",
-        FIRSTNAME: "Kel",
-        LASTNAME: "Varnsen"
       }
     }
   end
   created_cardholder = created_cardholder.get.not_nil!
-  created_cardholder["id"]?.should eq(1)
+  created_cardholder["ID"]?.should eq(1)
 
   queried_cardholder = exec(:lookup_cardholder, email: "sales@vandelayindustries.com")
   expect_http_request do |req, res|
@@ -167,5 +164,5 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     }
   end
   created_badge = created_badge.get.not_nil!
-  created_badge["id"]?.should eq(1)
+  created_badge["ID"]?.should eq(1)
 end

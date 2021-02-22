@@ -6,6 +6,8 @@ require "json"
 # relationship to another, these are _not_ auto-resolved. Original ID references
 # are kept in place. Types here a simply a thin wrapper for JSON serialization.
 module Lenel::OpenAccess::Models
+  PROPERTIES_KEY = "property_value_map"
+
   # Base type for Lenel data objects.
   abstract struct Element
     include JSON::Serializable
@@ -31,7 +33,7 @@ module Lenel::OpenAccess::Models
         {% end %}
 
         # All entities come wrapeed inside a standard key...
-        pull.on_key! "property_value_map" do
+        pull.on_key! PROPERTIES_KEY do
 
           pull.read_begin_object
           until pull.kind.end_object?

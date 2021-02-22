@@ -98,14 +98,14 @@ class Lenel::OpenAccess::Client
   end
 
   # Creates a new instance of *entity*.
-  def create(entity : T.class, **props) : T forall T
-    ~transport.post(
+  def create(entity : T.class, **props) forall T
+    (~transport.post(
       path: "/instances?version=1.0",
       body: {
         type_name: T.type_name,
         property_value_map: T.partial(**props)
       }.to_json
-    ) >> T
+    ) >> JSON::Any)[Models::PROPERTIES_KEY]
   end
 
   # Retrieves instances of a particular *entity*.
