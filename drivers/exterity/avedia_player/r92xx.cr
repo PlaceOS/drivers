@@ -28,16 +28,17 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
 
   def connected
     @ready = false
+    self[:ready] = false
 
     # login
-    do_send setting(String, :username), wait: false, delay: 200.seconds, priority: 98
-    do_send setting(String, :password), wait: false, delay: 200.seconds, priority: 97
+    do_send setting(String, :username), wait: false, delay: 2.seconds, priority: 98
+    do_send setting(String, :password), wait: false, delay: 2.seconds, priority: 97
 
     # select open shell option
-    do_send "6", wait: false, delay: 200.seconds, priority: 96
+    do_send "6", wait: false, delay: 2.seconds, priority: 96
 
     # launch command processor
-    do_send "/usr/bin/serialCommandInterface", wait: false, delay: 200.seconds, priority: 95
+    do_send "/usr/bin/serialCommandInterface", wait: false, delay: 2.seconds, priority: 95
 
     # we need to disconnect if we don't see the serialCommandInterface after a certain amount of time
     schedule.in(5.seconds) do
@@ -105,7 +106,7 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
       # Detect if logged out of serialCommandInterface
       if data =~ /sh: .* not found/i
         # Launch command processor
-        do_send "/usr/bin/serialCommandInterface", wait: false, delay: 200.seconds, priority: 95
+        do_send "/usr/bin/serialCommandInterface", wait: false, delay: 2.seconds, priority: 95
         return :failure
       end
 
@@ -121,10 +122,13 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
       end
     elsif data =~ /Exterity Control Interface| Exit/i
       @ready = true
+      self[:ready] = true
       version
+    else
+      logger.debug { "How'd we get here?  #{data}" }
     end
 
-    :success
+    task.try &.success
   end
 
   protected def process_resp(data, task)
