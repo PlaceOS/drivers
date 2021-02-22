@@ -87,7 +87,7 @@ module Lenel::OpenAccess::Models
     getter id : Int32
     getter name : String
     getter badgetypeclass : BadgeTypeClass
-    getter usermobilecredential : Bool
+    getter usemobilecredential : Bool
   end
 
   struct Cardholder < Person
