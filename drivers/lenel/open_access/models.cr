@@ -30,9 +30,12 @@ module Lenel::OpenAccess::Models
           %var{ivar.id} = nil
         {% end %}
 
-        pull.read_begin_object
-        until pull.kind.end_object?
-          key = pull.read_object_key
+        # All entities come wrapeed inside a standard key...
+        pull.on_key! "property_value_map" do
+
+          pull.read_begin_object
+          until pull.kind.end_object?
+            key = pull.read_object_key
             case key.downcase
             {% for name, type in properties %}
               when {{name.stringify}}
@@ -41,8 +44,10 @@ module Lenel::OpenAccess::Models
             else
               pull.skip
             end
+          end
+          pull.read_next
+
         end
-        pull.read_next
 
         {% for name, type in properties %}
           @{{name}} = %var{name}.as {{type}}

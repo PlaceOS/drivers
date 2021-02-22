@@ -117,8 +117,8 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
       total_pages: 1,
       total_items: 1,
       count: 1,
+      type_name: "Lnl_Cardholder",
       item_list: [{
-        type_name: "Lnl_Cardholder",
         property_value_map: {
           ID: 1,
           EMAIL: "sales@vandelyindustries.com",

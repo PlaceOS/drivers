@@ -99,16 +99,13 @@ class Lenel::OpenAccess::Client
 
   # Creates a new instance of *entity*.
   def create(entity : T.class, **props) : T forall T
-    (~transport.post(
+    ~transport.post(
       path: "/instances?version=1.0",
       body: {
         type_name: T.type_name,
         property_value_map: T.partial(**props)
       }.to_json
-    ) >> NamedTuple(
-      type_name: String,
-      property_value_map: T,
-    ))[:property_value_map]
+    ) >> T
   end
 
   # Retrieves instances of a particular *entity*.
@@ -137,8 +134,8 @@ class Lenel::OpenAccess::Client
       total_pages: Int32,
       total_items: Int32,
       count: Int32,
-      item_list: Array(NamedTuple(type_name: String, property_value_map: T)),
-    ))[:item_list].map { |item| item[:property_value_map] }
+      item_list: Array(T),
+    ))[:item_list]
   end
 
   # Counts the number of instances of *entity*.
@@ -156,16 +153,13 @@ class Lenel::OpenAccess::Client
   # Updates a record of *entity*. Passed properties must include the types key and
   # any fields to update.
   def update(entity : T.class, **props) : T forall T
-    (~transport.put(
+    ~transport.put(
       path: "/instances?version=1.0",
       body: {
         type_name: T.type_name,
         property_value_map: T.partial(**props)
       }.to_json
-    ) >> NamedTuple(
-      type_name: String,
-      property_value_map: T,
-    ))[:property_value_map]
+    ) >> T
   end
 
   # Deletes an instance of *entity*.
