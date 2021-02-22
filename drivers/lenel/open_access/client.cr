@@ -27,12 +27,6 @@ class Lenel::OpenAccess::Client
   end
 
 
-  # FIXME: temp for debugging
-  def __raw_get(resource : String)
-    ~transport.get(path: resource)
-  end
-
-
   Responsible.on_server_error do |response|
     raise OpenAccess::Error.from_response response
   end
