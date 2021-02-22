@@ -101,8 +101,8 @@ class Gantner::Relaxx::ProtocolJSON < PlaceOS::Driver
     decrypted = String.new(decrypted_data.to_slice, "UTF-16LE")
 
     send_frame({
-      Caption:              "AuthenticationRequestB",
-      Id:                   new_request_id,
+      Caption: "AuthenticationRequestB",
+      Id:      new_request_id,
 
       # Locker system expects an integer here
       AuthenticationString: decrypted.to_i,

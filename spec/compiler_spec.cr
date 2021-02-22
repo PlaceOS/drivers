@@ -5,7 +5,7 @@ module PlaceOS::Drivers
   describe Compiler do
     with_server do
       it "should compile a private driver using the build API" do
-        PlaceOS::Drivers::Compiler.clone_and_install("private_drivers", "https://github.com/placeos/private-drivers.git")
+        PlaceOS::Compiler.clone_and_install("private_drivers", "https://github.com/placeos/private-drivers.git")
         File.file?(File.expand_path("./repositories/private_drivers/drivers/place/private_helper.cr")).should be_true
 
         result = curl("POST", "/build?repository=private_drivers&driver=drivers/place/private_helper.cr")

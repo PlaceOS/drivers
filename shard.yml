@@ -1,6 +1,5 @@
 name: drivers
-version: 2.0.2
-crystal: 0.35.1
+version: 2.2.0
 
 # compile target
 targets:
@@ -10,34 +9,51 @@ targets:
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
-    version: ~> 3.1
 
-  placeos-driver:
-    github: placeos/driver
-    version: ~> 3.0
-
-  placeos-compiler:
-    github: placeos/compiler
-    version: ~> 2.0
+  email:
+    github: arcage/crystal-email
 
   exec_from:
     github: place-labs/exec_from
 
-  rwlock:
-    github: spider-gazelle/readers-writer
-
   jwt:
     github: crystal-community/jwt
+
+  pinger:
+    github: spider-gazelle/pinger
+
+  ntlm:
+    github: spider-gazelle/ntlm
+
+  link-header:
+    github: spider-gazelle/link-header
+
+  place_calendar:
+    github: PlaceOS/calendar
+
+  placeos-compiler:
+    github: placeos/compiler
+    version: ~> 3.3
+
+  placeos-driver:
+    github: placeos/driver
+    version: ~> 4.0
+
+  # The PlaceOS API client
+  placeos:
+    github: placeos/crystal-client
+    version: ~> 2.2
+
+  rwlock:
+    github: spider-gazelle/readers-writer
 
   # Driver deps:
   telnet:
     github: spider-gazelle/telnet.cr
 
-  place_calendar:
-    github: PlaceOS/calendar
-
-  pinger:
-    github: spider-gazelle/pinger
+  pars:
+    github: place-labs/pars
+    branch: master
 
   responsible:
     github: place-labs/responsible
@@ -45,3 +61,14 @@ dependencies:
 
   inactive-support:
     github: spider-gazelle/inactive-support
+
+  # For lat lon location indexing
+  s2_cells:
+    github: spider-gazelle/s2_cells
+
+  qr-code:
+    github: spider-gazelle/qr-code
+
+  # For QR .png file export
+  stumpy_png:
+    github: stumpycr/stumpy_png
