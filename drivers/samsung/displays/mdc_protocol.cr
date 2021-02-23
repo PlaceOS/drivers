@@ -27,7 +27,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     MagicInfo   = 0x20
     Whiteboard  = 0x64
   end
-  include PlaceOS::Driver::Interface::InputSelection(Input)
+
+  include Interface::InputSelection(Input)
 
   # Discovery Information
   tcp_port 1515
