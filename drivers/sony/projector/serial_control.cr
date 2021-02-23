@@ -2,7 +2,6 @@ require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 
 # Documentation: https://aca.im/driver_docs/Sony/Sony_Q004_R1_protocol.pdf
-# also https://aca.im/driver_docs/Sony/TCP_CMDs.pdf
 
 class Sony::Projector::SerialControl < PlaceOS::Driver
   include Interface::Powerable
@@ -23,11 +22,11 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     if state
       # Need to send twice in case of deep sleep
       logger.debug { "requested to power on" }
-      do_send(Type::Set, Command::PowerOn, name: :power, wait: false)
-      do_send(Type::Set, Command::PowerOn, name: :power, delay: 3.seconds, wait: false)
+      do_send(Type::Set, Command::PowerOn, name: :power)#, wait: false)
+      do_send(Type::Set, Command::PowerOn, name: :power, delay: 3.seconds)#, wait: false)
     else
       logger.debug { "requested to power off" }
-      do_send(Type::Set, Command::PowerOff, name: :power, delay: 3.seconds, wait: false)
+      do_send(Type::Set, Command::PowerOff, name: :power, delay: 3.seconds)#, wait: false)
     end
     # Request status update
     power?(priority: 50)
@@ -76,7 +75,8 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    do_send(Type::Set, Command::Mute, Bytes[0, state ? 0 : 1])#, delay_on_receive: 500)
+    do_send(Type::Set, Command::Mute, Bytes[0, state ? 1 : 0])#, delay_on_receive: 500)
+    mute?
   end
 
   def mute?
@@ -172,6 +172,9 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     type = data[3]
     resp = data[4..5]
 
+    checksum = data[1..5].reduce { |a, b| a |= b }
+    return task.try &.abort("Checksum should be 0x#{checksum.to_s(16, true)}") unless data[6] == checksum
+
     # Check if an ACK/NAK
     if type == 0x03
       if cmd == Bytes[0, 0]
@@ -185,9 +188,9 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
         self[:power] = true
       when .power_off?
         self[:power] = false
-      when .lamp_timer? # TODO
+      when .lamp_timer?
         # Two bytes converted to a 16bit integer
-        # self[:lamp_usage] = array_to_str(data[-2..-1]).unpack('n')[0]
+        self[:lamp_usage] = (resp[-2].to_u16 << 8) + resp[-1]
       when .power_status?
         case resp[-1]
         when 0, 8
