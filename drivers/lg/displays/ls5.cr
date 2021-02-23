@@ -15,7 +15,8 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     DisplayPort    = 0xD0
     DisplayPortDtv = 0xC0
   end
-  include PlaceOS::Driver::Interface::InputSelection(Input)
+
+  include Interface::InputSelection(Input)
 
   # Discovery Information
   tcp_port 9761
@@ -119,20 +120,15 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    mute_video(state) if layer.video? || layer.audio_video?
-    mute_audio(state) if layer.audio? || layer.audio_video?
-  end
+    if layer.video? || layer.audio_video?
+      do_send(Command::ScreenMute, state ? 1 : 0, name: "mute_video")
+    end
 
-  def mute_video(state : Bool = true)
-    state = state ? 1 : 0
-    do_send(Command::ScreenMute, state, name: "mute_video")
-  end
+    if (layer.audio? || layer.audio_video?) && (self[:audio_mute]?.try &.as_bool) != state
+      do_send(Command::VolumeMute, state ? 0 : 1, name: "mute_audio")
+    end
 
-  def mute_audio(state : Bool = true)
-    # Do nothing if already in desired state
-    return if (self[:audio_mute]?.try &.as_bool) == state
-    state = state ? 0 : 1
-    do_send(Command::VolumeMute, state, name: "mute_audio")
+    state
   end
 
   enum Ratio
