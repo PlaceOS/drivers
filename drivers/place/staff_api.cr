@@ -112,6 +112,26 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # Guest details
+  # ===================================
+  @[Security(Level::Support)]
+  def guest_details(guest_id : String)
+    response = get("/api/staff/v1/guests/#{guest_id}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  # ===================================
   # ZONE METADATA
   # ===================================
   def metadata(id : String, key : String? = nil)
@@ -127,6 +147,20 @@ class Place::StaffAPI < PlaceOS::Driver
   # ===================================
   def zone(zone_id : String)
     placeos_client.zones.fetch zone_id
+  end
+
+  def zones(q : String? = nil,
+            limit : Int32 = 1000,
+            offset : Int32 = 0,
+            parent : String? = nil,
+            tags : Array(String) | String? = nil)
+    placeos_client.zones.search(
+      q: q,
+      limit: limit,
+      offset: offset,
+      parent: parent,
+      tags: tags
+    )
   end
 
   # ===================================
