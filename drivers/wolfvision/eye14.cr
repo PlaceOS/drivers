@@ -1,7 +1,14 @@
+require "tokenizer"
+
 module Wolfvision; end
 
 # Documentation: https://www.wolfvision.com/wolf/protocol_command_wolfvision/protocol/commands_eye-14.pdf
 # Ruby version: https://github.com/acaprojects/ruby-engine-drivers/tree/beta/modules/wolfvision
+
+enum Power
+  On
+  Off
+end
 
 class Wolfvision::Eye14 < PlaceOS::Driver
   # TODO: Implement PlaceOS::Driver::Interface::Zoomable
@@ -14,10 +21,16 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   generic_name :Camera
 
   # Communication settings
-  tokenize indicator: /\x00|\x01|/, callback: :check_length
-  delay between_sends: 150
+  # private getter tokenizer : Tokenizer = Tokenizer.new(Bytes[0x00, 0x01])
+
+  # tokenize indicator: /\x00|\x01|/, callback: :check_length
+  # delay between_sends: 150
 
   def on_load
+    queue.delay = 150.milliseconds
+    # transport.tokenizer = Tokenizer.new("\r\n")
+    transport.tokenizer = Tokenizer.new(/\x00|\x01|/)
+
     self[:zoom_max] = 3923
     self[:iris_max] = 4094
     self[:zoom_min] = self[:iris_min] = 0
@@ -31,14 +44,13 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   end
 
   def connected
-    schedule.every("60s") do
-      logger.debug "-- Polling Sony Camera"
-      power? do
-        if self[:power] == On
-          zoom?
-          iris?
-          autofocus?
-        end
+    schedule.every(60.seconds) do
+      logger.debug { "-- Polling Sony Camera" }
+
+      if power? && self[:power] == Power::On
+        zoom?
+        iris?
+        autofocus?
       end
     end
   end
@@ -48,21 +60,21 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     schedule.clear
   end
 
-  def power(state)
+  def power(state : Power = Power::Off)
     target = is_affirmative?(state)
     self[:power_target] = target
 
     # Execute command
     logger.debug { "Target = #{target} and self[:power] = #{self[:power]}" }
-    if target == On && self[:power] != On
+    if target == Power::On && self[:power] != Power::On
       send_cmd("\x30\x01\x01", name: :power_cmd)
-    elsif target == Off && self[:power] != Off
+    elsif target == Power::Off && self[:power] != Power::Off
       send_cmd("\x30\x01\x00", name: :power_cmd)
     end
   end
 
   # uses only optical zoom
-  def zoom(position)
+  def zoom(position : String = "")
     val = in_range(position, self[:zoom_max], self[:zoom_min])
     self[:zoom_target] = val
     val = sprintf("%04X", val)
@@ -83,7 +95,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     send_inq("\x31\x00", priority: 0, name: :autofocus_inq)
   end
 
-  def iris(position)
+  def iris(position : String = "")
     val = in_range(position, self[:iris_max], self[:iris_min])
     self[:iris_target] = val
     val = sprintf("%04X", val)
@@ -97,21 +109,22 @@ class Wolfvision::Eye14 < PlaceOS::Driver
 
   def power?
     send_inq("\x30\x00", priority: 0, name: :power_inq)
+    !!self[:power]?.try(&.as_bool)
   end
 
-  def send_cmd(cmd, options = Hash.new)
+  def send_cmd(cmd : String = "", **options)
     req = "\x01#{cmd}"
     logger.debug { "tell -- 0x#{byte_to_hex(req)} -- #{options[:name]}" }
-    send(req, options)
+    transport.send(req, options)
   end
 
-  def send_inq(inq, options = Hash.new)
+  def send_inq(inq : String = "", **options)
     req = "\x00#{inq}"
     logger.debug { "ask -- 0x#{byte_to_hex(req)} -- #{options[:name]}" }
-    send(req, options)
+    transport.send(req, options)
   end
 
-  def received(data, deferrable, command)
+  def received(data : String = "", command : String = "")
     logger.debug { "Received 0x#{byte_to_hex(data)}\n" }
 
     bytes = str_to_array(data)
@@ -151,7 +164,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     end
   end
 
-  def check_length(byte_str : String)
+  def check_length(byte_str : String = "")
     # response = str_to_array(byte_str)
     response = byte_str.to_a
 
@@ -164,5 +177,17 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     else
       return false
     end
+  end
+
+  def byte_to_hex(data : String = "")
+    # data.split(//)
+    data.hexbytes
+    # output = ""
+    # data.each_byte { |c|
+    #     s = c.as(String).to_s(16)
+    #     s.prepend('0') if s.length % 2 > 0
+    #     output << s
+    # }
+    # return output
   end
 end
