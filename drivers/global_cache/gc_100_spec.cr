@@ -7,13 +7,16 @@ DriverSpecs.mock_driver "GlobalCache::Gc100" do
   responds("device,3,1 IR\r")
   responds("endlistdevices\r")
   should_send("get_NET,0:1\r")
+
+  sleep 1
+
   status[:relay_config].should eq({
-    "relay" => {"0" => "2:1", "1" => "2:2", "2" => "2:3"},
+    "relay"       => {"0" => "2:1", "1" => "2:2", "2" => "2:3"},
     "relaysensor" => {"0" => "1:1", "1" => "1:2", "2" => "1:3", "3" => "1:4"},
-    "ir" => {"0" => "3:1"}
+    "ir"          => {"0" => "3:1"},
   })
   status[:port_config].should eq({
-    "2:1" => ["relay", 0], "2:2" => ["relay", 1], "2:3" => ["relay", 2], "1:1" => ["relaysensor", 0], "1:2" => ["relaysensor", 1], "3:1" => ["ir", 0]
+    "2:1" => ["relay", 0], "2:2" => ["relay", 1], "2:3" => ["relay", 2], "1:1" => ["relaysensor", 0], "1:2" => ["relaysensor", 1], "3:1" => ["ir", 0],
   })
 
   exec(:relay, 1, true)

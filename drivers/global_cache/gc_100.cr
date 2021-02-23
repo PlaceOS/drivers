@@ -60,6 +60,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     SENSOR_NOTIFY
     IR_NOCARRIER
   end
+
   def set_ir(index : Int32, mode : IrMode, **options)
     if index < self[:num_ir].as_i
       connector = self[:relay_config]["ir"][index.to_s]
