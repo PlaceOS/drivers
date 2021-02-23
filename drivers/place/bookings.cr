@@ -7,7 +7,7 @@ class Place::Bookings < PlaceOS::Driver
   generic_name :Bookings
 
   default_settings({
-    calendar_id:            "defaults@system.email",
+    calendar_id:            nil,
     calendar_time_zone:     "Australia/Sydney",
     book_now_default_title: "Ad Hoc booking",
     disable_book_now:       false,
@@ -109,14 +109,26 @@ class Place::Bookings < PlaceOS::Driver
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
     title ||= @default_title
     starting = Time.utc.to_unix
-    ending = period_in_seconds.seconds.from_now.to_unix
+    ending = starting + period_in_seconds
 
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
-    calendar.create_event(title, starting, ending, [{
-      name:  @calendar_id,
-      email: @calendar_id,
-    }], [] of PlaceCalendar::Event::Attendee, @time_zone.name, owner, owner)
+    host_calendar = owner.presence || @calendar_id
+    room_email = system.email.not_nil!
+    room_is_organizer = host_calendar == room_email
+    event = calendar.create_event(
+      title,
+      starting,
+      ending,
+      "",
+      [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer)],
+      @time_zone.name,
+      nil,
+      host_calendar
+    )
+    # Update booking info after creating event
+    poll_events
+    event
   end
 
   def poll_events : Nil
