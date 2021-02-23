@@ -19,7 +19,8 @@ class Nec::Projector < PlaceOS::Driver
     LAN         = 0x20
     Viewer      = 0x1F
   end
-  include PlaceOS::Driver::Interface::InputSelection(Input)
+
+  include Interface::InputSelection(Input)
 
   # Discovery Information
   tcp_port 7142
@@ -115,21 +116,18 @@ class Nec::Projector < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    mute_video(state) if layer.video? || layer.audio_video?
-    mute_audio(state) if layer.audio? || layer.audio_video?
-  end
-
-  def mute_video(state : Bool)
-    if state
-      mute_picture
-      mute_onscreen
-    else
-      unmute_picture
+    if layer.video? || layer.audio_video?
+      if state
+        mute_picture
+        mute_onscreen
+      else
+        unmute_picture
+      end
     end
-  end
 
-  def mute_audio(state : Bool)
-    state ? mute_audio_cmd : unmute_audio_cmd
+    if layer.audio? || layer.audio_video?
+      state ? mute_audio_cmd : unmute_audio_cmd
+    end
   end
 
   def switch_to(input : Input)
@@ -166,7 +164,6 @@ class Nec::Projector < PlaceOS::Driver
         delay: 30.seconds,
         clear_queue: true,
         priority: 100,
-        # TODO delay_on_receive: 200 # give it a little bit of breathing room
       )
     end
   end
@@ -310,7 +307,7 @@ class Nec::Projector < PlaceOS::Driver
       end
 
       schedule.in(3.seconds) { power? }
-    # Signal processing
+      # Signal processing
     elsif (data[-2] & 0b1000000) > 0
       schedule.in(3.seconds) { power? }
     else # We are in a stable state!
@@ -410,9 +407,9 @@ class Nec::Projector < PlaceOS::Driver
 
   # Provide all the error info required
   ERROR_CODES = [{
-           0b1 => "Lamp cover error",
-          0b10 => "Temperature error (Bimetal)",
-       # 0b100 => not used
+     0b1 => "Lamp cover error",
+    0b10 => "Temperature error (Bimetal)",
+    # 0b100 => not used
         0b1000 => "Fan Error",
        0b10000 => "Fan Error",
       0b100000 => "Power Error",
@@ -423,7 +420,7 @@ class Nec::Projector < PlaceOS::Driver
      0b10 => "Formatter error",
     0b100 => "Lamp no.2 Error",
   }, {
-         # 0b1 => "not used"
+    # 0b1 => "not used"
           0b10 => "FPGA error",
          0b100 => "Temperature error (Sensor)",
         0b1000 => "Lamp housing error",
