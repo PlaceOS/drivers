@@ -10,7 +10,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     HDMI    = 0x30
     HDBaseT = 0x80
   end
-  include PlaceOS::Driver::Interface::InputSelection(Input)
+
+  include Interface::InputSelection(Input)
 
   # Discovery Information
   tcp_port 3629
@@ -58,7 +59,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     logger.debug { "-- epson Proj, requested to switch to: #{input}" }
     do_send(:input, input.value.to_s(16), name: :input)
 
-     # for a responsive UI
+    # for a responsive UI
     self[:input] = input # for a responsive UI
     self[:video_mute] = false
     input?
@@ -75,7 +76,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     @unmute_volume = self[:volume].as_i if (mute = vol == 0) && self[:volume]?
     do_send(:volume, vol, **options, name: :volume)
 
-     # for a responsive UI
+    # for a responsive UI
     self[:volume] = vol
     self[:audio_mute] = mute
     volume?
@@ -96,20 +97,12 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       do_send(:av_mute, state ? "ON" : "OFF", name: :mute)
       do_send(:av_mute, name: :mute?, priority: 0)
     when .video?
-      mute_video(state)
+      do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute)
+      video_mute?
     when .audio?
-      mute_audio(state)
+      val = state ? 0 : @unmute_volume.not_nil!
+      volume(val)
     end
-  end
-
-  def mute_video(state : Bool)
-    do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute)
-    video_mute?
-  end
-
-  def mute_audio(state : Bool)
-    val = state ? 0 : @unmute_volume.not_nil!
-    volume(val)
   end
 
   def video_mute?
@@ -138,7 +131,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     "13: power supply unit error",
     "14: exhaust shutter error",
     "15: obstacle detection error",
-    "16: IF board discernment error"
+    "16: IF board discernment error",
   ]
 
   def inspect_error
@@ -146,13 +139,13 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   COMMAND = {
-    power: "PWR",
-    input: "SOURCE",
-    volume: "VOL",
-    av_mute: "MUTE",
+    power:      "PWR",
+    input:      "SOURCE",
+    volume:     "VOL",
+    av_mute:    "MUTE",
     video_mute: "MSEL",
-    error: "ERR",
-    lamp: "LAMP"
+    error:      "ERR",
+    lamp:       "LAMP",
   }
   RESPONSE = COMMAND.to_h.invert
 
