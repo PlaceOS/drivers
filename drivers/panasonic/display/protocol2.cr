@@ -23,13 +23,19 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     VGA
     DVI
   end
-  include PlaceOS::Driver::Interface::InputSelection(Inputs)
+
+  include Interface::InputSelection(Inputs)
 
   # Discovery Information
   tcp_port 1024
   descriptive_name "Panasonic Display Protocol 2"
   generic_name :Display
-  default_settings({username: "admin1", password: "panasonic"})
+
+  default_settings({
+    username: "admin1",
+    password: "panasonic",
+  })
+
   makebreak!
 
   def on_load
@@ -64,7 +70,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     input:        "IMS",
     volume:       "AVL",
     volume_query: "QAV",
-    audio_mute:   "AMT"
+    audio_mute:   "AMT",
   }
   RESPONSES = COMMANDS.to_h.invert
 
@@ -90,7 +96,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     Inputs::HDMI  => "HM1",
     Inputs::HDMI2 => "HM2",
     Inputs::VGA   => "PC1",
-    Inputs::DVI   => "DVI"
+    Inputs::DVI   => "DVI",
   }
   INPUT_LOOKUP = INPUTS.invert
 
@@ -111,9 +117,12 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    logger.debug { "requested mute state: #{state}" }
-    actual = state ? 1 : 0
-    do_send(:audio_mute, actual)
+    if layer == MuteLayer::Video
+      logger.warn { "requested to mute video which is unsupported" }
+    else
+      logger.debug { "requested audio mute state: #{state}" }
+      do_send(:audio_mute, state ? 1 : 0)
+    end
   end
 
   def mute? : Bool
