@@ -23,7 +23,8 @@ class Sharp::PnSeries < PlaceOS::Driver
       "INPS" + self.value.to_s.rjust(4, '0')
     end
   end
-  include PlaceOS::Driver::Interface::InputSelection(Input)
+
+  include Interface::InputSelection(Input)
 
   tcp_port 10008
   descriptive_name "Sharp Monitor"
@@ -152,9 +153,13 @@ class Sharp::PnSeries < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    logger.debug { "-- Sharp LCD, requested to mute #{state}" }
-    do_send("MUTE   #{state ? '1' : '0'}")
-    mute_status(50) # High priority mute status
+    if layer == MuteLayer::Video
+      logger.warn { "Sharp LCD requested to mute video which is unsupported" }
+    else
+      logger.debug { "Sharp LCD, requested to mute #{state}" }
+      do_send("MUTE   #{state ? '1' : '0'}")
+      mute_status(50) # High priority mute status
+    end
   end
 
   OPERATION_CODE = {
@@ -192,9 +197,9 @@ class Sharp::PnSeries < PlaceOS::Driver
   end
 
   private def send_credentials
-    do_send(setting?(String?, :username) || "", priority: 100, delay: 500.milliseconds)# , wait: false)
+    do_send(setting?(String?, :username) || "", priority: 100, delay: 500.milliseconds) # , wait: false)
     # TODO: figure out equivalent in crystal for delay_on_receive
-    do_send(setting?(String?, :password) || "", priority: 100)#, delay_on_receive: 1000)
+    do_send(setting?(String?, :password) || "", priority: 100) # , delay_on_receive: 1000)
   end
 
   def received(data, task)
