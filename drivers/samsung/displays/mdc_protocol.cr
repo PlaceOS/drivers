@@ -27,7 +27,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     MagicInfo   = 0x20
     Whiteboard  = 0x64
   end
-  include PlaceOS::Driver::Interface::InputSelection(Input)
+
+  include Interface::InputSelection(Input)
 
   # Discovery Information
   tcp_port 1515
@@ -54,10 +55,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   @rs232 : Bool = false
   @blank : Input?
   @previous_volume : Int32 = 50
-  @input_stable : Bool = true
   @input_target : Input? = nil
-  @power_stable : Bool = true
-  @power_target : Bool = true
+  @power_target : Bool? = nil
 
   def on_load
     transport.tokenizer = Tokenizer.new do |io|
@@ -95,7 +94,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   # As true power off disconnects the server we only want to power off the panel
   def power(state : Bool)
     @power_target = state
-    @power_stable = false
 
     if state
       # Power on
@@ -160,7 +158,6 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   def switch_to(input : Input, **options)
-    @input_stable = false
     @input_target = input
     do_send(Command::Input, input.value, **options)
   end
@@ -257,8 +254,11 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
         # The input feedback behaviour seems to go a little odd when
         # screen split is active. Ignore any input forcing when on.
         unless self[:screen_split]?.try &.as_bool
-          @input_stable = current_input == (input_target = @input_target)
-          switch_to(input_target) if input_target && !@input_stable
+          if current_input == @input_target
+            @input_target = nil
+          elsif input_target = @input_target
+            switch_to(input_target)
+          end
         end
       when .speaker?
         self[:speaker] = SpeakerMode.from_value(value)
@@ -286,11 +286,10 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   end
 
   private def check_power_state
-    return if @power_stable
-    if self[:power]?.try(&.as_bool) == @power_target
-      @power_stable = true
-    else
-      power(@power_target)
+    if self[:power]? == @power_target
+      @power_target = nil
+    elsif power_target = @power_target
+      power(power_target)
     end
   end
 
