@@ -23,16 +23,21 @@ DriverSpecs.mock_driver "MuleSoft::API" do
     response << <<-RESPONSE
                 {
                   "count": 1,
+                  "timeTableBookingsCount": 1,
+                  "casualBookingsCount": 0,
                   "venueCode": "A14.02.K2.05",
                   "venueName": "A14.02.K2.05.The Quadrangle.The Quad General Lecture Theatre K2.05",
                   "bookings": [
                     {
-                      "activityName": "Test JH",
-                      "activityType": "BOOK.CONFIRMED",
-                      "activityDescription": "",
+                      "unitCode": "HSTY2630",
+                      "unitName": "Panics and Pandemics",
+                      "activityName": "HSTY2630-S1C-ND-CC/TUT/01",
+                      "activityType": "Tutorial",
+                      "activityDescription": "Tutorial",
                       "startDateTime": "#{starts_at.to_s("%FT%T")}",
                       "endDateTime": "#{ends_at.to_s("%FT%T")}",
-                      "location": "A14.02.K2.05.The Quadrangle.The Quad General Lecture Theatre K2.05"
+                      "location": "Social Sciences Building - SSB Seminar Room 210",
+                      "bookingType": "timeTable"
                     }
                   ]
                 }
