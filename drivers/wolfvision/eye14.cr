@@ -16,6 +16,12 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # include ::Orchestrator::Constants
   include PlaceOS::Driver::Utilities::Transcoder
 
+  # include Interface::Powerable
+  # include Interface::Muteable
+
+  @channel : Channel(String) = Channel(String).new
+  # stable_power : Bool = true
+
   tcp_port 50915 # Need to go through an RS232 gatway
   descriptive_name "WolfVision EYE-14"
   generic_name :Camera
@@ -115,16 +121,18 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   def send_cmd(cmd : String = "", **options)
     req = "\x01#{cmd}"
     logger.debug { "tell -- 0x#{byte_to_hex(req)} -- #{options[:name]}" }
-    transport.send(req, options)
+    # @channel.send(req, options)
+    @channel.send(req)
   end
 
   def send_inq(inq : String = "", **options)
     req = "\x00#{inq}"
     logger.debug { "ask -- 0x#{byte_to_hex(req)} -- #{options[:name]}" }
-    transport.send(req, options)
+    # @channel.send(req, options)
+    @channel.send(req)
   end
 
-  def received(data : String = "", command : String = "")
+  def received(data : Slice = Slice.empty, command : PlaceOS::Driver::Task = "null")
     logger.debug { "Received 0x#{byte_to_hex(data)}\n" }
 
     bytes = str_to_array(data)
