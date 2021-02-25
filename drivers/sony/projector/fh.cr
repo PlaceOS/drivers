@@ -19,18 +19,13 @@ class Sony::Projector::Fh < PlaceOS::Driver
   end
 
   def power(state : Bool)
+    set("power", state ? "on" : "off").get
+    power?
   end
 
-  def power?(priority : Int32 = 0, **options)
-  end
-
-  def switch_to(input : Input)
-  end
-
-  def input?
-  end
-
-  def lamp_time?
+  def power?
+    get("power_status").get
+    self[:power]?.try(&.as_bool)
   end
 
   def mute(
@@ -38,22 +33,74 @@ class Sony::Projector::Fh < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
+    set("blank", state ? "on" : "off").get
+    mute?
   end
 
   def mute?
+    get("blank")
+    self[:mute].as_bool
   end
+
+  INPUTS = {
+    "hdmi" => "hdmi1",       #Input C
+    "dvi" => "dvi1",        #Input B
+    "video" => "video1",
+    "svideo" => "svideo1",
+    "rgb" => "rgb1",        #Input A
+    "hdbaset" => "hdbaset1",    #Input D
+    "inputa" => "input_a",
+    "inputb" => "input_b",
+    "inputc" => "input_c",
+    "inputd" => "input_d",
+    "inpute" => "input_e"
+  }
+  INPUTS.merge!(INPUTS.invert)
+
+  def switch_to(input : String)
+    set("input", INPUTS[input]).get
+    input?
+  end
+
+  def input?
+    get("input").get
+    self[:input].as_s
+  end
+
+  def lamp_time?
+    get("timer")
+  end
+
+  {% for name in ["contrast", "brightness", "color", "hue", "sharpness"] %}
+    def {{name.id}}?
+      get({{name.id.stringify}})
+    end
+
+    def {{name.id}}(val : Int32)
+      set({{name.id.stringify}}, val.clamp(0, 100))
+    end
+  {% end %}
 
   private def do_poll
-  end
-
-  INDICATOR = 0xA9_u8
-  DELIMITER = 0x9A_u8
-
-  private def do_send(type : Type, command : Command, param : Bytes = Bytes.new(2), **options)
-    send(data, **options)
+    return unless power?
+    input?
+    mute?
+    lamp_time?
   end
 
   def received(data, task)
     task.try &.success
+  end
+
+  private def get(path, **options)
+    cmd = "#{path} ?\r\n"
+    logger.debug { "Sony projector FH requesting: #{cmd}" }
+    send(cmd, **options)
+  end
+
+  private def set(path, arg, **options)
+    cmd = "#{path} \"#{arg}\"\r\n"
+    logger.debug { "Sony projector FH sending: #{cmd}" }
+    send(cmd, **options)
   end
 end
