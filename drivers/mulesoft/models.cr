@@ -12,7 +12,7 @@ module MuleSoft
     property body : String
 
     @[JSON::Field(key: "unitCode")]
-    property unit_code : String?
+    property recurring_master_id : String?
 
     @[JSON::Field(key: "startDateTime", converter: MuleSoft::DateTimeConvertor)]
     property event_start : Int64
@@ -29,7 +29,7 @@ module MuleSoft
         "name"        => @title,
         "title"       => @type,
         "body"        => @body,
-        "unit_code"   => @unit_code,
+        "recurring_master_id"   => @recurring_master_id,
         "event_start" => @event_start,
         "event_end"   => @event_end,
         "location"    => @location,
