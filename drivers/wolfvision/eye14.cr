@@ -15,6 +15,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Camera
   include Interface::Powerable
   include Interface::Muteable
+  include PlaceOS::Driver::Utilities::Transcoder
 
   # include PlaceOS::Driver::Interface::InputSelection(Power)
   @channel : Channel(String) = Channel(String).new
@@ -59,7 +60,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     schedule.every(60.seconds) do
       logger.debug { "-- Polling Sony Camera" }
 
-      if power? && self[:power] == PowerState::On
+      if power? && self[:power] == true
         zoom?
         iris?
         autofocus?
@@ -72,6 +73,10 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     @channel.close unless @channel.closed?
   end
 
+  ####
+  # Power controls
+  # On / Off
+  #
   def power(state : Bool)
     self[:stable_power] = @stable_power = false
     self[:power_target] = state
@@ -86,124 +91,103 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     end
   end
 
+  ####
+  # Power query
+  def power?
+    do_send(:power_query, priority: 0, name: :power_query)
+  end
+
+  ####
+  # Zoom settings
   # uses only optical zoom
+  #
   def zoom(position : String | Int32 = 0)
     val = position if @zoom_range.includes?(position)
-    @zoom = val
+    self[:zoom_target] = val
     val = "%04X" % val
     logger.debug { "position in decimal is #{position} and hex is #{val}" }
     do_send(:zoom, val, name: :zoom)
   end
 
   def zoom?
-    do_send(:zoom_query, val, name: :zoom_query, priority: 0)
+    do_send(:zoom_query, priority: 0, name: :zoom_query)
   end
 
+  ####
+  # Autofocus
   # set autofocus to on
+  # curiously there is no off
+  #
   def autofocus
-    send_cmd("\x31\x01\x01", name: :autofocus_cmd)
+    do_send(:autofocus, name: :autofocus)
   end
 
   def autofocus?
-    send_inq("\x31\x00", priority: 0, name: :autofocus_inq)
+    do_send(:autofocus_query, priority: 0, name: :autofocus_query)
   end
 
-  def iris(position : String = "")
-    val = in_range(position, @iris_range.max, @iris_range.min)
+  ####
+  # Iris aperture controls
+  #
+  def iris(position : String | Int32 = 0)
+    val = position if @zoom_range.includes?(position)
     self[:iris_target] = val
-    val = sprintf("%04X", val)
+    val = "%04X" % val
     logger.debug { "position in decimal is #{position} and hex is #{val}" }
-    send_cmd("\x22\x02#{hex_to_byte(val)}", name: :iris_cmd)
+    do_send(:iris, val, name: :iris)
   end
 
   def iris?
-    send_inq("\x22\x00", priority: 0, name: :iris_inq)
+    do_send(:iris_query, priority: 0, name: :iris_query)
   end
 
-  def power?
-    send_inq("\x30\x00", priority: 0, name: :power_inq)
-    !!self[:power]?.try(&.as_bool)
-  end
+  ####
+  # Called when signal from device is received
+  # toghther with
+  # `data` - containing the payload
+  # `task` - continaing callee task
+  #
+  def received(data, task)
+    data = String.new(data).strip
+    logger.debug { "Wolfvision eye14 sent sent: #{data}" }
 
-  def send_cmd(cmd : String = "", **options)
-    req = "\x01#{cmd}"
-    logger.debug { "tell -- 0x#{byte_to_hex(req)} -- #{options[:name]}" }
-    # @channel.send(req, options)
-    @channel.send(req)
-  end
+    # we no longer need the connection to be open , the projector expects
+    # us to close it and a new connection is required per-command
+    transport.disconnect
 
-  def send_inq(inq : String = "", **options)
-    req = "\x00#{inq}"
-    logger.debug { "ask -- 0x#{byte_to_hex(req)} -- #{options[:name]}" }
-    # @channel.send(req, options)
-    @channel.send(req)
-  end
+    # We can't interpret this message without a task reference
+    # This also makes sure it is no longer nil
+    return unless task
 
-  def received(data : Slice = Slice.empty, command : PlaceOS::Driver::Task = "null")
-    logger.debug { "Received 0x#{byte_to_hex(data)}\n" }
+    # Process the response
+    data = data[2..-1]
+    hex = byte_to_hex(data[-2..-1])
+    val = hex.to_i(16)
 
-    bytes = str_to_array(data)
-
-    if command && !command[:name].nil?
-      case command[:name]
-      when :power_cmd
-        self[:power] = self[:power_target] if byte_to_hex(data) == "3000"
-      when :zoom_cmd
-        self[:zoom] = self[:zoom_target] if byte_to_hex(data) == "2000"
-      when :iris_cmd
-        self[:iris] = self[:iris_target] if byte_to_hex(data) == "2200"
-      when :autofocus_cmd
-        self[:autofocus] = true if byte_to_hex(data) == "3100"
-      when :power_inq
-        # -1 index for array refers to the last element in Ruby
-        self[:power] = bytes[-1] == 1
-      when :zoom_inq
-        # for some reason the after changing the zoom position
-        # the first zoom inquiry sends "2000" regardless of the actaul zoom value
-        # consecutive zoom inquiries will then return the correct zoom value
-
-        return :ignore if byte_to_hex(data) == "2000"
-        hex = byte_to_hex(data[-2..-1])
-        self[:zoom] = hex.to_i(16)
-      when :autofocus_inq
-        self[:autofocus] = bytes[-1] == 1
-      when :iris_inq
-        # same thing as zoom inq happens here
-        return :ignore if byte_to_hex(data) == "2200"
-        hex = byte_to_hex(data[-2..-1])
-        self[:iris] = hex.to_i(16)
-      else
-        return :ignore
-      end
-      return :success
-    end
-  end
-
-  def check_length(byte_str : String = "")
-    # response = str_to_array(byte_str)
-    response = byte_str.to_a
-
-    return false if response.length <= 1 # header is 2 bytes
-
-    len = response[1] + 2 # (data length + header)
-
-    if response.length >= len
-      return len
+    case task.name
+    when :power_on
+      self[:power] = true if byte_to_hex(data) == "3000"
+    when :power_off
+      self[:power] = false if byte_to_hex(data) == "3000"
+    when :power_query
+      self[:power] = val.not_nil!.to_i == 1
+    when :zoom
+      self[:zoom] = self[:zoom_target] if byte_to_hex(data) == "2000"
+    when :zoom_query
+      self[:zoom] = val.not_nil!.to_i == 1
+    when :iris
+      self[:iris] = self[:iris_target] if byte_to_hex(data) == "2200"
+    when :iris_query
+      self[:iris] = val.not_nil!.to_i == 1
+    when :autofocus
+      self[:autofocus] = true if byte_to_hex(data) == "3100"
+    when :autofocus_query
+      self[:autofocus] = val.not_nil!.to_i == 1
     else
-      return false
+      raise Exception.new("could not process task #{task.name} from eye14. \r\nData: #{data}")
     end
-  end
 
-  def byte_to_hex(data : String = "")
-    # data.split(//)
-    data.hexbytes
-    # output = ""
-    # data.each_byte { |c|
-    #     s = c.as(String).to_s(16)
-    #     s.prepend('0') if s.length % 2 > 0
-    #     output << s
-    # }
-    # return output
+    task.success
   end
 
   protected def do_send(command, param = nil, **options)
