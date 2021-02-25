@@ -24,8 +24,8 @@ class Sony::Projector::Fh < PlaceOS::Driver
   end
 
   def power?
-    get("power_status").get
-    self[:power]?.try(&.as_bool)
+    get("power_status")
+    !!self[:power].try(&.as_bool)
   end
 
   def mute(
@@ -38,7 +38,7 @@ class Sony::Projector::Fh < PlaceOS::Driver
   end
 
   def mute?
-    get("blank")
+    get("blank").get
     self[:mute].as_bool
   end
 
@@ -88,19 +88,54 @@ class Sony::Projector::Fh < PlaceOS::Driver
     lamp_time?
   end
 
-  def received(data, task)
+  def received(response, task)
+    process_response(response, task)
+  end
+
+  private def process_response(response, task, path = nil)
+    response = String.new(response)
+    logger.debug { "Sony proj sent: #{response}" }
+    data = shellsplit(response.strip.downcase)
+    logger.debug { data }
+
+    return task.try &.success if data[0] == "ok"
+    return task.try &.abort if data[0] == "err_cmd"
+
+    case path
+    when "power_status"
+      self[:power] == data[0] == "on"
+    when "blank"
+      self[:mute] == data[0] == "on"
+    end
     task.try &.success
   end
 
   private def get(path, **options)
     cmd = "#{path} ?\r\n"
     logger.debug { "Sony projector FH requesting: #{cmd}" }
-    send(cmd, **options)
+    send(cmd, **options) { |data, task| process_response(data, task, path) }
   end
 
   private def set(path, arg, **options)
     cmd = "#{path} \"#{arg}\"\r\n"
     logger.debug { "Sony projector FH sending: #{cmd}" }
-    send(cmd, **options)
+    send(cmd, **options) { |data, task| process_response(data, task, path) }
+  end
+
+  # Quick dirty port of https://github.com/ruby/ruby/blob/master/lib/shellwords.rb
+  private def shellsplit(line : String) : Array(String)
+    words = [] of String
+    field = ""
+    pattern = /\G\s*(?>([^\s\\\'\"]+)|'([^\']*)'|"((?:[^\"\\]|\\.)*)"|(\\.?)|(\S))(\s|\z)?/m
+    line.scan(pattern) do |match|
+      _, word, sq, dq, esc, garbage, sep = match.to_a
+      raise ArgumentError.new("Unmatched quote: #{line.inspect}") if garbage
+      field += (word || sq || dq.try(&.gsub(/\\([$`"\\\n])/, "\\1")) || esc.not_nil!.gsub(/\\(.)/, "\\1"))
+      if sep
+        words << field
+        field = ""
+      end
+    end
+    words
   end
 end
