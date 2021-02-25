@@ -12,7 +12,7 @@ module MuleSoft
     property body : String
 
     @[JSON::Field(key: "unitCode")]
-    property unit_code : String
+    property unit_code : String?
 
     @[JSON::Field(key: "startDateTime", converter: MuleSoft::DateTimeConvertor)]
     property event_start : Int64

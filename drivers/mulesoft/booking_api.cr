@@ -6,7 +6,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
   descriptive_name "MuleSoft Bookings API"
   generic_name :Bookings
   description %(Retrieves and creates bookings using the MuleSoft API)
-  uri_base "https://dev.api.sydney.edu.au"
+  uri_base "https://api.sydney.edu.au"
 
   default_settings({
     venue_code:         "venue code",
