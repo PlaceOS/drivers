@@ -11,7 +11,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
   default_settings({
     venue_code:         "venue code",
     base_path:          "/usyd-edu-timetable-exp-api-v1/v1/",
-    polling_period:     5,
+    polling_period:     30,
     time_zone:          "Australia/Sydney",
     ssl_key:            "private key",
     ssl_cert:           "certificate",
