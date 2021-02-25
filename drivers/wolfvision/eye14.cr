@@ -1,45 +1,38 @@
-require "tokenizer"
+require "digest/md5"
+require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/powerable"
+require "placeos-driver/interface/switchable"
+require "placeos-driver/interface/camera"
+
+# require "tokenizer"
 
 module Wolfvision; end
 
 # Documentation: https://www.wolfvision.com/wolf/protocol_command_wolfvision/protocol/commands_eye-14.pdf
 # Ruby version: https://github.com/acaprojects/ruby-engine-drivers/tree/beta/modules/wolfvision
 
-enum Power
-  On
-  Off
-end
-
 class Wolfvision::Eye14 < PlaceOS::Driver
-  # TODO: Implement PlaceOS::Driver::Interface::Zoomable
+  include PlaceOS::Driver::Interface::Camera
+  include Interface::Powerable
+  include Interface::Muteable
 
-  # include ::Orchestrator::Constants
-  include PlaceOS::Driver::Utilities::Transcoder
-
-  # include Interface::Powerable
-  # include Interface::Muteable
-
+  # include PlaceOS::Driver::Interface::InputSelection(Power)
   @channel : Channel(String) = Channel(String).new
-  # stable_power : Bool = true
+  @stable_power : Bool = true
 
   tcp_port 50915 # Need to go through an RS232 gatway
   descriptive_name "WolfVision EYE-14"
   generic_name :Camera
 
-  # Communication settings
-  # private getter tokenizer : Tokenizer = Tokenizer.new(Bytes[0x00, 0x01])
-
-  # tokenize indicator: /\x00|\x01|/, callback: :check_length
   # delay between_sends: 150
 
   def on_load
-    queue.delay = 150.milliseconds
-    # transport.tokenizer = Tokenizer.new("\r\n")
+    # transport.tokenizer = Tokenizer.new("\r")
     transport.tokenizer = Tokenizer.new(/\x00|\x01|/)
 
-    self[:zoom_max] = 3923
-    self[:iris_max] = 4094
-    self[:zoom_min] = self[:iris_min] = 0
+    @zoom_range = 0..3923
+    @iris_range = 0..4094
+
     on_update
   end
 
@@ -53,7 +46,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     schedule.every(60.seconds) do
       logger.debug { "-- Polling Sony Camera" }
 
-      if power? && self[:power] == Power::On
+      if power? && self[:power] == PowerState::On
         zoom?
         iris?
         autofocus?
@@ -63,25 +56,25 @@ class Wolfvision::Eye14 < PlaceOS::Driver
 
   def disconnected
     # Disconnected will be called before connect if initial connect fails
-    schedule.clear
+    @channel.close unless @channel.closed?
   end
 
-  def power(state : Power = Power::Off)
+  def power(state : Power = PowerState::Off)
     target = is_affirmative?(state)
     self[:power_target] = target
 
     # Execute command
     logger.debug { "Target = #{target} and self[:power] = #{self[:power]}" }
-    if target == Power::On && self[:power] != Power::On
+    if target == PowerState::On && self[:power] != PowerState::On
       send_cmd("\x30\x01\x01", name: :power_cmd)
-    elsif target == Power::Off && self[:power] != Power::Off
+    elsif target == PowerState::Off && self[:power] != PowerState::Off
       send_cmd("\x30\x01\x00", name: :power_cmd)
     end
   end
 
   # uses only optical zoom
   def zoom(position : String = "")
-    val = in_range(position, self[:zoom_max], self[:zoom_min])
+    val = in_range(position, @zoom_range.max, @zoom_range.min)
     self[:zoom_target] = val
     val = sprintf("%04X", val)
     logger.debug { "position in decimal is #{position} and hex is #{val}" }
@@ -102,7 +95,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   end
 
   def iris(position : String = "")
-    val = in_range(position, self[:iris_max], self[:iris_min])
+    val = in_range(position, @iris_range.max, @iris_range.min)
     self[:iris_target] = val
     val = sprintf("%04X", val)
     logger.debug { "position in decimal is #{position} and hex is #{val}" }
