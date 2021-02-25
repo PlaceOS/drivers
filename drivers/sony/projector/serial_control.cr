@@ -10,6 +10,13 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
   descriptive_name "Sony Projector (RS232 Control)"
   generic_name :Display
 
+  INDICATOR = 0xA9_u8
+  DELIMITER = 0x9A_u8
+
+  def on_load
+    transport.tokenizer = Tokenizer.new(Bytes[DELIMITER])
+  end
+
   def connected
     schedule.every(60.seconds) { do_poll }
   end
@@ -147,9 +154,6 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     Set
     Get
   end
-
-  INDICATOR = 0xA9_u8
-  DELIMITER = 0x9A_u8
 
   private def do_send(type : Type, command : Command, param : Bytes = Bytes.new(2), **options)
     # indicator: 1, command: 2, type: 1, param: 2, checksum: 1, delimiter: 1
