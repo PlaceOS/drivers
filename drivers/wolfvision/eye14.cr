@@ -24,6 +24,17 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   descriptive_name "WolfVision EYE-14"
   generic_name :Camera
 
+  COMMANDS = {
+    power_on:        "\x01\x30\x01\x01",
+    power_off:       "\x01\x30\x01\x00",
+    power_query:     "\x00\x30\x00",
+    autofocus:       "\x01\x31\x01\x01",
+    autofocus_query: "\x00\x31\x00",
+    iris:            "\x01\x22\x02",
+    iris_query:      "\x00\x22\x00",
+  }
+  RESPONSES = COMMANDS.to_h.invert
+
   # delay between_sends: 150
 
   def on_load
@@ -59,16 +70,17 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     @channel.close unless @channel.closed?
   end
 
-  def power(state : Power = PowerState::Off)
-    target = is_affirmative?(state)
-    self[:power_target] = target
+  def power(state : Bool)
+    self[:stable_power] = @stable_power = false
+    self[:power_target] = state
 
-    # Execute command
-    logger.debug { "Target = #{target} and self[:power] = #{self[:power]}" }
-    if target == PowerState::On && self[:power] != PowerState::On
-      send_cmd("\x30\x01\x01", name: :power_cmd)
-    elsif target == PowerState::Off && self[:power] != PowerState::Off
-      send_cmd("\x30\x01\x00", name: :power_cmd)
+    if state
+      logger.debug { "requested to power on" }
+      do_send(:power_on, retries: 10, name: :power_on, delay: 8.seconds)
+    else
+      logger.debug { "requested to power off" }
+      do_send(:power_off, retries: 10, name: :power_off, delay: 8.seconds) # .get
+
     end
   end
 
@@ -190,5 +202,27 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     #     output << s
     # }
     # return output
+  end
+
+  protected def do_send(command, param = nil, **options)
+    # prepare the command
+    cmd = COMMANDS[command]
+
+    logger.debug { "queuing #{command}: #{cmd}" }
+
+    # queue the request
+    queue(**({
+      name: command,
+    }.merge(options))) do
+      # prepare channel and connect to the projector (which will then send the random key)
+      @channel = Channel(String).new
+      transport.connect
+      # wait for the random key to arrive
+      random_key = @channel.receive
+      # send the request
+      # NOTE:: the built in `send` function has implicit queuing, but we are
+      # in a task callback here so should be calling transport send directly
+      transport.send(cmd)
+    end
   end
 end
