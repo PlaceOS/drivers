@@ -11,6 +11,9 @@ module MuleSoft
     @[JSON::Field(key: "activityDescription")]
     property body : String
 
+    @[JSON::Field(key: "unitCode")]
+    property unit_code : String
+
     @[JSON::Field(key: "startDateTime", converter: MuleSoft::DateTimeConvertor)]
     property event_start : Int64
 
@@ -26,6 +29,7 @@ module MuleSoft
         "name"        => @title,
         "title"       => @type,
         "body"        => @body,
+        "unit_code"   => @unit_code,
         "event_start" => @event_start,
         "event_end"   => @event_end,
         "location"    => @location,
