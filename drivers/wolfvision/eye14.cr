@@ -6,16 +6,18 @@ require "placeos-driver/interface/camera"
 
 # require "tokenizer"
 
-module Wolfvision; end
+module Wolfvision; 
+
+end
 
 # Documentation: https://www.wolfvision.com/wolf/protocol_command_wolfvision/protocol/commands_eye-14.pdf
 # Ruby version: https://github.com/acaprojects/ruby-engine-drivers/tree/beta/modules/wolfvision
 
 class Wolfvision::Eye14 < PlaceOS::Driver
+ 
+  include PlaceOS::Driver::Interface::Powerable
+  include PlaceOS::Driver::Utilities::Transcoder  
   include PlaceOS::Driver::Interface::Camera
-  include Interface::Powerable
-  include Interface::Muteable
-  include PlaceOS::Driver::Utilities::Transcoder
 
   # include PlaceOS::Driver::Interface::InputSelection(Power)
   @channel : Channel(String) = Channel(String).new
@@ -54,6 +56,20 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   end
 
   def on_unload
+  end
+
+  ####
+  # Implement for interfaces else crystal cries
+  #
+  def move(position : MoveablePosition, index : Int32 | String = 0)
+  end
+  def stop(index : Int32 | String = 0, emergency : Bool = false)
+  end
+  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
+  end
+  def recall(position : String, index : Int32 | String = 0)
+  end
+  def save_position(name : String, index : Int32 | String = 0)
   end
 
   def connected
@@ -101,6 +117,11 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # Zoom settings
   # uses only optical zoom
   #
+  # implement zoomable interface method
+  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
+    zoom(position)
+  end
+  # Old interface
   def zoom(position : String | Int32 = 0)
     val = position if @zoom_range.includes?(position)
     self[:zoom_target] = val
