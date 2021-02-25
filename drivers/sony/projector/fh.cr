@@ -10,6 +10,10 @@ class Sony::Projector::Fh < PlaceOS::Driver
   descriptive_name "Sony Projector FH Series"
   generic_name :Display
 
+  def on_load
+    transport.tokenizer = Tokenizer.new("\r\n")
+  end
+
   def connected
     schedule.every(60.seconds) { do_poll }
   end
@@ -20,12 +24,12 @@ class Sony::Projector::Fh < PlaceOS::Driver
 
   def power(state : Bool)
     set("power", state ? "on" : "off").get
-    power?
+    self[:power] = state
   end
 
   def power?
     get("power_status")
-    !!self[:power].try(&.as_bool)
+    !!self[:power]?.try(&.as_bool)
   end
 
   def mute(
@@ -34,7 +38,7 @@ class Sony::Projector::Fh < PlaceOS::Driver
     layer : MuteLayer = MuteLayer::AudioVideo
   )
     set("blank", state ? "on" : "off").get
-    mute?
+    self[:mute] = state
   end
 
   def mute?
@@ -59,16 +63,12 @@ class Sony::Projector::Fh < PlaceOS::Driver
 
   def switch_to(input : String)
     set("input", INPUTS[input]).get
-    input?
+    self[:input] = input
   end
 
   def input?
     get("input").get
     self[:input].as_s
-  end
-
-  def lamp_time?
-    get("timer")
   end
 
   {% for name in ["contrast", "brightness", "color", "hue", "sharpness"] %}
@@ -85,7 +85,6 @@ class Sony::Projector::Fh < PlaceOS::Driver
     return unless power?
     input?
     mute?
-    lamp_time?
   end
 
   def received(response, task)
@@ -96,16 +95,17 @@ class Sony::Projector::Fh < PlaceOS::Driver
     response = String.new(response)
     logger.debug { "Sony proj sent: #{response}" }
     data = shellsplit(response.strip.downcase)
-    logger.debug { data }
 
     return task.try &.success if data[0] == "ok"
     return task.try &.abort if data[0] == "err_cmd"
 
     case path
     when "power_status"
-      self[:power] == data[0] == "on"
+      self[:power] = data[0] == "on"
     when "blank"
-      self[:mute] == data[0] == "on"
+      self[:mute] = data[0] == "on"
+    when "input"
+      self[:input] = INPUTS[data[0]]
     end
     task.try &.success
   end
