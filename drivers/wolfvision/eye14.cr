@@ -30,6 +30,8 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     power_query:     "\x00\x30\x00",
     autofocus:       "\x01\x31\x01\x01",
     autofocus_query: "\x00\x31\x00",
+    zoom:            "\x01\x20\x02",
+    zoom_query:      "\x00\x20\x00",
     iris:            "\x01\x22\x02",
     iris_query:      "\x00\x22\x00",
   }
@@ -85,16 +87,16 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   end
 
   # uses only optical zoom
-  def zoom(position : String = "")
-    val = in_range(position, @zoom_range.max, @zoom_range.min)
-    self[:zoom_target] = val
-    val = sprintf("%04X", val)
+  def zoom(position : String | Int32 = 0)
+    val = position if @zoom_range.includes?(position)
+    @zoom = val
+    val = "%04X" % val
     logger.debug { "position in decimal is #{position} and hex is #{val}" }
-    send_cmd("\x20\x02#{hex_to_byte(val)}", name: :zoom_cmd)
+    do_send(:zoom, val, name: :zoom)
   end
 
   def zoom?
-    send_inq("\x20\x00", priority: 0, name: :zoom_inq)
+    do_send(:zoom_query, val, name: :zoom_query, priority: 0)
   end
 
   # set autofocus to on
@@ -206,7 +208,11 @@ class Wolfvision::Eye14 < PlaceOS::Driver
 
   protected def do_send(command, param = nil, **options)
     # prepare the command
-    cmd = COMMANDS[command]
+    cmd = if param.nil?
+            "#{COMMANDS[command]}"
+          else
+            "#{COMMANDS[command]}#{param}"
+          end
 
     logger.debug { "queuing #{command}: #{cmd}" }
 
