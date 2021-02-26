@@ -14,11 +14,14 @@ module Wolfvision; end
 class Wolfvision::Eye14 < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Powerable
   include PlaceOS::Driver::Utilities::Transcoder
-  include PlaceOS::Driver::Interface::Camera
+  # include PlaceOS::Driver::Interface::Camera
 
   # include PlaceOS::Driver::Interface::InputSelection(Power)
   @channel : Channel(String) = Channel(String).new
   @stable_power : Bool = true
+
+  @zoom_range = 0..3923
+  @iris_range = 0..4094
 
   tcp_port 50915 # Need to go through an RS232 gatway
   descriptive_name "WolfVision EYE-14"
@@ -41,10 +44,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
 
   def on_load
     # transport.tokenizer = Tokenizer.new("\r")
-    transport.tokenizer = Tokenizer.new(/\x00|\x01|/)
-
-    @zoom_range = 0..3923
-    @iris_range = 0..4094
+    transport.tokenizer = Tokenizer.new(Bytes[0x00, 0x01])
 
     on_update
   end
@@ -55,27 +55,10 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   def on_unload
   end
 
-  ####
-  # Implement for interfaces else crystal cries
-  #
-  def move(position : MoveablePosition, index : Int32 | String = 0)
-  end
-
-  def stop(index : Int32 | String = 0, emergency : Bool = false)
-  end
-
-  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
-  end
-
-  def recall(position : String, index : Int32 | String = 0)
-  end
-
-  def save_position(name : String, index : Int32 | String = 0)
-  end
-
   def connected
+    schedule.clear
     schedule.every(60.seconds) do
-      logger.debug { "-- Polling Sony Camera" }
+      logger.debug { "-- Polling Wolfvision Eye14 Camera" }
 
       if power? && self[:power] == true
         zoom?
@@ -118,14 +101,8 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # Zoom settings
   # uses only optical zoom
   #
-  # implement zoomable interface method
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
-    zoom(position)
-  end
-
-  # Old interface
   def zoom(position : String | Int32 = 0)
-    val = position if @zoom_range.includes?(position)
+    val = position if @zoom_range.includes?(position.to_i32)
     self[:zoom_target] = val
     val = "%04X" % val
     logger.debug { "position in decimal is #{position} and hex is #{val}" }
@@ -153,7 +130,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # Iris aperture controls
   #
   def iris(position : String | Int32 = 0)
-    val = position if @zoom_range.includes?(position)
+    val = position if @zoom_range.includes?(position.to_i32)
     self[:iris_target] = val
     val = "%04X" % val
     logger.debug { "position in decimal is #{position} and hex is #{val}" }
@@ -183,8 +160,8 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     return unless task
 
     # Process the response
-    data = data[2..-1]
-    hex = byte_to_hex(data[-2..-1])
+
+    hex = byte_to_hex(data)
     val = hex.to_i(16)
 
     case task.name
@@ -237,5 +214,18 @@ class Wolfvision::Eye14 < PlaceOS::Driver
       # in a task callback here so should be calling transport send directly
       transport.send(cmd)
     end
+  end
+
+  def byte_to_hex(data : String)
+    logger.info { data }
+    output = ""
+    data.each_byte do |byte|
+      if !byte.nil?
+        # s = byte#.to_s(16)
+        # s.to_s.prepend('0') #if s.length % 2 > 0
+        output = output + byte.to_s(16)
+      end
+    end
+    output
   end
 end
