@@ -3,8 +3,9 @@ require "telnet"
 module Exterity; end
 module Exterity::AvediaPlayer; end
 
-class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
-  descriptive_name "Exterity Avedia Player (R92xx)"
+
+class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
+  descriptive_name "Exterity Avedia Player (R93xx)"
   generic_name :IPTV
   tcp_port 23
 
@@ -15,7 +16,6 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
   })
 
   @ready : Bool = false
-  @telnet : Telnet? = nil
 
   def on_load
     new_telnet_client
@@ -27,13 +27,13 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
     self[:ready] = false
 
     schedule.every(60.seconds) do
-      logger.info { "-- Polling Exterity Player" }
+      logger.debug { "-- Polling Exterity Player" }
       tv_info
     end
   end
 
   def disconnected
-    # ensures the buffer is cleared
+    # Ensures the buffer is cleared
     new_telnet_client
 
     schedule.clear
@@ -78,55 +78,38 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
   def received(data, task)
     data = String.new(data).strip
 
-    logger.info { "Exterity sent #{data}" }
+    logger.debug { "Exterity sent #{data}" }
 
     if @ready
-      # Detect if logged out of serialCommandInterface
-      if data =~ /sh: .* not found/i
-        # Launch command processor
-        do_send "/usr/bin/serialCommandInterface", wait: false, delay: 2.seconds, priority: 95
-        return :failure
-      end
-
       # Extract response
       data.split("!").map(&.strip("^")).each do |resp|
         process_resp(resp, task)
       end
-    elsif data =~ /Exterity Control Interface| Exit/i
-      logger.info { "-- got the control interface message, we're READY now" }
+    elsif data =~ /Terminal Control Interface/i
       @ready = true
       self[:ready] = true
       version
     elsif data =~ /login:/i
-      logger.info { "-- got the login: prompt" }
       transport.tokenizer = Tokenizer.new("\r")
 
-      # login
-      do_send setting(String, :username), wait: false, delay: 200.milliseconds, priority: 98
-      do_send setting(String, :password), wait: false, delay: 200.milliseconds, priority: 97
+      # Login
+      do_send setting(String, :username), wait: false, delay: 2.seconds, priority: 98
+      do_send setting(String, :password), wait: false, delay: 2.seconds, priority: 97
 
-      # select open shell option
-      do_send "6", wait: false, delay: 2.seconds, priority: 96
-
-      # launch command processor
-      do_send "/usr/bin/serialCommandInterface", wait: false, delay: 200.milliseconds, priority: 95
-
-      # we need to disconnect if we don't see the serialCommandInterface after a certain amount of time
-      schedule.in(20.seconds) do
+      # We need to disconnect if we don't see the serialCommandInterface after a certain amount of time
+      schedule.in(5.seconds) do
         if !@ready
-          logger.error { "Exterity connection failed to be ready after 5 seconds. Check username and password." }
-          disconnect
+            logger.error { "Exterity connection failed to be ready after 5 seconds. Check username and password." }
+            disconnect
         end
       end
-    elsif
-      logger.info { "Somehow we got here #{data}" }
     end
 
     task.try &.success
   end
 
   protected def process_resp(data, task)
-    logger.info { "Resp details #{data}" }
+    logger.debug { "Resp details #{data}" }
 
     parts = data.split ':'
 
@@ -138,9 +121,9 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
         logger.warn { "Error response received" }
       end
     when "tv_info"
-      self[:tv_info] = parts[1]
+        self[:tv_info] = parts[1]
     when "SoftwareVersion"
-      self[:version] = parts[1]
+        self[:version] = parts[1]
     end
   end
 
@@ -151,7 +134,7 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
   end
 
   protected def do_send(command, **options)
-    logger.info { "requesting #{command}" }
+    logger.debug { "requesting #{command}" }
     send @telnet.not_nil!.prepare(command), **options
   end
 
@@ -168,3 +151,4 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
     do_send "^get:#{status}!", **options
   end
 end
+
