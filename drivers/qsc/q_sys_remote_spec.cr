@@ -120,30 +120,30 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
   exec(:change_group_add_controls, "my change group", ["some control", "another control"])
   should_send({
     "jsonrpc" => "2.0",
-    "id" => 4,
-    "method" => "ChangeGroup.AddControl",
-    "params" => {
-      "Id" => "my change group",
-      "Controls" => ["some control", "another control"]
+    "id"      => 4,
+    "method"  => "ChangeGroup.AddControl",
+    "params"  => {
+      "Id"       => "my change group",
+      "Controls" => ["some control", "another control"],
     },
   }.to_json + "\0")
   responds({
     "jsonrpc" => "2.0",
-    "id" => 4,
-    "result" => {
-      "Id" => "my change group",
+    "id"      => 4,
+    "result"  => {
+      "Id"      => "my change group",
       "Changes" => [
         {
-          "Name" => "some control",
-          "Value" => -12,
-          "String" => "‐12dB"
+          "Name"   => "some control",
+          "Value"  => -12,
+          "String" => "‐12dB",
         },
         {
-          "Name" => "another control",
-          "Value" => -6,
-          "String" => "‐6dB"
-        }
-      ]
-    }
+          "Name"   => "another control",
+          "Value"  => -6,
+          "String" => "‐6dB",
+        },
+      ],
+    },
   }.to_json + "\0")
 end

@@ -23,12 +23,12 @@ module MuleSoft
     # otherwise when to_json is called all the field names revert to the MuleSoft ones
     def to_placeos
       value = {
-        "title"       => @title,
-        "body"        => @body,
-        "recurring_master_id"   => @recurring_master_id,
-        "event_start" => @event_start,
-        "event_end"   => @event_end,
-        "location"    => @location,
+        "title"               => @title,
+        "body"                => @body,
+        "recurring_master_id" => @recurring_master_id,
+        "event_start"         => @event_start,
+        "event_end"           => @event_end,
+        "location"            => @location,
       }
     end
   end
