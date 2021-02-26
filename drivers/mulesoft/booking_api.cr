@@ -8,7 +8,6 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
   description %(Retrieves and creates bookings using the MuleSoft API)
   uri_base "https://api.sydney.edu.au"
 
-  
   default_settings({
     venue_code:         "venue code",
     base_path:          "/usyd-edu-timetable-exp-api-v1/v1/",
