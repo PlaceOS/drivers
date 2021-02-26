@@ -2,13 +2,10 @@ module MuleSoft
   class Booking
     include JSON::Serializable
 
-    @[JSON::Field(key: "activityName")]
+    @[JSON::Field(key: "unitName")]
     property title : String
 
     @[JSON::Field(key: "activityType")]
-    property type : String
-
-    @[JSON::Field(key: "activityDescription")]
     property body : String
 
     @[JSON::Field(key: "unitCode")]

@@ -15,10 +15,10 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
     time_zone:          "Australia/Sydney",
     ssl_key:            "private key",
     ssl_cert:           "certificate",
-    ssl_auth_enabled:   false,
+    ssl_auth_enabled:   true,
     username:           "basic auth username",
     password:           "basic auth password",
-    basic_auth_enabled: false,
+    basic_auth_enabled: true,
     running_a_spec:     false,
   })
 
