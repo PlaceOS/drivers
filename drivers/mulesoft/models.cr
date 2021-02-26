@@ -3,7 +3,7 @@ module MuleSoft
     include JSON::Serializable
 
     @[JSON::Field(key: "unitName")]
-    property title : String
+    property title : String?
 
     @[JSON::Field(key: "activityType")]
     property body : String
