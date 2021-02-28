@@ -23,13 +23,13 @@ DriverSpecs.mock_driver "Biamp::Tesira" do
   should_send "123 set crosspointLevelState 1 false"
 
   exec(:fader, "Fader123", 11)
-  responds("+OK\r\n")
   should_send "Fader123 set level 1 11"
+  responds("+OK\r\n")
   status["level_Fader123_1"] = 11
 
   exec(:mute, "Fader123")
-  responds("+OK\r\n")
   should_send "Fader123 set mute 1 true"
+  responds("+OK\r\n")
   status["level_Fader123_1_mute"] = true
 
   exec(:query_fader, "Fader123")
