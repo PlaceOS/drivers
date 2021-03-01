@@ -21,9 +21,11 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
 
   # Now we can expext a POST to ISE creating that guest user based on the above details
   expect_http_request do |request, response|
-    if request.method == "POST" && request.path == "/guestuser"
+    if (data = request.body.try(&.gets_to_end)) && request.method == "POST" && request.path == "/guestuser"
       # This is our interepted POST so parse the XML body
-      parsed_body =  XML.parse(request.body)
+      # request_body : IO
+      # request_body = IO.new(request.body)
+      parsed_body =  XML.parse(data)
 
       # Check through the parsed body to ensure POST is correct
     end
