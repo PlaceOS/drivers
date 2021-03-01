@@ -97,17 +97,21 @@ class Vergesense::LocationService < PlaceOS::Driver
       loc_type = space.space_type == "desk" ? "desk" : "area"
       next if location.presence && location != loc_type
 
-      {
-        location:    loc_type,
-        at_location: space.people.try(&.count),
-        map_id:      space.name,
-        level:       zone_id,
-        building:    @building_mappings[zone_id]?,
-        capacity:    space.capacity,
+      people_count = space.people.try(&.count)
 
-        vergesense_space_id:   space.space_ref_id,
-        vergesense_space_type: space.space_type,
-      }
+      if people_count && people_count > 0
+        {
+          location:    loc_type,
+          at_location: people_count,
+          map_id:      space.name,
+          level:       zone_id,
+          building:    @building_mappings[zone_id]?,
+          capacity:    space.capacity,
+
+          vergesense_space_id:   space.space_ref_id,
+          vergesense_space_type: space.space_type,
+        }
+      end
     end
   end
 end
