@@ -155,6 +155,7 @@ class XYSense::LocationService < PlaceOS::Driver
       # Assume this means we're looking at a desk
       capacity = space.details.capacity
       if capacity == 1
+        next unless space.headcount > 0
         next if location.presence && location != "desk"
         {
           location:    :desk,
