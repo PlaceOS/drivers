@@ -70,20 +70,22 @@ class Floorsense::LocationService < PlaceOS::Driver
 
     raw_desks = floorsense.desks(plan_id).get.to_json
     Array(DeskStatus).from_json(raw_desks).compact_map do |desk|
-      {
-        location:    "desk",
-        at_location: desk.occupied ? 1 : 0,
-        map_id:      desk.key,
-        level:       zone_id,
-        building:    @building_mappings[zone_id]?,
-        capacity:    1,
+      if desk.occupied
+        {
+          location:    "desk",
+          at_location: desk.occupied ? 1 : 0,
+          map_id:      desk.key,
+          level:       zone_id,
+          building:    @building_mappings[zone_id]?,
+          capacity:    1,
 
-        # So we can look up who is at a desk at some point in the future
-        mac: "cid:#{desk.cid}-#{desk.key}",
+          # So we can look up who is at a desk at some point in the future
+          mac: "cid:#{desk.cid}-#{desk.key}",
 
-        floorsense_status:    desk.status,
-        floorsense_desk_type: desk.desk_type,
-      }
+          floorsense_status:    desk.status,
+          floorsense_desk_type: desk.desk_type,
+        }
+      end
     end
   end
 end
