@@ -135,6 +135,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
       {
         location:    :booking,
+        type:        @booking_type,
         checked_in:  booking.checked_in,
         asset_id:    booking.asset_id,
         booking_id:  booking.id,
