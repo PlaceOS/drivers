@@ -16,6 +16,6 @@ jobs:
     - name: Format
       run: crystal tool format
     - name: Lint
-      uses: crystal-ameba/github-action@v0.2.6
+      uses: crystal-ameba/github-action@v0.2.8
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
