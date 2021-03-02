@@ -28,23 +28,24 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   generic_name :Camera
 
   COMMANDS = {
-    power_on:        "\x01\x30\x01\x01",
-    power_off:       "\x01\x30\x01\x00",
-    power_query:     "\x00\x30\x00",
-    autofocus:       "\x01\x31\x01\x01",
-    autofocus_query: "\x00\x31\x00",
-    zoom:            "\x01\x20\x02",
-    zoom_query:      "\x00\x20\x00",
-    iris:            "\x01\x22\x02",
-    iris_query:      "\x00\x22\x00",
+    power_on:        "\\x01\\x30\\x01\\x01",
+    power_off:       "\\x01\\x30\\x01\\x00",
+    power_query:     "\\x00\\x30\\x00",
+    autofocus:       "\\x01\\x31\\x01\\x01",
+    autofocus_query: "\\x00\\x31\\x00",
+    zoom:            "\\x01\\x20\\x02",
+    zoom_query:      "\\x00\\x20\\x00",
+    iris:            "\\x01\\x22\\x02",
+    iris_query:      "\\x00\\x22\\x00",
   }
+
   RESPONSES = COMMANDS.to_h.invert
 
-  # delay between_sends: 150
-
   def on_load
-    # transport.tokenizer = Tokenizer.new("\r")
-    transport.tokenizer = Tokenizer.new(Bytes[0x00, 0x01])
+    transport.tokenizer = Tokenizer.new("\r")
+    # transport.connect
+    # transport.tokenizer = Tokenizer.new(Bytes[0x00, 0x01])
+    # transport.tokenizer = Tokenizer.new("\x00\x01")
 
     on_update
   end
@@ -58,7 +59,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   def connected
     schedule.clear
     schedule.every(60.seconds) do
-      logger.debug { "-- Polling Wolfvision Eye14 Camera" }
+      logger.info { "-- Polling Wolfvision Eye14 Camera" }
 
       if power? && self[:power] == true
         zoom?
@@ -69,6 +70,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   end
 
   def disconnected
+    # transport.disconnect
     # Disconnected will be called before connect if initial connect fails
     @channel.close unless @channel.closed?
   end
@@ -78,16 +80,13 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # On / Off
   #
   def power(state : Bool)
+    logger.info { "requested to power -  #{state}" }
     self[:stable_power] = @stable_power = false
     self[:power_target] = state
-
     if state
-      logger.debug { "requested to power on" }
-      do_send(:power_on, retries: 10, name: :power_on, delay: 8.seconds)
+      do_send(:power_on, retries: 10, name: :power_on, delay: 2.seconds)
     else
-      logger.debug { "requested to power off" }
-      do_send(:power_off, retries: 10, name: :power_off, delay: 8.seconds) # .get
-
+      do_send(:power_off, retries: 10, name: :power_off, delay: 2.seconds).get
     end
   end
 
@@ -104,8 +103,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   def zoom(position : String | Int32 = 0)
     val = position if @zoom_range.includes?(position.to_i32)
     self[:zoom_target] = val
-    val = "%04X" % val
-    logger.debug { "position in decimal is #{position} and hex is #{val}" }
+    val = "%02X" % val
     do_send(:zoom, val, name: :zoom)
   end
 
@@ -132,8 +130,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   def iris(position : String | Int32 = 0)
     val = position if @zoom_range.includes?(position.to_i32)
     self[:iris_target] = val
-    val = "%04X" % val
-    logger.debug { "position in decimal is #{position} and hex is #{val}" }
+    val = "%02X" % val
     do_send(:iris, val, name: :iris)
   end
 
@@ -148,12 +145,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # `task` - continaing callee task
   #
   def received(data, task)
-    data = String.new(data).strip
-    logger.debug { "Wolfvision eye14 sent sent: #{data}" }
-
-    # we no longer need the connection to be open , the projector expects
-    # us to close it and a new connection is required per-command
-    transport.disconnect
+    logger.info { "Wolfvision eye14 sent: #{data} and Task name is #{task.try &.name}" }
 
     # We can't interpret this message without a task reference
     # This also makes sure it is no longer nil
@@ -161,44 +153,53 @@ class Wolfvision::Eye14 < PlaceOS::Driver
 
     # Process the response
 
-    hex = byte_to_hex(data)
-    val = hex.to_i(16)
+    hex_int = data.hexstring.chars[0..9]
 
-    case task.name
-    when :power_on
-      self[:power] = true if byte_to_hex(data) == "3000"
-    when :power_off
-      self[:power] = false if byte_to_hex(data) == "3000"
-    when :power_query
-      self[:power] = val.not_nil!.to_i == 1
-    when :zoom
-      self[:zoom] = self[:zoom_target] if byte_to_hex(data) == "2000"
-    when :zoom_query
-      self[:zoom] = val.not_nil!.to_i == 1
-    when :iris
-      self[:iris] = self[:iris_target] if byte_to_hex(data) == "2200"
-    when :iris_query
-      self[:iris] = val.not_nil!.to_i == 1
-    when :autofocus
-      self[:autofocus] = true if byte_to_hex(data) == "3100"
-    when :autofocus_query
-      self[:autofocus] = val.not_nil!.to_i == 1
-    else
-      raise Exception.new("could not process task #{task.name} from eye14. \r\nData: #{data}")
+    # array holding the hex string pairs
+    hex_arr = [] of String
+    hex_int.each_with_index do |v, k|
+      hex_arr << "#{hex_int[k - 1]}#{hex_int[k]}" if k % 2 == 1
     end
 
-    task.success
+    case task.name
+    when "power_on"
+      self[:power] = true if hex_arr[1] == "30"
+      self[:stable_power] = @stable_power = true
+    when "power_off"
+      self[:power] = false if hex_arr[1] == "30"
+      self[:stable_power] = @stable_power = true
+    when "power_query"
+      self[:power] = (hex_arr[3].to_i == 1) ? true : false
+    when "zoom"
+      self[:zoom] = self[:zoom_target] if hex_arr[1] == "20"
+    when "zoom_query"
+      self[:zoom] = hex_arr[4].to_i(16) if hex_arr[1] == "20"
+    when "iris"
+      self[:iris] = self[:iris_target] if hex_arr[1] == "22"
+    when "iris_query"
+      self[:iris] = hex_arr[4].to_i(16) if hex_arr[1] == "22"
+    when "autofocus"
+      self[:autofocus] = true if hex_arr[1] == "31"
+    when "autofocus_query"
+      self[:autofocus] = (hex_arr[2].to_i == 1) ? true : false
+    else
+      raise Exception.new(" Could not process task #{task.name} from eye14. \r\nData: #{data}")
+    end
+
+    # transport.disconnect
+    return task.try &.success
   end
 
   protected def do_send(command, param = nil, **options)
     # prepare the command
+
     cmd = if param.nil?
             "#{COMMANDS[command]}"
           else
-            "#{COMMANDS[command]}#{param}"
+            "#{COMMANDS[command]}\\x#{param}"
           end
 
-    logger.debug { "queuing #{command}: #{cmd}" }
+    logger.info { " Queing: #{cmd}" }
 
     # queue the request
     queue(**({
@@ -206,26 +207,9 @@ class Wolfvision::Eye14 < PlaceOS::Driver
     }.merge(options))) do
       # prepare channel and connect to the projector (which will then send the random key)
       @channel = Channel(String).new
-      transport.connect
-      # wait for the random key to arrive
-      random_key = @channel.receive
       # send the request
-      # NOTE:: the built in `send` function has implicit queuing, but we are
-      # in a task callback here so should be calling transport send directly
+      logger.info { " Sending: #{cmd}" }
       transport.send(cmd)
     end
-  end
-
-  def byte_to_hex(data : String)
-    logger.info { data }
-    output = ""
-    data.each_byte do |byte|
-      if !byte.nil?
-        # s = byte#.to_s(16)
-        # s.to_s.prepend('0') #if s.length % 2 > 0
-        output = output + byte.to_s(16)
-      end
-    end
-    output
   end
 end
