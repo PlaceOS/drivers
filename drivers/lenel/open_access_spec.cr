@@ -139,15 +139,16 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     res.status_code = 200
   end
 
-  created_badge = exec(:create_badge, type: 1, personid: 1)
+  created_badge = exec(:create_badge, type: 5, personid: 1, id: 123)
   expect_http_request do |req, res|
     req.method.should eq("POST")
     req.path.should eq("/instances")
     body = JSON.parse req.body.not_nil!
     body["type_name"]?.should eq("Lnl_Badge")
     body["property_value_map"]?.try do |prop|
-      prop["type"].should eq(1)
+      prop["type"].should eq(5)
       prop["personid"].should eq(1)
+      prop["id"].should eq(123)
     end
     respond_with 200, {
       type_name: "Lnl_Badge",
@@ -165,4 +166,14 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
   end
   created_badge = created_badge.get.not_nil!
   created_badge["ID"]?.should eq(1)
+
+  exec(:delete_badge, badgekey: 1)
+  expect_http_request do |req, res|
+    req.method.should eq("DELETE")
+    req.path.should eq("/instances")
+    body = JSON.parse req.body.not_nil!
+    body["type_name"]?.should eq("Lnl_Badge")
+    body.dig("property_value_map", "badgekey").should eq(1)
+    res.status_code = 200
+  end
 end

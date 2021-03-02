@@ -96,14 +96,25 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.version
   end
 
+  # Query the available badge types.
+  #
+  # Badge types contain default configuration that is applied to any badge
+  # created under them. This includes items such as access areas, activation
+  # windows and other bulk config. These may then be override on individual
+  # badge instances.
   @[Security(Level::Support)]
   def badge_types
     client.lookup BadgeType
   end
 
+  # Creates a new badge of the specied *type*, belonging to *personid* with a
+  # specific *id*.
+  #
+  # Note: 'id' is the physical badge number (e.g. the ID written to an NFC chip)
   @[Security(Level::Administrator)]
   def create_badge(
     type : Int32,
+    id : Int64,
     personid : Int32,
     uselimit : Int32? = nil,
     activate : Time? = nil,
@@ -113,12 +124,14 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.create Badge, **args
   end
 
+  # Deletes a badge with the specified *badgekey*.
   @[Security(Level::Administrator)]
-  def delete_badge(id : Int32) : Nil
-    logger.debug { "deleting badge #{id}" }
+  def delete_badge(badgekey : Int32) : Nil
+    logger.debug { "deleting badge #{badgekey}" }
     client.delete Badge, **args
   end
 
+  # Lookup a cardholder by *email* address.
   @[Security(Level::Support)]
   def lookup_cardholder(email : String)
     cardholders = client.lookup Cardholder, filter: %(email = "#{email}")
@@ -128,6 +141,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
     cardholders.first?
   end
 
+  # Creates a new cardholder.
+  #
+  # An error will be returned if an existing cardholder exists for the specified
+  # *email* address.
   @[Security(Level::Support)]
   def create_cardholder(
     email : String,
@@ -141,6 +158,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.create Cardholder, **args
   end
 
+  # Deletes a cardholed by their person *id*.
   @[Security(Level::Administrator)]
   def delete_cardholder(id : Int32) : Nil
     logger.debug { "deleting cardholder #{id}" }
