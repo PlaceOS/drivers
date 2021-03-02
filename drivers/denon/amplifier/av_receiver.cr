@@ -16,9 +16,22 @@ module Denon::Amplifier; end
 
 class Denon::Amplifier::AvReceiver < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Powerable
+  include PlaceOS::Driver::Utilities::Transcoder
 
   @channel : Channel(String) = Channel(String).new
   @stable_power : Bool = true
+
+  COMMANDS = {
+    power:        :PW,
+    power_query:  :PW?,
+    mute:         :MU,
+    mute_query:   :MU?,
+    volume:       :MV,
+    volume_query: :MV?,
+    input:        :SI,
+    input_query:  :SI?,
+  }
+  COMMANDS.to_h.merge!(COMMANDS.to_h.invert)
 
   @volume_range = 0..196
 
@@ -36,7 +49,8 @@ class Denon::Amplifier::AvReceiver < PlaceOS::Driver
   # delay on_receive: 30
 
   def on_load
-    transport.tokenizer = Tokenizer.new(Bytes[0x0D])
+    # transport.tokenizer = Tokenizer.new(Bytes[0x0D])
+    transport.tokenizer = Tokenizer.new("\r")
     self[:volume_min] = 0
     self[:volume_max] = @volume_range.max # == 98 * 2    - Times by 2 so we can account for the half steps
     on_update
@@ -51,15 +65,14 @@ class Denon::Amplifier::AvReceiver < PlaceOS::Driver
     #
     # Get state
     #
-    do_send(COMMANDS[:power])
-    do_send(COMMANDS[:input])
-    do_send(COMMANDS[:volume])
-    do_send(COMMANDS[:mute])
+    # power?
+    # input?
+    # mute?
 
     schedule.every(60.seconds) do
-      logger.debug { "-- Polling Denon AVR" }
+      logger.info { "-- Polling Denon AVR" }
       power?
-      do_send(COMMANDS[:input], priority: 0)
+      do_send(:input, priority: 0, name: :input)
     end
   end
 
@@ -67,35 +80,30 @@ class Denon::Amplifier::AvReceiver < PlaceOS::Driver
     schedule.clear
   end
 
-  COMMANDS = {
-    power:  :PW,
-    mute:   :MU,
-    volume: :MV,
-    input:  :SI,
-  }
-  COMMANDS.to_h.merge!(COMMANDS.to_h.invert)
-
-  def power(state : Bool)
+  def power(state : Bool = false)
     # self[:power] is current as we would be informed otherwise
-    if state && !self[:power]                                                           # Request to power on if off
-      do_send(COMMANDS[:power], "ON", timeout: 10, delay: 3.milliseconds, name: :power) # Manual states delay for 1 second, just to be safe
-
-    elsif !state && self[:power] # Request to power off if on
-      do_send(COMMANDS[:power], "STANDBY", timeout: 10, delay: 3.milliseconds, name: :power)
+    if state && (self[:power] == "OFF" || self[:power] == "STANDBY") # Request to power on if off
+      do_send(:power, "ON", delay: 3.milliseconds, name: :power)     # Manual states delay for 1 second, just to be safe
+    elsif !state && self[:power] == "ON"                             # Request to power off if on
+      do_send(:power, "STANDBY", delay: 3.milliseconds, name: :power)
     end
   end
 
   def power?
     # def power?(**options)
     # options[:emit] = {:power => block} unless block.nil?
-    do_send(COMMANDS[:power], priority: 0)
+    do_send(:power_query, priority: 0, name: :power_query)
+  end
+
+  def mute?
+    self[:mute] = "OFF"
+    do_send(:mute_query, priority: 0, name: :mute_query)
   end
 
   def mute(state : Bool = true)
-    # will_mute = is_affirmative?(state)
     req = state ? "ON" : "OFF"
-    return if self[:mute] == state
-    do_send(COMMANDS[:mute], req)
+    return if self[:mute] == req
+    do_send(:mute, req, name: :mute)
   end
 
   def mute_audio(state : Bool = true)
@@ -116,83 +124,90 @@ class Denon::Amplifier::AvReceiver < PlaceOS::Driver
 
     return if self[:volume] == value
 
-    # The denon is weird 99 is volume off, 99.5 is the minimum volume, 0 is the next lowest volume and 985 is the loudest volume
+    # The denon is weird 99 is volume off,
+    # 99.5 is the minimum volume,
+    # 0 is the next lowest volume and 985 is the loudest volume
     # => So we are treating 99, 995 and 0 as 0
     step = value % 2
     actual = value / 2
     req = actual.to_s.rjust(2, '0')
     req += "5" if step != 0
 
-    do_send(COMMANDS[:volume], req, name: :volume) # Name prevents needless queuing of commands
-    self[:volume] = value
+    do_send(:volume, req, name: :volume) # Name prevents needless queuing of commands
+
+  end
+
+  def volume?
+    do_send(:volume_query, priority: 0, name: :volume_query)
   end
 
   # Just here for documentation (there are many more)
   #
   # INPUTS = [:cd, :tuner, :dvd, :bd, :tv, :"sat/cbl", :dvr, :game, :game2, :"v.aux", :dock]
-  def switch_to(input : String = "")
-    status = input # .downcase.to_sym
+  def input(input : String = "")
+    status = input.upcase # .downcase.to_sym
     if status != self[:input]
       input = input.to_s.upcase
-      do_send(COMMANDS[:input], input, name: :input)
-      self[:input] = status
+      do_send(:input, input, name: :input)
     end
   end
 
+  def input?
+    do_send(:input_query, priority: 0, name: :input_query)
+  end
+
   def received(data, task)
-    # data = String.new(data).rchop
-    logger.debug { "Denon sent #{data}" }
-    logger.debug { "INFO: Denon sent #{data}" }
+    data = String.new(data)
+    logger.info { "Denon sent #{data.inspect}" }
 
-    #  comm = data[0..1].to_sym
-    #  param = data[2..-1]
+    return unless task
 
-    #  case COMMANDS[comm]
-    #  when :power
-    #    self[:power] = param == "ON"
-    #  when :input
-    #    self[:input] = param.downcase.to_sym
-    #  when :volume
-    #    return :ignore if param.length > 3 # May send 'MVMAX 98' after volume command
+    # Process the response
+    cmd = data[0..1]  # first 2 chars are the key / command
+    val = data[2..-2] # anything following the above and before \r is a response value
 
-    #    vol = param[0..1].to_i * 2
-    #    vol += 1 if param.length == 3
+    case cmd
+    when "PW"
+      self[:power] = val
+    when "SI"
+      self[:input] = val
+    when "MV"
+      # return :ignore if val.chars.size > 3 # May send 'MVMAX 98' after volume command
+      # self[:volume] = 0
+      # vol = val.to_i32
+      # self[:volume] = val unless val.to_i32 > @volume_range.max
+      self[:volume] = val
+      #    return :ignore if param.length > 3 # May send 'MVMAX 98' after volume command
+      #    vol = param[0..1].to_i * 2
+      #    vol += 1 if param.length == 3
+      #    vol == 0 if vol > @volume_range.max # this means the volume was 99 or 995
+      #    self[:volume] = vol
 
-    #    vol == 0 if vol > @volume_range.max # this means the volume was 99 or 995
-
-    #    self[:volume] = vol
-    #  when :mute
-    #    self[:mute] = param == "ON"
-    #  else
-    #    return :ignore
-    #  end
-    true
-    # task.success
+    when "MU"
+      self[:mute] = val
+    else
+      return :ignore
+    end
+    return task.try &.success
   end
 
   protected def do_send(command, param = nil, **options)
     # prepare the command
     cmd = if param.nil?
-            "#{COMMANDS[command]}\r"
+            "#{COMMANDS[command]}"
           else
-            "#{COMMANDS[command]}#{param}\r"
+            "#{COMMANDS[command]}#{param}"
           end
+    logger.info { "Queing: #{cmd}" }
 
-    logger.debug { "queuing #{command}: #{cmd}" }
-    send(cmd)
     # queue the request
-    #   queue(**({
-    #      name: command,
-    #    }.merge(options))) do
-    # prepare channel and connect to the projector (which will then send the random key)
-    #      @channel = Channel(String).new
-    #      transport.connect
-    # wait for the random key to arrive
-    # random_key = @channel.receive
-    # send the request
-    # NOTE:: the built in `send` function has implicit queuing, but we are
-    # in a task callback here so should be calling transport send directly
-    #      transport.send(cmd)
-    #    end
+    queue(**({
+      name: command,
+    }.merge(options))) do
+      @channel = Channel(String).new
+      # send the request
+      logger.info { " Sending: #{cmd}" }
+      transport.send(cmd)
+    end
   end
 end
