@@ -104,8 +104,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     # We need to POST to the Cisco ISE guest endpoint
     # POST https://<ISE-Admin-Node>:9060/ers/config/guestuser/
-    response = post("#{setting?(String, :endpoint)}/guestuser/", body: xml_string, headers: {
-        "Authorization" => "Basic #{setting?(String, :auth_token)}" 
+    response = post("#{@endpoint}/guestuser/", body: xml_string, headers: {
+        "Authorization" => "Basic #{@auth_token}"
       })
   end
 
