@@ -13,9 +13,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     auth_token: nil,
     portal_id: "portal101"
   })
-  
+
   @endpoint : String = ""
   @auth_token : String = ""
+  @portal_id : String = ""
 
   def on_load
     # Guest has arrived in the lobby
@@ -29,7 +30,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     @auth_token = setting(String, :auth_token)
     @portal_id = setting(String, :portal_id)
   end
-  
+
   class GuestEvent
     include JSON::Serializable
 
