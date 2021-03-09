@@ -16,8 +16,8 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
     ext_data: {"ext_data": "Some JSON"}
   }.to_json
 
-  # Call the function we 
-  exec(:guest_checking, payload)
+  # Call the function we
+  exec(:guest_checkin, payload)
 
   # Now we can expext a POST to ISE creating that guest user based on the above details
   expect_http_request do |request, response|
