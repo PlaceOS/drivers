@@ -640,7 +640,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         existing = @locations[client_mac]?
 
         logger.debug { "parsing new observation for #{client_mac}" } if @debug_webhook
-        location = parse(existing, ignore_older, drift_older, current_time_unix, observation.latest_record.time, observation.locations)
+        location = parse(existing, ignore_older, drift_older, observation.locations)
         if location
           @locations[client_mac] = location
           locations_updated += 1
@@ -659,10 +659,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     SUCCESS_RESPONSE
   end
 
-  protected def parse(existing, ignore_older, drift_older, current_time, latest_raw, locations_raw) : Location?
-    # deal with times in a relative way
-    adjust_by = (current_time - latest_raw.to_unix).seconds
-
+  protected def parse(existing, ignore_older, drift_older, locations_raw) : Location?
     # existing.time is our ajusted time
     if existing_time = existing.try &.time
       existing = nil if existing_time < ignore_older
@@ -670,7 +667,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     # remove locations that don't have an x,y or very uncertain or very old
     locations = locations_raw.reject do |loc|
-      loc.time = loc.time + adjust_by
       loc.get_x.nil? || loc.variance > @maximum_uncertainty
     end
 
