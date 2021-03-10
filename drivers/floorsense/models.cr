@@ -144,4 +144,79 @@ module Floorsense
     # Returned on success
     property info : Array(Floor)?
   end
+
+  class BookingStatus
+    include JSON::Serializable
+
+    property key : String
+    property uid : String
+
+    @[JSON::Field(key: "bktype")]
+    property booking_type : String
+
+    @[JSON::Field(key: "bkid")]
+    property booking_id : String
+
+    property created : Int64
+    property start : Int64
+    property finish : Int64
+
+    property conftime : Int64?
+    property confmethod : Int32?
+    property confexpiry : Int64?
+
+    property cid : Int32
+    property planid : Int32
+    property groupid : Int32
+
+    property released : Int32
+    property releasecode : Int32
+    property active : Bool
+    property confirmed : Bool
+    property privacy : Bool
+
+    # not included in the responses but we will merge this
+    property user : User?
+  end
+
+  class BookingsResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "type")]
+    property msg_type : String
+    property result : Bool
+
+    # Returned on failure
+    property message : String?
+    property code : Int32?
+
+    # Returned on success (desk => bookings)
+    property info : Hash(String, Array(BookingStatus))?
+  end
+
+  class User
+    include JSON::Serializable
+
+    property uid : String
+    property email : String
+    property name : String
+    property desc : String
+    property lastlogin : Int64
+    property expiry : Int64?
+  end
+
+  class UserResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "type")]
+    property msg_type : String
+    property result : Bool
+
+    # Returned on failure
+    property message : String?
+    property code : Int32?
+
+    # Returned on success
+    property info : User?
+  end
 end
