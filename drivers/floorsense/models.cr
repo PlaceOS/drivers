@@ -198,10 +198,10 @@ module Floorsense
     include JSON::Serializable
 
     property uid : String
-    property email : String
+    property email : String?
     property name : String
-    property desc : String
-    property lastlogin : Int64
+    property desc : String?
+    property lastlogin : Int64?
     property expiry : Int64?
   end
 
