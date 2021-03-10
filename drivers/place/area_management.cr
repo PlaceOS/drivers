@@ -183,11 +183,9 @@ class Place::AreaManagement < PlaceOS::Driver
         y: "yloc",
       },
       ts_tag_keys: {"s2_cell_id"},
-      ts_fields:   {
-        pos_level: level_id,
-      },
       ts_tags: {
         pos_building: @building_id,
+        pos_level: level_id,
       },
     }
 
