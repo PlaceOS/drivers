@@ -13,6 +13,8 @@ class Floorsense::Desks < PlaceOS::Driver
   generic_name :Floorsense
   descriptive_name "Floorsense Desk Tracking"
 
+  uri_base "https://_your_subdomain_.floorsense.com.au"
+
   default_settings({
     username: "srvc_acct",
     password: "password!",
@@ -22,6 +24,7 @@ class Floorsense::Desks < PlaceOS::Driver
   @password : String = ""
   @auth_token : String = ""
   @auth_expiry : Time = 1.minute.ago
+  @user_cache : Hash(String, User) = {} of String => User
 
   def on_load
     on_update
@@ -102,6 +105,55 @@ class Floorsense::Desks < PlaceOS::Driver
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"
     end
+  end
+
+  def bookings(plan_id : String)
+    token = get_token
+    uri = "/restapi/floorplan-booking?planid=#{plan_id}"
+
+    response = get(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      bookings_map = check_response(BookingsResponse.from_json(response.body.not_nil!))
+      bookings_map.each do |_id, bookings|
+        # get the user information
+        bookings.each { |booking| booking.user = get_user(booking.uid) }
+      end
+      bookings_map
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def get_user(user_id : String)
+    existing = @user_cache[user_id]?
+    return existing if existing
+
+    token = get_token
+    uri = "/restapi/user?uid=#{user_id}"
+
+    response = get(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      user = check_response UserResponse.from_json(response.body.not_nil!)
+      @user_cache[user_id] = user
+      user
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  @[Security(Level::Support)]
+  def clear_user_cache!
+    @user_cache.clear
   end
 
   def locate(key : String, controller_id : String? = nil)
