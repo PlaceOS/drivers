@@ -60,8 +60,8 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def systems(q : String? = nil,
-              limit : Int = 1000,
-              offset : Int = 0,
+              limit : Int32 = 1000,
+              offset : Int32 = 0,
               zone_id : String? = nil,
               module_id : String? = nil,
               features : String? = nil,
