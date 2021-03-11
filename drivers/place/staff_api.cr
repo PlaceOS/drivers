@@ -218,8 +218,8 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
-  def get_module_state(module_id : String)
-    placeos_client.modules.state module_id
+  def get_module_state(module_id : String, lookup : String? = nil)
+    placeos_client.modules.state(module_id, lookup)
   end
 
   # TODO: figure out why these 2 methods don't work
