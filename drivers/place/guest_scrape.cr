@@ -36,10 +36,16 @@ class Place::GuestScrape < PlaceOS::Driver
     end
 
     # Select only the sytem ids that have a booking module
-    systems_ids_with_booking_modules = system_ids.select { |sys_id|
-      staff_api.modules_from_system(sys_id).get.as_a.any? { |mod|
-        mod["name"] == "Bookings"
-      }
+    booking_module_ids = [] of String
+    system_ids.each { |sys_id|
+      # Only look for the first booking module
+      booking_module = staff_api.modules_from_system(sys_id).get.as_a.find { |mod| mod["name"] == "Bookings" }
+      booking_module_ids |= [booking_module["id"].as_s] if booking_module
+    }
+
+    # Get all of the bookings from each booking module
+    bookings = booking_module_ids.flat_map { |mod_id|
+      placeos_client.modules.state(mod_id, "bookings")
     }
   end
 end
