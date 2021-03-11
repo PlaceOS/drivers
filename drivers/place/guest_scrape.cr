@@ -1,5 +1,3 @@
-require "placeos"
-
 class Place::GuestScrape < PlaceOS::Driver
   descriptive_name "PlaceOS Guest Scrape"
   generic_name :GuestScrape
@@ -15,6 +13,10 @@ class Place::GuestScrape < PlaceOS::Driver
   @zone_ids = [] of String
   @internal_domains = [] of String
   @poll_interval : Time::Span = 5.minutes
+
+  def on_load
+    on_update
+  end
 
   def on_update
     schedule.clear
@@ -34,6 +36,8 @@ class Place::GuestScrape < PlaceOS::Driver
       # Use array union to prevent dupes incase the same system is in multiple zones
       staff_api.systems(zone_id: z_id).get.as_a.each { |sys| system_ids |= [sys["id"].as_s] }
     end
+    logger.debug { "System ids from zones" }
+    logger.debug { system_ids.inspect }
 
     # Select only the sytem ids that have a booking module
     booking_module_ids = [] of String
@@ -42,10 +46,17 @@ class Place::GuestScrape < PlaceOS::Driver
       booking_module = staff_api.modules_from_system(sys_id).get.as_a.find { |mod| mod["name"] == "Bookings" }
       booking_module_ids |= [booking_module["id"].as_s] if booking_module
     }
+    logger.debug { "Booking module ids" }
+    logger.debug { booking_module_ids.inspect }
 
     # Get all of the bookings from each booking module
     bookings = booking_module_ids.flat_map { |mod_id|
-      staff_api.get_module_state(mod_id, "bookings").get.as_a
+      logger.debug { "Getting bookings for module #{mod_id}" }
+      b = staff_api.get_module_state(mod_id, "bookings").get.as_a
+      logger.debug { b.inspect }
+      b
     }
+    logger.debug { "Bookings" }
+    logger.debug { bookings.inspect }
   end
 end
