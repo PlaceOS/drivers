@@ -33,7 +33,7 @@ class Place::GuestScrape < PlaceOS::Driver
     systems = [] of System
     @zone_ids.each do |z_id|
       staff_api.systems(zone_id: z_id).get.as_a.each do |s|
-        systems |= System.from_json(s)
+        systems |= [System.from_json(s.to_json)]
       end
     end
   end
