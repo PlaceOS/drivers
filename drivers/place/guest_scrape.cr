@@ -36,11 +36,10 @@ class Place::GuestScrape < PlaceOS::Driver
       end
     end
 
-    module_ids = [] of String
-    system_ids.each do |sys_id|
-      staff_api.modules_from_system(sys_id).get.as_a.each do |mod|
-        module_ids |= [mod["id"].as_s] if mod["name"] == "Bookings"
-      end
-    end
+    systems_ids_with_booking_modules = system_ids.select { |sys_id|
+      staff_api.modules_from_system(sys_id).get.as_a.any? { |mod|
+        mod["name"] == "Bookings"
+      }
+    }
   end
 end
