@@ -1,3 +1,5 @@
+require "placeos"
+
 class Place::GuestScrape < PlaceOS::Driver
   descriptive_name "PlaceOS Guest Scrape"
   generic_name :GuestScrape
@@ -21,6 +23,8 @@ class Place::GuestScrape < PlaceOS::Driver
     @internal_domains = setting?(Array(String), :zone_ids) || [] of String
     @poll_interval = (setting?(UInt32, :poll_interval) || 5).minutes
   end
+
+  alias System = PlaceOS::Client::API::Models::System
 
   def get_bookings
     logger.debug { "Getting bookings for zones" }
