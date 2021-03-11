@@ -33,6 +33,7 @@ class Place::GuestScrape < PlaceOS::Driver
     systems = [] of System
     @zone_ids.each do |z_id|
       staff_api.systems(zone_id: z_id).get.as_a.each do |s|
+        # Use array union to prevent dupes incase the same system is in multiple zones
         systems |= [System.from_json(s.to_json)]
       end
     end
