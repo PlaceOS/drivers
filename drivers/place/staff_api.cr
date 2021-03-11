@@ -59,6 +59,26 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  def systems(q : String? = nil,
+              limit : Int32 = 1000,
+              offset : Int32 = 0,
+              zone_id : String? = nil,
+              module_id : String? = nil,
+              features : String? = nil,
+              capacity : Int32? = nil,
+              bookable : Bool? = nil)
+    placeos_client.systems.search(
+      q: q,
+      limit: limit,
+      offset: offset,
+      zone_id: zone_id,
+      module_id: module_id,
+      features: features,
+      capacity: capacity,
+      bookable: bookable
+    )
+  end
+
   # Staff details returns the information from AD
   def staff_details(email : String)
     response = get("/api/staff/v1/people/#{email}", headers: {

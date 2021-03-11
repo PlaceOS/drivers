@@ -25,5 +25,12 @@ class Place::GuestScrape < PlaceOS::Driver
   def get_bookings
     logger.debug { "Getting bookings for zones" }
     logger.debug { @zone_ids.inspect }
+
+    systems = [] of System
+    @zone_ids.each do |z_id|
+      staff_api.systems(zone_id: z_id).get.as_a.each do |s|
+        systems |= System.from_json(s)
+      end
+    end
   end
 end
