@@ -218,6 +218,10 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  def get_module_state(module_id : String)
+    placeos_client.modules.state module_id
+  end
+
   # TODO: figure out why these 2 methods don't work
   # def module(module_id : String)
   #   placeos_client.modules.fetch module_id
