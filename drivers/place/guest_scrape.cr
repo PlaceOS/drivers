@@ -28,14 +28,14 @@ class Place::GuestScrape < PlaceOS::Driver
     logger.debug { "Getting bookings for zones" }
     logger.debug { @zone_ids.inspect }
 
+    # Get all the system ids from the zones in @zone_ids
     system_ids = [] of String
     @zone_ids.each do |z_id|
-      staff_api.systems(zone_id: z_id).get.as_a.each do |sys|
-        # Use array union to prevent dupes incase the same system is in multiple zones
-        system_ids |= [sys["id"].as_s]
-      end
+      # Use array union to prevent dupes incase the same system is in multiple zones
+      staff_api.systems(zone_id: z_id).get.as_a.each { |sys| system_ids |= [sys["id"].as_s] }
     end
 
+    # Select only the sytem ids that have a booking module
     systems_ids_with_booking_modules = system_ids.select { |sys_id|
       staff_api.modules_from_system(sys_id).get.as_a.any? { |mod|
         mod["name"] == "Bookings"
