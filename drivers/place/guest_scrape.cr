@@ -53,7 +53,7 @@ class Place::GuestScrape < PlaceOS::Driver
     bookings = booking_module_ids.flat_map { |mod_id|
       logger.debug { "Getting bookings for module #{mod_id}" }
       b = staff_api.get_module_state(mod_id).get["bookings"]?
-      b = b ? JSON.parse(b) : [] of JSON::Any
+      b = b ? JSON.parse(b.as_s) : [] of JSON::Any
       logger.debug { b.inspect }
       b
     }
