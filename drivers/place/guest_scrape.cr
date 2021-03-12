@@ -52,7 +52,8 @@ class Place::GuestScrape < PlaceOS::Driver
     # Get all of the bookings from each booking module
     bookings = booking_module_ids.flat_map { |mod_id|
       logger.debug { "Getting bookings for module #{mod_id}" }
-      b = JSON.parse(staff_api.get_module_state(mod_id, "bookings").get.as_s)
+      b = staff_api.get_module_state(mod_id).get["bookings"]?
+      b = b ? JSON.parse(b) : [] of JSON::Any
       logger.debug { b.inspect }
       b
     }
