@@ -1,6 +1,7 @@
 DriverSpecs.mock_driver "Place::GuestScrape" do
   system({
-    StaffAPI: {StaffAPI}
+    StaffAPI: {StaffAPI},
+    VisitorMailer: {VisitorMailer}
   })
 
   exec(:get_bookings)
@@ -44,7 +45,7 @@ class StaffAPI < DriverSpecs::MockDriver
         id: "mod-3",
         control_system_id: system_id,
         name: "Bookings"
-      },
+      }
     ]
   end
 
@@ -53,18 +54,17 @@ class StaffAPI < DriverSpecs::MockDriver
     start = now.at_beginning_of_day.to_unix
     ending = now.at_end_of_day.to_unix
 
-    bookings = [{
-      event_start: start,
-      event_end: ending,
-      id: "booking-1",
-      host: "testroom1@booking.demo.acaengine.com",
-      title: "Test in #{module_id}"
-    }]
-
-    if lookup == "bookings"
-      bookings
-    else
-      {control_ui: "https://if.panel/to_be_used_for_control", bookings: bookings}
-    end
+    {
+      bookings: [{
+        event_start: start,
+        event_end: ending,
+        id: "booking-1",
+        host: "testroom1@booking.demo.acaengine.com",
+        title: "Test in #{module_id}"
+      }].to_json
+    }
   end
+end
+
+class VisitorMailer < DriverSpecs::MockDriver
 end
