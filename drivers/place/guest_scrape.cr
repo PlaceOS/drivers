@@ -67,6 +67,9 @@ class Place::GuestScrape < PlaceOS::Driver
     get_bookings.each do |sys_id, bookings|
       bookings.each do |b|
         b.attendees.each do |a|
+          # TODO: confirm if I can always assume the below
+          # Don't send to the room since the room is the host of the booking
+          next if a.email == b.creator
           params = {
             visitor_email: a.email,
             visitor_name: a.name,
