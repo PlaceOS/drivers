@@ -60,9 +60,6 @@ class Place::GuestScrape < PlaceOS::Driver
       logger.debug { bookings.inspect }
       bookings_by_room[sys_id] = bookings
     }
-    logger.debug { "Bookings" }
-    logger.debug { bookings_by_room.inspect }
-
     bookings_by_room
   end
 
@@ -70,14 +67,25 @@ class Place::GuestScrape < PlaceOS::Driver
     get_bookings.each do |sys_id, bookings|
       bookings.each do |b|
         b.attendees.each do |a|
-          mailer.send_visitor_qr_email(
+          params = {
             visitor_email: a.email,
             visitor_name: a.name,
             host_email: b.creator,
             event_id: b.id,
             event_start: b.event_start,
             system_id: sys_id
+          }
+          logger.debug { "Sending email with:" }
+          logger.debug { params.inspect }
+          result = mailer.send_visitor_qr_email(
+            visitor_email: a.email,
+            visitor_name: a.name,
+            host_email: b.creator,
+            event_id: b.id,
+            event_start: b.event_start.to_unix,
+            system_id: sys_id
           )
+          logger.debug { "Result = #{result.get}" }
         end
       end
     end
