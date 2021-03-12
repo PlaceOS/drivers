@@ -1,3 +1,5 @@
+require "place_calendar"
+
 class Place::GuestScrape < PlaceOS::Driver
   descriptive_name "PlaceOS Guest Scrape"
   generic_name :GuestScrape
@@ -9,6 +11,7 @@ class Place::GuestScrape < PlaceOS::Driver
   })
 
   accessor staff_api : StaffAPI_1
+  accessor mailer : VisitorMailer_1
 
   @zone_ids = [] of String
   @internal_domains = [] of String
@@ -39,26 +42,47 @@ class Place::GuestScrape < PlaceOS::Driver
     logger.debug { "System ids from zones" }
     logger.debug { system_ids.inspect }
 
-    # Select only the sytem ids that have a booking module
-    booking_module_ids = [] of String
+    # Mapping of system_ids to booking_module_ids
+    booking_module_ids = {} of String => String
     system_ids.each { |sys_id|
       # Only look for the first booking module
-      booking_module = staff_api.modules_from_system(sys_id).get.as_a.find { |mod| mod["name"] == "Bookings" }
-      booking_module_ids |= [booking_module["id"].as_s] if booking_module
+      next unless booking_module = staff_api.modules_from_system(sys_id).get.as_a.find { |mod| mod["name"] == "Bookings" }
+      booking_module_ids[sys_id] = booking_module["id"].as_s
     }
     logger.debug { "Booking module ids" }
     logger.debug { booking_module_ids.inspect }
 
-    # Get all of the bookings from each booking module
-    bookings = booking_module_ids.flat_map { |mod_id|
-      logger.debug { "Getting bookings for module #{mod_id}" }
-      b = staff_api.get_module_state(mod_id).get["bookings"]?
-      b = b ? JSON.parse(b.as_s) : [] of JSON::Any
-      logger.debug { b.inspect }
-      b
+    # Get bookings for each room
+    bookings_by_room = {} of String => Array(PlaceCalendar::Event)
+    booking_module_ids.each { |sys_id, mod_id|
+      next unless bookings = staff_api.get_module_state(mod_id).get["bookings"]?
+      bookings = JSON.parse(bookings.as_s).as_a.map { |b| PlaceCalendar::Event.from_json(b.to_json) }
+      logger.debug { bookings.inspect }
+      bookings_by_room[sys_id] = bookings
     }
     logger.debug { "Bookings" }
-    logger.debug { bookings.inspect }
-    bookings
+    logger.debug { bookings_by_room.inspect }
+
+    bookings_by_room
+  end
+
+  def send_emails
+    send_qr_emails(get_bookings)
+  end
+
+  private def send_qr_emails(bookings_by_room)
+    bookings_by_room.each do |sys_id, bookings|
+      bookings.each do |b|
+        b.attendees.each do |a|
+          mailer.send_visitor_qr_email(
+            a.email,
+            a.name,
+            b.creator,
+            b.event_start,
+            sys_id
+          )
+        end
+      end
+    end
   end
 end
