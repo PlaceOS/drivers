@@ -66,20 +66,17 @@ class Place::GuestScrape < PlaceOS::Driver
     bookings_by_room
   end
 
-  def send_emails
-    send_qr_emails(get_bookings)
-  end
-
-  private def send_qr_emails(bookings_by_room)
-    bookings_by_room.each do |sys_id, bookings|
+  def send_qr_emails
+    get_bookings.each do |sys_id, bookings|
       bookings.each do |b|
         b.attendees.each do |a|
           mailer.send_visitor_qr_email(
-            a.email,
-            a.name,
-            b.creator,
-            b.event_start,
-            sys_id
+            visitor_email: a.email,
+            visitor_name: a.name,
+            host_email: b.creator,
+            event_id: b.id,
+            event_start: b.event_start,
+            system_id: sys_id
           )
         end
       end
