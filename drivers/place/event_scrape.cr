@@ -6,15 +6,13 @@ class Place::EventScrape < PlaceOS::Driver
 
   default_settings({
     zone_ids: ["placeos-zone-id"],
-    internal_domains: ["PlaceOS.com"],
-    poll_interval: 5
+    internal_domains: ["PlaceOS.com"]
   })
 
   accessor staff_api : StaffAPI_1
 
   @zone_ids = [] of String
   @internal_domains = [] of String
-  @poll_interval : Time::Span = 5.minutes
 
   alias Event = PlaceCalendar::Event
 
@@ -30,24 +28,19 @@ class Place::EventScrape < PlaceOS::Driver
   end
 
   def on_update
-    schedule.clear
-
     @zone_ids = setting?(Array(String), :zone_ids) || [] of String
     @internal_domains = setting?(Array(String), :internal_domains) || [] of String
-    @poll_interval = (setting?(UInt32, :poll_interval) || 5).minutes
   end
 
-  def get_bookings
+  def todays_bookings
     response = {
       internal_domains: @internal_domains,
       systems: {} of String => SystemWithEvents
     }
 
-    logger.debug { "Getting bookings for zones" }
-    logger.debug { @zone_ids.inspect }
-
-    start_epoch = Time.utc.at_beginning_of_day.to_unix
-    end_epoch = start_epoch + 86400 # seconds in a day
+    now = Time.local
+    start_epoch = now.at_beginning_of_day.to_unix
+    end_epoch = now.at_end_of_day.to_unix
 
     @zone_ids.each do |z_id|
       staff_api.systems(zone_id: z_id).get.as_a.each do |sys|
@@ -70,7 +63,7 @@ class Place::EventScrape < PlaceOS::Driver
     booking_module = staff_api.modules_from_system(sys_id).get.as_a.find { |mod| mod["name"] == "Bookings" }
     # If the system has a booking module with bookings
     if booking_module && (bookings = staff_api.get_module_state(booking_module["id"].as_s).get["bookings"]?)
-      bookings = JSON.parse(bookings.as_s).as_a.map { |b| Event.from_json(b.to_json) }
+      bookings = Array(Event).from_json(bookings.as_s)
 
       # If both start_epoch and end_epoch are passed
       if start_epoch && end_epoch
