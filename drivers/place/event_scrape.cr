@@ -1,8 +1,8 @@
 require "place_calendar"
 
-class Place::GuestScrape < PlaceOS::Driver
+class Place::EventScrape < PlaceOS::Driver
   descriptive_name "PlaceOS Guest Scrape"
-  generic_name :GuestScrape
+  generic_name :EventScrape
 
   default_settings({
     zone_ids: ["placeos-zone-id"],
