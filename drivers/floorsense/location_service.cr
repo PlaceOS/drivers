@@ -1,5 +1,6 @@
 module Floorsense; end
 
+require "uri"
 require "json"
 require "oauth2"
 require "placeos-driver/interface/locatable"
@@ -57,7 +58,14 @@ class Floorsense::LocationService < PlaceOS::Driver
   end
 
   def check_ownership_of(mac_address : String) : OwnershipMAC?
-    logger.debug { "sensor incapable of tracking #{mac_address}" }
+    floor_mac = URI::Params.parse mac_address
+    user = floorsense.at_location(floor_mac["cid"], floor_mac["key"]).get
+    {
+      location:    "desk",
+      assigned_to: user["name"].as_s,
+      mac_address: mac_address,
+    }
+  rescue
     nil
   end
 
@@ -68,24 +76,48 @@ class Floorsense::LocationService < PlaceOS::Driver
     plan_id = @zone_mappings[zone_id]?
     return [] of Nil unless plan_id
 
+    building = @building_mappings[zone_id]?
+
     raw_desks = floorsense.desks(plan_id).get.to_json
-    Array(DeskStatus).from_json(raw_desks).compact_map do |desk|
+    desks = Array(DeskStatus).from_json(raw_desks).compact_map do |desk|
       if desk.occupied
         {
-          location:    "desk",
-          at_location: desk.occupied ? 1 : 0,
+          location:    :desk,
+          at_location: 1,
           map_id:      desk.key,
           level:       zone_id,
-          building:    @building_mappings[zone_id]?,
+          building:    building,
           capacity:    1,
 
           # So we can look up who is at a desk at some point in the future
-          mac: "cid:#{desk.cid}-#{desk.key}",
+          mac: "cid=#{desk.cid}&key=#{desk.key}",
 
           floorsense_status:    desk.status,
           floorsense_desk_type: desk.desk_type,
         }
       end
     end
+
+    raw_bookings = floorsense.bookings(plan_id).get.to_json
+    current = [] of BookingStatus
+    Hash(String, Array(BookingStatus)).from_json(raw_bookings).each do |desk_id, bookings|
+      current << bookings.first if bookings.size > 0
+    end
+
+    current.map { |booking|
+      {
+        location:    :booking,
+        type:        "desk",
+        checked_in:  booking.active,
+        asset_id:    booking.key,
+        booking_id:  booking.booking_id,
+        building:    building,
+        level:       zone_id,
+        ends_at:     booking.finish,
+        mac:         "cid=#{booking.cid}&key=#{booking.key}",
+        staff_email: booking.user.try &.email,
+        staff_name:  booking.user.try &.name,
+      }
+    } + desks
   end
 end

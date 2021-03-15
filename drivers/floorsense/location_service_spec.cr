@@ -5,8 +5,7 @@ DriverSpecs.mock_driver "Floorsense::LocationService" do
 
   resp = exec(:device_locations, "zone-level").get
   resp.should eq([
-    {"location" => "desk", "at_location" => 0, "map_id" => "915-09", "level" => "zone-level", "building" => "zone-building", "capacity" => 1, "mac" => "cid:14-915-09", "floorsense_status" => 17, "floorsense_desk_type" => "a"},
-    {"location" => "desk", "at_location" => 1, "map_id" => "D403-01", "level" => "zone-level", "building" => "zone-building", "capacity" => 1, "mac" => "cid:3-D403-01", "floorsense_status" => 17, "floorsense_desk_type" => "a"},
+    {"location" => "desk", "at_location" => 1, "map_id" => "D403-01", "level" => "zone-level", "building" => "zone-building", "capacity" => 1, "mac" => "cid=3&key=D403-01", "floorsense_status" => 17, "floorsense_desk_type" => "a"},
   ])
 end
 
@@ -65,5 +64,9 @@ class Floorsense < DriverSpecs::MockDriver
       "uid": "",
       "occupiedtime": 0
     }])
+  end
+
+  def bookings(plan_id : String)
+    JSON.parse %({})
   end
 end
