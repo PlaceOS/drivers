@@ -12,6 +12,7 @@ class StaffAPI < DriverSpecs::MockDriver
 
     sys_1 = {
       id: "sys-1",
+      name: "Room 1",
       zones: ["placeos-zone-id"]
     }
 
@@ -22,6 +23,7 @@ class StaffAPI < DriverSpecs::MockDriver
         sys_1,
         {
           id: "sys-2",
+          name: "Room 2",
           zones: ["zone-1"]
         }
       ]
