@@ -107,9 +107,11 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
-  def bookings(plan_id : String)
+  def bookings(plan_id : String, period_start : Int64? = nil, period_end : Int64? = nil)
     token = get_token
-    uri = "/restapi/floorplan-booking?planid=#{plan_id}"
+    period_start ||= Time.utc.to_unix
+    period_end ||= 15.minutes.from_now.to_unix
+    uri = "/restapi/floorplan-booking?planid=#{plan_id}&start=#{period_start}&finish=#{period_end}"
 
     response = get(uri, headers: {
       "Accept"        => "application/json",
@@ -144,6 +146,24 @@ class Floorsense::Desks < PlaceOS::Driver
     if response.success?
       user = check_response UserResponse.from_json(response.body.not_nil!)
       @user_cache[user_id] = user
+      user
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def at_location(controller_id : String, desk_key : String)
+    token = get_token
+    uri = "/restapi/user-locate?cid=#{controller_id}&desk_key=#{desk_key}"
+
+    response = get(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      user = check_response UserResponse.from_json(response.body.not_nil!)
       user
     else
       expire_token! if response.status_code == 401
