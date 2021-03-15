@@ -1,7 +1,6 @@
-DriverSpecs.mock_driver "Place::GuestScrape" do
+DriverSpecs.mock_driver "Place::EventScrape" do
   system({
-    StaffAPI: {StaffAPI},
-    VisitorMailer: {VisitorMailer}
+    StaffAPI: {StaffAPI}
   })
 
   exec(:get_bookings)
@@ -64,7 +63,4 @@ class StaffAPI < DriverSpecs::MockDriver
       }].to_json
     }
   end
-end
-
-class VisitorMailer < DriverSpecs::MockDriver
 end
