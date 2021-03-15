@@ -185,7 +185,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
       outputs = ensure_array(outputs)
 
       do_send(next_id, "Mixer.SetCrossPointMute", {
-        :Name   => name,
+        :Name    => name,
         :Inputs  => input.to_s,
         :Outputs => outputs.join(' '),
         :Value   => mute,
@@ -214,14 +214,14 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
     if sec = info[:sec]?
       params = {
-        :Name     => name,
+        :Name      => name,
         info[:pri] => index[0],
         sec        => index[1],
         :Value     => level,
       }
     else
       params = {
-        :Name     => name,
+        :Name      => name,
         info[:pri] => index,
         :Value     => level,
       }
@@ -245,7 +245,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
     info = Mutes[type]
 
     do_send(next_id, info[:type], {
-      :Name     => name,
+      :Name      => name,
       info[:pri] => index,
       :Value     => value,
     }, **options)
