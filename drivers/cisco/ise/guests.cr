@@ -6,15 +6,14 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco ISE Guest Control"
   generic_name :Guests
+  uri_base "https://ise-pan:9060/ers/config"
 
   default_settings({
      # We may grab this data through discovery mechanisms in the future but for now use a setting
-    endpoint: "https://ise-pan:9060/ers/config",
-    auth_token: nil,
+    auth_token: "",
     portal_id: "portal101"
   })
 
-  @endpoint : String = ""
   @auth_token : String = ""
   @portal_id : String = ""
 
@@ -26,9 +25,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def on_update
-    @endpoint = setting(String, :endpoint)
-    @auth_token = setting(String, :auth_token)
-    @portal_id = setting(String, :portal_id)
+    @auth_token = setting?(String, :auth_token) || ""
+    @portal_id = setting?(String, :portal_id) || "portal101"
   end
 
   class GuestEvent
@@ -103,12 +101,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
 
     # We need to POST to the Cisco ISE guest endpoint
-    # POST https://<ISE-Admin-Node>:9060/ers/config/guestuser/
-    response = post("#{@endpoint}/guestuser/", body: xml_string, headers: {
-        "Authorization" => "Basic #{@auth_token}"
-      })
+    response = post("/guestuser/", body: xml_string, headers: {
+      "Authorization" => "Basic #{@auth_token}"
+    })
   end
-
-
-
 end
