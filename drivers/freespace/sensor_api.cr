@@ -222,7 +222,7 @@ class Freespace::SensorAPI < PlaceOS::Driver
     return [] of Nil unless loctions
 
     # loc_id is a string
-    loctions.map { |loc_id|
+    loctions.flat_map do |loc_id|
       location_id = loc_id.to_i64
       loc_details = @floor_mappings[loc_id]
 
@@ -238,6 +238,6 @@ class Freespace::SensorAPI < PlaceOS::Driver
           capacity:    activity.capacity,
         }
       end
-    }.flatten
+    end
   end
 end
