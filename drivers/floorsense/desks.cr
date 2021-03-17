@@ -162,9 +162,11 @@ class Floorsense::Desks < PlaceOS::Driver
       "Authorization" => token,
     })
 
+    logger.debug { "at_location response: #{response.body}" }
+
     if response.success?
-      user = check_response UserResponse.from_json(response.body.not_nil!)
-      user
+      users = check_response UsersResponse.from_json(response.body.not_nil!)
+      users.first?
     else
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"
