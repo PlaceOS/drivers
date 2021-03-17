@@ -219,4 +219,19 @@ module Floorsense
     # Returned on success
     property info : User?
   end
+
+  class UsersResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "type")]
+    property msg_type : String
+    property result : Bool
+
+    # Returned on failure
+    property message : String?
+    property code : Int32?
+
+    # Returned on success
+    property info : Array(User)?
+  end
 end
