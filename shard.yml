@@ -65,3 +65,7 @@ dependencies:
   # For QR .png file export
   stumpy_png:
     github: stumpycr/stumpy_png
+
+  # the STOMP protocol
+  stomp:
+    github: spider-gazelle/stomp

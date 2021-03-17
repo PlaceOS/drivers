@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 4.1.0
+    version: 4.2.1
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -47,7 +47,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.0.7
+    version: 1.1.2
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -63,11 +63,11 @@ shards:
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
-    version: 0.4.5
+    version: 0.4.6
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
-    version: 2.6.0
+    version: 2.6.1
 
   http-params-serializable:
     git: https://github.com/caspiano/http-params-serializable.git
@@ -115,7 +115,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.1.0
+    version: 2.1.1
 
   pars:
     git: https://github.com/place-labs/pars.git
@@ -139,7 +139,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 4.2.0
+    version: 4.3.3
 
   placeos-models:
     git: https://github.com/placeos/models.git
@@ -187,7 +187,7 @@ shards:
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git
-    version: 0.2.2
+    version: 0.2.3
 
   rwlock:
     git: https://github.com/spider-gazelle/readers-writer.git
@@ -205,13 +205,17 @@ shards:
     git: https://github.com/spider-gazelle/ssh2.cr.git
     version: 1.5.1
 
+  stomp:
+    git: https://github.com/spider-gazelle/stomp.git
+    version: 0.9.0
+
   stumpy_core:
     git: https://github.com/stumpycr/stumpy_core.git
     version: 1.9.1
 
   stumpy_png:
     git: https://github.com/stumpycr/stumpy_png.git
-    version: 5.0.0
+    version: 5.0.1
 
   tasker:
     git: https://github.com/spider-gazelle/tasker.git
