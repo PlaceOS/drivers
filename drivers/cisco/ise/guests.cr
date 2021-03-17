@@ -1,7 +1,3 @@
-module Cisco; end
-
-module Cisco::Ise; end
-
 class Cisco::Ise::Guests < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco ISE Guest Control"
@@ -9,13 +5,17 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   uri_base "https://ise-pan:9060/ers/config"
 
   default_settings({
-     # We may grab this data through discovery mechanisms in the future but for now use a setting
+    # We may grab this data through discovery mechanisms in the future but for now use a setting
     auth_token: "",
-    portal_id: "portal101"
+    sponsor_user_name: "",
+    portal_id: "portal101",
+    sms_service_provider: ""
   })
 
   @auth_token : String = ""
+  @sponsor_user_name : String = ""
   @portal_id : String = ""
+  @sms_service_provider : String = ""
 
   def on_load
     # Guest has arrived in the lobby
@@ -26,7 +26,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   def on_update
     @auth_token = setting?(String, :auth_token) || ""
+    @sponsor_user_name = setting?(String, :sponsor_user_name) || ""
     @portal_id = setting?(String, :portal_id) || "portal101"
+    @sms_service_provider = setting?(String, :sms_service_provider) || ""
   end
 
   class GuestEvent
