@@ -69,8 +69,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     to_date = Time.unix(guest_details.event_starting).to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
 
     # Determine the name of the attendee for ISE
-    guest_names = guest_details.attendee_name.split(" ")
-    first_name = guest_names[0..-2].join
+    guest_names = guest_details.attendee_name.split
+    first_name_index_end = guest_names.size > 1 ? -2 : -1
+    first_name = guest_names[0..first_name_index_end].join
     last_name = guest_names[-1]
 
     # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
