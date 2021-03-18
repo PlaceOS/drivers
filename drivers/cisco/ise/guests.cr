@@ -18,10 +18,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @sms_service_provider : String = ""
 
   def on_load
-    # Guest has arrived in the lobby
-    monitor("staff/guest/checkin") { |_subscription, payload| guest_checkin(payload) }
-
     on_update
+
+    # Guest has arrived in the lobby
+    monitor("staff/guest/checkin") { |_subscription, payload| create_visitor(payload) }
   end
 
   def on_update
@@ -47,7 +47,16 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     property ext_data : Hash(String, JSON::Any)?
   end
 
-  def guest_checkin(payload : String)
+  def create_visitor(
+    payload : String,
+    sponsor_user_name : String? = nil,
+    portal_id : String? = nil,
+    sms_service_provider : String? = nil
+  )
+    sponsor_user_name ||= @sponsor_user_name
+    portal_id ||= @portal_id
+    sms_service_provider ||= @sms_service_provider
+
     logger.debug { "received guest event payload: #{payload}" }
     guest_details = GuestEvent.from_json payload
 
@@ -87,12 +96,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <lastName>#{last_name}</lastName>
           <notificationLanguage>English</notificationLanguage>
           <phoneNumber>9999998877</phoneNumber>
-          <smsServiceProvider>#{@sms_service_provider}</smsServiceProvider>
+          <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>
           <userName>#{username}</userName>
         </guestInfo>
         <guestType>Daily</guestType>
-        <personBeingVisited>#{@sponsor_user_name}</personBeingVisited>
-        <portalId>#{@portal_id}</portalId>
+        <personBeingVisited>#{sponsor_user_name}</personBeingVisited>
+        <portalId>#{portal_id}</portalId>
         <reasonForVisit>interview</reasonForVisit>
       </ns2:guestuser>
     )
