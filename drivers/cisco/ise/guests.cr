@@ -6,10 +6,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   default_settings({
     # We may grab this data through discovery mechanisms in the future but for now use a setting
-    auth_token: "",
-    sponsor_user_name: "",
+    auth_token: "auth_token",
+    sponsor_user_name: "sponsor_user_name",
     portal_id: "portal101",
-    sms_service_provider: ""
+    sms_service_provider: "Global Default"
   })
 
   @auth_token : String = ""
@@ -52,9 +52,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_details = GuestEvent.from_json payload
 
     # TODO: Ensure that this is getting the correct day due to timezone
+    # Use the server's local timezone for now
+    # but if needed we can pass in a timezone using to_local_in
+    # e.g. Time.unix(epoch).to_local_in(Time::Location.load("America/New_York"))
     # Also note that this uses American time formatting
-    from_date = Time.unix(guest_details.event_starting).at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
-    to_date = Time.unix(guest_details.event_starting).at_end_of_day.to_s("%m/%d/%Y %H:%M")
+    from_date = Time.unix(guest_details.event_starting).to_local.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
+    to_date = Time.unix(guest_details.event_starting).to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
 
     # Determine the name of the attendee for ISE
     guest_names = guest_details.attendee_name.split(" ")
@@ -77,32 +80,30 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     # Now generate our XML body
     xml_string = %(
-    <?xml version="1.0" encoding="UTF-8"?>
-    <ns2:guestuser
-        xmlns:ns2="identity.ers.ise.cisco.com">
+      <?xml version="1.0" encoding="UTF-8"?>
+      <ns2:guestuser xmlns:ns2="identity.ers.ise.cisco.com">
         <guestAccessInfo>
-            <fromDate>#{from_date}</fromDate>
-            <toDate>#{to_date}</toDate>
-            <validDays>1</validDays>
+          <fromDate>#{from_date}</fromDate>
+          <toDate>#{to_date}</toDate>
+          <validDays>1</validDays>
         </guestAccessInfo>
         <guestInfo>
-            <company>#{company_name}</company>
-            <emailAddress>#{guest_details.attendee_email}</emailAddress>
-            <firstName>#{first_name}</firstName>
-            <lastName>#{last_name}</lastName>
-            <notificationLanguage>English</notificationLanguage>
-            <phoneNumber>9999998877</phoneNumber>
-            <smsServiceProvider>Global Default</smsServiceProvider>
-            <userName>#{username}</userName>
+          <company>#{company_name}</company>
+          <emailAddress>#{guest_details.attendee_email}</emailAddress>
+          <firstName>#{first_name}</firstName>
+          <lastName>#{last_name}</lastName>
+          <notificationLanguage>English</notificationLanguage>
+          <phoneNumber>9999998877</phoneNumber>
+          <smsServiceProvider>#{@sms_service_provider}</smsServiceProvider>
+          <userName>#{username}</userName>
         </guestInfo>
         <guestType>Daily</guestType>
         <personBeingVisited>#{guest_details.host}</personBeingVisited>
         <portalId>#{@portal_id}</portalId>
         <reasonForVisit>interview</reasonForVisit>
-    </ns2:guestuser>)
+      </ns2:guestuser>
+    )
 
-
-    # We need to POST to the Cisco ISE guest endpoint
     response = post("/guestuser/", body: xml_string, headers: {
       "Authorization" => "Basic #{@auth_token}"
     })
