@@ -7,7 +7,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   default_settings({
     # We may grab this data through discovery mechanisms in the future but for now use a setting
     auth_token: "auth_token",
-    sponsor_user_name: "sponsor_user_name",
+    sponsor_user_name: "sponsor",
     portal_id: "portal101",
     sms_service_provider: "Global Default"
   })
@@ -25,10 +25,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def on_update
-    @auth_token = setting?(String, :auth_token) || ""
-    @sponsor_user_name = setting?(String, :sponsor_user_name) || ""
+    @auth_token = setting?(String, :auth_token) || "auth_token"
+    @sponsor_user_name = setting?(String, :sponsor_user_name) || "sponsor"
     @portal_id = setting?(String, :portal_id) || "portal101"
-    @sms_service_provider = setting?(String, :sms_service_provider) || ""
+    @sms_service_provider = setting?(String, :sms_service_provider) || "Global Default"
   end
 
   class GuestEvent
@@ -91,7 +91,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <userName>#{username}</userName>
         </guestInfo>
         <guestType>Daily</guestType>
-        <personBeingVisited>#{guest_details.host}</personBeingVisited>
+        <personBeingVisited>#{@sponsor_user_name}</personBeingVisited>
         <portalId>#{@portal_id}</portalId>
         <reasonForVisit>interview</reasonForVisit>
       </ns2:guestuser>

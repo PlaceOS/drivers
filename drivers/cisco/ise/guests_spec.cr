@@ -2,7 +2,6 @@ require "xml"
 
 DriverSpecs.mock_driver "Cisco::Ise::Guests" do
   # Create a fake guest user payload for our spec
-  host_email = "host@email.com"
   start_time = Time.local
   start_date = start_time.to_local.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
   end_date = start_time.to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
@@ -13,7 +12,7 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
     checkin: true,
     system_id: "system-id",
     event_id: "event-id",
-    host: host_email,
+    host: "host@email.com",
     resource: "resource",
     event_summary: "summary",
     event_starting: start_time.to_unix,
@@ -52,7 +51,7 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
       user_name.includes?("autoguestuser").should eq true
 
       person_being_visited = guest_user.children.find { |c| c.name == "personBeingVisited" }.not_nil!.content
-      person_being_visited.should eq host_email
+      person_being_visited.should eq "sponsor"
       portal_id = guest_user.children.find { |c| c.name == "portalId" }.not_nil!.content
       portal_id.should eq "portal101"
     end
