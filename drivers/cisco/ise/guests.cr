@@ -24,7 +24,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     on_update
 
     # Guest has arrived in the lobby
-    monitor("staff/guest/checkin") { |_subscription, payload| create_visitor(payload) }
+    monitor("staff/guest/checkin") { |_subscription, payload| create_guest(payload) }
   end
 
   def on_update
@@ -50,7 +50,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     property ext_data : Hash(String, JSON::Any)?
   end
 
-  def create_visitor(
+  def create_guest(
     payload : String,
     sponsor_user_name : String? = nil,
     portal_id : String? = nil,
@@ -115,5 +115,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Content-Type" => TYPE_HEADER,
       "Authorization" => "Basic #{@auth_token}"
     })
+
+    raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
   end
 end

@@ -21,7 +21,7 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
     ext_data: {"ext_data": "Some JSON"}
   }.to_json
 
-  exec(:create_visitor, payload)
+  exec(:create_guest, payload)
 
   # Now we can expext a POST to ISE creating that guest user based on the above details
   expect_http_request do |request, response|
@@ -54,6 +54,10 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
       person_being_visited.should eq "sponsor"
       portal_id = guest_user.children.find { |c| c.name == "portalId" }.not_nil!.content
       portal_id.should eq "portal101"
+
+      response.status_code = 201
+      response.headers["Location"] = "https://ise-pan:9060/ers/config/guestuser/e1bb8290-6ccb-11e3-8cdf-000c29c56fc6"
+      response.headers["CContent-Type"] = "application/xml"
     end
   end
 end
