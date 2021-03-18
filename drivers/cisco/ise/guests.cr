@@ -81,9 +81,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     # We can probably use some email library to do this more neatly
     company_name = guest_details.attendee_email.split("@")[1].split(".")[0].capitalize
 
-    # Generate some generic username for this
-    username = "autoguestuser#{Random.rand(100..999)}"
-
     # Now generate our XML body
     xml_string = %(
       <?xml version="1.0" encoding="UTF-8"?>
@@ -101,7 +98,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <notificationLanguage>English</notificationLanguage>
           <phoneNumber>9999998877</phoneNumber>
           <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>
-          <userName>#{username}</userName>
+          <userName>#{UUID.random}</userName>
         </guestInfo>
         <guestType>Daily</guestType>
         <personBeingVisited>#{sponsor_user_name}</personBeingVisited>

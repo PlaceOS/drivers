@@ -48,7 +48,7 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
       sms_service_provider = guest_info.children.find { |c| c.name == "smsServiceProvider" }.not_nil!.content
       sms_service_provider.should eq "Global Default"
       user_name = guest_info.children.find { |c| c.name == "userName" }.not_nil!.content
-      user_name.includes?("autoguestuser").should eq true
+      pp "userName = #{user_name}"
 
       person_being_visited = guest_user.children.find { |c| c.name == "personBeingVisited" }.not_nil!.content
       person_being_visited.should eq "sponsor"
