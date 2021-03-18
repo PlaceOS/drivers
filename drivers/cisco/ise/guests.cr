@@ -61,15 +61,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     # Determine the name of the attendee for ISE
     guest_names = guest_details.attendee_name.split(" ")
-    if guest_names.size > 1
-      # If the attendee has at least two names, split them out and use all but the last as 'first name'
-      first_name = guest_names[0..-2]
-      last_name = guest_names[-1]
-    else
-      # Otherwise just use the one name (if no name was input when creating the event this could be an email)
-      first_name = guest_details.attendee_name
-      last_name = first_name
-    end
+    first_name = guest_names[0..-2].join
+    last_name = guest_names[-1]
 
     # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
     # We can probably use some email library to do this more neatly
