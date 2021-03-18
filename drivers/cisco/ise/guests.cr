@@ -17,6 +17,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @portal_id : String = ""
   @sms_service_provider : String = ""
 
+  # See https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_ers2.html#42003
+  TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
+
   def on_load
     on_update
 
@@ -108,6 +111,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     )
 
     response = post("/guestuser/", body: xml_string, headers: {
+      "Accept" => TYPE_HEADER,
+      "Content-Type" => TYPE_HEADER,
       "Authorization" => "Basic #{@auth_token}"
     })
   end
