@@ -4,7 +4,18 @@ DriverSpecs.mock_driver "Cisco::Meraki::Dashboard" do
     headers = request.headers
     if headers["X-Cisco-Meraki-API-Key"]? == "configure for the dashboard API"
       response.status_code = 200
-      response << %([{"floorPlanId":"floor-123","name":"Level 1","width":30.5,"height":20}])
+      response << %([{"floorPlanId":"floor-123","name":"Level 1","width":30.5,"height":20,"topLeftCorner":{"lat":0,"lng":0},"bottomLeftCorner":{"lat":0,"lng":0},"bottomRightCorner":{"lat":0,"lng":0}}])
+    else
+      response.status_code = 401
+    end
+  end
+
+  # The dashboard should also request the WAP locations
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["X-Cisco-Meraki-API-Key"]? == "configure for the dashboard API"
+      response.status_code = 200
+      response << %([])
     else
       response.status_code = 401
     end

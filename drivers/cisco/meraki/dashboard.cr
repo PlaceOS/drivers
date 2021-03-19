@@ -97,6 +97,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @default_network : String = ""
   @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @floorplan_sizes = {} of String => FloorPlan
+  @network_devices = {} of String => NetworkDevice
 
   @s2_level : Int32 = 21
   @debug_webhook : Bool = false
@@ -568,18 +569,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     logger.debug { "removed #{remove_keys.size} MACs" }
   end
 
-  class FloorPlan
-    include JSON::Serializable
-
-    @[JSON::Field(key: "floorPlanId")]
-    property id : String
-    property width : Float64
-    property height : Float64
-
-    # This is useful for when we have to map meraki IDs to our zones
-    property name : String?
-  end
-
   @[Security(PlaceOS::Driver::Level::Support)]
   def sync_floorplan_sizes(network_id : String? = nil)
     network_id = network_id.presence || @default_network
@@ -595,6 +584,18 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     }
 
     @floorplan_sizes = floor_plans
+
+    # mac address => device location
+    network_devices = {} of String => NetworkDevice
+
+    req("/api/v1/networks/#{network_id}/devices") { |response|
+      Array(NetworkDevice).from_json(response.body).each do |device|
+        network_devices[format_mac(device.mac)] = device
+      end
+      nil
+    }
+
+    @network_devices = network_devices
   end
 
   # Webhook endpoint for scanning API, expects version 3
@@ -628,7 +629,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       raise "secret mismatch, sent: #{seen.secret}" unless seen.secret == @scanning_secret
 
       # Extract coordinate data against the MAC address and save IP address mappings
-      observations = seen.data.observations.reject(&.locations.empty?)
+      # we no longer reject empty observations as we'll use the nearest wap to estimate the location
+      observations = seen.data.observations # .reject(&.locations.empty?)
 
       ignore_older = @max_location_age.ago.in Time::Location::UTC
       drift_older = @drift_location_age.ago.in Time::Location::UTC
@@ -640,7 +642,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
         existing = @locations[client_mac]?
 
         logger.debug { "parsing new observation for #{client_mac}" } if @debug_webhook
-        location = parse(existing, ignore_older, drift_older, observation.locations)
+        location = parse(existing, ignore_older, drift_older, observation)
         if location
           @locations[client_mac] = location
           locations_updated += 1
@@ -659,7 +661,22 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     SUCCESS_RESPONSE
   end
 
-  protected def parse(existing, ignore_older, drift_older, locations_raw) : Location?
+  protected def parse(existing, ignore_older, drift_older, observation) : Location?
+    locations_raw = observation.locations
+
+    # We'll attempt to return a location based on the nearest WAP
+    if locations_raw.empty?
+      last_seen = observation.latest_record
+      if wap_device = @network_devices[format_mac(last_seen.nearest_ap_mac)]?
+        return wap_device.location unless wap_device.location.nil?
+
+        if floor_plan = @floorplan_sizes[wap_device.floor_plan_id]?
+          return wap_device.location = Location.calculate_location(floor_plan, wap_device, last_seen.time)
+        end
+      end
+      return nil
+    end
+
     # existing.time is our ajusted time
     if existing_time = existing.try &.time
       existing = nil if existing_time < ignore_older
