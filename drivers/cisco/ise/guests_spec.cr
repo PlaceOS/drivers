@@ -8,17 +8,17 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
   name = "Tester Attendee"
   attendee_email = "attendee@test.com"
   payload = {
-    action: :checkin,
-    checkin: true,
-    system_id: "system-id",
-    event_id: "event-id",
-    host: "host@email.com",
-    resource: "resource",
-    event_summary: "summary",
+    action:         :checkin,
+    checkin:        true,
+    system_id:      "system-id",
+    event_id:       "event-id",
+    host:           "host@email.com",
+    resource:       "resource",
+    event_summary:  "summary",
     event_starting: start_time.to_unix,
-    attendee_name: name,
+    attendee_name:  name,
     attendee_email: attendee_email,
-    ext_data: {"ext_data": "Some JSON"}
+    ext_data:       {"ext_data": "Some JSON"},
   }.to_json
 
   exec(:create_guest, payload)

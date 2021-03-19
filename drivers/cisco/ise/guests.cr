@@ -6,9 +6,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   default_settings({
     # We may grab this data through discovery mechanisms in the future but for now use a setting
-    auth_token: "auth_token",
+    auth_token:        "auth_token",
     sponsor_user_name: "sponsor",
-    portal_id: "portal101"
+    portal_id:         "portal101",
   })
 
   @auth_token : String = ""
@@ -115,9 +115,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     )
 
     response = post("/guestuser/", body: xml_string, headers: {
-      "Accept" => TYPE_HEADER,
-      "Content-Type" => TYPE_HEADER,
-      "Authorization" => "Basic #{@auth_token}"
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => "Basic #{@auth_token}",
     })
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
