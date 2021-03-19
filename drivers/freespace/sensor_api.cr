@@ -123,9 +123,9 @@ class Freespace::SensorAPI < PlaceOS::Driver
         "Content-Type" => "application/json",
         "Accept"       => "application/json",
       }, body: {
-        username: @username,
-        password: @password,
-      }.to_json
+      username: @username,
+      password: @password,
+    }.to_json
     )
 
     raise "issue obtaining to location #{location_id}: status code #{response.status_code}\n#{response.body}" unless response.success?
@@ -147,9 +147,9 @@ class Freespace::SensorAPI < PlaceOS::Driver
         "Content-Type" => "application/json",
         "Accept"       => "application/json",
       }, body: {
-        username: @username,
-        password: @password,
-      }.to_json
+      username: @username,
+      password: @password,
+    }.to_json
     )
     logger.debug { "login response: #{response.body}" }
     raise "issue obtaining token: #{response.status_code}\n#{response.body}" unless response.success?
@@ -180,10 +180,10 @@ class Freespace::SensorAPI < PlaceOS::Driver
         activity.name = space.name
         @space_state[activity.space_id] = activity
         self["space-#{activity.space_id}"] = {
-          location: space.location_id,
-          name: space.name,
-          capacity: space.capacity,
-          count: activity.state,
+          location:     space.location_id,
+          name:         space.name,
+          capacity:     space.capacity,
+          count:        activity.state,
           last_updated: activity.utc_epoch,
         }
         self["last_change"] = Time.utc.to_unix
