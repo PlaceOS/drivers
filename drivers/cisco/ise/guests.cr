@@ -8,14 +8,13 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     # We may grab this data through discovery mechanisms in the future but for now use a setting
     auth_token: "auth_token",
     sponsor_user_name: "sponsor",
-    portal_id: "portal101",
-    sms_service_provider: "Global Default"
+    portal_id: "portal101"
   })
 
   @auth_token : String = ""
   @sponsor_user_name : String = ""
   @portal_id : String = ""
-  @sms_service_provider : String = ""
+  @sms_service_provider : String? = nil
 
   # See https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_ers2.html#42003
   TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
@@ -31,7 +30,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     @auth_token = setting?(String, :auth_token) || "auth_token"
     @sponsor_user_name = setting?(String, :sponsor_user_name) || "sponsor"
     @portal_id = setting?(String, :portal_id) || "portal101"
-    @sms_service_provider = setting?(String, :sms_service_provider) || "Global Default"
+    @sms_service_provider = setting?(String, :sms_service_provider)
   end
 
   class GuestEvent
@@ -52,9 +51,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   def create_guest(
     payload : String,
+    phone_number : String? = nil,
+    sms_service_provider : String? = nil,
     sponsor_user_name : String? = nil,
-    portal_id : String? = nil,
-    sms_service_provider : String? = nil
+    portal_id : String? = nil
   )
     sponsor_user_name ||= @sponsor_user_name
     portal_id ||= @portal_id
@@ -95,9 +95,16 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <emailAddress>#{guest_details.attendee_email}</emailAddress>
           <firstName>#{first_name}</firstName>
           <lastName>#{last_name}</lastName>
-          <notificationLanguage>English</notificationLanguage>
-          <phoneNumber>9999998877</phoneNumber>
+          <notificationLanguage>English</notificationLanguage>)
+
+    if phone_number && sms_service_provider
+      xml_string += %(
+          <phoneNumber>#{phone_number}</phoneNumber>
           <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>
+      )
+    end
+
+    xml_string += %(
           <userName>#{UUID.random}</userName>
         </guestInfo>
         <guestType>Daily</guestType>
