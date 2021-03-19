@@ -25,9 +25,9 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
 
   # Now we can expext a POST to ISE creating that guest user based on the above details
   expect_http_request do |request, response|
-    if (data = request.body.try(&.gets_to_end)) && request.method == "POST" && request.path == "/guestuser/"
+    if request.method == "POST" && request.path == "/guestuser/"
       # This is our interepted POST so parse the XML body
-      parsed_body = XML.parse(data)
+      parsed_body = XML.parse(request.body.not_nil!)
       guest_user = parsed_body.first_element_child.not_nil!
 
       guest_access_info = guest_user.children.find { |c| c.name == "guestAccessInfo" }.not_nil!
@@ -67,8 +67,8 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
     exec(:create_guest, payload, phone, sms)
 
     expect_http_request do |request, response|
-      if (data = request.body.try(&.gets_to_end)) && request.method == "POST" && request.path == "/guestuser/"
-        parsed_body = XML.parse(data)
+      if request.method == "POST" && request.path == "/guestuser/"
+        parsed_body = XML.parse(request.body.not_nil!)
         guest_user = parsed_body.first_element_child.not_nil!
 
         guest_access_info = guest_user.children.find { |c| c.name == "guestAccessInfo" }.not_nil!
