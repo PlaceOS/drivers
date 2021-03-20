@@ -40,7 +40,7 @@ module Cisco::Meraki
     property location : Location?
 
     @[JSON::Field(key: "floorPlanId")]
-    property floor_plan_id : String
+    property floor_plan_id : String?
 
     property lat : Float64
     property lng : Float64
