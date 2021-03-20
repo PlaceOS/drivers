@@ -597,6 +597,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     }
 
     @network_devices = network_devices
+
+    {floor_plans, network_devices}
   end
 
   # Webhook endpoint for scanning API, expects version 3
