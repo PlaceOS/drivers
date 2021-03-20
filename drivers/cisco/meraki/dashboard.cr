@@ -590,6 +590,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
     req("/api/v1/networks/#{network_id}/devices") { |response|
       Array(NetworkDevice).from_json(response.body).each do |device|
+        next unless device.floor_plan_id
         network_devices[format_mac(device.mac)] = device
       end
       nil
@@ -670,7 +671,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       if wap_device = @network_devices[format_mac(last_seen.nearest_ap_mac)]?
         return wap_device.location unless wap_device.location.nil?
 
-        if floor_plan = @floorplan_sizes[wap_device.floor_plan_id]?
+        if floor_plan = @floorplan_sizes[wap_device.floor_plan_id.not_nil!]?
           return wap_device.location = Location.calculate_location(floor_plan, wap_device, last_seen.time)
         end
       end
