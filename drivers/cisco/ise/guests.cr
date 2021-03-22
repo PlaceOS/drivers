@@ -9,12 +9,14 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     auth_token:        "auth_token",
     sponsor_user_name: "sponsor",
     portal_id:         "portal101",
+    timezone:          "Australia/Sydney",
   })
 
   @auth_token : String = ""
   @sponsor_user_name : String = ""
   @portal_id : String = ""
   @sms_service_provider : String? = nil
+  @timezone : Time::Location = Time::Location.load("Australia/Sydney")
 
   # See https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_ers2.html#42003
   TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
@@ -28,6 +30,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     @sponsor_user_name = setting?(String, :sponsor_user_name) || "sponsor"
     @portal_id = setting?(String, :portal_id) || "portal101"
     @sms_service_provider = setting?(String, :sms_service_provider)
+
+    time_zone = setting?(String, :timezone).presence
+    @timezone = Time::Location.load(time_zone) if time_zone
   end
 
   def create_guest(
@@ -44,13 +49,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     portal_id ||= @portal_id
     sms_service_provider ||= @sms_service_provider
 
-    # TODO: Ensure that this is getting the correct day due to timezone
-    # Use the server's local timezone for now
-    # but if needed we can pass in a timezone using to_local_in
-    # e.g. Time.unix(epoch).to_local_in(Time::Location.load("America/New_York"))
-    # Also note that this uses American time formatting
-    from_date = Time.unix(event_start).to_local.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
-    to_date = Time.unix(event_start).to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
+    time_object = Time.unix(event_start).to_local_in(@timezone)
+    from_date = time_object.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
+    to_date = time_object.at_end_of_day.to_s("%m/%d/%Y %H:%M")
 
     # Determine the name of the attendee for ISE
     guest_names = attendee_name.split

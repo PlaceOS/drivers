@@ -1,16 +1,14 @@
 require "xml"
 
 DriverSpecs.mock_driver "Cisco::Ise::Guests" do
-  # Create a fake guest user payload for our spec
-  start_time = Time.local
-  start_date = start_time.to_local.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
-  end_date = start_time.to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
+  start_time = Time.local(Time::Location.load("Australia/Sydney"))
+  start_date = start_time.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
+  end_date = start_time.at_end_of_day.to_s("%m/%d/%Y %H:%M")
   attendee_email = "attendee@test.com"
   company_name = "PlaceOS"
 
   exec(:create_guest, start_time.to_unix, attendee_email, "First Middle Last", company_name)
 
-  # Now we can expext a POST to ISE creating that guest user based on the above details
   expect_http_request do |request, response|
     if request.method == "POST" && request.path == "/guestuser/"
       # This is our interepted POST so parse the XML body
