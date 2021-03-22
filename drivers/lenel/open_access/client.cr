@@ -93,13 +93,20 @@ class Lenel::OpenAccess::Client
 
   # Creates a new instance of *entity*.
   def create(entity : T.class, **props) forall T
-    (~transport.post(
+    response = ~transport.post(
       path: "/instances?version=1.0",
       body: {
         type_name: T.type_name,
         property_value_map: T.partial(**props)
       }.to_json
-    ) >> JSON::Any)[Models::PROPERTIES_KEY]
+    ) >> JSON::Any
+    # Create responses return a partial object. This includes the object's
+    # database key (which varies between object types - ID, BADGEKEY etc),
+    # however contents of this is unspecified. The partial object is provided
+    # here in full, with keys transformed to match how they appear in the full
+    # model.
+    props = response[Models::PROPERTIES_KEY].as_h
+    props.transform_keys &->Models.normalise(String)
   end
 
   # Retrieves instances of a particular *entity*.

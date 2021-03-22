@@ -102,7 +102,7 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     }
   end
   created_cardholder = created_cardholder.get.not_nil!
-  created_cardholder["ID"]?.should eq(1)
+  created_cardholder["id"]?.should eq(1)
 
   queried_cardholder = exec(:lookup_cardholder, email: "sales@vandelayindustries.com")
   expect_http_request do |req, res|
@@ -153,19 +153,12 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     respond_with 200, {
       type_name: "Lnl_Badge",
       property_value_map: {
-        BADGEKEY: 0,
-        ACTIVATE: Time.utc.to_rfc3339,
-        DEACTIVATE: 2.weeks.from_now.to_rfc3339,
-        ID: 1,
-        PERSONID: 1,
-        STATUS: 1,
-        TYPE: 1,
-        USELIMIT: 0
+        BADGEKEY: 1,
       }
     }
   end
   created_badge = created_badge.get.not_nil!
-  created_badge["ID"]?.should eq(1)
+  created_badge["badgekey"]?.should eq(1)
 
   exec(:delete_badge, badgekey: 1)
   expect_http_request do |req, res|

@@ -8,6 +8,13 @@ require "json"
 module Lenel::OpenAccess::Models
   PROPERTIES_KEY = "property_value_map"
 
+  # The Lenel API 'features' multiple case conventions, with varying
+  # consistency. It appears to be non-case sensitive for requests sent to it,
+  # however as response parsing _is_ more strict raw keys should come via first.
+  def self.normalise(key : String) : String
+    key.downcase
+  end
+
   # Base type for Lenel data objects.
   abstract struct Element
     include JSON::Serializable
@@ -19,11 +26,6 @@ module Lenel::OpenAccess::Models
 
     # Override the default JSON::Serializable behaviour to make keys case
     # inensitive when deserialising.
-    #
-    # The Lenel API 'features' multiple case conventions, with varying
-    # consistency. It appears to be non-case sensitive for requests sent to it,
-    # however as the parser here _is_ case sensitive this normalises all keys to
-    # their downcased attribute equivalents.
     def initialize(*, __pull_for_json_serializable pull : ::JSON::PullParser)
       {% begin %}
         {% properties = {} of Nil => Nil %}
@@ -38,7 +40,7 @@ module Lenel::OpenAccess::Models
           pull.read_begin_object
           until pull.kind.end_object?
             key = pull.read_object_key
-            case key.downcase
+            case OpenAccess::Models.normalise key
             {% for name, type in properties %}
               when {{name.stringify}}
                 %var{name} = ::Union({{type}}).new pull
