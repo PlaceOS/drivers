@@ -8,13 +8,6 @@ require "json"
 module Lenel::OpenAccess::Models
   PROPERTIES_KEY = "property_value_map"
 
-  # The Lenel API 'features' multiple case conventions, with varying
-  # consistency. It appears to be non-case sensitive for requests sent to it,
-  # however as response parsing _is_ more strict raw keys should come via first.
-  def self.normalise(key : String) : String
-    key.downcase
-  end
-
   # Base type for Lenel data objects.
   abstract struct Element
     include JSON::Serializable
@@ -24,14 +17,24 @@ module Lenel::OpenAccess::Models
       "Lnl_#{name.rpartition("::").last}"
     end
 
+    # The Lenel API 'features' multiple case conventions, with varying
+    # consistency. It appears to be non-case sensitive for requests sent to it,
+    # however as response parsing _is_ more strict raw keys should come via first.
+    protected def normalise(key : String) : String
+      key.downcase
+    end
+
     # Override the default JSON::Serializable behaviour to make keys case
     # inensitive when deserialising.
     def initialize(*, __pull_for_json_serializable pull : ::JSON::PullParser)
       {% begin %}
         {% properties = {} of Nil => Nil %}
         {% for ivar in @type.instance_vars %}
-          {% properties[ivar.id] = ivar.type %}
-          %var{ivar.id} = nil
+          {% ann = ivar.annotation(::JSON::Field) %}
+          {% unless ann && ann[:ignore] %}
+            {% properties[ivar.id] = ivar.type %}
+            %var{ivar.id} = nil
+          {% end %}
         {% end %}
 
         # All entities come wrapeed inside a standard key...
@@ -39,14 +42,15 @@ module Lenel::OpenAccess::Models
 
           pull.read_begin_object
           until pull.kind.end_object?
-            key = pull.read_object_key
-            case OpenAccess::Models.normalise key
+            %key_location = pull.location
+            key = normalise pull.read_object_key
+            case key
             {% for name, type in properties %}
               when {{name.stringify}}
                 %var{name} = ::Union({{type}}).new pull
             {% end %}
             else
-              pull.skip
+              on_unknown_json_attribute(pull, key, %key_location)
             end
           end
           pull.read_next
@@ -66,6 +70,11 @@ module Lenel::OpenAccess::Models
       {% end %}
       properties
     end
+  end
+
+  struct Untyped < Element
+    include JSON::Serializable::Unmapped
+    forward_missing_to json_unmapped
   end
 
   abstract struct Person < Element
