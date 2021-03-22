@@ -76,14 +76,13 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <emailAddress>#{attendee_email}</emailAddress>
           <firstName>#{first_name}</firstName>
           <lastName>#{last_name}</lastName>
-          <notificationLanguage>English</notificationLanguage>)
+          <notificationLanguage>English</notificationLanguage>
+    )
 
-    if phone_number && sms_service_provider
-      xml_string += %(
+    xml_string += %(
           <phoneNumber>#{phone_number}</phoneNumber>
           <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>
-      )
-    end
+    ) if phone_number && sms_service_provider
 
     xml_string += %(
           <userName>#{UUID.random}</userName>

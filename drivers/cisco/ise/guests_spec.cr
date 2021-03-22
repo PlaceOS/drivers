@@ -25,7 +25,7 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
 
       guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
       company = guest_info.children.find { |c| c.name == "company" }.not_nil!.content
-      company.should eq "PlaceOS"
+      company.should eq company_name
       email_address = guest_info.children.find { |c| c.name == "emailAddress" }.not_nil!.content
       email_address.should eq attendee_email
       first_name = guest_info.children.find { |c| c.name == "firstName" }.not_nil!.content
