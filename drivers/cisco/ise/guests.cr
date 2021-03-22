@@ -21,9 +21,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   def on_load
     on_update
-
-    # Guest has arrived in the lobby
-    monitor("staff/guest/checkin") { |_subscription, payload| create_guest(payload) }
   end
 
   def on_update
@@ -33,24 +30,11 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     @sms_service_provider = setting?(String, :sms_service_provider)
   end
 
-  class GuestEvent
-    include JSON::Serializable
-
-    property action : String
-    property checkin : Bool?
-    property system_id : String
-    property event_id : String
-    property host : String
-    property resource : String
-    property event_summary : String
-    property event_starting : Int64
-    property attendee_name : String
-    property attendee_email : String
-    property ext_data : Hash(String, JSON::Any)?
-  end
-
   def create_guest(
-    payload : String,
+    event_start : Int64,
+    attendee_email : String,
+    attendee_name : String,
+    company_name : String? = nil,
     phone_number : String? = nil,
     sms_service_provider : String? = nil,
     sponsor_user_name : String? = nil,
@@ -60,26 +44,23 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     portal_id ||= @portal_id
     sms_service_provider ||= @sms_service_provider
 
-    logger.debug { "received guest event payload: #{payload}" }
-    guest_details = GuestEvent.from_json payload
-
     # TODO: Ensure that this is getting the correct day due to timezone
     # Use the server's local timezone for now
     # but if needed we can pass in a timezone using to_local_in
     # e.g. Time.unix(epoch).to_local_in(Time::Location.load("America/New_York"))
     # Also note that this uses American time formatting
-    from_date = Time.unix(guest_details.event_starting).to_local.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
-    to_date = Time.unix(guest_details.event_starting).to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
+    from_date = Time.unix(event_start).to_local.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
+    to_date = Time.unix(event_start).to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
 
     # Determine the name of the attendee for ISE
-    guest_names = guest_details.attendee_name.split
+    guest_names = attendee_name.split
     first_name_index_end = guest_names.size > 1 ? -2 : -1
-    first_name = guest_names[0..first_name_index_end].join
+    first_name = guest_names[0..first_name_index_end].join(' ')
     last_name = guest_names[-1]
 
+    # If company_name isn't passed
     # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
-    # We can probably use some email library to do this more neatly
-    company_name = guest_details.attendee_email.split("@")[1].split(".")[0].capitalize
+    company_name ||= attendee_email.split('@')[1].split('.')[0].capitalize
 
     # Now generate our XML body
     xml_string = %(
@@ -92,7 +73,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
         </guestAccessInfo>
         <guestInfo>
           <company>#{company_name}</company>
-          <emailAddress>#{guest_details.attendee_email}</emailAddress>
+          <emailAddress>#{attendee_email}</emailAddress>
           <firstName>#{first_name}</firstName>
           <lastName>#{last_name}</lastName>
           <notificationLanguage>English</notificationLanguage>)

@@ -5,23 +5,10 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
   start_time = Time.local
   start_date = start_time.to_local.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
   end_date = start_time.to_local.at_end_of_day.to_s("%m/%d/%Y %H:%M")
-  name = "Tester Attendee"
   attendee_email = "attendee@test.com"
-  payload = {
-    action:         :checkin,
-    checkin:        true,
-    system_id:      "system-id",
-    event_id:       "event-id",
-    host:           "host@email.com",
-    resource:       "resource",
-    event_summary:  "summary",
-    event_starting: start_time.to_unix,
-    attendee_name:  name,
-    attendee_email: attendee_email,
-    ext_data:       {"ext_data": "Some JSON"},
-  }.to_json
+  company_name = "PlaceOS"
 
-  exec(:create_guest, payload)
+  exec(:create_guest, start_time.to_unix, attendee_email, "First Middle Last", company_name)
 
   # Now we can expext a POST to ISE creating that guest user based on the above details
   expect_http_request do |request, response|
@@ -38,13 +25,13 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
 
       guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
       company = guest_info.children.find { |c| c.name == "company" }.not_nil!.content
-      company.should eq "Test"
+      company.should eq "PlaceOS"
       email_address = guest_info.children.find { |c| c.name == "emailAddress" }.not_nil!.content
       email_address.should eq attendee_email
       first_name = guest_info.children.find { |c| c.name == "firstName" }.not_nil!.content
-      first_name.should eq name.split.first
+      first_name.should eq "First Middle"
       last_name = guest_info.children.find { |c| c.name == "lastName" }.not_nil!.content
-      last_name.should eq name.split.last
+      last_name.should eq "Last"
       phone_number = guest_info.children.find { |c| c.name == "phoneNumber" }
       phone_number.should eq nil
       sms_service_provider = guest_info.children.find { |c| c.name == "smsServiceProvider" }
@@ -64,7 +51,7 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
 
     phone = "0123456789"
     sms = "Global Default"
-    exec(:create_guest, payload, phone, sms)
+    exec(:create_guest, start_time.to_unix, attendee_email, "First Last", nil, phone, sms)
 
     expect_http_request do |request, response|
       if request.method == "POST" && request.path == "/guestuser/"
@@ -83,9 +70,9 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
         email_address = guest_info.children.find { |c| c.name == "emailAddress" }.not_nil!.content
         email_address.should eq attendee_email
         first_name = guest_info.children.find { |c| c.name == "firstName" }.not_nil!.content
-        first_name.should eq name.split.first
+        first_name.should eq "First"
         last_name = guest_info.children.find { |c| c.name == "lastName" }.not_nil!.content
-        last_name.should eq name.split.last
+        last_name.should eq "Last"
         phone_number = guest_info.children.find { |c| c.name == "phoneNumber" }.not_nil!.content
         phone_number.should eq phone
         sms_service_provider = guest_info.children.find { |c| c.name == "smsServiceProvider" }.not_nil!.content
