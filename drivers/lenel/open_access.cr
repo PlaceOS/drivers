@@ -18,6 +18,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     password:       "",
   })
 
+  
   private getter client : OpenAccess::Client do
     transport = PlaceOS::HTTPClient.new self
     app_id = setting String, :application_id
