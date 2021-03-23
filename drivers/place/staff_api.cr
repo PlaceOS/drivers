@@ -131,6 +131,17 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  @[Security(Level::Support)]
+  def update_guest(id : String, body_json : String) : Nil
+    response = patch("/api/engine/v2/guests/#{id}", body: body_json, headers: {
+      "Accept"        => "application/json",
+      "Content-Type"  => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "failed to update guest #{id}: #{response.status_code}" unless response.success?
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
