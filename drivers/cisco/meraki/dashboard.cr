@@ -220,6 +220,16 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
+  def inspect_foorplans
+    @floorplan_sizes
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def inspect_network_devices
+    @network_devices
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
   def inspect_state
     logger.debug {
       "IP Mappings: #{@ip_lookup.keys}\n\nMAC Locations: #{@locations.keys}\n\nClient Details: #{@client_details.keys}"
