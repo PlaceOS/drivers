@@ -106,7 +106,7 @@ module Cisco::Meraki
     end
 
     def self.calculate_location(floor : FloorPlan, device : NetworkDevice, time : Time) : Location
-      distance = Geo.calculate_xy(floor.top_left, floor.top_left, floor.top_left, device, floor.to_distance)
+      distance = Geo.calculate_xy(floor.top_left, floor.bottom_left, floor.bottom_right, device, floor.to_distance)
       Location.new(distance.x, distance.y, device.lng, device.lat, 25_f64, floor.id, floor.name, time)
     end
 
