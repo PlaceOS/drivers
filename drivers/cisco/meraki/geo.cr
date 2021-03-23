@@ -47,18 +47,18 @@ module Cisco::Meraki::Geo
 
   # radius in meters, approx as we're using a perfect sphere the same volume as the earth
   EarthRadiusApprox = 6371000.7900_f64
-  RadianAdjust      = Math::PI / 180_f64
+  Radians           = Math::PI / 180_f64
 
   # https://www.movable-type.co.uk/scripts/latlong.html
   # returns the distance in meters
   def self.geo_distance(start : Point, ending)
-    start_lat_radian = start.lat * RadianAdjust
-    end_lat_radian = ending.lat * RadianAdjust
-    lat_diff = (ending.lat - start.lat) * RadianAdjust
-    lng_diff = (ending.lng - start.lng) * RadianAdjust
+    lat_diff = (ending.lat - start.lat) * Radians
+    lng_diff = (ending.lng - start.lng) * Radians
+    start_lat_radian = start.lat * Radians
+    end_lng_radian = ending.lng * Radians
 
-    a = Math.sin(lat_diff / 2_f64) + Math.sin(lat_diff / 2_f64) +
-        Math.cos(start_lat_radian) * Math.cos(end_lat_radian) *
+    a = Math.sin(lat_diff / 2_f64) * Math.sin(lat_diff / 2_f64) +
+        Math.cos(start_lat_radian) * Math.cos(end_lng_radian) *
         Math.sin(lng_diff / 2_f64) * Math.sin(lng_diff / 2_f64)
 
     c = 2_f64 * Math.atan2(Math.sqrt(a), Math.sqrt(1_f64 - a))
