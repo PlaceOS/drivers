@@ -86,12 +86,17 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   end
 
   enum Sort
-    ItemReference
-    Priority
-    CreationTime
+    ItemReferenceAsc
+    PriorityAsc
+    CreationTimeAsc
+    ItemReferenceDes
+    PriorityDes
+    CreationTimeDes
 
     def to_s
-      super.camelcase(lower: true)
+      value = super.camelcase(lower: true)
+      value = '-' + value if value.ends_with?("Des") # Prepend '-' if we want descending order
+      value[0..-4] # Ignore the last 3 characters e.g. Asc or Des
     end
   end
 
@@ -108,7 +113,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     category : Category? = nil,
     page : Int32 = 1,
     page_size : Int32 = 100,
-    sort : Sort = Sort::CreationTime
+    sort : Sort = Sort::CreationTimeAsc
   )
     params = args_to_params(**args)
 
@@ -118,15 +123,35 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     )
   end
 
+  def get_alarm(id : String)
+    response = get("/alarms/#{id}",
+      headers: {"Authorization" => get_token}
+    )
+  end
+
+  def get_alarm_for_network_device(
+    id : String,
+    start_time : Int64? = nil,
+    end_time : Int64? = nil,
+    priority_from : Int64? = nil,
+    priority_to : Int64? = nil,
+  )
+  end
+
+  # Map method arguments to the correct string key and string values for query params
   private def args_to_params(**params) : Hash(String, String)
     hash = Hash(String, String).new
     params.each do |k, v|
       next if v.nil?
-      hash[k.to_s.camelcase(lower: true)] = case k
-      when :start_time, :end_time
-        ISO8601.format(Time.unix(v.as(Int64)))
+
+      case k
+      when :start_time, :end_time # Convert to an ISO8601 date string
+        hash[k.to_s.camelcase(lower: true)] = ISO8601.format(Time.unix(v.as(Int64)))
+      when :priority_from
+        hash["priorityRange"] = "#{params[:priority_from]},#{params[:priority_to]}"
+      when :priority_to # Do nothing as we are already handling this in priority_from
       else
-        v.to_s
+        hash[k.to_s.camelcase(lower: true)] = v.to_s
       end
     end
     hash
