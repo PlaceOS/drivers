@@ -1,8 +1,10 @@
-# Quick and dirty adjancy list based labelled digraph.
+# Labelled digraph. Holds node labels of type *N* and edge labels of type *E*.
 #
-# Holds node labels of type *N* and edge labels of type *E*.
+# Nodes are stored on UInt64 ID's. This provides an interface that should feel
+# similar to `Indexable` for interacting with nodes labels. Similarly edges can
+# be placed and retrieved by using a dual index of {predescessor, successor}.
 #
-# OPTIMIZE: replace with a sparse matrix and graphBLAS operations
+# OPTIMIZE: replace with a sparse matrix and graphBLAS operations.
 class Place::Router::Digraph(N, E)
   class Error < Exception; end
 
