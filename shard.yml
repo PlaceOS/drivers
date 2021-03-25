@@ -69,3 +69,7 @@ dependencies:
   # the STOMP protocol
   stomp:
     github: spider-gazelle/stomp
+
+  inactive-support:
+    git: https://github.com/spider-gazelle/inactive-support.git
+    version: 0.1.1
