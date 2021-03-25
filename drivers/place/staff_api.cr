@@ -133,7 +133,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def update_guest(id : String, body_json : String) : Nil
-    response = patch("/api/engine/v2/guests/#{id}", body: body_json, headers: {
+    response = patch("/api/staff/v1/guests/#{id}", body: body_json, headers: {
       "Accept"        => "application/json",
       "Content-Type"  => "application/json",
       "Authorization" => "Bearer #{token}",
