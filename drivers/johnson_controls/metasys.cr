@@ -7,7 +7,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   uri_base "http://localhost/api/v2"
 
   CONTENT_TYPE = "application/json"
-  ISO8601 = Time::Format.new("%FT%T%z")
+  ISO8601 = Time::Format.new("%FT%TZ")
 
   @username : String = ""
   @password : String = ""
@@ -85,21 +85,6 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     end
   end
 
-  enum Sort
-    ItemReferenceAsc
-    PriorityAsc
-    CreationTimeAsc
-    ItemReferenceDes
-    PriorityDes
-    CreationTimeDes
-
-    def to_s
-      value = super.camelcase(lower: true)
-      value = '-' + value if value.ends_with?("Des") # Prepend '-' if we want descending order
-      value[0..-4] # Ignore the last 3 characters e.g. Asc or Des
-    end
-  end
-
   def get_alarms(
     start_time : Int64? = nil,
     end_time : Int64? = nil,
@@ -113,33 +98,61 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     category : Category? = nil,
     page : Int32 = 1,
     page_size : Int32 = 100,
-    sort : Sort = Sort::CreationTimeAsc
+    sort : String = "creationTime"
   )
-    params = args_to_params(**args)
-
-    response = get("/alarms",
-      headers: {"Authorization" => get_token},
-      params: params
-    )
+    response = get_request("/alarms", args)
   end
 
   def get_alarm(id : String)
-    response = get("/alarms/#{id}",
-      headers: {"Authorization" => get_token}
-    )
+    response = get_request("/alarms/#{id}")
   end
 
-  def get_alarm_for_network_device(
+  def get_alarms_for_network_device(
     id : String,
     start_time : Int64? = nil,
     end_time : Int64? = nil,
     priority_from : Int64? = nil,
     priority_to : Int64? = nil,
+    type : Type? = nil,
+    exclude_pending : Bool = false,
+    exclude_acknowledged : Bool = false,
+    exclude_discarded : Bool = false,
+    attribute : Attribute? = nil,
+    page : Int32 = 1,
+    page_size : Int32 = 100,
+    sort : String = "creationTime"
   )
+    response = get_request("/networkDevices/#{id}/alarms", args)
+  end
+
+  def get_alarms_for_object(
+    id : String,
+    start_time : Int64? = nil,
+    end_time : Int64? = nil,
+    priority_from : Int64? = nil,
+    priority_to : Int64? = nil,
+    type : Type? = nil,
+    exclude_pending : Bool = false,
+    exclude_acknowledged : Bool = false,
+    exclude_discarded : Bool = false,
+    attribute : Attribute? = nil,
+    page : Int32 = 1,
+    page_size : Int32 = 100,
+    sort : String = "creationTime"
+  )
+    response = get_request("/objects/#{id}/alarms", args)
+  end
+
+  private def get_request(path : String, params = nil)
+    if params
+      get(path, headers: {"Authorization" => get_token}, params: args_to_params(params))
+    else
+      get(path, headers: {"Authorization" => get_token})
+    end
   end
 
   # Map method arguments to the correct string key and string values for query params
-  private def args_to_params(**params) : Hash(String, String)
+  private def args_to_params(params) : Hash(String, String)
     hash = Hash(String, String).new
     params.each do |k, v|
       next if v.nil?
