@@ -7,7 +7,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   uri_base "http://localhost/api/v2"
 
   CONTENT_TYPE = "application/json"
-  ISO8601 = "%FT%T%z"
+  ISO8601 = Time::Format.new("%FT%T%z")
 
   @username : String = ""
   @password : String = ""
@@ -33,7 +33,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     @[JSON::Field(key: "accessToken")]
     property access_token : String
 
-    @[JSON::Field(converter: Time::Format.new(JohnsonControls::Metasys::ISO8601))]
+    @[JSON::Field(converter: JohnsonControls::Metasys::ISO8601)]
     property expires : Time
   end
 
@@ -96,8 +96,8 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   end
 
   def get_alarms(
-    start_epoch : Int64? = nil,
-    end_epoch : Int64? = nil,
+    start_time : Int64? = nil,
+    end_time : Int64? = nil,
     priority_from : Int64? = nil,
     priority_to : Int64? = nil,
     type : Type? = nil,
@@ -111,10 +111,8 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     sort : Sort = Sort::CreationTime
   )
     params = args_to_params(**args)
-    pp params
-    pp params.class
 
-    response = get("alarms",
+    response = get("/alarms",
       headers: {"Authorization" => get_token},
       params: params
     )
@@ -122,7 +120,15 @@ class JohnsonControls::Metasys < PlaceOS::Driver
 
   private def args_to_params(**params) : Hash(String, String)
     hash = Hash(String, String).new
-    params.each { |k, v| hash[k.to_s] = v.to_s unless v.nil? }
+    params.each do |k, v|
+      next if v.nil?
+      hash[k.to_s.camelcase(lower: true)] = case k
+      when :start_time, :end_time
+        ISO8601.format(Time.unix(v.as(Int64)))
+      else
+        v.to_s
+      end
+    end
     hash
   end
 end
