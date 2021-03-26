@@ -86,8 +86,8 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   end
 
   def get_alarms(
-    start_time : Int64? = nil,
-    end_time : Int64? = nil,
+    start_epoch : Int64? = nil,
+    end_epoch : Int64? = nil,
     priority_from : Int64? = nil,
     priority_to : Int64? = nil,
     type : Type? = nil,
@@ -109,8 +109,8 @@ class JohnsonControls::Metasys < PlaceOS::Driver
 
   def get_alarms_for_network_device(
     id : String,
-    start_time : Int64? = nil,
-    end_time : Int64? = nil,
+    start_epoch : Int64? = nil,
+    end_epoch : Int64? = nil,
     priority_from : Int64? = nil,
     priority_to : Int64? = nil,
     type : Type? = nil,
@@ -127,8 +127,8 @@ class JohnsonControls::Metasys < PlaceOS::Driver
 
   def get_alarms_for_object(
     id : String,
-    start_time : Int64? = nil,
-    end_time : Int64? = nil,
+    start_epoch : Int64? = nil,
+    end_epoch : Int64? = nil,
     priority_from : Int64? = nil,
     priority_to : Int64? = nil,
     type : Type? = nil,
@@ -143,26 +143,53 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     response = get_request("/objects/#{id}/alarms", args)
   end
 
+  def get_alarm_annotations(
+    id : String,
+    start_epoch : Int64? = nil,
+    end_epoch : Int64? = nil,
+    page : Int32 = 1,
+    page_size : Int32 = 100,
+    sort : String = "creationTime"
+  )
+    response = get_request("/alarms/#{id}/annotations", args)
+  end
+
+  def get_audit_annotations(
+    id : String,
+    page : Int32 = 1,
+    page_size : Int32 = 100,
+    sort : String = "-creationTime"
+  )
+    response = get_request("/alarms/#{id}/annotations", args)
+  end
+
   private def get_request(path : String, params = nil)
     if params
-      get(path, headers: {"Authorization" => get_token}, params: args_to_params(params))
+      get(path, headers: {"Authorization" => get_token}, params: params_to_hash(params))
     else
       get(path, headers: {"Authorization" => get_token})
     end
   end
 
   # Map method arguments to the correct string key and string values for query params
-  private def args_to_params(params) : Hash(String, String)
+  private def params_to_hash(params) : Hash(String, String)
     hash = Hash(String, String).new
     params.each do |k, v|
       next if v.nil?
 
+      # Some of these are a bit hacky but are needed to make the compiler happy
+      # like the next lines for start_epoch/end_epoch
       case k
-      when :start_time, :end_time # Convert to an ISO8601 date string
-        hash[k.to_s.camelcase(lower: true)] = ISO8601.format(Time.unix(v.as(Int64)))
+      when :start_epoch
+        next unless start_epoch = params[:start_epoch]?
+        hash["startTime"] = ISO8601.format(Time.unix(start_epoch))
+      when :end_epoch
+        next unless end_epoch = params[:end_epoch]?
+        hash["endTime"] = ISO8601.format(Time.unix(end_epoch))
       when :priority_from
-        hash["priorityRange"] = "#{params[:priority_from]},#{params[:priority_to]}"
+        hash["priorityRange"] = "#{params[:priority_from]?},#{params[:priority_to]?}"
       when :priority_to # Do nothing as we are already handling this in priority_from
+      when :id # Also, do nothing as id will be used in the route and not as a query param
       else
         hash[k.to_s.camelcase(lower: true)] = v.to_s
       end
