@@ -100,7 +100,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     page_size : Int32 = 100,
     sort : String = "creationTime"
   )
-    response = get_request("/alarms", args)
+    response = get_request("/alarms", **args)
   end
 
   def get_alarm(id : String)
@@ -122,7 +122,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     page_size : Int32 = 100,
     sort : String = "creationTime"
   )
-    response = get_request("/networkDevices/#{id}/alarms", args)
+    response = get_request("/networkDevices/#{id}/alarms", **args)
   end
 
   def get_alarms_for_object(
@@ -140,7 +140,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     page_size : Int32 = 100,
     sort : String = "creationTime"
   )
-    response = get_request("/objects/#{id}/alarms", args)
+    response = get_request("/objects/#{id}/alarms", **args)
   end
 
   def get_alarm_annotations(
@@ -151,7 +151,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     page_size : Int32 = 100,
     sort : String = "creationTime"
   )
-    response = get_request("/alarms/#{id}/annotations", args)
+    response = get_request("/alarms/#{id}/annotations", **args)
   end
 
   def get_audit_annotations(
@@ -160,11 +160,45 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     page_size : Int32 = 100,
     sort : String = "-creationTime"
   )
-    response = get_request("/alarms/#{id}/annotations", args)
+    response = get_request("/alarms/#{id}/annotations", **args)
   end
 
-  private def get_request(path : String, params = nil)
-    if params
+  def get_audits(
+    origin_applications : String? = nil,
+    classes_levels : String? = nil,
+    action_types : String? = nil,
+    start_epoch : Int64? = nil,
+    end_epoch : Int64? = nil,
+    exclude_discarded : Bool = false,
+    page : Int32 = 1,
+    page_size : Int32 = 100,
+    sort : String = "-creationTime"
+  )
+    response = get_request("/audits", **args)
+  end
+
+  def get_audit(id : String)
+    response = get_request("/audits/#{id}")
+  end
+
+  def get_audits_for_object(
+    id : String,
+    origin_applications : String? = nil,
+    classes_levels : String? = nil,
+    action_types : String? = nil,
+    start_epoch : Int64? = nil,
+    end_epoch : Int64? = nil,
+    exclude_discarded : Bool = false,
+    page : Int32 = 1,
+    page_size : Int32 = 100,
+    sort : String = "-creationTime"
+  )
+    response = get_request("/objects/#{id}/audits", **args)
+  end
+
+  @[Security(Level::Support)]
+  def get_request(path : String, **params)
+    if params.size > 0
       get(path, headers: {"Authorization" => get_token}, params: params_to_hash(params))
     else
       get(path, headers: {"Authorization" => get_token})
@@ -175,7 +209,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   private def params_to_hash(params) : Hash(String, String)
     hash = Hash(String, String).new
     params.each do |k, v|
-      next if v.nil?
+      next if v.nil? # Don't add params with nil values
 
       # Some of these are a bit hacky but are needed to make the compiler happy
       # like the next lines for start_epoch/end_epoch
