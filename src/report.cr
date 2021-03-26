@@ -50,11 +50,13 @@ puts "found #{specs.size}"
 
 compile_only = [] of String
 failed = [] of String
+no_compile = [] of String
 timeout = [] of String
 
 tested = 0
 success = 0
 
+# detect ctrl-c, complete current work and output report early
 skip_remaining = false
 Signal::INT.trap do |signal|
   skip_remaining = true
@@ -71,7 +73,7 @@ drivers.each do |driver|
   end
 
   tested += 1
-  print "testing #{driver}... "
+  print "testing #{driver}..."
 
   params = URI::Params.new({
     "driver" => [driver],
@@ -87,10 +89,19 @@ drivers.each do |driver|
     response = client.post(uri.to_s)
     if response.success?
       success += 1
-      puts "passed".colorize.green
+      puts " passed".colorize.green
     else
-      puts "failed".colorize.red
-      failed << driver
+      # keep travis alive
+      print " "
+
+      # a spec not passing isn't as critical as a driver not compiling
+      if client.post("/build?driver=#{driver}").success?
+        puts "failed".colorize.red
+        failed << driver
+      else
+        puts "failed to compile!".colorize.red
+        no_compile << driver
+      end
     end
   rescue IO::TimeoutError
     puts "failed with timeout".colorize.red
@@ -110,8 +121,8 @@ compile_only.each do |driver|
       success += 1
       puts "builds".colorize.green
     else
-      puts "failed".colorize.red
-      failed << driver
+      puts "failed to compile!".colorize.red
+      no_compile << driver
     end
   rescue IO::TimeoutError
     puts "failed with timeout".colorize.red
@@ -119,11 +130,10 @@ compile_only.each do |driver|
   end
 end
 
-puts "\n"
-puts "failures:\n * #{failed.join("\n * ")}"
-
-puts "\n"
-puts "timeouts:\n * #{timeout.join("\n * ")}"
-
-puts "\n"
-puts "#{tested} drivers, #{failed.size} failures, #{timeout.size} timeouts, #{compile_only.size} without spec"
+# ==============
+# output report
+# ==============
+puts "\n\nspec failures:\n * #{failed.join("\n * ")}" if !failed.empty?
+puts "\n\nspec timeouts:\n * #{timeout.join("\n * ")}" if !timeout.empty?
+puts "\n\nfailed to compile:\n * #{timeout.join("\n * ")}" if !no_compile.empty?
+puts "\n\n#{tested} drivers, #{failed.size + no_compile.size} failures, #{timeout.size} timeouts, #{compile_only.size} without spec"
