@@ -199,14 +199,14 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   @[Security(Level::Support)]
   def get_request(path : String, **params)
     if params.size > 0
-      get(path, headers: {"Authorization" => get_token}, params: params_to_hash(params))
+      get(path, headers: {"Authorization" => get_token}, params: stringify_params(**params))
     else
       get(path, headers: {"Authorization" => get_token})
     end
   end
 
-  # Map method arguments to the correct string key and string values for query params
-  private def params_to_hash(params) : Hash(String, String)
+  # Stringify param keys and values so that they're valid query params
+  private def stringify_params(**params) : Hash(String, String)
     hash = Hash(String, String).new
     params.each do |k, v|
       next if v.nil? # Don't add params with nil values
