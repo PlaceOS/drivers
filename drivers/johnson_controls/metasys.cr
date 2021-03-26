@@ -3,7 +3,7 @@ require "inactive-support/macro/args"
 class JohnsonControls::Metasys < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Johnson Controls Metasys API v2"
-  generic_name :Guests
+  generic_name :Control
   uri_base "http://localhost/api/v2"
 
   CONTENT_TYPE = "application/json"
