@@ -42,7 +42,7 @@ class Biamp::Nexia < PlaceOS::Driver
     # Device Number will always be 0 for Preset strings
     # 1001 == minimum preset number
     #
-    do_send("RECALL", 0, "PRESET", number)
+    do_send("RECALL", 0, "PRESET", number, name: "preset_#{number}")
   end
 
   # {1 => [2,3,5], 2 => [2,3,6]}, true
@@ -97,7 +97,7 @@ class Biamp::Nexia < PlaceOS::Driver
     # value range: -100 ~ 12
     faders = ensure_array(fader_id)
     faders.each do |fad|
-      do_send("SETD", self["device_id"]?, fad_type, fad, index, level)
+      do_send("SETD", self["device_id"]?, fad_type, fad, index, level, name: "fader_#{fad}")
     end
   end
 
@@ -132,7 +132,7 @@ class Biamp::Nexia < PlaceOS::Driver
 
     faders = ensure_array(fader_id)
     faders.each do |fad|
-      do_send("SETD", self["device_id"]?, mute_type, fad, index, actual)
+      do_send("SETD", self["device_id"]?, mute_type, fad, index, actual, name: "mute_#{fad}")
     end
   end
 
@@ -195,8 +195,8 @@ class Biamp::Nexia < PlaceOS::Driver
     task.try &.success
   end
 
-  private def do_send(*args)
-    send("#{args.join(' ')} \n")
+  private def do_send(*args, **options)
+    send("#{args.join(' ')} \n", **options)
   end
 
   private def ensure_array(object)

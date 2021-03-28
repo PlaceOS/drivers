@@ -36,7 +36,7 @@ class Biamp::Tesira < PlaceOS::Driver
     do_send "SESSION set verbose false", priority: 96
 
     schedule.every(60.seconds) do
-      do_send "DEVICE get serialNumber", priority: 0
+      do_send "DEVICE get serialNumber", priority: 95
     end
   end
 
@@ -47,9 +47,9 @@ class Biamp::Tesira < PlaceOS::Driver
 
   def preset(number_or_name : String | Int32)
     if number_or_name.is_a? Int32
-      do_send "DEVICE recallPreset #{number_or_name}"
+      do_send "DEVICE recallPreset #{number_or_name}", priority: 30, name: "preset_#{number_or_name}"
     else
-      do_send build(:DEVICE, :recallPresetByName, number_or_name)
+      do_send build(:DEVICE, :recallPresetByName, number_or_name), priority: 30, name: "preset_#{number_or_name}"
     end
   end
 
@@ -77,12 +77,12 @@ class Biamp::Tesira < PlaceOS::Driver
       inouts.each do |input, outs|
         outputs = ensure_array(outs)
         outputs.each do |output|
-          do_send build(id, :set, mixer_type, input, output, mute)
+          do_send build(id, :set, mixer_type, input, output, mute), priority: 30, name: "mixmute_#{input}_#{output}"
         end
       end
     else # assume array (auto-mixer)
       inouts.each do |input|
-        do_send_now build(id, :set, mixer_type, input, mute)
+        do_send build(id, :set, mixer_type, input, mute), priority: 30, name: "mixmute_#{input}"
       end
     end
   end
@@ -106,7 +106,7 @@ class Biamp::Tesira < PlaceOS::Driver
     indicies = ensure_array(index)
     fader_ids.each do |fad|
       indicies.each do |i|
-        do_send_now build(fad, :set, fader_type, i, level)
+        do_send build(fad, :set, fader_type, i, level), priority: 30, name: "fade_#{fad}_#{i}"
         self["#{fader_type}_#{fad}_#{i}"] = level
       end
     end
@@ -133,7 +133,7 @@ class Biamp::Tesira < PlaceOS::Driver
     indicies = ensure_array(index)
     fader_ids.each do |fad|
       indicies.each do |i|
-        do_send_now build(fad, :set, mute_type, i, value)
+        do_send build(fad, :set, mute_type, i, value), priority: 30, name: "mute_#{fad}_#{i}"
         self["#{mute_type}_#{fad}_#{i}_mute"] = value
       end
     end
@@ -212,11 +212,6 @@ class Biamp::Tesira < PlaceOS::Driver
   private def do_send(command, **options)
     logger.debug { "requesting #{command}" }
     send @telnet.not_nil!.prepare(command), **options
-  end
-
-  private def do_send_now(command)
-    logger.debug { "requesting #{command}" }
-    transport.send @telnet.not_nil!.prepare(command)
   end
 
   private def ensure_array(object)
