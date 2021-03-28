@@ -1,5 +1,4 @@
 DriverSpecs.mock_driver "Exterity::AvediaPlayer::R92xx" do
-
   responds("login:")
   should_send("admin\r\n")
   should_send("labrador\r\n")
@@ -21,6 +20,4 @@ DriverSpecs.mock_driver "Exterity::AvediaPlayer::R92xx" do
   responds("^tv_info:a,b,c,d,e,f,g!\r")
   sleep(2)
   status[:tv_info].should eq("a,b,c,d,e,f,g")
-
-
 end

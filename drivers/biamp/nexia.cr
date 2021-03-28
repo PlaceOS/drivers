@@ -19,7 +19,7 @@ class Biamp::Nexia < PlaceOS::Driver
     # min -100
     # max +12
 
-    self["fader_min"] = -36  # specifically for tonsley
+    self["fader_min"] = -36 # specifically for tonsley
     self["fader_max"] = 12
   end
 
