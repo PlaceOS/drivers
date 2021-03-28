@@ -1,6 +1,7 @@
 require "telnet"
 
 module Exterity; end
+
 module Exterity::AvediaPlayer; end
 
 class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
@@ -118,8 +119,7 @@ class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
           disconnect
         end
       end
-    elsif
-      logger.info { "Somehow we got here #{data}" }
+    elsif logger.info { "Somehow we got here #{data}" }
     end
 
     task.try &.success

@@ -1,8 +1,8 @@
 require "telnet"
 
 module Exterity; end
-module Exterity::AvediaPlayer; end
 
+module Exterity::AvediaPlayer; end
 
 class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
   descriptive_name "Exterity Avedia Player (R93xx)"
@@ -99,8 +99,8 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
       # We need to disconnect if we don't see the serialCommandInterface after a certain amount of time
       schedule.in(5.seconds) do
         if !@ready
-            logger.error { "Exterity connection failed to be ready after 5 seconds. Check username and password." }
-            disconnect
+          logger.error { "Exterity connection failed to be ready after 5 seconds. Check username and password." }
+          disconnect
         end
       end
     end
@@ -121,9 +121,9 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
         logger.warn { "Error response received" }
       end
     when "tv_info"
-        self[:tv_info] = parts[1]
+      self[:tv_info] = parts[1]
     when "SoftwareVersion"
-        self[:version] = parts[1]
+      self[:version] = parts[1]
     end
   end
 
@@ -151,4 +151,3 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
     do_send "^get:#{status}!", **options
   end
 end
-
