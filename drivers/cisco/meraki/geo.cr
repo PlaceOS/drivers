@@ -38,7 +38,7 @@ module Cisco::Meraki::Geo
     y_raw = triangle_height(a, x_base, c)
 
     # find the percentage distance from the origin
-    percentage_height = 1.0_f64 - (y_raw / y_base)
+    percentage_height = y_raw / y_base
     percentage_width = x_raw / x_base
 
     # adjust into range provided by the original distances
