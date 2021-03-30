@@ -26,15 +26,137 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   }
   INPUT_LOOKUP = INPUTS.invert
 
-  def switch_to(input : Inputs)
+  MATCH = {
+    "tv"     => Inputs::Tv,
+    "hdmi"   => Inputs::Hdmi,
+    "mirror" => Inputs::Mirror,
+    "vga"    => Inputs::Vga,
+  }
+
+  def switch_to(input : String)
     input_type = input.to_s.scan(/[^0-9]+|\d+/)
     index = input_type.size < 1 ? "1" : input_type[1][0]
-
     # raise ArgumentError, "unknown input #{input.to_s}" unless INPUTS.has_key?(input)
-
-    control(:input, "#{INPUTS[input]}#{index.rjust(4, '0')}")
-    logger.debug { "requested to switch to: #{input.to_s}" }
+    value = INPUTS[MATCH[input_type[0][0]]]
+    request(:input, "#{value}#{index.rjust(4, '0')}")
+    logger.debug { "requested to switch to: #{input}" }
     self[:input] = input # for a responsive UI
+  end
+
+  def input?
+    query(:input, priority: 0)
+  end
+
+  # Discovery Information
+  tcp_port 20060
+  descriptive_name "Sony Bravia LCD Display"
+  generic_name :Display
+
+  def on_load
+    self[:volume_min] = 0
+    self[:volume_max] = 100
+  end
+
+  def connected
+    schedule.every(30.seconds, true) do
+      do_poll
+    end
+  end
+
+  def disconnected
+    schedule.clear
+  end
+
+  def power(state : Bool)
+    if state
+      request(:power, 1)
+      logger.debug { "-- sony display requested to power on" }
+    else
+      request(:power, 0)
+      logger.debug { "-- sony display requested to power off" }
+    end
+    power?
+  end
+
+  def power?
+    # (**options, &block)
+    # options[:emit] = block?
+    # options[:priority] ||= 0
+    # query(:power, options)
+    query(:power).get
+  end
+
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    val = state ? 1 : 0
+    request(:mute, val)
+    logger.debug { "requested to mute #{state}" }
+    mute?
+  end
+
+  def unmute
+    mute false
+  end
+
+  def mute?
+    query(:mute, priority: 0)
+  end
+
+  def mute_audio(state : Bool = true)
+    val = state ? 1 : 0
+    request(:audio_mute, val)
+    logger.debug { "requested to mute audio #{state}" }
+    audio_mute?
+  end
+
+  def unmute_audio
+    mute_audio false
+  end
+
+  def audio_mute?
+    query(:audio_mute, priority: 0)
+  end
+
+  def volume(level : Int32)
+    request(:volume, level.to_i)
+    volume?
+  end
+
+  def volume?
+    query(:volume, priority: 0)
+  end
+
+  def do_poll
+    input?
+    mute?
+    audio_mute?
+    volume?
+    # power? unless
+  end
+
+  def received(data, resolve, **command)
+    logger.debug { "Sony sent: #{data}" }
+    type = TYPE_RESPONSE[data[0]]
+    cmd = RESPONSES[data[1..4]]
+    param = data[5..-1]
+
+    return :abort if param[0] == 'F'
+
+    case type
+    when :answer
+      # if command && TYPE_RESPONSE[command[:data]] == :enquiry
+      #   update_status cmd, param
+      # end
+      :success
+    when :notify
+      # update_status cmd, param
+      :ignore
+    else
+      logger.debug { "Unhandled device response" }
+    end
   end
 
   COMMANDS = {
@@ -63,120 +185,40 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   }
   TYPE_RESPONSE = TYPES.to_h.invert
 
-  # Discovery Information
-  tcp_port 20060
-  descriptive_name "Sony Bravia LCD Display"
-  generic_name :Display
-
-  def on_load
-    self[:volume_min] = 0
-    self[:volume_max] = 100
-  end
-
-  def connected
-    schedule.every(30.seconds, true) do
-      poll
-    end
-  end
-
-  def disconnected
-    schedule.clear
-  end
-
-  def power
-    # TO DO
-  end
-
-  def power?
-    # TO DO
-  end
-
-  def mute
-    # TO DO
-  end
-
-  def unmute
-    # TO DO
-  end
-
-  def mute?
-    # TO DO
-  end
-
-  def mute_audio
-    # TO DO
-  end
-
-  def unmute_audio
-    # TO DO
-  end
-
-  def audio_mute?
-    # TO DO
-  end
-
-  def volume
-  end
-
-  def poll
-  end
-
-  def received(data, resolve, command)
-    logger.debug { "Sony sent: #{data}" }
-    type = TYPE_RESPONSE[data[0]]
-    cmd = RESPONSES[data[1..4]]
-    param = data[5..-1]
-
-    return :abort if param[0] == 'F'
-
-    case type
-    when :answer
-      if command && TYPE_RESPONSE[command[:data]] == :enquiry
-        update_status cmd, param
-      end
-      :success
-    when :notify
-      update_status cmd, param
-      :ignore
-    else
-      logger.debug "Unhandled device response"
-    end
-  end
-
-  def request(command, parameter, **options)
+  protected def request(command, parameter, **options)
     cmd = COMMANDS[command]
     param = parameter.to_s.rjust(16, '0')
-    do_send(:control, cmd, param, options)
+    do_send(:control, cmd, param, **options)
   end
 
-  def query(state, **options)
+  protected def query(state, **options)
     cmd = COMMANDS[state]
     param = "#" * 16
-    do_send(:enquiry, cmd, param, options)
+    do_send(:enquiry, cmd, param)
   end
 
-  def do_send(type, command, parameter, **options)
+  protected def do_send(type, command, parameter, **options)
     cmd_type = TYPES[type]
     cmd = "#{INDICATOR}#{cmd_type}#{command}#{parameter}\n"
-    send(cmd, option)
+    send(cmd, **options)
   end
 
-  def update_status(cmd, param)
-    case cmd
-    when :power, :mute, :audio_mute, :pip
-      self[cmd] = param.to_i == 1
-    when :volume
-      self[:volume] = param.to_i
-    when :mac_address
-      self[:mac_address] = param.split('#')[0]
-    when :input
-      input_num = param[7..11]
-      index_num = param[12..-1].to_i
-      self[:input] = if index_num == 1
-                       INPUT_LOOKUP[input_num]
-                     else
-                       :"#{INPUT_LOOKUP[input_num]}#{index_num}"
-                     end
-    end
-  end
+  # protected def update_status(cmd, param)
+  #   case cmd
+  #   when :power, :mute, :audio_mute, :pip
+  #     self[cmd] = param.to_i == 1
+  #   when :volume
+  #     self[:volume] = param.to_i
+  #   when :mac_address
+  #     self[:mac_address] = param.split('#')[0]
+  #   when :input
+  #     input_num = param[7..11]
+  #     index_num = param[12..-1].to_i
+  #     self[:input] = if index_num == 1
+  #                      INPUT_LOOKUP[input_num]
+  #                    else
+  #                      :"#{INPUT_LOOKUP[input_num]}#{index_num}"
+  #                    end
+  #   end
+  # end
 end
