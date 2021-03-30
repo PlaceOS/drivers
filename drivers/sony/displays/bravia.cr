@@ -60,9 +60,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def connected
-    # schedule.every(30.seconds, true) do
-    #   do_poll
-    # end
+    schedule.every(30.seconds, true) do
+      do_poll
+    end
   end
 
   def disconnected
@@ -131,14 +131,14 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def do_poll
-    while power?
-      if self[:power]?
-        input?
-        mute?
-        audio_mute?
-        volume?
-      end
+    # while power?
+    if self[:power]?
+      input?
+      mute?
+      audio_mute?
+      volume?
     end
+    # end
   end
 
   def received(data, task, **command2)
