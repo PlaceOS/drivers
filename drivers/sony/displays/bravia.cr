@@ -152,9 +152,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
     logger.debug { "type sent: #{type}" }
 
-    logger.debug { "command: #{command2}" }
+    logger.debug { "param: #{param}" }
 
-    return :abort if param[0] == 'F'
+    return task.try(&.abort("error")) if param[0] == 70
 
     case TYPE_RESPONSE[type]
     when :answer
