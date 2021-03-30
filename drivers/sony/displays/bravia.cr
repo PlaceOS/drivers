@@ -6,15 +6,15 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
-  INDICATOR = "\x2A\x53"
+  INDICATOR = "\x2A\x53" # *S
   msg_length = 21
 
-  # enum Inputs
-  #   Tv
-  #   Hdmi
-  #   Mirror
-  #   Vga
-  # end
+  enum Inputs
+    Tv
+    Hdmi
+    Mirror
+    Vga
+  end
 
   # include Interface::InputSelection(Inputs)
 
@@ -34,7 +34,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   }
 
   def switch_to(input : String)
-    logger.debug { "XXXXXXXXXX" }
     input_type = input.to_s.scan(/[^0-9]+|\d+/)
     index = input_type.size < 1 ? "1" : input_type[1][0]
     # raise ArgumentError, "unknown input #{input.to_s}" unless INPUTS.has_key?(input)
@@ -59,11 +58,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def connected
-    logger.debug { "XXXXXXXXXX" }
-    puts "XXXXXXXXX"
-    schedule.every(30.seconds, true) do
-      do_poll
-    end
+    # schedule.every(30.seconds, true) do
+    #   do_poll
+    # end
   end
 
   def disconnected
@@ -79,14 +76,13 @@ class Sony::Displays::Bravia < PlaceOS::Driver
       logger.debug { "-- sony display requested to power off" }
     end
     power?
+    logger.debug { "power command done" }
   end
 
   def power?
-    # (**options, &block)
-    # options[:emit] = block?
-    # options[:priority] ||= 0
-    # query(:power, options)
-    query(:power).get
+    query(:power)
+    # logger.debug { "status: #{!!self[:power]?.try(&.as_bool)}" }
+    # !!self[:power]?.try(&.as_bool)
   end
 
   def mute(
@@ -133,33 +129,47 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def do_poll
-    input?
-    mute?
-    audio_mute?
-    volume?
-    # power? unless
+    while power?
+      if self[:power]?
+        input?
+        mute?
+        audio_mute?
+        volume?
+      end
+    end
   end
 
-  def received(data, resolve, **command)
+  def received(data, task, **command2)
     logger.debug { "Sony sent: #{data}" }
-    type = TYPE_RESPONSE[data[0]]
-    cmd = RESPONSES[data[1..4]]
-    param = data[5..-1]
+    type = MATCH2[data[2]]
+
+    new_str = data[3..6].map { |x| x.chr }.join
+    logger.debug { "conver: #{new_str}" }
+    cmd = RESPONSES[new_str]
+    param = data[7..-1]
+
+    logger.debug { "type sent: #{type}" }
+
+    logger.debug { "command: #{command2}" }
 
     return :abort if param[0] == 'F'
 
-    case type
+    case TYPE_RESPONSE[type]
     when :answer
-      # if command && TYPE_RESPONSE[command[:data]] == :enquiry
-      #   update_status cmd, param
+      # if command && TYPE_RESPONSE[command] == :enquiry
+      update_status cmd, param
+      logger.debug { "answer" }
       # end
       :success
     when :notify
-      # update_status cmd, param
+      update_status cmd, param
+      logger.debug { "sucess" }
       :ignore
     else
       logger.debug { "Unhandled device response" }
+      task.try &.abort("Unhandled device response")
     end
+    task.try &.success
   end
 
   COMMANDS = {
@@ -186,42 +196,58 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     answer:  "\x41",
     notify:  "\x4E",
   }
+
+  MATCH2 = {
+    65 => "A",
+    69 => "E",
+    78 => "N",
+    67 => "C",
+  }
+
   TYPE_RESPONSE = TYPES.to_h.invert
 
   protected def request(command, parameter, **options)
     cmd = COMMANDS[command]
     param = parameter.to_s.rjust(16, '0')
+    logger.debug { "my cmd: #{COMMANDS[command]} my param: #{param}" }
     do_send(:control, cmd, param, **options)
   end
 
   protected def query(state, **options)
     cmd = COMMANDS[state]
     param = "#" * 16
-    do_send(:enquiry, cmd, param)
+    do_send(:enquiry, cmd, param, **options)
   end
 
   protected def do_send(type, command, parameter, **options)
     cmd_type = TYPES[type]
+    logger.debug { "my INDICATOR: #{INDICATOR} my cmd_type: #{cmd_type}" }
+    logger.debug { "my param: #{parameter}" }
+
     cmd = "#{INDICATOR}#{cmd_type}#{command}#{parameter}\n"
+    logger.debug { "cmd: #{cmd}" }
     send(cmd, **options)
   end
 
-  # protected def update_status(cmd, param)
-  #   case cmd
-  #   when :power, :mute, :audio_mute, :pip
-  #     self[cmd] = param.to_i == 1
-  #   when :volume
-  #     self[:volume] = param.to_i
-  #   when :mac_address
-  #     self[:mac_address] = param.split('#')[0]
-  #   when :input
-  #     input_num = param[7..11]
-  #     index_num = param[12..-1].to_i
-  #     self[:input] = if index_num == 1
-  #                      INPUT_LOOKUP[input_num]
-  #                    else
-  #                      :"#{INPUT_LOOKUP[input_num]}#{index_num}"
-  #                    end
-  #   end
-  # end
+  protected def update_status(cmd, param)
+    new_str = param.map { |x| x.chr }.join
+
+    logger.debug { "param is: #{new_str} type is: #{typeof(new_str)}" }
+    case cmd
+    when :power, :mute, :audio_mute, :pip
+      self[cmd] = new_str.to_i == 1
+    when :volume
+      self[:volume] = new_str.to_i
+    when :mac_address
+      self[:mac_address] = new_str.split('#')[0]
+    when :input
+      input_num = param[7..11].map { |x| x.chr }.join
+      index_num = param[12..-1].map { |x| x.chr }.join.to_i
+      self[:input] = if index_num == 1
+                       INPUT_LOOKUP[input_num]
+                     else
+                       :"#{INPUT_LOOKUP[input_num]}#{index_num}"
+                     end
+    end
+  end
 end
