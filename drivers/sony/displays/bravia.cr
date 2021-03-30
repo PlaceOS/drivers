@@ -35,12 +35,14 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
   def switch_to(input : String)
     input_type = input.to_s.scan(/[^0-9]+|\d+/)
-    index = input_type.size < 1 ? "1" : input_type[1][0]
+    logger.debug { "requested to switch to: #{input_type.size}" }
+    index = input_type.size < 2 ? "1" : input_type[1][0]
     # raise ArgumentError, "unknown input #{input.to_s}" unless INPUTS.has_key?(input)
     value = INPUTS[MATCH[input_type[0][0]]]
     request(:input, "#{value}#{index.rjust(4, '0')}")
     logger.debug { "requested to switch to: #{input}" }
     self[:input] = input # for a responsive UI
+    input?
   end
 
   def input?
@@ -169,6 +171,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
       logger.debug { "Unhandled device response" }
       task.try &.abort("Unhandled device response")
     end
+    logger.debug { "reiceved" }
     task.try &.success
   end
 
@@ -243,11 +246,11 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     when :input
       input_num = param[7..11].map { |x| x.chr }.join
       index_num = param[12..-1].map { |x| x.chr }.join.to_i
-      self[:input] = if index_num == 1
-                       INPUT_LOOKUP[input_num]
-                     else
-                       :"#{INPUT_LOOKUP[input_num]}#{index_num}"
-                     end
+      if index_num == 1
+        self[:input] = INPUT_LOOKUP[input_num]
+      else
+        self[:input] = "#{INPUT_LOOKUP[input_num]}#{index_num}"
+      end
     end
   end
 end
