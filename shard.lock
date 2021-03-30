@@ -30,7 +30,7 @@ shards:
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
-    version: 0.3.0
+    version: 0.4.0
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
@@ -46,7 +46,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.1.2
+    version: 1.2.1
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -146,7 +146,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 4.15.2
+    version: 4.15.3
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
