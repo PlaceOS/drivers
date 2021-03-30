@@ -9,14 +9,14 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   INDICATOR = "\x2A\x53"
   msg_length = 21
 
-  enum Inputs
-    Tv
-    Hdmi
-    Mirror
-    Vga
-  end
+  # enum Inputs
+  #   Tv
+  #   Hdmi
+  #   Mirror
+  #   Vga
+  # end
 
-  include Interface::InputSelection(Inputs)
+  # include Interface::InputSelection(Inputs)
 
   INPUTS = {
     Inputs::Tv     => "00000",
@@ -34,6 +34,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   }
 
   def switch_to(input : String)
+    logger.debug { "XXXXXXXXXX" }
     input_type = input.to_s.scan(/[^0-9]+|\d+/)
     index = input_type.size < 1 ? "1" : input_type[1][0]
     # raise ArgumentError, "unknown input #{input.to_s}" unless INPUTS.has_key?(input)
@@ -58,6 +59,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def connected
+    logger.debug { "XXXXXXXXXX" }
+    puts "XXXXXXXXX"
     schedule.every(30.seconds, true) do
       do_poll
     end
