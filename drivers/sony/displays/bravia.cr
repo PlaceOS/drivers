@@ -9,36 +9,44 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   INDICATOR = "\x2A\x53" # *S
   msg_length = 21
 
-  enum Inputs
-    Tv
-    Hdmi
-    Mirror
-    Vga
-  end
+  # enum Inputs
+  #   Tv
+  #   Hdmi
+  #   Mirror
+  #   Vga
+  # end
+
+  # INPUTS = {
+  #   Inputs::Tv     => "00000",
+  #   Inputs::Hdmi   => "10000",
+  #   Inputs::Mirror => "50000",
+  #   Inputs::Vga    => "60000",
+  # }
+  # INPUT_LOOKUP = INPUTS.invert
+
+  # MATCH = {
+  #   "tv"     => Inputs::Tv,
+  #   "hdmi"   => Inputs::Hdmi,
+  #   "mirror" => Inputs::Mirror,
+  #   "vga"    => Inputs::Vga,
+  # }
 
   INPUTS = {
-    Inputs::Tv     => "00000",
-    Inputs::Hdmi   => "10000",
-    Inputs::Mirror => "50000",
-    Inputs::Vga    => "60000",
+    "Tv"     => "00000",
+    "Hdmi"   => "10000",
+    "Mirror" => "50000",
+    "Vga"    => "60000",
   }
   INPUT_LOOKUP = INPUTS.invert
-
-  MATCH = {
-    "tv"     => Inputs::Tv,
-    "hdmi"   => Inputs::Hdmi,
-    "mirror" => Inputs::Mirror,
-    "vga"    => Inputs::Vga,
-  }
 
   def switch_to(input : String)
     input_type = input.to_s.scan(/[^0-9]+|\d+/)
     index = input_type.size < 2 ? "1" : input_type[1][0]
     # raise ArgumentError, "unknown input #{input.to_s}" unless INPUTS.has_key?(input)
-    conv = MATCH[input_type[0][0].downcase]
-    value = INPUTS[conv]
-    request(:input, "#{value}#{index.rjust(4, '0')}")
-    self[:input] = "#{value}#{index}" # for a responsive UI
+    conv = INPUTS[input_type[0][0].capitalize] # .downcase]
+    # value = INPUTS[conv]
+    request(:input, "#{conv}#{index.rjust(4, '0')}")
+    self[:input] = "#{conv}#{index}" # for a responsive UI
     input?
   end
 
