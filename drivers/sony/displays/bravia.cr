@@ -16,8 +16,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     Vga
   end
 
-  # include Interface::InputSelection(Inputs)
-
   INPUTS = {
     Inputs::Tv     => "00000",
     Inputs::Hdmi   => "10000",
@@ -37,7 +35,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     input_type = input.to_s.scan(/[^0-9]+|\d+/)
     index = input_type.size < 2 ? "1" : input_type[1][0]
     # raise ArgumentError, "unknown input #{input.to_s}" unless INPUTS.has_key?(input)
-    value = INPUTS[MATCH[input_type[0][0]]]
+    conv = MATCH[input_type[0][0].downcase]
+    value = INPUTS[conv]
     request(:input, "#{value}#{index.rjust(4, '0')}")
     self[:input] = "#{value}#{index}" # for a responsive UI
     input?
@@ -203,7 +202,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   protected def query(state, **options)
     cmd = COMMANDS[state]
     param = "#" * 16
-    options[:name] = "#{state}_query"
     do_send(:enquiry, cmd, param, **options)
   end
 
