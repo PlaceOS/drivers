@@ -42,12 +42,12 @@ DriverSpecs.mock_driver "Sony::Displays::Bravia" do
   responds("\x2A\x53\x41PMUT0000000000000001\n")
   status[:mute].should eq(true)
 
-  # exec(:volume, 50)
-  # should_send("\x2A\x53\x43VOLU0000000000000050\n")
-  # responds("\x2A\x53\x4EPMUT0000000000000000\n") # mix in a notify
-  # responds("\x2A\x53\x41VOLU0000000000000000\n")
-  # should_send("\x2A\x53\x45VOLU################\n")
-  # responds("\x2A\x53\x41VOLU0000000000000050\n")
-  # status[:volume].should eq(50)
-  # status[:mute].should eq(false)
+  exec(:volume, 50)
+  should_send("\x2A\x53\x43VOLU0000000000000050\n")
+  responds("\x2A\x53\x4EPMUT0000000000000000\n") # mix in a notify
+  responds("\x2A\x53\x41VOLU0000000000000000\n")
+  should_send("\x2A\x53\x45VOLU################\n")
+  responds("\x2A\x53\x41VOLU0000000000000050\n")
+  status[:volume].should eq(50)
+  status[:mute].should eq(false)
 end
