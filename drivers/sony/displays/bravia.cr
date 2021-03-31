@@ -9,28 +9,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   INDICATOR = "\x2A\x53" # *S
   msg_length = 21
 
-  # enum Inputs
-  #   Tv
-  #   Hdmi
-  #   Mirror
-  #   Vga
-  # end
-
-  # INPUTS = {
-  #   Inputs::Tv     => "00000",
-  #   Inputs::Hdmi   => "10000",
-  #   Inputs::Mirror => "50000",
-  #   Inputs::Vga    => "60000",
-  # }
-  # INPUT_LOOKUP = INPUTS.invert
-
-  # MATCH = {
-  #   "tv"     => Inputs::Tv,
-  #   "hdmi"   => Inputs::Hdmi,
-  #   "mirror" => Inputs::Mirror,
-  #   "vga"    => Inputs::Vga,
-  # }
-
   INPUTS = {
     "Tv"     => "00000",
     "Hdmi"   => "10000",
@@ -40,13 +18,11 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   INPUT_LOOKUP = INPUTS.invert
 
   def switch_to(input : String)
-    input_type = input.to_s.scan(/[^0-9]+|\d+/)
-    index = input_type.size < 2 ? "1" : input_type[1][0]
-    # raise ArgumentError, "unknown input #{input.to_s}" unless INPUTS.has_key?(input)
-    conv = INPUTS[input_type[0][0].capitalize] # .downcase]
-    # value = INPUTS[conv]
-    request(:input, "#{conv}#{index.rjust(4, '0')}")
-    self[:input] = "#{conv}#{index}" # for a responsive UI
+    parsed_input = input.to_s.scan(/[^0-9]+|\d+/)
+    index = parsed_input.size < 2 ? "1" : parsed_input[1][0]
+    input_type = INPUTS[parsed_input[0][0].capitalize]
+    request(:input, "#{input_type}#{index.rjust(4, '0')}")
+    self[:input] = "#{input_type}#{index}" # for a responsive UI
     input?
   end
 
@@ -131,18 +107,15 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def do_poll
-    # while power?
     if self[:power]?
       input?
       mute?
       audio_mute?
       volume?
     end
-    # end
   end
 
   def received(data, task, **command2)
-    # logger.debug { "Sony sent: #{data}" }
     type = BINARY_TYPE[data[2]]
     parsed_data = convert_binary(data[3..6])
     cmd = RESPONSES[parsed_data]
@@ -156,7 +129,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
       task.try &.success
     when :notify
       update_status cmd, param
-      :ignore
     else
       logger.debug { "Unhandled device response" }
       task.try &.abort("Unhandled device response")
