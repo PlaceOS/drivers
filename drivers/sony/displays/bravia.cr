@@ -137,12 +137,12 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     param = data[7..-1]
 
     return task.try(&.abort("error")) if param.first? == ERROR
-    type = MessageType.from_value(data[2]).to_i64.chr
-    case type
-    when 'A'
+
+    case MessageType.from_value(data[2])
+    when .answer?
       update_status cmd, param
       task.try &.success
-    when 'N'
+    when .notify?
       update_status cmd, param
     else
       logger.debug { "Unhandled device response" }
@@ -173,6 +173,15 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     Control = 0x43
     Enquiry = 0x45
     Notify  = 0x4e
+
+    def control_character
+      case self
+      in Answer  then "A"
+      in Control then "C"
+      in Enquiry then "E"
+      in Notify  then "N"
+      end
+    end
   end
 
   protected def convert_binary(data)
@@ -183,17 +192,16 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     cmd = COMMANDS[command]
     parameter = parameter ? 1 : 0 if parameter.is_a?(Bool)
     param = parameter.to_s.rjust(16, '0')
-    do_send(0, cmd, param, **options)
+    do_send(MessageType::Control, cmd, param, **options)
   end
 
   protected def query(state, **options)
     cmd = COMMANDS[state]
-    do_send(1, cmd, HASH, **options)
+    do_send(MessageType::Enquiry, cmd, HASH, **options)
   end
 
   protected def do_send(type, command, parameter, **options)
-    cmd_type = type == 0 ? MessageType::Control.to_i64.chr : MessageType::Enquiry.to_i64.chr
-    cmd = "#{INDICATOR}#{cmd_type}#{command}#{parameter}\n"
+    cmd = "#{INDICATOR}#{type.control_character}#{command}#{parameter}\n"
     send(cmd, **options)
   end
 
