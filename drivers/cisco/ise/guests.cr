@@ -102,5 +102,16 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     })
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    guest_id = response.headers["Location"].split('/').last
+    # guest_credentials(guest_id)
+  end
+
+  def guest_credentials(id : String)
+    response = get("/guestuser/#{id}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => "Basic #{@auth_token}",
+    })
   end
 end
