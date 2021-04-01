@@ -1,3 +1,5 @@
+require "xml"
+
 class Cisco::Ise::Guests < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco ISE Guest Control"
@@ -20,6 +22,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   # See https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_ers2.html#42003
   TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
+  TIME_FORMAT = "%m/%d/%Y %H:%M"
 
   def on_load
     on_update
@@ -50,8 +53,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     sms_service_provider ||= @sms_service_provider
 
     time_object = Time.unix(event_start).in(@timezone)
-    from_date = time_object.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
-    to_date = time_object.at_end_of_day.to_s("%m/%d/%Y %H:%M")
+    from_date = time_object.at_beginning_of_day.to_s(TIME_FORMAT)
+    to_date = time_object.at_end_of_day.to_s(TIME_FORMAT)
 
     # Determine the name of the attendee for ISE
     guest_names = attendee_name.split
@@ -104,14 +107,21 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
 
     guest_id = response.headers["Location"].split('/').last
-    # guest_credentials(guest_id)
+    guest_crendentials(guest_id)
   end
 
-  def guest_credentials(id : String)
+  def guest_crendentials(id : String)
     response = get("/guestuser/#{id}", headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => "Basic #{@auth_token}",
     })
+    parsed_body = XML.parse(response.body)
+    guest_user = parsed_body.first_element_child.not_nil!
+    guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
+    {
+      username: guest_info.children.find { |c| c.name == "userName" }.not_nil!.content,
+      password: guest_info.children.find { |c| c.name == "password" }.not_nil!.content
+    }
   end
 end
