@@ -7,6 +7,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   include Interface::Muteable
 
   INDICATOR = "\x2A\x53" # *S
+  HASH      = "################"
+  ERROR     = 70
   msg_length = 21
 
   # INPUTS = {
@@ -101,13 +103,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    if state
-      request(:power, 1)
-      logger.debug { "-- sony display requested to power on" }
-    else
-      request(:power, 0)
-      logger.debug { "-- sony display requested to power off" }
-    end
+    # request(:power, state ? 1 : 0)
+    request(:power, state)
+    logger.debug { "Sony display requested power #{state ? "on" : "off"}" }
     power?
   end
 
@@ -120,8 +118,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    val = state ? 1 : 0
-    request(:mute, val)
+    # val = state ? 1 : 0
+    request(:mute, state)
     mute?
   end
 
@@ -134,8 +132,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def mute_audio(state : Bool = true)
-    val = state ? 1 : 0
-    request(:audio_mute, val)
+    # val = state ? 1 : 0
+    request(:audio_mute, state)
     audio_mute?
   end
 
@@ -171,7 +169,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     cmd = RESPONSES[parsed_data]
     param = data[7..-1]
 
-    return task.try(&.abort("error")) if param[0] == 70
+    return task.try(&.abort("error")) if param.first? == ERROR
 
     case TYPE_RESPONSE[type]
     when :answer
@@ -225,14 +223,14 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
   protected def request(command, parameter, **options)
     cmd = COMMANDS[command]
+    parameter = parameter ? 1 : 0 if parameter.is_a?(Bool)
     param = parameter.to_s.rjust(16, '0')
     do_send(:control, cmd, param, **options)
   end
 
   protected def query(state, **options)
     cmd = COMMANDS[state]
-    param = "#" * 16
-    do_send(:enquiry, cmd, param, **options)
+    do_send(:enquiry, cmd, HASH, **options)
   end
 
   protected def do_send(type, command, parameter, **options)
