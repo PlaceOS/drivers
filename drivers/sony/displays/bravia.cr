@@ -30,26 +30,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     Vga3
   end
 
-  INPUTS = {
-    Inputs::Tv      => "Tv",
-    Inputs::Tv1     => "Tv1",
-    Inputs::Tv2     => "Tv2",
-    Inputs::Tv3     => "Tv3",
-    Inputs::Hdmi    => "Hdmi",
-    Inputs::Hdmi1   => "Hdmi1",
-    Inputs::Hdmi2   => "Hdmi2",
-    Inputs::Hdmi3   => "Hdmi3",
-    Inputs::Mirror  => "Mirror",
-    Inputs::Mirror1 => "Mirror1",
-    Inputs::Mirror2 => "Mirror2",
-    Inputs::Mirror3 => "Mirror3",
-    Inputs::Vga     => "Vga",
-    Inputs::Vga1    => "Vga1",
-    Inputs::Vga2    => "Vga2",
-    Inputs::Vga3    => "Vga3",
-  }
-  INPUT_LOOKUP = INPUTS.invert
-
   INPUTS_CONVERT = {
     "Tv"     => "0000",
     "Hdmi"   => "1000",
