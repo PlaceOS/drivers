@@ -13,12 +13,12 @@ DriverSpecs.mock_driver "Sony::Displays::Bravia" do
   responds("\x2A\x53\x41INPT0000000100000001\n")
   status[:input].should eq("Hdmi")
 
-  exec(:switch_to, "vga34")
-  should_send("\x2A\x53\x43INPT0000000600000034\n")
+  exec(:switch_to, "vga3")
+  should_send("\x2A\x53\x43INPT0000000600000003\n")
   responds("\x2A\x53\x41INPT0000000000000000\n")
   should_send("\x2A\x53\x45INPT################\n")
-  responds("\x2A\x53\x41INPT0000000600000034\n")
-  status[:input].should eq("Vga34")
+  responds("\x2A\x53\x41INPT0000000600000003\n")
+  status[:input].should eq("Vga3")
 
   exec(:volume, 99)
   should_send("\x2A\x53\x43VOLU0000000000000099\n")

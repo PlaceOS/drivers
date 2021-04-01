@@ -9,20 +9,70 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   INDICATOR = "\x2A\x53" # *S
   msg_length = 21
 
+  # INPUTS = {
+  #   "Tv"     => "00000",
+  #   "Hdmi"   => "10000",
+  #   "Mirror" => "50000",
+  #   "Vga"    => "60000",
+  # }
+  # INPUT_LOOKUP = INPUTS.invert
+
+  enum Inputs
+    Tv
+    Tv1
+    Tv2
+    Tv3
+    Hdmi
+    Hdmi1
+    Hdmi2
+    Hdmi3
+    Mirror
+    Mirror1
+    Mirror2
+    Mirror3
+    Vga
+    Vga1
+    Vga2
+    Vga3
+  end
+
   INPUTS = {
-    "Tv"     => "00000",
-    "Hdmi"   => "10000",
-    "Mirror" => "50000",
-    "Vga"    => "60000",
+    Inputs::Tv      => "Tv",
+    Inputs::Tv1     => "Tv1",
+    Inputs::Tv2     => "Tv2",
+    Inputs::Tv3     => "Tv3",
+    Inputs::Hdmi    => "Hdmi",
+    Inputs::Hdmi1   => "Hdmi1",
+    Inputs::Hdmi2   => "Hdmi2",
+    Inputs::Hdmi3   => "Hdmi3",
+    Inputs::Mirror  => "Mirror",
+    Inputs::Mirror1 => "Mirror1",
+    Inputs::Mirror2 => "Mirror2",
+    Inputs::Mirror3 => "Mirror3",
+    Inputs::Vga     => "Vga",
+    Inputs::Vga1    => "Vga1",
+    Inputs::Vga2    => "Vga2",
+    Inputs::Vga3    => "Vga3",
   }
   INPUT_LOOKUP = INPUTS.invert
 
-  def switch_to(input : String)
+  INPUTS_CONVERT = {
+    "Tv"     => "0000",
+    "Hdmi"   => "1000",
+    "Mirror" => "5000",
+    "Vga"    => "6000",
+  }
+
+  CONVERT_LOOKUP = INPUTS_CONVERT.invert
+
+  include Interface::InputSelection(Inputs)
+
+  def switch_to(input : Inputs)
     parsed_input = input.to_s.scan(/[^0-9]+|\d+/)
     index = parsed_input.size < 2 ? "1" : parsed_input[1][0]
-    input_type = INPUTS[parsed_input[0][0].capitalize]
-    request(:input, "#{input_type}#{index.rjust(4, '0')}")
-    self[:input] = "#{input_type}#{index}" # for a responsive UI
+    input_joined = INPUTS_CONVERT[parsed_input[0][0]] + index.rjust(5, '0')
+    request(:input, input_joined)
+    self[:input] = "#{input}"
     input?
   end
 
@@ -201,12 +251,12 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     when :mac_address
       self[:mac_address] = parsed_data.split('#')[0]
     when :input
-      input_num = convert_binary(param[7..11])
-      index_num = convert_binary(param[12..-1]).to_i
+      input_num = convert_binary(param[7..10])
+      index_num = convert_binary(param[11..-1]).to_i
       if index_num == 1
-        self[:input] = INPUT_LOOKUP[input_num]
+        self[:input] = CONVERT_LOOKUP[input_num]
       else
-        self[:input] = "#{INPUT_LOOKUP[input_num]}#{index_num}"
+        self[:input] = "#{CONVERT_LOOKUP[input_num]}#{index_num}"
       end
     end
   end
