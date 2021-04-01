@@ -209,7 +209,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   private def stringify_params(**params) : Hash(String, String)
     hash = Hash(String, String).new
     params.each do |k, v|
-      next if v.nil? # Don't add params with nil values
+      next if v.nil? # Remove params with nil values
 
       # Some of these are a bit hacky but are needed to make the compiler happy
       # like the next lines for start_epoch/end_epoch
