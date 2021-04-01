@@ -187,7 +187,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   TYPE_RESPONSE = TYPES.to_h.invert
 
   protected def convert_binary(data)
-    data.map { |x| x.chr }.join
+    data.join &.chr
   end
 
   protected def request(command, parameter, **options)
