@@ -10,6 +10,11 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   HASH      = "################"
   ERROR     = 70
 
+  # Discovery Information
+  tcp_port 20060
+  descriptive_name "Sony Bravia LCD Display"
+  generic_name :Display
+
   enum Inputs
     Tv
     Tv1
@@ -52,11 +57,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   def input?
     query(:input, priority: 0)
   end
-
-  # Discovery Information
-  tcp_port 20060
-  descriptive_name "Sony Bravia LCD Display"
-  generic_name :Display
 
   def on_load
     self[:volume_min] = 0
@@ -132,18 +132,17 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def received(data, task)
-    type = BINARY_TYPE[data[2]]
     parsed_data = convert_binary(data[3..6])
     cmd = RESPONSES[parsed_data]
     param = data[7..-1]
 
     return task.try(&.abort("error")) if param.first? == ERROR
-
-    case TYPE_RESPONSE[type]
-    when :answer
+    type = MessageType.from_value(data[2]).to_i64.chr
+    case type
+    when 'A'
       update_status cmd, param
       task.try &.success
-    when :notify
+    when 'N'
       update_status cmd, param
     else
       logger.debug { "Unhandled device response" }
@@ -169,21 +168,12 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   }
   RESPONSES = COMMANDS.to_h.invert
 
-  TYPES = {
-    control: "\x43",
-    enquiry: "\x45",
-    answer:  "\x41",
-    notify:  "\x4E",
-  }
-
-  BINARY_TYPE = {
-    65 => "A",
-    69 => "E",
-    67 => "C",
-    78 => "N",
-  }
-
-  TYPE_RESPONSE = TYPES.to_h.invert
+  enum MessageType : UInt8
+    Answer  = 0x41
+    Control = 0x43
+    Enquiry = 0x45
+    Notify  = 0x4e
+  end
 
   protected def convert_binary(data)
     data.join &.chr
@@ -193,16 +183,16 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     cmd = COMMANDS[command]
     parameter = parameter ? 1 : 0 if parameter.is_a?(Bool)
     param = parameter.to_s.rjust(16, '0')
-    do_send(:control, cmd, param, **options)
+    do_send(0, cmd, param, **options)
   end
 
   protected def query(state, **options)
     cmd = COMMANDS[state]
-    do_send(:enquiry, cmd, HASH, **options)
+    do_send(1, cmd, HASH, **options)
   end
 
   protected def do_send(type, command, parameter, **options)
-    cmd_type = TYPES[type]
+    cmd_type = type == 0 ? MessageType::Control.to_i64.chr : MessageType::Enquiry.to_i64.chr
     cmd = "#{INDICATOR}#{cmd_type}#{command}#{parameter}\n"
     send(cmd, **options)
   end
