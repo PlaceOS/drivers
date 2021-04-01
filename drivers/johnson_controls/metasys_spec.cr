@@ -23,9 +23,12 @@ DriverSpecs.mock_driver "JohnsonControls::Metasys" do
     })
   end
 
-  exec(:get_alarms, 1, 2, 0, 255)
+  exec(:get_alarms, 1, 2, 0, 255, "blah", false, true, false, "blah", "blah", 2, 200)
 
   expect_http_request do |request, response|
-    # pp request
+    pp request
+
+    response.status_code = 200
+    response << %({})
   end
 end
