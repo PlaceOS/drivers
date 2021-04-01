@@ -49,7 +49,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     portal_id ||= @portal_id
     sms_service_provider ||= @sms_service_provider
 
-    time_object = Time.unix(event_start).to_local_in(@timezone)
+    time_object = Time.unix(event_start).in(@timezone)
     from_date = time_object.at_beginning_of_day.to_s("%m/%d/%Y %H:%M")
     to_date = time_object.at_end_of_day.to_s("%m/%d/%Y %H:%M")
 
