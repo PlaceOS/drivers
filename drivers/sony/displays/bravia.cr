@@ -131,7 +131,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     end
   end
 
-  def received(data, task, **command2)
+  def received(data, task)
     type = BINARY_TYPE[data[2]]
     parsed_data = convert_binary(data[3..6])
     cmd = RESPONSES[parsed_data]
