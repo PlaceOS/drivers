@@ -11,14 +11,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   ERROR     = 70
   msg_length = 21
 
-  # INPUTS = {
-  #   "Tv"     => "00000",
-  #   "Hdmi"   => "10000",
-  #   "Mirror" => "50000",
-  #   "Vga"    => "60000",
-  # }
-  # INPUT_LOOKUP = INPUTS.invert
-
   enum Inputs
     Tv
     Tv1
@@ -103,7 +95,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    # request(:power, state ? 1 : 0)
     request(:power, state)
     logger.debug { "Sony display requested power #{state ? "on" : "off"}" }
     power?
@@ -118,7 +109,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    # val = state ? 1 : 0
     request(:mute, state)
     mute?
   end
@@ -132,7 +122,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def mute_audio(state : Bool = true)
-    # val = state ? 1 : 0
     request(:audio_mute, state)
     audio_mute?
   end
