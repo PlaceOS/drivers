@@ -9,7 +9,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   INDICATOR = "\x2A\x53" # *S
   HASH      = "################"
   ERROR     = 70
-  msg_length = 21
 
   enum Inputs
     Tv
