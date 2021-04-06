@@ -131,21 +131,36 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     end
   end
 
+  enum MessageType : UInt8
+    Answer  = 0x41
+    Control = 0x43
+    Enquiry = 0x45
+    Notify  = 0x4e
+
+    def control_character
+      case self
+      in Answer  then "A"
+      in Control then "C"
+      in Enquiry then "E"
+      in Notify  then "N"
+      end
+    end
+  end
+
   def received(data, task)
     parsed_data = convert_binary(data[3..6])
     cmd = RESPONSES[parsed_data]
     param = data[7..-1]
 
     return task.try(&.abort("error")) if param.first? == ERROR
-
-    case MessageType.from_value(data[2])
-    when .answer?
+    case MessageType.from_value?(data[2])
+    when MessageType::Answer
       update_status cmd, param
       task.try &.success
-    when .notify?
+    when MessageType::Notify
       update_status cmd, param
     else
-      logger.debug { "Unhandled device response" }
+      logger.debug { "Unhandled device response: #{data[2]}" }
       task.try &.abort("Unhandled device response")
     end
   end
@@ -167,22 +182,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     mac_address:       "MADR",
   }
   RESPONSES = COMMANDS.to_h.invert
-
-  enum MessageType : UInt8
-    Answer  = 0x41
-    Control = 0x43
-    Enquiry = 0x45
-    Notify  = 0x4e
-
-    def control_character
-      case self
-      in Answer  then "A"
-      in Control then "C"
-      in Enquiry then "E"
-      in Notify  then "N"
-      end
-    end
-  end
 
   protected def convert_binary(data)
     data.join &.chr
