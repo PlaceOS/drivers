@@ -214,8 +214,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     when :mac_address
       self[:mac_address] = parsed_data.split('#')[0]
     when :input
-      input_num = convert_binary(param[7..10])
-      index_num = convert_binary(param[11..-1]).to_i
+      input_num = parsed_data[7..10]
+      index_num = parsed_data[11..-1].to_i
       if index_num == 1
         self[:input] = CONVERT_LOOKUP[input_num]
       else
