@@ -155,20 +155,15 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     Notify  = 0x4e
 
     def control_character
-      case self
-      in Answer  then "A"
-      in Control then "C"
-      in Enquiry then "E"
-      in Notify  then "N"
-      end
+      value.chr
     end
   end
 
   def received(data, task)
     parsed_data = convert_binary(data[3..6])
     cmd = Command.from_response?(parsed_data)
+    return task.try(&.abort("unrecognised command: #{parsed_data}")) if cmd.nil?
     param = data[7..-1]
-    return task.try(&.abort("error")) if cmd.nil?
     return task.try(&.abort("error")) if param.first? == ERROR
     case MessageType.from_value?(data[2])
     when MessageType::Answer
@@ -177,7 +172,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     when MessageType::Notify
       update_status cmd, param
     else
-      logger.debug { "Unhandled device response: #{data[2]}" }
+      logger.debug { "Unhandled device response: #{data[2].chr rescue data[2]}" }
       task.try &.abort("Unhandled device response")
     end
   end
