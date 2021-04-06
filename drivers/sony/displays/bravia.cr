@@ -166,9 +166,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
   def received(data, task)
     parsed_data = convert_binary(data[3..6])
-    cmd = RESPONSES[parsed_data]
+    cmd = Command.from_response?(parsed_data)
     param = data[7..-1]
-
+    return task.try(&.abort("error")) if cmd.nil?
     return task.try(&.abort("error")) if param.first? == ERROR
     case MessageType.from_value?(data[2])
     when MessageType::Answer
@@ -198,7 +198,38 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     broadcast_address: "BADR",
     mac_address:       "MADR",
   }
-  RESPONSES = COMMANDS.to_h.invert
+  {% begin %}
+
+enum Command
+  {% begin %}
+    {% for command in COMMANDS.keys %}
+      {{ command.camelcase.id }}
+    {% end %}
+  {% end %}
+
+  def function
+    {% begin %}
+    case self
+    {% for kv in COMMANDS.to_a %}
+    	{% command, value = kv[0], kv[1] %}
+      in {{ command.camelcase }} then {{ value }}
+    {% end %}
+  	end
+		{% end %}
+  end
+
+  def self.from_response?(message)
+    {% begin %}
+    case message
+    {% for kv in COMMANDS.to_a %}
+    {% command, value = kv[0], kv[1] %}
+    when {{ value }} then {{ command.camelcase.id }}
+    {% end %}
+    end
+    {% end %}
+  end
+end
+{% end %}
 
   protected def convert_binary(data)
     data.join &.chr
@@ -221,24 +252,23 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     send(cmd, **options)
   end
 
-  protected def update_status(cmd, param)
+  protected def update_status(cmd : Command, param)
     parsed_data = convert_binary(param)
     case cmd
-    # in .power?, .mute?, .audio_mute?, .pip?
-    #   self[cmd] = parsed_data.to_i == 1
-    # in .volume?
-    #   self[:volume] = parsed_data.to_i
-    # in .mac_address?
-    #   self[:mac_address] = parsed_data.split('#')[0]
-    # in .input?
-    when :power, :mute, :audio_mute, :pip
-      self[cmd] = parsed_data.to_i == 1
-    when :volume
+    when .power?
+      self[:power] = parsed_data.to_i == 1
+    when .mute?
+      self[:mute] = parsed_data.to_i == 1
+    when .audio_mute?
+      self[:audio_mute] = parsed_data.to_i == 1
+    when .pip?
+      self[:pip] = parsed_data.to_i == 1
+    when .volume?
       self[:volume] = parsed_data.to_i
-    when :mac_address
+    when .mac_address?
       self[:mac_address] = parsed_data.split('#')[0]
-    when :input
-      self[:input] = Inputs.from_message?(parsed_data[7], parsed_data[15].to_i)
+    when .input?
+      self[:input] = Inputs.from_message?(parsed_data[7], parsed_data[15])
     end
   end
 end
