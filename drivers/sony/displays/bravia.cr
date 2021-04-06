@@ -66,13 +66,13 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
   def switch_to(input : Inputs)
     logger.debug { "switching input to #{input}" }
-    request(:input, input.to_message)
+    request(Command::Input, input.to_message)
     self[:input] = input.to_s
     input?
   end
 
   def input?
-    query(:input, priority: 0)
+    query(Command::Input, priority: 0)
   end
 
   def on_load
@@ -91,13 +91,13 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    request(:power, state)
+    request(Command::Power, state)
     logger.debug { "Sony display requested power #{state ? "on" : "off"}" }
     power?
   end
 
   def power?
-    query(:power)
+    query(Command::Power)
   end
 
   def mute(
@@ -105,7 +105,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    request(:mute, state)
+    request(Command::Mute, state)
     mute?
   end
 
@@ -114,11 +114,11 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def mute?
-    query(:mute, priority: 0)
+    query(Command::Mute, priority: 0)
   end
 
   def mute_audio(state : Bool = true)
-    request(:audio_mute, state)
+    request(Command::AudioMute, state)
     audio_mute?
   end
 
@@ -127,16 +127,16 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def audio_mute?
-    query(:audio_mute, priority: 0)
+    query(Command::AudioMute, priority: 0)
   end
 
   def volume(level : Int32)
-    request(:volume, level.to_i)
+    request(Command::Volume, level.to_i)
     volume?
   end
 
   def volume?
-    query(:volume, priority: 0)
+    query(Command::Volume, priority: 0)
   end
 
   def do_poll
@@ -236,14 +236,14 @@ end
   end
 
   protected def request(command, parameter, **options)
-    cmd = COMMANDS[command]
+    cmd = command.function
     parameter = parameter ? 1 : 0 if parameter.is_a?(Bool)
     param = parameter.to_s.rjust(16, '0')
     do_send(MessageType::Control, cmd, param, **options)
   end
 
   protected def query(state, **options)
-    cmd = COMMANDS[state]
+    cmd = state.function
     do_send(MessageType::Enquiry, cmd, HASH, **options)
   end
 
