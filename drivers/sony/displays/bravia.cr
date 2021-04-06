@@ -198,38 +198,38 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     broadcast_address: "BADR",
     mac_address:       "MADR",
   }
+
   {% begin %}
-
-enum Command
-  {% begin %}
-    {% for command in COMMANDS.keys %}
-      {{ command.camelcase.id }}
-    {% end %}
-  {% end %}
-
-  def function
+  enum Command
     {% begin %}
-    case self
-    {% for kv in COMMANDS.to_a %}
-    	{% command, value = kv[0], kv[1] %}
-      in {{ command.camelcase }} then {{ value }}
+      {% for command in COMMANDS.keys %}
+        {{ command.camelcase.id }}
+      {% end %}
     {% end %}
-  	end
-		{% end %}
-  end
 
-  def self.from_response?(message)
-    {% begin %}
-    case message
-    {% for kv in COMMANDS.to_a %}
-    {% command, value = kv[0], kv[1] %}
-    when {{ value }} then {{ command.camelcase.id }}
-    {% end %}
+    def function
+      {% begin %}
+      case self
+      {% for kv in COMMANDS.to_a %}
+        {% command, value = kv[0], kv[1] %}
+          in {{ command.camelcase }} then {{ value }}
+      {% end %}
+      end
+      {% end %}
     end
-    {% end %}
+
+    def self.from_response?(message)
+      {% begin %}
+      case message
+        {% for kv in COMMANDS.to_a %}
+          {% command, value = kv[0], kv[1] %}
+          when {{ value }} then {{ command.camelcase.id }}
+        {% end %}
+      end
+      {% end %}
+    end
   end
-end
-{% end %}
+  {% end %}
 
   protected def convert_binary(data)
     data.join &.chr
