@@ -48,6 +48,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     sponsor_user_name : String? = nil,
     portal_id : String? = nil
   )
+    return guest_crendentials("test") if setting?(Bool, :test)
     sponsor_user_name ||= @sponsor_user_name
     portal_id ||= @portal_id
     sms_service_provider ||= @sms_service_provider
@@ -111,6 +112,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def guest_crendentials(id : String)
+    return {username: UUID.random.to_s, password: UUID.random.to_s} if setting?(Bool, :test)
     response = get("/guestuser/#{id}", headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
