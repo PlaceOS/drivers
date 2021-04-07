@@ -148,6 +148,10 @@ shards:
   pool:
     git: https://github.com/ysbaddaden/pool.git
     version: 0.2.3
+    
+  responsible:
+    git: https://github.com/place-labs/responsible.git
+    version: 1.2.2
 
   priority-queue:
     git: https://github.com/spider-gazelle/priority-queue.git
