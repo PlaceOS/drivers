@@ -1,11 +1,26 @@
 require "spec"
+require "placeos-driver/driver_model"
 require "./signal_graph"
 
 alias SignalGraph = Place::Router::SignalGraph
 
-module PlaceOS::Driver::Proxy::System
-  def self.module_id?(sys, name, idx)
-    "foo"
+module PlaceOS::Driver
+  module Interface
+    module Switchable; end
+    module InputSelection; end
+    module Mutable; end
+  end
+
+  module Proxy::System
+    def self.module_id?(sys, name, idx)
+      "foo"
+    end
+
+    def self.driver_metadata?(id)
+      m = DriverModel::Metadata.new
+      m.implements << Interface::Switchable.to_s
+      m
+    end
   end
 end
 
@@ -22,7 +37,7 @@ clist = [
 
 describe SignalGraph do
   describe ".from_connections" do
-    it "builds from a connections map" do
+    it "builds from a connections list" do
       g = SignalGraph.from_connections clist
     end
   end
