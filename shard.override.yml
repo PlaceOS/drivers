@@ -1,0 +1,4 @@
+# NOTE:: here because of a shards ambiguous sources error
+dependencies:
+  retriable:
+    git: https://github.com/sija/retriable.cr.git
