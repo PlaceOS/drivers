@@ -5,8 +5,6 @@ version: 2.2.0
 targets:
   test-harness:
     main: src/app.cr
-  report:
-    main: src/report.cr
 
 dependencies:
   action-controller:
@@ -56,13 +54,6 @@ dependencies:
   pars:
     github: place-labs/pars
     branch: master
-
-  responsible:
-    github: place-labs/responsible
-    version: ~>1.2.2
-
-  inactive-support:
-    github: spider-gazelle/inactive-support
 
   # For lat lon location indexing
   s2_cells:

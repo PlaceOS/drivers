@@ -73,10 +73,6 @@ shards:
     git: https://github.com/caspiano/http-params-serializable.git
     version: 0.4.1+git.commit.c87119117af3d2db11af22ad799ccf77072e6a8b
 
-  inactive-support:
-    git: https://github.com/spider-gazelle/inactive-support.git
-    version: 0.1.1
-
   ipaddress:
     git: https://github.com/Sija/ipaddress.cr.git
     version: 0.2.1
@@ -152,10 +148,6 @@ shards:
   pool:
     git: https://github.com/ysbaddaden/pool.git
     version: 0.2.3
-    
-  responsible:
-    git: https://github.com/place-labs/responsible.git
-    version: 1.2.2
 
   priority-queue:
     git: https://github.com/spider-gazelle/priority-queue.git
