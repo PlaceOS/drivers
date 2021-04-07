@@ -35,14 +35,14 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
     def type_hint : String
       case self
-      when Hdmi1, Hdmi2, Hdmi3
-        "1000"
-      when Mirror1, Mirror2, Mirror3
-        "5000"
-      when Vga1, Vga2, Vga3
-        "6000"
-      else
+      in Tv1, Tv2, Tv3
         "0000"
+      in Hdmi1, Hdmi2, Hdmi3
+        "1000"
+      in Mirror1, Mirror2, Mirror3
+        "5000"
+      in Vga1, Vga2, Vga3
+        "6000"
       end
     end
 
@@ -227,7 +227,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   {% end %}
 
   protected def convert_binary(data)
-    data.join &.chr
+    String.new(slice: data)
   end
 
   protected def request(command, parameter, **options)
