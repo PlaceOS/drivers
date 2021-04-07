@@ -12,9 +12,13 @@ class Place::Router::Digraph(N, E)
     attr : N,
     succ : Hash(UInt64, E)
 
-  @nodes = {} of UInt64 => Node(N, E)
+  @nodes : Hash(UInt64, Node(N, E))
 
   delegate clear, to: @nodes
+
+  def initialize(initial_capacity = nil)
+    @nodes = Hash(UInt64, Node(N, E)).new initial_capacity: initial_capacity
+  end
 
   # Retrieves the label attached to node *id*.
   def [](id)
