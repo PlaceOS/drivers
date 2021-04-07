@@ -289,9 +289,9 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     # However, PmMode has c1 == 's' while AutoOff has c1 == 'm'
     # So this is how we can differentiate whether the command we want to send is PmMode
     if command.pm_mode? && c1 == 's'
-      "#{c1}#{command.value.chr} #{@id} 0c #{data.to_s(16, true).rjust(2, '0')}\r"
+      "#{c1}#{command.value.chr} #{@id} 0c #{data.to_s(16, upcase: true).rjust(2, '0')}\r"
     else
-      "#{c1}#{command.value.chr} #{@id} #{data.to_s(16, true).rjust(2, '0')}\r"
+      "#{c1}#{command.value.chr} #{@id} #{data.to_s(16, upcase: true).rjust(2, '0')}\r"
     end
   end
 

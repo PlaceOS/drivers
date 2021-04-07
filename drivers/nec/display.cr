@@ -235,7 +235,7 @@ class Nec::Display < PlaceOS::Driver
       else
         length = 4
       end
-      value.to_s(16, true).rjust(length, '0')
+      value.to_s(16, upcase: true).rjust(length, '0')
     end
   end
 
@@ -263,12 +263,12 @@ class Nec::Display < PlaceOS::Driver
         str.write_byte self.value # Type
 
         message_length = command.size + 2
-        message_length += 4 if data                        # If there is data, add 4 to the message length
-        str << message_length.to_s(16, true).rjust(2, '0') # Message length
-        str.write_byte 0x02                                # Start of messsage
-        str << command                                     # Message
-        str << data.to_s(16, true).rjust(4, '0') if data   # Data if required
-        str.write_byte 0x03                                # End of message
+        message_length += 4 if data                                # If there is data, add 4 to the message length
+        str << message_length.to_s(16, upcase: true).rjust(2, '0') # Message length
+        str.write_byte 0x02                                        # Start of messsage
+        str << command                                             # Message
+        str << data.to_s(16, upcase: true).rjust(4, '0') if data   # Data if required
+        str.write_byte 0x03                                        # End of message
       end
 
       String.build do |str|

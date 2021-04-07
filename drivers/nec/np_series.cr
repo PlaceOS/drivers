@@ -189,7 +189,7 @@ class Nec::Projector < PlaceOS::Driver
 
   private def checksum_valid?(data : Bytes)
     checksum = data[0..-2].sum(0) & 0xFF
-    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16, true)}" } unless result = checksum == data[-1]
+    logger.debug { "Error: checksum should be 0x#{checksum.to_s(16, upcase: true)}" } unless result = checksum == data[-1]
     result
   end
 
