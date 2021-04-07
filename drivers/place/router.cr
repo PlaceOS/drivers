@@ -29,6 +29,44 @@ class Place::Router < PlaceOS::Driver
     # NOTE: possible nice pattern for compulsory callbacks
     # abstract def on_route
 
+    # Type for representing the settings format for defining connections.
+    module Connection
+      # Module name of a device within the local system e.g. `"Switcher_1"`.
+      alias Device = String
+
+      # Reference to a specific output on a device that has multiple outputs. This
+      # is a concatenation of the `Device` reference a `.` and the output. For
+      # example, output 3 of Switcher_1 is `"Switcher_1.3"`.
+      alias DeviceOutput = String
+
+      # Alias used to refer to a signal node that does not have an accompanying
+      # module. This can be useful for declaring the concept of a device that is
+      # attached to an input (e.g. `"Laptop"`) that can later used as a reference
+      # for SignalGraph interactions.
+      alias Alias = String
+
+      # The device a signal is originating from.
+      alias Source = Device | DeviceOutput | Alias
+
+      # The device that recieves the signal.
+      alias Sink = Device | Alias
+
+      # Identifier for the input on Sink.
+      alias Input = String
+
+      # Structure for a full connection map.
+      #
+      # ```json
+      # {
+      #   "Display_1": {
+      #     "hdmi": "Switcher_1.1"
+      #   },
+      #   "Switcher_1: ["Foo", "Bar"]
+      # }
+      # ```
+      alias Map = Hash(Sink, Hash(Input, Source) | Array(Source) | Source)
+    end
+
     # Routes signal from *input* to *output*.
     def route(input : String, output : String)
       logger.debug { "Requesting route from #{input} to #{output}" }
