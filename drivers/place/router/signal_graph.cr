@@ -1,4 +1,3 @@
-require "set"
 require "./digraph"
 
 # Structure for mapping between sys,mod,idx,io referencing and the underlying
@@ -7,10 +6,33 @@ require "./digraph"
 # available connectivity.
 class Place::Router::SignalGraph
   # Reference to a PlaceOS module that forms part of the graph.
-  private record Mod, sys : String, name : String, idx : Int32 do
+  private class Mod
+    getter sys  : String
+    getter name : String
+    getter idx  : Int32
+
+    def initialize(@sys, @name, @idx)
+    end
+
     def id : String
       id = PlaceOS::Driver::Proxy::System.module_id? sys, name, idx
       id || raise %("#{name}/#{idx}" does not exist in #{sys})
+    end
+
+    def metadata
+      PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
+    end
+
+    def switchable?
+      PlaceOS::Driver::Interface::InputSelection.to_s.in? metadata.implements
+    end
+
+    def routable?
+      PlaceOS::Driver::Interface::Switchable.to_s.in? metadata.implements
+    end
+
+    def mutable?
+      PlaceOS::Driver::Interface::Mutable.to_s.in? metadata.implements
     end
 
     def hash(hasher)
@@ -91,8 +113,8 @@ class Place::Router::SignalGraph
   def self.from_connections(connections : Enumerable({Source, Sink}))
     g = Digraph(Node, Edge::Type).new initial_capacity: connections.size
 
-    m = Hash(Mod, {i: Set(Input), o: Set(Output)}).new do |h, k|
-      h[k] = {i: Set(Input).new, o: Set(Output).new}
+    m = Hash(Mod, {i: Array(Input), o: Array(Output)}).new do |h, k|
+      h[k] = {i: [] of Input, o: [] of Output}
     end
 
     connections.each do |src, dst|
