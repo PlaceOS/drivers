@@ -8,13 +8,14 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   default_settings({
     # We may grab this data through discovery mechanisms in the future but for now use a setting
-    auth_token:        "auth_token",
+    username:          "user",
+    password:          "pass",
     sponsor_user_name: "sponsor",
     portal_id:         "portal101",
     timezone:          "Australia/Sydney",
   })
 
-  @auth_token : String = ""
+  @basic_auth : String = ""
   @sponsor_user_name : String = ""
   @portal_id : String = ""
   @sms_service_provider : String? = nil
@@ -29,7 +30,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def on_update
-    @auth_token = setting?(String, :auth_token) || "auth_token"
+    @basic_auth = "Basic #{Base64.strict_encode("#{setting?(String, :username)}:#{setting?(String, :password)}")}"
     @sponsor_user_name = setting?(String, :sponsor_user_name) || "sponsor"
     @portal_id = setting?(String, :portal_id) || "portal101"
     @sms_service_provider = setting?(String, :sms_service_provider)
@@ -102,7 +103,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     response = post("/guestuser/", body: xml_string, headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => "Basic #{@auth_token}",
+      "Authorization" => @basic_auth,
     })
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
@@ -116,7 +117,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     response = get("/guestuser/#{id}", headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => "Basic #{@auth_token}",
+      "Authorization" => @basic_auth,
     })
     parsed_body = XML.parse(response.body)
     guest_user = parsed_body.first_element_child.not_nil!
