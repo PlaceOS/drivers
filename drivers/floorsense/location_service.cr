@@ -23,6 +23,7 @@ class Floorsense::LocationService < PlaceOS::Driver
         name:        "friendly name for documentation",
       },
     },
+    include_bookings: false,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -31,11 +32,14 @@ class Floorsense::LocationService < PlaceOS::Driver
   # Level zone => building_zone
   @building_mappings : Hash(String, String?) = {} of String => String?
 
+  @include_bookings : Bool = false
+
   def on_load
     on_update
   end
 
   def on_update
+    @include_bookings = setting?(Bool, :include_bookings) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @floor_mappings.each do |plan_id, details|
       level = details[:level_id]
@@ -98,10 +102,13 @@ class Floorsense::LocationService < PlaceOS::Driver
       end
     end
 
-    raw_bookings = floorsense.bookings(plan_id).get.to_json
     current = [] of BookingStatus
-    Hash(String, Array(BookingStatus)).from_json(raw_bookings).each do |desk_id, bookings|
-      current << bookings.first if bookings.size > 0
+
+    if @include_bookings
+      raw_bookings = floorsense.bookings(plan_id).get.to_json
+      Hash(String, Array(BookingStatus)).from_json(raw_bookings).each do |desk_id, bookings|
+        current << bookings.first if bookings.size > 0
+      end
     end
 
     current.map { |booking|
