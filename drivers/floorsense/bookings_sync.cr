@@ -113,7 +113,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     events.each do |event|
       begin
         booking = BookingStatus.from_json floorsense.get_booking(event.bkid).get.to_json
-        floor_details = @floor_mappings[booking.planid.to_s]
+        floor_details = @floor_mappings[booking.planid.to_s]?
         next unless floor_details
 
         case event.code
