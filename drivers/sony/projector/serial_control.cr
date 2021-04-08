@@ -184,7 +184,7 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
       if cmd == Bytes[0, 0]
         return task.try &.success
       else # Command failed
-        return task.try &.abort("Command failed with 0x#{cmd.map(&.to_s(16, true)).join}")
+        return task.try &.abort("Command failed with 0x#{cmd.join(&.to_s(16, true))}")
       end
     else
       case command = Command.from_bytes(cmd)
