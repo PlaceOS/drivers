@@ -60,7 +60,7 @@ class Place::Rooms::Meet < PlaceOS::Driver
 
   private def update_o(name : String)
     yield @outputs[name]
-    self["outputs/#{name}"] = @outputs[name]
+    self["output/#{name}"] = @outputs[name]
   end
 
   private def load_mock_state
