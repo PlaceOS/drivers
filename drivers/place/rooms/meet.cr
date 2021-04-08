@@ -3,7 +3,7 @@ require "placeos-driver/interface/powerable"
 
 class Place::Rooms::Meet < PlaceOS::Driver
   generic_name :System
-  descriptive_name "Room logic"
+  descriptive_name "Meeting room logic"
   description <<-DESC
     Room level state and behaviours.
 
