@@ -1,6 +1,12 @@
 require "placeos-driver"
 require "placeos-driver/interface/powerable"
 
+struct Enum
+  def to_json(json : JSON::Builder)
+    json.string(to_s.underscore)
+  end
+end
+
 class Place::Rooms::Meet < PlaceOS::Driver
   generic_name :System
   descriptive_name "Meeting room logic"
