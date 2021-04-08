@@ -36,7 +36,11 @@ class Display < DriverSpecs::MockDriver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    self[:mute] = state
+    self[:audio_mute] = state
+  end
+
+  def volume(level : Int32)
+    self[:volume] = level.clamp 0, 100
   end
 end
 
@@ -49,13 +53,17 @@ DriverSpecs.mock_driver "Place::Rooms::Meet" do
   status["outputs"].should eq(["lcd"])
 
   exec(:route, "table", "lcd").get
-  status["outputs/lcd"].as_h["source"].should eq("table")
+  status["output/lcd"].as_h["source"].should eq("table")
 
   exec(:mute, "lcd").get
-  status["outputs/lcd"].as_h["mute"].should be_true
+  status["output/lcd"].as_h["mute"].should be_true
   system(:Display_1)["audio_mute"].should be_true
 
   exec(:unmute, "lcd").get
-  status["outputs/lcd"].as_h["mute"].should be_false
+  status["output/lcd"].as_h["mute"].should be_false
   system(:Display_1)["audio_mute"].should be_false
+
+  exec(:volume, "lcd", 50).get
+  status["output/lcd"].as_h["volume"].should eq(50)
+  system(:Display_1)["volume"].should eq(50)
 end

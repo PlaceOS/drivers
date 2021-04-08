@@ -39,6 +39,7 @@ class Place::Rooms::Meet < PlaceOS::Driver
     property name : String
     property type : Type
     property mute : Bool? = nil
+    property volume : Int32? = nil
     property n_id : UInt64 = rand(UInt64)
   end
 
@@ -116,5 +117,15 @@ class Place::Rooms::Meet < PlaceOS::Driver
 
   def unmute(input_or_output : String)
     mute input_or_output, false
+  end
+
+  def volume(input_or_output : String, level : Int32)
+    level = level.clamp 0, 100
+    logger.debug { "Setting volume #{level} on #{input_or_output}" }
+    case input_or_output
+    when "lcd"
+      system["Display_1"].volume level
+      update_o("lcd") { |o| o.volume = level }
+    end
   end
 end
