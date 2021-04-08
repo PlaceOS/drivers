@@ -29,11 +29,11 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     if state
       # Need to send twice in case of deep sleep
       logger.debug { "requested to power on" }
-      do_send(Type::Set, Command::PowerOn, name: :power)#, wait: false)
-      do_send(Type::Set, Command::PowerOn, name: :power, delay: 3.seconds)#, wait: false)
+      do_send(Type::Set, Command::PowerOn, name: :power)                   # , wait: false)
+      do_send(Type::Set, Command::PowerOn, name: :power, delay: 3.seconds) # , wait: false)
     else
       logger.debug { "requested to power off" }
-      do_send(Type::Set, Command::PowerOff, name: :power, delay: 3.seconds)#, wait: false)
+      do_send(Type::Set, Command::PowerOff, name: :power, delay: 3.seconds) # , wait: false)
     end
     # Request status update
     power?(priority: 50)
@@ -45,12 +45,12 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
   end
 
   enum Input
-    HDMI = 0x0003 # same as InputB
-    InputA = 0x0002
-    InputB = 0x0003
-    InputC = 0x0004
-    InputD = 0x0005
-    USB =  0x0006 # USB type B
+    HDMI    = 0x0003 # same as InputB
+    InputA  = 0x0002
+    InputB  = 0x0003
+    InputC  = 0x0004
+    InputD  = 0x0005
+    USB     = 0x0006 # USB type B
     Network = 0x0007 # network
 
     def to_bytes : Bytes
@@ -63,7 +63,7 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
   end
 
   def switch_to(input : Input)
-    do_send(Type::Set, Command::Input, input.to_bytes)#, delay_on_receive: 500.milliseconds)
+    do_send(Type::Set, Command::Input, input.to_bytes) # , delay_on_receive: 500.milliseconds)
     logger.debug { "requested to switch to: #{input}" }
 
     input?
@@ -82,7 +82,7 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    do_send(Type::Set, Command::Mute, Bytes[0, state ? 1 : 0])#, delay_on_receive: 500)
+    do_send(Type::Set, Command::Mute, Bytes[0, state ? 1 : 0]) # , delay_on_receive: 500)
     mute?
   end
 
@@ -115,7 +115,7 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     0x10 => "D5V Error",
     0x20 => "Power Error",
     0x40 => "Warning Error",
-    0x80 => "NVM Data ERROR"
+    0x80 => "NVM Data ERROR",
   }
 
   private def do_poll

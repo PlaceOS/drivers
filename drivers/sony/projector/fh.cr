@@ -47,17 +47,17 @@ class Sony::Projector::Fh < PlaceOS::Driver
   end
 
   INPUTS = {
-    "hdmi" => "hdmi1",       #Input C
-    "dvi" => "dvi1",        #Input B
-    "video" => "video1",
-    "svideo" => "svideo1",
-    "rgb" => "rgb1",        #Input A
-    "hdbaset" => "hdbaset1",    #Input D
-    "inputa" => "input_a",
-    "inputb" => "input_b",
-    "inputc" => "input_c",
-    "inputd" => "input_d",
-    "inpute" => "input_e"
+    "hdmi"    => "hdmi1", # Input C
+    "dvi"     => "dvi1",  # Input B
+    "video"   => "video1",
+    "svideo"  => "svideo1",
+    "rgb"     => "rgb1",     # Input A
+    "hdbaset" => "hdbaset1", # Input D
+    "inputa"  => "input_a",
+    "inputb"  => "input_b",
+    "inputc"  => "input_c",
+    "inputd"  => "input_d",
+    "inpute"  => "input_e",
   }
   INPUTS.merge!(INPUTS.invert)
 
