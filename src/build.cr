@@ -1,3 +1,5 @@
+abstract class PlaceOS::Driver; end
+
 {% if env("COMPILE_DRIVER").ends_with?("_spec.cr") %}
   require "placeos-driver/driver-specs/runner"
 {% else %}
