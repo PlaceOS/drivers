@@ -131,6 +131,84 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
+  def get_booking(booking_id : String | Int64)
+    token = get_token
+    uri = "/restapi/booking?bkid=#{booking_id}"
+
+    response = get(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      booking = check_response BookingResponse.from_json(response.body.not_nil!)
+      booking.user = get_user(booking.uid)
+      booking
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def create_booking(
+    user_id : String | Int64,
+    plan_id : String | Int32,
+    key : String,
+    description : String? = nil,
+    starting : Int64? = nil,
+    ending : Int64? = nil,
+    time_zone : String? = nil,
+    booking_type : String = "advance"
+  )
+    token = get_token
+    uri = "/restapi/booking-create"
+
+    now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
+    starting ||= now.at_beginning_of_day.to_unix
+    ending ||= now.at_end_of_day.to_unix
+
+    response = post(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("uid", user_id.to_s)
+      form.add("planid", plan_id.to_s)
+      form.add("key", key)
+      form.add("bktype", booking_type)
+      form.add("desc", description.not_nil!) if description
+      form.add("start", starting.to_s)
+      form.add("finish", ending.to_s)
+    })
+
+    if response.success?
+      booking = check_response BookingResponse.from_json(response.body.not_nil!)
+      booking.user = get_user(booking.uid)
+      booking
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def release_booking(booking_id : String | Int64)
+    token = get_token
+    uri = "/restapi/booking-release"
+
+    response = post(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build(&.add("bkid", booking_id.to_s)))
+
+    if response.success?
+      true
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
   def get_user(user_id : String)
     existing = @user_cache[user_id]?
     return existing if existing
@@ -147,6 +225,47 @@ class Floorsense::Desks < PlaceOS::Driver
       user = check_response UserResponse.from_json(response.body.not_nil!)
       @user_cache[user_id] = user
       user
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def user_list(email : String)
+    token = get_token
+    uri = "/restapi/user-list?email=#{email}"
+
+    response = get(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      check_response UsersResponse.from_json(response.body.not_nil!)
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def event_log(codes : Array(String | Int32), event_id : Int64? = nil, limit : Int32 = 1)
+    token = get_token
+
+    uri = if event_id
+            "/restapi/event-log?codes=#{codes.join(",", &.to_s)}&limit=#{limit}&event_id=#{event_id}"
+          else
+            "/restapi/event-log?codes=#{codes.join(",", &.to_s)}&limit=#{limit}"
+          end
+
+    response = get(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      # Responses are not returned sorted, we want the oldest event first
+      # oldest first as we want to process events in the order that they happen
+      check_response(LogResponse.from_json(response.body.not_nil!)).sort { |a, b| a.eventtime <=> b.eventtime }
     else
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"

@@ -157,6 +157,7 @@ module Floorsense
     @[JSON::Field(key: "bkid")]
     property booking_id : String
 
+    property desc : String?
     property created : Int64
     property start : Int64
     property finish : Int64
@@ -169,7 +170,8 @@ module Floorsense
     property planid : Int32
     property groupid : Int32
 
-    property released : Int32
+    # Time the booking was released
+    property released : Int64
     property releasecode : Int32
     property active : Bool
     property confirmed : Bool
@@ -192,6 +194,19 @@ module Floorsense
 
     # Returned on success (desk => bookings)
     property info : Hash(String, Array(BookingStatus))?
+  end
+
+  class BookingResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "type")]
+    property msg_type : String
+    property result : Bool
+
+    # Returned on failure
+    property message : String?
+    property code : Int32?
+    property info : BookingStatus
   end
 
   class User
@@ -233,5 +248,41 @@ module Floorsense
 
     # Returned on success
     property info : Array(User)?
+  end
+
+  class LogEntry
+    include JSON::Serializable
+
+    property eventid : Int64
+
+    # this is the locker or table name
+    property key : String
+
+    # the event code
+    property code : Int32
+
+    # booking id
+    property bkid : String
+
+    # Possibly includes the booking information
+    # not required as we need to grab the user information anyway
+    # property extra : JSON::Any?
+
+    property eventtime : Int64
+  end
+
+  class LogResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "type")]
+    property msg_type : String
+    property result : Bool
+
+    # Returned on failure
+    property message : String?
+    property code : Int32?
+
+    # Returned on success
+    property info : Array(LogEntry)?
   end
 end

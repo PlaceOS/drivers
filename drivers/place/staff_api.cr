@@ -178,6 +178,77 @@ class Place::StaffAPI < PlaceOS::Driver
   # BOOKINGS ACTIONS
   # ===================================
   @[Security(Level::Support)]
+  def create_booking(
+    booking_type : String,
+    asset_id : String,
+    user_id : String,
+    user_email : String,
+    user_name : String,
+    zones : Array(String),
+    booking_start : Int64? = nil,
+    booking_end : Int64? = nil,
+    checked_in : Bool = false,
+    title : String? = nil,
+    description : String? = nil,
+    time_zone : String? = nil,
+    extension_data : JSON::Any? = nil
+  )
+    now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
+    booking_start ||= now.at_beginning_of_day.to_unix
+    booking_end ||= now.at_end_of_day.to_unix
+
+    logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
+    response = post("/api/staff/v1/bookings", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    }, body: {
+      "booking_start"  => booking_start,
+      "booking_end"    => booking_end,
+      "booking_type"   => booking_type,
+      "asset_id"       => asset_id,
+      "user_id"        => user_id,
+      "user_email"     => user_email,
+      "user_name"      => user_name,
+      "zones"          => zones,
+      "checked_in"     => checked_in,
+      "title"          => title,
+      "description"    => description,
+      "timezone"       => time_zone,
+      "extension_data" => extension_data,
+    }.compact.to_json)
+    raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  @[Security(Level::Support)]
+  def update_booking(
+    booking_id : String | Int64,
+    booking_start : Int64? = nil,
+    booking_end : Int64? = nil,
+    asset_id : String? = nil,
+    title : String? = nil,
+    description : String? = nil,
+    timezone : String? = nil,
+    extension_data : JSON::Any? = nil
+  )
+    logger.debug { "updating booking #{booking_id}" }
+    response = put("/api/staff/v1/bookings/#{booking_id}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    }, body: {
+      "booking_start"  => booking_start,
+      "booking_end"    => booking_end,
+      "asset_id"       => asset_id,
+      "title"          => title,
+      "description"    => description,
+      "timezone"       => timezone,
+      "extension_data" => extension_data,
+    }.compact.to_json)
+    raise "issue updating booking #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  @[Security(Level::Support)]
   def reject(booking_id : String | Int64)
     logger.debug { "rejecting booking #{booking_id}" }
     response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: {
@@ -300,6 +371,16 @@ class Place::StaffAPI < PlaceOS::Driver
 
     # Just parse it here instead of using the Bookings object
     # it will be parsed into an object on the far end
+    JSON.parse(response.body)
+  end
+
+  def get_booking(booking_id : String | Int64)
+    logger.debug { "getting booking #{booking_id}" }
+    response = post("/api/staff/v1/bookings/#{booking_id}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue getting booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
 
