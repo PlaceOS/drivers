@@ -3,7 +3,6 @@ services:
   redis:
     image: eqalpha/keydb
     restart: always
-    container_name: redis
     hostname: redis
     environment:
       - TZ=$TZ
