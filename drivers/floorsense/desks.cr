@@ -368,7 +368,7 @@ class Floorsense::Desks < PlaceOS::Driver
     if response.success?
       # Responses are not returned sorted, we want the oldest event first
       # oldest first as we want to process events in the order that they happen
-      check_response(LogResponse.from_json(response.body.not_nil!)).sort { |a, b| a.eventtime <=> b.eventtime }
+      check_response(LogResponse.from_json(response.body.not_nil!)).sort { |a, b| a.eventid <=> b.eventid }
     else
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"
