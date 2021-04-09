@@ -98,15 +98,30 @@ class Floorsense::BookingsSync < PlaceOS::Driver
   # Polling for events
   # ===================================
   @last_event_id : Int64? = nil
+  @last_event_at : Int64 = 0_i64
 
   def check_floorsense_log : Nil
-    if @last_event_id.nil?
-      recent = floorsense.event_log({49, 50, 51, 52, 53}).get.as_a
-      @last_event_id = recent.last["eventid"].as_i64 if !recent.empty?
+    last_event_id = @last_event_id
+    if last_event_id.nil?
+      recent = floorsense.event_log({49, 50, 53}).get.as_a
+      if !recent.empty?
+        last = recent.last
+        @last_event_id = last["eventid"].as_i64
+        @last_event_at = last["eventtime"].as_i64
+      end
       return
     end
 
-    events = Array(LogEntry).from_json floorsense.event_log({49, 50, 53}, @last_event_id, 500).get.to_json
+    events = Array(LogEntry).from_json floorsense.event_log(
+      codes: {49, 50, 53},
+      after: @last_event_at,
+      limit: 500
+    ).get.to_json
+
+    # it returns all the events that happened at the time specified
+    # some of these might have happened before this event id
+    # and it'll always return the last seen event id
+    events.reject! { |event| event.eventid <= last_event_id }
     return if events.empty?
 
     @last_event_id = events.last.eventid
