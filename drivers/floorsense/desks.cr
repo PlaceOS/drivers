@@ -209,6 +209,86 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
+  def create_user(
+    name : String,
+    email : String,
+    description : String? = nil,
+    extid : String? = nil,
+    pin : String? = nil,
+    usertype : String = "user"
+  )
+    token = get_token
+    uri = "/restapi/user-create"
+
+    response = post(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("name", name)
+      form.add("email", email)
+      form.add("desc", description.not_nil!) if description
+      form.add("pin", pin.not_nil!) if pin
+      form.add("extid", extid.not_nil!) if extid
+      form.add("usertype", "user")
+    })
+
+    if response.success?
+      user = check_response UserResponse.from_json(response.body.not_nil!)
+      @user_cache[user.uid] = user
+      user
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def create_rfid(
+    user_id : String,
+    card_number : String,
+    description : String? = nil
+  )
+    token = get_token
+    uri = "/restapi/rfid-create"
+
+    response = post(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("uid", user_id)
+      form.add("csn", card_number)
+      form.add("desc", description.not_nil!) if description
+    })
+
+    if response.success?
+      check_response RFIDResponse.from_json(response.body.not_nil!)
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def delete_rfid(card_number : String)
+    token = get_token
+    uri = "/restapi/rfid-delete"
+
+    response = post(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("csn", card_number)
+    })
+
+    if response.success?
+      true
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
   def get_user(user_id : String)
     existing = @user_cache[user_id]?
     return existing if existing
