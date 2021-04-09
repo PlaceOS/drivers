@@ -311,9 +311,15 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
-  def user_list(email : String)
+  def user_list(email : String? = nil, name : String? = nil, description : String? = nil)
+    query = URI::Params.build { |form|
+      form.add("email", email.not_nil!) if email
+      form.add("name", name.not_nil!) if name
+      form.add("desc", description.not_nil!) if description
+    }
+
     token = get_token
-    uri = "/restapi/user-list?email=#{email}"
+    uri = "/restapi/user-list?#{query}"
 
     response = get(uri, headers: {
       "Accept"        => "application/json",

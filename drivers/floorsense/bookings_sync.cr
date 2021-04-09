@@ -311,20 +311,24 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     local_floorsense = floorsense
     release_floor_bookings.each { |floor_booking| local_floorsense.release_booking(floor_booking.booking_id) }
     create_floor_bookings.each do |booking|
-      # We need a floorsense user to own the booking
-      floor_user = local_floorsense.user_list(booking.user_email).get.as_a.first?
-      if floor_user
-        local_floorsense.create_booking(
-          user_id: floor_user["uid"].as_s,
-          plan_id: plan_id,
-          key: to_floor_key(booking.asset_id),
-          description: booking.id.to_s,
-          starting: booking.booking_start,
-          ending: booking.booking_end
-        )
-      else
-        logger.warn { "unable to find user #{booking.user_email} in floorsense" }
+      floor_user = begin
+        get_floorsense_user(booking.user_id)
+      rescue error
+        logger.warn(exception: error) { "unable to find or create user #{booking.user_id} (#{booking.user_email}) in floorsense" }
+        next
       end
+
+      # We need a floorsense user to own the booking
+      # floor_user = local_floorsense.user_list(booking.user_email).get.as_a.first?
+
+      local_floorsense.create_booking(
+        user_id: floor_user,
+        plan_id: plan_id,
+        key: to_floor_key(booking.asset_id),
+        description: booking.id.to_s,
+        starting: booking.booking_start,
+        ending: booking.booking_end
+      )
     end
 
     # update placeos
@@ -364,6 +368,30 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
     # number of bookings checked
     place_bookings.size + adhoc.size
+  end
+
+  # ===================================
+  # Sync Users
+  # ===================================
+  def get_floorsense_user(placeos_user_id : String) : String
+    users = floorsense.user_list(description: placeos_user_id).get.as_a
+    if user = users.first?
+      return user["uid"].as_s
+    end
+
+    # User not found, we need to create a user
+    place_user = staff_api.user(placeos_user_id).get
+    name = place_user["name"].as_s
+    email = place_user["email"].as_s
+    card_number = place_user["card_number"]?.try(&.as_s)
+
+    # Add the card number to the user
+    user_id = floorsense.create_user(name, email, placeos_user_id).get["uid"].as_s
+    if card_number.presence
+      floorsense.delete_rfid(card_number)
+      floorsense.create_rfid(user_id, card_number)
+    end
+    user_id
   end
 
   # ===================================
