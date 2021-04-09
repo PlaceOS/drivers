@@ -14,58 +14,30 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   descriptive_name "Sony Bravia LCD Display"
   generic_name :Display
 
-  enum Inputs
-    Tv1
-    Tv2
-    Tv3
-    Hdmi1
-    Hdmi2
-    Hdmi3
-    Mirror1
-    Mirror2
-    Mirror3
-    Vga1
-    Vga2
-    Vga3
+  enum Input : UInt32
+    {% for idx in 0..3 %}
+      Tv{{idx}}     = {{ idx }}
+      Hdmi{{idx}}   = {{10000_0000 + idx}}
+      Mirror{{idx}} = {{50000_0000 + idx}}
+      Vga{{idx}}    = {{60000_0000 + idx}}
+    {% end %}
 
-    def index : Int32
-      to_s.gsub(/[^0-9]/, "").to_i
+    def self.from_param(value : String) : self
+      from_value UInt32.new(value)
+    rescue
+      raise "Unknown enum #{self} value: #{value}"
     end
 
-    def type_hint : String
-      case self
-      in Tv1, Tv2, Tv3
-        "0000"
-      in Hdmi1, Hdmi2, Hdmi3
-        "1000"
-      in Mirror1, Mirror2, Mirror3
-        "5000"
-      in Vga1, Vga2, Vga3
-        "6000"
-      end
-    end
-
-    def self.from_message?(type_hint, index)
-      type = case type_hint
-             when '0' then "Tv"
-             when '1' then "Hdmi"
-             when '5' then "Mirror"
-             when '6' then "Vga"
-             end
-
-      "#{type}#{index}" if type
-    end
-
-    def to_message : String
-      "#{type_hint}#{(index).to_s.rjust(5, '0')}"
+    def to_param : String
+      value.to_s.rjust(5, '0')
     end
   end
 
-  include Interface::InputSelection(Inputs)
+  include Interface::InputSelection(Input)
 
-  def switch_to(input : Inputs)
+  def switch_to(input : Input)
     logger.debug { "switching input to #{input}" }
-    request(Command::Input, input.to_message)
+    request(Command::Input, input.to_param)
     self[:input] = input.to_s
     input?
   end
@@ -262,7 +234,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     when .mac_address?
       self[:mac_address] = parsed_data.split('#')[0]
     when .input?
-      self[:input] = Inputs.from_message?(parsed_data[7], parsed_data[15])
+      self[:input] = Input.from_param(parsed_data[7..15])
     end
   end
 end
