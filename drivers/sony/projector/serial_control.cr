@@ -1,5 +1,6 @@
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/switchable"
 
 # Documentation: https://aca.im/driver_docs/Sony/Sony_Q004_R1_protocol.pdf
 
@@ -61,6 +62,8 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
       Input.from_value((b[0].to_u16 << 8) + b[1])
     end
   end
+
+  include PlaceOS::Driver::Interface::InputSelection(Input)
 
   def switch_to(input : Input)
     do_send(Type::Set, Command::Input, input.to_bytes) # , delay_on_receive: 500.milliseconds)
