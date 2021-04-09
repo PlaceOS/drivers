@@ -351,15 +351,16 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
-  def event_log(codes : Array(String | Int32), event_id : Int64? = nil, limit : Int32 = 1)
+  def event_log(codes : Array(String | Int32), event_id : Int64? = nil, after : Int64? = nil, limit : Int32 = 1)
     token = get_token
+    query = URI::Params.build { |form|
+      form.add("codes", codes.join(",", &.to_s))
+      form.add("after", after.not_nil!.to_s) if after
+      form.add("event_id", event_id.not_nil!.to_s) if event_id
+      form.add("limit", limit.to_s)
+    }
 
-    uri = if event_id
-            "/restapi/event-log?codes=#{codes.join(",", &.to_s)}&limit=#{limit}&event_id=#{event_id}"
-          else
-            "/restapi/event-log?codes=#{codes.join(",", &.to_s)}&limit=#{limit}"
-          end
-
+    uri = "/restapi/event-log?#{query}"
     response = get(uri, headers: {
       "Accept"        => "application/json",
       "Authorization" => token,
