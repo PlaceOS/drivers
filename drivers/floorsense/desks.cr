@@ -262,7 +262,7 @@ class Floorsense::Desks < PlaceOS::Driver
     })
 
     if response.success?
-      check_response RFIDResponse.from_json(response.body.not_nil!)
+      true
     else
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"
@@ -283,6 +283,23 @@ class Floorsense::Desks < PlaceOS::Driver
 
     if response.success?
       true
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def get_rfid(card_number : String)
+    token = get_token
+    uri = "/restapi/rfid?csn=#{card_number}"
+
+    response = get(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      check_response RFIDResponse.from_json(response.body.not_nil!)
     else
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"
