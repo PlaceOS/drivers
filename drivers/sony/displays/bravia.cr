@@ -6,9 +6,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
-  INDICATOR = "\x2A\x53" # *S
-  HASH      = "################"
-  ERROR     = 70
+  private INDICATOR = "\x2A\x53" # *S
+  private HASH      = "################"
 
   # Discovery Information
   tcp_port 20060
@@ -92,7 +91,6 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
   def power(state : Bool)
     request(Command::Power, state)
-    logger.debug { "Sony display requested power #{state ? "on" : "off"}" }
     power?
   end
 
@@ -153,6 +151,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     Control = 0x43
     Enquiry = 0x45
     Notify  = 0x4e
+    Error   = 0x46
 
     def control_character
       value.chr
@@ -164,7 +163,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     cmd = Command.from_response?(parsed_data)
     return task.try(&.abort("unrecognised command: #{parsed_data}")) if cmd.nil?
     param = data[7..-1]
-    return task.try(&.abort("error")) if param.first? == ERROR
+    return task.try(&.abort("error")) if param.first? == MessageType::Error.value
     case MessageType.from_value?(data[2])
     when MessageType::Answer
       update_status cmd, param
