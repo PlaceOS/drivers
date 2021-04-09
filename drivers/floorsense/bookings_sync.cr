@@ -368,16 +368,23 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     logger.debug { "#{release_place_bookings.size} place bookings released" }
 
     create_place_bookings.each do |booking|
+      user_id = booking.user.not_nil!.desc
       user_email = booking.user.not_nil!.email.try &.downcase
 
-      if user_email.nil?
-        logger.warn { "no user email defined for floorsense user #{booking.user.not_nil!.name}" }
+      if user_id.presence.nil? && user_email.presence.nil?
+        logger.warn { "no user id or email defined for floorsense user #{booking.user.not_nil!.name}" }
         next
       end
 
-      user = local_staff_api.user(user_email).get
+      user = begin
+        local_staff_api.user(user_id.presence || user_email).get
+      rescue error
+        logger.warn(exception: error) { "floorsense user #{user_email} not found in placeos" }
+        next
+      end
       user_id = user["id"]
       user_name = user["name"]
+      user_email = user["email"]
 
       local_staff_api.create_booking(
         booking_start: booking.start,
