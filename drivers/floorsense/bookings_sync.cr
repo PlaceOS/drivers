@@ -434,10 +434,10 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     return [] of BookingStatus unless plan_id
 
     current = [] of BookingStatus
-    start_of_day = Time.local(@time_zone).at_beginning_of_day
-    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day
+    start_of_day = Time.local(@time_zone).at_beginning_of_day.to_unix
+    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day.to_unix
 
-    raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get.to_json
+    raw_bookings = floorsense.bookings(plan_id, start_of_day, tomorrow_night).get.to_json
     Hash(String, Array(BookingStatus)).from_json(raw_bookings).each do |desk_id, bookings|
       current << bookings.first if bookings.size > 0
     end
@@ -445,8 +445,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
   end
 
   def placeos_bookings(zone_id : String)
-    start_of_day = Time.local(@time_zone).at_beginning_of_day
-    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day
+    start_of_day = Time.local(@time_zone).at_beginning_of_day.to_unix
+    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day.to_unix
 
     bookings = staff_api.query_bookings(
       type: @booking_type,
