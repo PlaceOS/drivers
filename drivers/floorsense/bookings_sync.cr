@@ -250,6 +250,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     end
     floor_details = @floor_mappings[plan_id]
 
+    logger.debug { "syncing zone #{zone}, plan-id #{plan_id}" }
+
     place_bookings = placeos_bookings(zone)
     sense_bookings = floorsense_bookings(zone)
 
@@ -263,6 +265,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         other << booking
       end
     end
+
+    logger.debug { "found #{adhoc.size} adhoc bookings" }
 
     place_booking_checked = Set(Int64).new
     release_floor_bookings = [] of BookingStatus
@@ -297,6 +301,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       end
     end
 
+    logger.debug { "need to sync #{create_place_bookings.size} adhoc bookings, release #{release_place_bookings.size} bookings" }
+
     # what bookings need to be added to floorsense
     place_bookings.each do |booking|
       next if place_booking_checked.includes?(booking.id)
@@ -322,6 +328,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       create_floor_bookings << booking unless found || booking.rejected
     end
 
+    logger.debug { "need to create #{create_floor_bookings.size} bookings in floorsense" }
+
     # update floorsense
     local_floorsense = floorsense
     release_floor_bookings.each { |floor_booking| local_floorsense.release_booking(floor_booking.booking_id) }
@@ -346,6 +354,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       )
     end
 
+    logger.debug { "floorsense bookings created" }
+
     # update placeos
     local_staff_api = staff_api
     release_place_bookings.each do |booking, released|
@@ -354,6 +364,9 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         booking_end: released
       )
     end
+
+    logger.debug { "#{release_place_bookings.size} place bookings released" }
+
     create_place_bookings.each do |booking|
       user_email = booking.user.not_nil!.email.try &.downcase
 
@@ -380,6 +393,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         },
       )
     end
+
+    logger.debug { "#{create_place_bookings.size} adhoc place bookings created" }
 
     # number of bookings checked
     place_bookings.size + adhoc.size
