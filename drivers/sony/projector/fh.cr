@@ -1,11 +1,41 @@
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/switchable"
 
 # Documentation: https://drive.google.com/a/room.tools/file/d/1C0gAWNOtkbrHFyky_9LfLCkPoMcYU9lO/view?usp=sharing
 
 class Sony::Projector::Fh < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
+
+  enum Inputs
+    HDMI
+    DVI
+    Video
+    SVideo
+    RGB
+    HDBaseT
+    InputA
+    InputB
+    InputC
+    InputD
+    InputE
+
+    def to_message : String
+      case self
+      in HDMI, DVI, Video, SVideo, RGB, HDBaseT
+        to_s.downcase + "1"
+      in InputA, InputB, InputC, InputD, InputE
+        to_s.underscore
+      end
+    end
+
+    def readable : String
+      to_s.downcase
+    end
+  end
+
+  include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
   descriptive_name "Sony Projector FH Series"
   generic_name :Display
@@ -46,24 +76,23 @@ class Sony::Projector::Fh < PlaceOS::Driver
     self[:mute].as_bool
   end
 
-  INPUTS = {
-    "hdmi"    => "hdmi1", # Input C
-    "dvi"     => "dvi1",  # Input B
-    "video"   => "video1",
-    "svideo"  => "svideo1",
-    "rgb"     => "rgb1",     # Input A
-    "hdbaset" => "hdbaset1", # Input D
-    "inputa"  => "input_a",
-    "inputb"  => "input_b",
-    "inputc"  => "input_c",
-    "inputd"  => "input_d",
-    "inpute"  => "input_e",
+  INPUTS_LOOKUP = {
+    "hdmi1"    => Inputs::HDMI,
+    "dvi1"     => Inputs::DVI,
+    "video1"   => Inputs::Video,
+    "svideo1"  => Inputs::SVideo,
+    "rgb1"     => Inputs::RGB,
+    "hdbaset1" => Inputs::HDBaseT,
+    "input_a"  => Inputs::InputA,
+    "input_b"  => Inputs::InputB,
+    "input_c"  => Inputs::InputC,
+    "input_d"  => Inputs::InputD,
+    "input_e"  => Inputs::InputE,
   }
-  INPUTS.merge!(INPUTS.invert)
 
-  def switch_to(input : String)
-    set("input", INPUTS[input]).get
-    self[:input] = input
+  def switch_to(input : Inputs)
+    set("input", input.to_message).get
+    self[:input] = input.readable
   end
 
   def input?
@@ -105,7 +134,7 @@ class Sony::Projector::Fh < PlaceOS::Driver
     when "blank"
       self[:mute] = data[0] == "on"
     when "input"
-      self[:input] = INPUTS[data[0]]
+      self[:input] = INPUTS_LOOKUP[data[0]].readable
     end
     task.try &.success
   end
