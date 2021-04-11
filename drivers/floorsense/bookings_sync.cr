@@ -90,7 +90,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
   def to_floor_key(asset_id : String)
     asset_id = asset_id.lstrip(@key_prefix) if @key_prefix.presence
-    asset_id = asset_id.ljust(@zero_padding_size, '0') if @strip_leading_zero
+    asset_id = asset_id.rjust(@zero_padding_size, '0') if @strip_leading_zero
     asset_id
   end
 
