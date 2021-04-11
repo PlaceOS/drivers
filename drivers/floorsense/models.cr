@@ -206,7 +206,7 @@ module Floorsense
     # Returned on failure
     property message : String?
     property code : Int32?
-    property info : BookingStatus
+    property info : BookingStatus?
   end
 
   class User

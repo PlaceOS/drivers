@@ -90,7 +90,7 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
-  def desks(plan_id : String)
+  def desks(plan_id : String | Int32)
     token = get_token
     uri = "/restapi/floorplan-desk?planid=#{plan_id}"
 
@@ -160,6 +160,11 @@ class Floorsense::Desks < PlaceOS::Driver
     time_zone : String? = nil,
     booking_type : String = "advance"
   )
+    desks_on_plan = desks(plan_id)
+    desk = desks_on_plan.find { |entry| entry.key == key }
+
+    raise "could not find desk #{key} on plan #{plan_id}" unless desk
+
     token = get_token
     uri = "/restapi/booking-create"
 
@@ -173,7 +178,7 @@ class Floorsense::Desks < PlaceOS::Driver
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
       form.add("uid", user_id.to_s)
-      form.add("planid", plan_id.to_s)
+      form.add("cid", desk.cid.to_s)
       form.add("key", key)
       form.add("bktype", booking_type)
       form.add("desc", description.not_nil!) if description
