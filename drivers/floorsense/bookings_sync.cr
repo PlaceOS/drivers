@@ -280,7 +280,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
     logger.debug { "found #{adhoc.size} adhoc bookings" }
 
-    place_booking_checked = Set(Int64).new
+    place_booking_checked = Set(String).new
     release_floor_bookings = [] of BookingStatus
     release_place_bookings = [] of Tuple(Booking, Int64)
     create_place_bookings = [] of BookingStatus
@@ -293,7 +293,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         # match using extenstion data
         if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_id"]?.try(&.as_s)) && floor_id == floor_booking.booking_id
           found = true
-          place_booking_checked << booking.id
+          place_booking_checked << booking.id.to_s
         else
           next
         end
@@ -317,10 +317,11 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
     # what bookings need to be added to floorsense
     place_bookings.each do |booking|
-      next if place_booking_checked.includes?(booking.id)
+      booking_id = booking.id.to_s
+      next if place_booking_checked.includes?(booking_id)
+      place_booking_checked << booking_id
 
       found = false
-      booking_id = booking.id.to_s
       other.each do |floor_booking|
         next unless floor_booking.desc == booking_id
         found = true
@@ -341,7 +342,11 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       create_floor_bookings << booking unless found || booking.rejected
     end
 
-    logger.debug { "need to create #{create_floor_bookings.size} bookings in floorsense" }
+    other.each do |floor_booking|
+      release_floor_bookings << floor_booking unless place_booking_checked.includes?(floor_booking.desc)
+    end
+
+    logger.debug { "need to create #{create_floor_bookings.size} bookings, release #{release_floor_bookings.size} in floorsense" }
 
     # update floorsense
     local_floorsense = floorsense
