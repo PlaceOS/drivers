@@ -184,6 +184,7 @@ class Floorsense::Desks < PlaceOS::Driver
       form.add("desc", description.not_nil!) if description
       form.add("start", starting.to_s)
       form.add("finish", ending.to_s)
+      form.add("confexpiry", ending.to_s)
     })
 
     if response.success?
