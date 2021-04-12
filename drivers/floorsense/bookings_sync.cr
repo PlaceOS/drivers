@@ -126,6 +126,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     events.reject! { |event| event.eventid <= last_event_id }
     return if events.empty?
 
+    logger.debug { "parsing floorsense event log, #{events.size} new events" }
+
     @last_event_id = events.last.eventid
     events.each do |event|
       begin
@@ -135,6 +137,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
         case event.code
         when 49 # BOOKING_CREATE (ad-hoc?)
+          next if booking.booking_type == "adhoc"
+
           user_email = booking.user.not_nil!.email.try &.downcase
 
           if user_email.nil?
@@ -145,6 +149,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
           user = staff_api.user(user_email).get
           user_id = user["id"]
           user_name = user["name"]
+
+          logger.debug { "new floorsense booking found #{booking}" }
 
           staff_api.create_booking(
             booking_start: booking.start,
