@@ -292,6 +292,17 @@ class Place::StaffAPI < PlaceOS::Driver
     true
   end
 
+  @[Security(Level::Support)]
+  def booking_delete(booking_id : String | Int64)
+    logger.debug { "deleting booking #{booking_id}" }
+    response = delete("/api/staff/v1/bookings/#{booking_id}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+    raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
+    true
+  end
+
   # ===================================
   # BOOKINGS QUERY
   # ===================================
