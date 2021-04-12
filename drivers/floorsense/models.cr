@@ -308,4 +308,18 @@ module Floorsense
     # Returned on success
     property info : RFID?
   end
+
+  class GenericResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "type")]
+    property msg_type : String
+    property result : Bool
+
+    # Returned on failure
+    property message : String?
+    property code : Int32?
+
+    property info : JSON::Any?
+  end
 end

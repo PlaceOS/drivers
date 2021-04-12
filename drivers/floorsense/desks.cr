@@ -268,7 +268,7 @@ class Floorsense::Desks < PlaceOS::Driver
     })
 
     if response.success?
-      true
+      check_response GenericResponse.from_json(response.body.not_nil!)
     else
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"
