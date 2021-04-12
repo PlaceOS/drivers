@@ -10,17 +10,17 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     req.method.should eq("POST")
     req.path.should eq("/authentication")
     respond_with 200, {
-      session_token:         "abc123",
-      token_expiration_time: "#{(Time.utc + 2.weeks).to_rfc3339}",
+      session_token: "abc123",
+      token_expiration_time: "#{(Time.utc + 2.weeks).to_rfc3339}"
     }
   end
 
   # Re-auth on creds update
   settings({
-    username:       "foo",
-    password:       "bar",
-    directory_id:   "baz",
-    application_id: "",
+    username: "foo",
+    password: "bar",
+    directory_id: "baz",
+    application_id: ""
   })
   expect_http_request do |req, res|
     req.method.should eq("POST")
@@ -30,8 +30,8 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     body["password"].should eq("bar")
     body["directory_id"].should eq("baz")
     respond_with 200, {
-      session_token:         "abc123",
-      token_expiration_time: "#{(Time.utc + 2.weeks).to_rfc3339}",
+      session_token: "abc123",
+      token_expiration_time: "#{(Time.utc + 2.weeks).to_rfc3339}"
     }
   end
 
@@ -42,13 +42,14 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     req.path.should eq("/version")
     req.headers["Session-Token"].should eq("abc123")
     respond_with 200, {
-      product_name:    "OnGuard 7.6",
+      product_name: "OnGuard 7.6",
       product_version: "7.6.001",
-      version:         "1.0",
+      version: "1.0"
     }
   end
   version = version.get.not_nil!
   version["product_version"].should eq("7.6.001")
+
 
   # Error handling
   failing_request = exec(:version)
@@ -57,21 +58,22 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     req.path.should eq("/version")
     respond_with 401, {
       error: {
-        code:    "openaccess.general.invalidapplicationid",
-        message: "You are not licensed for OpenAccess.",
-      },
+        code: "openaccess.general.invalidapplicationid",
+        message: "You are not licensed for OpenAccess."
+      }
     }
   end
   expect_raises(PlaceOS::Driver::RemoteException) do
     failing_request.get
   end
 
+
   # Cardholder CRUD
 
   example_cardholder = {
-    email:     "sales@vandelayindustries.com",
+    email: "sales@vandelayindustries.com",
     firstname: "Kel",
-    lastname:  "Varnsen",
+    lastname: "Varnsen",
   }
 
   created_cardholder = exec(:create_cardholder, **example_cardholder)
@@ -80,7 +82,7 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     req.path.should eq("/count")
     req.query_params["type_name"]?.should eq("Lnl_Cardholder")
     req.query_params["filter"]?.should eq(%(email = "sales@vandelayindustries.com"))
-    respond_with 200, {total_items: 0}
+    respond_with 200, { total_items: 0 }
   end
   expect_http_request do |req, res|
     req.method.should eq("POST")
@@ -93,10 +95,10 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
       prop["lastname"].should eq("Varnsen")
     end
     respond_with 200, {
-      type_name:          "Lnl_Cardholder",
+      type_name: "Lnl_Cardholder",
       property_value_map: {
         ID: 1,
-      },
+      }
     }
   end
   created_cardholder = created_cardholder.get.not_nil!
@@ -111,16 +113,16 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
     respond_with 200, {
       total_pages: 1,
       total_items: 1,
-      count:       1,
-      type_name:   "Lnl_Cardholder",
-      item_list:   [{
+      count: 1,
+      type_name: "Lnl_Cardholder",
+      item_list: [{
         property_value_map: {
-          ID:        1,
-          EMAIL:     "sales@vandelyindustries.com",
+          ID: 1,
+          EMAIL: "sales@vandelyindustries.com",
           FIRSTNAME: "Kel",
-          LASTNAME:  "Varnsen",
-        },
-      }],
+          LASTNAME: "Varnsen"
+        }
+      }]
     }
   end
   queried_cardholder = queried_cardholder.get.not_nil!
@@ -149,10 +151,10 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
       prop["id"].should eq(123)
     end
     respond_with 200, {
-      type_name:          "Lnl_Badge",
+      type_name: "Lnl_Badge",
       property_value_map: {
         BADGEKEY: 1,
-      },
+      }
     }
   end
   created_badge = created_badge.get.not_nil!

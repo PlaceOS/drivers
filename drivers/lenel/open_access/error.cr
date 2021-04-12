@@ -1,7 +1,12 @@
 require "json"
 
 class Lenel::OpenAccess::Error < Exception
-  alias Info = {error: {code: String, message: String?}}
+  alias Info = {
+    error: {
+      code: String,
+      message: String?
+    }
+  }
 
   def self.from_response(response)
     # Although the API docs specify this is being in an "error" header, this
