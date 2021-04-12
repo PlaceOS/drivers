@@ -292,7 +292,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       place_bookings.each do |booking|
         # match using extenstion data
         if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_id"]?.try(&.as_s)) && floor_id == floor_booking.booking_id
-          found == true
+          found = true
           place_booking_checked << booking.id
         else
           next
@@ -320,9 +320,10 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       next if place_booking_checked.includes?(booking.id)
 
       found = false
+      booking_id = booking.id.to_s
       other.each do |floor_booking|
-        next unless floor_booking.desc == booking.id.to_s
-        found == true
+        next unless floor_booking.desc == booking_id
+        found = true
 
         # TODO:: check for booking changes?
         # we currently are not and probably shouldn't be moving bookings to different days
