@@ -42,6 +42,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
   @poll_rate : Time::Span = 3.seconds
   @time_zone : Time::Location = Time::Location.load("GMT")
 
+  @sync_lock = Mutex.new
+
   def on_load
     monitor("staff/booking/changed") do |_subscription, payload|
       logger.debug { "received booking changed event #{payload}" }
@@ -70,8 +72,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     @time_zone = Time::Location.load(time_zone)
 
     schedule.clear
-    schedule.in(500.milliseconds) { check_floorsense_log }
-    schedule.every(@poll_rate) { check_floorsense_log }
+    schedule.in(500.milliseconds) { @sync_lock.synchronize { check_floorsense_log } }
+    schedule.every(@poll_rate) { @sync_lock.synchronize { check_floorsense_log } }
 
     # between polls, sync the bookings
     schedule.in(@poll_rate / 2) do
@@ -243,6 +245,10 @@ class Floorsense::BookingsSync < PlaceOS::Driver
   end
 
   def sync_floor(zone : String)
+    @sync_lock.synchronize { do_sync_floor(zone) }
+  end
+
+  protected def do_sync_floor(zone : String)
     plan_id = @zone_mappings[zone]?
     if plan_id.nil?
       logger.warn { "unknown plan ID for zone #{zone}" }
