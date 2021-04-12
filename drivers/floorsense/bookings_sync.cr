@@ -286,6 +286,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     create_place_bookings = [] of BookingStatus
     create_floor_bookings = [] of Booking
 
+    time_now = Time.utc.to_unix
+
     # adhoc bookings need to be added to PlaceOS
     adhoc.each do |floor_booking|
       found = false
@@ -321,6 +323,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       next if place_booking_checked.includes?(booking_id)
       place_booking_checked << booking_id
 
+      next if time_now >= booking.booking_end
+
       found = false
       other.each do |floor_booking|
         next unless floor_booking.desc == booking_id
@@ -351,8 +355,6 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     # update floorsense
     local_floorsense = floorsense
     release_floor_bookings.each { |floor_booking| local_floorsense.release_booking(floor_booking.booking_id) }
-
-    time_now = Time.utc.to_unix
 
     create_floor_bookings.each do |booking|
       floor_user = begin
