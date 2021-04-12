@@ -89,7 +89,7 @@ class Nec::Display < PlaceOS::Driver
     DisplayPort1  =  7
     DisplayPort2  =  8
     HDMI2         = 10
-    HDMI3         = 11
+    Hdmi3         = 11
     MultiPicture  = 13
     ComputeModule = 14
   end
