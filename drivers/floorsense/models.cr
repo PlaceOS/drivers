@@ -321,5 +321,9 @@ module Floorsense
     property code : Int32?
 
     property info : JSON::Any?
+
+    def info
+      @info || JSON::Any.new(true)
+    end
   end
 end
