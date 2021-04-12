@@ -345,6 +345,9 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     # update floorsense
     local_floorsense = floorsense
     release_floor_bookings.each { |floor_booking| local_floorsense.release_booking(floor_booking.booking_id) }
+
+    time_now = Time.utc.to_unix
+
     create_floor_bookings.each do |booking|
       floor_user = begin
         get_floorsense_user(booking.user_id)
@@ -361,7 +364,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         plan_id: plan_id,
         key: to_floor_key(booking.asset_id),
         description: booking.id.to_s,
-        starting: booking.booking_start,
+        starting: booking.booking_start < time_now ? time_now : booking.booking_start,
         ending: booking.booking_end
       )
     end
