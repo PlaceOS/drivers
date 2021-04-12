@@ -232,7 +232,7 @@ class Place::StaffAPI < PlaceOS::Driver
     extension_data : JSON::Any? = nil
   )
     logger.debug { "updating booking #{booking_id}" }
-    response = put("/api/staff/v1/bookings/#{booking_id}", headers: {
+    response = patch("/api/staff/v1/bookings/#{booking_id}", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
     }, body: {
