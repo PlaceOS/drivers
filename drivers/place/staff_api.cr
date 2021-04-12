@@ -387,7 +387,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
   def get_booking(booking_id : String | Int64)
     logger.debug { "getting booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}", headers: {
+    response = get("/api/staff/v1/bookings/#{booking_id}", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
     })
