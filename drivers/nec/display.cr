@@ -84,7 +84,7 @@ class Nec::Display < PlaceOS::Driver
     Audio1        =  1
     Audio2        =  2
     Audio3        =  3
-    Hdmi1         =  4
+    Hdmi          =  4
     Tv            =  6
     DisplayPort1  =  7
     DisplayPort2  =  8
