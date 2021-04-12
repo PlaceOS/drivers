@@ -137,7 +137,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
         case event.code
         when 49 # BOOKING_CREATE (ad-hoc?)
-          next if booking.booking_type == "adhoc"
+          next if booking.booking_type != "adhoc"
 
           user_email = booking.user.not_nil!.email.try &.downcase
 
