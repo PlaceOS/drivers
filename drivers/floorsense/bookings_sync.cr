@@ -286,7 +286,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     create_place_bookings = [] of BookingStatus
     create_floor_bookings = [] of Booking
 
-    time_now = Time.utc.to_unix
+    time_now = 2.minutes.from_now.to_unix
 
     # adhoc bookings need to be added to PlaceOS
     adhoc.each do |floor_booking|
