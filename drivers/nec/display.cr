@@ -81,12 +81,17 @@ class Nec::Display < PlaceOS::Driver
   end
 
   enum Audio
-    Audio1      = 1
-    Audio2      = 2
-    Audio3      = 3
-    Hdmi        = 4
-    Tv          = 6
-    DisplayPort = 7
+    Audio1        =  1
+    Audio2        =  2
+    Audio3        =  3
+    Hdmi1         =  4
+    Tv            =  6
+    DisplayPort1  =  7
+    DisplayPort2  =  8
+    HDMI2         = 10
+    HDMI3         = 11
+    MultiPicture  = 13
+    ComputeModule = 14
   end
 
   def switch_audio(input : Audio)
