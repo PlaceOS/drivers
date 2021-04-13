@@ -30,12 +30,13 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     if state
       # Need to send twice in case of deep sleep
       logger.debug { "requested to power on" }
-      do_send(Type::Set, Command::PowerOn, name: :power)                   # , wait: false)
-      do_send(Type::Set, Command::PowerOn, name: :power, delay: 3.seconds) # , wait: false)
+      do_send(Type::Set, Command::PowerOn, name: :power)
+      do_send(Type::Set, Command::PowerOn, name: :power, delay: 3.seconds)
     else
       logger.debug { "requested to power off" }
-      do_send(Type::Set, Command::PowerOff, name: :power, delay: 3.seconds) # , wait: false)
+      do_send(Type::Set, Command::PowerOff, name: :power, delay: 3.seconds)
     end
+
     # Request status update
     power?(priority: 50)
   end
@@ -180,14 +181,14 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
     resp = data[4..5]
 
     checksum = data[1..5].reduce { |a, b| a |= b }
-    return task.try &.abort("Checksum should be 0x#{checksum.to_s(16, true)}") unless data[6] == checksum
+    return task.try &.abort("Checksum should be 0x#{checksum.to_s(base: 16, upcase: true)}") unless data[6] == checksum
 
     # Check if an ACK/NAK
     if type == 0x03
       if cmd == Bytes[0, 0]
         return task.try &.success
       else # Command failed
-        return task.try &.abort("Command failed with 0x#{cmd.join(&.to_s(16, true))}")
+        return task.try &.abort("Command failed with 0x#{cmd.join(&.to_s(base: 16, upcase: true))}")
       end
     else
       case command = Command.from_bytes(cmd)
