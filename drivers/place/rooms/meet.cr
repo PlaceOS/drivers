@@ -81,12 +81,13 @@ class Place::Rooms::Meet < PlaceOS::Driver
 
   def powerup
     logger.debug { "Powering up" }
-    # Nothing to do...
+    self[:active] = true
   end
 
   def shutdown
     logger.debug { "Shutting down" }
     system.implementing(PlaceOS::Driver::Interface::Powerable).power false
+    self[:active] = false
   end
 
   def route(input : String, output : String)

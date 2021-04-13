@@ -52,6 +52,9 @@ DriverSpecs.mock_driver "Place::Rooms::Meet" do
   status["inputs"].should eq(["table", "wireless", "opc"])
   status["outputs"].should eq(["lcd"])
 
+  exec(:powerup).get
+  status["active"].should be_true
+
   exec(:route, "table", "lcd").get
   status["output/lcd"].as_h["source"].should eq("table")
 
@@ -66,4 +69,7 @@ DriverSpecs.mock_driver "Place::Rooms::Meet" do
   exec(:volume, "lcd", 50).get
   status["output/lcd"].as_h["volume"].should eq(50)
   system(:Display_1)["volume"].should eq(50)
+
+  exec(:shutdown).get
+  status["active"].should be_false
 end
