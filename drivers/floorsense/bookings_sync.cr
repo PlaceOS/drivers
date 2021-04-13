@@ -435,23 +435,48 @@ class Floorsense::BookingsSync < PlaceOS::Driver
   # ===================================
   def get_floorsense_user(placeos_user_id : String) : String
     users = floorsense.user_list(description: placeos_user_id).get.as_a
-    if user = users.first?
-      return user["uid"].as_s
+    user_id = users.first?.try(&.[]("uid").as_s)
+
+    # We might need to create a
+    card_number = nil
+    begin
+      place_user = staff_api.user(placeos_user_id).get
+      name = place_user["name"].as_s
+      email = place_user["email"].as_s
+      card_number = place_user["card_number"]?.try(&.as_s)
+
+      # Add the card number to the user
+      user_id ||= floorsense.create_user(name, email, placeos_user_id).get["uid"].as_s
+    rescue error
+      if user_id
+        # if we have a user id, lets just return it
+        # a staff_api outage shouldn't prevent this from working
+        return user_id
+      else
+        raise error
+      end
     end
 
-    # User not found, we need to create a user
-    place_user = staff_api.user(placeos_user_id).get
-    name = place_user["name"].as_s
-    email = place_user["email"].as_s
-    card_number = place_user["card_number"]?.try(&.as_s)
+    if user_id && card_number && !card_number.empty?
+      ensure_card_synced(card_number, user_id)
+    end
 
-    # Add the card number to the user
-    user_id = floorsense.create_user(name, email, placeos_user_id).get["uid"].as_s
-    if card_number.presence
+    user_id.not_nil!
+  end
+
+  protected def ensure_card_synced(card_number : String, user_id : String) : Nil
+    existing_user = begin
+      floorsense.get_rfid(card_number).get["uid"].as_s
+    rescue
+      nil
+    end
+
+    if existing_user != user_id
       floorsense.delete_rfid(card_number)
       floorsense.create_rfid(user_id, card_number)
     end
-    user_id
+  rescue error
+    logger.warn(exception: error) { "failed to sync card number #{card_number} for user #{user_id}" }
   end
 
   # ===================================
