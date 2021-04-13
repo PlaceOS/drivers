@@ -107,26 +107,28 @@ class Place::Rooms::Meet < PlaceOS::Driver
     update_o(output) { |o| o.source = input }
   end
 
-  def mute(input_or_output : String, state : Bool = true)
+  def mute(state : Bool = true, input_or_output = @inputs.keys.first)
     logger.debug { "#{state ? "Muting" : "Unmuting"} #{input_or_output}" }
     case input_or_output
     when "lcd"
       system["Display_1"].mute_audio state
       update_o("lcd") { |o| o.mute = state }
+      self[:mute] = state
     end
   end
 
-  def unmute(input_or_output : String)
+  def unmute(input_or_output = @inputs.keys.first)
     mute input_or_output, false
   end
 
-  def volume(input_or_output : String, level : Int32)
+  def volume(level : Int32, input_or_output = @inputs.keys.first)
     level = level.clamp 0, 100
     logger.debug { "Setting volume #{level} on #{input_or_output}" }
     case input_or_output
     when "lcd"
       system["Display_1"].volume level
       update_o("lcd") { |o| o.volume = level }
+      self[:volume] = level
     end
   end
 end

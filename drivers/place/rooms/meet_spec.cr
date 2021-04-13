@@ -58,15 +58,18 @@ DriverSpecs.mock_driver "Place::Rooms::Meet" do
   exec(:route, "table", "lcd").get
   status["output/lcd"].as_h["source"].should eq("table")
 
-  exec(:mute, "lcd").get
+  exec(:mute).get
+  status["mute"].should be_true
   status["output/lcd"].as_h["mute"].should be_true
   system(:Display_1)["audio_mute"].should be_true
 
-  exec(:unmute, "lcd").get
+  exec(:unmute).get
+  status["mute"].should be_false
   status["output/lcd"].as_h["mute"].should be_false
   system(:Display_1)["audio_mute"].should be_false
 
-  exec(:volume, "lcd", 50).get
+  exec(:volume, 50).get
+  status["volume"].should eq(50)
   status["output/lcd"].as_h["volume"].should eq(50)
   system(:Display_1)["volume"].should eq(50)
 
