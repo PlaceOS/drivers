@@ -1,5 +1,8 @@
 require "xml"
 
+# Docs https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
+# Tested with Cisco ISE API v2.2
+
 class Cisco::Ise::Guests < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco ISE Guest Control"
@@ -21,7 +24,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @sms_service_provider : String? = nil
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
 
-  # See https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_ers2.html#42003
   TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
 
