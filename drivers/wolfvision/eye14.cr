@@ -28,25 +28,21 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   generic_name :Camera
 
   COMMANDS = {
-    power_on:        "\\x01\\x30\\x01\\x01",
-    power_off:       "\\x01\\x30\\x01\\x00",
-    power_query:     "\\x00\\x30\\x00",
-    autofocus:       "\\x01\\x31\\x01\\x01",
-    autofocus_query: "\\x00\\x31\\x00",
-    zoom:            "\\x01\\x20\\x02",
-    zoom_query:      "\\x00\\x20\\x00",
-    iris:            "\\x01\\x22\\x02",
-    iris_query:      "\\x00\\x22\\x00",
+    power_on:        "\x01\x30\x01\x01",
+    power_off:       "\x01\x30\x01\x00",
+    power_query:     "\x00\x30\x00",
+    autofocus:       "\x01\x31\x01\x01",
+    autofocus_query: "\x00\x31\x00",
+    zoom:            "\x01\x20\x02",
+    zoom_query:      "\x00\x20\x00",
+    iris:            "\x01\x22\x02",
+    iris_query:      "\x00\x22\x00",
   }
 
   RESPONSES = COMMANDS.to_h.invert
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r")
-    # transport.connect
-    # transport.tokenizer = Tokenizer.new(Bytes[0x00, 0x01])
-    # transport.tokenizer = Tokenizer.new("\x00\x01")
-
     on_update
   end
 
@@ -103,7 +99,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   def zoom(position : String | Int32 = 0)
     val = position if @zoom_range.includes?(position.to_i32)
     self[:zoom_target] = val
-    val = "%02X" % val
+    val = val.to_i.chr if !val.nil?
     do_send(:zoom, val, name: :zoom)
   end
 
@@ -117,7 +113,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # curiously there is no off
   #
   def autofocus
-    do_send(:autofocus, name: :autofocus)
+    do_send(:autofocus, priority: 0, name: :autofocus)
   end
 
   def autofocus?
@@ -130,7 +126,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   def iris(position : String | Int32 = 0)
     val = position if @zoom_range.includes?(position.to_i32)
     self[:iris_target] = val
-    val = "%02X" % val
+    val = val.to_i.chr if !val.nil?
     do_send(:iris, val, name: :iris)
   end
 
@@ -145,7 +141,7 @@ class Wolfvision::Eye14 < PlaceOS::Driver
   # `task` - continaing callee task
   #
   def received(data, task)
-    logger.info { "Wolfvision eye14 sent: #{data} and Task name is #{task.try &.name}" }
+    logger.info { "Wolfvision eye14 sent reply: #{data} and Task name is #{task.try &.name}" }
 
     # We can't interpret this message without a task reference
     # This also makes sure it is no longer nil
@@ -192,11 +188,12 @@ class Wolfvision::Eye14 < PlaceOS::Driver
 
   protected def do_send(command, param = nil, **options)
     # prepare the command
+    # puts param
 
     cmd = if param.nil?
             "#{COMMANDS[command]}"
           else
-            "#{COMMANDS[command]}\\x#{param}"
+            "#{COMMANDS[command]}#{param}"
           end
 
     logger.info { " Queing: #{cmd}" }
