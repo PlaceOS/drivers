@@ -1,11 +1,9 @@
-module Place; end
-
 require "http/client"
 
 class Place::DeskBookingWebhook < PlaceOS::Driver
   descriptive_name "Desk Booking Webhook"
   generic_name :DeskBookingWebhook
-  description %(sends a webhook with booking information as it changes)
+  description "sends a webhook with booking information as it changes"
 
   accessor staff_api : StaffAPI_1
 
@@ -22,7 +20,7 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
 
     booking_category: "desk",
 
-    # Note: only use metadata_key and mapped_id_key if we need to map interally used resource_id to another value
+    # Note: only use metadata_key and mapped_id_key if we need to map BookingUpdate.resource_id to another value
     metadata_key: "desks", # e.g. metadata_key would be "desks" for below example
     mapped_id_key: nil, # e.g. mapped_id_key would be "other_id" for below example
     # e.g. metadata response for /api/engine/v2/metadata/zone-123
@@ -34,26 +32,26 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     #       {id: "desk-1", name: "Desk 2", bookable: true, other_id: "d-2"}
     #     }
     #   },
-    #   other_metadata_key: {}
+    #   other_metadata_key: {description: "blah2", details: {}}
     # }
 
-    debug: false,
+    debug: false
   })
-
-  def on_load
-    monitor("staff/booking/changed") do |_subscription, payload|
-      logger.debug { "received booking changed event #{payload}" }
-      process_update(payload)
-    end
-    on_update
-  end
 
   @time_period : Time::Span = 14.days
   @booking_category : String = "desk"
   @custom_headers = {} of String => String
-  @zone_ids = [] of Array(String)
+  @zone_ids = [] of String
   @post_uri = ""
   @debug : Bool = false
+
+  def on_load
+    monitor("staff/booking/changed") do |_subscription, booking_update|
+      logger.debug { "received booking changed event #{booking_update}" }
+      process_update(booking_update)
+    end
+    on_update
+  end
 
   def on_update
     @post_uri = setting(String, :post_uri)
@@ -64,16 +62,35 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     @debug = setting(Bool, :debug)
   end
 
-  private def process_update(update)
+  struct BookingUpdate
+    include JSON::Serializable
+
+    property action : String
+    property id : Int64
+    property booking_type : String
+    property booking_start : Int64
+    property booking_end : Int64
+    property timezone : String?
+    property resource_id : String
+    property user_id : String
+    property user_email : String
+    property user_name : String
+    property zones : Array(String)
+    property title : String
+    property checked_in : Bool?
+    property description : String
+  end
+
+  private def process_update(json)
+    update = BookingUpdate.from_json(json)
     # Only do something if the update is for a zone specified in settings(:zone_ids)
-    return unless (@zone_ids && update[:zones]).present?
+    return unless (@zone_ids & update.zones)
   end
 
   def fetch_and_post
     period_start = Time.utc.to_unix
     period_end = @time_period.from_now.to_unix
-    zones = [@building]
-    payload = staff_api.query_bookings(@booking_category, period_start, period_end, zones).get.to_json
+    payload = staff_api.query_bookings(@booking_category, period_start, period_end, @zone_ids).get.to_json
 
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
