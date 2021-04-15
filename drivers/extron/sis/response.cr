@@ -42,7 +42,7 @@ module Extron::SIS::Response
 
   # Part of the copyright banner, but appears on a new line so will tokenize as
   # as standalone message.
-  Clock = Raw.map { |date| Time.parse_utc date, "%a, %b %d, %Y, %T" }
+  Clock = Raw.map { |date| Time.parse_utc date, "%a, %d %b %Y %T" }
 
   # Quick response, occurs following quick tie, or switching interaction from
   # the device's front panel.

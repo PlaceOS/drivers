@@ -56,7 +56,7 @@ describe Response do
 
   describe Response::Clock do
     it "parses" do
-      clock = "Fri, Feb 13, 2009, 23:31:30"
+      clock = "Fri, 13 Feb 2009 23:31:30"
       parsed = Response::Clock.parse clock
       parsed.as(Time).to_unix.should eq(1234567890)
     end
