@@ -38,6 +38,14 @@ class Place::Router::SignalGraph
     def hash(hasher)
       id.hash hasher
     end
+
+    def to_s(io)
+      io << sys
+      io << '/'
+      io << name
+      io << '_'
+      io << idx
+    end
   end
 
   # Input reference on a device.
