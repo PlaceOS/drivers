@@ -103,9 +103,13 @@ class Place::Router::SignalGraph
     end
   end
 
+  # Virtual node representing (any) mute source
+  Mute = Node.new
+
   @graph : Digraph(Node, Edge::Type)
 
   private def initialize(@graph)
+    @graph[0] = Mute
   end
 
   # Construct a graph from a set `Source` -> `Sink` pairs that declare the
