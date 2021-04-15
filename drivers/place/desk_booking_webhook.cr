@@ -5,20 +5,14 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
   generic_name :DeskBookingWebhook
   description "sends a webhook with booking information as it changes"
 
-  accessor staff_api : StaffAPI_1
-
   default_settings({
-    post_uri: "https://remote-server/path",
+    booking_category: "desk",
     zone_ids: ["zone-id"], # list of zone_ids to monitor
 
+    post_uri: "https://remote-server/path",
     custom_headers: {
       "API_KEY" => "123456",
     },
-
-    # how many days from now do we want to send
-    days_from_now: 14,
-
-    booking_category: "desk",
 
     # Note: only use metadata_key and mapped_id_key if we need to map BookingUpdate.resource_id to another value
     metadata_key: "desks", # e.g. metadata_key would be "desks" for below example
@@ -38,11 +32,12 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     debug: false
   })
 
-  @time_period : Time::Span = 14.days
   @booking_category : String = "desk"
-  @custom_headers = {} of String => String
   @zone_ids = [] of String
   @post_uri = ""
+  @custom_headers = {} of String => String
+  @metadata_key : String = "desks"
+  @mapped_id_key : String? = nil
   @debug : Bool = false
 
   def on_load
@@ -54,11 +49,13 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
   end
 
   def on_update
-    @post_uri = setting(String, :post_uri)
-    @zone_ids = setting(Array(String), :zone_ids)
-    @custom_headers = setting(Hash(String, String), :custom_headers)
-    @time_period = setting(Int32, :days_from_now).days
     @booking_category = setting(String, :booking_category)
+    @zone_ids = setting(Array(String), :zone_ids)
+    @post_uri = setting(String, :post_uri)
+    @custom_headers = setting(Hash(String, String), :custom_headers)
+    @metadata_key = setting(String, :metadata_key)
+    @mapped_id_key = setting?(String, :mapped_id_key)
+    @custom_headers = setting(Hash(String, String), :custom_headers)
     @debug = setting(Bool, :debug)
   end
 
@@ -76,29 +73,35 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     property user_email : String
     property user_name : String
     property zones : Array(String)
+    property process_state : String?
+    property last_changed : Int64?
+    property approver_name : String?
+    property approver_email : String?
     property title : String
     property checked_in : Bool?
     property description : String
+    property ext_data : JSON::Any?
+    property booked_by_email : String
+    property booked_by_name : String
   end
 
-  private def process_update(json)
-    update = BookingUpdate.from_json(json)
-    # Only do something if the update is for a zone specified in settings(:zone_ids)
-    return unless (@zone_ids & update.zones)
-  end
-
-  def fetch_and_post
-    period_start = Time.utc.to_unix
-    period_end = @time_period.from_now.to_unix
-    payload = staff_api.query_bookings(@booking_category, period_start, period_end, @zone_ids).get.to_json
+  def process_update(update_json : String)
+    update = BookingUpdate.from_json(update_json)
+    # Only do something if the update is for the booking_type and zones specified in the settings
+    return unless update.booking_type == @booking_category && (@zone_ids & update.zones)
 
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
     headers["Content-Type"] = "application/json; charset=UTF-8"
+    payload = @mapped_id_key ? map_resource_id(update).to_json : update_json
 
     logger.debug { "Posting: #{payload} \n with Headers: #{headers}" } if @debug
     response = HTTP::Client.post @post_uri, headers, body: payload
     raise "Request failed with #{response.status_code}: #{response.body}" unless response.status_code < 300
     "#{response.status_code}: #{response.body}"
+  end
+
+  private def map_resource_id(update : BookingUpdate)
+    update
   end
 end
