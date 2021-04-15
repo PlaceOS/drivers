@@ -68,7 +68,9 @@ class Extron::Matrix < PlaceOS::Driver
 
   # Send *command* to the device and yield a parsed response to *block*.
   private def send(command, parser : SIS::Response::Parser(T), &block : T -> _) forall T
+    logger.debug { "Sending #{command}" }
     send command do |data, task|
+      logger.debug { "Received #{data}" }
       case response = Response.parse data, parser
       in T
         task.success block.call response
@@ -86,6 +88,7 @@ class Extron::Matrix < PlaceOS::Driver
 
   # Response callback for async responses.
   def received(data, task)
+    logger.debug { "Received #{data}" }
     case response = Response.parse data, as: Response::Unsolicited
     in Tie
       update_io response
