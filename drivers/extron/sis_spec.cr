@@ -100,5 +100,11 @@ describe Response do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie
       typeof(resp).should eq (Tie | Error | Response::ParseError)
     end
+
+    it "fails for unhandled responses" do
+      resp = Response.parse "not a real response", as: Response::Switch
+      resp.should be_a(Response::ParseError)
+      resp.as(Response::ParseError).message.should eq("unhandled device response")
+    end
   end
 end
