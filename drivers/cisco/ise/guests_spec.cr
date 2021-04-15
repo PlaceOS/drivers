@@ -9,9 +9,9 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
   lo = "New York"
 
   settings({
-    portal_id: portal,
+    portal_id:  portal,
     guest_type: type,
-    location: lo
+    location:   lo,
   })
 
   start_time = Time.local(Time::Location.load("Australia/Sydney"))
