@@ -1,7 +1,9 @@
 require "xml"
 
-# Docs https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
 # Tested with Cisco ISE API v2.2
+# https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
+# However, should work and conform to v1.4 requirements
+# https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_guest.html#79039
 
 class Cisco::Ise::Guests < PlaceOS::Driver
   # Discovery Information
@@ -13,16 +15,18 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     # We may grab this data through discovery mechanisms in the future but for now use a setting
     username:          "user",
     password:          "pass",
-    sponsor_user_name: "sponsor",
-    portal_id:         "portal101",
+    portal_id:         "Required, ask cisco ISE admins",
     timezone:          "Australia/Sydney",
+    guest_type:        "Required, ask cisco ISE admins for valid subset of values", # e.g. Contractor
+    location:          "Remove if using ISE API v1.4, else ask cisco ISE admins for valid value", # e.g. New York
   })
 
   @basic_auth : String = ""
-  @sponsor_user_name : String = ""
   @portal_id : String = ""
   @sms_service_provider : String? = nil
+  @guest_type : String = "default_guest_type"
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
+  @location : String? = nil
 
   TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
@@ -33,8 +37,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
   def on_update
     @basic_auth = "Basic #{Base64.strict_encode("#{setting?(String, :username)}:#{setting?(String, :password)}")}"
-    @sponsor_user_name = setting?(String, :sponsor_user_name) || "sponsor"
     @portal_id = setting?(String, :portal_id) || "portal101"
+    @guest_type = setting?(String, :guest_type) || "default_guest_type"
+    @location = setting?(String, :location)
     @sms_service_provider = setting?(String, :sms_service_provider)
 
     time_zone = setting?(String, :timezone).presence
@@ -45,16 +50,16 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     event_start : Int64,
     attendee_email : String,
     attendee_name : String,
-    company_name : String? = nil,
-    phone_number : String? = nil,
-    sms_service_provider : String? = nil,
-    sponsor_user_name : String? = nil,
-    portal_id : String? = nil
+    company_name : String? = nil, # Mandatory but driver will extract from email if not passed
+    phone_number : String = "0123456789", # Mandatory, use a fake value as default
+    sms_service_provider : String? = nil, # Use this param to override the setting
+    guest_type : String? = nil, # Mandatory but use this param to override the setting
+    portal_id : String? = nil # Mandatory but use this param to override the setting
   )
-    return guest_crendentials("test") if setting?(Bool, :test)
-    sponsor_user_name ||= @sponsor_user_name
-    portal_id ||= @portal_id
+    return {username: UUID.random.to_s, password: UUID.random.to_s} if setting?(Bool, :test)
     sms_service_provider ||= @sms_service_provider
+    guest_type ||= @guest_type
+    portal_id ||= @portal_id
 
     time_object = Time.unix(event_start).in(@timezone)
     from_date = time_object.at_beginning_of_day.to_s(TIME_FORMAT)
@@ -75,7 +80,13 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       <?xml version="1.0" encoding="UTF-8"?>
       <ns2:guestuser xmlns:ns2="identity.ers.ise.cisco.com">
         <guestAccessInfo>
-          <fromDate>#{from_date}</fromDate>
+          <fromDate>#{from_date}</fromDate>)
+
+    xml_string += %(
+          <location>#{@location}</location>
+    ) if @location
+
+    xml_string += %(
           <toDate>#{to_date}</toDate>
           <validDays>1</validDays>
         </guestAccessInfo>
@@ -85,20 +96,21 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <firstName>#{first_name}</firstName>
           <lastName>#{last_name}</lastName>
           <notificationLanguage>English</notificationLanguage>
+          <phoneNumber>#{phone_number}</phoneNumber>
     )
 
     xml_string += %(
-          <phoneNumber>#{phone_number}</phoneNumber>
           <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>
-    ) if phone_number && sms_service_provider
+    ) if sms_service_provider
 
+    username = UUID.random.to_s
+    password = UUID.random.to_s
     xml_string += %(
-          <userName>#{UUID.random}</userName>
+          <userName>#{username}</userName>
+          <password>#{password}</password>
         </guestInfo>
-        <guestType>Daily</guestType>
-        <personBeingVisited>#{sponsor_user_name}</personBeingVisited>
+        <guestType>#{guest_type}</guestType>
         <portalId>#{portal_id}</portalId>
-        <reasonForVisit>interview</reasonForVisit>
       </ns2:guestuser>
     )
 
@@ -110,23 +122,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
 
-    guest_id = response.headers["Location"].split('/').last
-    guest_crendentials(guest_id)
-  end
-
-  def guest_crendentials(id : String)
-    return {username: UUID.random.to_s, password: UUID.random.to_s} if setting?(Bool, :test)
-    response = get("/guestuser/#{id}", headers: {
-      "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
-    })
-    parsed_body = XML.parse(response.body)
-    guest_user = parsed_body.first_element_child.not_nil!
-    guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
-    {
-      username: guest_info.children.find { |c| c.name == "userName" }.not_nil!.content,
-      password: guest_info.children.find { |c| c.name == "password" }.not_nil!.content
-    }
+    {username: username, password: password}
   end
 end
