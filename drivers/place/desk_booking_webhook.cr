@@ -1,9 +1,12 @@
 require "http/client"
+require "placeos"
 
 class Place::DeskBookingWebhook < PlaceOS::Driver
   descriptive_name "Desk Booking Webhook"
   generic_name :DeskBookingWebhook
   description "sends a webhook with booking information as it changes"
+
+  accessor staff_api : StaffAPI_1
 
   default_settings({
     booking_category: "desk",
@@ -93,6 +96,8 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
     headers["Content-Type"] = "application/json; charset=UTF-8"
+    # If @mapped_id_key is present, then we need to map resource ids before sending the payload
+    # Otherwise, just use update_json unmodified as the payload
     payload = @mapped_id_key ? map_resource_id(update).to_json : update_json
 
     logger.debug { "Posting: #{payload} \n with Headers: #{headers}" } if @debug
@@ -101,7 +106,16 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     "#{response.status_code}: #{response.body}"
   end
 
+  alias Metadata = PlaceOS::Client::API::Models::Metadata
+
   private def map_resource_id(update : BookingUpdate)
+    metadata = Metadata.from_json(staff_api.metadata(update.zones.first, @metadata_key).get.to_json)
+    matching_resource = metadata.details.as_a.find(&.["id"].==(update.resource_id)).not_nil!
+    # If there is a mapped id value, use that for update.resource_id
+    # Otherwise, just use the current update.resource_id
+    if mapped_id_value = matching_resource[@mapped_id_key.not_nil!]?
+      update.resource_id = mapped_id_value.as_s
+    end
     update
   end
 end
