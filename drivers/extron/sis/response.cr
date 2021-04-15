@@ -82,10 +82,8 @@ module Extron::SIS::Response
     Parse.const SIS::SwitcherInformation.new video, audio,
   })
 
-  # Parses for device messages that can be safely ignored - these exist mainly
-  # to flush initial connect banners
-  Ignorable = (Copyright | Clock) >> Parse.const(Ok.new)
+  Empty = Parse.string("\r\n") >> Parse.const(nil)
 
   # Async messages that can be expected outside of a command -> response flow.
-  Unsolicited = DeviceError | Tie | Ignorable
+  Unsolicited = DeviceError | Tie | Copyright | Clock | Empty
 end

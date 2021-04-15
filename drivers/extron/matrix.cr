@@ -12,12 +12,6 @@ class Extron::Matrix < PlaceOS::Driver
     transport.tokenizer = Tokenizer.new DELIMITER
   end
 
-  def connected
-    send Command['I'], Response::SwitcherInformation do |info|
-      @device_size = info
-    end
-  end
-
   def disconnected
     @device_size = nil
   end
@@ -25,6 +19,12 @@ class Extron::Matrix < PlaceOS::Driver
   getter device_size do
     empty = MatrixSize.new 0, 0
     SwitcherInformation.new empty, empty
+  end
+
+  def query_device_info
+    send Command['I'], Response::SwitcherInformation do |info|
+      @device_size = info
+    end
   end
 
   alias Outputs = Array(Output)
@@ -70,7 +70,7 @@ class Extron::Matrix < PlaceOS::Driver
   private def send(command, parser : SIS::Response::Parser(T), &block : T -> _) forall T
     logger.debug { "Sending #{command}" }
     send command do |data, task|
-      logger.debug { "Received #{data}" }
+      logger.debug { "Received #{String.new data}" }
       case response = Response.parse data, parser
       in T
         task.success block.call response
@@ -88,15 +88,17 @@ class Extron::Matrix < PlaceOS::Driver
 
   # Response callback for async responses.
   def received(data, task)
-    logger.debug { "Received #{data}" }
+    logger.debug { "Received #{String.new data}" }
     case response = Response.parse data, as: Response::Unsolicited
-    in Tie
+    when Tie
       update_io response
-    in Error, Response::ParseError
+    when Error, Response::ParseError
       logger.error { response }
-    in Ok
-      # Nothing to see here, one of the Ignorable responses
-      logger.debug { response }
+    when Time
+      # End of unsolicited comms on connect
+      query_device_info
+    else
+      logger.info { response } if response
     end
   end
 
