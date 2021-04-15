@@ -4,19 +4,15 @@
 Performs all intermiedate device interaction required to route a signal between two points.
 Supports specifying either local i/o aliases (see settings), or node ref's.
 
-## `mute(input_or_output, state = true)`
+## `mute(state = true, input_or_output = default)`
 Activates or deactivates a signal mute for the associated IO.
 If this is not possible, (e.g. unsupported by the device) an error is returned.
 
-## `unmute(input_or_output)`
+## `unmute(input_or_output = default)`
 Deactivates signal mute for the passed IO.
 
-## `lock(input_or_output)`
-Locks an IO node.
-Prevents any route changes that include this until unlocked.
-
-## `unlock(input_or_output)`
-Unlocks a signel node.
+## `volume(level, input_or_output = default)`
+Set the volume level on a signal node.
 
 # Status
 
@@ -61,19 +57,18 @@ Metadata and state infor for the associated output.
 }
 ```
 
+## `volume`
+Volume level for the default signal node.
+
+## `mute`
+Audio mute for the default signal node.
+
+## `active`
+Boolean system state indicator.
+
 # Settings
 
 ## `connections`
-```json
-[
-  "switcher{1} -> {hdmi}display_1",
-  "switcher{2} -> {hdmi}display_2",
-  "switcher{3} -> {hdmi}VidConf",
-  "switcher_2 -> {1}switcher_1",
-  "camera_1 -> {2}switcher_1",
-  "camera_2 -> {3}switcher_1"
-]
-```
 
 ## `inputs`
 Defines signal sources used by the system.
