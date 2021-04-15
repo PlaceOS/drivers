@@ -88,7 +88,7 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
   def process_update(update_json : String)
     update = BookingUpdate.from_json(update_json)
     # Only do something if the update is for the booking_type and zones specified in the settings
-    return unless update.booking_type == @booking_category && (@zone_ids & update.zones)
+    return if update.booking_type != @booking_category || !(@zone_ids & update.zones).empty?
 
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
