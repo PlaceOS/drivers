@@ -1,3 +1,4 @@
+require "set"
 require "./digraph"
 
 # Structure for mapping between sys,mod,idx,io referencing and the underlying
@@ -120,24 +121,30 @@ class Place::Router::SignalGraph
     @graph[0] = Mute
   end
 
+  private alias DeviceIO = { Set(Input), Set(Output) }
+
   # Construct a graph from a set `Source` -> `Sink` pairs that declare the
   # physical connectivity of the system.
   def self.from_connections(connections : Enumerable({Source, Sink}))
     g = Digraph(Node, Edge::Type).new initial_capacity: connections.size
 
-    m = Hash(Mod, {i: Array(Input), o: Array(Output)}).new do |h, k|
-      h[k] = {i: [] of Input, o: [] of Output}
-    end
+    m = Hash(Mod, DeviceIO).new { |h, k| h[k] = {Set(Input).new, Set(Output).new} }
 
     connections.each do |src, dst|
+      # Insert static edges that physically link devices
       pred = dst.hash
       succ = src.hash
       g[pred] = Node.new
       g[succ] = Node.new
       g[succ, pred] = Edge::Static.instance
 
-      m[src.mod][:o] << src.output
-      m[dst.mod][:i] << dst.input
+      # Track source device outputs used
+      _, outputs = m[src.mod]
+      outputs << src.output
+
+      # Track destination device inputs in use
+      inputs, _ = m[dst.mod]
+      inputs << dst.input
     end
 
     # TODO create active edges
