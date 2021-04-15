@@ -12,13 +12,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   uri_base "https://ise-pan:9060/ers/config"
 
   default_settings({
-    # We may grab this data through discovery mechanisms in the future but for now use a setting
-    username:          "user",
-    password:          "pass",
-    portal_id:         "Required, ask cisco ISE admins",
-    timezone:          "Australia/Sydney",
-    guest_type:        "Required, ask cisco ISE admins for valid subset of values", # e.g. Contractor
-    location:          "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
+    username:   "user",
+    password:   "pass",
+    portal_id:  "Required, ask cisco ISE admins",
+    timezone:   "Australia/Sydney",
+    guest_type: "Required, ask cisco ISE admins for valid subset of values",                              # e.g. Contractor
+    location:   "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
   })
 
   @basic_auth : String = ""
@@ -50,11 +49,11 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     event_start : Int64,
     attendee_email : String,
     attendee_name : String,
-    company_name : String? = nil, # Mandatory but driver will extract from email if not passed
+    company_name : String? = nil,         # Mandatory but driver will extract from email if not passed
     phone_number : String = "0123456789", # Mandatory, use a fake value as default
     sms_service_provider : String? = nil, # Use this param to override the setting
-    guest_type : String? = nil, # Mandatory but use this param to override the setting
-    portal_id : String? = nil # Mandatory but use this param to override the setting
+    guest_type : String? = nil,           # Mandatory but use this param to override the setting
+    portal_id : String? = nil             # Mandatory but use this param to override the setting
   )
     return {username: UUID.random.to_s, password: UUID.random.to_s} if setting?(Bool, :test)
     sms_service_provider ||= @sms_service_provider
