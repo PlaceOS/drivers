@@ -14,14 +14,14 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   def on_update
-    inputs = setting?(Int32, :input_count) || 8
-    outputs = setting?(Int32, :output_count) || 1
+    inputs = setting?(UInt16, :input_count) || 8_u16
+    outputs = setting?(UInt16, :output_count) || 1_u16
     io = MatrixSize.new inputs, outputs
     @device_size = SwitcherInformation.new video: io, audio: io
   end
 
   getter device_size do
-    empty = MatrixSize.new 0, 0
+    empty = MatrixSize.new 0_u16, 0_u16
     SwitcherInformation.new empty, empty
   end
 
