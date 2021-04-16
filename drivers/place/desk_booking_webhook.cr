@@ -45,7 +45,6 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
 
   def on_load
     monitor("staff/booking/changed") do |_subscription, booking_update|
-      logger.debug { "received booking changed event #{booking_update}" }
       process_update(booking_update)
     end
     on_update
@@ -91,7 +90,10 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
   def process_update(update_json : String)
     update = BookingUpdate.from_json(update_json)
     # Only do something if the update is for the booking_type and zones specified in the settings
-    return if update.booking_type != @booking_category || !(@zone_ids & update.zones).empty?
+
+    return if update.booking_type != @booking_category || (@zone_ids & update.zones).empty?
+
+    logger.debug { "received update #{update}" } if @debug
 
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
@@ -102,8 +104,10 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
 
     logger.debug { "Posting: #{payload} \n with Headers: #{headers}" } if @debug
     response = HTTP::Client.post @post_uri, headers, body: payload
-    raise "Request failed with #{response.status_code}: #{response.body}" unless response.status_code < 300
-    "#{response.status_code}: #{response.body}"
+    summary = "#{response.status_code}: #{response.body}"
+    raise "Request failed with #{summary}" unless response.status_code < 300
+    logger.debug { summary } if @debug
+    summary
   end
 
   alias Metadata = PlaceOS::Client::API::Models::Metadata
