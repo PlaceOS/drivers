@@ -10,10 +10,14 @@ class Extron::Matrix < PlaceOS::Driver
 
   def on_load
     transport.tokenizer = Tokenizer.new DELIMITER
+    on_update
   end
 
-  def disconnected
-    @device_size = nil
+  def on_update
+    inputs = setting?(Int32, :input_count) || 8
+    outputs = setting?(Int32, :output_count) || 1
+    io = MatrixSize.new inputs, outputs
+    @device_size = SwitcherInformation.new video: io, audio: io
   end
 
   getter device_size do
@@ -22,8 +26,8 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   def query_device_info
-    send Command['I'], Response::SwitcherInformation do |info|
-      @device_size = info
+    send Command['I'], Response::Raw do |info|
+      logger.info { info }
     end
   end
 
