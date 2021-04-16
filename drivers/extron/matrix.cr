@@ -28,6 +28,7 @@ class Extron::Matrix < PlaceOS::Driver
   def query_device_info
     send Command['I'], Response::Raw do |info|
       logger.info { info }
+      info
     end
   end
 
@@ -107,6 +108,7 @@ class Extron::Matrix < PlaceOS::Driver
     in Nil
       # Empty line
     end
+    response
   end
 
   private def update_io(input : Input, output : Output, layer : SwitchLayer)
