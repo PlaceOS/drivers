@@ -46,7 +46,7 @@ class Extron::Matrix < PlaceOS::Driver
 
   # Connect *input* to all outputs at the specified *layer*.
   def switch_to(input : Input, layer : SwitchLayer = SwitchLayer::All)
-    send Command[input, '*', layer], Response::Switch, &->update_io(Switch)
+    send Command[input, layer], Response::Switch, &->update_io(Switch)
   end
 
   # Applies a `SignalMap` as a single operation. All included ties will take

@@ -17,7 +17,7 @@ DriverSpecs.mock_driver "Extron::Matrix" do
   status["video2"].should eq 3
 
   switch_to = exec :switch_to, input: 2
-  should_send "2*!"
+  should_send "2!"
   responds "In2 All\r\n"
   status["video1"].should eq 2
   status["video2"].should eq 2
