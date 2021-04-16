@@ -90,15 +90,18 @@ class Extron::Matrix < PlaceOS::Driver
   def received(data, task)
     logger.debug { "Received #{String.new data}" }
     case response = Response.parse data, as: Response::Unsolicited
-    when Tie
+    in Tie
       update_io response
-    when Error, Response::ParseError
+    in Error, Response::ParseError
       logger.error { response }
-    when Time
+    in Time
       # End of unsolicited comms on connect
       query_device_info
-    else
-      logger.info { response } if response
+    in String
+      # Copyright and other info messages
+      logger.info { response }
+    in Nil
+      # Empty line
     end
   end
 
