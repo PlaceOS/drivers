@@ -110,10 +110,10 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     summary
   end
 
-  alias Metadata = PlaceOS::Client::API::Models::Metadata
+  alias Metadata = Hash(String, PlaceOS::Client::API::Models::Metadata)
 
   private def map_resource_id(update : BookingUpdate)
-    metadata = Metadata.from_json(staff_api.metadata(update.zones.first, @metadata_key).get.to_json)
+    metadata = Metadata.from_json(staff_api.metadata(update.zones[0], @metadata_key).get.to_json)[@metadata_key]
     matching_resource = metadata.details.as_a.find(&.["id"].==(update.resource_id)).not_nil!
     # If there is a mapped id value, use that for update.resource_id
     # Otherwise, just use the current update.resource_id
