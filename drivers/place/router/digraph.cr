@@ -26,9 +26,12 @@ class Place::Router::Digraph(N, E)
     @nodes.each do |id, n|
       io << "  "
       io << id
-      io << " -> { "
-      n.succ.keys.join(io, ' ')
-      io << " };\n"
+      unless n.succ.empty?
+        io << " -> { "
+        n.succ.keys.join(io, ' ')
+        io << " }"
+      end
+      io << ";\n"
     end
     io << '}'
   end
