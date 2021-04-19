@@ -24,16 +24,12 @@ class Place::Router::SignalGraph
       PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
     end
 
-    def switchable?
-      PlaceOS::Driver::Interface::InputSelection.to_s.in? metadata.implements
-    end
-
-    def routable?
-      PlaceOS::Driver::Interface::Switchable.to_s.in? metadata.implements
-    end
-
-    def mutable?
-      PlaceOS::Driver::Interface::Mutable.to_s.in? metadata.implements
+    macro finished
+      {% for interface in PlaceOS::Driver::Interface.constants %}
+        def {{interface.underscore}}?
+          PlaceOS::Driver::Interface::{{interface}}.to_s.in? metadata.implements
+        end
+      {% end %}
     end
 
     def hash(hasher)
