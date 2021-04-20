@@ -76,16 +76,14 @@ class Place::Router::SignalGraph
       end
     end
 
-    private struct MuteRef < Ref
+    # Virtual node representing (any) mute source
+    struct Mute < Ref
       class_getter instance : self { new }
       protected def initialize; end
       def id
         0_u64
       end
     end
-
-    # Virtual node representing (any) mute source
-    Mute = MuteRef.instance
   end
 
   module Edge
@@ -125,7 +123,8 @@ class Place::Router::SignalGraph
   end
 
   private def initialize(@graph : Digraph(Node::Label, Edge::Label))
-    @graph[Node::Mute.id] = Node::Label.new.tap &.source = Node::Mute.id
+    mute = Node::Mute.instance.id
+    @graph[mute] = Node::Label.new.tap &.source = mute
   end
 
   # Construct a graph from a pre-parsed configuration.
