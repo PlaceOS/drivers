@@ -20,12 +20,11 @@ class Sony::Projector::PjTalk < PlaceOS::Driver
   @community : String = ""
 
   def on_load
-    # abstract tokenizer
+    # abstract tokenizer, expects us to return the message length
     transport.tokenizer = Tokenizer.new do |io|
       bytes = io.to_slice
 
-      # Min message length is 8 bytes
-      # return the message length
+      # Min message length is 10 bytes, with the 10th byte being the payload size
       bytes.size < 10 ? -1 : 10 + bytes[9]
     end
 
@@ -73,13 +72,11 @@ class Sony::Projector::PjTalk < PlaceOS::Driver
     Network = 0x0007 # network
 
     def to_bytes : Bytes
-      b = Bytes.new 2
-      IO::ByteFormat::BigEndian.encode(value, b)
-      b
+      Bytes[self.value >> 8, self.value & 0xFF]
     end
 
     def self.from_bytes(b : Bytes)
-      from_value IO::ByteFormat::BigEndian.decode(UInt16, b)
+      Input.from_value((b[0].to_u16 << 8) + b[1])
     end
   end
 
