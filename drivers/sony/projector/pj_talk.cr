@@ -73,7 +73,9 @@ class Sony::Projector::PjTalk < PlaceOS::Driver
     Network = 0x0007 # network
 
     def to_bytes : Bytes
-      Bytes[self.value >> 8, self.value & 0xFF]
+      b = Bytes.new 2
+      IO::ByteFormat::BigEndian.encode(value, b)
+      b
     end
 
     def self.from_bytes(b : Bytes)
