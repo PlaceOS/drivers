@@ -3,17 +3,12 @@ require "placeos-driver/driver_model"
 require "./signal_graph"
 
 alias SignalGraph = Place::Router::SignalGraph
-alias DeviceInput = SignalGraph::Node::DeviceInput
-alias DeviceOutput = SignalGraph::Node::DeviceOutput
 
 module PlaceOS::Driver
   module Interface
     module Switchable; end
-
     module Selectable; end
-
     module Mutable; end
-
     module InputMutable; end
   end
 
@@ -49,13 +44,13 @@ end
 # Set of inputs in use
 # NOTE: alias are only used in the local system, no impact here
 ilist = [
-  DeviceInput.new("sys-123", "Display", 1, "hdmi"),
-  DeviceInput.new("sys-123", "Switcher", 1, 1),
-  DeviceInput.new("sys-123", "Switcher", 1, 2),
+  SignalGraph::Input.new("sys-123", "Display", 1, "hdmi"),
+  SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
+  SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
 ]
 
 clist = [
-  {DeviceOutput.new("sys-123", "Switcher", 1, 1), DeviceInput.new("sys-123", "Display", 1, "hdmi")},
+  {SignalGraph::Output.new("sys-123", "Switcher", 1, 1), SignalGraph::Input.new("sys-123", "Display", 1, "hdmi")},
 ]
 
 describe SignalGraph do
@@ -66,7 +61,7 @@ describe SignalGraph do
 
     it "raises when parsed an invalid config" do
       expect_raises(ArgumentError) do
-        SignalGraph.build [] of DeviceInput, clist
+        SignalGraph.build [] of SignalGraph::Input, clist
       end
     end
   end

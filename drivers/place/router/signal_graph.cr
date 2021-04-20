@@ -1,5 +1,6 @@
 require "set"
 require "./digraph"
+require "./signal_graph/*"
 
 # Structures and types for mapping between sys,mod,idx,io referencing and the
 # underlying graph structure.
@@ -8,138 +9,14 @@ require "./digraph"
 # but does provide the ability to discover routes and available connectivity
 # when may then be acted on.
 class Place::Router::SignalGraph
-  # Reference to a PlaceOS module that provides IO nodes within the graph.
-  private class Mod
-    getter sys : String
-    getter name : String
-    getter idx : Int32
+  alias Input = Node::DeviceInput
 
-    getter id : String
+  alias Output = Node::DeviceOutput
 
-    def initialize(@sys, @name, @idx)
-      id = PlaceOS::Driver::Proxy::System.module_id? sys, name, idx
-      @id = id || raise %("#{name}/#{idx}" does not exist in #{sys})
-    end
-
-    def metadata
-      PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
-    end
-
-    macro finished
-      {% for interface in PlaceOS::Driver::Interface.constants %}
-        def {{interface.underscore}}?
-          PlaceOS::Driver::Interface::{{interface}}.to_s.in? metadata.implements
-        end
-      {% end %}
-    end
-
-    def_equals_and_hash @id
-
-    def to_s(io)
-      io << sys << '/' << name << '_'<< idx
-    end
-  end
-
-  # Input reference on a device.
-  alias Input = Int32 | String
-
-  # Output reference on a device.
-  alias Output = Int32 | String
-
-  module Node
-    class Label
-      property source : UInt64? = nil
-      property locked : Bool = false
-    end
-
-    abstract struct Ref
-      def id
-        self.class.hash ^ self.hash
-      end
-    end
-
-    # Reference to a signal output from a device.
-    struct DeviceOutput < Ref
-      getter mod : Mod
-      getter output : Output
-
-      def initialize(sys, name, idx, @output)
-        @mod = Mod.new sys, name, idx
-      end
-
-      def to_s(io)
-        io << mod << '.' << output
-      end
-    end
-
-    # Reference to a signal input to a device.
-    struct DeviceInput < Ref
-      getter mod : Mod
-      getter input : Input
-
-      def initialize(sys, name, idx, @input)
-        @mod = Mod.new sys, name, idx
-      end
-
-      def to_s(io)
-        io << mod << '.' << input
-      end
-    end
-
-    # Virtual node representing (any) mute source
-    struct Mute < Ref
-      class_getter instance : self { new }
-      protected def initialize; end
-
-      def id
-        0_u64
-      end
-
-      def to_s(io)
-        io << "MUTE"
-      end
-    end
-  end
-
-  module Edge
-    alias Label = Static | Active
-
-    class Static
-      class_getter instance : self { new }
-      protected def initialize; end
-    end
-
-    record Active, mod : Mod, func : Func::Type
-
-    module Func
-      record Mute,
-        state : Bool,
-        index : Int32 | String = 0
-        # layer : Int32 | String = "AudioVideo"
-
-      record Select,
-        input : Input
-
-      record Switch,
-        input : Input,
-        output : Output
-        # layer : 
-
-      # NOTE: currently not supported. Requires interaction via
-      # Proxy::RemoteDriver to support dynamic method execution.
-      # record Custom,
-      #   func : String,
-      #   args : Hash(String, JSON::Any::Type)
-
-      macro finished
-        alias Type = {{ @type.constants.join(" | ").id }}
-      end
-    end
-  end
+  Mute = Node::Mute.instance
 
   private def initialize(@graph : Digraph(Node::Label, Edge::Label))
-    mute = Node::Mute.instance.id
-    @graph[mute] = Node::Label.new.tap &.source = mute
+    @graph[Mute.id] = Node::Label.new.tap &.source = Mute.id
   end
 
   # Construct a graph from a pre-parsed configuration.
@@ -150,11 +27,11 @@ class Place::Router::SignalGraph
   # on a display, which in turn is attached to the switcher above).
   #
   # *connections* declares the physical links that exist between devices.
-  def self.build(inputs : Enumerable(Node::DeviceInput), connections : Enumerable({Node::DeviceOutput, Node::DeviceInput}))
+  def self.build(inputs : Enumerable(Input), connections : Enumerable({Output, Input}))
     g = Digraph(Node::Label, Edge::Label).new initial_capacity: connections.size * 2
 
-    m = Hash(Mod, {Set(DeviceInput), Set(DeviceOutput)}).new do |h, k|
-      h[k] = {Set(DeviceInput).new, Set(DeviceOutput).new}
+    m = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
+      h[k] = {Set(Input).new, Set(Output).new}
     end
 
     inputs.each do |input|
@@ -170,7 +47,7 @@ class Place::Router::SignalGraph
       # Create a node for the device output
       g[src.id] = Node::Label.new
 
-      # Ensure the input node was declared
+      # Ensure the input node was declared previously
       g.fetch(dst.id) do
         raise ArgumentError.new "connection to #{dst} declared, but no matching input exists"
       end
@@ -178,7 +55,7 @@ class Place::Router::SignalGraph
       # Insert a static edge for the  physical link
       g[dst.id, src.id] = Edge::Static.instance
 
-      # Track device outputs for active edge creation
+      # Track device output for active edge creation
       _, o = m[src.mod]
       o << src
     end
