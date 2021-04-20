@@ -13,15 +13,15 @@ class Place::Router::SignalGraph
 
   alias Output = Node::DeviceOutput
 
+  alias Device = Node::Device
+
+  Mute = Node::Mute.instance
+
   private getter g : Digraph(Node::Label, Edge::Label)
 
   private def initialize(digraph)
     @g = digraph
-  end
-
-  # :nodoc:
-  def dot
-    g.to_s
+    g[Mute.id] = Node::Label.new.tap &.source = Mute.id
   end
 
   # Inserts *node*.
@@ -40,10 +40,6 @@ class Place::Router::SignalGraph
   # Given a *mod* and sets of known *inputs* and *outputs* in use on it, wire up
   # any active edges between these based on the interfaces available.
   protected def link(mod : Mod, inputs : Enumerable(Input), outputs : Enumerable(Output))
-    puts mod
-    puts inputs.map &.to_s
-    puts outputs.map &.to_s
-
     if mod.switchable?
       inputs.each do |input|
         outputs.each do |output|
@@ -53,21 +49,21 @@ class Place::Router::SignalGraph
       end
     end
 
+    outputs = {Node::Device.new mod} if outputs.empty?
+
     if mod.selectable?
-      if outputs.empty?
-        input = Node::Device.new mod
-      else
-        inputs.each do |input|
-          puts input
+      inputs.each do |input|
+        outputs.each do |output|
+          func = Edge::Func::Select.new input.input
+          g[output.id, input.id] = Edge::Active.new mod, func
         end
       end
     end
 
     if mod.mutable?
       outputs.each do |output|
-        #pred = mod.hash
-        #!!! Sink.new ???
-        #g[mod.hash
+        func = Edge::Func::Mute.new true
+        g[output.id, Mute.id] = Edge::Active.new mod, func
       end
     end
   end
