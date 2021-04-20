@@ -18,6 +18,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     timezone:   "Australia/Sydney",
     guest_type: "Required, ask cisco ISE admins for valid subset of values",                              # e.g. Contractor
     location:   "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
+    custom_data: {} of String => JSON::Any::Type
   })
 
   @basic_auth : String = ""
@@ -26,6 +27,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @guest_type : String = "default_guest_type"
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @location : String? = nil
+  @custom_data = {} of String => JSON::Any::Type
 
   TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
@@ -43,6 +45,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
+    @custom_data = setting?(Hash(String, JSON::Any::Type), :custom_data) || {} of String => JSON::Any::Type
   end
 
   def create_guest(
@@ -55,7 +58,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_type : String? = nil,           # Mandatory but use this param to override the setting
     portal_id : String? = nil             # Mandatory but use this param to override the setting
   )
-    return {username: UUID.random.to_s, password: UUID.random.to_s} if setting?(Bool, :test)
+    return {"username" => UUID.random.to_s, "password" => UUID.random.to_s}.merge(@custom_data) if setting?(Bool, :test)
     sms_service_provider ||= @sms_service_provider
     guest_type ||= @guest_type
     portal_id ||= @portal_id
@@ -123,6 +126,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
 
-    {username: username, password: password}
+    {"username" => username, "password" => password}.merge(@custom_data)
   end
 end
