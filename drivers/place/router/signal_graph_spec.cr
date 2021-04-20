@@ -7,38 +7,62 @@ alias SignalGraph = Place::Router::SignalGraph
 module PlaceOS::Driver
   module Interface
     module Switchable; end
-    module InputSelection; end
+    module Selectable; end
     module Mutable; end
+    module InputMutable; end
   end
 
   module Proxy::System
     def self.module_id?(sys, name, idx)
-      "foo"
+      mock_id = {sys, name, idx}.hash
+      "mod-#{mock_id}"
     end
 
     def self.driver_metadata?(id)
       m = DriverModel::Metadata.new
       m.implements << Interface::Switchable.to_s
+      m.implements << Interface::Mutable.to_s
       m
     end
   end
 end
 
-#cmap = {
-#  Display_1: {
-#    hdmi: "Switcher_1.1"
-#  },
-#  Switcher_1: ["*Foo", "*Bar"]
-#}
+# Settings:
+#
+# connections = {
+#   Display_1: {
+#     hdmi: "Switcher_1.1"
+#   },
+#   Switcher_1: ["*foo", "*bar"]
+# }
+#
+# inputs = {
+#   foo: "laptop",
+#   bar: "pc"
+# }
+
+# Set of inputs in use
+# NOTE: alias are only used in the local system, no impact here
+ilist = [
+  SignalGraph::DeviceInput.new("sys-123", "Display", 1, "hdmi"),
+  SignalGraph::DeviceInput.new("sys-123", "Switcher", 1, 1),
+  SignalGraph::DeviceInput.new("sys-123", "Switcher", 1, 2)
+]
 
 clist = [
-  {SignalGraph::Source.new("sys-123", "Switcher", 1, 1), SignalGraph::Sink.new("sys-123", "Display", 1, "hdmi")}
+  {SignalGraph::DeviceOutput.new("sys-123", "Switcher", 1, 1), SignalGraph::DeviceInput.new("sys-123", "Display", 1, "hdmi")}
 ]
 
 describe SignalGraph do
-  describe ".from_connections" do
-    it "builds from a connections list" do
-      g = SignalGraph.from_connections clist
+  describe ".from_io" do
+    it "builds from connections" do
+      g = SignalGraph.from_io ilist, clist
+    end
+
+    it "raises when parsed an invalid config" do
+      expect_raises(ArgumentError) do
+        SignalGraph.from_io [] of SignalGraph::DeviceInput, clist
+      end
     end
   end
 

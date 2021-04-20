@@ -1,27 +1,28 @@
 require "set"
 require "./digraph"
 
-# Structure for mapping between sys,mod,idx,io referencing and the underlying
-# graph structure. The SignalGraph class _does not_ perform any direct
-# interaction with devices, but does provide the ability to discover routes and
-# available connectivity.
+# Structures and types for mapping between sys,mod,idx,io referencing and the
+# underlying graph structure.
+#
+# The SignalGraph class _does not_ perform any direct interaction with devices,
+# but does provide the ability to discover routes and available connectivity
+# when may then be acted on.
 class Place::Router::SignalGraph
-  # Reference to a PlaceOS module that forms part of the graph.
+  # Reference to a PlaceOS module that provides IO nodes within the graph.
   private class Mod
     getter sys  : String
     getter name : String
     getter idx  : Int32
 
-    def initialize(@sys, @name, @idx)
-    end
+    getter id   : String
 
-    def id : String
+    def initialize(@sys, @name, @idx)
       id = PlaceOS::Driver::Proxy::System.module_id? sys, name, idx
-      id || raise %("#{name}/#{idx}" does not exist in #{sys})
+      @id = id || raise %("#{name}/#{idx}" does not exist in #{sys})
     end
 
     def metadata
-      PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
+      PlaceOS::Driver::Proxy::System.driver_metadata?(@id).not_nil!
     end
 
     macro finished
@@ -32,9 +33,7 @@ class Place::Router::SignalGraph
       {% end %}
     end
 
-    def hash(hasher)
-      id.hash hasher
-    end
+    def_equals_and_hash @id
 
     def to_s(io)
       io << sys
@@ -51,15 +50,15 @@ class Place::Router::SignalGraph
   # Output reference on a device.
   alias Output = Int32 | String
 
-  # Reference to a signal source eminating from a device.
-  record Source, mod : Mod, output : Output do
+  # Reference to a signal output from a device.
+  record DeviceOutput, mod : Mod, output : Output do
     def initialize(sys, name, idx, @output)
       @mod = Mod.new sys, name, idx
     end
   end
 
-  # Reference to a signal sink (device input).
-  record Sink, input : Input, mod : Mod do
+  # Reference to a signal input to a device.
+  record DeviceInput, input : Input, mod : Mod do
     def initialize(sys, name, idx, @input)
       @mod = Mod.new sys, name, idx
     end
@@ -109,7 +108,7 @@ class Place::Router::SignalGraph
   end
 
   # Virtual node representing (any) mute source
-  Mute = Node.new
+  Mute = Node.new.tap &.source = 0
 
   @graph : Digraph(Node, Edge::Type)
 
@@ -117,33 +116,78 @@ class Place::Router::SignalGraph
     @graph[0] = Mute
   end
 
-  private alias DeviceIO = { Set(Input), Set(Output) }
+  private alias IOSets = { Set(Input), Set(Output) }
 
-  # Construct a graph from a set `Source` -> `Sink` pairs that declare the
-  # physical connectivity of the system.
-  def self.from_connections(connections : Enumerable({Source, Sink}))
-    g = Digraph(Node, Edge::Type).new initial_capacity: connections.size
+  # Construct a graph from a pre-parsed configuration.
+  #
+  # *inputs* must contain the list of all device inputs across the system. This
+  # include those at the "edge" of the signal network (e.g. a laptop connected
+  # to a switcher) as well as inputs in use on intermediate device (e.g. a input
+  # on a display, which in turn is attached to the switcher above).
+  #
+  # *connections* declares the physical links that exist between devices.
+  def self.from_io(inputs : Enumerable(DeviceInput), connections : Enumerable({DeviceOutput, DeviceInput}))
+    g = Digraph(Node, Edge::Type).new initial_capacity: connections.size * 2
 
-    m = Hash(Mod, DeviceIO).new { |h, k| h[k] = {Set(Input).new, Set(Output).new} }
+    m = Hash(Mod, IOSets).new { |h, k| h[k] = {Set(Input).new, Set(Output).new} }
 
-    connections.each do |src, dst|
-      # Insert static edges that physically link devices
-      pred = dst.hash
-      succ = src.hash
-      g[pred] = Node.new
-      g[succ] = Node.new
-      g[succ, pred] = Edge::Static.instance
+    inputs.each do |input|
+      # Create a node for the device input
+      id = input.hash
+      g[id] = Node.new
 
-      # Track source device outputs used
-      _, outputs = m[src.mod]
-      outputs << src.output
-
-      # Track destination device inputs in use
-      inputs, _ = m[dst.mod]
-      inputs << dst.input
+      # Track the input for active edge creation
+      i, _ = m[input.mod]
+      i << input.input
     end
 
-    # TODO create active edges
+    connections.each do |src, dst|
+      # Create a node for the device output
+      succ = src.hash
+      g[succ] = Node.new
+
+      # Ensure the input node was declared
+      unless m[dst.mod].try { |i, _| i.includes? dst.input }
+        raise ArgumentError.new "connection to #{dst} declared, but no matching input exists"
+      end
+
+      # Insert a static edge for the  physical link
+      pred = dst.hash
+      g[pred, succ] = Edge::Static.instance
+
+      # Track device outputs for active edge creation
+      _, o = m[src.mod]
+      o << src.output
+    end
+
+    # Insert active edges
+    m.each do |mod, (inputs, outputs)|
+      puts mod
+      puts inputs
+      puts outputs
+
+      if mod.switchable?
+        Array.each_product(inputs.to_a, outputs.to_a) do |x|
+          puts x
+        end
+      end
+
+      if mod.selectable?
+        inputs.each do |input|
+          puts input
+        end
+      end
+
+      if mod.mutable?
+        outputs.each do |output|
+          pred = mod.hash
+          #!!! Sink.new ???
+          #g[mod.hash
+        end
+      end
+    end
+
+    puts g
 
     new g
   end
