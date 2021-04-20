@@ -62,8 +62,13 @@ class Place::Router::SignalGraph
     struct DeviceOutput < Ref
       getter mod : Mod
       getter output : Output
+
       def initialize(sys, name, idx, @output)
         @mod = Mod.new sys, name, idx
+      end
+
+      def to_s(io)
+        io << mod << '.' << output
       end
     end
 
@@ -71,8 +76,13 @@ class Place::Router::SignalGraph
     struct DeviceInput < Ref
       getter mod : Mod
       getter input : Input
+
       def initialize(sys, name, idx, @input)
         @mod = Mod.new sys, name, idx
+      end
+
+      def to_s(io)
+        io << mod << '.' << input
       end
     end
 
@@ -80,8 +90,13 @@ class Place::Router::SignalGraph
     struct Mute < Ref
       class_getter instance : self { new }
       protected def initialize; end
+
       def id
         0_u64
+      end
+
+      def to_s(io)
+        io << "MUTE"
       end
     end
   end
@@ -138,8 +153,8 @@ class Place::Router::SignalGraph
   def self.build(inputs : Enumerable(Node::DeviceInput), connections : Enumerable({Node::DeviceOutput, Node::DeviceInput}))
     g = Digraph(Node::Label, Edge::Label).new initial_capacity: connections.size * 2
 
-    m = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
-      h[k] = {Set(Input).new, Set(Output).new}
+    m = Hash(Mod, {Set(DeviceInput), Set(DeviceOutput)}).new do |h, k|
+      h[k] = {Set(DeviceInput).new, Set(DeviceOutput).new}
     end
 
     inputs.each do |input|
@@ -148,7 +163,7 @@ class Place::Router::SignalGraph
 
       # Track the input for active edge creation
       i, _ = m[input.mod]
-      i << input.input
+      i << input
     end
 
     connections.each do |src, dst|
@@ -156,7 +171,7 @@ class Place::Router::SignalGraph
       g[src.id] = Node::Label.new
 
       # Ensure the input node was declared
-      unless m[dst.mod].try { |i, _| i.includes? dst.input }
+      g.fetch(dst.id) do
         raise ArgumentError.new "connection to #{dst} declared, but no matching input exists"
       end
 
@@ -165,14 +180,14 @@ class Place::Router::SignalGraph
 
       # Track device outputs for active edge creation
       _, o = m[src.mod]
-      o << src.output
+      o << src
     end
 
     # Insert active edges
     m.each do |mod, (inputs, outputs)|
       puts mod
-      puts inputs
-      puts outputs
+      puts inputs.map &.to_s
+      puts outputs.map &.to_s
 
       if mod.switchable?
         Array.each_product(inputs.to_a, outputs.to_a) do |x|
