@@ -13,82 +13,105 @@ class Place::Router::SignalGraph
 
   alias Output = Node::DeviceOutput
 
-  Mute = Node::Mute.instance
+  private getter g : Digraph(Node::Label, Edge::Label)
 
-  private def initialize(@graph : Digraph(Node::Label, Edge::Label))
-    @graph[Mute.id] = Node::Label.new.tap &.source = Mute.id
+  private def initialize(digraph)
+    @g = digraph
+  end
+
+  # :nodoc:
+  def dot
+    g.to_s
+  end
+
+  # Inserts *node*.
+  protected def insert(node : Node::Ref)
+    g[node.id] = Node::Label.new
+  end
+
+  # Defines a physical connection between two devices.
+  #
+  # *output* and *input* must both already exist within the underlying graph as
+  # signal nodes.
+  protected def connect(output : Node::Ref, input : Node::Ref)
+    g[input.id, output.id] = Edge::Static.instance
+  end
+
+  # Given a *mod* and sets of known *inputs* and *outputs* in use on it, wire up
+  # any active edges between these based on the interfaces available.
+  protected def link(mod : Mod, inputs : Enumerable(Input), outputs : Enumerable(Output))
+    puts mod
+    puts inputs.map &.to_s
+    puts outputs.map &.to_s
+
+    if mod.switchable?
+      inputs.each do |input|
+        outputs.each do |output|
+          func = Edge::Func::Switch.new input.input, output.output
+          g[output.id, input.id] = Edge::Active.new mod, func
+        end
+      end
+    end
+
+    if mod.selectable?
+      if outputs.empty?
+        input = Node::Device.new mod
+      else
+        inputs.each do |input|
+          puts input
+        end
+      end
+    end
+
+    if mod.mutable?
+      outputs.each do |output|
+        #pred = mod.hash
+        #!!! Sink.new ???
+        #g[mod.hash
+      end
+    end
   end
 
   # Construct a graph from a pre-parsed configuration.
   #
-  # *inputs* must contain the list of all device inputs across the system. This
-  # include those at the "edge" of the signal network (e.g. a laptop connected
-  # to a switcher) as well as inputs in use on intermediate device (e.g. a input
-  # on a display, which in turn is attached to the switcher above).
+  # *nodes* must contain the set of all signal nodes that form the device inputs
+  # and ouputs across the system. This includes those at the "edge" of the
+  # signal network (e.g. a input to a switcher) as well as inputs in use on
+  # intermediate device (e.g. a input on a display, which in turn is attached to
+  # the switcher above).
   #
-  # *connections* declares the physical links that exist between devices.
-  def self.build(inputs : Enumerable(Input), connections : Enumerable({Output, Input}))
-    g = Digraph(Node::Label, Edge::Label).new initial_capacity: connections.size * 2
+  # *connections* declares the physical links that exist between these.
+  #
+  # Modules associated with any of these nodes are then introspected for
+  # switching, input selection and mute control based on the interfaces they
+  # expose.
+  def self.build(nodes : Enumerable(Node::Ref), connections : Enumerable({Node::Ref, Node::Ref}))
+    g = new Digraph(Node::Label, Edge::Label).new initial_capacity: nodes.size
 
     m = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
       h[k] = {Set(Input).new, Set(Output).new}
     end
 
-    inputs.each do |input|
-      # Create a node for the device input
-      g[input.id] = Node::Label.new
+    # Create verticies for each signal node
+    nodes.each do |node|
+      g.insert node
 
-      # Track the input for active edge creation
-      i, _ = m[input.mod]
-      i << input
-    end
-
-    connections.each do |src, dst|
-      # Create a node for the device output
-      g[src.id] = Node::Label.new
-
-      # Ensure the input node was declared previously
-      g.fetch(dst.id) do
-        raise ArgumentError.new "connection to #{dst} declared, but no matching input exists"
-      end
-
-      # Insert a static edge for the  physical link
-      g[dst.id, src.id] = Edge::Static.instance
-
-      # Track device output for active edge creation
-      _, o = m[src.mod]
-      o << src
-    end
-
-    # Insert active edges
-    m.each do |mod, (inputs, outputs)|
-      puts mod
-      puts inputs.map &.to_s
-      puts outputs.map &.to_s
-
-      if mod.switchable?
-        Array.each_product(inputs.to_a, outputs.to_a) do |x|
-          puts x
-        end
-      end
-
-      if mod.selectable?
-        inputs.each do |input|
-          puts input
-        end
-      end
-
-      if mod.mutable?
-        outputs.each do |output|
-          #pred = mod.hash
-          #!!! Sink.new ???
-          #g[mod.hash
-        end
+      # Track device IO in use for building active edges
+      i, o = m[node.mod]
+      case node
+      when Input
+        i << node
+      when Output
+        o << node
       end
     end
 
-    puts g
+    # Insert the static edges
+    connections.each { |src, dst| g.connect src, dst }
 
-    new g
+    # Wire up the active edges
+    m.each { |mod, (inputs, outputs)| g.link mod, inputs, outputs }
+
+    g
   end
 end

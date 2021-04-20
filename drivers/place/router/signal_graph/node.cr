@@ -9,18 +9,33 @@ class Place::Router::SignalGraph
     end
 
     abstract struct Ref
+      getter mod : Mod
+
+      def initialize(sys, name, idx)
+        @mod = Mod.new sys, name, idx
+      end
+
       def id
         self.class.hash ^ self.hash
       end
     end
 
+    # Reference to the default / central node for a device
+    struct Device < Ref
+      def initialize(@mod)
+      end
+
+      def to_s(io)
+        io << mod
+      end
+    end
+
     # Reference to a signal output from a device.
     struct DeviceOutput < Ref
-      getter mod : Mod
       getter output : Int32 | String
 
       def initialize(sys, name, idx, @output)
-        @mod = Mod.new sys, name, idx
+        super sys, name, idx
       end
 
       def to_s(io)
@@ -30,11 +45,10 @@ class Place::Router::SignalGraph
 
     # Reference to a signal input to a device.
     struct DeviceInput < Ref
-      getter mod : Mod
       getter input : Int32 | String
 
       def initialize(sys, name, idx, @input)
-        @mod = Mod.new sys, name, idx
+        super sys, name, idx
       end
 
       def to_s(io)
@@ -43,7 +57,7 @@ class Place::Router::SignalGraph
     end
 
     # Virtual node representing (any) mute source
-    struct Mute < Ref
+    struct Mute
       class_getter instance : self { new }
       protected def initialize; end
 
