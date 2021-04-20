@@ -43,10 +43,11 @@ end
 
 # Set of inputs in use
 # NOTE: alias are only used in the local system, no impact here
-ilist = [
+nodes = [
   SignalGraph::Input.new("sys-123", "Display", 1, "hdmi"),
   SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
   SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
+  SignalGraph::Output.new("sys-123", "Switcher", 1, 1),
 ]
 
 clist = [
@@ -55,14 +56,9 @@ clist = [
 
 describe SignalGraph do
   describe ".build" do
-    it "builds from connections" do
-      g = SignalGraph.build ilist, clist
-    end
-
-    it "raises when parsed an invalid config" do
-      expect_raises(ArgumentError) do
-        SignalGraph.build [] of SignalGraph::Input, clist
-      end
+    it "builds from config" do
+      g = SignalGraph.build nodes, clist
+      puts g.dot
     end
   end
 
