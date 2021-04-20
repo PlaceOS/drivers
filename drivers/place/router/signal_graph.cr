@@ -136,7 +136,7 @@ class Place::Router::SignalGraph
   # on a display, which in turn is attached to the switcher above).
   #
   # *connections* declares the physical links that exist between devices.
-  def self.from_io(inputs : Enumerable(Node::DeviceInput), connections : Enumerable({Node::DeviceOutput, Node::DeviceInput}))
+  def self.build(inputs : Enumerable(Node::DeviceInput), connections : Enumerable({Node::DeviceOutput, Node::DeviceInput}))
     g = Digraph(Node::Label, Edge::Label).new initial_capacity: connections.size * 2
 
     m = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
