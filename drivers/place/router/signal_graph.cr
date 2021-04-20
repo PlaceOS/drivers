@@ -10,11 +10,11 @@ require "./digraph"
 class Place::Router::SignalGraph
   # Reference to a PlaceOS module that provides IO nodes within the graph.
   private class Mod
-    getter sys  : String
+    getter sys : String
     getter name : String
-    getter idx  : Int32
+    getter idx : Int32
 
-    getter id   : String
+    getter id : String
 
     def initialize(@sys, @name, @idx)
       id = PlaceOS::Driver::Proxy::System.module_id? sys, name, idx
@@ -22,7 +22,7 @@ class Place::Router::SignalGraph
     end
 
     def metadata
-      PlaceOS::Driver::Proxy::System.driver_metadata?(@id).not_nil!
+      PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
     end
 
     macro finished
@@ -76,6 +76,7 @@ class Place::Router::SignalGraph
 
     class Static
       class_getter instance : Static { Static.new }
+
       protected def initialize; end
     end
 
@@ -110,13 +111,9 @@ class Place::Router::SignalGraph
   # Virtual node representing (any) mute source
   Mute = Node.new.tap &.source = 0
 
-  @graph : Digraph(Node, Edge::Type)
-
-  private def initialize(@graph)
+  private def initialize(@graph : Digraph(Node, Edge::Type))
     @graph[0] = Mute
   end
-
-  private alias IOSets = { Set(Input), Set(Output) }
 
   # Construct a graph from a pre-parsed configuration.
   #
@@ -129,7 +126,9 @@ class Place::Router::SignalGraph
   def self.from_io(inputs : Enumerable(DeviceInput), connections : Enumerable({DeviceOutput, DeviceInput}))
     g = Digraph(Node, Edge::Type).new initial_capacity: connections.size * 2
 
-    m = Hash(Mod, IOSets).new { |h, k| h[k] = {Set(Input).new, Set(Output).new} }
+    m = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
+      h[k] = {Set(Input).new, Set(Output).new}
+    end
 
     inputs.each do |input|
       # Create a node for the device input
