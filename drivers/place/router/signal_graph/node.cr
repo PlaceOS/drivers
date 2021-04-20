@@ -22,6 +22,10 @@ class Place::Router::SignalGraph
 
     # Reference to the default / central node for a device
     struct Device < Ref
+      def initialize(sys, mod, idx)
+        super
+      end
+
       def initialize(@mod)
       end
 

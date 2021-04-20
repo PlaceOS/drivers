@@ -27,6 +27,12 @@ module PlaceOS::Driver
   end
 end
 
+class Place::Router::SignalGraph
+  def dot
+    g.to_s
+  end
+end
+
 # Settings:
 #
 # connections = {
@@ -48,6 +54,8 @@ nodes = [
   SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
   SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
   SignalGraph::Output.new("sys-123", "Switcher", 1, 1),
+  SignalGraph::Device.new("sys-123", "Display", 1),
+  SignalGraph::Device.new("sys-123", "Switcher", 1),
 ]
 
 clist = [
