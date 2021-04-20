@@ -36,11 +36,7 @@ class Place::Router::SignalGraph
     def_equals_and_hash @id
 
     def to_s(io)
-      io << sys
-      io << '/'
-      io << name
-      io << '_'
-      io << idx
+      io << sys << '/' << name << '_'<< idx
     end
   end
 
@@ -50,33 +46,53 @@ class Place::Router::SignalGraph
   # Output reference on a device.
   alias Output = Int32 | String
 
-  # Reference to a signal output from a device.
-  record DeviceOutput, mod : Mod, output : Output do
-    def initialize(sys, name, idx, @output)
-      @mod = Mod.new sys, name, idx
+  module Node
+    class Label
+      property source : UInt64? = nil
+      property locked : Bool = false
     end
-  end
 
-  # Reference to a signal input to a device.
-  record DeviceInput, input : Input, mod : Mod do
-    def initialize(sys, name, idx, @input)
-      @mod = Mod.new sys, name, idx
+    abstract struct Ref
+      def id
+        self.class.hash ^ self.hash
+      end
     end
-  end
 
-  # Node labels containing the metadata to track at each vertex.
-  class Node
-    property source : UInt64? = nil
-    property locked : Bool = false
+    # Reference to a signal output from a device.
+    struct DeviceOutput < Ref
+      getter mod : Mod
+      getter output : Output
+      def initialize(sys, name, idx, @output)
+        @mod = Mod.new sys, name, idx
+      end
+    end
+
+    # Reference to a signal input to a device.
+    struct DeviceInput < Ref
+      getter mod : Mod
+      getter input : Input
+      def initialize(sys, name, idx, @input)
+        @mod = Mod.new sys, name, idx
+      end
+    end
+
+    private struct MuteRef < Ref
+      class_getter instance : self { new }
+      protected def initialize; end
+      def id
+        0_u64
+      end
+    end
+
+    # Virtual node representing (any) mute source
+    Mute = MuteRef.instance
   end
 
   module Edge
-    # Edge label for storing associated behaviour.
-    alias Type = Static | Active
+    alias Label = Static | Active
 
     class Static
-      class_getter instance : Static { Static.new }
-
+      class_getter instance : self { new }
       protected def initialize; end
     end
 
@@ -88,19 +104,19 @@ class Place::Router::SignalGraph
         index : Int32 | String = 0
         # layer : Int32 | String = "AudioVideo"
 
-      record Switch,
+      record Select,
         input : Input
 
-      record Route,
-        input : Input
+      record Switch,
+        input : Input,
         output : Output
         # layer : 
 
       # NOTE: currently not supported. Requires interaction via
       # Proxy::RemoteDriver to support dynamic method execution.
-      #record Custom,
-      #  func : String,
-      #  args : Hash(String, JSON::Any::Type)
+      # record Custom,
+      #   func : String,
+      #   args : Hash(String, JSON::Any::Type)
 
       macro finished
         alias Type = {{ @type.constants.join(" | ").id }}
@@ -108,11 +124,8 @@ class Place::Router::SignalGraph
     end
   end
 
-  # Virtual node representing (any) mute source
-  Mute = Node.new.tap &.source = 0
-
-  private def initialize(@graph : Digraph(Node, Edge::Type))
-    @graph[0] = Mute
+  private def initialize(@graph : Digraph(Node::Label, Edge::Label))
+    @graph[Node::Mute.id] = Node::Label.new.tap &.source = Node::Mute.id
   end
 
   # Construct a graph from a pre-parsed configuration.
@@ -123,8 +136,8 @@ class Place::Router::SignalGraph
   # on a display, which in turn is attached to the switcher above).
   #
   # *connections* declares the physical links that exist between devices.
-  def self.from_io(inputs : Enumerable(DeviceInput), connections : Enumerable({DeviceOutput, DeviceInput}))
-    g = Digraph(Node, Edge::Type).new initial_capacity: connections.size * 2
+  def self.from_io(inputs : Enumerable(Node::DeviceInput), connections : Enumerable({Node::DeviceOutput, Node::DeviceInput}))
+    g = Digraph(Node::Label, Edge::Label).new initial_capacity: connections.size * 2
 
     m = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
       h[k] = {Set(Input).new, Set(Output).new}
@@ -132,8 +145,7 @@ class Place::Router::SignalGraph
 
     inputs.each do |input|
       # Create a node for the device input
-      id = input.hash
-      g[id] = Node.new
+      g[input.id] = Node::Label.new
 
       # Track the input for active edge creation
       i, _ = m[input.mod]
@@ -142,8 +154,7 @@ class Place::Router::SignalGraph
 
     connections.each do |src, dst|
       # Create a node for the device output
-      succ = src.hash
-      g[succ] = Node.new
+      g[src.id] = Node::Label.new
 
       # Ensure the input node was declared
       unless m[dst.mod].try { |i, _| i.includes? dst.input }
@@ -151,8 +162,7 @@ class Place::Router::SignalGraph
       end
 
       # Insert a static edge for the  physical link
-      pred = dst.hash
-      g[pred, succ] = Edge::Static.instance
+      g[dst.id, src.id] = Edge::Static.instance
 
       # Track device outputs for active edge creation
       _, o = m[src.mod]
@@ -179,7 +189,7 @@ class Place::Router::SignalGraph
 
       if mod.mutable?
         outputs.each do |output|
-          pred = mod.hash
+          #pred = mod.hash
           #!!! Sink.new ???
           #g[mod.hash
         end
