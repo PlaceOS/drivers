@@ -59,14 +59,14 @@ clist = [
 ]
 
 describe SignalGraph do
-  describe ".from_io" do
+  describe ".build" do
     it "builds from connections" do
-      g = SignalGraph.from_io ilist, clist
+      g = SignalGraph.build ilist, clist
     end
 
     it "raises when parsed an invalid config" do
       expect_raises(ArgumentError) do
-        SignalGraph.from_io [] of DeviceInput, clist
+        SignalGraph.build [] of DeviceInput, clist
       end
     end
   end
