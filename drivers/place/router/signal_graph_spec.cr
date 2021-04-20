@@ -7,18 +7,21 @@ alias SignalGraph = Place::Router::SignalGraph
 module PlaceOS::Driver
   module Interface
     module Switchable; end
+
     module Selectable; end
+
     module Mutable; end
+
     module InputMutable; end
   end
 
   module Proxy::System
-    def self.module_id?(sys, name, idx)
+    def self.module_id?(sys, name, idx) : String?
       mock_id = {sys, name, idx}.hash
       "mod-#{mock_id}"
     end
 
-    def self.driver_metadata?(id)
+    def self.driver_metadata?(id) : DriverModel::Metadata?
       m = DriverModel::Metadata.new
       m.implements << Interface::Switchable.to_s
       m.implements << Interface::Mutable.to_s
@@ -46,11 +49,11 @@ end
 ilist = [
   SignalGraph::DeviceInput.new("sys-123", "Display", 1, "hdmi"),
   SignalGraph::DeviceInput.new("sys-123", "Switcher", 1, 1),
-  SignalGraph::DeviceInput.new("sys-123", "Switcher", 1, 2)
+  SignalGraph::DeviceInput.new("sys-123", "Switcher", 1, 2),
 ]
 
 clist = [
-  {SignalGraph::DeviceOutput.new("sys-123", "Switcher", 1, 1), SignalGraph::DeviceInput.new("sys-123", "Display", 1, "hdmi")}
+  {SignalGraph::DeviceOutput.new("sys-123", "Switcher", 1, 1), SignalGraph::DeviceInput.new("sys-123", "Display", 1, "hdmi")},
 ]
 
 describe SignalGraph do
