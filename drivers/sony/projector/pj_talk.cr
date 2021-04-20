@@ -79,7 +79,7 @@ class Sony::Projector::PjTalk < PlaceOS::Driver
     end
 
     def self.from_bytes(b : Bytes)
-      Input.from_value((b[0].to_u16 << 8) + b[1])
+      from_value IO::ByteFormat::BigEndian.decode(UInt16, b)
     end
   end
 
