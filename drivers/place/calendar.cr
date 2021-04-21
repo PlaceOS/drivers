@@ -27,6 +27,7 @@ class Place::Calendar < PlaceOS::Driver
       tenant:        "",
       client_id:     "",
       client_secret: "",
+      conference_type: nil,   # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
     },
     rate_limit: 5,
 
@@ -50,6 +51,7 @@ class Place::Calendar < PlaceOS::Driver
     tenant: String,
     client_id: String,
     client_secret: String,
+    conference_type: String | Nil,
   )
 
   @client : PlaceCalendar::Client? = nil
