@@ -150,6 +150,6 @@ class Place::Router::Digraph(N, E)
 
   # Iterates the edge labels that lay along the shortest path between two nodes.
   def edges(from, to) : Iterator(E)?
-    path(from, to).try &.each_cons(2, true).map { |p, s| self[p, s] }
+    path(from, to).try &.each_cons(2, true).map { |(p, s)| self[p, s] }
   end
 end
