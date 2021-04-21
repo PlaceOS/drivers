@@ -21,12 +21,20 @@ class Place::Router::SignalGraph
 
   private def initialize(digraph)
     @g = digraph
-    g[Mute.id] = Node::Label.new.tap &.source = Mute.id
+    insert Mute
   end
 
   # Inserts *node*.
   protected def insert(node : Node::Ref)
     g[node.id] = Node::Label.new
+  end
+
+  # :ditto:
+  protected def insert(node : Node::Mute)
+    mute = Node::Label.new
+    mute.source = Mute.id
+    mute.locked = true
+    g[node.id] = mute
   end
 
   # Defines a physical connection between two devices.
