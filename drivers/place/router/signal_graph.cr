@@ -48,30 +48,19 @@ class Place::Router::SignalGraph
   # Given a *mod* and sets of known *inputs* and *outputs* in use on it, wire up
   # any active edges between these based on the interfaces available.
   protected def link(mod : Mod, inputs : Enumerable(Input), outputs : Enumerable(Output))
-    if mod.switchable?
+    if mod.switchable? && !outputs.empty?
       inputs.each do |input|
         outputs.each do |output|
           func = Edge::Func::Switch.new input.input, output.output
           g[output.id, input.id] = Edge::Active.new mod, func
         end
       end
-    end
 
-    outputs = {Node::Device.new mod} if outputs.empty?
-
-    if mod.selectable?
+    elsif mod.selectable?
       inputs.each do |input|
-        outputs.each do |output|
-          func = Edge::Func::Select.new input.input
-          g[output.id, input.id] = Edge::Active.new mod, func
-        end
-      end
-    end
-
-    if mod.mutable?
-      outputs.each do |output|
-        func = Edge::Func::Mute.new true
-        g[output.id, Mute.id] = Edge::Active.new mod, func
+        output = Node::Device.new mod
+        func = Edge::Func::Select.new input.input
+        g[output.id, input.id] = Edge::Active.new mod, func
       end
     end
   end
