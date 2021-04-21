@@ -267,12 +267,12 @@ class Place::Calendar < PlaceOS::Driver
     event.body = description
     event.timezone = timezone
     event.attendees = attendees
-    event.event_start = Time.unix(event_start)
-    if event_end
-      event.event_end = Time.unix(event_end)
-    else
-      event.all_day = true
-    end
+
+    tz = Time::Location.load(timezone) if timezone
+    event.event_start = timezone ? Time.unix(event_start).in tz.not_nil! : Time.unix(event_start)
+    event.event_end   = timezone ? Time.unix(event_end).in tz.not_nil!   : Time.unix(event_end) if event_end
+    
+    event.all_day = true unless event_end
 
     client &.create_event(user_id, event, calendar_id)
   end
