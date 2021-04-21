@@ -79,32 +79,33 @@ class Place::Router::SignalGraph
   # switching, input selection and mute control based on the interfaces they
   # expose.
   def self.build(nodes : Enumerable(Node::Ref), connections : Enumerable({Node::Ref, Node::Ref}))
-    g = new Digraph(Node::Label, Edge::Label).new initial_capacity: nodes.size
-
-    m = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
+    mod_io = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
       h[k] = {Set(Input).new, Set(Output).new}
     end
 
+    g = Digraph(Node::Label, Edge::Label).new initial_capacity: nodes.size
+    siggraph = new g
+
     # Create verticies for each signal node
     nodes.each do |node|
-      g.insert node
+      siggraph.insert node
 
       # Track device IO in use for building active edges
-      i, o = m[node.mod]
+      inputs, outputs = mod_io[node.mod]
       case node
       when Input
-        i << node
+        inputs << node
       when Output
-        o << node
+        outputs << node
       end
     end
 
     # Insert the static edges
-    connections.each { |src, dst| g.connect src, dst }
+    connections.each { |source, dest| siggraph.connect source, dest }
 
     # Wire up the active edges
-    m.each { |mod, (inputs, outputs)| g.link mod, inputs, outputs }
+    mod_io.each { |mod, (inputs, outputs)| siggraph.link mod, inputs, outputs }
 
-    g
+    siggraph
   end
 end
