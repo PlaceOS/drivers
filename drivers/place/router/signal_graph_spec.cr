@@ -34,7 +34,10 @@ end
 #   Display_1: {
 #     hdmi: "Switcher_1.1"
 #   },
-#   Switcher_1: ["*foo", "*bar"]
+#   Switcher_1: ["*foo", "*bar"],
+#   Display_2: {
+#     hdmi: "*baz"
+#   }
 # }
 #
 # inputs = {
@@ -46,16 +49,28 @@ end
 # NOTE: alias are only used in the local system, no impact here
 nodes = [
   SignalGraph::Input.new("sys-123", "Display", 1, "hdmi"),
+  SignalGraph::Input.new("sys-123", "Display", 2, "hdmi"),
   SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
   SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
   SignalGraph::Output.new("sys-123", "Switcher", 1, 1),
   SignalGraph::Device.new("sys-123", "Display", 1),
+  SignalGraph::Device.new("sys-123", "Display", 2),
   SignalGraph::Device.new("sys-123", "Switcher", 1),
 ]
 
 connections = [
   {SignalGraph::Output.new("sys-123", "Switcher", 1, 1), SignalGraph::Input.new("sys-123", "Display", 1, "hdmi")},
 ]
+
+inputs = {
+  foo: SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
+  bar: SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
+}
+
+outputs = {
+  display: SignalGraph::Device.new("sys-123", "Display", 1),
+  display2: SignalGraph::Device.new("sys-123", "Display", 2),
+}
 
 describe SignalGraph do
   describe ".build" do
@@ -81,10 +96,41 @@ describe SignalGraph do
     end
   end
 
-  pending "#route(input, output)" do
-    g.route "Switcher_1.1", "Display_1"
-    g.route "{1}Switcher_1", "Display_1"
-    g.route "Switcher_1-1", "Display_1"
+  describe "#route" do
+    g = SignalGraph.build nodes, connections
+
+    it "returns nil if no path exists" do
+      path = g.route inputs[:foo], outputs[:display2]
+      path.should be_nil
+    end
+
+    it "provides the path connects a signal source to a destination" do
+      source = inputs[:foo]
+      dest = outputs[:display]
+
+      path = g.route source, dest
+      path = path.not_nil!
+
+      path.each_with_index do |(node, edge, next_node), step|
+        case step
+        when 0
+          node.should eq g[source]
+          edge = edge.as SignalGraph::Edge::Active
+          edge.mod.name.should eq "Switcher"
+          edge.func.should eq SignalGraph::Edge::Func::Switch.new 1, 1
+        when 1
+          edge.should be_a SignalGraph::Edge::Static
+          next_node.should eq g[SignalGraph::Input.new("sys-123", "Display", 1, "hdmi")]
+        when 2
+          edge = edge.as SignalGraph::Edge::Active
+          edge.mod.name.should eq "Display"
+          edge.mod.idx.should eq 1
+          edge.func.should eq SignalGraph::Edge::Func::Select.new "hdmi"
+        when 4
+          fail "path iterator did not terminate"
+        end
+      end
+    end
   end
 
   pending "#inputs" do

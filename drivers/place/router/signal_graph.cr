@@ -118,4 +118,23 @@ class Place::Router::SignalGraph
   def [](node_id)
     g[node_id]
   end
+
+  # Find the signal path that connects *source* to *dest*, or `nil` if this is
+  # not possible.
+  #
+  # Provides an `Iterator` that provides labels across each node, the edge, and
+  # subsequent node.
+  def route(source : Node::Ref, destination : Node::Ref)
+    path = g.path destination.id, source.id, invert: true
+
+    return nil unless path
+
+    path.each_cons(2, true).map do |(succ, pred)|
+      {
+        g[succ],        # source
+        g[pred, succ],  # edge
+        g[pred]         # next node
+      }
+    end
+  end
 end
