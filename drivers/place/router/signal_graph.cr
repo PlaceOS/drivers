@@ -19,9 +19,8 @@ class Place::Router::SignalGraph
 
   private getter g : Digraph(Node::Label, Edge::Label)
 
-  private def initialize(digraph)
-    @g = digraph
-    insert Mute
+  private def initialize(initial_capacity = nil)
+    @g = Digraph(Node::Label, Edge::Label).new initial_capacity
   end
 
   # Inserts *node*.
@@ -83,8 +82,9 @@ class Place::Router::SignalGraph
       h[k] = {Set(Input).new, Set(Output).new}
     end
 
-    g = Digraph(Node::Label, Edge::Label).new initial_capacity: nodes.size
-    siggraph = new g
+    siggraph = new initial_capacity: nodes.size
+
+    siggraph.insert Mute
 
     # Create verticies for each signal node
     nodes.each do |node|
