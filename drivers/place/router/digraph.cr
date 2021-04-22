@@ -129,13 +129,20 @@ class Place::Router::Digraph(N, E)
     nil
   end
 
-  # Iterates the node labels that lay along the shortest path between two nodes.
-  def nodes(from, to) : Iterator(N)?
-    path(from, to).try &.each.map { |id| self[id] }
+  # Provides an `Iterator` for each node ID.
+  #
+  # NOTE: ordering of nodes is _not_ defined.
+  def nodes : Iterator(UInt64)
+    @nodes.each_key
   end
 
-  # Iterates the edge labels that lay along the shortest path between two nodes.
-  def edges(from, to) : Iterator(E)?
-    path(from, to).try &.each_cons(2, true).map { |(p, s)| self[p, s] }
+  # Provides all nodes with an out-degree of zero.
+  def sinks
+    nodes.select { |id| outdegree(id).zero? }
+  end
+
+  # The outgoing edges from *id*.
+  def outdegree(id)
+    node(id).succ.size
   end
 end

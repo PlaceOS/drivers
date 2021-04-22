@@ -81,4 +81,26 @@ describe Digraph do
       g.path(0, 2).should eq([0, 1, 2])
     end
   end
+
+  describe "#nodes" do
+    it "provides a node Iterator" do
+      g = Digraph(String, String).new
+      g[0] = "a"
+      g[1] = "b"
+      g[2] = "c"
+      g.nodes.should be_a(Iterator(UInt64))
+      (g.nodes.to_a - [0, 1, 2]).should be_empty
+    end
+  end
+
+  describe "#outdegree" do
+    it "count outgoing edges" do
+      g = Digraph(String, String).new
+      g[0] = "a"
+      g[1] = "b"
+      g[0, 1] = "ab"
+      g.outdegree(0).should eq(1)
+      g.outdegree(1).should eq(0)
+    end
+  end
 end
