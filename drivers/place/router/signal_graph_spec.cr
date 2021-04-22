@@ -68,6 +68,7 @@ connections = [
 inputs = {
   foo: SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
   bar: SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
+  baz: SignalGraph::Input.new("sys-123", "Display", 2, "hdmi"),
 }
 
 outputs = {
@@ -136,8 +137,12 @@ describe SignalGraph do
     end
   end
 
-  pending "#inputs" do
+  describe "#inputs" do
     it "provides a list of input nodes within the graph" do
+      g = SignalGraph.build nodes, connections
+      expected = inputs.values.map &.id
+      discovered = g.inputs.to_a
+      expected.each { |input| discovered.should contain input }
     end
   end
 

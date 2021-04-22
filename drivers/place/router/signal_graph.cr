@@ -136,4 +136,10 @@ class Place::Router::SignalGraph
       }
     end
   end
+
+  # Provide the signal nodes that form system inputs.
+  def inputs
+    # Graph connectivity is inverse to signal direction, hence sinks here.
+    g.sinks
+  end
 end
