@@ -63,6 +63,7 @@ class Place::Router::SignalGraph
     # Virtual node representing (any) mute source
     struct Mute
       class_getter instance : self { new }
+
       protected def initialize; end
 
       def id
