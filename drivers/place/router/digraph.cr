@@ -36,16 +36,33 @@ class Place::Router::Digraph(N, E)
     io << '}'
   end
 
+  private def node(id)
+    node(id) { raise Error.new "Node #{id} does not exist" }
+  end
+
+  private def node(id, &)
+    id = id.to_u64
+    @nodes.fetch(id) { yield id }
+  end
+
+  private def check_node_exists(id)
+    check_node_exists(id) { raise Error.new "Node #{id} does not exist" }
+  end
+
+  private def check_node_exists(id, &)
+    id = id.to_u64
+    @nodes.has_key?(id) ? id : yield id
+  end
+
   # Retrieves the label attached to node *id*.
   def [](id)
-    fetch(id) { raise Error.new "Node #{id} does not exist" }
+    node(id).attr
   end
 
   # Retrieves the label attached to node *id*. Yields if it does not exist.
   def fetch(id, &) : N
-    id = id.to_u64
-    node = @nodes[id]?
-    node ? node.attr : yield id
+    node = node(id) { |id| return yield id }
+    node.attr
   end
 
   # Insert a new node.
@@ -72,13 +89,8 @@ class Place::Router::Digraph(N, E)
 
   # :ditto:
   def fetch(pred_id, succ_id, &) : E
-    pred_id = pred_id.to_u64
-    succ_id = succ_id.to_u64
-    if pred = @nodes[pred_id]?
-      pred.succ.fetch(succ_id) { yield pred_id, succ_id }
-    else
-      yield pred_id, succ_id
-    end
+    succ_id = check_node_exists succ_id
+    node(pred_id).succ.fetch(succ_id) { yield pred_id, succ_id }
   end
 
   # Inserts an edge.
@@ -90,16 +102,8 @@ class Place::Router::Digraph(N, E)
 
   # :ditto:
   def insert(pred_id, succ_id, attr : E, &)
-    pred_id = pred_id.to_u64
-    succ_id = succ_id.to_u64
-
-    unless @nodes.has_key? succ_id
-      raise Error.new "Node #{succ_id} does not exist"
-    end
-    pred = @nodes.fetch(pred_id) do
-      raise Error.new "Node #{pred_id} does not exist"
-    end
-
+    succ_id = check_node_exists succ_id
+    pred = node pred_id
     if pred.succ.has_key? succ_id
       yield pred_id, succ_id
     else
@@ -110,11 +114,8 @@ class Place::Router::Digraph(N, E)
   # Returns a list of node IDs that form the shortest path between the passed
   # nodes or `nil` if no path exists.
   def path(from, to, invert = false) : Array(UInt64)?
-    from = from.to_u64
-    to = to.to_u64
-
-    raise Error.new "Node #{from} does not exist" unless @nodes.has_key? from
-    raise Error.new "Node #{to} does not exist" unless @nodes.has_key? to
+    from = check_node_exists from
+    to = check_node_exists to
 
     paths = Hash(UInt64, UInt64).new
     queue = Deque(UInt64).new
@@ -122,7 +123,7 @@ class Place::Router::Digraph(N, E)
     # BFS for *to* starting from *from*.
     queue << from
     while pred_id = queue.shift?
-      @nodes[pred_id].succ.each_key do |succ_id|
+      node(pred_id).succ.each_key do |succ_id|
         next if paths.has_key? succ_id
 
         paths[succ_id] = pred_id
