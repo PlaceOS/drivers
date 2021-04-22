@@ -20,7 +20,7 @@ describe Digraph do
     end
 
     it "raises when retrieving if node does not exist" do
-      expect_raises(KeyError) do
+      expect_raises(Digraph::Error) do
         g[123]
       end
     end
@@ -44,7 +44,7 @@ describe Digraph do
     end
 
     it "raises when reading an edge that does not exist" do
-      expect_raises(KeyError) do
+      expect_raises(Digraph::Error) do
         g[1, 0]
       end
     end

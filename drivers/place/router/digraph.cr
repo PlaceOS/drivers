@@ -38,7 +38,7 @@ class Place::Router::Digraph(N, E)
 
   # Retrieves the label attached to node *id*.
   def [](id)
-    fetch(id) { raise KeyError.new "Node #{id} does not exist" }
+    fetch(id) { raise Error.new "Node #{id} does not exist" }
   end
 
   # Retrieves the label attached to node *id*. Yields if it does not exist.
@@ -66,7 +66,7 @@ class Place::Router::Digraph(N, E)
   # Retrieves the label attached to the edge that joins *pred_id* and *succ_id*.
   def [](pred_id, succ_id)
     fetch(pred_id, succ_id) do
-      raise KeyError.new "Edge #{pred_id} -> #{succ_id} does not exist"
+      raise Error.new "Edge #{pred_id} -> #{succ_id} does not exist"
     end
   end
 
@@ -94,10 +94,10 @@ class Place::Router::Digraph(N, E)
     succ_id = succ_id.to_u64
 
     unless @nodes.has_key? succ_id
-      raise KeyError.new "Node #{succ_id} does not exist"
+      raise Error.new "Node #{succ_id} does not exist"
     end
     pred = @nodes.fetch(pred_id) do
-      raise KeyError.new "Node #{pred_id} does not exist"
+      raise Error.new "Node #{pred_id} does not exist"
     end
 
     if pred.succ.has_key? succ_id
