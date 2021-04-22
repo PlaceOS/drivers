@@ -108,4 +108,14 @@ class Place::Router::SignalGraph
 
     siggraph
   end
+
+  # Retrieves the labelled state for *node*.
+  def [](node : Node::Ref)
+    g[node.id]
+  end
+
+  # Retrieves the labelled state for the signal node at *node_id*.
+  def [](node_id)
+    g[node_id]
+  end
 end
