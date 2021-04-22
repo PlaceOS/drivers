@@ -6,6 +6,7 @@ class Place::Router::SignalGraph
 
     class Static
       class_getter instance : self { new }
+
       protected def initialize; end
     end
 
@@ -23,7 +24,7 @@ class Place::Router::SignalGraph
       record Switch,
         input : Int32 | String,
         output : Int32 | String
-        # layer : 
+        # layer :
 
       # NOTE: currently not supported. Requires interaction via
       # Proxy::RemoteDriver to support dynamic method execution.

@@ -54,7 +54,6 @@ class Place::Router::SignalGraph
           g[output.id, input.id] = Edge::Active.new mod, func
         end
       end
-
     elsif mod.selectable?
       inputs.each do |input|
         output = Node::Device.new mod
@@ -131,9 +130,9 @@ class Place::Router::SignalGraph
 
     path.each_cons(2, true).map do |(succ, pred)|
       {
-        g[succ],        # source
-        g[pred, succ],  # edge
-        g[pred]         # next node
+        g[succ],       # source
+        g[pred, succ], # edge
+        g[pred],       # next node
       }
     end
   end

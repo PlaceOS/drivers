@@ -29,7 +29,7 @@ class Place::Router::SignalGraph
     def_equals_and_hash @id
 
     def to_s(io)
-      io << sys << '/' << name << '_'<< idx
+      io << sys << '/' << name << '_' << idx
     end
   end
 end

@@ -7,8 +7,11 @@ alias SignalGraph = Place::Router::SignalGraph
 module PlaceOS::Driver
   module Interface
     module Switchable; end
+
     module Selectable; end
+
     module Mutable; end
+
     module InputMutable; end
   end
 
@@ -68,7 +71,7 @@ inputs = {
 }
 
 outputs = {
-  display: SignalGraph::Device.new("sys-123", "Display", 1),
+  display:  SignalGraph::Device.new("sys-123", "Display", 1),
   display2: SignalGraph::Device.new("sys-123", "Display", 2),
 }
 
