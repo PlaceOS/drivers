@@ -93,7 +93,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     xml_string += %(
           <location>#{@location}</location>) if @location
 
-    password = UUID.random.to_s
     xml_string += %(
           <toDate>#{to_date}</toDate>
           <validDays>1</validDays>
@@ -104,15 +103,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <firstName>#{first_name}</firstName>
           <lastName>#{last_name}</lastName>
           <notificationLanguage>English</notificationLanguage>
-          <password>#{password}</password>
           <phoneNumber>#{phone_number}</phoneNumber>)
 
     xml_string += %(
           <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>) if sms_service_provider
 
-    username = UUID.random.to_s
     xml_string += %(
-          <userName>#{username}</userName>
         </guestInfo>
         <guestType>#{guest_type}</guestType>
         <portalId>#{portal_id}</portalId>
@@ -126,6 +122,22 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
 
-    {"username" => username, "password" => password}.merge(@custom_data)
+    guest_id = response.headers["Location"].split('/').last
+    guest_crendentials(guest_id).merge(@custom_data)
+  end
+
+  def guest_crendentials(id : String)
+    response = get("/guestuser/#{id}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+    parsed_body = XML.parse(response.body)
+    guest_user = parsed_body.first_element_child.not_nil!
+    guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
+    {
+      "username" => guest_info.children.find { |c| c.name == "userName" }.not_nil!.content,
+      "password" => guest_info.children.find { |c| c.name == "password" }.not_nil!.content
+    }
   end
 end
