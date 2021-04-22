@@ -28,12 +28,6 @@ module PlaceOS::Driver
   end
 end
 
-class Place::Router::SignalGraph
-  def dot
-    g.to_s
-  end
-end
-
 # Settings:
 #
 # connections = {
@@ -59,23 +53,31 @@ nodes = [
   SignalGraph::Device.new("sys-123", "Switcher", 1),
 ]
 
-clist = [
+connections = [
   {SignalGraph::Output.new("sys-123", "Switcher", 1, 1), SignalGraph::Input.new("sys-123", "Display", 1, "hdmi")},
 ]
 
 describe SignalGraph do
   describe ".build" do
     it "builds from config" do
-      g = SignalGraph.build nodes, clist
-      puts g.dot
+      SignalGraph.build nodes, connections
     end
   end
 
-  pending "#[]" do
-    it "provides node details" do
+  describe "#[]" do
+    n = SignalGraph::Device.new("sys-123", "Display", 1)
+    g = SignalGraph.build [n], [] of {SignalGraph::Node::Ref, SignalGraph::Node::Ref}
+
+    it "provides node details from a Ref" do
+      g[n].should be_a(SignalGraph::Node::Label)
     end
 
-    it "provides edge details when passed a pair" do
+    it "provides nodes details from an ID" do
+      g[n.id].should be_a(SignalGraph::Node::Label)
+    end
+
+    it "provides the same label for both accessors" do
+      g[n].should eq(g[n.id])
     end
   end
 
