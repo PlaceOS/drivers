@@ -109,7 +109,7 @@ class Place::Router::Digraph(N, E)
 
   # Returns a list of node IDs that form the shortest path between the passed
   # nodes or `nil` if no path exists.
-  def path(from, to) : Array(UInt64)?
+  def path(from, to, invert = false) : Array(UInt64)?
     from = from.to_u64
     to = to.to_u64
 
@@ -133,7 +133,8 @@ class Place::Router::Digraph(N, E)
           until nodes.last == from
             nodes << paths[nodes.last]
           end
-          return nodes.reverse!
+          nodes.reverse! unless invert
+          return nodes
         end
 
         queue << succ_id
