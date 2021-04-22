@@ -20,22 +20,6 @@ class Place::Router::Digraph(N, E)
     @nodes = Hash(UInt64, Node(N, E)).new initial_capacity: initial_capacity
   end
 
-  # Prints the graph connectectivy as DOT.
-  def to_s(io)
-    io << "digraph {\n"
-    @nodes.each do |id, n|
-      io << "  "
-      io << id
-      unless n.succ.empty?
-        io << " -> { "
-        n.succ.keys.join(io, ' ')
-        io << " }"
-      end
-      io << ";\n"
-    end
-    io << '}'
-  end
-
   private def node(id)
     node(id) { raise Error.new "Node #{id} does not exist" }
   end
