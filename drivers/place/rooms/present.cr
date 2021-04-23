@@ -111,6 +111,7 @@ class Place::Rooms::Present < PlaceOS::Driver
   def route(input : String, output : String)
     logger.debug { "Routing #{input} -> #{output}" }
     raise "Cannot route #{input} to #{output}" unless input.in? @outputs[output].inputs
+    system[@outputs[output].mod].power true
     case input
     when "vga"
       switcher.switch_to 1
