@@ -76,8 +76,8 @@ class Place::Rooms::Present < PlaceOS::Driver
   }
 
   @outputs = {
-    "proj" => Output.new("Projector", OutputType::LCD, "Projector_1", ["vga", "hdmi", "doccam"]),
-    "prev" => Output.new("LCD", OutputType::LCD, "Display_1", ["vga", "hdmi", "doccam"]),
+    "proj" => Output.new("Projector", OutputType::LCD, "Projector_1", ["vga", "hdmi", "pc", "doccam"]),
+    "prev" => Output.new("LCD", OutputType::LCD, "Display_1", ["vga", "hdmi", "pc", "doccam"]),
     "lcd1" => Output.new("LCD", OutputType::LCD, "Display_2", ["opc1"]),
     "lcd2" => Output.new("LCD", OutputType::LCD, "Display_3", ["opc2"]),
     "lcd3" => Output.new("LCD", OutputType::LCD, "Display_4", ["opc3"])

@@ -1,5 +1,6 @@
 require "placeos-driver/driver-specs/runner"
 require "placeos-driver/driver-specs/mock_driver"
+require "placeos-driver/task"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
