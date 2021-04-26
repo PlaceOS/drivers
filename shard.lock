@@ -143,7 +143,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.0.9
+    version: 5.0.10
 
   placeos-models:
     git: https://github.com/placeos/models.git
