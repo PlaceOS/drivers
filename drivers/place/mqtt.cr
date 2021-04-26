@@ -88,6 +88,7 @@ class Place::MQTT < PlaceOS::Driver
   end
 
   def ping
+    logger.debug { "sending ping" }
     @mqtt.not_nil!.ping
   end
 
