@@ -1,6 +1,6 @@
 require "mqtt"
 
-DriverSpecs.mock_driver "Place::Pinger" do
+DriverSpecs.mock_driver "Place::MQTT" do
   # ============================
   # CONNECTION
   # ============================
