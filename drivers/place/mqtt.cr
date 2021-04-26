@@ -43,8 +43,15 @@ class Place::MQTT < PlaceOS::Driver
       unsub = existing - @subs
       newsub = @subs - existing
 
-      unsub.each { |sub| client.unsubscribe(sub) }
-      newsub.each { |sub| client.subscribe(sub, &@sub_proc) }
+      unsub.each do |sub|
+        logger.debug { "unsubscribing to #{sub}" }
+        client.unsubscribe(sub)
+      end
+
+      newsub.each do |sub|
+        logger.debug { "subscribing to #{sub}" }
+        client.subscribe(sub, &@sub_proc)
+      end
     end
   end
 
@@ -55,7 +62,10 @@ class Place::MQTT < PlaceOS::Driver
     @mqtt = client
 
     client.connect(@username, @password, @keep_alive, @client_id)
-    @subs.each { |sub| client.subscribe(sub, &@sub_proc) }
+    @subs.each do |sub|
+      logger.debug { "subscribing to #{sub}" }
+      client.subscribe(sub, &@sub_proc)
+    end
   end
 
   def disconnected
@@ -68,6 +78,7 @@ class Place::MQTT < PlaceOS::Driver
   end
 
   def publish(key : String, payload : String) : Nil
+    logger.debug { "publishing payload to #{key}" }
     @mqtt.not_nil!.publish(key, payload)
     nil
   end
