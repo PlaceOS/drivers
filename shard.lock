@@ -97,6 +97,10 @@ shards:
     git: https://github.com/luckyframework/lucky_router.git
     version: 0.4.1
 
+  mqtt:
+    git: https://github.com/spider-gazelle/crystal-mqtt.git
+    version: 1.1.1
+
   murmur3:
     git: https://github.com/aca-labs/murmur3.git
     version: 0.1.1+git.commit.7cbe25c0ca8d052c9d98c377c824dcb0e038c790
