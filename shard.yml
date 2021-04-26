@@ -71,3 +71,7 @@ dependencies:
   # the STOMP protocol
   stomp:
     github: spider-gazelle/stomp
+
+  # MQTT protocol
+  mqtt:
+    github: spider-gazelle/crystal-mqtt
