@@ -2,7 +2,7 @@
 version: 2.0
 shards:
   CrystalEmail:
-    git: https://github.com/Nephos/CrystalEmail.git
+    git: https://github.com/nephos/crystalemail.git
     version: 0.2.4
 
   action-controller:
@@ -31,15 +31,15 @@ shards:
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
-    version: 0.3.0
+    version: 0.4.0
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
     version: 0.10.1
 
   debug:
-    git: https://github.com/Sija/debug.cr.git
-    version: 2.0.0
+    git: https://github.com/sija/debug.cr.git
+    version: 2.0.1
 
   email:
     git: https://github.com/arcage/crystal-email.git
@@ -47,7 +47,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.1.2
+    version: 1.2.4
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -58,7 +58,7 @@ shards:
     version: 0.1.0
 
   google:
-    git: https://github.com/PlaceOS/google.git
+    git: https://github.com/placeos/google.git
     version: 3.0.0
 
   habitat:
@@ -67,14 +67,14 @@ shards:
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
-    version: 2.6.1
+    version: 2.9.0
 
   http-params-serializable:
     git: https://github.com/caspiano/http-params-serializable.git
     version: 0.4.1+git.commit.c87119117af3d2db11af22ad799ccf77072e6a8b
 
   ipaddress:
-    git: https://github.com/Sija/ipaddress.cr.git
+    git: https://github.com/sija/ipaddress.cr.git
     version: 0.2.1
 
   json_mapping:
@@ -110,7 +110,7 @@ shards:
     version: 1.0.1
 
   office365:
-    git: https://github.com/PlaceOS/office365.git
+    git: https://github.com/placeos/office365.git
     version: 1.13.2
 
   openssl_ext:
@@ -126,7 +126,7 @@ shards:
     version: 1.1.1
 
   place_calendar:
-    git: https://github.com/PlaceOS/calendar.git
+    git: https://github.com/placeos/calendar.git
     version: 4.9.3
 
   placeos:
@@ -139,7 +139,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.0.4
+    version: 5.0.8
 
   placeos-models:
     git: https://github.com/placeos/models.git
@@ -147,7 +147,7 @@ shards:
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
-    version: 0.2.3
+    version: 0.2.4
 
   priority-queue:
     git: https://github.com/spider-gazelle/priority-queue.git
@@ -232,3 +232,4 @@ shards:
   yaml_mapping:
     git: https://github.com/crystal-lang/yaml_mapping.cr.git
     version: 0.1.0
+
