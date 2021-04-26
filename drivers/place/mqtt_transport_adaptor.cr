@@ -17,7 +17,7 @@ class Place::TransportAdaptor < MQTT::Transport
   end
 
   def send(message) : Nil
-    @driver.send(message.to_slice)
+    @driver.send(message)
   end
 
   def process(data : Bytes)

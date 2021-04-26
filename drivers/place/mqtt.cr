@@ -39,6 +39,9 @@ class Place::MQTT < PlaceOS::Driver
     existing = @subs
     @subs = setting?(Array(String), :subscriptions) || [] of String
 
+    schedule.clear
+    schedule.every((@keep_alive // 3).seconds) { ping }
+
     if client = @mqtt
       unsub = existing - @subs
       newsub = @subs - existing
@@ -61,6 +64,7 @@ class Place::MQTT < PlaceOS::Driver
     @transport = transp
     @mqtt = client
 
+    logger.debug { "sending connect message" }
     client.connect(@username, @password, @keep_alive, @client_id)
     @subs.each do |sub|
       logger.debug { "subscribing to #{sub}" }
@@ -83,8 +87,12 @@ class Place::MQTT < PlaceOS::Driver
     nil
   end
 
+  def ping
+    @mqtt.not_nil!.ping
+  end
+
   def received(data, task)
-    logger.debug { "received: 0x#{data.hexstring}" }
+    logger.debug { "received #{data.size} bytes: 0x#{data.hexstring}" }
     @transport.try &.process(data)
     task.try &.success
   end
