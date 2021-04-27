@@ -146,8 +146,12 @@ describe SignalGraph do
     end
   end
 
-  pending "#inputs(output)" do
+  describe "#inputs(destination)" do
     it "provides a list of inputs nodes accessible to an output" do
+      g = SignalGraph.build nodes, connections
+      reachable = g.inputs outputs[:display]
+      expected = {inputs[:foo], inputs[:bar]}.map &.id
+      expected.each { |input| reachable.should contain input }
     end
   end
 

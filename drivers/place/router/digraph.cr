@@ -95,38 +95,52 @@ class Place::Router::Digraph(N, E)
     end
   end
 
+  # Perform a breadth first search across the graph, starting at *from*.
+  #
+  # Each node id is yielded as it's traversed. The search will terminate when
+  # this block returns true. If `nil` is returned the node is skipped, but the
+  # traversal continues.
+  #
+  # Results are provides as a Hash that includes all reaches nodes as the keys,
+  # and their predecessor as the associated value.
+  def bfs(from, & : UInt64 -> Bool?)
+    paths = Hash(UInt64, UInt64).new
+    queue = Deque(UInt64).new 1, from
+
+    while pred_id = queue.shift?
+      node(pred_id).succ.each_key do |succ_id|
+        # Already visited
+        next if paths.has_key? succ_id
+
+        done = yield succ_id
+
+        next if done.nil?
+
+        paths[succ_id] = pred_id
+
+        return paths if done
+
+        queue << succ_id
+      end
+    end
+  end
+
   # Returns a list of node IDs that form the shortest path between the passed
   # nodes or `nil` if no path exists.
   def path(from, to, invert = false) : Array(UInt64)?
     from = check_node_exists from
     to = check_node_exists to
 
-    paths = Hash(UInt64, UInt64).new
-    queue = Deque(UInt64).new
+    paths = bfs from, &.== to
+    return if paths.nil?
 
-    # BFS for *to* starting from *from*.
-    queue << from
-    while pred_id = queue.shift?
-      node(pred_id).succ.each_key do |succ_id|
-        next if paths.has_key? succ_id
-
-        paths[succ_id] = pred_id
-
-        if succ_id == to
-          # Unwind the path captured in the hash.
-          nodes = [succ_id]
-          until nodes.last == from
-            nodes << paths[nodes.last]
-          end
-          nodes.reverse! unless invert
-          return nodes
-        end
-
-        queue << succ_id
-      end
+    # Unwind the path captured in the hash.
+    nodes = [to]
+    until nodes.last == from
+      nodes << paths[nodes.last]
     end
 
-    nil
+    invert ? nodes : nodes.reverse!
   end
 
   # Provides an `Iterator` for each node ID.
@@ -144,5 +158,39 @@ class Place::Router::Digraph(N, E)
   # The outgoing edges from *id*.
   def outdegree(id)
     node(id).succ.size
+  end
+
+  # Provides an `Iterator` for each node reachable from *id*.
+  def subtree(id) : Iterator(UInt64)
+    id = check_node_exists id
+    SubtreeIterator.new self, id
+  end
+
+  private class SubtreeIterator
+    include Iterator(UInt64)
+
+    @ch = Channel(UInt64).new
+
+    def initialize(g, id)
+      spawn(same_thread: true) do
+        g.bfs id do |node|
+          begin
+            @ch.send node
+            false
+          rescue Channel::ClosedError
+            true
+          end
+        end
+        @ch.close unless @ch.closed?
+      end
+    end
+
+    def finalize
+      @ch.close unless @ch.closed?
+    end
+
+    def next
+      @ch.receive? || stop
+    end
   end
 end
