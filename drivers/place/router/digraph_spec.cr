@@ -94,13 +94,44 @@ describe Digraph do
   end
 
   describe "#outdegree" do
-    it "count outgoing edges" do
+    it "counts outgoing edges" do
       g = Digraph(String, String).new
       g[0] = "a"
       g[1] = "b"
       g[0, 1] = "ab"
       g.outdegree(0).should eq(1)
       g.outdegree(1).should eq(0)
+    end
+  end
+
+  describe "#subtree" do
+    g = Digraph(String, String).new
+    g[0] = "a"
+    g[1] = "b"
+    g[2] = "c"
+    g[0, 1] = "ab"
+    g[1, 2] = "bc"
+    g[3] = "x"
+
+    it "provides the results as an iterator" do
+      g.subtree(0).should be_a(Iterator(UInt64))
+    end
+
+    it "returns all reachable nodes" do
+      reachable = g.subtree(0).to_a
+      expected = [1, 2]
+      (expected - reachable).should be_empty
+    end
+
+    it "does not return disconnected nodes" do
+      reachable = g.subtree(0).to_a
+      reachable.should_not contain(3_u64)
+    end
+
+    it "traverses lazilly" do
+      reachable = g.subtree 0
+      g[2, 3] = "cx"
+      reachable.should contain(3_u64)
     end
   end
 end

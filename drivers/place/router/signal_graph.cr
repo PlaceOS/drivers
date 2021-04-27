@@ -142,4 +142,9 @@ class Place::Router::SignalGraph
     # Graph connectivity is inverse to signal direction, hence sinks here.
     g.sinks
   end
+
+  # Provide all signal nodes that can be routed to *destination*.
+  def inputs(destination : Node::Ref)
+    g.subtree(destination.id).to_a
+  end
 end
