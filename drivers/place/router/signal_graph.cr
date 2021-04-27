@@ -145,6 +145,6 @@ class Place::Router::SignalGraph
 
   # Provide all signal nodes that can be routed to *destination*.
   def inputs(destination : Node::Ref)
-    g.subtree(destination.id).to_a
+    g.subtree(destination.id)
   end
 end
