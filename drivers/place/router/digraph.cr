@@ -127,7 +127,7 @@ class Place::Router::Digraph(N, E)
 
   # Returns a list of node IDs that form the shortest path between the passed
   # nodes or `nil` if no path exists.
-  def path(from, to, invert = false) : Array(UInt64)?
+  def path(from, to, invert = false) : Enumerable(UInt64)?
     from = check_node_exists from
     to = check_node_exists to
 
@@ -143,15 +143,15 @@ class Place::Router::Digraph(N, E)
     invert ? nodes : nodes.reverse!
   end
 
-  # Provides an `Iterator` for each node ID.
+  # Provides all nodes present within the graph.
   #
   # NOTE: ordering of nodes is _not_ defined.
-  def nodes : Iterator(UInt64)
+  def nodes : Enumerable(UInt64)
     @nodes.each_key
   end
 
   # Provides all nodes with an out-degree of zero.
-  def sinks
+  def sinks : Enumerable(UInt64)
     nodes.select { |id| outdegree(id).zero? }
   end
 
@@ -160,8 +160,8 @@ class Place::Router::Digraph(N, E)
     node(id).succ.size
   end
 
-  # Provides an `Iterator` for each node reachable from *id*.
-  def subtree(id) : Iterator(UInt64)
+  # Provides all nodes reachable from *id*.
+  def subtree(id) : Enumerable(UInt64)
     id = check_node_exists id
     SubtreeIterator.new self, id
   end

@@ -83,12 +83,11 @@ describe Digraph do
   end
 
   describe "#nodes" do
-    it "provides a node Iterator" do
+    it "provides all nodes" do
       g = Digraph(String, String).new
       g[0] = "a"
       g[1] = "b"
       g[2] = "c"
-      g.nodes.should be_a(Iterator(UInt64))
       (g.nodes.to_a - [0, 1, 2]).should be_empty
     end
   end
@@ -113,10 +112,6 @@ describe Digraph do
     g[1, 2] = "bc"
     g[3] = "x"
 
-    it "provides the results as an iterator" do
-      g.subtree(0).should be_a(Iterator(UInt64))
-    end
-
     it "returns all reachable nodes" do
       reachable = g.subtree(0).to_a
       expected = [1, 2]
@@ -124,7 +119,7 @@ describe Digraph do
     end
 
     it "does not return disconnected nodes" do
-      reachable = g.subtree(0).to_a
+      reachable = g.subtree(0)
       reachable.should_not contain(3_u64)
     end
 
