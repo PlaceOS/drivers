@@ -107,8 +107,8 @@ class XYSense::LocationService < PlaceOS::Driver
       # Subscribe to new data
       (desired - existing).each { |floor_id|
         zone_id = monitor[floor_id]
-        @floor_subscriptions[floor_id] = xy_sense.subscribe(floor_id) do |_sub, payload|
-          level_state_change(zone_id, Array(Occupancy).from_json(payload))
+        @floor_subscriptions[floor_id] = xy_sense.subscribe(floor_id) do |_sub, message|
+          level_state_change(zone_id, Array(Occupancy).from_json(message))
         end
       }
     end
