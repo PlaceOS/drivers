@@ -108,6 +108,17 @@ describe Digraph do
     end
   end
 
+  describe "#indegree" do
+    it "counts incoming edges" do
+      g = Digraph(String, String).new
+      g[0] = "a"
+      g[1] = "b"
+      g[0, 1] = "ab"
+      g.indegree(0).should eq(0)
+      g.indegree(1).should eq(1)
+    end
+  end
+
   describe "#subtree" do
     g = Digraph(String, String).new
     g[0] = "a"
