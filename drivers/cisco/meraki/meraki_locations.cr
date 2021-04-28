@@ -428,7 +428,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         map_height = (mappings["height"]? || map_width).as(Float64)
       end
 
-      locations.map do |loc|
+      locations.compact_map do |loc|
         lat = loc.lat
         lon = loc.lng
 
@@ -437,6 +437,12 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
           manufacturer = client.manufacturer
           os = client.os
           ssid = client.ssid
+        end
+
+        # Skip payloads with invalid coordinates
+        if loc.x.nan? || loc.y.nan?
+          logger.warn { "ignoring bad location for #{loc.mac}" }
+          next
         end
 
         {
