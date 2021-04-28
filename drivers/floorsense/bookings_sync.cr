@@ -493,8 +493,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day
 
     raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get.to_json
-    Hash(String, Array(BookingStatus)).from_json(raw_bookings).each do |desk_id, bookings|
-      current << bookings.first if bookings.size > 0
+    Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
+      current << bookings.first unless bookings.empty?
     end
     current
   end

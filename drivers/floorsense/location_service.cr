@@ -106,8 +106,8 @@ class Floorsense::LocationService < PlaceOS::Driver
 
     if @include_bookings
       raw_bookings = floorsense.bookings(plan_id).get.to_json
-      Hash(String, Array(BookingStatus)).from_json(raw_bookings).each do |desk_id, bookings|
-        current << bookings.first if bookings.size > 0
+      Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
+        current << bookings.first unless bookings.empty?
       end
     end
 
