@@ -252,6 +252,7 @@ class Place::Calendar < PlaceOS::Driver
     event_end : Int64? = nil,
     description : String = "",
     attendees : Array(PlaceCalendar::Event::Attendee) = [] of PlaceCalendar::Event::Attendee,
+    location : String? = nil,
     timezone : String? = nil,
     user_id : String? = nil,
     calendar_id : String? = nil
@@ -265,6 +266,7 @@ class Place::Calendar < PlaceOS::Driver
     event.host = calendar_id
     event.title = title
     event.body = description
+    event.location = location
     event.timezone = timezone
     event.attendees = attendees
 
