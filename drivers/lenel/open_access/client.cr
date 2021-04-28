@@ -21,11 +21,10 @@ class Lenel::OpenAccess::Client
   def initialize(@transport, @app_id)
     transport.before_request do |req|
       req.headers["Application-Id"] = app_id
-      req.headers["Content-Type"]   = "application/json"
-      req.headers["Session-Token"]  = token.not_nil! unless token.nil?
+      req.headers["Content-Type"] = "application/json"
+      req.headers["Session-Token"] = token.not_nil! unless token.nil?
     end
   end
-
 
   Responsible.on_server_error do |response|
     raise OpenAccess::Error.from_response response
@@ -34,7 +33,6 @@ class Lenel::OpenAccess::Client
   Responsible.on_client_error do |response|
     raise OpenAccess::Error.from_response response
   end
-
 
   # Gets the version of the attached OnGuard system.
   def version
@@ -53,12 +51,7 @@ class Lenel::OpenAccess::Client
     ) >> NamedTuple(
       total_items: Int32,
       item_list: Array(NamedTuple(
-        property_value_map: {
-          ID: String,
-          Name: String,
-          directory_type: Int32,
-        }
-      )),
+        property_value_map: {ID: String, Name: String, directory_type: Int32})),
     ))[:item_list].map { |item| item[:property_value_map] }
   end
 
@@ -66,7 +59,7 @@ class Lenel::OpenAccess::Client
   def login(
     username user_name : String,
     password : String,
-    directory_id : String?,
+    directory_id : String?
   )
     ~transport.post(
       path: "/authentication?version=1.0",
@@ -102,8 +95,8 @@ class Lenel::OpenAccess::Client
     ~transport.post(
       path: "/instances?version=1.0",
       body: {
-        type_name: T.type_name,
-        property_value_map: T.partial(**props)
+        type_name:          T.type_name,
+        property_value_map: T.partial(**props),
       }.to_json
     ) >> Models::Untyped
   end
@@ -120,7 +113,7 @@ class Lenel::OpenAccess::Client
     filter : String? = nil,
     page_number : Int32? = nil,
     page_size : Int32? = nil,
-    order_by : String? = nil,
+    order_by : String? = nil
   ) : Array(T) forall T
     params = HTTP::Params.new
     args.merge(type_name: T.type_name).each do |key, val|
@@ -146,8 +139,7 @@ class Lenel::OpenAccess::Client
     (~transport.get(
       path: "/count?version=1.0&#{params}"
     ) >> NamedTuple(
-      total_items: Int32
-    ))[:total_items]
+      total_items: Int32))[:total_items]
   end
 
   # Updates a record of *entity*. Passed properties must include the types key and
@@ -156,8 +148,8 @@ class Lenel::OpenAccess::Client
     ~transport.put(
       path: "/instances?version=1.0",
       body: {
-        type_name: T.type_name,
-        property_value_map: T.partial(**props)
+        type_name:          T.type_name,
+        property_value_map: T.partial(**props),
       }.to_json
     ) >> T
   end
@@ -167,8 +159,8 @@ class Lenel::OpenAccess::Client
     ~transport.delete(
       path: "/instances?version=1.0",
       body: {
-        type_name: T.type_name,
-        property_value_map: T.partial(**props)
+        type_name:          T.type_name,
+        property_value_map: T.partial(**props),
       }.to_json
     )
   end
