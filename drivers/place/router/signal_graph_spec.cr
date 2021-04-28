@@ -155,8 +155,12 @@ describe SignalGraph do
     end
   end
 
-  pending "#outputs" do
+  describe "#outputs" do
     it "list the output nodes present in the graph" do
+      g = SignalGraph.build nodes, connections
+      expected = outputs.values.map &.id
+      discovered = g.outputs.to_a
+      expected.each { |output| discovered.should contain output }
     end
   end
 

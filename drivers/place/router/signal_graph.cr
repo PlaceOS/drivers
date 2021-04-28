@@ -147,4 +147,9 @@ class Place::Router::SignalGraph
   def inputs(destination : Node::Ref)
     g.subtree(destination.id)
   end
+
+  # Provide the signal nodes that form system outputs.
+  def outputs
+    g.sources
+  end
 end

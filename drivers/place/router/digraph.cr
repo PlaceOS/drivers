@@ -155,9 +155,27 @@ class Place::Router::Digraph(N, E)
     nodes.select { |id| outdegree(id).zero? }
   end
 
+  # Provides all nodes with an in-degree of zero.
+  #
+  # OPTIMIZE: this is _very_ slow [O(V * E)], but works for testing purposes.
+  # Switching the sparse matrix should assist so not worth optimising for this
+  # setup.
+  def sources : Enumerable(UInt64)
+    nodes.select { |id| indegree(id).zero? }
+  end
+
   # The outgoing edges from *id*.
   def outdegree(id)
     node(id).succ.size
+  end
+
+  # The number of incomming edges to *id*.
+  def indegree(id)
+    id = check_node_exists id
+    @nodes.reduce(0) do |count, (_, node)|
+      count += 1 if node.succ.has_key? id
+      count
+    end
   end
 
   # Provides all nodes reachable from *id*.
