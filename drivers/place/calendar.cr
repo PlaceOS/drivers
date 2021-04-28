@@ -23,11 +23,11 @@ class Place::Calendar < PlaceOS::Driver
       signing_key: "PEM encoded private key",
     },
     calendar_config_office: {
-      _note_:        "rename to 'calendar_config' for use",
-      tenant:        "",
-      client_id:     "",
-      client_secret: "",
-      conference_type: nil,   # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
+      _note_:          "rename to 'calendar_config' for use",
+      tenant:          "",
+      client_id:       "",
+      client_secret:   "",
+      conference_type: nil, # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
     },
     rate_limit: 5,
 
@@ -270,8 +270,8 @@ class Place::Calendar < PlaceOS::Driver
 
     tz = Time::Location.load(timezone) if timezone
     event.event_start = timezone ? Time.unix(event_start).in tz.not_nil! : Time.unix(event_start)
-    event.event_end   = timezone ? Time.unix(event_end).in tz.not_nil!   : Time.unix(event_end) if event_end
-    
+    event.event_end = timezone ? Time.unix(event_end).in tz.not_nil! : Time.unix(event_end) if event_end
+
     event.all_day = true unless event_end
 
     client &.create_event(user_id, event, calendar_id)
