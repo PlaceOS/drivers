@@ -440,8 +440,18 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         end
 
         # Skip payloads with invalid coordinates
-        if loc.x.nan? || loc.y.nan?
-          logger.warn { "ignoring bad location for #{loc.mac}" }
+        if (x = loc.x) && (y = loc.y)
+          if x.is_a?(Float64) && y.is_a?(Float64)
+            if loc.x.as(Float64).nan? || loc.y.as(Float64).nan?
+              logger.warn { "ignoring bad location for #{loc.mac}, NaN" }
+              next
+            end
+          else
+            logger.warn { "ignoring bad location for #{loc.mac}, unexpected value #{loc.x.inspect}" }
+            next
+          end
+        else
+          logger.warn { "ignoring bad location for #{loc.mac}, no coordinates provided" }
           next
         end
 
