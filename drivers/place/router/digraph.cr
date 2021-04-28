@@ -101,7 +101,7 @@ class Place::Router::Digraph(N, E)
   # this block returns true. If `nil` is returned the node is skipped, but the
   # traversal continues.
   #
-  # Results are provides as a Hash that includes all reaches nodes as the keys,
+  # Results are provided as a Hash that includes all reached nodes as the keys,
   # and their predecessor as the associated value.
   def bfs(from, & : UInt64 -> Bool?)
     paths = Hash(UInt64, UInt64).new
