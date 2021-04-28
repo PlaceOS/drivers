@@ -4,15 +4,16 @@ require "./digraph"
 alias Digraph = Place::Router::Digraph
 
 describe Digraph do
-  g = Digraph(String, String).new
 
   describe "node insertion / retrieval" do
     it "inserts a node with the specified ID" do
+      g = Digraph(String, String).new
       g[42] = "foo"
       g[42].should eq("foo")
     end
 
     it "raises when inserting on ID conflict" do
+      g = Digraph(String, String).new
       expect_raises(Digraph::Error) do
         g[42] = "foo"
         g[42] = "bar"
@@ -20,6 +21,7 @@ describe Digraph do
     end
 
     it "raises when retrieving if node does not exist" do
+      g = Digraph(String, String).new
       expect_raises(Digraph::Error) do
         g[123]
       end
@@ -28,6 +30,7 @@ describe Digraph do
 
   describe "edge insertion / retrieval" do
     it "inserts between the specified IDs" do
+      g = Digraph(String, String).new
       g[0] = "foo"
       g[1] = "bar"
       g[0, 1] = "foobar"
@@ -35,6 +38,7 @@ describe Digraph do
     end
 
     it "raises if setting an edge that already exists" do
+      g = Digraph(String, String).new
       expect_raises(Digraph::Error) do
         g.insert(0, "foo") { }
         g.insert(1, "bar") { }
@@ -44,6 +48,7 @@ describe Digraph do
     end
 
     it "raises when reading an edge that does not exist" do
+      g = Digraph(String, String).new
       expect_raises(Digraph::Error) do
         g[1, 0]
       end
