@@ -73,7 +73,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
     logger.debug { "polling bookings #{@venue_code}, from #{from}, to #{to}, in #{@time_zone.name}" }
     if random_delay
       logger.debug { "random delay of <30seconds to reduce instantaneous Mulesoft API load" }
-      sleep Random.rand(30.0) 
+      sleep Random.rand(30.0)
     end
     query_bookings(@venue_code, from, to)
 
@@ -126,7 +126,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
     params = {
       "startDateTime" => starts_at.to_s("%FT%T"),
       "endDateTime"   => ends_at.to_s("%FT%T"),
-    }.map { |k, v| "#{k}=#{v}" }.join("&")
+    }.join('&') { |k, v| "#{k}=#{v}" }
 
     headers = HTTP::Headers{
       "Content-Type" => "application/json",

@@ -15,7 +15,7 @@ DriverSpecs.mock_driver "MuleSoft::API" do
 
   resp = exec(:query_bookings, "A14.02.K2.05")
 
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     starts_at = Time.local - 30.minutes
     ends_at = starts_at + 1.hour
 

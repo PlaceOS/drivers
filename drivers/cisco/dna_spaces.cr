@@ -409,7 +409,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
             location
           end
         end
-      }.sort { |a, b|
+      }.sort! { |a, b|
         b.last_seen <=> a.last_seen
       }.map { |location|
         lat = location.latitude
@@ -438,7 +438,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
         offset_y = 0.0
 
         # Add our zone IDs to the response
-        location.location_mappings.each do |tag, location_id|
+        location.location_mappings.each_value do |location_id|
           if level_data = @floorplan_mappings[location_id]?
             level_data.each do |key, value|
               case key
@@ -545,7 +545,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
       offset_y = 0.0
 
       # any adjustments required for these locations?
-      locations.first.location_mappings.each do |tag, location_id|
+      locations.first.location_mappings.each_value do |location_id|
         if level_data = adjustments[location_id]?
           offset_x, offset_y, map_width, map_height = level_data
           break

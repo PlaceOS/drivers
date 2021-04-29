@@ -57,7 +57,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   # Perform fetch with the required API request limits in place
   @[Security(PlaceOS::Driver::Level::Support)]
   def fetch(location : String)
-    req(location) { |response| response.body }
+    req(location, &.body)
   end
 
   protected def req(location : String)

@@ -3,6 +3,7 @@ require "http/params"
 require "responsible"
 require "uri"
 require "inactive-support/macro/args"
+
 require "./models"
 require "./error"
 
@@ -21,11 +22,10 @@ class Lenel::OpenAccess::Client
   def initialize(@transport, @app_id)
     transport.before_request do |req|
       req.headers["Application-Id"] = app_id
-      req.headers["Content-Type"]   = "application/json"
-      req.headers["Session-Token"]  = token.not_nil! unless token.nil?
+      req.headers["Content-Type"] = "application/json"
+      req.headers["Session-Token"] = token.not_nil! unless token.nil?
     end
   end
-
 
   Responsible.on_server_error do |response|
     raise OpenAccess::Error.from_response response
@@ -35,46 +35,39 @@ class Lenel::OpenAccess::Client
     raise OpenAccess::Error.from_response response
   end
 
-
   # Gets the version of the attached OnGuard system.
   def version
     ~transport.get(
       path: "/version?version=1.0",
-    ) >> NamedTuple(
-      product_name: String,
+    ) >> {
+      product_name:    String,
       product_version: String,
-    )
+    }
   end
 
   # Enumerates the directories available for auth.
   def directories
     (~transport.get(
-      path: "/directories?version=1.0",
-    ) >> NamedTuple(
+      path: "/directories?version=1.0"
+    ) >> {
       total_items: Int32,
-      item_list: Array(NamedTuple(
-        property_value_map: {
-          ID: String,
-          Name: String,
-          directory_type: Int32,
-        }
-      )),
-    ))[:item_list].map { |item| item[:property_value_map] }
+      item_list:   Array({property_value_map: {ID: String, Name: String, directory_type: Int32}}),
+    })[:item_list].map { |item| item[:property_value_map] }
   end
 
   # Creates a new auth session.
   def login(
     username user_name : String,
     password : String,
-    directory_id : String?,
+    directory_id : String?
   )
     ~transport.post(
       path: "/authentication?version=1.0",
       body: args.to_h.compact.to_json,
-    ) >> NamedTuple(
-      session_token: String,
+    ) >> {
+      session_token:         String,
       token_expiration_time: Time,
-    )
+    }
   end
 
   # Removes an auth session.
@@ -102,8 +95,8 @@ class Lenel::OpenAccess::Client
     ~transport.post(
       path: "/instances?version=1.0",
       body: {
-        type_name: T.type_name,
-        property_value_map: T.partial(**props)
+        type_name:          T.type_name,
+        property_value_map: T.partial(**props),
       }.to_json
     ) >> Models::Untyped
   end
@@ -120,7 +113,7 @@ class Lenel::OpenAccess::Client
     filter : String? = nil,
     page_number : Int32? = nil,
     page_size : Int32? = nil,
-    order_by : String? = nil,
+    order_by : String? = nil
   ) : Array(T) forall T
     params = HTTP::Params.new
     args.merge(type_name: T.type_name).each do |key, val|
@@ -128,14 +121,14 @@ class Lenel::OpenAccess::Client
     end
     (~transport.get(
       path: "/instances?version=1.0&#{params}",
-    ) >> NamedTuple(
+    ) >> {
       page_number: Int32?,
-      page_size: Int32?,
+      page_size:   Int32?,
       total_pages: Int32,
       total_items: Int32,
-      count: Int32,
-      item_list: Array(T),
-    ))[:item_list]
+      count:       Int32,
+      item_list:   Array(T),
+    })[:item_list]
   end
 
   # Counts the number of instances of *entity*.
@@ -145,9 +138,7 @@ class Lenel::OpenAccess::Client
     params = HTTP::Params.encode args.merge type_name: T.type_name
     (~transport.get(
       path: "/count?version=1.0&#{params}"
-    ) >> NamedTuple(
-      total_items: Int32
-    ))[:total_items]
+    ) >> {total_items: Int32})[:total_items]
   end
 
   # Updates a record of *entity*. Passed properties must include the types key and
@@ -156,8 +147,8 @@ class Lenel::OpenAccess::Client
     ~transport.put(
       path: "/instances?version=1.0",
       body: {
-        type_name: T.type_name,
-        property_value_map: T.partial(**props)
+        type_name:          T.type_name,
+        property_value_map: T.partial(**props),
       }.to_json
     ) >> T
   end
@@ -167,8 +158,8 @@ class Lenel::OpenAccess::Client
     ~transport.delete(
       path: "/instances?version=1.0",
       body: {
-        type_name: T.type_name,
-        property_value_map: T.partial(**props)
+        type_name:          T.type_name,
+        property_value_map: T.partial(**props),
       }.to_json
     )
   end

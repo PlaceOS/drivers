@@ -25,7 +25,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:reset_count)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <response xmlns:ns2="http://www.xovis.com/common-types" xmlns:ns3="http://www.xovis.com/count-data">
@@ -46,7 +46,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:count_data)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8"?>
     <ns2:count-data xmlns:ns2="http://www.xovis.com/count-data" xmlns:ns3="http://www.xovis.com/count-data">
@@ -84,7 +84,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:device_status)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << <<-XML
     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -165,7 +165,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:is_alive?)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <response xmlns:ns2="http://www.xovis.com/common-types" xmlns:ns3="http://www.xovis.com/count-data">
@@ -185,7 +185,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:capacity_data)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <persistence-info xmlns:ns2="http://www.xovis.com/common-types" xmlns="http://www.xovis.com/common">

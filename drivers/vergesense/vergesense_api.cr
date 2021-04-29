@@ -41,19 +41,17 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
   # Performs initial sync by loading buildings / floors / spaces
   def init_sync
-    begin
-      @sync_lock.synchronize do
-        init_buildings
+    @sync_lock.synchronize do
+      init_buildings
 
-        if @buildings
-          init_floors
-          init_spaces
-          init_floors_status
-        end
+      if @buildings
+        init_floors
+        init_spaces
+        init_floors_status
       end
-    rescue e
-      logger.error { "failed to perform vergesense API sync\n#{e.inspect_with_backtrace}" }
     end
+  rescue e
+    logger.error { "failed to perform vergesense API sync\n#{e.inspect_with_backtrace}" }
   end
 
   EMPTY_HEADERS    = {} of String => String
@@ -134,18 +132,16 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
   end
 
   private def get_request(path)
-    begin
-      response = get(path,
-        headers: {
-          "vs-api-key" => @api_key,
-        }
-      )
+    response = get(path,
+      headers: {
+        "vs-api-key" => @api_key,
+      }
+    )
 
-      if response.success?
-        response.body
-      else
-        raise "unexpected response #{response.status_code}\n#{response.body}"
-      end
+    if response.success?
+      response.body
+    else
+      raise "unexpected response #{response.status_code}\n#{response.body}"
     end
   end
 end

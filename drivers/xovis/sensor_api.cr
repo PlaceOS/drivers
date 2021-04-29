@@ -153,7 +153,7 @@ class Xovis::SensorAPI < PlaceOS::Driver
     ver_data = document.xpath_nodes("//#{xpath_key}s/#{xpath_key}")
     attrs = {} of String => String
     ver_data.each do |data|
-      key = data.attributes.select { |attr| attr.name == "type" }.first?.try &.content
+      key = data.attributes.find(&.name.==("type")).try &.content
       next unless key
       attrs[key] = data.text.strip
     end

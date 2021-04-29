@@ -324,7 +324,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
             location
           end
         end
-      }.sort { |a, b|
+      }.sort! { |a, b|
         b.time <=> a.time
       }.map { |location|
         lat = location.lat
@@ -372,7 +372,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "looking up device locations in #{zone_id}" }
-    return [] of Nil if location.presence && location != "wireless"
+    return [] of String if location.presence && location != "wireless"
 
     # Find the floors associated with the provided zone id
     floors = [] of String
@@ -380,7 +380,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       floors << floor_id if data.values.includes?(zone_id)
     end
     logger.debug { "found matching meraki floors: #{floors}" }
-    return [] of Nil if floors.empty?
+    return [] of String if floors.empty?
 
     checking_count = @locations.size
     wrong_floor = 0

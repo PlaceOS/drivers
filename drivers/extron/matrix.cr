@@ -58,7 +58,7 @@ class Extron::Matrix < PlaceOS::Driver
 
     conflicts = ties - ties.uniq(&.output)
     unless conflicts.empty?
-      raise ArgumentError.new "map contains conflicts for output(s) #{conflicts.map(&.output).join ","}"
+      raise ArgumentError.new "map contains conflicts for output(s) #{conflicts.join(", ", &.output)}"
     end
 
     send Command["\e+Q", ties.map { |tie| [tie.input, '*', tie.output, tie.layer] }, '\r'], Response::Qik do

@@ -2,6 +2,7 @@ require "placeos-driver"
 require "time"
 
 class Lenel::OpenAccess < PlaceOS::Driver; end
+
 require "./open_access/client"
 
 class Lenel::OpenAccess < PlaceOS::Driver
@@ -18,7 +19,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     password:       "",
   })
 
-  
   private getter client : OpenAccess::Client do
     transport = PlaceOS::HTTPClient.new self
     app_id = setting String, :application_id
@@ -150,7 +150,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   def create_cardholder(
     email : String,
     firstname : String,
-    lastname : String,
+    lastname : String
   )
     logger.debug { "creating cardholder record for #{email}" }
     unless client.count(Cardholder, filter: %(email = "#{email}")).zero?
@@ -166,7 +166,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.delete Cardholder, **args
   end
 end
-
 
 ################################################################################
 #
