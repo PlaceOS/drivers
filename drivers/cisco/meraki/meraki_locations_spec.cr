@@ -76,7 +76,7 @@ DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
   }})
   macs = Hash(String, Cisco::Meraki::NetworkDevice).from_json(macs_raw)
 
-  macs.each do |mac, wap_device|
+  macs.each do |_mac, wap_device|
     floor_plan = floors[wap_device.floor_plan_id]
     # do some unit testing
     loc = Cisco::Meraki::Location.calculate_location(floor_plan, wap_device, Time.utc)

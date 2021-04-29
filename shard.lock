@@ -177,6 +177,10 @@ shards:
     git: https://github.com/caspiano/rendezvous-hash.git
     version: 0.3.1
 
+  responsible:
+    git: https://github.com/place-labs/responsible.git
+    version: 1.2.3
+
   rethinkdb:
     git: https://github.com/kingsleyh/crystal-rethinkdb.git
     version: 0.2.3

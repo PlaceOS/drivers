@@ -46,6 +46,10 @@ dependencies:
     github: placeos/crystal-client
     version: ~> 2.2
 
+  # HTTP Client helper
+  responsible:
+    github: place-labs/responsible
+
   rwlock:
     github: spider-gazelle/readers-writer
 
