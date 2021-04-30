@@ -40,7 +40,7 @@ class Lenel::OpenAccess::Client
     ~transport.get(
       path: "/version?version=1.0",
     ) >> NamedTuple(
-      product_name:    String,
+      product_name: String,
       product_version: String,
     )
   end
@@ -51,7 +51,7 @@ class Lenel::OpenAccess::Client
       path: "/directories?version=1.0"
     ) >> NamedTuple(
       total_items: Int32,
-      item_list:   Array({property_value_map: {ID: String, Name: String, directory_type: Int32}}),
+      item_list: Array({property_value_map: {ID: String, Name: String, directory_type: Int32}}),
     ))[:item_list].map { |item| item[:property_value_map] }
   end
 
@@ -65,7 +65,7 @@ class Lenel::OpenAccess::Client
       path: "/authentication?version=1.0",
       body: args.to_h.compact.to_json,
     ) >> NamedTuple(
-      session_token:         String,
+      session_token: String,
       token_expiration_time: Time,
     )
   end
@@ -123,11 +123,11 @@ class Lenel::OpenAccess::Client
       path: "/instances?version=1.0&#{params}",
     ) >> NamedTuple(
       page_number: Int32?,
-      page_size:   Int32?,
+      page_size: Int32?,
       total_pages: Int32,
       total_items: Int32,
-      count:       Int32,
-      item_list:   Array(T),
+      count: Int32,
+      item_list: Array(T),
     ))[:item_list]
   end
 
@@ -138,9 +138,7 @@ class Lenel::OpenAccess::Client
     params = HTTP::Params.encode args.merge type_name: T.type_name
     (~transport.get(
       path: "/count?version=1.0&#{params}"
-    ) >> NamedTuple(
-      total_items: Int32
-    ))[:total_items]
+    ) >> NamedTuple(total_items: Int32))[:total_items]
   end
 
   # Updates a record of *entity*. Passed properties must include the types key and
