@@ -1,4 +1,5 @@
-FROM crystallang/crystal:1.0.0-alpine
+ARG crystal_version=1.0.0
+FROM crystallang/crystal:${crystal_version}-alpine
 WORKDIR /src
 
 # Install the latest version of LibSSH2 and the GDB debugger

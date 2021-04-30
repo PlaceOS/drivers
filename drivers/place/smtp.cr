@@ -18,10 +18,10 @@ class Place::Smtp < PlaceOS::Driver
     sender: "support@place.tech",
     # host:     "smtp.host",
     # port:     587,
-    tls_mode: EMail::Client::TLSMode::STARTTLS.to_s,
+    tls_mode:          EMail::Client::TLSMode::STARTTLS.to_s,
     ssl_verify_ignore: false,
-    username: "", # Username/Password for SMTP servers with basic authorization
-    password: "",
+    username:          "", # Username/Password for SMTP servers with basic authorization
+    password:          "",
 
     email_templates: {visitor: {checkin: {
       subject: "%{name} has arrived",

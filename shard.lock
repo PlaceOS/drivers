@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 4.2.1
+    version: 4.4.1
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -55,7 +55,7 @@ shards:
 
   future:
     git: https://github.com/crystal-community/future.cr.git
-    version: 0.1.0
+    version: 1.0.0
 
   google:
     git: https://github.com/placeos/google.git
@@ -99,7 +99,7 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.4.1
+    version: 0.4.2
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
