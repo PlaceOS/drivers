@@ -1,19 +1,31 @@
 FROM crystallang/crystal:1.0.0-alpine
-COPY . /src
 WORKDIR /src
 
 # Install the latest version of LibSSH2 and the GDB debugger
-RUN apk update
-RUN apk add --no-cache libssh2 libssh2-dev libssh2-static iputils gdb
-RUN apk add --update yaml-static
+RUN apk add --no-cache \
+    ca-certificates \
+    gdb \
+    iputils \
+    libssh2 libssh2-dev libssh2-static \
+    tzdata \
+    yaml-static
 
 # Add trusted CAs for communicating with external services
-RUN apk update && apk add --no-cache ca-certificates tzdata && update-ca-certificates
+RUN update-ca-certificates
+
+RUN mkdir -p /src/bin/drivers
+
+COPY shard.yml /src/shard.yml
+COPY shard.override.yml /src/shard.override.yml
+COPY shard.lock /src/shard.lock
+
+RUN shards install --production --ignore-crystal-version
+
+COPY src /src/src
+COPY spec /src/spec
 
 # Build App
-RUN rm -rf lib bin
-RUN mkdir -p /src/bin/drivers
-RUN shards build --error-trace --production --ignore-crystal-version
+RUN shards build --error-trace --release --production --ignore-crystal-version
 
 # Run the app binding on port 8080
 EXPOSE 8080
