@@ -39,20 +39,20 @@ class Lenel::OpenAccess::Client
   def version
     ~transport.get(
       path: "/version?version=1.0",
-    ) >> {
-      product_name:    String,
+    ) >> NamedTuple(
+      product_name: String,
       product_version: String,
-    }
+    )
   end
 
   # Enumerates the directories available for auth.
   def directories
     (~transport.get(
       path: "/directories?version=1.0"
-    ) >> {
+    ) >> NamedTuple(
       total_items: Int32,
-      item_list:   Array({property_value_map: {ID: String, Name: String, directory_type: Int32}}),
-    })[:item_list].map { |item| item[:property_value_map] }
+      item_list: Array({property_value_map: {ID: String, Name: String, directory_type: Int32}}),
+    ))[:item_list].map { |item| item[:property_value_map] }
   end
 
   # Creates a new auth session.
@@ -64,10 +64,10 @@ class Lenel::OpenAccess::Client
     ~transport.post(
       path: "/authentication?version=1.0",
       body: args.to_h.compact.to_json,
-    ) >> {
-      session_token:         String,
+    ) >> NamedTuple(
+      session_token: String,
       token_expiration_time: Time,
-    }
+    )
   end
 
   # Removes an auth session.
@@ -121,14 +121,14 @@ class Lenel::OpenAccess::Client
     end
     (~transport.get(
       path: "/instances?version=1.0&#{params}",
-    ) >> {
+    ) >> NamedTuple(
       page_number: Int32?,
-      page_size:   Int32?,
+      page_size: Int32?,
       total_pages: Int32,
       total_items: Int32,
-      count:       Int32,
-      item_list:   Array(T),
-    })[:item_list]
+      count: Int32,
+      item_list: Array(T),
+    ))[:item_list]
   end
 
   # Counts the number of instances of *entity*.
@@ -138,7 +138,7 @@ class Lenel::OpenAccess::Client
     params = HTTP::Params.encode args.merge type_name: T.type_name
     (~transport.get(
       path: "/count?version=1.0&#{params}"
-    ) >> {total_items: Int32})[:total_items]
+    ) >> NamedTuple(total_items: Int32))[:total_items]
   end
 
   # Updates a record of *entity*. Passed properties must include the types key and

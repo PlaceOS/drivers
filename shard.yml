@@ -18,6 +18,9 @@ dependencies:
   exec_from:
     github: place-labs/exec_from
 
+  inactive-support:
+    github: spider-gazelle/inactive-support
+
   jwt:
     github: crystal-community/jwt
 
