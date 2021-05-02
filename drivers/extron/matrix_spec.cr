@@ -1,7 +1,7 @@
 DriverSpecs.mock_driver "Extron::Matrix" do
   settings({
-    input_count: 8,
-    output_count: 4
+    input_count:  8,
+    output_count: 4,
   })
 
   responds "\r\n"
