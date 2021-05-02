@@ -11,12 +11,12 @@ DriverSpecs.mock_driver "Extron::Matrix" do
   should_send "I"
   responds "V8X4 A8X4\r\n"
 
-  switch = exec :switch, input: 3, output: 2
+  exec :switch, input: 3, output: 2
   should_send "3*2!"
   responds "Out2 In3 All\r\n"
   status["video2"].should eq 3
 
-  switch_to = exec :switch_to, input: 2
+  exec :switch_to, input: 2
   should_send "2!"
   responds "In2 All\r\n"
   status["video1"].should eq 2
@@ -28,7 +28,7 @@ DriverSpecs.mock_driver "Extron::Matrix" do
   status["audio3"].should eq 2
   status["audio4"].should eq 2
 
-  switch_map = exec :switch_map, {1 => [2, 3, 4]}
+  exec :switch_map, {1 => [2, 3, 4]}
   should_send "\e+Q1*2!1*3!1*4!\r"
   responds "Qik\r\n"
   status["video2"].should eq 1

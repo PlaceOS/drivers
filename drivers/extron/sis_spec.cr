@@ -5,7 +5,7 @@ include Extron::SIS
 
 describe Command do
   it "forms a Command from arbitrary field types" do
-    command = Command.new 42, 'a', "foo"
+    Command.new 42, 'a', "foo"
   end
 
   it "serialises the command to an IO" do
