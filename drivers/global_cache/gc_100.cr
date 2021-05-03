@@ -1,4 +1,8 @@
+require "placeos-driver/interface/electrical_relay"
+
 class GlobalCache::Gc100 < PlaceOS::Driver
+  include Interface::ElectricalRelay
+
   # Discovery Information
   tcp_port 4999
   descriptive_name "GlobalCache IO Gateway"
@@ -39,7 +43,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     do_send("getdevices") # , :max_waits => 100)
   end
 
-  def relay(index : Int32, state : Bool, **options)
+  def relay(state : Bool, index : Int32 = 0, **options)
     if index < self[:num_relays].as_i
       relays = (self[:relay_config]["relay"]? || self[:relay_config]["relaysensor"]?).not_nil!.as_h
       logger.debug { "relays = #{relays}" }
