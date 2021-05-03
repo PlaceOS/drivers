@@ -131,34 +131,40 @@ class Echo360::DeviceCapture < PlaceOS::Driver
     OQ::Converters::XML.deserialize input_io, output_io
 
     output_io.rewind
-    JSON.parse(output_io)
+    json = JSON.parse(output_io)
+    logger.debug { "response was\n#{json.pretty_inspect}" }
+    json
   end
 
   CHECK = {"next", "current"}
 
   # generic function for processing status and exposing the state
   protected def process_status(data)
-    results = data["status"].as_h
-    results.each do |key, value|
-      if key.in?(CHECK) && value["schedule"]?.try(&.as_s?.try(&.strip.empty?))
-        # next / current recordings are not present
-        self[key] = nil
-      elsif key[-1] == 's' && (hash = value.as_h?)
-        # This handles `{"api-versions" => {"api-version" => "3.0"}}`
-        inner = hash[key[0..-2]]?
-        if inner
-          self[key] = inner
+    if results = data["status"]?.try(&.as_h)
+      results.each do |key, value|
+        if key.in?(CHECK) && value["schedule"]?.try(&.as_s?.try(&.strip.empty?))
+          # next / current recordings are not present
+          self[key] = nil
+        elsif key[-1] == 's' && (hash = value.as_h?)
+          # This handles `{"api-versions" => {"api-version" => "3.0"}}`
+          inner = hash[key[0..-2]]?
+          if inner
+            self[key] = inner
+          else
+            self[key] = hash
+          end
+        elsif str_val = value.as_s?.try(&.strip)
+          # cleanup whitespace around string values
+          self[key] = str_val
         else
-          self[key] = hash
+          # otherwise we don't manipulate the value and expose it for use
+          self[key] = value
         end
-      elsif str_val = value.as_s?.try(&.strip)
-        # cleanup whitespace around string values
-        self[key] = str_val
-      else
-        # otherwise we don't manipulate the value and expose it for use
-        self[key] = value
       end
+      results
+    else
+      logger.debug { "namespace 'status' not found, ignoring payload" }
+      data
     end
-    results
   end
 end
