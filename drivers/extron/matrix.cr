@@ -71,6 +71,16 @@ class Extron::Matrix < PlaceOS::Driver
     end
   end
 
+  # Sets the audio volume *level* (0..100) on the specified mix *group*.
+  def volume(level : Int32, group : Int32 = 1)
+    level = level.clamp 0, 100
+    # Device use -1000..0 levels
+    device_level = level * 10 - 1000
+    send Command["\eD", group, '*', device_level, "GRPM\r"], Response::GroupVolume do
+      level
+    end
+  end
+
   # Send *command* to the device and yield a parsed response to *block*.
   private def send(command, parser : SIS::Response::Parser(T), &block : T -> _) forall T
     logger.debug { "Sending #{command}" }

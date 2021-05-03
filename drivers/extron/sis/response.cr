@@ -66,6 +66,17 @@ module Extron::SIS::Response
     Parse.const SIS::Switch.new input, layer,
   })
 
+  # Group volume update / response. Level are provided in the raw device range
+  # of -1000..0.
+  GroupVolume = Parse.do({
+    _ <= Parse.string("GrpmD"),
+    group <= num(Int32),
+    _ <= Parse.char('*'),
+    _ <= Parse.char('-'),
+    level <= num(Int32).map { |val| val * -1 },
+    Parse.const({level, group}),
+  })
+
   MatrixSize = Parse.do({
     inputs <= num(Input),
     _ <= Parse.char('X'),

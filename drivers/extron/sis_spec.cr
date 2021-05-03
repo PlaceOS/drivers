@@ -95,6 +95,19 @@ describe Response do
     end
   end
 
+  describe Response::GroupVolume do
+    it "parses" do
+      vol = Response::GroupVolume.parse "GrpmD1*-500"
+      if vol.is_a? Response::ParseError
+        fail "parse error: #{vol}"
+      else
+        level, group = vol
+        level.should eq -500
+        group.should eq 1
+      end
+    end
+  end
+
   describe ".parse" do
     it "builds a parser that includes device errors" do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie
