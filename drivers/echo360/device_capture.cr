@@ -142,7 +142,7 @@ class Echo360::DeviceCapture < PlaceOS::Driver
   protected def process_status(data)
     if results = data["status"]?.try(&.as_h)
       results.each do |key, value|
-        if key.in?(CHECK) && value["schedule"]?.try(&.as_s?.try(&.strip.empty?))
+        if key.in?(CHECK) && (value.as_s?.try(&.strip.empty?) || value["schedule"]?.try(&.as_s?.try(&.strip.empty?)))
           # next / current recordings are not present
           self[key] = nil
         elsif key[-1] == 's' && (hash = value.as_h?)
