@@ -1,8 +1,13 @@
 DriverSpecs.mock_driver "Echo360::DeviceCapture" do
   retval = exec(:system_status)
-  expect_http_request do |_request, response|
-    response.status_code = 200
-    response << SYSTEM_STATUS
+  expect_http_request do |request, response|
+    if request.path == "/status/system"
+      response.status_code = 200
+      response << SYSTEM_STATUS
+    else
+      puts "unexpected path #{request.path}"
+      response.status_code = 404
+    end
   end
   retval.get
 

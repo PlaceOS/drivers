@@ -38,7 +38,7 @@ class Echo360::DeviceCapture < PlaceOS::Driver
 
   {% begin %}
     {% for function, route in STATUS_CMDS %}
-      {% path = "/status/#{route}" %}
+      {% path = "/status/#{route.id}" %}
       def {{function.id}}
         response = get({{path}})
         process_status check(response)
