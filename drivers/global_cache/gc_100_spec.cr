@@ -19,7 +19,7 @@ DriverSpecs.mock_driver "GlobalCache::Gc100" do
     "2:1" => ["relay", 0], "2:2" => ["relay", 1], "2:3" => ["relay", 2], "1:1" => ["relaysensor", 0], "1:2" => ["relaysensor", 1], "3:1" => ["ir", 0],
   })
 
-  exec(:relay, 1, true)
+  exec(:relay, true, 1)
   should_send("setstate,2:2,1\r")
   responds("state,2:2,1\r")
   status[:relay1].should eq(true)
