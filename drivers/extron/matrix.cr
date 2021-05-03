@@ -81,6 +81,17 @@ class Extron::Matrix < PlaceOS::Driver
     end
   end
 
+  # Sets the audio mute *state* on the specified *group*.
+  #
+  # NOTE: mute groups may differ from volume groups depending on device
+  # configuration. Default group (2) is program audio.
+  def audio_mute(state : Bool = true, group : Int32 = 2)
+    device_state = state ? '1' : '0'
+    send Command["\eD", group, '*', device_state, "GRPM\r"], Response::GroupMute do
+      state
+    end
+  end
+
   # Send *command* to the device and yield a parsed response to *block*.
   private def send(command, parser : SIS::Response::Parser(T), &block : T -> _) forall T
     logger.debug { "Sending #{command}" }

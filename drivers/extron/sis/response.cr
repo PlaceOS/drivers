@@ -28,6 +28,9 @@ module Extron::SIS::Response
   end
 
   # :nodoc:
+  BoolField = Parse.char('0') >> Parse.const(false) | Parse.char('1') >> Parse.const(true)
+
+  # :nodoc:
   Delimiter = Parse.string SIS::DELIMITER
 
   # Parse a full command response as a String. Delimiter is optional as it may
@@ -75,6 +78,16 @@ module Extron::SIS::Response
     _ <= Parse.char('-'),
     level <= num(Int32).map { |val| val * -1 },
     Parse.const({level, group}),
+  })
+
+  # Group audio mute update / response. Level are provided in the raw device range
+  # of -1000..0.
+  GroupMute = Parse.do({
+    _ <= Parse.string("GrpmD"),
+    group <= num(Int32),
+    _ <= Parse.char('*'),
+    state <= BoolField,
+    Parse.const({state, group}),
   })
 
   MatrixSize = Parse.do({

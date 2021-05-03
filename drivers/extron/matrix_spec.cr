@@ -45,4 +45,9 @@ DriverSpecs.mock_driver "Extron::Matrix" do
     responds "E01\r\n"
     invalid.get
   end
+
+  vol = exec :volume, level: 25
+  should_send "\eD1*-750GRPM\r"
+  responds "GrpmD1*-750\r\n"
+  vol.get.should eq 25
 end

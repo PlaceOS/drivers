@@ -108,6 +108,19 @@ describe Response do
     end
   end
 
+  describe Response::GroupMute do
+    it "parses" do
+      mute = Response::GroupMute.parse "GrpmD2*1"
+      if mute.is_a? Response::ParseError
+        fail "parse error: #{mute}"
+      else
+        state, group = mute
+        state.should be_true
+        group.should eq 2
+      end
+    end
+  end
+
   describe ".parse" do
     it "builds a parser that includes device errors" do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie
