@@ -2,6 +2,8 @@ require "uri"
 require "semantic_version"
 require "./rest_api_models"
 
+# Documentation: https://aca.im/driver_docs/Gallagher/Gallagher_CC_REST_API_Docs%208.10.1113.zip
+
 class Gallagher::RestAPI < PlaceOS::Driver
   # Discovery Information
   generic_name :Gallagher
