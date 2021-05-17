@@ -38,7 +38,7 @@ dependencies:
 
   placeos-compiler:
     github: placeos/compiler
-    version: ~> 3.3
+    version: ~> 3.5
 
   placeos-driver:
     github: placeos/driver
