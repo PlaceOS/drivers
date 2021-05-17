@@ -82,7 +82,7 @@ class Place::Smtp < PlaceOS::Driver
     end
 
     email_config.use_tls(@tls_mode)
-    email_config.tls_context.verify_mode = OpenSSL::SSL::VerifyMode::None
+    email_config.tls_context.verify_mode = OpenSSL::SSL::VerifyMode::None if @ssl_verify_ignore
 
     EMail::Client.new(email_config)
   end
