@@ -9,7 +9,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   descriptive_name "AMX SVSI N-Series Decoder"
   generic_name :Decoder
 
-  # @previous_stream : Int32? = nil
+  @previous_stream : Int32? = nil
   @mute : Bool = false
   @stream : Int32? = nil
 
