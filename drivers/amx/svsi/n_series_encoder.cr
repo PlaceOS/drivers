@@ -75,7 +75,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
     when "name",
       self[:device_name] = value
     when "stream"
-      self[:video] = value.to_i
+      self[:stream_id] = value.to_i
     when "playmode"
       self[:mute] = value == "off"
     when "mute"

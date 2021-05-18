@@ -24,17 +24,13 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
     connect(signal_map, :switch_audio)
   end
 
-  def module_exec(module_name : String, method_name : String)
-  end
-
-  private def connect(signal_map : Map, connect_method : Symbol)
+  private def connect(signal_map : Map, &)
     signal_map.each do |input, outputs|
       if input == 0
         stream = 0 # disconnected
       else
         if encoder = encoders[input]?
-          # TODO
-          # encoder.connect_method
+          stream = encoder[:stream_id]
         else
           logger.warn { "could not find Encoder_#{input}" }
           break
