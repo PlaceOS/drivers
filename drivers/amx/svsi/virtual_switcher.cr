@@ -13,15 +13,21 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
   alias Map = Hash(Int32, Int32 | Array(Int32))
 
   def switch(signal_map : Map)
-    connect(signal_map, :switch)
+    connect(signal_map) do |mod, value|
+      mod.switch(value)
+    end
   end
 
   def switch_video(signal_map : Map)
-    connect(signal_map, :switch_video)
+    connect(signal_map) do |mod, value|
+      mod.switch_video(value)
+    end
   end
 
   def switch_audio(signal_map : Map)
-    connect(signal_map, :switch_audio)
+    connect(signal_map) do |mod, value|
+      mod.switch_audio(value)
+    end
   end
 
   private def connect(signal_map : Map, &)
@@ -40,8 +46,7 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
       outputs = outputs.is_a?(Array) ? outputs : [outputs]
       outputs.each do |output|
         if decoder = decoders[output]?
-          # TODO
-          # decoder.connect_method
+          yield(decoder, stream)
         else
           logger.warn { "could not find Decoder_#{output}" }
         end
