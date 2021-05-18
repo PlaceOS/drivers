@@ -69,7 +69,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
     data = String.new(data)
     logger.debug { "Received: #{data}" }
 
-    prop, value = data.split ':'
+    prop, value = data.split(':')
 
     case prop
     when "name",

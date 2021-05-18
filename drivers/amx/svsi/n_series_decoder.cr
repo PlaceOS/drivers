@@ -142,7 +142,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
     data = String.new(data)
     logger.debug { "Received: #{data}" }
 
-    prop, value = data.split ':'
+    prop, value = data.split(':')
 
     case prop
     when "stream"
@@ -154,7 +154,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
     when "name",
       self[:device_name] = value
     when "playmode"
-      self[:local_playback]
+      self[:local_playback] = value == "local"
     when "playlist"
       self[:playlist] = value.to_i
     when "mute"
