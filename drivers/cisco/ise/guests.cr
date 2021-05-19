@@ -58,7 +58,14 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_type : String? = nil,           # Mandatory but use this param to override the setting
     portal_id : String? = nil             # Mandatory but use this param to override the setting
   )
-    return {"username" => UUID.random.to_s, "password" => UUID.random.to_s}.merge(@custom_data) if setting?(Bool, :test)
+    # Determine the name of the attendee for ISE
+    guest_names = attendee_name.split
+    first_name_index_end = guest_names.size > 1 ? -2 : -1
+    first_name = guest_names[0..first_name_index_end].join(' ')
+    last_name = guest_names[-1]
+
+    return {"username" => "#{first_name[0].downcase}#{last_name.underscore}", "password" => UUID.random.to_s[0..3]}.merge(@custom_data) if setting?(Bool, :test)
+
     sms_service_provider ||= @sms_service_provider
     guest_type ||= @guest_type
     portal_id ||= @portal_id
@@ -66,12 +73,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     time_object = Time.unix(event_start).in(@timezone)
     from_date = time_object.at_beginning_of_day.to_s(TIME_FORMAT)
     to_date = time_object.at_end_of_day.to_s(TIME_FORMAT)
-
-    # Determine the name of the attendee for ISE
-    guest_names = attendee_name.split
-    first_name_index_end = guest_names.size > 1 ? -2 : -1
-    first_name = guest_names[0..first_name_index_end].join(' ')
-    last_name = guest_names[-1]
 
     # If company_name isn't passed
     # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
