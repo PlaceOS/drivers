@@ -63,8 +63,9 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     first_name_index_end = guest_names.size > 1 ? -2 : -1
     first_name = guest_names[0..first_name_index_end].join(' ')
     last_name = guest_names[-1]
+    username = genererate_username(first_name, last_name)
 
-    return {"username" => "#{first_name[0].downcase}#{last_name.underscore}", "password" => UUID.random.to_s[0..3]}.merge(@custom_data) if setting?(Bool, :test)
+    return {"username" => username, "password" => UUID.random.to_s[0..3]}.merge(@custom_data) if setting?(Bool, :test)
 
     sms_service_provider ||= @sms_service_provider
     guest_type ||= @guest_type
@@ -110,6 +111,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
           <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>) if sms_service_provider
 
     xml_string += %(
+          <userName>#{username}</userName>
         </guestInfo>
         <guestType>#{guest_type}</guestType>
         <portalId>#{portal_id}</portalId>
@@ -125,6 +127,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     guest_id = response.headers["Location"].split('/').last
     guest_crendentials(guest_id).merge(@custom_data)
+  end
+
+  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
+  # when it will increase to 10
+  private def genererate_username(firstname, lastname)
+    "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
   end
 
   def guest_crendentials(id : String)
