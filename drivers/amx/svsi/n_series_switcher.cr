@@ -6,23 +6,12 @@ require "placeos-driver/interface/muteable"
 class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   include Interface::Muteable
 
-  enum Input
-    Hdmionly
-    Vgaonly
-    Hdmivga
-    Vgahdmi
-  end
-
-  # include Interface::InputSelection(Input)
-
   tcp_port 50002
   descriptive_name "AMX SVSI N-Series Switcher"
   generic_name :Switcher
 
   alias InOut = String | Int32
 
-  @volume_min = 0
-  @volume_max = 100
   @inputs : Hash(String, String) = {} of String => String
   @outputs : Hash(String, String) = {} of String => String
   @encoders = [] of String

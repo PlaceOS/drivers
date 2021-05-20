@@ -11,8 +11,8 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
   descriptive_name "AMX SVSI Virtual Switcher"
   generic_name :Switcher
 
-  accessor encoders : Array(Encoder)
-  accessor decoders : Array(Decoder)
+  accessor encoders : Array(Encoder), implementing: InputSelection
+  accessor decoders : Array(Decoder), implementing: InputSelection
 
   alias InputsOutputs = Hash(Int32, Array(Int32))
   # could also do the below instead but that would be confusing

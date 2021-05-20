@@ -1,9 +1,11 @@
 require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/switchable"
 
 # Documentation: https://aca.im/driver_docs/AMX/SVSIN1000N2000Series.APICommandList.pdf
 
 class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   include Interface::Muteable
+  include PlaceOS::Driver::Interface::InputSelection(Int32)
 
   tcp_port 50002
   descriptive_name "AMX SVSI N-Series Decoder"
@@ -30,8 +32,8 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
     do_send("getStatus", priority: 0)
   end
 
-  def switch(stream_id : Int32)
-    do_send("set", stream_id)
+  def switch_to(input : Int32)
+    switch_video(input)
     switch_audio(0) # enable AFV
   end
 
