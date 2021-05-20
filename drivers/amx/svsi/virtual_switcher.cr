@@ -39,7 +39,8 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
       if input == 0
         stream = 0 # disconnected
       else
-        if encoder = encoders[input]?
+        # Subtract one as Encoder_1 on the system would be encoder[0] here
+        if encoder = encoders[input - 1]?
           stream = encoder[:stream_id]
         else
           logger.warn { "could not find Encoder_#{input}" }
@@ -49,7 +50,8 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
 
       outputs = outputs.is_a?(Array) ? outputs : [outputs]
       outputs.each do |output|
-        if decoder = decoders[output]?
+        # Subtract one as Decoder_1 on the system would be decoder[0] here
+        if decoder = decoders[output - 1]?
           yield(decoder, stream)
         else
           logger.warn { "could not find Decoder_#{output}" }
