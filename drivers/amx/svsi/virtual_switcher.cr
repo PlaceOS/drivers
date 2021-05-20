@@ -19,7 +19,7 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
   # alias InputsOutputs = FullSwitch
 
   def switch_to(input : Int32)
-    decoders.each(&.switch(input))
+    decoders.each(&.switch_to(input))
   end
 
   def switch(map : FullSwitch | SelectiveSwitch)
