@@ -25,13 +25,13 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
   def switch(map : FullSwitch | SelectiveSwitch)
     case map
     when FullSwitch
-      connect(map) { |mod, input| mod.switch(input) }
+      connect(map) { |mod, stream| mod.switch_to(stream) }
     when SelectiveSwitch
       map.each do |layer, inouts|
         next unless layer = SwitchLayer.parse?(layer)
-        connect(inouts) do |mod, input|
-          mod.switch_audio(input) if layer.audio?
-          mod.switch_video(input) if layer.video?
+        connect(inouts) do |mod, stream|
+          mod.switch_audio(stream) if layer.audio?
+          mod.switch_video(stream) if layer.video?
         end
       end
     end
