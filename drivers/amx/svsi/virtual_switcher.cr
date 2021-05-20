@@ -6,7 +6,7 @@ require "placeos-driver/interface/switchable"
 # grouped as a virtual matrix switcher and a familiar switcher API used.
 
 class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
-  include PlaceOS::Driver::Interface::Switchable(Int32, Int32)
+  include PlaceOS::Driver::Interface::Switchable(String, Int32)
 
   descriptive_name "AMX SVSI Virtual Switcher"
   generic_name :Switcher
@@ -14,12 +14,8 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
   accessor encoders : Array(Encoder), implementing: InputSelection
   accessor decoders : Array(Decoder), implementing: InputSelection
 
-  alias InputsOutputs = Hash(Int32, Array(Int32))
-  # could also do the below instead but that would be confusing
-  # alias InputsOutputs = FullSwitch
-
-  def switch_to(input : Int32)
-    decoders.each(&.switch_to(input))
+  def switch_to(input : String)
+    decoders.each(&.switch_to(input.to_i))
   end
 
   def switch(map : FullSwitch | SelectiveSwitch)
@@ -37,8 +33,9 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
     end
   end
 
-  private def connect(inouts : InputsOutputs, &)
+  private def connect(inouts : Hash(String, Array(Int32)), &)
     inouts.each do |input, outputs|
+      input = input.to_i
       if input == 0
         stream = 0 # disconnected
       else
