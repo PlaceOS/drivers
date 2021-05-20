@@ -18,29 +18,27 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
   # could also do the below instead but that would be confusing
   # alias InputsOutputs = FullSwitch
 
-  # TODO: no idea how to implement this
   def switch_to(input : Int32)
+    decoders.each(&.switch(input))
   end
 
   def switch(map : FullSwitch | SelectiveSwitch)
     case map
     when FullSwitch
-      connect(map) do |mod, value|
-        mod.switch(value)
-      end
+      connect(map) { |mod, input| mod.switch(input) }
     when SelectiveSwitch
       map.each do |layer, inouts|
         next unless layer = SwitchLayer.parse?(layer)
-        connect(inouts) do |mod, value|
-          mod.switch_audio(value) if layer.audio?
-          mod.switch_video(value) if layer.video?
+        connect(inouts) do |mod, input|
+          mod.switch_audio(input) if layer.audio?
+          mod.switch_video(input) if layer.video?
         end
       end
     end
   end
 
-  private def connect(map : InputsOutputs, &)
-    map.each do |input, outputs|
+  private def connect(inouts : InputsOutputs, &)
+    inouts.each do |input, outputs|
       if input == 0
         stream = 0 # disconnected
       else
