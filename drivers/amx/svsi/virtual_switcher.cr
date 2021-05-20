@@ -14,13 +14,15 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
   accessor encoders : Array(Encoder)
   accessor decoders : Array(Decoder)
 
-  alias Map = Hash(Int32, Array(Int32)) | Hash(String, Hash(Int32, Array(Int32)))
+  alias InputsOutputs = Hash(Int32, Array(Int32))
+  # could also do the below instead but that would be confusing
+  # alias InputsOutputs = FullSwitch
 
-  # TODO: no idea how to implement this as
+  # TODO: no idea how to implement this
   def switch_to(input : Int32)
   end
 
-  def switch(map : Map)
+  def switch(map : FullSwitch | SelectiveSwitch)
     case map
     when FullSwitch
       connect(map) do |mod, value|
@@ -37,8 +39,8 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
     end
   end
 
-  private def connect(signal_map : Map, &)
-    signal_map.each do |input, outputs|
+  private def connect(map : InputsOutputs, &)
+    map.each do |input, outputs|
       if input == 0
         stream = 0 # disconnected
       else
