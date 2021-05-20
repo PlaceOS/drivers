@@ -144,7 +144,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
 
     prop, value = data.split(':')
 
-    case prop
+    case prop.downcase
     when "stream"
       self[:video] = @stream = value.to_i
     when "streamaudio"

@@ -71,7 +71,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
 
     prop, value = data.split(':')
 
-    case prop
+    case prop.downcase
     when "name",
       self[:device_name] = value
     when "stream"
