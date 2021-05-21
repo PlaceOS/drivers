@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  style:
+    runs-on: ubuntu-latest
+    container:
+      image: crystallang/crystal
+    steps:
+      - uses: actions/checkout@v2
+      - name: Format
+        run: crystal tool format --check
+      - name: Lint
+        uses: crystal-ameba/github-action@v0.2.12
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crystal:
+          - latest
+          - nightly
+          - 1.0.0
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build drivers image
+        run: docker-compose build drivers
+        env:
+          CRYSTAL_VERSION: ${{ matrix.crystal }}
+      - name: Run docker-compose environment
+        run: docker-compose up -d
+      - name: Spec
+        run: docker exec placeos-drivers crystal spec -v --error-trace
+      - name: Driver Report
+        run: docker exec placeos-drivers /src/bin/report

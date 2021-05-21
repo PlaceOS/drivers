@@ -12,8 +12,10 @@ require "action-controller/server"
 PROD = ENV["SG_ENV"]? == "production"
 
 # Configure logging
-Log.setup "*", :warn, ActionController.default_backend
-Log.builder.bind "action-controller.*", :info, ActionController.default_backend
+Log.setup do |config|
+  config.bind "*", :warn, ActionController.default_backend
+  config.bind "action-controller.*", :info, ActionController.default_backend
+end
 
 filters = PROD ? ["bearer_token", "secret", "password"] : [] of String
 
