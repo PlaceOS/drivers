@@ -11,6 +11,7 @@ targets:
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
+    version: ~> 4.4
 
   email:
     github: arcage/crystal-email
@@ -38,7 +39,7 @@ dependencies:
 
   placeos-compiler:
     github: placeos/compiler
-    version: ~> 3.3
+    version: ~> 3.5
 
   placeos-driver:
     github: placeos/driver
