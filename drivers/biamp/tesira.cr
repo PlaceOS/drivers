@@ -35,6 +35,7 @@ class Biamp::Tesira < PlaceOS::Driver
     end
     do_send "SESSION set verbose false", priority: 96
 
+    schedule.clear
     schedule.every(60.seconds) do
       do_send "DEVICE get serialNumber", priority: 95
     end
