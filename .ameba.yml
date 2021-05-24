@@ -1,3 +1,6 @@
+Excluded:
+  - repositories/**/*.cr
+
 # NOTE: These should all be reviewed on an individual basis to see if their
 #       complexity can be reasonably reduced.
 Metrics/CyclomaticComplexity:
