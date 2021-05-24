@@ -41,7 +41,7 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
       @bookings = Array(Hash(String, Int64 | String | Nil)).from_json(mulesoft_bookings)
       logger.debug { "#{@bookings.size} bookings in total" }
       self[:total_bookings] = @bookings.size
-      
+
       update_events
       @bookings.each { |b| export_booking(b) }
     end
