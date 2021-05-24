@@ -27,6 +27,7 @@ class Biamp::Nexia < PlaceOS::Driver
     send("\xFF\xFE\x01") # Echo off
     do_send("GETD", 0, "DEVID")
 
+    schedule.clear
     schedule.every(60.seconds) do
       do_send("GETD", 0, "DEVID")
     end
