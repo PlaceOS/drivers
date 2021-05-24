@@ -36,12 +36,12 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
     @time_zone = Time::Location.load(@time_zone_string.not_nil!) if @time_zone_string
     self[:timezone] = @time_zone.to_s
 
-    subscription = system.subscribe(:Bookings_1, :bookings) do |subscription, mulesoft_bookings|
+    subscription = system.subscribe(:Bookings_1, :bookings) do |_subscription, mulesoft_bookings|
       logger.debug { "DETECTED changed in Mulesoft Bookings..." }
       @bookings = Array(Hash(String, Int64 | String | Nil)).from_json(mulesoft_bookings)
       logger.debug { "#{@bookings.size} bookings in total" }
       self[:total_bookings] = @bookings.size
-
+      
       update_events
       @bookings.each { |b| export_booking(b) }
     end
