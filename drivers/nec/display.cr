@@ -42,6 +42,7 @@ class Nec::Display < PlaceOS::Driver
   end
 
   def connected
+    schedule.clear
     schedule.every(50.seconds, true) do
       do_poll
     end

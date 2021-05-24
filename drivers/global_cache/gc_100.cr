@@ -26,6 +26,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     @port_config = {} of String => Tuple(String, Int32)
     self[:config_indexed] = false
 
+    schedule.clear
     schedule.every(10.seconds, true) do
       logger.debug { "-- Polling GC100" }
       get_devices unless self[:config_indexed].as_bool
