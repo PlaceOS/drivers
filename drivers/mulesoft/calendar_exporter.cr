@@ -37,7 +37,7 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
     self[:timezone] = @time_zone.to_s
 
     subscription = system.subscribe(:Bookings_1, :bookings) do |_subscription, mulesoft_bookings|
-      logger.debug { "DETECTED changed in Mulesoft Bookings..." }
+      logger.debug { "DETECTED change in Mulesoft Bookings..." }
       @bookings = Array(Hash(String, Int64 | String | Nil)).from_json(mulesoft_bookings)
       logger.debug { "#{@bookings.size} bookings in total" }
       self[:total_bookings] = @bookings.size
@@ -73,7 +73,9 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
     ).get.as_a
   end
 
-  protected def export_booking(booking : Hash(String, Int64 | String | Nil))
+  protected def export_booking(mulesoft_booking : Hash(String, Int64 | String | Nil))
+    # The resulting Calendar Event is to be slightly different to the Mulesoft Booking, so clone here and transform
+    booking = mulesoft_booking.clone
     # Add the course code to the front of the booking title/body
     booking["title"] = "#{booking["recurring_master_id"]} #{booking["title"] || booking["body"]}"
     logger.debug { "Checking for existing events that match: #{booking}" }
@@ -89,17 +91,17 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
         attendees:   [@just_this_system],
         location:    system.name.not_nil!,
       }
-      logger.debug { ">>> EXPORTING booking #{new_event}" }
+      logger.debug { ">>> EXPORTING booking as: #{new_event}" }
       calendar.create_event(**new_event)
     end
   end
 
-  protected def event_already_exists?(new_event : Hash(String, Int64 | String | Nil), existing_events : Array(JSON::Any))
-    existing_events.any? { |existing_event| events_match?(new_event, existing_event.as_h) }
+  protected def event_already_exists?(booking : Hash(String, Int64 | String | Nil), existing_events : Array(JSON::Any))
+    existing_events.any? { |existing_event| booking_matches_event?(booking, existing_event.as_h) }
   end
 
-  protected def events_match?(event_a : Hash(String, Int64 | String | Nil), event_b : Hash(String, JSON::Any))
-    event_a.select("event_start", "event_end", "title") == event_b.select("event_start", "event_end", "title")
+  protected def booking_matches_event?(booking : Hash(String, Int64 | String | Nil), event : Hash(String, JSON::Any))
+    booking.select("event_start", "event_end", "title") == event.select("event_start", "event_end", "title")
   end
 
   def delete_all_events(past_days : Int32 = 14, future_days : Int32 = 14)
