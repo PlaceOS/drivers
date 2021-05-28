@@ -9,7 +9,7 @@ services:
 
   drivers:
     build:
-      context: .
+      context: https://github.com/PlaceOS/driver-spec-runner.git#seperate-test-runner
       args:
         crystal_version: ${CRYSTAL_VERSION:-1.0.0}
     image: placeos/drivers
@@ -27,8 +27,6 @@ services:
       - ./drivers/:/src/drivers/
       - ./repositories/:/src/repositories/
       - ./lib/:/lib/local-shards/
-      - ./src/:/src/src
-      - ./spec/:/src/spec
       - ./.git:/src/.git
     environment:
       - REDIS_URL=redis://redis:6379
