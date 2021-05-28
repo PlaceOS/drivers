@@ -73,6 +73,17 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   def on_update
+    if proxy_config = setting?(NamedTuple(host: String, port: Int32, auth: NamedTuple(username: String, password: String)?), :proxy)
+      ConnectProxy.proxy_uri = "http://#{proxy_config[:host]}:#{proxy_config[:port]}"
+      if proxy_auth = proxy_config[:auth]
+        ConnectProxy.username = proxy_auth[:username]
+        ConnectProxy.password = proxy_auth[:password]
+      end
+    end
+
+    ConnectProxy.verify_tls = !!setting?(Bool, :proxy_verify_tls)
+    ConnectProxy.disable_crl_checks = !!setting?(Bool, :proxy_disable_crl)
+
     @service_account = setting?(String, :calendar_service_account).presence
     @rate_limit = setting?(Int32, :rate_limit) || 3
     @wait_time = 1.second / @rate_limit
