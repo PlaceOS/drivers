@@ -153,6 +153,15 @@ class Place::StaffAPI < PlaceOS::Driver
     placeos_client.metadata.children(id, key)
   end
 
+  def update_metadata(
+    id : String,
+    name : String,
+    details : JSON::Any | Hash | NamedTuple | Array,
+    description : String? = nil
+  )
+    placeos_client.metadata.update(id, name, details, description)
+  end
+
   # ===================================
   # ZONE INFORMATION
   # ===================================
