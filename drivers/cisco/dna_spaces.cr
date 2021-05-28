@@ -178,7 +178,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   # MAC Address => Location (including user)
-  @locations : Hash(String, DeviceLocationUpdate) = {} of String => DeviceLocationUpdate
+  @locations : Hash(String, DeviceLocationUpdate | IotTelemetry) = {} of String => DeviceLocationUpdate | IotTelemetry
   @loc_lock : Mutex = Mutex.new
 
   def locations
@@ -278,7 +278,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
           when DeviceEntry
             # This is used entirely for
             @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
-          when DeviceLocationUpdate
+          when DeviceLocationUpdate, IotPosition
             # Keep track of device location
             device_mac = format_mac(payload.device.mac_address)
             existing = nil
