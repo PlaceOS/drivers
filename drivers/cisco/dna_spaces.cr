@@ -278,7 +278,14 @@ class Cisco::DNASpaces < PlaceOS::Driver
           when DeviceEntry
             # This is used entirely for
             @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
-          when DeviceLocationUpdate, IotPosition
+          when DeviceLocationUpdate, IotTelemetry
+            if !payload.has_position?
+              iot_payload = payload.as(IotTelemetry)
+              # process other IoT telemetry such as presense or temperature etc
+              self[iot_payload.device.mac_address] = payload
+              next
+            end
+
             # Keep track of device location
             device_mac = format_mac(payload.device.mac_address)
             existing = nil
