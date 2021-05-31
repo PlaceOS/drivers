@@ -354,6 +354,7 @@ class Place::StaffAPI < PlaceOS::Driver
     created_after : Int64? = nil,
     approved : Bool? = nil,
     rejected : Bool? = nil
+    checked_in : Bool? = nil
   )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
@@ -372,6 +373,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params["created_after"] = created_after.to_s if created_after
     params["approved"] = approved.to_s unless approved.nil?
     params["rejected"] = rejected.to_s unless rejected.nil?
+    params["checked_in"] = checked_in.to_s unless checked_in.nil?
 
     # Get the existing bookings from the API to check if there is space
     response = get("/api/staff/v1/bookings", params, {
