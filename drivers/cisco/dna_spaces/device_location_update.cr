@@ -35,6 +35,10 @@ class Cisco::DNASpaces::DeviceLocationUpdate
   getter longitude : Float64
   getter unc : Float64
 
+  def has_position?
+    true
+  end
+
   @[JSON::Field(ignore: true)]
   @location_mappings : Hash(String, String)? = nil
 
