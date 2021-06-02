@@ -353,7 +353,7 @@ class Place::StaffAPI < PlaceOS::Driver
     created_before : Int64? = nil,
     created_after : Int64? = nil,
     approved : Bool? = nil,
-    rejected : Bool? = nil
+    rejected : Bool? = nil,
     checked_in : Bool? = nil
   )
     # Assumes occuring now
