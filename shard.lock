@@ -37,6 +37,10 @@ shards:
     git: https://github.com/sija/debug.cr.git
     version: 2.0.1
 
+  dtls:
+    git: https://github.com/spider-gazelle/crystal-dtls.git
+    version: 0.9.0
+
   email:
     git: https://github.com/arcage/crystal-email.git
     version: 0.6.2
@@ -147,7 +151,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.2.1
+    version: 5.3.1
 
   placeos-models:
     git: https://github.com/placeos/models.git

@@ -13,7 +13,7 @@ class Floorsense::Desks < PlaceOS::Driver
   generic_name :Floorsense
   descriptive_name "Floorsense Desk Tracking (WS)"
 
-  uri_base "wss://_your_subdomain_.floorsense.com.au"
+  uri_base "wss://_your_subdomain_.floorsense.com.au/ws"
 
   default_settings({
     username: "srvc_acct",
@@ -68,6 +68,8 @@ class Floorsense::Desks < PlaceOS::Driver
 
       case task.try &.name
       when "auth"
+        logger.debug { "authentication success!" }
+
         # subscribe to all events
         ws_post("/sub", {mask: 255}, name: "sub")
       when "sub"
@@ -81,6 +83,8 @@ class Floorsense::Desks < PlaceOS::Driver
     in Payload
       logger.error { "base class, this case will never occur" }
     end
+  rescue error
+    logger.error(exception: error) { "failed to parse: #{string.inspect}" }
   end
 
   def expire_token!
