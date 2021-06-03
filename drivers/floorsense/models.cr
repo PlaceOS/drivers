@@ -2,6 +2,34 @@ require "json"
 
 # Floorsense Data Models
 module Floorsense
+  # Websocket payloads
+  class Payload
+    include JSON::Serializable
+
+    use_json_discriminator "type", {
+      "event"    => Event,
+      "response" => Response,
+    }
+  end
+
+  class Event < Payload
+    getter type : String = "event"
+    getter code : Int32
+    getter message : String
+    getter info : JSON::Any?
+  end
+
+  class Response < Payload
+    getter type : String = "response"
+    getter result : Bool
+    getter message : String
+    getter info : JSON::Any?
+
+    def info
+      @info || JSON.parse("{}")
+    end
+  end
+
   class AuthResponse
     include JSON::Serializable
 

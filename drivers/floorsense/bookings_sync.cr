@@ -13,6 +13,11 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
   accessor floorsense : Floorsense_1
   accessor staff_api : StaffAPI_1
+  accessor area_management : AreaManagement_1
+
+  bind Floorsense_1, :event_49, :booking_created
+  bind Floorsense_1, :event_50, :booking_released
+  bind Floorsense_1, :event_53, :booking_confirmed
 
   default_settings({
     floor_mappings: {
@@ -72,8 +77,9 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     @time_zone = Time::Location.load(time_zone)
 
     schedule.clear
-    schedule.in(500.milliseconds) { @sync_lock.synchronize { check_floorsense_log } }
-    schedule.every(@poll_rate) { @sync_lock.synchronize { check_floorsense_log } }
+
+    # schedule.in(500.milliseconds) { @sync_lock.synchronize { check_floorsense_log } }
+    # schedule.every(@poll_rate) { @sync_lock.synchronize { check_floorsense_log } }
 
     # between polls, sync the bookings
     schedule.in(@poll_rate / 2) do
@@ -94,6 +100,92 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     asset_id = asset_id.lstrip(@key_prefix) if @key_prefix.presence
     asset_id = asset_id.rjust(@zero_padding_size, '0') if @strip_leading_zero
     asset_id
+  end
+
+  # ===================================
+  # Listening for events
+  # ===================================
+  private def booking_created(_subscription, event_info)
+    event = NamedTuple(booking: BookingStatus?).from_json(event_info)
+    booking = event[:booking]
+    return unless booking
+    return if booking.booking_type != "adhoc"
+
+    floor_details = @floor_mappings[booking.planid.to_s]?
+    return unless floor_details
+    booking.user = User.from_json floorsense.get_user(booking.uid).get.to_json
+
+    user_email = booking.user.not_nil!.email.try &.downcase
+
+    if user_email.nil?
+      logger.warn { "no user email defined for floorsense user #{booking.user.not_nil!.name}" }
+      return
+    end
+
+    user = staff_api.user(user_email).get
+    user_id = user["id"]
+    user_name = user["name"]
+
+    logger.debug { "new floorsense booking found #{booking.inspect}" }
+
+    staff_api.create_booking(
+      booking_start: booking.start,
+      booking_end: booking.finish,
+      time_zone: @time_zone.to_s,
+      booking_type: @booking_type,
+      asset_id: to_place_asset_id(booking.key),
+      user_id: user_id,
+      user_email: user_email,
+      user_name: user_name,
+      zones: [floor_details[:building_id]?, floor_details[:level_id]].compact,
+      checked_in: true,
+      extension_data: {
+        floorsense_id: booking.booking_id,
+      },
+    ).get
+
+    area_management.update_available([floor_details[:level_id]])
+  end
+
+  private def booking_released(_subscription, event_info)
+    event = JSON.parse(event_info)
+    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get.to_json
+    floor_details = @floor_mappings[booking.planid.to_s]?
+    return unless floor_details
+
+    # ignore bookings that were cancelled outside of today
+    return if booking.released >= booking.finish || booking.released <= booking.start
+
+    # find placeos booking
+    if place_booking = get_place_booking(booking, floor_details)
+      # change the placeos end time if the booking has started
+      staff_api.update_booking(
+        booking_id: place_booking.id,
+        booking_end: booking.released
+      ).get
+    else
+      logger.warn { "no booking found for released booking #{booking.booking_id}" }
+    end
+
+    area_management.update_available([floor_details[:level_id]])
+  end
+
+  private def booking_confirmed(_subscription, event_info)
+    event = JSON.parse(event_info)
+    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get.to_json
+    floor_details = @floor_mappings[booking.planid.to_s]?
+    return unless floor_details
+
+    begin
+      if desc = booking.desc
+        place_booking = Booking.from_json staff_api.get_booking(desc.to_i64).get.to_json
+        staff_api.booking_check_in(place_booking.id, booking.confirmed)
+
+        area_management.update_available([floor_details[:level_id]])
+      end
+    rescue ArgumentError
+      # was an adhoc booking
+    end
   end
 
   # ===================================

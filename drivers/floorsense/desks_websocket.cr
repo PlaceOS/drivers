@@ -53,33 +53,6 @@ class Floorsense::Desks < PlaceOS::Driver
     send(request, **options)
   end
 
-  class Payload
-    include JSON::Serializable
-
-    use_json_discriminator "type", {
-      "event"    => Event,
-      "response" => Response,
-    }
-  end
-
-  class Event < Payload
-    getter type : String = "event"
-    getter code : Int32
-    getter message : String
-    getter info : JSON::Any?
-  end
-
-  class Response < Payload
-    getter type : String = "response"
-    getter result : Bool
-    getter message : String
-    getter info : JSON::Any?
-
-    def info
-      @info || JSON.parse("{}")
-    end
-  end
-
   def received(data, task)
     string = String.new(data).rstrip
     logger.debug { "websocket sent: #{string}" }
