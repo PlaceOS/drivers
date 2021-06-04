@@ -103,7 +103,7 @@ class Place::Router::Digraph(N, E)
   #
   # Results are provided as a Hash that includes all reached nodes as the keys,
   # and their predecessor as the associated value.
-  def bfs(from, & : UInt64 -> Bool?)
+  def breadth_first_search(from, & : UInt64 -> Bool?)
     paths = Hash(UInt64, UInt64).new
     queue = Deque(UInt64).new 1, from
 
@@ -131,7 +131,7 @@ class Place::Router::Digraph(N, E)
     from = check_node_exists from
     to = check_node_exists to
 
-    paths = bfs from, &.== to
+    paths = breadth_first_search from, &.== to
     return if paths.nil?
 
     # Unwind the path captured in the hash.
@@ -191,7 +191,7 @@ class Place::Router::Digraph(N, E)
 
     def initialize(g, id)
       spawn(same_thread: true) do
-        g.bfs id do |node|
+        g.breadth_first_search id do |node|
           begin
             @ch.send node
             false
