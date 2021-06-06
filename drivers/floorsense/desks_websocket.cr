@@ -205,6 +205,23 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
+  def confirm_booking(booking_id : String | Int64)
+    token = get_token
+    uri = "/restapi/desk-confirm?bkid=#{booking_id}"
+
+    response = post(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      true
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
   def create_booking(
     user_id : String | Int64,
     plan_id : String | Int32,
