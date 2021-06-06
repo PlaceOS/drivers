@@ -29,6 +29,7 @@ services:
       - ./lib/:/lib/local-shards/
       - ./src/:/src/src
       - ./spec/:/src/spec
+      - ./www/:/src/www
       - ./.git:/src/.git
     environment:
       - REDIS_URL=redis://redis:6379
