@@ -13,6 +13,10 @@ shards:
     git: https://github.com/spider-gazelle/active-model.git
     version: 2.0.3
 
+  awscr-signer:
+    git: https://github.com/taylorfinnell/awscr-signer.git
+    version: 0.8.2
+
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
     version: 1.8.2
@@ -151,7 +155,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.3.4
+    version: 5.3.5
 
   placeos-models:
     git: https://github.com/placeos/models.git

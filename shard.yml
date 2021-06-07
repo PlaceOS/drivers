@@ -88,3 +88,7 @@ dependencies:
   oq:
     github: blacksmoke16/oq
     version: ~> 1.2
+
+  awscr-signer:
+    github: taylorfinnell/awscr-signer
+    version: ~> 0.8
