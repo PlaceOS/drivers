@@ -36,6 +36,10 @@ class AWS::SnsSms < PlaceOS::Driver
     @signer = Awscr::Signer::Signers::V4.new(service, region, access_key, secret)
   end
 
+  def before_request(request : HTTP::Request)
+    signer.sign(request)
+  end
+
   def send_sms(
     phone_numbers : String | Array(String),
     message : String,
