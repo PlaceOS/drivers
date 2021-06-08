@@ -120,7 +120,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
     self[:next_booking] = next_booking ? @bookings[next_booking].to_placeos : nil
   end
 
-  def query_bookings(venue_code : String, starts_at : Time = Time.local.at_beginning_of_day, ends_at : Time = Time.local.at_end_of_day)
+  protected def query_bookings(venue_code : String, starts_at : Time = Time.local.at_beginning_of_day, ends_at : Time = Time.local.at_end_of_day)
     client = HTTP::Client.new(host: @host, tls: (@ssl_auth_enabled ? @context : nil))
 
     params = {
