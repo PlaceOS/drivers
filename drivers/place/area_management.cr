@@ -257,7 +257,7 @@ class Place::AreaManagement < PlaceOS::Driver
         area_counts << {
           area_id: area.id,
           name:    area.name,
-          count:   count,
+          count:   (count * @duplication_factor).to_i,
         }
       end
     end
