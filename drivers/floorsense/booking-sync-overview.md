@@ -44,7 +44,7 @@ The driver monitors a couple of things at once
 * monitors for real-time changes occurring in PlaceOS Staff API
   * changes in booking state, bookings added or removed
 * polls PlaceOS bookings periodically in case a booking was missed
-* polls Floorsense change log rapidly to detect new ad-hoc bookings, booking check-outs or check-ins
+* uses Floorsense websocket to detect new ad-hoc bookings, booking check-outs or check-ins
 
 PlaceOS bookings are added to floorsense 1 day before the booking,
 so todays and tomorrows bookings are kept in sync.
@@ -64,6 +64,12 @@ so todays and tomorrows bookings are kept in sync.
 2. The Floorsense booking is released
 
 
+### PlaceOS Booking Checked-in
+
+1. Sync determines that the Floorsense booking needs to be confirmed
+2. The Floorsense booking is confirmed, enabling power
+
+
 ### Floorsense Booking Created
 
 1. Checks that the booking is an ad-hoc booking
@@ -76,12 +82,12 @@ All other booking types will be removed automatically as part of the sync if the
 
 ### Floorsense Booking Checked-in
 
-2. Attempts to locate the booking in PlaceOS
-3. Marks the booking as checked-in
+1. Attempts to locate the booking in PlaceOS
+2. Marks the booking as checked-in
 
 
 ### Floorsense Booking Checked-out
 
-2. Attempts to locate the booking in PlaceOS
-3. Changes the end time of the booking to now (so the booking has effectively ended)
-4. This has the effect of freeing the desk
+1. Attempts to locate the booking in PlaceOS
+2. Changes the end time of the booking to now (so the booking has effectively ended)
+3. This has the effect of freeing the desk
