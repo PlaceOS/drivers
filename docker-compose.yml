@@ -8,7 +8,7 @@ services:
       - TZ=$TZ
 
   drivers:
-    image: placeos/drivers-spec
+    image: placeos/drivers-spec:crystal-latest
     restart: always
     container_name: placeos-drivers
     hostname: drivers
