@@ -142,6 +142,69 @@ class Place::StaffAPI < PlaceOS::Driver
     raise "failed to update guest #{id}: #{response.status_code}" unless response.success?
   end
 
+  @[Security(Level::Support)]
+  def query_guests(period_start : Int64, period_end : Int64, zones : Array(String))
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s
+      form.add "period_end", period_end.to_s
+      form.add "zone_ids", zones.join(",")
+    end
+
+    response = patch("/api/staff/v1/guests?#{params}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  # ===================================
+  # CALENDAR EVENT ACTIONS (via staff api)
+  # ===================================
+  @[Security(Level::Support)]
+  def query_events(
+    period_start : Int64,
+    period_end : Int64,
+    zones : Array(String)? = nil,
+    systems : Array(String)? = nil,
+    capacity : Int32? = nil,
+    features : String? = nil,
+    bookable : Bool? = nil,
+    include_cancelled : Bool? = nil
+  )
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s
+      form.add "period_end", period_end.to_s
+      form.add "zone_ids", zones.join(",") if zones && !zones.empty?
+      form.add "system_ids", systems.join(",") if systems && !systems.empty?
+      form.add "capacity", capacity.to_s if capacity
+      form.add "features", features if features
+      form.add "bookable", bookable.to_s if !bookable.nil?
+      form.add "include_cancelled", include_cancelled.to_s if !include_cancelled.nil?
+    end
+
+    response = patch("/api/staff/v1/events?#{params}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
