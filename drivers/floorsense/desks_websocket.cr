@@ -11,9 +11,9 @@ module Floorsense; end
 class Floorsense::Desks < PlaceOS::Driver
   # Discovery Information
   generic_name :Floorsense
-  descriptive_name "Floorsense Desk Tracking"
+  descriptive_name "Floorsense Desk Tracking (WS)"
 
-  uri_base "https://_your_subdomain_.floorsense.com.au"
+  uri_base "wss://_your_subdomain_.floorsense.com.au/ws"
 
   default_settings({
     username: "srvc_acct",
@@ -27,12 +27,64 @@ class Floorsense::Desks < PlaceOS::Driver
   @user_cache : Hash(String, User) = {} of String => User
 
   def on_load
+    transport.tokenizer = Tokenizer.new("\r\n")
     on_update
   end
 
   def on_update
-    @username = URI.encode_www_form setting(String, :username)
-    @password = URI.encode_www_form setting(String, :password)
+    @username = setting(String, :username)
+    @password = setting(String, :password)
+  end
+
+  def connected
+    # authenticate
+    ws_post("/auth", {username: @username, password: @password}, priority: 99, name: "auth")
+  end
+
+  protected def ws_post(uri, body = nil, **options)
+    request = "POST #{uri}\r\n#{body ? body.to_json : "{}"}\r\n"
+    logger.debug { "requesting: #{request}" }
+    send(request, **options)
+  end
+
+  protected def ws_get(uri, **options)
+    request = "GET #{uri}\r\n"
+    logger.debug { "requesting: #{request}" }
+    send(request, **options)
+  end
+
+  def received(data, task)
+    string = String.new(data).rstrip
+    logger.debug { "websocket sent: #{string}" }
+    payload = Payload.from_json(string)
+
+    case payload
+    in Response
+      if !payload.result
+        logger.warn { "task #{task.try &.name} failed.." }
+        disconnect
+        return task.try &.abort
+      end
+
+      case task.try &.name
+      when "auth"
+        logger.debug { "authentication success!" }
+
+        # subscribe to all events
+        ws_post("/sub", {mask: 255}, name: "sub")
+      when "sub"
+        logger.debug { "subscribed to events" }
+      else
+        logger.warn { "unknown task: #{(task.try &.name).inspect}" }
+      end
+      task.try &.success
+    in Event
+      self["event_#{payload.code}"] = payload.info || payload.message
+    in Payload
+      logger.error { "base class, this case will never occur" }
+    end
+  rescue error
+    logger.error(exception: error) { "failed to parse: #{string.inspect}" }
   end
 
   def expire_token!
@@ -47,10 +99,13 @@ class Floorsense::Desks < PlaceOS::Driver
   def get_token
     return @auth_token unless token_expired?
 
-    response = post("/restapi/login", body: "username=#{@username}&password=#{@password}", headers: {
-      "Content-Type" => "application/x-www-form-urlencoded",
-      "Accept"       => "application/json",
-    })
+    response = post("/restapi/login",
+      body: "username=#{URI.encode_www_form @username}&password=#{URI.encode_www_form @password}",
+      headers: {
+        "Content-Type" => "application/x-www-form-urlencoded",
+        "Accept"       => "application/json",
+      }
+    )
 
     data = response.body.not_nil!
     logger.debug { "received login response #{data}" }
@@ -178,7 +233,7 @@ class Floorsense::Desks < PlaceOS::Driver
     booking_type : String = "advance"
   )
     desks_on_plan = desks(plan_id)
-    desk = desks_on_plan.find { |entry| entry.key == key }
+    desk = desks_on_plan.find(&.key.==(key))
 
     raise "could not find desk #{key} on plan #{plan_id}" unless desk
 
