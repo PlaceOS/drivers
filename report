@@ -18,8 +18,6 @@ docker-compose pull
 
 docker-compose build
 
-exit_code="0"
-
 docker-compose run --rm install-shards
 docker-compose up -d
 
