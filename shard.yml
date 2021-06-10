@@ -1,13 +1,6 @@
 name: drivers
 version: 2.2.0
 
-# compile target
-targets:
-  test-harness:
-    main: src/app.cr
-  report:
-    main: src/report.cr
-
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller

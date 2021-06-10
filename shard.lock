@@ -53,6 +53,10 @@ shards:
     git: https://github.com/place-labs/crystal-etcd.git
     version: 1.2.4
 
+  exec_from:
+    git: https://github.com/place-labs/exec_from.git
+    version: 1.3.0
+
   future:
     git: https://github.com/crystal-community/future.cr.git
     version: 1.0.0
@@ -144,6 +148,10 @@ shards:
   placeos:
     git: https://github.com/placeos/crystal-client.git
     version: 2.4.0
+
+  placeos-compiler:
+    git: https://github.com/placeos/compiler.git
+    version: 3.5.0
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
@@ -244,3 +252,4 @@ shards:
   yaml_mapping:
     git: https://github.com/crystal-lang/yaml_mapping.cr.git
     version: 0.1.1
+

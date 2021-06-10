@@ -6,9 +6,21 @@ services:
     hostname: redis
     environment:
       - TZ=$TZ
-
+  install-shards:
+    image: crystallang/crystal:${CRYSTAL_VERSION:-1.0.0}-alpine
+    restart: on-failure
+    volumes:
+      - ./lib/:/lib/
+      - ./shard.yml:/shard.yml
+      - ./shard.override.yml:/shard.override.yml
+      - ./shard.lock:/shard.lock
+    working_dir: /
+    command: shards update && shards install --ignore-crystal-version
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - TZ=$TZ
   drivers:
-    image: placeos/drivers-spec:crystal-latest
+    image: tasssja/drivers-spec:crystal-${CRYSTAL_VERSION:-1.0.0}
     restart: always
     container_name: placeos-drivers
     hostname: drivers
@@ -16,6 +28,7 @@ services:
       - CRYSTAL_PATH=lib:/lib/local-shards
     depends_on:
       - redis
+      - install-shards
     ports:
       - 127.0.0.1:8085:8080
       - 127.0.0.1:4444:4444
