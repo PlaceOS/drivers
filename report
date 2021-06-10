@@ -16,12 +16,13 @@ trap "trap_ctrlc" 2
 
 docker-compose pull
 
-docker-compose up
+docker-compose build
 
 exit_code="0"
 
-docker-compose exec placeos-drivers /app/src/report.cr
+docker-compose run --rm install-shards
+docker-compose up -d
+
+docker exec placeos-drivers report
 
 docker-compose down
-
-exit ${exit_code}
