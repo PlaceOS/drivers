@@ -10,7 +10,7 @@ services:
     image: crystallang/crystal:${CRYSTAL_VERSION:-1.0.0}-alpine
     restart: on-failure
     working_dir: /app/
-    command: "shards install --ignore-crystal-version"
+    command: shards install --ignore-crystal-version
     volumes:
       - ./shard.lock:/app/shard.lock
       - ./shard.yml:/app/shard.yml
