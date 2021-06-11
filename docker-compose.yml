@@ -1,22 +1,6 @@
 version: "3.7"
 services:
-  redis:
-    image: eqalpha/keydb
-    restart: always
-    hostname: redis
-    environment:
-      - TZ=$TZ
-  install-shards:
-    image: crystallang/crystal:${CRYSTAL_VERSION:-1.0.0}-alpine
-    restart: on-failure
-    working_dir: /app/
-    command: shards install --ignore-crystal-version
-    volumes:
-      - ./shard.lock:/app/shard.lock
-      - ./shard.yml:/app/shard.yml
-      - ./shard.override.yml:/app/shard.override.yml
-      - ./.shards/:/app/.shards/
-      - ./lib:/app/lib
+  # Driver test harness
   drivers:
     image: placeos/drivers-spec:crystal-${CRYSTAL_VERSION:-1.0.0}
     restart: always
@@ -31,10 +15,32 @@ services:
       - 127.0.0.1:8085:8080
       - 127.0.0.1:4444:4444
     volumes:
-      - ./drivers/:/app/drivers/
-      - ./repositories/:/app/repositories/
-      - ./lib/:/app/lib/
+      - ./drivers:/app/drivers
+      - ./repositories:/app/repositories
+      - ./lib:/app/lib
       - ./.git:/app/.git
     environment:
       - REDIS_URL=redis://redis:6379
       - TZ=$TZ
+
+  redis:
+    image: eqalpha/keydb
+    restart: always
+    hostname: redis
+    environment:
+      - TZ=$TZ
+
+  # Ensures shards are installed.
+  install-shards:
+    image: crystallang/crystal:${CRYSTAL_VERSION:-1.0.0}-alpine
+    restart: "no"
+    working_dir: /app
+    command: ash -c 'shards check -q || shards install'
+    environment:
+      - SHARDS_OPTS="--ignore-crystal-version"
+    volumes:
+      - ./shard.lock:/app/shard.lock
+      - ./shard.yml:/app/shard.yml
+      - ./shard.override.yml:/app/shard.override.yml
+      - ./.shards:/app/.shards
+      - ./lib:/app/lib

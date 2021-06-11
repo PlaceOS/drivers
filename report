@@ -16,15 +16,12 @@ trap "trap_ctrlc" 2
 
 docker-compose pull
 
-docker-compose build
+# Ensure shards are satisfied before running the report
+docker-compose run --name=shards-check --rm install-shards
 
-exit_code="0"
-
-docker-compose run --rm install-shards || exit_code="$?"
 docker-compose up -d
 
-docker exec placeos-drivers report
-
+docker exec placeos-drivers report || exit_code="$?"
 docker-compose down
 
 exit ${exit_code}
