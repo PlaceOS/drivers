@@ -32,13 +32,7 @@ jobs:
           - 1.0.0
     steps:
       - uses: actions/checkout@v2
-      - name: Build drivers image
-        run: docker-compose build drivers
+      - name: Driver Report
+        run: ./report
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
-      - name: Run docker-compose environment
-        run: docker-compose up -d
-      - name: Spec
-        run: docker exec placeos-drivers crystal spec -v --error-trace
-      - name: Driver Report
-        run: docker exec placeos-drivers /src/bin/report
