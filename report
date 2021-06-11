@@ -18,9 +18,13 @@ docker-compose pull
 
 docker-compose build
 
-docker-compose run --rm install-shards
+exit_code="0"
+
+docker-compose run --rm install-shards || exit_code="$?"
 docker-compose up -d
 
 docker exec placeos-drivers report
 
 docker-compose down
+
+exit ${exit_code}
