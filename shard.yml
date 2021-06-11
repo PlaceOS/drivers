@@ -1,13 +1,6 @@
 name: drivers
 version: 2.2.0
 
-# compile target
-targets:
-  test-harness:
-    main: src/app.cr
-  report:
-    main: src/report.cr
-
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
@@ -15,9 +8,6 @@ dependencies:
 
   email:
     github: arcage/crystal-email
-
-  exec_from:
-    github: place-labs/exec_from
 
   inactive-support:
     github: spider-gazelle/inactive-support
