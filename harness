@@ -1,0 +1,94 @@
+#! /usr/bin/env bash
+
+set -eu
+
+fail() {
+  echo "${@}" >&2
+  exit 1
+}
+
+# Called when Ctrl-C is sent
+function trap_ctrlc ()
+{
+    echo "### cleaning up"
+    docker-compose down
+    exit 2
+}
+
+trap "trap_ctrlc" 2
+
+up() {
+  echo '### Starting PlaceOS Driver Spec Harness'
+  docker-compose up -d
+  printf "\n### The harness can be found at http://localhost:8085\n"
+  echo '### Stop the harness with `harness down`'
+}
+
+down() {
+  echo '### Stopping PlaceOS Driver Spec Harness'
+  docker-compose down --remove-orphans
+  printf "\n### Done.\n"
+}
+
+format() {
+  echo '### Running `crystal tool format` over `drivers` and `repositories`'
+  docker-compose run -v ./drivers:/wd/drivers -v ./repositories:/wd/repositories --no-deps --name=driver-format --rm install-shards crystal tool format
+  printf "\n### Done.\n"
+}
+
+report() {
+  docker-compose pull
+
+  # Ensure shards are satisfied before running the report
+  docker-compose run --name=shards-check --rm install-shards
+
+  docker-compose up -d
+
+  docker exec placeos-drivers report || exit_code="$?"
+  docker-compose down
+
+  exit ${exit_code}
+}
+
+usage() {
+  cat <<EOF
+Usage: harness [-h|--help] [command]
+
+Helper script for interfacing with the PlaceOS Driver spec runner
+
+Command:
+    report                  check all driver's compilation status
+    up                      starts the harness
+    down                    stops the harness
+    format                  formats driver code
+    help                    display this
+EOF
+}
+
+command="$1"
+shift
+case $command in
+  report)
+    report
+    ;;
+  up)
+    up
+    ;;
+  down)
+    down
+    ;;
+  format)
+    format
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    if [ -n "$command" ]; then
+      fail "Unknown command $command"
+    else
+      usage
+      exit 1
+    fi
+    ;;
+esac
