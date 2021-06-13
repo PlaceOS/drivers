@@ -1,6 +1,12 @@
 #! /usr/bin/env bash
 
+# `e`: fail script if a command's exitcode is non-zero
+# `u`: fail script if a variable is unset (unitialized)
 set -eu
+
+say_done() {
+  printf "\n### Done.\n"
+}
 
 fail() {
   echo "${@}" >&2
@@ -10,9 +16,10 @@ fail() {
 # Called when Ctrl-C is sent
 function trap_ctrlc ()
 {
-    echo "### cleaning up"
-    docker-compose down
-    exit 2
+  echo "### Cleaning up"
+  docker-compose down
+  say_done
+  exit 2
 }
 
 trap "trap_ctrlc" 2
@@ -22,31 +29,46 @@ up() {
   docker-compose up -d
   printf "\n### The harness can be found at http://localhost:8085\n"
   echo '### Stop the harness with `harness down`'
+  say_done
 }
 
 down() {
   echo '### Stopping PlaceOS Driver Spec Harness'
   docker-compose down --remove-orphans
-  printf "\n### Done.\n"
+  say_done
 }
 
 format() {
   echo '### Running `crystal tool format` over `drivers` and `repositories`'
-  docker-compose run -v ./drivers:/wd/drivers -v ./repositories:/wd/repositories --no-deps --name=driver-format --rm install-shards crystal tool format
-  printf "\n### Done.\n"
+  docker-compose run \
+                     -v ./drivers:/wd/drivers \
+                     -v ./repositories:/wd/repositories \
+                     --no-deps \
+                     --rm \
+                     install-shards \
+                     crystal tool format
+
+  say_done
 }
 
 report() {
+  echo '### Starting PlaceOS Driver Compilation Report'
   docker-compose pull
 
   # Ensure shards are satisfied before running the report
-  docker-compose run --name=shards-check --rm install-shards
+  docker-compose run \
+                     --rm \
+                     install-shards
 
   docker-compose up -d
 
-  docker exec placeos-drivers report || exit_code="$?"
+  exit_code=0
+
+  docker exec placeos-drivers report || exit_code=$?
+
   docker-compose down
 
+  say_done
   exit ${exit_code}
 }
 
@@ -57,11 +79,11 @@ Usage: harness [-h|--help] [command]
 Helper script for interfacing with the PlaceOS Driver spec runner
 
 Command:
-    report                  check all driver's compilation status
+    report                  check all drivers' compilation status
     up                      starts the harness
     down                    stops the harness
     format                  formats driver code
-    help                    display this
+    help                    display this message
 EOF
 }
 
@@ -85,7 +107,7 @@ case $command in
     ;;
   *)
     if [ -n "$command" ]; then
-      fail "Unknown command $command"
+      fail "Unknown command: $command"
     else
       usage
       exit 1
