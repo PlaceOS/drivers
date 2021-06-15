@@ -2,7 +2,7 @@ require "http/client"
 require "http/params"
 require "responsible"
 require "uri"
-require "inactive-support/macro/args"
+require "inactive-support/args"
 
 require "./models"
 require "./error"
