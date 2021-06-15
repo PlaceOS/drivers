@@ -79,7 +79,7 @@ shards:
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
-    version: 0.1.1
+    version: 0.4.0
 
   ipaddress:
     git: https://github.com/sija/ipaddress.cr.git
@@ -155,7 +155,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.3.10
+    version: 5.3.11
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
