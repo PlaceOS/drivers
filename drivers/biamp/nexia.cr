@@ -1,35 +1,25 @@
-module Biamp; end
+require "placeos-driver"
+require "inactive-support/mapped_enum"
+require "./ntp"
 
 class Biamp::Nexia < PlaceOS::Driver
-  # Discovery Information
-  tcp_port 23 # Telnet
+  include Biamp::NTP
+
+  tcp_port 23
   descriptive_name "Biamp Nexia/Audia"
   generic_name :Mixer
 
-  alias Ids = Array(UInt32) | UInt32
+  protected property device_id = 0
 
   def on_load
-    # Nexia requires some breathing room
-    queue.wait = false
     queue.delay = 30.milliseconds
     transport.tokenizer = Tokenizer.new("\r\n", "\xFF\xFE\x01")
   end
 
-  def on_update
-    # min -100
-    # max +12
-
-    self["fader_min"] = -36 # specifically for tonsley
-    self["fader_max"] = 12
-  end
-
   def connected
-    send("\xFF\xFE\x01") # Echo off
-    do_send("GETD", 0, "DEVID")
-
-    schedule.clear
-    schedule.every(60.seconds) do
-      do_send("GETD", 0, "DEVID")
+    send Bytes[0xFF, 0xFE, 0x01], wait: false # Echo off
+    schedule.every(60.seconds, true) do
+      query_device_id
     end
   end
 
@@ -37,174 +27,112 @@ class Biamp::Nexia < PlaceOS::Driver
     schedule.clear
   end
 
-  def preset(number : UInt32)
-    #
-    # Recall Device 0 Preset number 1001
-    # Device Number will always be 0 for Preset strings
-    # 1001 == minimum preset number
-    #
-    do_send("RECALL", 0, "PRESET", number, name: "preset_#{number}")
+  def query_device_id
+    send Command[:GETD, 0, "DEVID"]
   end
 
-  # {1 => [2,3,5], 2 => [2,3,6]}, true
-  # Supports Standard, Matrix and Automixers
-  def mixer(id : UInt32, inouts : Hash(String, Float32 | Array(Float32)) | Array(Float32), mute : Bool = false, type : String = "matrix")
+  def preset(number : Int32)
+    send Command[:RECALL, 0, "PRESET", number], name: "preset_#{number}"
+  end
+
+  mapped_enum Mixer do
+    Matrix   = "MMMUTEXP"
+    Standard = "SMMUTEXP"
+    Auto     = "AMMUTEXP"
+  end
+
+  def mixer(id : Int32, inouts : Hash(Int32, Array(Int32)) | Array(Int32), mute : Bool = false, type : Mixer = Mixer::Matrix)
     value = mute ? 0 : 1
 
     if inouts.is_a? Hash
-      req = type == "matrix" ? "MMMUTEXP" : "SMMUTEXP"
-
-      inouts.each_key do |input|
-        outputs = inouts[input]
-        outs = ensure_array(outputs)
-
-        outs.each do |output|
-          do_send("SET", self["device_id"]?, req, id, input, output, value)
+      inouts.each do |input, outputs|
+        outputs.each do |output|
+          send Command[:SET, device_id, type.mapped_value, id, input, output, value]
         end
       end
-    else # assume array (auto-mixer)
+    else
       inouts.each do |input|
-        do_send("SET", self["device_id"]?, "AMMUTEXP", id, input, value)
+        send Command[:SET, device_id, Mixer::Auto.mapped_value, id, input, value]
       end
     end
   end
 
-  FADERS = {
-    "fader"             => "FDRLVL",
-    "matrix_in"         => "MMLVLIN",
-    "matrix_out"        => "MMLVLOUT",
-    "matrix_crosspoint" => "MMLVLXP",
-    "stdmatrix_in"      => "SMLVLIN",
-    "stdmatrix_out"     => "SMLVLOUT",
-    "auto_in"           => "AMLVLIN",
-    "auto_out"          => "AMLVLOUT",
-    "io_in"             => "INPLVL",
-    "io_out"            => "OUTLVL",
-    "FDRLVL"            => "fader",
-    "MMLVLIN"           => "matrix_in",
-    "MMLVLOUT"          => "matrix_out",
-    "MMLVLXP"           => "matrix_crosspoint",
-    "SMLVLIN"           => "stdmatrix_in",
-    "SMLVLOUT"          => "stdmatrix_out",
-    "AMLVLIN"           => "auto_in",
-    "AMLVLOUT"          => "auto_out",
-    "INPLVL"            => "io_in",
-    "OUTLVL"            => "io_out",
-  }
-
-  def fader(fader_id : Ids, level : Float32, index : Int32 = 1, type : String = "fader")
-    fad_type = FADERS[type]
-
-    # value range: -100 ~ 12
-    faders = ensure_array(fader_id)
-    faders.each do |fad|
-      do_send("SETD", self["device_id"]?, fad_type, fad, index, level, name: "fader_#{fad}")
-    end
+  mapped_enum Faders do
+    Fader            = "FDRLVL"
+    MatrixIn         = "MMLVLIN"
+    MatrixOut        = "MMLVLOUT"
+    MatrixCrosspoint = "MMLVLXP"
+    StdmatrixIn      = "SMLVLIN"
+    StdmatrixOut     = "SMLVLOUT"
+    AutoIn           = "AMLVLIN"
+    AutoOut          = "AMLVLOUT"
+    IoIn             = "INPLVL"
+    IoOut            = "OUTLVL"
   end
 
-  def faders(ids : Ids, level : Float32, index : Int32 = 1, type : String = "fader", **args)
-    fader(ids, level, index, type)
+  def fader(id : Int32, level : Float32, index : Int32 = 1, type : Faders = Faders::Fader)
+    send Command[:SETD, device_id, type.mapped_value, id, index, level], name: "fader_#{id}"
   end
 
-  MUTES = {
-    "fader"         => "FDRMUTE",
-    "matrix_in"     => "MMMUTEIN",
-    "matrix_out"    => "MMMUTEOUT",
-    "auto_in"       => "AMMUTEIN",
-    "auto_out"      => "AMMUTEOUT",
-    "stdmatrix_in"  => "SMMUTEIN",
-    "stdmatrix_out" => "SMOUTMUTE",
-    "io_in"         => "INPMUTE",
-    "io_out"        => "OUTMUTE",
-    "FDRMUTE"       => "fader",
-    "MMMUTEIN"      => "matrix_in",
-    "MMMUTEOUT"     => "matrix_out",
-    "AMMUTEIN"      => "auto_in",
-    "AMMUTEOUT"     => "auto_out",
-    "SMMUTEIN"      => "stdmatrix_in",
-    "SMOUTMUTE"     => "stdmatrix_out",
-    "INPMUTE"       => "io_in",
-    "OUTMUTE"       => "io_out",
-  }
-
-  def mute(fader_id : Ids, val : Bool = true, index : Int32 = 1, type : String = "fader")
-    actual = val ? 1 : 0
-    mute_type = MUTES[type]
-
-    faders = ensure_array(fader_id)
-    faders.each do |fad|
-      do_send("SETD", self["device_id"]?, mute_type, fad, index, actual, name: "mute_#{fad}")
-    end
+  def query_fader(id : Int32, index : Int32 = 1, type : Faders = Faders::Fader)
+    send Command[:GETD, device_id, type.mapped_value, id, index]
   end
 
-  def mutes(ids : Ids, muted : Bool = true, index : Int32 = 1, type : String = "fader", **args)
-    mute(ids, muted, index, type)
+  mapped_enum Mutes do
+    Fader        = "FDRMUTE"
+    MatrixIn     = "MMMUTEIN"
+    MatrixOut    = "MMMUTEOUT"
+    AutoIn       = "AMMUTEIN"
+    AutoOut      = "AMMUTEOUT"
+    StdmatrixIn  = "SMMUTEIN"
+    StdmatrixOut = "SMOUTMUTE"
+    IoIn         = "INPMUTE"
+    IoOut        = "OUTMUTE"
   end
 
-  def unmute(fader_id : Ids, index : Int32 = 1, type : String = "fader")
-    mute(fader_id, false, index, type)
+  def mute(id : Int32, state : Bool = true, index : Int32 = 1, type : Mutes = Mutes::Fader)
+    value = state ? 1 : 0
+    send Command[:SETD, device_id, type.mapped_value, id, index, value], name: "mute_#{id}"
   end
 
-  def query_fader(fader_id : Ids, index : Int32 = 1, type : String = "fader")
-    fad = ensure_single(fader_id)
-    fad_type = FADERS[type]
-
-    do_send("GETD", self["device_id"]?, fad_type, fad, index)
+  def unmute(id : Int32, index : Int32 = 1, type : Mutes = Mutes::Fader)
+    mute(id, false, index, type)
   end
 
-  def query_faders(ids : Ids, index : Int32 = 1, type : String = "fader", **args)
-    query_fader(ids, index, type)
-  end
-
-  def query_mute(fader_id : Ids, index : Int32 = 1, type : String = "fader")
-    fad = ensure_single(fader_id)
-    mute_type = MUTES[type]
-
-    do_send("GETD", self["device_id"]?, mute_type, fad, index)
-  end
-
-  def query_mutes(ids : Ids, index : Int32 = 1, type : String = "fader", **args)
-    query_mute(ids, index, type)
+  def query_mute(id : Int32, index : Int32 = 1, type : Mutes = Mutes::Fader)
+    send Command[:GETD, device_id, type.mapped_value, id, index]
   end
 
   def received(data, task)
-    data = String.new(data)
-
-    if data =~ /-ERR/
-      return task.try &.abort
-    else
-      logger.debug { "Nexia responded #{data}" }
+    case response = Response.parse data
+    in Response::FullPath
+      logger.debug { "Device responded #{response.message}" }
+      result = process_full_path_response response
+      task.try &.success result
+    in Response::OK
+      logger.info { "OK" }
+      task.try &.success
+    in Response::Error
+      logger.warn { "Device error: #{data}" }
+      task.try &.abort(response.message)
+    in Response::Invalid
+      logger.error { "Invalid response structure" }
+      task.try &.abort(response.data)
     end
+  end
 
-    # --> "#SETD 0 FDRLVL 29 1 0.000000 +OK"
-    data = data.split(" ")
-    unless data[2].nil?
-      resp_type = data[2]
-
-      if resp_type == "DEVID"
-        # "#GETD 0 DEVID 1 "
-        self["device_id"] = data[-1].to_i
-      elsif MUTES.has_key?(resp_type)
-        type = MUTES[resp_type]
-        self["#{type}#{data[3]}_#{data[4]}_mute"] = data[5] == "1"
-      elsif FADERS.has_key?(resp_type)
-        type = FADERS[resp_type]
-        self["#{type}#{data[3]}_#{data[4]}"] = data[5]
+  protected def process_full_path_response(response)
+    case response.attribute
+    when "DEVID"
+      self["device_id"] = self.device_id = response.value.to_i
+    else
+      if mute = Mutes.from_mapped_value? response.attribute
+        id, index = response.params
+        self["#{mute.to_s.underscore}#{id}_#{index}_mute"] = response.value == "1"
+      elsif fader = Faders.from_mapped_value? response.attribute
+        id, index = response.params
+        self["#{fader.to_s.underscore}#{id}_#{index}"] = response.value.to_f
       end
     end
-
-    task.try &.success
-  end
-
-  private def do_send(*args, **options)
-    send("#{args.join(' ')} \n", **options)
-  end
-
-  private def ensure_array(object)
-    object.is_a?(Array) ? object : [object]
-  end
-
-  private def ensure_single(object)
-    object.is_a?(Array) ? object[0] : object
   end
 end
