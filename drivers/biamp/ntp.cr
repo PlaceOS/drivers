@@ -9,24 +9,12 @@ module Biamp::NTP
     index_1 : Int32? = nil,
     index_2 : Int32? = nil,
     value : String | Int32 | Float32 | Nil = nil do
-    def self.[](type : Type, device, attribute)
-      new type, device, attribute
-    end
-
-    def self.[](type : Type, device, attribute, instance)
-      new type, device, attribute, instance
-    end
-
-    def self.[](type : Type, device, attribute, instance, value)
-      new type, device, attribute, instance, value: value
-    end
-
-    def self.[](type : Type, device, attribute, instance, index_1, value)
-      new type, device, attribute, instance, index_1, value: value
-    end
-
-    def self.[](type : Type, device, attribute, instance, index_1, index_2, value)
-      new type, device, attribute, instance, index_1, index_2, value
+    macro [](type, *params)
+      {% if type == :GET || type == :GETD %}
+        {{@type.name}}.new({{type}}, {{params.splat}})
+      {% else %}
+        {{@type.name}}.new({{type}}, {{params[0...-1].splat}}, value: {{params[-1]}})
+      {% end %}
     end
 
     enum Type
