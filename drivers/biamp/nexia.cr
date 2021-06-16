@@ -107,7 +107,7 @@ class Biamp::Nexia < PlaceOS::Driver
     case response = Response.parse data
     in Response::FullPath
       logger.debug { "Device responded #{response.message}" }
-      result = process_full_path_response response.fields
+      result = process_full_path_response response
       task.try &.success result
     in Response::OK
       logger.info { "OK" }
@@ -121,23 +121,17 @@ class Biamp::Nexia < PlaceOS::Driver
     end
   end
 
-  protected def process_full_path_response(fields)
-    type = Command::Type.parse fields[0]
-    device = fields[1]
-    attribute = fields[2]
-    # All responses except GETD provide an "+OK" in the last field
-    value = type.getd? ? fields[-1] : fields[-2]
-
-    case attribute
+  protected def process_full_path_response(response)
+    case response.attribute
     when "DEVID"
-      self["device_id"] = self.device_id = value.to_i
+      self["device_id"] = self.device_id = response.value.to_i
     else
-      if mute = Mutes.from_mapped_value? attribute
-        id, index = fields[3..4]
-        self["#{mute.to_s.underscore}#{id}_#{index}_mute"] = value == "1"
-      elsif fader = Faders.from_mapped_value? attribute
-        id, index = fields[3..4]
-        self["#{fader.to_s.underscore}#{id}_#{index}"] = value.to_f
+      if mute = Mutes.from_mapped_value? response.attribute
+        id, index = response.params
+        self["#{mute.to_s.underscore}#{id}_#{index}_mute"] = response.value == "1"
+      elsif fader = Faders.from_mapped_value? response.attribute
+        id, index = response.params
+        self["#{fader.to_s.underscore}#{id}_#{index}"] = response.value.to_f
       end
     end
   end

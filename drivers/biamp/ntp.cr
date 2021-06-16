@@ -41,28 +41,39 @@ module Biamp::NTP
   end
 
   module Response
-    record FullPath, message : String, fields : Array(String)
+    record FullPath,
+      message : String,
+      type : Command::Type,
+      device : Int32,
+      attribute : String,
+      params : Array(String),
+      value : String
     record OK
     record Error, message : String
     record Invalid, data : Bytes
 
-    macro finished
-      def self.parse(data : Bytes) : {{@type.constants.join(" | ").id}}
-        case data[0]
-        when '#'
-          response = String.new data
-          if response.includes? " -ERR"
-            Error.new response
-          else
-            FullPath.new response, response[1..].split
-          end
-        when '+'
-          OK.new
-        when '-'
-          Error.new String.new data
+    def self.parse(data : Bytes)
+      case data[0]
+      when '#'
+        response = String.new data
+        if response.includes? " -ERR"
+          Error.new response
         else
-          Invalid.new data
+          fields = response[1..].split
+          type = Command::Type.parse fields[0]
+          device = fields[1].to_i
+          attribute = fields[2]
+          params = fields[3..]
+          # All responses except GETD provide an "+OK" in the last field
+          value = type.getd? ? fields[-1] : fields[-2]
+          FullPath.new response, type, device, attribute, params, value
         end
+      when '+'
+        OK.new
+      when '-'
+        Error.new String.new data
+      else
+        Invalid.new data
       end
     end
   end
