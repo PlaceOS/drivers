@@ -33,6 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Driver Report
-        run: ./report
+        run: ./harness report
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
