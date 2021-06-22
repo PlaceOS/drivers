@@ -123,11 +123,11 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.4
+    version: 1.13.5
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.1.4
+    version: 2.1.5
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
@@ -143,7 +143,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.9.3
+    version: 4.9.4
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -171,7 +171,7 @@ shards:
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
-    version: 2.2.2
+    version: 2.2.3
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
