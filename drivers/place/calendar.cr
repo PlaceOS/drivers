@@ -104,7 +104,7 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def client
-    if (@wait_time * @queue_size) > 10.seconds
+    if (@wait_time * @queue_size) > 90.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end
     @queue_lock.synchronize { @queue_size += 1 }
