@@ -120,7 +120,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     local_start_time = Time.unix(event_start).in(@time_zone)
 
-    qr_png = mailer.generate_png_qrcode(text: "VISIT:#{visitor_email},#{system_id},#{event_id}", size: 256).get.as_s
+    qr_png = mailer.generate_png_qrcode(text: "VISIT:#{visitor_email},#{system_id},#{event_id},#{host_email}", size: 256).get.as_s
 
     mailer.send_template(
       visitor_email,
