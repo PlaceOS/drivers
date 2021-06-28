@@ -2,7 +2,7 @@ require "./rest_api_models"
 
 DriverSpecs.mock_driver "Gallagher::RestAPI" do
   Log.debug { "expecting API paths request..." }
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output.puts %({
       "version": "8.10.0",
@@ -40,7 +40,7 @@ DriverSpecs.mock_driver "Gallagher::RestAPI" do
   required_pdf = Gallagher::PDF.new("1234", "email", "https://localhost:8904/api/personal_data_fields/1234")
 
   Log.debug { "expecting required PDF request..." }
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output.puts({results: [required_pdf]}.to_json)
   end
@@ -64,7 +64,7 @@ DriverSpecs.mock_driver "Gallagher::RestAPI" do
   Log.debug { "cardholder created" }
 
   Log.debug { "expecting cardholder request..." }
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output.puts({
       first_name: "Steve",
