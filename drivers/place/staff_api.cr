@@ -21,6 +21,8 @@ class Place::StaffAPI < PlaceOS::Driver
   })
 
   @place_domain : URI = URI.parse("https://staff.app.api.com")
+  @host_header : String = ""
+
   @username : String = ""
   @password : String = ""
   @client_id : String = ""
@@ -38,7 +40,9 @@ class Place::StaffAPI < PlaceOS::Driver
     @password = setting(String, :password)
     @client_id = setting(String, :client_id)
     @redirect_uri = setting(String, :redirect_uri)
+
     @place_domain = URI.parse(config.uri.not_nil!)
+    @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
 
     @running_a_spec = setting?(Bool, :running_a_spec) || false
   end
@@ -464,7 +468,8 @@ class Place::StaffAPI < PlaceOS::Driver
   protected def placeos_client : PlaceOS::Client
     PlaceOS::Client.new(
       @place_domain,
-      token: OAuth2::AccessToken::Bearer.new(token, nil)
+      token: OAuth2::AccessToken::Bearer.new(token, nil),
+      host_header: @host_header
     )
   end
 
@@ -486,6 +491,8 @@ class Place::StaffAPI < PlaceOS::Driver
       redirect_uri: @redirect_uri,
       authorize_uri: "#{origin}/auth/oauth/authorize",
       token_uri: "#{origin}/auth/oauth/token")
+
+    oauth2_client.headers_cb { |headers| headers.add("Host", @host_header) }
 
     access_token = oauth2_client.get_access_token_using_resource_owner_credentials(
       @username,
@@ -518,5 +525,43 @@ class OpenSSL::SSL::Context::Client
     {% if compare_versions(LibSSL::OPENSSL_VERSION, "1.0.2") >= 0 %}
       self.default_verify_param = "ssl_server"
     {% end %}
+  end
+end
+
+# Allow for header modification
+class OAuth2::Client
+  def headers_cb(&@headers_cb : HTTP::Headers -> Nil)
+  end
+
+  private def get_access_token : AccessToken
+    headers = HTTP::Headers{
+      "Accept"       => "application/json",
+      "Content-Type" => "application/x-www-form-urlencoded",
+    }
+
+    body = URI::Params.build do |form|
+      case @auth_scheme
+      when .request_body?
+        form.add("client_id", @client_id)
+        form.add("client_secret", @client_secret)
+      when .http_basic?
+        headers.add(
+          "Authorization",
+          "Basic #{Base64.strict_encode("#{@client_id}:#{@client_secret}")}"
+        )
+      end
+      yield form
+    end
+
+    cb = @headers_cb
+    cb.call(headers) if cb
+
+    response = HTTP::Client.post token_uri, form: body, headers: headers
+    case response.status
+    when .ok?, .created?
+      OAuth2::AccessToken.from_json(response.body)
+    else
+      raise OAuth2::Error.new(response.body)
+    end
   end
 end

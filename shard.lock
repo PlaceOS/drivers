@@ -131,7 +131,7 @@ shards:
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
-    version: 1.2.0
+    version: 1.2.1
 
   pars:
     git: https://github.com/place-labs/pars.git
