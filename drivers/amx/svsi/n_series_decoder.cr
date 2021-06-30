@@ -15,9 +15,10 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   @mute : Bool = false
   @stream : Int32? = nil
 
+  private DELIMITER = '\r'
+
   def on_load
-    # 0x0D (<CR> carriage return \r)
-    transport.tokenizer = Tokenizer.new(Bytes[0x0D])
+    transport.tokenizer = Tokenizer.new(DELIMITER.bytes)
   end
 
   def connected
