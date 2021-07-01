@@ -89,6 +89,12 @@ Command:
 EOF
 }
 
+if [ $# -eq 0 ]
+then
+  usage
+  exit 1
+fi
+
 command="$1"
 shift
 case $command in
