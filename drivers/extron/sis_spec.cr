@@ -5,7 +5,7 @@ include Extron::SIS
 
 describe Command do
   it "forms a Command from arbitrary field types" do
-    command = Command.new 42, 'a', "foo"
+    Command.new 42, 'a', "foo"
   end
 
   it "serialises the command to an IO" do
@@ -56,7 +56,7 @@ describe Response do
 
   describe Response::Clock do
     it "parses" do
-      clock = "Fri, Feb 13, 2009, 23:31:30"
+      clock = "Fri, 13 Feb 2009 23:31:30"
       parsed = Response::Clock.parse clock
       parsed.as(Time).to_unix.should eq(1234567890)
     end
@@ -95,10 +95,42 @@ describe Response do
     end
   end
 
+  describe Response::GroupVolume do
+    it "parses" do
+      vol = Response::GroupVolume.parse "GrpmD1*-500"
+      if vol.is_a? Response::ParseError
+        fail "parse error: #{vol}"
+      else
+        level, group = vol
+        level.should eq -500
+        group.should eq 1
+      end
+    end
+  end
+
+  describe Response::GroupMute do
+    it "parses" do
+      mute = Response::GroupMute.parse "GrpmD2*1"
+      if mute.is_a? Response::ParseError
+        fail "parse error: #{mute}"
+      else
+        state, group = mute
+        state.should be_true
+        group.should eq 2
+      end
+    end
+  end
+
   describe ".parse" do
     it "builds a parser that includes device errors" do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie
       typeof(resp).should eq (Tie | Error | Response::ParseError)
+    end
+
+    it "fails for unhandled responses" do
+      resp = Response.parse "not a real response", as: Response::Switch
+      resp.should be_a(Response::ParseError)
+      resp.as(Response::ParseError).message.should eq("unhandled device response")
     end
   end
 end

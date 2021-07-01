@@ -28,6 +28,9 @@ module Extron::SIS::Response
   end
 
   # :nodoc:
+  BoolField = Parse.char('0') >> Parse.const(false) | Parse.char('1') >> Parse.const(true)
+
+  # :nodoc:
   Delimiter = Parse.string SIS::DELIMITER
 
   # Parse a full command response as a String. Delimiter is optional as it may
@@ -42,7 +45,7 @@ module Extron::SIS::Response
 
   # Part of the copyright banner, but appears on a new line so will tokenize as
   # as standalone message.
-  Clock = Raw.map { |date| Time.parse_utc date, "%a, %b %d, %Y, %T" }
+  Clock = Raw.map { |date| Time.parse_utc date, "%a, %d %b %Y %T" }
 
   # Quick response, occurs following quick tie, or switching interaction from
   # the device's front panel.
@@ -66,6 +69,27 @@ module Extron::SIS::Response
     Parse.const SIS::Switch.new input, layer,
   })
 
+  # Group volume update / response. Level are provided in the raw device range
+  # of -1000..0.
+  GroupVolume = Parse.do({
+    _ <= Parse.string("GrpmD"),
+    group <= num(Int32),
+    _ <= Parse.char('*'),
+    _ <= Parse.char('-'),
+    level <= num(Int32).map { |val| val * -1 },
+    Parse.const({level, group}),
+  })
+
+  # Group audio mute update / response. Level are provided in the raw device range
+  # of -1000..0.
+  GroupMute = Parse.do({
+    _ <= Parse.string("GrpmD"),
+    group <= num(Int32),
+    _ <= Parse.char('*'),
+    state <= BoolField,
+    Parse.const({state, group}),
+  })
+
   MatrixSize = Parse.do({
     inputs <= num(Input),
     _ <= Parse.char('X'),
@@ -82,10 +106,8 @@ module Extron::SIS::Response
     Parse.const SIS::SwitcherInformation.new video, audio,
   })
 
-  # Parses for device messages that can be safely ignored - these exist mainly
-  # to flush initial connect banners
-  Ignorable = (Copyright | Clock) >> Parse.const(Ok.new)
+  Empty = Parse.string("\r\n") >> Parse.const(nil)
 
   # Async messages that can be expected outside of a command -> response flow.
-  Unsolicited = DeviceError | Tie | Ignorable
+  Unsolicited = DeviceError | Tie | Copyright | Clock | Empty
 end
