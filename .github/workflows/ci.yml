@@ -44,6 +44,7 @@ jobs:
       - name: Driver Report
         # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
+        continue-on-error: true
         run: ./harness report ${{ steps.changes.outputs.files }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
@@ -73,6 +74,7 @@ jobs:
           key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
         run: ./harness report
+        continue-on-error: true
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
