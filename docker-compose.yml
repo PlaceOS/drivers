@@ -19,6 +19,7 @@ services:
       - ./.logs:/app/compilation_failures
       - ./drivers:/app/drivers
       - ./lib:/app/lib
+      - ./src:/app/src
       - ./repositories:/app/repositories
     environment:
       - REDIS_URL=redis://redis:6379

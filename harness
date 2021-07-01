@@ -16,6 +16,7 @@ fail() {
 # Called when Ctrl-C is sent
 function trap_ctrlc ()
 {
+  echo ">~"
   echo "░░░ Cleaning up"
   docker-compose down
   say_done
