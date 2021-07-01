@@ -31,11 +31,13 @@ jobs:
           - nightly
           - 1.0.0
     steps:
+      - id: changes
+        uses: trilom/file-changes-action@v1.2.4
+        with:
+          output: ' '
       - uses: actions/checkout@v2
-      - id: files
-        uses: jitterbit/get-changed-files@v1
       - # Skip if subset report if dependencies
-        if: ${{ !contains(steps.files.outputs.all, 'shard.yml') && !contains(steps.files.outputs.all, 'shard.lock')  }}
+        if: ${{ !contains(steps.changes.files, 'shard.yml') && !contains(steps.changes.files, 'shard.lock')  }}
         name: Driver Report
         run: ./harness report ${{ steps.files.outputs.all }}
         env:
