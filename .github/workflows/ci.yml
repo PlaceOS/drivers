@@ -24,7 +24,7 @@ jobs:
 
   subset-report:
     runs-on: ubuntu-latest
-    strategy: &crystal-strategy
+    strategy:
       fail-fast: false
       matrix:
         crystal:
@@ -40,8 +40,7 @@ jobs:
         run: ./harness report ${{ steps.files.outputs.all }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
-      - &write-files
-        # Run if `.logs` has files other than `.keep`
+      - # Run if `.logs` has files other than `.keep`
         if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
         uses: actions/upload-artifact@v2
         with:
@@ -52,11 +51,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: subset-report
     strategy:
-      <<: *crystal-strategy
+      fail-fast: false
+      matrix:
+        crystal:
+          - nightly
+          - 1.0.0
     steps:
       - uses: actions/checkout@v2
       - name: Driver Report
         run: ./harness report
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
-      - <<: *write-files
+      - # Run if `.logs` has files other than `.keep`
+        if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs-${{ matrix.crystal }}-${{ github.sha }}
+          path: .logs
