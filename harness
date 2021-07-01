@@ -92,7 +92,7 @@ command="$1"
 shift
 case $command in
   report)
-    report
+    report $@
     ;;
   up)
     up
