@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
   schedule:
     - cron: "0 6 * * 1"
 
@@ -27,7 +27,6 @@ jobs:
       fail-fast: false
       matrix:
         crystal:
-          - latest
           - nightly
           - 1.0.0
     steps:
@@ -39,6 +38,6 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           # Only run if .logs has a file other than `.keep`
-          if: ${{ hashFiles('.logs/*') != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}
+          if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs
