@@ -24,6 +24,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - TZ=$TZ
+      - CI=${CI:-}
 
   redis:
     image: eqalpha/keydb
