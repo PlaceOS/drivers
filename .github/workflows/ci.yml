@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
   schedule:
     - cron: "0 6 * * 1"
 
@@ -21,18 +21,74 @@ jobs:
         uses: crystal-ameba/github-action@v0.2.12
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  test:
+
+  subset-report:
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
+        experimental: [false]
         crystal:
-          - latest
-          - nightly
           - 1.0.0
+        include:
+          - experimental: true
+            crystal: nightly
     steps:
+      - id: changes
+        uses: trilom/file-changes-action@v1.2.4
+        with:
+          output: ' '
       - uses: actions/checkout@v2
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: lib
+          key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
-        run: ./harness report
+        # Skip subset report if dependencies have changed
+        if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
+        continue-on-error: true
+        run: ./harness report ${{ steps.changes.outputs.files }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
+      - name: Upload failure logs
+        # Run if `.logs` has files other than `.keep`
+        if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs-${{ matrix.crystal }}-${{ github.sha }}
+          path: .logs/*.log
+
+  full-report:
+    needs: subset-report
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        experimental: [false]
+        crystal:
+          - 1.0.0
+        include:
+          - experimental: true
+            crystal: nightly
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: lib
+          key: ${{ hashFiles('shard.lock') }}
+      - name: Driver Report
+        run: ./harness report
+        continue-on-error: true
+        env:
+          CRYSTAL_VERSION: ${{ matrix.crystal }}
+      - name: Upload failure logs
+        # Run if `.logs` has files other than `.keep`
+        if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs-${{ matrix.crystal }}-${{ github.sha }}
+          path: .logs/*.log

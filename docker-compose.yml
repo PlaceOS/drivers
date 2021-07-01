@@ -15,13 +15,16 @@ services:
       - 127.0.0.1:8085:8080
       - 127.0.0.1:4444:4444
     volumes:
-      - ./drivers:/app/drivers
-      - ./repositories:/app/repositories
-      - ./lib:/app/lib
       - ./.git:/app/.git
+      - ./.logs:/app/report_failures
+      - ./drivers:/app/drivers
+      - ./lib:/app/lib
+      - ./src:/app/src
+      - ./repositories:/app/repositories
     environment:
       - REDIS_URL=redis://redis:6379
       - TZ=$TZ
+      - CI=${CI:-}
 
   redis:
     image: eqalpha/keydb
