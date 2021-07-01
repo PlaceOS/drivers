@@ -24,12 +24,16 @@ jobs:
 
   subset-report:
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
+        experimental: [false]
         crystal:
-          - nightly
           - 1.0.0
+        include:
+          - experimental: true
+            crystal: nightly
     steps:
       - id: changes
         uses: trilom/file-changes-action@v1.2.4
@@ -57,14 +61,18 @@ jobs:
           path: .logs
 
   full-report:
-    runs-on: ubuntu-latest
     needs: subset-report
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
+        experimental: [false]
         crystal:
-          - nightly
           - 1.0.0
+        include:
+          - experimental: true
+            crystal: nightly
     steps:
       - uses: actions/checkout@v2
       - name: Cache shards
