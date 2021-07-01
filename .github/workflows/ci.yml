@@ -36,13 +36,19 @@ jobs:
         with:
           output: ' '
       - uses: actions/checkout@v2
-      - # Skip if subset report if dependencies
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: lib
+          key: ${{ hashFiles('shard.lock') }}
+      - name: Driver Report
+        # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
-        name: Driver Report
         run: ./harness report ${{ steps.changes.outputs.files }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
-      - # Run if `.logs` has files other than `.keep`
+      - name: Upload failure logs
+        # Run if `.logs` has files other than `.keep`
         if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
         uses: actions/upload-artifact@v2
         with:
@@ -60,11 +66,17 @@ jobs:
           - 1.0.0
     steps:
       - uses: actions/checkout@v2
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: lib
+          key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
         run: ./harness report
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
-      - # Run if `.logs` has files other than `.keep`
+      - name: Upload failure logs
+        # Run if `.logs` has files other than `.keep`
         if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
         uses: actions/upload-artifact@v2
         with:
