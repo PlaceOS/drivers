@@ -5,7 +5,7 @@
 set -eu
 
 say_done() {
-  printf "\n### Done.\n"
+  printf "\n░░░ Done.\n"
 }
 
 fail() {
@@ -16,7 +16,7 @@ fail() {
 # Called when Ctrl-C is sent
 function trap_ctrlc ()
 {
-  echo "### Cleaning up"
+  echo "░░░ Cleaning up"
   docker-compose down
   say_done
   exit 2
@@ -25,21 +25,21 @@ function trap_ctrlc ()
 trap "trap_ctrlc" 2
 
 up() {
-  echo '### Starting PlaceOS Driver Spec Harness'
+  echo '░░░ Starting PlaceOS Driver Spec Harness'
   docker-compose up -d
-  printf "\n### The harness can be found at http://localhost:8085\n"
-  echo '### Stop the harness with `harness down`'
+  printf "\n░░░ The harness can be found at http://localhost:8085\n"
+  echo '░░░ Stop the harness with `harness down`'
   say_done
 }
 
 down() {
-  echo '### Stopping PlaceOS Driver Spec Harness'
+  echo '░░░ Stopping PlaceOS Driver Spec Harness'
   docker-compose down --remove-orphans
   say_done
 }
 
 format() {
-  echo '### Running `crystal tool format` over `drivers` and `repositories`'
+  echo '░░░ Running `crystal tool format` over `drivers` and `repositories`'
   docker-compose run \
                      -v ./drivers:/wd/drivers \
                      -v ./repositories:/wd/repositories \
@@ -52,7 +52,8 @@ format() {
 }
 
 report() {
-  echo '### Starting PlaceOS Driver Compilation Report'
+  echo '░░░ Starting PlaceOS Driver Compilation Report'
+
   docker-compose pull
 
   # Ensure shards are satisfied before running the report

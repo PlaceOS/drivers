@@ -15,10 +15,11 @@ services:
       - 127.0.0.1:8085:8080
       - 127.0.0.1:4444:4444
     volumes:
-      - ./drivers:/app/drivers
-      - ./repositories:/app/repositories
-      - ./lib:/app/lib
       - ./.git:/app/.git
+      - ./.logs:/app/compilation_failures
+      - ./drivers:/app/drivers
+      - ./lib:/app/lib
+      - ./repositories:/app/repositories
     environment:
       - REDIS_URL=redis://redis:6379
       - TZ=$TZ
