@@ -37,9 +37,9 @@ jobs:
           output: ' '
       - uses: actions/checkout@v2
       - # Skip if subset report if dependencies
-        if: ${{ !contains(steps.changes.files, 'shard.yml') && !contains(steps.changes.files, 'shard.lock')  }}
+        if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
         name: Driver Report
-        run: ./harness report ${{ steps.files.outputs.all }}
+        run: ./harness report ${{ steps.changes.outputs.files }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - # Run if `.logs` has files other than `.keep`

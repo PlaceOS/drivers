@@ -65,7 +65,7 @@ report() {
 
   exit_code=0
 
-  docker exec placeos-drivers report || exit_code=$?
+  docker exec placeos-drivers report $@ || exit_code=$?
 
   docker-compose down
 
