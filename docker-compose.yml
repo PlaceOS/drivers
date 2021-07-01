@@ -16,7 +16,7 @@ services:
       - 127.0.0.1:4444:4444
     volumes:
       - ./.git:/app/.git
-      - ./.logs:/app/compilation_failures
+      - ./.logs:/app/report_failures
       - ./drivers:/app/drivers
       - ./lib:/app/lib
       - ./src:/app/src

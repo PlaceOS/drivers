@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
-          path: .logs
+          path: .logs/*.log
 
   full-report:
     needs: subset-report
@@ -91,4 +91,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
-          path: .logs
+          path: .logs/*.log
