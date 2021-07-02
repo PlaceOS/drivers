@@ -23,7 +23,7 @@ shards:
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
-    version: 1.4.0
+    version: 1.4.1
 
   crc16:
     git: https://github.com/maiha/crc16.cr.git
@@ -155,7 +155,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.3.14
+    version: 5.3.15
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
