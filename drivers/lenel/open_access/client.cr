@@ -20,7 +20,7 @@ class Lenel::OpenAccess::Client
   property token : String?
 
   def initialize(@transport, @app_id)
-    transport.before_request do |req|
+    transport.before_lenel_request do |req|
       req.headers["Application-Id"] = app_id
       req.headers["Content-Type"] = "application/json"
       req.headers["Session-Token"] = token.not_nil! unless token.nil?

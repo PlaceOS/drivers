@@ -179,14 +179,14 @@ end
 #
 
 abstract class PlaceOS::Driver::Transport
-  def before_request(&callback : HTTP::Request ->)
-    before_request = @before_request ||= [] of (HTTP::Request ->)
-    before_request << callback
+  def before_lenel_request(&callback : HTTP::Request ->)
+    before_lenel_request = @before_lenel_request ||= [] of (HTTP::Request ->)
+    before_lenel_request << callback
   end
 
   private def install_middleware(client : HTTP::Client)
     client.before_request do |req|
-      @before_request.try &.each &.call(req)
+      @before_lenel_request.try &.each &.call(req)
     end
   end
 end
@@ -211,8 +211,8 @@ class PlaceOS::HTTPClient < HTTP::Client
 
   delegate get, post, put, patch, delete, to: @driver
 
-  def before_request(&block : HTTP::Request ->)
-    @driver.transport.before_request &block
+  def before_lenel_request(&block : HTTP::Request ->)
+    @driver.transport.before_lenel_request &block
   end
 end
 
