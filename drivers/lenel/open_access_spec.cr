@@ -40,7 +40,7 @@ DriverSpecs.mock_driver "Lenel::OpenAccess" do
   expect_http_request do |req, res|
     req.method.should eq("GET")
     req.path.should eq("/version")
-    req.headers["Session-Token"].should eq("abc123")
+    req.headers["Session-Token"]?.should eq("abc123")
     respond_with 200, {
       product_name:    "OnGuard 7.6",
       product_version: "7.6.001",

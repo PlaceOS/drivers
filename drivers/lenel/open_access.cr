@@ -20,9 +20,16 @@ class Lenel::OpenAccess < PlaceOS::Driver
   })
 
   private getter client : OpenAccess::Client do
-    transport = PlaceOS::HTTPClient.new self
     app_id = setting String, :application_id
-    OpenAccess::Client.new transport, app_id
+    OpenAccess::Client.new transport_wrapper, app_id
+  end
+
+  private getter transport_wrapper : PlaceOS::HTTPClient do
+    PlaceOS::HTTPClient.new self
+  end
+
+  def before_request(request : HTTP::Request)
+    transport_wrapper.before_lenel_request.try &.each &.call(request)
   end
 
   def on_load
@@ -168,6 +175,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
 end
 
 ################################################################################
+# The intent below is to provide a `HTTP::Client`-ish object that uses the
+# underlying queue and config. This provides a familiar interface for users, but
+# importantly also allows it to be passed as a compatible object to client libs
+# that may already exist for the service being integrated.
+#
 
 class PlaceOS::HTTPClient < HTTP::Client
   def initialize(@driver : PlaceOS::Driver)
@@ -177,13 +189,10 @@ class PlaceOS::HTTPClient < HTTP::Client
 
   delegate get, post, put, patch, delete, to: @driver
 
-  def before_request(request : HTTP::Request ->)
-    @before_lenel_request.try &.each &.call(request)
-  end
+  getter before_lenel_request : Array(HTTP::Request ->) = [] of (HTTP::Request ->)
 
-  def before_lenel_request(&block : HTTP::Request ->)
-    before_lenel_request = @before_lenel_request ||= [] of (HTTP::Request ->)
-    before_lenel_request << block
+  def before_request(&callback : HTTP::Request ->)
+    @before_lenel_request << callback
   end
 end
 
