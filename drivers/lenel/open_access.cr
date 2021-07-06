@@ -168,40 +168,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
 end
 
 ################################################################################
-#
-# Warning: nasty hacks below. These are intended as a _temporary_ measure to
-# modify the behaviour of the driver framework as a POC.
-#
-# The intent is to provide a `HTTP::Client`-ish object that uses the underlying
-# queue and config. This provides a familiar interface for users, but
-# importantly also allows it to be passed as a compatible object to client libs
-# that may already exist for the service being integrated.
-#
-
-abstract class PlaceOS::Driver::Transport
-  def before_lenel_request(&callback : HTTP::Request ->)
-    before_lenel_request = @before_lenel_request ||= [] of (HTTP::Request ->)
-    before_lenel_request << callback
-  end
-
-  private def install_middleware(client : HTTP::Client)
-    client.before_request do |req|
-      @before_lenel_request.try &.each &.call(req)
-    end
-  end
-end
-
-class PlaceOS::Driver::TransportTCP
-  def new_http_client(uri, context)
-    previous_def.tap &->install_middleware(HTTP::Client)
-  end
-end
-
-class PlaceOS::Driver::TransportHTTP
-  def new_http_client(uri, context)
-    previous_def.tap &->install_middleware(HTTP::Client)
-  end
-end
 
 class PlaceOS::HTTPClient < HTTP::Client
   def initialize(@driver : PlaceOS::Driver)
@@ -211,8 +177,13 @@ class PlaceOS::HTTPClient < HTTP::Client
 
   delegate get, post, put, patch, delete, to: @driver
 
+  def before_request(request : HTTP::Request ->)
+    @before_lenel_request.try &.each &.call(request)
+  end
+
   def before_lenel_request(&block : HTTP::Request ->)
-    @driver.transport.before_lenel_request &block
+    before_lenel_request = @before_lenel_request ||= [] of (HTTP::Request ->)
+    before_lenel_request << block
   end
 end
 
