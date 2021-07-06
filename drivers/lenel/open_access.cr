@@ -25,11 +25,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
   end
 
   private getter transport_wrapper : PlaceOS::HTTPClient do
-    PlaceOS::HTTPClient.new self
-  end
-
-  def before_request(request : HTTP::Request)
-    transport_wrapper.before_lenel_request.try &.each &.call(request)
+    wrapper = PlaceOS::HTTPClient.new self
+    transport.before_request do |request|
+      wrapper.before_lenel_request.try &.each &.call(request)
+    end
+    wrapper
   end
 
   def on_load
@@ -193,15 +193,5 @@ class PlaceOS::HTTPClient < HTTP::Client
 
   def before_request(&callback : HTTP::Request ->)
     @before_lenel_request << callback
-  end
-end
-
-# Patch in support for `body` in DELETE requests
-class PlaceOS::Driver
-  protected def delete(path, body : ::HTTP::Client::BodyType = nil,
-                       params : Hash(String, String?) = {} of String => String?,
-                       headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new,
-                       secure = false, concurrent = false)
-    transport.http("DELETE", path, body, params, headers, secure, concurrent)
   end
 end

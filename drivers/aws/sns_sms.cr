@@ -34,10 +34,7 @@ class AWS::SnsSms < PlaceOS::Driver
     region = uri_parts[1]
 
     @signer = Awscr::Signer::Signers::V4.new(service, region, access_key, secret)
-  end
-
-  def before_request(request : HTTP::Request)
-    signer.sign(request)
+    transport.before_request { |request| signer.sign(request) }
   end
 
   def send_sms(
