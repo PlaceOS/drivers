@@ -1,4 +1,4 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 require "placeos-driver/interface/locatable"
 
 WIRELESS_LOC = {

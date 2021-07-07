@@ -1,4 +1,4 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Place::AreaCount" do
   # Used this tool to work out coordinates: https://www.mathsisfun.com/geometry/polygons-interactive.html

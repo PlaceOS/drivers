@@ -1,8 +1,9 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
 
+# :nodoc:
 class Display < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Powerable
   include PlaceOS::Driver::Interface::Muteable
@@ -47,6 +48,7 @@ class Display < DriverSpecs::MockDriver
   end
 end
 
+# :nodoc:
 class Switcher < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::InputSelection(Int32)
 

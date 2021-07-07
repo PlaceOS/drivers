@@ -1,4 +1,4 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Lumens::DC193" do
   # On connect it queries the state of the device

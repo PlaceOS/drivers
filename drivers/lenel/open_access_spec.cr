@@ -1,4 +1,4 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 private macro respond_with(code, body)
   res.headers["Content-Type"] = "application/json"

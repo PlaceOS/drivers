@@ -1,4 +1,4 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 require "email"
 
 # for local testing use: http://nilhcem.com/FakeSMTP/download.html

@@ -1,6 +1,6 @@
 require "placeos-driver"
 require "./cp_tw_series_basic"
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Hitachi::Projector::CpTwSeriesBasic" do
   c = Hitachi::Projector::CpTwSeriesBasic::Commands

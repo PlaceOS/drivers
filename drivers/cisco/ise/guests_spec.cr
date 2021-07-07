@@ -1,7 +1,7 @@
 require "xml"
 require "placeos-driver"
 require "./guests"
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Cisco::Ise::Guests" do
   portal = "portal101"

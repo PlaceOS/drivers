@@ -1,7 +1,4 @@
-module Cisco; end
-
-module Cisco::Switch; end
-
+require "placeos-driver"
 require "set"
 
 class Cisco::Switch::SnoopingCatalyst < PlaceOS::Driver

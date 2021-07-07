@@ -1,4 +1,4 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Floorsense::Desks" do
   should_send %(POST /auth\r\n{"username":"srvc_acct","password":"password!"}\r\n)

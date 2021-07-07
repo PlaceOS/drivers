@@ -1,4 +1,4 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Cisco::Switch::SnoopingCatalyst" do
   transmit "SG-MARWFA61301>"
