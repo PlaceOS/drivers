@@ -1,4 +1,4 @@
-module Steinel; end
+require "placeos-driver"
 
 class Steinel::HPD2 < PlaceOS::Driver
   # Discovery Information

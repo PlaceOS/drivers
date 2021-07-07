@@ -1,5 +1,4 @@
-module ScreenTechnics; end
-
+require "placeos-driver"
 require "placeos-driver/interface/moveable"
 require "placeos-driver/interface/stoppable"
 

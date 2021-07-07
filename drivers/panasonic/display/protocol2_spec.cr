@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Panasonic::Display::Protocol2" do
   password = "d4a58eaea919558fb54a33a2effa8b94"
 

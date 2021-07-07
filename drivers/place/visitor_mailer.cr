@@ -1,7 +1,6 @@
-module Place; end
-
 require "uuid"
 require "oauth2"
+require "placeos-driver"
 require "placeos-driver/interface/mailer"
 
 class Place::VisitorMailer < PlaceOS::Driver

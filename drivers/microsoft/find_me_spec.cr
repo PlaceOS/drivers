@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Microsoft::FindMe" do
   # Send the request
   retval = exec(:levels)

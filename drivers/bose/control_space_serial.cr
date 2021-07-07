@@ -1,4 +1,4 @@
-module Bose; end
+require "placeos-driver"
 
 # Documentation: https://aca.im/driver_docs/Bose/Bose-ControlSpace-SerialProtocol-v5.pdf
 

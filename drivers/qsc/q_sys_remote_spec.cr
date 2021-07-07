@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Qsc::QSysRemote" do
   settings({
     username: "user",

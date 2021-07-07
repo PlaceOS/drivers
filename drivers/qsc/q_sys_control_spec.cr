@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Qsc::QSysControl" do
   settings({
     username:  "user",

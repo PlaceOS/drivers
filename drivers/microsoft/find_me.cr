@@ -1,6 +1,5 @@
-module Microsoft; end
-
 require "ntlm"
+require "placeos-driver"
 require "./find_me_models"
 
 class Microsoft::FindMe < PlaceOS::Driver

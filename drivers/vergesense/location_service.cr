@@ -1,7 +1,6 @@
-module Vergesense; end
-
 require "json"
 require "oauth2"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "./models"
 

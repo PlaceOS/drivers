@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "./mqtt_transport_adaptor"
 
 class Place::MQTT < PlaceOS::Driver

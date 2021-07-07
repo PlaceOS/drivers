@@ -1,8 +1,7 @@
 require "uri"
 require "jwt"
 require "./models"
-
-module Floorsense; end
+require "placeos-driver"
 
 # Documentation:
 # https://apiguide.smartalock.com/

@@ -1,3 +1,5 @@
+require "placeos-driver"
+
 # Documentation https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm
 
 class Qsc::QSysControl < PlaceOS::Driver

@@ -1,11 +1,8 @@
 require "digest/md5"
+require "placeos-driver"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
-
-module Panasonic; end
-
-module Panasonic::Projector; end
 
 # Documentation: https://aca.im/driver_docs/Panasonic/panasonic_pt-vw535n_manual.pdf
 #  also https://aca.im/driver_docs/Panasonic/pt-ez580_en.pdf

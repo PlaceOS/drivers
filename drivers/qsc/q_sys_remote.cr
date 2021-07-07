@@ -1,4 +1,5 @@
 require "json"
+require "placeos-driver"
 
 # Documentation: https://aca.im/driver_docs/QSC/QRCDocumentation.pdf
 

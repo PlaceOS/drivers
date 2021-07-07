@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Place::AreaCount" do
   # Used this tool to work out coordinates: https://www.mathsisfun.com/geometry/polygons-interactive.html
   exec(:is_inside?, 4, 5, "lobby1").get.should eq(true)

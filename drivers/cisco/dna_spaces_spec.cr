@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Cisco::DNASpaces" do
   # The dashboard should request the streaming API
   expect_http_request do |request, response|

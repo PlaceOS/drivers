@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Cisco::Switch::SnoopingCatalyst" do
   transmit "SG-MARWFA61301>"
   sleep 1.5.seconds

@@ -1,5 +1,6 @@
 require "json"
 require "uuid"
+require "placeos-driver/driver-specs/runner"
 
 module Relaxx
   SUCCESS = {

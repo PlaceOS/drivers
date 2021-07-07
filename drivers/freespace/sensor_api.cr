@@ -1,5 +1,4 @@
-module Freespace; end
-
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "uri"
 require "stomp"

@@ -1,5 +1,4 @@
-module Place; end
-
+require "placeos-driver"
 require "http/client"
 
 class Place::DeskBookingWebhook < PlaceOS::Driver

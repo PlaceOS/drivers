@@ -1,6 +1,5 @@
-module MuleSoft; end
-
 require "./models"
+require "placeos-driver"
 require "place_calendar"
 
 class MuleSoft::CalendarExporter < PlaceOS::Driver

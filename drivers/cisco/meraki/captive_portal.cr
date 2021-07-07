@@ -1,9 +1,6 @@
-module Cisco; end
-
-module Cisco::Meraki; end
-
 require "json"
 require "openssl"
+require "placeos-driver"
 
 class Cisco::Meraki::CaptivePortal < PlaceOS::Driver
   # Discovery Information

@@ -1,7 +1,6 @@
-module XYSense; end
-
 require "json"
 require "oauth2"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 
 class XYSense::LocationService < PlaceOS::Driver

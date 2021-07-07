@@ -1,4 +1,5 @@
 require "./scanning_api"
+require "placeos-driver/driver-specs/runner"
 
 DriverSpecs.mock_driver "Cisco::Meraki::Dashboard" do
   # Send the request

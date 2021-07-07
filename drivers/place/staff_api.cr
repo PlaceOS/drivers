@@ -1,8 +1,7 @@
-module Place; end
-
 require "json"
 require "oauth2"
 require "placeos"
+require "placeos-driver"
 
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"

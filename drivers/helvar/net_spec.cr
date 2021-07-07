@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Helvar::Net" do
   # Perform actions
   resp = exec(:trigger, group: 1, scene: 2, fade: 1100)

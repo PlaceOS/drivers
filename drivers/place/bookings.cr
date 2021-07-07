@@ -1,5 +1,4 @@
-module Place; end
-
+require "placeos-driver"
 require "place_calendar"
 
 class Place::Bookings < PlaceOS::Driver

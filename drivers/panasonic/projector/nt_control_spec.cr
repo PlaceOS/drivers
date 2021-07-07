@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Panasonic::Projector::NTControl" do
   # Execute a command (triggers the connection)
   exec(:power?)

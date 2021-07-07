@@ -1,8 +1,5 @@
+require "placeos-driver"
 require "placeos-driver/interface/camera"
-
-module Sony; end
-
-module Sony::Camera; end
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
 

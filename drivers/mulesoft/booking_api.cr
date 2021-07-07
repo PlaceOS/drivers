@@ -1,5 +1,4 @@
-module MuleSoft; end
-
+require "placeos-driver"
 require "./models"
 
 class MuleSoft::BookingsAPI < PlaceOS::Driver

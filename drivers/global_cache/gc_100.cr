@@ -1,4 +1,5 @@
 require "placeos-driver/interface/electrical_relay"
+require "placeos-driver"
 
 class GlobalCache::Gc100 < PlaceOS::Driver
   include Interface::ElectricalRelay

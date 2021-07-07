@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Bose::ControlSpaceSerial" do
   exec(:set_parameter_group, 12)
   should_send("SS C\r")
