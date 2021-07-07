@@ -1,5 +1,5 @@
 require "./rest_api_models"
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Gallagher::RestAPI" do
   Log.debug { "expecting API paths request..." }

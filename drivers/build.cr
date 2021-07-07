@@ -1,6 +1,6 @@
 {% if env("COMPILE_DRIVER") %}
   {% if env("COMPILE_DRIVER").ends_with?("_spec.cr") %}
-    require "placeos-driver/driver-specs/runner"
+    require "placeos-driver/spec"
   {% else %}
     require "placeos-driver"
   {% end %}

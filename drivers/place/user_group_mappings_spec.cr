@@ -1,6 +1,7 @@
-require "placeos-driver/driver-specs/runner"
+require "placeos-driver/spec"
 
-class StaffAPI < DriverSpecs::MockDriver
+# :nodoc:
+class StaffAPIMock < DriverSpecs::MockDriver
   def user(id : String)
     {email: "steve@placeos.tech"}
   end
@@ -10,7 +11,8 @@ class StaffAPI < DriverSpecs::MockDriver
   end
 end
 
-class Calendar < DriverSpecs::MockDriver
+# :nodoc:
+class CalendarMock < DriverSpecs::MockDriver
   def get_groups(user_id : String)
     [
       {
@@ -29,8 +31,8 @@ end
 
 DriverSpecs.mock_driver "Place::LogicExample" do
   system({
-    StaffAPI: {StaffAPI},
-    Calendar: {Calendar},
+    StaffAPI: {StaffAPIMock},
+    Calendar: {CalendarMock},
   })
 
   settings({
