@@ -2,8 +2,8 @@ require "placeos-driver/driver-specs/runner"
 
 DriverSpecs.mock_driver "XYSense::LocationService" do
   system({
-    XYSense:        {XYSense},
-    AreaManagement: {AreaManagement},
+    XYSense:        {XYSenseMock},
+    AreaManagement: {AreaManagementMock},
   })
 
   now = Time.local
@@ -18,7 +18,7 @@ DriverSpecs.mock_driver "XYSense::LocationService" do
   ])
 end
 
-class XYSense < DriverSpecs::MockDriver
+class XYSenseMock < DriverSpecs::MockDriver
   def on_load
     self[:floors] = {
       "xy-sense-floor-id" => {
@@ -70,7 +70,7 @@ class XYSense < DriverSpecs::MockDriver
   end
 end
 
-class AreaManagement < DriverSpecs::MockDriver
+class AreaManagementMock < DriverSpecs::MockDriver
   def update_available(zones : Array(String))
     logger.info { "requested update to #{zones}" }
     nil
