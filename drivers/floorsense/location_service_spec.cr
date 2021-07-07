@@ -11,6 +11,7 @@ DriverSpecs.mock_driver "Floorsense::LocationService" do
   ])
 end
 
+# :nodoc:
 class FloorsenseMock < DriverSpecs::MockDriver
   def desks(plan_id : String)
     JSON.parse %([

@@ -18,6 +18,7 @@ DriverSpecs.mock_driver "XYSense::LocationService" do
   ])
 end
 
+# :nodoc:
 class XYSenseMock < DriverSpecs::MockDriver
   def on_load
     self[:floors] = {
@@ -70,6 +71,7 @@ class XYSenseMock < DriverSpecs::MockDriver
   end
 end
 
+# :nodoc:
 class AreaManagementMock < DriverSpecs::MockDriver
   def update_available(zones : Array(String))
     logger.info { "requested update to #{zones}" }
