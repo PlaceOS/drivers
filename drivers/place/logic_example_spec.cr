@@ -1,3 +1,4 @@
+require "placeos-driver/driver-specs/runner"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"

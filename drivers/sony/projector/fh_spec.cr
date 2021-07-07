@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Sony::Projector::Fh" do
   exec(:power?)
   should_send("power_status ?\r\n")

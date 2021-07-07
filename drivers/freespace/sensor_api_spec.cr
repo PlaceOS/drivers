@@ -1,5 +1,6 @@
 require "json"
 require "stomp"
+require "placeos-driver/driver-specs/runner"
 
 DriverSpecs.mock_driver "Freespace::SensorAPI" do
   # ===========

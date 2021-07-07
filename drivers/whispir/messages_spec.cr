@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Whispir::Messages" do
   # Send the request
   retval = exec(:send_sms,

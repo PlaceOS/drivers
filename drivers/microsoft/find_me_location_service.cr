@@ -1,8 +1,7 @@
-module Microsoft; end
-
 require "json"
 require "oauth2"
 require "s2_cells"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "./find_me_models"
 

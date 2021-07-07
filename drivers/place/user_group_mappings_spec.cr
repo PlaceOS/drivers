@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 class StaffAPI < DriverSpecs::MockDriver
   def user(id : String)
     {email: "steve@placeos.tech"}

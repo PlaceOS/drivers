@@ -1,5 +1,6 @@
 require "json"
 require "s2_cells"
+require "placeos-driver"
 require "./scanning_api"
 require "placeos-driver/interface/locatable"
 

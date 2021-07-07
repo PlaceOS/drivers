@@ -1,7 +1,6 @@
-module Place; end
-
 require "set"
 require "placeos"
+require "placeos-driver"
 require "./area_config"
 require "./area_polygon"
 

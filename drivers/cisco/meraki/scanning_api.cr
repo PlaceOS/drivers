@@ -1,5 +1,4 @@
-module Cisco; end
-
+require "placeos-driver"
 require "json"
 require "./geo"
 

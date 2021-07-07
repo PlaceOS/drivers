@@ -1,4 +1,5 @@
 require "./scanning_api"
+require "placeos-driver/driver-specs/runner"
 
 class Dashboard < DriverSpecs::MockDriver
   def fetch(location : String)

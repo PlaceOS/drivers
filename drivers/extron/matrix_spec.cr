@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Extron::Matrix" do
   settings({
     input_count:  8,

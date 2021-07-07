@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Lg::Displays::Ls5" do
   # Execute a command (triggers the connection)
   exec(:power?)

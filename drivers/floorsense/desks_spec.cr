@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Floorsense::Desks" do
   # Send the request
   retval = exec(:get_token)

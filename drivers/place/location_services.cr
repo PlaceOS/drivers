@@ -1,6 +1,5 @@
-module Place; end
-
 require "json"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 
 class Place::LocationServices < PlaceOS::Driver

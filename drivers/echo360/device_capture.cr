@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "oq"
 
 # Documentation: https://aca.im/driver_docs/Echo360/EchoSystemCaptureAPI_v301.pdf

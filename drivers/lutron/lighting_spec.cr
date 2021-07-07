@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Lutron::Lighting" do
   # Module waits for this text to become ready
   transmit "login: "

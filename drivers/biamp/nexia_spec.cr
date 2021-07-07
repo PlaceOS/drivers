@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Biamp::Nexia" do
   should_send "\xFF\xFE\x01"
 

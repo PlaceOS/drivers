@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Echo360::DeviceCapture" do
   retval = exec(:system_status)
   expect_http_request do |request, response|

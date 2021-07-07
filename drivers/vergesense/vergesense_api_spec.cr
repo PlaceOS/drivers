@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
   expect_http_request do |request, response|
     case request.path

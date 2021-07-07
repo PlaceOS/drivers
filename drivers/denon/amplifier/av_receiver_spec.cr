@@ -1,3 +1,5 @@
+require "placeos-driver/driver-specs/runner"
+
 DriverSpecs.mock_driver "Denon::Amplifier::AvReceiver" do
   ####
   # POWER

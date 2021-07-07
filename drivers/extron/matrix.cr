@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "./sis"
 
 class Extron::Matrix < PlaceOS::Driver

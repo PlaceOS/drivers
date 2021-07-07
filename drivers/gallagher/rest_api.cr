@@ -1,4 +1,5 @@
 require "uri"
+require "placeos-driver"
 require "semantic_version"
 require "./rest_api_models"
 
