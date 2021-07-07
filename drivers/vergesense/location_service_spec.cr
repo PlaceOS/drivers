@@ -13,6 +13,7 @@ DriverSpecs.mock_driver "Vergesense::LocationService" do
   ])
 end
 
+# :nodoc:
 class VergesenseMock < DriverSpecs::MockDriver
   def on_load
     self["vergesense_building_id-floor_id"] = {
@@ -58,6 +59,7 @@ class VergesenseMock < DriverSpecs::MockDriver
   end
 end
 
+# :nodoc:
 class AreaManagementMock < DriverSpecs::MockDriver
   def update_available(zones : Array(String))
     logger.info { "requested update to #{zones}" }
