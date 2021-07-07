@@ -2,7 +2,7 @@ require "placeos-driver/driver-specs/runner"
 
 DriverSpecs.mock_driver "Floorsense::LocationService" do
   system({
-    Floorsense: {Floorsense},
+    Floorsense: {FloorsenseMock},
   })
 
   resp = exec(:device_locations, "zone-level").get
@@ -11,7 +11,7 @@ DriverSpecs.mock_driver "Floorsense::LocationService" do
   ])
 end
 
-class Floorsense < DriverSpecs::MockDriver
+class FloorsenseMock < DriverSpecs::MockDriver
   def desks(plan_id : String)
     JSON.parse %([
     {
