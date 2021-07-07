@@ -264,11 +264,11 @@ module OfficeRnd
     end
 
     {% for method in %w(post put) %}
-    private def {{method.id}}_request(path, body : JSON::Any | String)
-      header = get_header
-      header["Content-Type"] = "application/json"
-    response = ~{{method.id}}(path, body, header)
-    end
+      private def {{method.id}}_request(path, body : JSON::Any | String)
+        header = get_header
+        header["Content-Type"] = "application/json"
+        response = ~{{method.id}}(path, body, header)
+      end
     {% end %}
   end
 end
