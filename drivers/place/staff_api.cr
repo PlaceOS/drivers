@@ -254,6 +254,7 @@ class Place::StaffAPI < PlaceOS::Driver
     booking_start : Int64? = nil,
     booking_end : Int64? = nil,
     checked_in : Bool = false,
+    approved : Bool? = nil,
     title : String? = nil,
     description : String? = nil,
     time_zone : String? = nil,
