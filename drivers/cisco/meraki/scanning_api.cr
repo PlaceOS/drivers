@@ -1,4 +1,3 @@
-require "placeos-driver"
 require "json"
 require "./geo"
 
