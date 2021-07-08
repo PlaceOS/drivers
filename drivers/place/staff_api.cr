@@ -278,6 +278,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "user_name"      => user_name,
       "zones"          => zones,
       "checked_in"     => checked_in,
+      "approved"       => approved,
       "title"          => title,
       "description"    => description,
       "timezone"       => time_zone,
