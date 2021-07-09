@@ -224,7 +224,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   def delete_badges(badgekeys : Array(Int32)) : Int
     deleted : UInt32 = 0
     badgekeys.each do |badgekey|
-      delete(badgekey)
+      delete(badgekey.to_s)
       deleted += 1
     end
     deleted
