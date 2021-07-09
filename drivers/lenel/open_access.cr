@@ -142,7 +142,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     badges.first?
   end
 
-
   # Creates a new badge of the specied *type*, belonging to *personid* with a
   # specific *id*.
   #
@@ -171,7 +170,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate = Time.unix(activate_epoch).in Time::Location.load("Asia/Dubai")
     deactivate = Time.unix(deactivate_epoch).in Time::Location.load("Asia/Dubai")
     logger.debug { "Creating badge for cardholder #{personid}, valid from: #{activate} til #{deactivate}" }
-    
+
     create_badge(
       type: type,
       id: id,
@@ -200,11 +199,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate_epoch : Int32,
     deactivate_epoch : Int32,
     id : Int64? = nil,
-    uselimit : Int32? = nil,
+    uselimit : Int32? = nil
   )
     activate = Time.unix(activate_epoch).in Time::Location.load("Asia/Dubai")
     deactivate = Time.unix(deactivate_epoch).in Time::Location.load("Asia/Dubai")
-    logger.debug { "Updating badge #{badgekey} with id #{id} valid from: #{activate} til #{deactivate}" }    
+    logger.debug { "Updating badge #{badgekey} with id #{id} valid from: #{activate} til #{deactivate}" }
 
     update_badge(
       badgekey: badgekey,
@@ -214,7 +213,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
       uselimit: uselimit
     )
   end
-
 
   # Deletes a badge with the specified *badgekey*.
   @[Security(Level::Administrator)]
