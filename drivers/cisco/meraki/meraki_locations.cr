@@ -662,6 +662,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       # if more accurate and newer then we'll take this
       if new_loc.variance < location.variance
         location = new_loc
+        location.variance = @override_min_variance if location.variance < @override_min_variance
         next
       end
 
