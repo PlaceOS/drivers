@@ -17,6 +17,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     directory_id:   "",
     username:       "",
     password:       "",
+    timezone:       "Asia/Dubai"
   })
 
   private getter client : OpenAccess::Client do
@@ -30,6 +31,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
       wrapper.before_lenel_request.try &.each &.call(request)
     end
     wrapper
+  end
+
+  private getter default_timezone : String do
+    setting?(String, :timezone) || "Asia/Dubai"
   end
 
   def on_load
@@ -165,10 +170,12 @@ class Lenel::OpenAccess < PlaceOS::Driver
     personid : Int32,
     activate_epoch : Int32,
     deactivate_epoch : Int32,
-    uselimit : Int32? = nil
+    uselimit : Int32? = nil,
+    timezone : String? = nil
   )
-    activate = Time.unix(activate_epoch).in Time::Location.load("Asia/Dubai")
-    deactivate = Time.unix(deactivate_epoch).in Time::Location.load("Asia/Dubai")
+    time_zone = timezone || default_timezone
+    activate = Time.unix(activate_epoch).in Time::Location.load(time_zone)
+    deactivate = Time.unix(deactivate_epoch).in Time::Location.load(time_zone)
     logger.debug { "Creating badge for cardholder #{personid}, valid from: #{activate} til #{deactivate}" }
 
     create_badge(
@@ -199,10 +206,12 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate_epoch : Int32,
     deactivate_epoch : Int32,
     id : Int64? = nil,
-    uselimit : Int32? = nil
+    uselimit : Int32? = nil,
+    timezone : String? = nil
   )
-    activate = Time.unix(activate_epoch).in Time::Location.load("Asia/Dubai")
-    deactivate = Time.unix(deactivate_epoch).in Time::Location.load("Asia/Dubai")
+    time_zone = timezone || default_timezone
+    activate = Time.unix(activate_epoch).in Time::Location.load(time_zone)
+    deactivate = Time.unix(deactivate_epoch).in Time::Location.load(time_zone)
     logger.debug { "Updating badge #{badgekey} with id #{id} valid from: #{activate} til #{deactivate}" }
 
     update_badge(
@@ -221,13 +230,16 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.delete Badge, **args
   end
 
-  def delete_badges(badgekeys : Array(Int32)) : Int
-    deleted : UInt32 = 0
-    badgekeys.each do |badgekey|
-      delete(badgekey.to_s)
-      deleted += 1
+  def delete_badges(badgekeys : Array(Int32)) : Int32
+    badgekeys.count do |badge_key|
+      begin
+        delete_badge(badge_key)
+        1
+      rescue OpenAccess::Error
+        logger.debug { "failed to delete badge #{badge_key}" }
+        0
+      end
     end
-    deleted
   end
 
   # Lookup a cardholder by *email* address.
