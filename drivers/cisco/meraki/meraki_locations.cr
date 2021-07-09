@@ -22,6 +22,10 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     # Max Uncertainty in meters - we don't accept positions that are less certain
     maximum_uncertainty: 25.0,
 
+    # For confident yet inaccurate location data/maps. If a location's variance is below this threshold, increase it to this value.
+    # 0.0 disables the override
+    override_min_variance: 0.0,
+
     # can we use the meraki dashboard API for user lookups
     default_network_id: "network_id",
 
@@ -59,6 +63,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   @acceptable_confidence : Float64 = 5.0
   @maximum_uncertainty : Float64 = 25.0
+  @override_min_variance : Float64 = 0.0
 
   @time_multiplier : Float64 = 0.0
   @confidence_multiplier : Float64 = 0.0
@@ -84,6 +89,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
     @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
+    @override_min_variance = setting?(Float64, :override_min_variance) || 0.0
 
     @max_location_age = (setting?(UInt32, :max_location_age) || 6).minutes
     # Age we keep a confident value (without drifting towards less confidence)
@@ -674,7 +680,8 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
         new_loc.x = new_x
         new_loc.y = new_y
-        new_loc.variance = new_uncertainty
+        new_loc.variance = new_uncertainty < @override_min_variance ? @override_min_variance : new_uncertainty
+
         location = new_loc
       end
     end
