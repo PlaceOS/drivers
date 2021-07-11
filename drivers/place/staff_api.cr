@@ -62,6 +62,26 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  def systems(q : String? = nil,
+              limit : Int32 = 1000,
+              offset : Int32 = 0,
+              zone_id : String? = nil,
+              module_id : String? = nil,
+              features : String? = nil,
+              capacity : Int32? = nil,
+              bookable : Bool? = nil)
+    placeos_client.systems.search(
+      q: q,
+      limit: limit,
+      offset: offset,
+      zone_id: zone_id,
+      module_id: module_id,
+      features: features,
+      capacity: capacity,
+      bookable: bookable
+    )
+  end
+
   # Staff details returns the information from AD
   def staff_details(email : String)
     response = get("/api/staff/v1/people/#{email}", headers: {
@@ -239,6 +259,64 @@ class Place::StaffAPI < PlaceOS::Driver
       tags: tags
     )
   end
+
+  # ===================================
+  # MODULE INFORMATION
+  # ===================================
+  def module(module_id : String)
+    response = get("/api/engine/v2/modules/#{module_id}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response for module id #{module_id}: #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing module #{module_id}:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  def modules_from_system(system_id : String)
+    response = get("/api/engine/v2/modules?control_system_id=#{system_id}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response for modules for #{system_id}: #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue getting modules for #{system_id}:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  def get_module_state(module_id : String, lookup : String? = nil)
+    placeos_client.modules.state(module_id, lookup)
+  end
+
+  # TODO: figure out why these 2 methods don't work
+  # def module(module_id : String)
+  #   placeos_client.modules.fetch module_id
+  # end
+
+  # def modules(q : String? = nil,
+  #             limit : Int32 = 20,
+  #             offset : Int32 = 0,
+  #             control_system_id : String? = nil,
+  #             driver_id : String? = nil)
+  #   placeos_client.modules.search(
+  #     q: q,
+  #     limit: limit,
+  #     offset: offset,
+  #     control_system_id: control_system_id,
+  #     driver_id: driver_id
+  #   )
+  # end
 
   # ===================================
   # BOOKINGS ACTIONS
