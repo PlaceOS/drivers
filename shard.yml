@@ -4,7 +4,7 @@ version: 2.2.0
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
-    version: ~> 4.4
+    version: ~> 4.5
 
   email:
     github: arcage/crystal-email
@@ -82,3 +82,8 @@ dependencies:
   awscr-signer:
     github: taylorfinnell/awscr-signer
     version: ~> 0.8
+
+development_dependencies:
+  ghooks.cr:
+    github: gtramontina/ghooks.cr
+    version: ~> 1.0

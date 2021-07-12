@@ -61,6 +61,10 @@ shards:
     git: https://github.com/crystal-community/future.cr.git
     version: 1.0.0
 
+  ghooks.cr:
+    git: https://github.com/gtramontina/ghooks.cr.git
+    version: 1.0.0
+
   google:
     git: https://github.com/placeos/google.git
     version: 3.0.6
@@ -199,7 +203,7 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 4.1.0
+    version: 4.1.1
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git
