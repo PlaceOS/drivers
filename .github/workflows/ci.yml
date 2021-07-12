@@ -12,6 +12,7 @@ jobs:
   style:
     runs-on: ubuntu-latest
     container: crystallang/crystal
+    name: "Style"
     steps:
       - uses: actions/checkout@v2
       - name: Format
@@ -32,6 +33,7 @@ jobs:
         include:
           - experimental: true
             crystal: nightly
+    name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ !matrix.experimental }}"
     steps:
       - id: changes
         uses: trilom/file-changes-action@v1.2.4
@@ -70,6 +72,7 @@ jobs:
         include:
           - experimental: true
             crystal: nightly
+    name: "Full Report - crystal: ${{ matrix.crystal }}, stable: ${{ !matrix.experimental }}"
     steps:
       - uses: actions/checkout@v2
       - name: Cache shards
