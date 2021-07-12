@@ -4,7 +4,9 @@
 
 Manage and test [PlaceOS](https://place.technology) drivers.
 
-## `harness`
+## Development
+
+### `harness`
 
 `harness` is a helper for easing development of PlaceOS Drivers.
 
@@ -20,8 +22,6 @@ Command:
     format                  formats driver code
     help                    display this message
 ```
-
-## Development
 
 To spin up the test harness, clone the repository and run...
 
