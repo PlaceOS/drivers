@@ -2,7 +2,6 @@ require "uri"
 require "uuid"
 
 require "./models"
-require "responsible"
 
 module OfficeRnd
   class OfficeRndAPI < PlaceOS::Driver
