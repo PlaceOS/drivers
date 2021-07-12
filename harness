@@ -41,16 +41,14 @@ down() {
 
 format() {
   echo '░░░ Running `crystal tool format` over `drivers` and `repositories`'
-  exit_code=0
   docker-compose run \
                      -v ./drivers:/wd/drivers \
                      -v ./repositories:/wd/repositories \
                      --no-deps \
                      --rm \
                      install-shards \
-                     crystal tool format $@ || exit_code=$?
+                     crystal tool format
   say_done
-  exit ${exit_code}
 }
 
 report() {
@@ -63,8 +61,7 @@ report() {
   # Ensure shards are satisfied before running the report
   docker-compose run \
                      --rm \
-                     install-shards # &> /dev/null
-                     # --no-deps \
+                     install-shards &> /dev/null
 
   echo '░░░ Starting environment...'
   docker-compose up -d &> /dev/null
@@ -93,18 +90,10 @@ Command:
 EOF
 }
 
-# Check the number of arguments passed.
-if [[ "$#" -eq 0 ]]
+if [ $# -eq 0 ]
 then
   usage
   exit 1
-fi
-
-# Check if able to connect to docker
-if [[ "$(docker ps &> /dev/null; echo $?)" -eq 1 ]]
-then
-  echo "░░░ Failed to connect to docker. Is it running?"
-  exit 2
 fi
 
 command="$1"
@@ -120,7 +109,7 @@ case $command in
     down
     ;;
   format)
-    format $@
+    format
     ;;
   -h|--help|help)
     usage
