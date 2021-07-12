@@ -54,14 +54,13 @@ format() {
 report() {
   echo '░░░ PlaceOS Driver Compilation Report'
   echo '░░░ Pulling images...'
-
   docker-compose pull &> /dev/null
 
-  echo '░░░ Installing shards...'
   # Ensure shards are satisfied before running the report
+  echo '░░░ Installing shards...'
   docker-compose run \
                      --rm \
-                     install-shards &> /dev/null
+                     install-shards > /dev/null
 
   echo '░░░ Starting environment...'
   docker-compose up -d &> /dev/null
