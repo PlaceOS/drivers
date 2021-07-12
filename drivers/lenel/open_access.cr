@@ -17,7 +17,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     directory_id:   "",
     username:       "",
     password:       "",
-    timezone:       "Asia/Dubai"
+    timezone:       "Asia/Dubai",
   })
 
   private getter client : OpenAccess::Client do
