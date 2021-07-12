@@ -11,8 +11,7 @@ on:
 jobs:
   style:
     runs-on: ubuntu-latest
-    container:
-      image: crystallang/crystal
+    container: crystallang/crystal
     steps:
       - uses: actions/checkout@v2
       - name: Format
@@ -26,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
     strategy:
-      fail-fast: false
       matrix:
         experimental: [false]
         crystal:
@@ -48,13 +46,13 @@ jobs:
       - name: Driver Report
         # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
-        continue-on-error: true
+        continue-on-error: ${{ matrix.experimental }}
         run: ./harness report ${{ steps.changes.outputs.files }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
         # Run if `.logs` has files other than `.keep`
-        if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
+        if: ${{ failure() && hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
         uses: actions/upload-artifact@v2
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
@@ -65,7 +63,6 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
     strategy:
-      fail-fast: false
       matrix:
         experimental: [false]
         crystal:
@@ -82,12 +79,12 @@ jobs:
           key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
         run: ./harness report
-        continue-on-error: true
+        continue-on-error: ${{ matrix.experimental }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
         # Run if `.logs` has files other than `.keep`
-        if: ${{ hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
+        if: ${{ failure() && hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
         uses: actions/upload-artifact@v2
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}

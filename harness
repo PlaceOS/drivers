@@ -61,7 +61,7 @@ report() {
   # Ensure shards are satisfied before running the report
   docker-compose run \
                      --rm \
-                     install-shards
+                     install-shards &> /dev/null
 
   echo '░░░ Starting environment...'
   docker-compose up -d &> /dev/null
