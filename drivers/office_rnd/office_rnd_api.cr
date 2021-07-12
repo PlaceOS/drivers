@@ -82,10 +82,10 @@ module OfficeRnd
       }
     end
 
-    Responsible.on_client_error do |response|
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    # Responsible.on_client_error do |response|
+    #   expire_token! if response.status_code == 401
+    #   raise "unexpected response #{response.status_code}\n#{response.body}"
+    # end
 
     # Floor
     ###########################################################################
@@ -254,20 +254,27 @@ module OfficeRnd
     # Internal Helpers
     #############################################################################
 
+    private def parse_response(response : HTTP::Client::Response)
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+
     private def get_request(path, result_type)
-      response = ~get(path, get_header)
-      result_type.from_json(response.body)
+      response = get(path, get_header)
+      parse_response(response)
     end
 
     private def delete_request(path)
-      response = ~delete(path, get_header)
+      response = delete(path, get_header)
+      parse_response(response)
     end
 
     {% for method in %w(post put) %}
       private def {{method.id}}_request(path, body : JSON::Any | String)
         header = get_header
         header["Content-Type"] = "application/json"
-        response = ~{{method.id}}(path, body, header)
+        response = {{method.id}}(path, body, header)
+        parse_response(response)
       end
     {% end %}
   end
