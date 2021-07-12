@@ -81,11 +81,6 @@ module OfficeRnd
       }
     end
 
-    # Responsible.on_client_error do |response|
-    #   expire_token! if response.status_code == 401
-    #   raise "unexpected response #{response.status_code}\n#{response.body}"
-    # end
-
     # Floor
     ###########################################################################
 
