@@ -3,7 +3,7 @@ require "qr-code/export/png"
 require "base64"
 require "email"
 require "uri"
-
+require "placeos-driver"
 require "placeos-driver/interface/mailer"
 
 class Place::Smtp < PlaceOS::Driver

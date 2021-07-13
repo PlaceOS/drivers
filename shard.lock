@@ -143,7 +143,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.9.5
+    version: 4.9.6
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -155,7 +155,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.4.0
+    version: 5.4.5
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -179,7 +179,7 @@ shards:
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
-    version: 2.7.0
+    version: 2.8.0
 
   redis-cluster:
     git: https://github.com/caspiano/redis-cluster.cr.git

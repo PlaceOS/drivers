@@ -1,6 +1,8 @@
 require "./scanning_api"
+require "placeos-driver/spec"
 
-class Dashboard < DriverSpecs::MockDriver
+# :nodoc:
+class DashboardMock < DriverSpecs::MockDriver
   def fetch(location : String)
     logger.info { "fetching: #{location}" }
     case location
@@ -14,7 +16,7 @@ end
 
 DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
   system({
-    Dashboard: {Dashboard},
+    Dashboard: {DashboardMock},
   })
 
   sleep 0.5

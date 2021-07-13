@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Biamp::Nexia" do
   should_send "\xFF\xFE\x01"
 

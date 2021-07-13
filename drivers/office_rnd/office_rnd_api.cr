@@ -1,6 +1,6 @@
 require "uri"
 require "uuid"
-
+require "placeos-driver"
 require "./models"
 
 module OfficeRnd

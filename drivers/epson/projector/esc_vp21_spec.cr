@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Epson::Projector::EscVp21" do
   # connected
   should_send("ESC/VP.net\x10\x03\x00\x00\x00\x00")

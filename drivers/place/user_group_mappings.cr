@@ -1,4 +1,4 @@
-module Place; end
+require "placeos-driver"
 
 class Place::UserGroupMappings < PlaceOS::Driver
   descriptive_name "User Group Mappings"

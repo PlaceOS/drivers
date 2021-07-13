@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "GlobalCache::Gc100" do
   # connected
   # get_devices

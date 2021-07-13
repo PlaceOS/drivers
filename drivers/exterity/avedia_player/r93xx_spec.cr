@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Exterity::AvediaPlayer::R92xx" do
   responds("login:")
   should_send("admin\r\n", 3.seconds)

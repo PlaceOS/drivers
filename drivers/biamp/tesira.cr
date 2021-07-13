@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "telnet"
 
 module Biamp; end

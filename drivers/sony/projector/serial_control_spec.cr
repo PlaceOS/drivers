@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Sony::Projector::SerialControl" do
   exec(:power, true)
   should_send("\xA9\x17\x2E\x00\x00\x00\x3F\x9A")

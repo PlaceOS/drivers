@@ -1,5 +1,4 @@
-module Xovis; end
-
+require "placeos-driver"
 require "xml"
 
 class Xovis::SensorAPI < PlaceOS::Driver

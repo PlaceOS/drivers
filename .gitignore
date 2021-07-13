@@ -6,6 +6,7 @@
 app
 bin
 doc
+docs
 lib
 .logs
 repositories/*

@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 private macro respond_with(code, body)
   res.headers["Content-Type"] = "application/json"
   res.status_code = {{code}}

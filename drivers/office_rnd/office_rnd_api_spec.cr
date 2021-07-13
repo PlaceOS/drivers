@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "OfficeRnd::OfficeRndApi" do
   # Send the request
   retval = exec(:get_token)

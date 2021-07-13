@@ -1,5 +1,3 @@
-module Cisco; end
-
 require "json"
 require "./geo"
 

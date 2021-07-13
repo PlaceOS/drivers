@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Sony::Projector::PjTalk" do
   resp = exec(:power?)
   should_send("020a534f4e5901010200".hexbytes)

@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "AWS::SnsSms" do
   # Send the request
   retval = exec(:send_sms,
