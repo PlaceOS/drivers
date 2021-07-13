@@ -259,7 +259,7 @@ module OfficeRnd
     end
 
     private def delete_request(path)
-      response = delete(path, get_header)
+      response = delete(path, headers: get_header)
       parse_response(response)
     end
 
