@@ -6,7 +6,7 @@ DriverSpecs.mock_driver "Gallagher::RestAPI" do
   expect_http_request do |_request, response|
     response.status_code = 200
     response.output.puts %({
-      "version": "8.10.0",
+      "version": "8.50.1414.0",
       "features": {
         "cardholders": {
           "cardholders": {
