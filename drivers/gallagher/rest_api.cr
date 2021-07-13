@@ -78,7 +78,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     raise "endpoints request failed with #{response.status_code}\n#{response.body}" unless response.success?
     payload = JSON.parse response.body
 
-    api_version = SemanticVersion.parse(payload["version"].as_s)
+    api_version = SemanticVersion.parse(payload["version"].as_s.split('.')[0..2].join('.'))
     @cardholders_endpoint = get_path payload["features"]["cardholders"]["cardholders"]["href"].as_s
     @access_groups_endpoint = get_path payload["features"]["accessGroups"]["accessGroups"]["href"].as_s
     @events_endpoint = get_path payload["features"]["events"]["events"]["href"].as_s
