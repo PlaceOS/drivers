@@ -34,6 +34,9 @@ class Gallagher::RestAPI < PlaceOS::Driver
     on_update
 
     schedule.every(1.minutes) { query_endpoints }
+    transport.before_request do |req|
+      logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
+    end
   end
 
   @api_key : String = ""
