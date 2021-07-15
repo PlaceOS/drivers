@@ -62,6 +62,38 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  def systems(
+    q : String? = nil,
+    zone_id : String? = nil,
+    capacity : Int32? = nil,
+    bookable : Bool? = nil,
+    features : String? = nil,
+    limit : Int32 = 1000,
+    offset : Int32 = 0
+  )
+    placeos_client.systems.search(
+      q: q,
+      limit: limit,
+      offset: offset,
+      zone_id: zone_id,
+      capacity: capacity,
+      bookable: bookable,
+      features: features
+    )
+  end
+
+  def systems_in_building(zone_id : String, ids_only : Bool = true)
+    levels = zones(parent: zone_id)
+    if ids_only
+      hash = {} of String => Array(String)
+      levels.each { |level| hash[level.id] = systems(zone_id: level.id).map(&.id) }
+    else
+      hash = {} of String => Array(::PlaceOS::Client::API::Models::System)
+      levels.each { |level| hash[level.id] = systems(zone_id: level.id) }
+    end
+    hash
+  end
+
   # Staff details returns the information from AD
   def staff_details(email : String)
     response = get("/api/staff/v1/people/#{email}", headers: {
