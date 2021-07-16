@@ -83,16 +83,12 @@ class Place::LocationServices < PlaceOS::Driver
 
       # reduce
       results.each do |(level_id, result)|
-        begin
-          result.get.each do |locations|
-            located.concat(locations.as_a.tap &.each { |location|
-              location = location.as_h
-              location["level"] = level_id
-              location["building"] = building
-            })
-          end
-        rescue error
-          logger.warn(exception: error) { "locating user #{email || username} on level #{level_id}" }
+        result.get.each do |locations|
+          located.concat(locations.as_a.tap &.each { |location|
+            location = location.as_h
+            location["level"] = level_id
+            location["building"] = building
+          })
         end
       end
     end
@@ -120,13 +116,7 @@ class Place::LocationServices < PlaceOS::Driver
       end
 
       # reduce
-      results.each do |result|
-        begin
-          result.get.each { |found| macs.concat found.as_a.map(&.as_s) }
-        rescue error
-          logger.warn(exception: error) { "finding macs assigned to #{email || username}" }
-        end
-      end
+      results.each &.get.each { |found| macs.concat found.as_a.map(&.as_s) }
     end
 
     macs
@@ -155,15 +145,11 @@ class Place::LocationServices < PlaceOS::Driver
 
       # reduce
       results.each do |sys_results|
-        begin
-          sys_results.get.each do |result|
-            if result != nil
-              owner = result
-              break
-            end
+        sys_results.get.each do |result|
+          if result != nil
+            owner = result
+            break
           end
-        rescue error
-          logger.warn(exception: error) { "checking owner of mac #{mac_address}" }
         end
         break unless owner.nil?
       end
