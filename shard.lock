@@ -2,8 +2,8 @@
 version: 2.0
 shards:
   CrystalEmail:
-    git: https://github.com/nephos/crystalemail.git
-    version: 0.2.4
+    git: https://github.com/place-labs/crystalemail.git
+    version: 0.2.6
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
@@ -115,7 +115,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.7.1
+    version: 1.8.0
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -139,7 +139,7 @@ shards:
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
-    version: 1.1.1
+    version: 1.1.2
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
@@ -155,7 +155,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.4.5
+    version: 5.4.6
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -163,7 +163,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.7.0
+    version: 5.7.4
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -199,7 +199,7 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 4.1.0
+    version: 5.0.0
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git

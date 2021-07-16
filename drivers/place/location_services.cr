@@ -8,7 +8,8 @@ class Place::LocationServices < PlaceOS::Driver
   description %(collects location data from compatible services and combines the data)
 
   default_settings({
-    debug_webhook: false,
+    debug_webhook:   false,
+    search_building: false,
 
     # various groups of people one might be interested in contacting
     emergency_contacts: {
@@ -23,15 +24,39 @@ class Place::LocationServices < PlaceOS::Driver
 
   @debug_webhook : Bool = false
   @emergency_contacts : Hash(String, String) = {} of String => String
+  @search_building : Bool = true
+
+  getter building_id : String { get_building_id.not_nil! }
+  getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   def on_update
     @debug_webhook = setting?(Bool, :debug_webhook) || false
     @emergency_contacts = setting?(Hash(String, String), :emergency_contacts) || Hash(String, String).new
+    @search_building = setting?(Bool, :search_building) || false
+    @building_id = nil
+    @systems = nil
 
     if !@emergency_contacts.empty?
       schedule.clear
       schedule.every(6.hours, immediate: true) { update_contacts_list }
     end
+  end
+
+  # Finds the building ID for the current location services object
+  def get_building_id
+    zone_ids = system["StaffAPI"].zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine building zone id" }
+    nil
+  end
+
+  # Grabs the list of systems in the building
+  def get_systems_list
+    system["StaffAPI"].systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
+  rescue error
+    logger.warn(exception: error) { "unable to obtain list of systems in the building" }
+    nil
   end
 
   # Runs through all the services that support the Locatable interface
@@ -43,6 +68,35 @@ class Place::LocationServices < PlaceOS::Driver
     system.implementing(Interface::Locatable).locate_user(email, username).get.each do |locations|
       located.concat locations.as_a
     end
+
+    if @search_building
+      building = JSON::Any.new building_id
+      results = [] of Tuple(JSON::Any, PlaceOS::Driver::Proxy::Drivers::Responses)
+
+      # Map
+      systems.each do |level_id, system_ids|
+        level_id = JSON::Any.new level_id
+        system_ids.each do |system_id|
+          results << {level_id, system(system_id).implementing(Interface::Locatable).locate_user(email, username)}
+        end
+      end
+
+      # reduce
+      results.each do |(level_id, result)|
+        begin
+          result.get.each do |locations|
+            located.concat(locations.as_a.tap &.each { |location|
+              location = location.as_h
+              location["level"] = level_id
+              location["building"] = building
+            })
+          end
+        rescue error
+          logger.warn(exception: error) { "locating user #{email || username} on level #{level_id}" }
+        end
+      end
+    end
+
     located
   end
 
@@ -54,6 +108,27 @@ class Place::LocationServices < PlaceOS::Driver
     system.implementing(Interface::Locatable).macs_assigned_to(email, username).get.each do |found|
       macs.concat found.as_a.map(&.as_s)
     end
+
+    if @search_building
+      results = [] of PlaceOS::Driver::Proxy::Drivers::Responses
+
+      # Map
+      systems.each do |_level_id, system_ids|
+        system_ids.each do |system_id|
+          results << system(system_id).implementing(Interface::Locatable).macs_assigned_to(email, username)
+        end
+      end
+
+      # reduce
+      results.each do |result|
+        begin
+          result.get.each { |found| macs.concat found.as_a.map(&.as_s) }
+        rescue error
+          logger.warn(exception: error) { "finding macs assigned to #{email || username}" }
+        end
+      end
+    end
+
     macs
   end
 
@@ -67,6 +142,33 @@ class Place::LocationServices < PlaceOS::Driver
         break
       end
     end
+
+    if owner.nil? && @search_building
+      results = [] of PlaceOS::Driver::Proxy::Drivers::Responses
+
+      # Map
+      systems.each do |_level_id, system_ids|
+        system_ids.each do |system_id|
+          results << system(system_id).implementing(Interface::Locatable).check_ownership_of(mac_address)
+        end
+      end
+
+      # reduce
+      results.each do |sys_results|
+        begin
+          sys_results.get.each do |result|
+            if result != nil
+              owner = result
+              break
+            end
+          end
+        rescue error
+          logger.warn(exception: error) { "checking owner of mac #{mac_address}" }
+        end
+        break unless owner.nil?
+      end
+    end
+
     owner
   end
 
