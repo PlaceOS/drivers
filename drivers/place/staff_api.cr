@@ -251,6 +251,11 @@ class Place::StaffAPI < PlaceOS::Driver
     placeos_client.metadata.children(id, key)
   end
 
+  @[Security(Level::Support)]
+  def write_metadata(id : String, key : String, payload : JSON::Any, description : String? = nil)
+    placeos_client.metadata.update(id, key, payload, description)
+  end
+
   # ===================================
   # ZONE INFORMATION
   # ===================================
