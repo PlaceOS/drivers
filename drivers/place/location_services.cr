@@ -1,6 +1,7 @@
 require "json"
 require "placeos-driver"
 require "placeos-driver/interface/locatable"
+require "placeos-driver/interface/sensor"
 
 class Place::LocationServices < PlaceOS::Driver
   descriptive_name "PlaceOS Location Services"
@@ -36,8 +37,14 @@ class Place::LocationServices < PlaceOS::Driver
     @building_id = nil
     @systems = nil
 
+    schedule.clear
+
+    # Keep mappings up to date
+    if @search_building
+      schedule.every(1.hour) { @systems = get_systems_list.not_nil! if @systems }
+    end
+
     if !@emergency_contacts.empty?
-      schedule.clear
       schedule.every(6.hours, immediate: true) { update_contacts_list }
     end
   end
@@ -166,6 +173,82 @@ class Place::LocationServices < PlaceOS::Driver
       located.concat locations.as_a
     end
     located
+  end
+
+  # ===============================
+  # Sensor data collection
+  # ===============================
+
+  # sensor search + filtered search
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil)
+    logger.debug { "searching sensors of type: #{type.inspect}, mac: #{mac.inspect}, zone_id: #{zone_id}" }
+    located = [] of JSON::Any
+    system.implementing(Interface::Sensor).sensors(type, mac, zone_id).get.each do |locations|
+      located.concat locations.as_a
+    end
+
+    if @search_building
+      building = JSON::Any.new building_id
+      results = [] of Tuple(JSON::Any, PlaceOS::Driver::Proxy::Drivers::Responses)
+
+      # Map
+      systems.each do |level_id, system_ids|
+        next if zone_id && zone_id != level_id
+        level_id = JSON::Any.new level_id
+        system_ids.each do |system_id|
+          results << {level_id, system(system_id).implementing(Interface::Sensor).sensors(type, mac, zone_id)}
+        end
+      end
+
+      # reduce
+      results.each do |(level_id, result)|
+        result.get.each do |locations|
+          located.concat(locations.as_a.tap &.each { |location|
+            location = location.as_h
+            location["level"] = level_id
+            location["building"] = building
+          })
+        end
+      end
+    end
+
+    located
+  end
+
+  def sensor(mac : String, id : String? = nil)
+    logger.debug { "querying sensor with mac: #{mac}, id: #{id.inspect}" }
+    located = [] of JSON::Any
+    system.implementing(Interface::Sensor).sensor(mac, id).get.each do |locations|
+      located.concat locations.as_a
+    end
+
+    return located.first unless located.empty?
+
+    if @search_building
+      building = JSON::Any.new building_id
+      results = [] of Tuple(JSON::Any, PlaceOS::Driver::Proxy::Drivers::Responses)
+
+      # Map
+      systems.each do |level_id, system_ids|
+        level_id = JSON::Any.new level_id
+        system_ids.each do |system_id|
+          results << {level_id, system(system_id).implementing(Interface::Sensor).sensor(mac, id)}
+        end
+      end
+
+      # reduce
+      results.each do |(level_id, result)|
+        result.get.each do |locations|
+          located.concat(locations.as_a.tap &.each { |location|
+            location = location.as_h
+            location["level"] = level_id
+            location["building"] = building
+          })
+        end
+      end
+    end
+
+    located.first unless located.empty?
   end
 
   # ===============================
