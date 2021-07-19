@@ -10,9 +10,9 @@ on:
 
 jobs:
   style:
+    name: "Style"
     runs-on: ubuntu-latest
     container: crystallang/crystal
-    name: "Style"
     steps:
       - uses: actions/checkout@v2
       - name: Format
@@ -23,17 +23,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   subset-report:
+    name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.experimental }}
+    continue-on-error: ${{ !matrix.stable }}
     strategy:
+      fail-fast: false
       matrix:
-        experimental: [false]
+        stable: [true]
         crystal:
           - 1.0.0
         include:
-          - experimental: true
+          - stable: false
             crystal: nightly
-    name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ !matrix.experimental }}"
     steps:
       - id: changes
         uses: trilom/file-changes-action@v1.2.4
@@ -52,26 +53,26 @@ jobs:
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
-        # Run if `.logs` has files other than `.keep`
-        if: ${{ failure() && hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v2
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs/*.log
 
   full-report:
+    name: "Full Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
     needs: subset-report
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.experimental }}
+    continue-on-error: ${{ !matrix.stable }}
     strategy:
+      fail-fast: false
       matrix:
-        experimental: [false]
+        stable: [true]
         crystal:
           - 1.0.0
         include:
-          - experimental: true
+          - stable: false
             crystal: nightly
-    name: "Full Report - crystal: ${{ matrix.crystal }}, stable: ${{ !matrix.experimental }}"
     steps:
       - uses: actions/checkout@v2
       - name: Cache shards
@@ -84,8 +85,7 @@ jobs:
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
-        # Run if `.logs` has files other than `.keep`
-        if: ${{ failure() && hashFiles('.logs/*') != 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v2
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
