@@ -18,6 +18,11 @@ class Place::Router::SignalGraph
       PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
     end
 
+    # FIXME: drop if / after renaming InputSelection -> Selectable
+    def selectable?
+       PlaceOS::Driver::Interface::InputSelection.to_s.in? metadata.implements
+    end
+
     macro finished
       {% for interface in PlaceOS::Driver::Interface.constants %}
         def {{interface.underscore}}?
