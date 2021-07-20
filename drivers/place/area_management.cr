@@ -276,7 +276,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
   protected def update_level_locations(level_counts, level_id, details, sensor_data)
     areas = @level_areas[level_id]? || [] of AreaConfig
-    unsorted_sensors = sensor_data.try &.[](level_id) || [] of SensorDetail
+    unsorted_sensors = sensor_data.try &.[]?(level_id) || [] of SensorDetail
     sensors = Hash(SensorType, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
     unsorted_sensors.each { |sensor| sensors[sensor.type] << sensor }
 
