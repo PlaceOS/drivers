@@ -1,7 +1,10 @@
 require "placeos-driver"
+require "placeos-driver/interface/sensor"
 require "xml"
 
 class Xovis::SensorAPI < PlaceOS::Driver
+  include Interface::Sensor
+
   # Discovery Information
   generic_name :XovisSensor
   descriptive_name "Xovis Flow Sensor"
@@ -21,20 +24,72 @@ class Xovis::SensorAPI < PlaceOS::Driver
   end
 
   @poll_rate : Time::Span = 15.seconds
+  @mac : String = ""
+  @state : Hash(String, Array(SensorDetail)) = {} of String => Array(SensorDetail)
 
   def on_update
     @poll_rate = (setting?(Int32, :poll_rate) || 15).seconds
+    @mac = URI.parse(config.uri.not_nil!).hostname.not_nil!
+
     schedule.clear
     schedule.every(@poll_rate) do
       count_data
       capacity_data
     end
     schedule.every(5.minutes) { device_status }
-    schedule.in(5.seconds) do
+    schedule.in(@poll_rate / 3) do
+      device_status
       count_data
       capacity_data
-      device_status
     end
+  end
+
+  class SensorDetail < Interface::Sensor::Detail
+    property capacity : Int32? = nil
+    property first_entry : Int64? = nil
+    property last_entry : Int64? = nil
+  end
+
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
+
+    return nil unless @mac == mac
+    return nil unless id
+
+    # https://crystal-lang.org/api/1.1.0/String.html#rpartition(search:Char%7CString):Tuple(String,String,String)-instance-method
+    sensor, _, index_str = id.rpartition('-')
+    return nil if sensor.empty?
+    index = index_str.to_i
+
+    if sensors = @state["#{sensor}-counts"]?
+      sensors[index]?
+    end
+  rescue error
+    logger.warn(exception: error) { "checking for sensor" }
+    nil
+  end
+
+  TYPES = {
+    "line-counts"           => SensorType::QueueSize,
+    "zone-occupancy-counts" => SensorType::PeopleCount,
+    "zone-in-out-counts"    => SensorType::Counter,
+  }
+
+  NO_MATCH = [] of Interface::Sensor::Detail
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
+    return NO_MATCH if mac && mac != @mac
+    return @state.values.flatten.map &.as(Interface::Sensor::Detail) unless type
+
+    sensor_type = SensorType.parse(type)
+    matches = [] of Array(Interface::Sensor::Detail)
+    TYPES.each { |key, key_type| matches << @state[key].map &.as(Interface::Sensor::Detail) if key_type == sensor_type }
+
+    matches.flatten
+  rescue error
+    logger.warn(exception: error) { "searching for sensors" }
+    NO_MATCH
   end
 
   # Alternative to using basic auth, but here really only for testing with postman
@@ -91,14 +146,17 @@ class Xovis::SensorAPI < PlaceOS::Driver
     response = get("/api/info/persistence", headers: {"Accept" => "text/xml"})
     document = check_success(response)
 
+    last_checked = Time.utc.to_unix
+
     {"line", "zone-occupancy", "zone-in-out"}.each do |count_name|
       xml_key_name = "//count-#{count_name}-storage"
       if count_data = document.xpath_nodes(xml_key_name).first?
         count_type = count_name.split("-", 2)[0]
         capacity = xpath_text(document, "#{xml_key_name}/capacity", &.to_i)
 
-        self["#{count_name}-counts"] = document.xpath_nodes("#{xml_key_name}/count-#{count_type}s/count-#{count_type}").map do |zone|
-          attrs = {} of String => String | Int32 | Time | Nil
+        key = "#{count_name}-counts"
+        @state[key] = self[key] = document.xpath_nodes("#{xml_key_name}/count-#{count_type}s/count-#{count_type}").map_with_index { |zone, index|
+          attrs = {} of String => String | Int32 | Int64 | Nil
 
           zone.children.each do |child|
             content = child.text.strip
@@ -106,7 +164,7 @@ class Xovis::SensorAPI < PlaceOS::Driver
                                 when "entry-count"
                                   content.to_i
                                 when "first-entry", "last-entry"
-                                  content.empty? ? nil : Time.parse!(content, "%Y-%m-%dT%H:%M:%S%z")
+                                  content.empty? ? nil : Time.parse!(content, "%Y-%m-%dT%H:%M:%S%z").to_unix
                                 when "text"
                                   next
                                 else
@@ -114,9 +172,22 @@ class Xovis::SensorAPI < PlaceOS::Driver
                                 end
           end
 
-          attrs["capacity"] = capacity
-          attrs
-        end
+          last_entry = attrs["last-entry"].as(Int64?)
+          sensor = case count_name
+                   when "line"
+                     SensorDetail.new(SensorType::QueueSize, attrs["entry-count"].as(Int32).to_f, last_entry || last_checked, @mac, "line-#{index}", attrs["name"].as(String))
+                   when "zone-occupancy"
+                     SensorDetail.new(SensorType::PeopleCount, attrs["entry-count"].as(Int32).to_f, last_entry || last_checked, @mac, "zone-occupancy-#{index}", "Occupancy #{attrs["name"].as(String)}")
+                   when "zone-in-out"
+                     SensorDetail.new(SensorType::Counter, attrs["entry-count"].as(Int32).to_f, last_entry || last_checked, @mac, "zone-in-out-#{index}", "In Out #{attrs["name"].as(String)}")
+                   else
+                     next
+                   end
+          sensor.capacity = capacity
+          sensor.last_entry = last_entry
+          sensor.first_entry = attrs["first-entry"].as(Int64?)
+          sensor
+        }.compact
       end
     end
     true
@@ -130,7 +201,9 @@ class Xovis::SensorAPI < PlaceOS::Driver
     parse_type_info(document, "version")
     parse_type_info(document, "temperature")
 
-    parse_text_info(document, "sensor")
+    if sensor = parse_text_info(document, "sensor")
+      @mac = sensor["serial-number"]? || @mac
+    end
     parse_text_info(document, "illumination")
     parse_text_info(document, "configuration")
     parse_text_info(document, "operation")
@@ -159,7 +232,7 @@ class Xovis::SensorAPI < PlaceOS::Driver
     self[xpath_key] = attrs.empty? ? nil : attrs
   end
 
-  protected def parse_text_info(document, status) : Nil
+  protected def parse_text_info(document, status) : Hash(String, String)?
     if keys = document.xpath_nodes("//#{status}").first?.try(&.children)
       attrs = {} of String => String
       keys.each do |data|
