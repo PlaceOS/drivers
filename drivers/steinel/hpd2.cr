@@ -72,14 +72,14 @@ class Steinel::HPD2 < PlaceOS::Driver
 
   TYPES = {
     illuminance: SensorType::Illuminance,
-    temperature: SensorType::Temperature,
+    temperature: SensorType::AmbientTemp,
     humidity:    SensorType::Humidity,
-    presence:    SensorType::Trigger,
-    people:      SensorType::Counter,
+    presence:    SensorType::Presence,
+    people:      SensorType::PeopleCount,
 
     illuminance_zones: SensorType::Illuminance,
-    presence_zones:    SensorType::Trigger,
-    people_zones:      SensorType::Counter,
+    presence_zones:    SensorType::Presence,
+    people_zones:      SensorType::PeopleCount,
   }
 
   NO_MATCH = [] of Interface::Sensor::Detail
@@ -96,7 +96,7 @@ class Steinel::HPD2 < PlaceOS::Driver
     matches.flatten
   rescue error
     logger.warn(exception: error) { "searching for sensors" }
-    [] of Interface::Sensor::Detail
+    NO_MATCH
   end
 
   def get_status
