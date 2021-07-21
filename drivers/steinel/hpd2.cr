@@ -108,20 +108,21 @@ class Steinel::HPD2 < PlaceOS::Driver
       status = SensorStatus.from_json(response.body.not_nil!)
 
       time = Time.utc.to_unix
-      self[:humidity] = humidity = Interface::Sensor::Detail.new(SensorType::Humidity, status.humidity.to_f, time, @mac, "humidity", "Humidity", nil, nil)
-      self[:temperature] = temperature = Interface::Sensor::Detail.new(SensorType::Temperature, status.temperature.to_f, time, @mac, "temperature", "Temperature", nil, nil)
-      self[:presence] = presence = Interface::Sensor::Detail.new(SensorType::Trigger, status.person_presence.zero? ? 0.0 : 1.0, time, @mac, "presence", "Person Presence", nil, nil)
-      self[:people] = people = Interface::Sensor::Detail.new(SensorType::Counter, status.detected_persons.to_f, time, @mac, "people", "Detected Persons", nil, nil)
-      self[:illuminance] = illuminance = Interface::Sensor::Detail.new(SensorType::Illuminance, status.global_illuminance_lux, time, @mac, "illuminance", "Illuminance", nil, nil)
+      mod_id = module_id
+      self[:humidity] = humidity = Interface::Sensor::Detail.new(SensorType::Humidity, status.humidity.to_f, time, @mac, "humidity", "Humidity", module_id: mod_id, binding: "humidity")
+      self[:temperature] = temperature = Interface::Sensor::Detail.new(SensorType::AmbientTemp, status.temperature.to_f, time, @mac, "temperature", "Temperature", module_id: mod_id, binding: "temperature")
+      self[:presence] = presence = Interface::Sensor::Detail.new(SensorType::Presence, status.person_presence.zero? ? 0.0 : 1.0, time, @mac, "presence", "Person Presence", module_id: mod_id, binding: "presence")
+      self[:people] = people = Interface::Sensor::Detail.new(SensorType::PeopleCount, status.detected_persons.to_f, time, @mac, "people", "Detected Persons", module_id: mod_id, binding: "people")
+      self[:illuminance] = illuminance = Interface::Sensor::Detail.new(SensorType::Illuminance, status.global_illuminance_lux, time, @mac, "illuminance", "Illuminance", module_id: mod_id, binding: "illuminance")
 
       self[:presence_zones] = presence_zones = status.person_presence_zone.map_with_index do |value, index|
-        Interface::Sensor::Detail.new(SensorType::Trigger, value.zero? ? 0.0 : 1.0, time, @mac, "presence-#{index}", "Person Presence in Zone#{index}", nil, nil)
+        Interface::Sensor::Detail.new(SensorType::Presence, value.zero? ? 0.0 : 1.0, time, @mac, "presence-#{index}", "Person Presence in Zone#{index}")
       end
       self[:people_zones] = people_zones = status.detected_persons_zone.map_with_index do |value, index|
-        Interface::Sensor::Detail.new(SensorType::Counter, value.to_f, time, @mac, "people-#{index}", "Detected People in Zone#{index}", nil, nil)
+        Interface::Sensor::Detail.new(SensorType::PeopleCount, value.to_f, time, @mac, "people-#{index}", "Detected People in Zone#{index}")
       end
       self[:illuminance_zones] = illuminance_zones = status.lux_zone.map_with_index do |value, index|
-        Interface::Sensor::Detail.new(SensorType::Illuminance, value, time, @mac, "illuminance-#{index}", "Illuminance in Zone#{index}", nil, nil)
+        Interface::Sensor::Detail.new(SensorType::Illuminance, value, time, @mac, "illuminance-#{index}", "Illuminance in Zone#{index}")
       end
 
       @state = {

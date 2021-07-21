@@ -187,7 +187,7 @@ class Place::AreaManagement < PlaceOS::Driver
         sensor.y
       )
 
-      sensor.loc = nil
+      sensor.module_id = sensor.binding = sensor.loc = nil
 
       # check if this sensor has a user defined location
       if location = locs[id]?
