@@ -1,6 +1,9 @@
 require "placeos-driver"
+require "placeos-driver/interface/sensor"
 
 class Steinel::HPD2 < PlaceOS::Driver
+  include Interface::Sensor
+
   # Discovery Information
   generic_name :PeopleCounter
   descriptive_name "Steinel HPD-2"
@@ -15,12 +18,85 @@ class Steinel::HPD2 < PlaceOS::Driver
     },
   })
 
+  @mac : String = ""
+  getter! state : NamedTuple(
+    illuminance: Interface::Sensor::Detail,
+    temperature: Interface::Sensor::Detail,
+    humidity: Interface::Sensor::Detail,
+    presence: Interface::Sensor::Detail,
+    people: Interface::Sensor::Detail,
+    illuminance_zones: Array(Interface::Sensor::Detail),
+    presence_zones: Array(Interface::Sensor::Detail),
+    people_zones: Array(Interface::Sensor::Detail),
+  )
+
   def on_load
     on_update
   end
 
   def on_update
+    @mac = URI.parse(config.uri.not_nil!).hostname.not_nil!
     schedule.every(5.seconds) { get_status }
+  end
+
+  {% begin %}
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
+    return nil unless @mac == mac
+    return nil unless id
+
+    # https://crystal-lang.org/api/1.1.0/String.html#rpartition(search:Char%7CString):Tuple(String,String,String)-instance-method
+    sensor, _, index_str = id.rpartition('-')
+    if sensor.empty?
+      case id
+      {% for sensor in %w(humidity temperature presence people illuminance) %}
+        when {{sensor}}
+          state[{{sensor.id.symbolize}}]
+      {% end %}
+      end
+    elsif index = index_str.to_i?
+      case id
+      {% for sensor in %w(presence people illuminance) %}
+        when {{sensor}}
+          state[{{sensor.id.symbolize}}_zones][index]?
+      {% end %}
+      end
+    end
+  rescue error
+    logger.warn(exception: error) { "checking for sensor" }
+    nil
+  end
+  {% end %}
+
+  alias SensorType = Interface::Sensor::SensorType
+
+  TYPES = {
+    illuminance: SensorType::Illuminance,
+    temperature: SensorType::Temperature,
+    humidity:    SensorType::Humidity,
+    presence:    SensorType::Trigger,
+    people:      SensorType::Counter,
+
+    illuminance_zones: SensorType::Illuminance,
+    presence_zones:    SensorType::Trigger,
+    people_zones:      SensorType::Counter,
+  }
+
+  NO_MATCH = [] of Interface::Sensor::Detail
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
+    return NO_MATCH if mac && mac != @mac
+    return state.values.to_a.flatten unless type
+
+    sensor_type = SensorType.parse(type)
+    matches = [] of Interface::Sensor::Detail | Array(Interface::Sensor::Detail)
+    TYPES.each { |key, key_type| matches << state[key] if key_type == sensor_type }
+
+    matches.flatten
+  rescue error
+    logger.warn(exception: error) { "searching for sensors" }
+    [] of Interface::Sensor::Detail
   end
 
   def get_status
@@ -29,7 +105,38 @@ class Steinel::HPD2 < PlaceOS::Driver
     logger.debug { "received #{response.body}" }
 
     if response.success?
-      SensorStatus.from_json(response.body.not_nil!)
+      status = SensorStatus.from_json(response.body.not_nil!)
+
+      time = Time.utc.to_unix
+      self[:humidity] = humidity = Interface::Sensor::Detail.new(SensorType::Humidity, status.humidity.to_f, time, @mac, "humidity", "Humidity", nil, nil)
+      self[:temperature] = temperature = Interface::Sensor::Detail.new(SensorType::Temperature, status.temperature.to_f, time, @mac, "temperature", "Temperature", nil, nil)
+      self[:presence] = presence = Interface::Sensor::Detail.new(SensorType::Trigger, status.person_presence.zero? ? 0.0 : 1.0, time, @mac, "presence", "Person Presence", nil, nil)
+      self[:people] = people = Interface::Sensor::Detail.new(SensorType::Counter, status.detected_persons.to_f, time, @mac, "people", "Detected Persons", nil, nil)
+      self[:illuminance] = illuminance = Interface::Sensor::Detail.new(SensorType::Illuminance, status.global_illuminance_lux, time, @mac, "illuminance", "Illuminance", nil, nil)
+
+      self[:presence_zones] = presence_zones = status.person_presence_zone.map_with_index do |value, index|
+        Interface::Sensor::Detail.new(SensorType::Trigger, value.zero? ? 0.0 : 1.0, time, @mac, "presence-#{index}", "Person Presence in Zone#{index}", nil, nil)
+      end
+      self[:people_zones] = people_zones = status.detected_persons_zone.map_with_index do |value, index|
+        Interface::Sensor::Detail.new(SensorType::Counter, value.to_f, time, @mac, "people-#{index}", "Detected People in Zone#{index}", nil, nil)
+      end
+      self[:illuminance_zones] = illuminance_zones = status.lux_zone.map_with_index do |value, index|
+        Interface::Sensor::Detail.new(SensorType::Illuminance, value, time, @mac, "illuminance-#{index}", "Illuminance in Zone#{index}", nil, nil)
+      end
+
+      @state = {
+        humidity:    humidity,
+        temperature: temperature,
+        presence:    presence,
+        people:      people,
+        illuminance: illuminance,
+
+        presence_zones:    presence_zones,
+        people_zones:      people_zones,
+        illuminance_zones: illuminance_zones,
+      }
+
+      status
     else
       raise "unexpected response #{response.status_code}\n#{response.body}"
     end
