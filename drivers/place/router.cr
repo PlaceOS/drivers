@@ -9,9 +9,7 @@ require "./router/signal_graph"
 class Place::Router < PlaceOS::Driver
   generic_name :Switcher
   descriptive_name "Signal router"
-  description <<-DESC
-    A universal matrix switcher.
-    DESC
+  description "A universal matrix switcher."
 
   def on_load
     on_update
@@ -24,14 +22,13 @@ class Place::Router < PlaceOS::Driver
   # inclusion in other drivers, such as room logic, that provide auxillary
   # functionality to signal distribution.
   module Core
-
-    # NOTE: possible nice pattern for compulsory callbacks
-    # abstract def on_route
-
     getter siggraph : SignalGraph { raise "signal graph not initialized" }
 
     macro included
+      default_settings({connections: {} of Nil => Nil})
+
       def on_update
+        previous_def
         connections = setting(Settings::Connections::Map, :connections)
         nodes, links, aliases = Settings::Connections.parse connections, system.id
         @siggraph = SignalGraph.build nodes, links
