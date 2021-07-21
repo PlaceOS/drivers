@@ -88,8 +88,8 @@ module Place::Router::Settings
     # ```
     alias Map = Hash(Sink, Hash(Input, Source) | Array(Source))
 
-    # Parses a `Map` containing the system conectivity into a set of signal
-    # graph nodes, links and aliases.
+    # Parses a `Map` containing the system conectivity into a set of nodes and
+    # links that can be used for assembling the `SignalGraph`.
     def self.parse(map : Map, sys : String)
       nodes = [] of SignalGraph::Node::Ref
       links = [] of {SignalGraph::Node::Ref, SignalGraph::Node::Ref}

@@ -66,9 +66,9 @@ class Place::Router::SignalGraph
   # Construct a graph from a pre-parsed configuration.
   #
   # *nodes* must contain the set of all signal nodes that form the device inputs
-  # and ouputs across the system. This includes those at the "edge" of the
+  # and outputs across the system. This includes those at the "edge" of the
   # signal network (e.g. a input to a switcher) as well as inputs in use on
-  # intermediate device (e.g. a input on a display, which in turn is attached to
+  # intermediate devices (e.g. a input on a display, which in turn is attached to
   # the switcher above).
   #
   # *connections* declares the physical links that exist between these.
@@ -99,10 +99,10 @@ class Place::Router::SignalGraph
       end
     end
 
-    # Insert the static edges
+    # Insert the static edges.
     connections.each { |source, dest| siggraph.connect source, dest }
 
-    # Wire up the active edges
+    # Wire up the active edges.
     mod_io.each { |mod, (inputs, outputs)| siggraph.link mod, inputs, outputs }
 
     siggraph
