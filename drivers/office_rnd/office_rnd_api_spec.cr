@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "OfficeRnd::OfficeRndApi" do
   # Send the request
   retval = exec(:get_token)
@@ -24,12 +26,12 @@ DriverSpecs.mock_driver "OfficeRnd::OfficeRndApi" do
       end
     when .starts_with?("/bookings")
       case request.method
-      when "DELETE"
-        # TODO: Delete booking mock response
-      when "GET"
-        # TODO: Get bookings mock response
       when "POST"
         # TODO: Create bookings mock response
+      when "GET"
+        # TODO: Get bookings mock response
+      when "DELETE"
+        # TODO: Delete booking mock response
       end
     end
   end

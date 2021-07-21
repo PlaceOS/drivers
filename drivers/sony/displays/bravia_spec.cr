@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Sony::Displays::Bravia" do
   exec(:power, true)
   should_send("\x2A\x53\x43POWR0000000000000001\n")

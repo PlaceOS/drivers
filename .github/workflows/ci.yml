@@ -2,17 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
   schedule:
     - cron: "0 6 * * 1"
 
 jobs:
   style:
+    name: "Style"
     runs-on: ubuntu-latest
-    container:
-      image: crystallang/crystal
+    container: crystallang/crystal
     steps:
       - uses: actions/checkout@v2
       - name: Format
@@ -21,24 +21,72 @@ jobs:
         uses: crystal-ameba/github-action@v0.2.12
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  test:
+
+  subset-report:
+    name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
     runs-on: ubuntu-latest
+    continue-on-error: ${{ !matrix.stable }}
     strategy:
       fail-fast: false
       matrix:
+        stable: [true]
         crystal:
-          - latest
-          - nightly
           - 1.0.0
+        include:
+          - stable: false
+            crystal: nightly
     steps:
+      - id: changes
+        uses: trilom/file-changes-action@v1.2.4
+        with:
+          output: ' '
       - uses: actions/checkout@v2
-      - name: Build drivers image
-        run: docker-compose build drivers
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: lib
+          key: ${{ hashFiles('shard.lock') }}
+      - name: Driver Report
+        # Skip subset report if dependencies have changed
+        if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
+        run: ./harness report ${{ steps.changes.outputs.files }}
         env:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
-      - name: Run docker-compose environment
-        run: docker-compose up -d
-      - name: Spec
-        run: docker exec placeos-drivers crystal spec -v --error-trace
+      - name: Upload failure logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs-${{ matrix.crystal }}-${{ github.sha }}
+          path: .logs/*.log
+
+  full-report:
+    name: "Full Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
+    needs: subset-report
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !matrix.stable }}
+    strategy:
+      fail-fast: false
+      matrix:
+        stable: [true]
+        crystal:
+          - 1.0.0
+        include:
+          - stable: false
+            crystal: nightly
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache shards
+        uses: actions/cache@v2
+        with:
+          path: lib
+          key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
-        run: docker exec placeos-drivers /src/bin/report
+        run: ./harness report
+        env:
+          CRYSTAL_VERSION: ${{ matrix.crystal }}
+      - name: Upload failure logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: logs-${{ matrix.crystal }}-${{ github.sha }}
+          path: .logs/*.log

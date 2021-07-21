@@ -1,6 +1,7 @@
 require "uri"
 require "json"
 require "link-header"
+require "placeos-driver"
 require "./scanning_api"
 
 class Cisco::Meraki::Dashboard < PlaceOS::Driver

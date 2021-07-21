@@ -1,7 +1,9 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
   system({
-    StaffAPI:       {StaffAPI},
-    AreaManagement: {AreaManagement},
+    StaffAPI:       {StaffAPIMock},
+    AreaManagement: {AreaManagementMock},
   })
 
   now = Time.local
@@ -17,7 +19,8 @@ DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
   ])
 end
 
-class StaffAPI < DriverSpecs::MockDriver
+# :nodoc:
+class StaffAPIMock < DriverSpecs::MockDriver
   def query_bookings(type : String, zones : Array(String))
     logger.debug { "Querying desk bookings!" }
 
@@ -69,7 +72,8 @@ class StaffAPI < DriverSpecs::MockDriver
   end
 end
 
-class AreaManagement < DriverSpecs::MockDriver
+# :nodoc:
+class AreaManagementMock < DriverSpecs::MockDriver
   def update_available(zones : Array(String))
     logger.info { "requested update to #{zones}" }
     nil

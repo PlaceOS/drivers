@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Biamp::Tesira" do
   transmit "login: "
   should_send "default\r\n"

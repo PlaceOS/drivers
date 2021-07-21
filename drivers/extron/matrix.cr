@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "./sis"
 
 class Extron::Matrix < PlaceOS::Driver
@@ -10,21 +11,26 @@ class Extron::Matrix < PlaceOS::Driver
 
   def on_load
     transport.tokenizer = Tokenizer.new DELIMITER
+    on_update
   end
 
-  def connected
-    send Command['I'], Response::SwitcherInformation do |info|
-      @device_size = info
-    end
-  end
-
-  def disconnected
-    @device_size = nil
+  def on_update
+    inputs = setting?(UInt16, :input_count) || 8_u16
+    outputs = setting?(UInt16, :output_count) || 1_u16
+    io = MatrixSize.new inputs, outputs
+    @device_size = SwitcherInformation.new video: io, audio: io
   end
 
   getter device_size do
-    empty = MatrixSize.new 0, 0
+    empty = MatrixSize.new 0_u16, 0_u16
     SwitcherInformation.new empty, empty
+  end
+
+  def query_device_info
+    send Command['I'], Response::Raw do |info|
+      logger.info { info }
+      info
+    end
   end
 
   alias Outputs = Array(Output)
@@ -42,7 +48,7 @@ class Extron::Matrix < PlaceOS::Driver
 
   # Connect *input* to all outputs at the specified *layer*.
   def switch_to(input : Input, layer : SwitchLayer = SwitchLayer::All)
-    send Command[input, '*', layer], Response::Switch, &->update_io(Switch)
+    send Command[input, layer], Response::Switch, &->update_io(Switch)
   end
 
   # Applies a `SignalMap` as a single operation. All included ties will take
@@ -66,9 +72,32 @@ class Extron::Matrix < PlaceOS::Driver
     end
   end
 
+  # Sets the audio volume *level* (0..100) on the specified mix *group*.
+  def volume(level : Int32, group : Int32 = 1)
+    level = level.clamp 0, 100
+    # Device use -1000..0 levels
+    device_level = level * 10 - 1000
+    send Command["\eD", group, '*', device_level, "GRPM\r"], Response::GroupVolume do
+      level
+    end
+  end
+
+  # Sets the audio mute *state* on the specified *group*.
+  #
+  # NOTE: mute groups may differ from volume groups depending on device
+  # configuration. Default group (2) is program audio.
+  def audio_mute(state : Bool = true, group : Int32 = 2)
+    device_state = state ? '1' : '0'
+    send Command["\eD", group, '*', device_state, "GRPM\r"], Response::GroupMute do
+      state
+    end
+  end
+
   # Send *command* to the device and yield a parsed response to *block*.
   private def send(command, parser : SIS::Response::Parser(T), &block : T -> _) forall T
+    logger.debug { "Sending #{command}" }
     send command do |data, task|
+      logger.debug { "Received #{String.new data}" }
       case response = Response.parse data, parser
       in T
         task.success block.call response
@@ -86,15 +115,22 @@ class Extron::Matrix < PlaceOS::Driver
 
   # Response callback for async responses.
   def received(data, task)
+    logger.debug { "Received #{String.new data}" }
     case response = Response.parse data, as: Response::Unsolicited
     in Tie
       update_io response
     in Error, Response::ParseError
       logger.error { response }
-    in Ok
-      # Nothing to see here, one of the Ignorable responses
-      logger.debug { response }
+    in Time
+      # End of unsolicited comms on connect
+      query_device_info
+    in String
+      # Copyright and other info messages
+      logger.info { response }
+    in Nil
+      # Empty line
     end
+    response
   end
 
   private def update_io(input : Input, output : Output, layer : SwitchLayer)

@@ -1,14 +1,25 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Extron::Matrix" do
+  settings({
+    input_count:  8,
+    output_count: 4,
+  })
+
+  responds "\r\n"
+  responds "(c) Copyright YYYY, Extron Electronics, [model], Vx.xx, 60-XXXX-XX\r\n"
+  responds "Mon, 18 May 2015 11:27:33\r\n"
+
   should_send "I"
   responds "V8X4 A8X4\r\n"
 
-  switch = exec :switch, input: 3, output: 2
+  exec :switch, input: 3, output: 2
   should_send "3*2!"
   responds "Out2 In3 All\r\n"
   status["video2"].should eq 3
 
-  switch_to = exec :switch_to, input: 2
-  should_send "2*!"
+  exec :switch_to, input: 2
+  should_send "2!"
   responds "In2 All\r\n"
   status["video1"].should eq 2
   status["video2"].should eq 2
@@ -19,7 +30,7 @@ DriverSpecs.mock_driver "Extron::Matrix" do
   status["audio3"].should eq 2
   status["audio4"].should eq 2
 
-  switch_map = exec :switch_map, {1 => [2, 3, 4]}
+  exec :switch_map, {1 => [2, 3, 4]}
   should_send "\e+Q1*2!1*3!1*4!\r"
   responds "Qik\r\n"
   status["video2"].should eq 1
@@ -36,4 +47,9 @@ DriverSpecs.mock_driver "Extron::Matrix" do
     responds "E01\r\n"
     invalid.get
   end
+
+  vol = exec :volume, level: 25
+  should_send "\eD1*-750GRPM\r"
+  responds "GrpmD1*-750\r\n"
+  vol.get.should eq 25
 end

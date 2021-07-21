@@ -1,4 +1,5 @@
 require "digest/md5"
+require "placeos-driver"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"

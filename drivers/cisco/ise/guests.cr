@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "xml"
 
 # Tested with Cisco ISE API v2.2

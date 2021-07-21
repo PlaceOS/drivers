@@ -1,8 +1,5 @@
 require "telnet"
-
-module Exterity; end
-
-module Exterity::AvediaPlayer; end
+require "placeos-driver"
 
 class Exterity::AvediaPlayer::R92xx < PlaceOS::Driver
   descriptive_name "Exterity Avedia Player (R92xx)"

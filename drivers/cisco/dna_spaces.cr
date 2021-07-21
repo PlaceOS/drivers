@@ -1,9 +1,8 @@
-module Cisco; end
-
 require "set"
 require "jwt"
 require "s2_cells"
 require "simple_retry"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 
 class Cisco::DNASpaces < PlaceOS::Driver

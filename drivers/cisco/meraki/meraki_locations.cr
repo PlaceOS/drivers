@@ -1,5 +1,6 @@
 require "json"
 require "s2_cells"
+require "placeos-driver"
 require "./scanning_api"
 require "placeos-driver/interface/locatable"
 
@@ -20,6 +21,13 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     # Max Uncertainty in meters - we don't accept positions that are less certain
     maximum_uncertainty: 25.0,
+
+    # For confident yet inaccurate location data/maps. If a location's variance is below this threshold, increase it to this value.
+    # 0.0 disables the override
+    override_min_variance: 0.0,
+
+    # Optionally only store locations for devices whose "os" property matches this regex string.
+    regex_filter_device_os: nil,
 
     # can we use the meraki dashboard API for user lookups
     default_network_id: "network_id",
@@ -58,6 +66,8 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   @acceptable_confidence : Float64 = 5.0
   @maximum_uncertainty : Float64 = 25.0
+  @override_min_variance : Float64 = 0.0
+  @regex_filter_device_os : String? = nil
 
   @time_multiplier : Float64 = 0.0
   @confidence_multiplier : Float64 = 0.0
@@ -83,6 +93,8 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
     @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
+    @override_min_variance = setting?(Float64, :override_min_variance) || 0.0
+    @regex_filter_device_os = setting?(String, :regex_filter_device_os)
 
     @max_location_age = (setting?(UInt32, :max_location_age) || 6).minutes
     # Age we keep a confident value (without drifting towards less confidence)
@@ -313,6 +325,19 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       Array(String).from_json(macs).compact_map { |mac|
         if location = locate_mac(mac)
           client = @client_details[mac]?
+
+          # If a filter is set, then ignore this device unless it matches
+          if @regex_filter_device_os
+            if client && client.os
+              unless /#{@regex_filter_device_os}/.match(client.os.not_nil!)
+                logger.debug { "[#{username}] IGNORING #{mac} as OS does not match regex filter" }
+                next
+              end
+            else
+              logger.debug { "[#{username}] IGNORING #{mac} as OS is UNKNOWN" }
+              next
+            end
+          end
 
           # We set these here to speed up processing
           location.client = client
@@ -637,6 +662,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       # if more accurate and newer then we'll take this
       if new_loc.variance < location.variance
         location = new_loc
+        location.variance = @override_min_variance if location.variance < @override_min_variance
         next
       end
 
@@ -673,7 +699,8 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
         new_loc.x = new_x
         new_loc.y = new_y
-        new_loc.variance = new_uncertainty
+        new_loc.variance = new_uncertainty < @override_min_variance ? @override_min_variance : new_uncertainty
+
         location = new_loc
       end
     end

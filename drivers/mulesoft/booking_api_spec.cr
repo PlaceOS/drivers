@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "MuleSoft::API" do
   settings({
     venue_code:         "venue code",

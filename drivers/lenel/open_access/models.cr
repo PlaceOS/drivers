@@ -85,13 +85,13 @@ module Lenel::OpenAccess::Models
 
   struct Badge < Element
     getter badgekey : Int32
-    getter activate : Time
-    getter deactivate : Time
-    getter id : Int64
-    getter personid : Int32
-    getter status : Int32
-    getter type : Int32
-    getter uselimit : Int32
+    getter activate : Time?
+    getter deactivate : Time?
+    getter id : Int64?
+    getter personid : Int32?
+    getter status : Int32?
+    getter type : Int32?
+    getter uselimit : Int32?
   end
 
   struct BadgeType < Element

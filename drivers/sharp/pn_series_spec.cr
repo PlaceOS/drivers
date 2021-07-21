@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Sharp::PnSeries" do
   # connected
   # send_credentials

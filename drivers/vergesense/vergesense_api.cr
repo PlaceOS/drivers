@@ -1,5 +1,4 @@
-module Vergesense; end
-
+require "placeos-driver"
 require "./models"
 
 class Vergesense::VergesenseAPI < PlaceOS::Driver

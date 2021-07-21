@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Xovis::SensorAPI" do
   # =========================
   # GET TOKEN

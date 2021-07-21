@@ -1,8 +1,7 @@
-module Floorsense; end
-
 require "uri"
 require "json"
 require "oauth2"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "./models"
 
@@ -377,6 +376,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     release_place_bookings = [] of Tuple(Booking, Int64)
     create_place_bookings = [] of BookingStatus
     create_floor_bookings = [] of Booking
+    confirm_floor_bookings = [] of BookingStatus
 
     time_now = 2.minutes.from_now.to_unix
 
@@ -430,6 +430,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         elsif floor_booking.released > 0_i64 && floor_booking.released != booking.booking_end && !booking.rejected
           # need to change end time of this booking
           release_place_bookings << {booking, floor_booking.released}
+        elsif booking.checked_in && !floor_booking.confirmed
+          confirm_floor_bookings << floor_booking
         end
 
         break
@@ -459,7 +461,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       # We need a floorsense user to own the booking
       # floor_user = local_floorsense.user_list(booking.user_email).get.as_a.first?
 
-      local_floorsense.create_booking(
+      resp = local_floorsense.create_booking(
         user_id: floor_user,
         plan_id: plan_id,
         key: to_floor_key(booking.asset_id),
@@ -467,6 +469,14 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         starting: booking.booking_start < time_now ? 5.minutes.ago.to_unix : booking.booking_start,
         ending: booking.booking_end
       )
+
+      if booking.checked_in
+        begin
+          local_floorsense.confirm_booking(resp.get["bkid"])
+        rescue error
+          logger.warn(exception: error) { "error confirming newly created booking" }
+        end
+      end
     end
 
     logger.debug { "floorsense bookings created" }
@@ -517,6 +527,10 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     end
 
     logger.debug { "#{create_place_bookings.size} adhoc place bookings created" }
+
+    confirm_floor_bookings.each do |floor_booking|
+      local_floorsense.confirm_booking(floor_booking.booking_id)
+    end
 
     # number of bookings checked
     place_bookings.size + adhoc.size

@@ -1,9 +1,9 @@
-module Place; end
-
 require "set"
 require "placeos"
+require "placeos-driver"
 require "./area_config"
 require "./area_polygon"
+require "placeos-driver/interface/sensor"
 
 class Place::AreaManagement < PlaceOS::Driver
   descriptive_name "PlaceOS Area Management"
@@ -23,6 +23,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
     # Driver to query
     location_service: "LocationServices",
+    include_sensors:  true,
 
     areas: {
       "zone-1234" => [
@@ -42,12 +43,6 @@ class Place::AreaManagement < PlaceOS::Driver
     building: String?,
     coordinates: Array(Tuple(Float64, Float64)))
 
-  alias AreaDetails = NamedTuple(
-    area_id: String,
-    name: String,
-    count: Int32,
-  )
-
   alias LevelCapacity = NamedTuple(
     total_desks: Int32,
     total_capacity: Int32,
@@ -58,6 +53,7 @@ class Place::AreaManagement < PlaceOS::Driver
     wireless_devices: Int32,
     desk_usage: Int32,
     capacity: LevelCapacity,
+    sensors: Hash(String, Float64),
   )
 
   # zone_id => areas
@@ -77,7 +73,9 @@ class Place::AreaManagement < PlaceOS::Driver
 
   @rate_limit : Channel(Nil) = Channel(Nil).new
   @update_lock : Mutex = Mutex.new
-  @terminated = false
+  @terminated : Bool = false
+  @include_sensors : Bool = false
+  @sensor_discovery = {} of String => SensorMeta
 
   def on_load
     spawn { rate_limiter }
@@ -93,10 +91,12 @@ class Place::AreaManagement < PlaceOS::Driver
 
   def on_update
     @building_id = setting(String, :building)
+    @include_sensors = setting?(Bool, :include_sensors) || false
 
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
     @location_service = setting?(String, :location_service).presence || "LocationServices"
     @duplication_factor = setting?(Float64, :duplication_factor) || 0.8
+    @sensor_discovery = {} of String => SensorMeta
 
     # Areas are defined in metadata, this is mainly here so we can write specs
     if building_areas = setting?(Hash(String, Array(AreaSetting)), :areas)
@@ -112,12 +112,121 @@ class Place::AreaManagement < PlaceOS::Driver
 
     schedule.clear
     schedule.every(@poll_rate) { synchronize_all_levels }
+
+    if @include_sensors
+      schedule.in(@poll_rate * 3) do
+        # sync the sensor discovery data for map placement
+        schedule.every(2.hours + rand(300).seconds, immediate: true) { write_sensor_discovery }
+      end
+    end
   end
 
   # The location services provider
   protected def location_service
     system[@location_service]
   end
+
+  # ===============================
+  # SENSOR DETAILS
+  # ===============================
+
+  alias SensorDetail = Interface::Sensor::Detail
+  alias SensorType = Interface::Sensor::SensorType
+
+  struct SensorMeta
+    include JSON::Serializable
+
+    def initialize(@name, @type, @level, @x, @y)
+    end
+
+    property type : SensorType?
+    property name : String?
+    property level : String?
+    property x : Float64?
+    property y : Float64?
+  end
+
+  def write_sensor_discovery
+    staff_api.write_metadata(@building_id, "sensor-locations", @sensor_discovery)
+  end
+
+  # returns the sensor location data that has been configured
+  def sensor_locations
+    # TODO:: cache this data
+    data = staff_api.metadata(@building_id, "sensor-locations").get["sensor-locations"]?.try(&.[]("details").as_h)
+    if data
+      Hash(String, SensorMeta).from_json(data.to_json)
+    else
+      {} of String => SensorMeta
+    end
+  end
+
+  # Queries all the sensors in a building and exposes the data
+  def request_sensor_data(level_id : String? = nil) : Hash(String, Array(SensorDetail))
+    sensors = if level_id
+                location_service.sensors(zone_id: level_id).get.as_a
+              else
+                location_service.sensors.get.as_a
+              end
+
+    levels = Hash(String, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
+
+    return levels if sensors.empty?
+    details = Array(SensorDetail).from_json(sensors.to_json)
+    locs = sensor_locations
+
+    details.each do |sensor|
+      id = sensor.id ? "#{sensor.mac}-#{sensor.id}" : sensor.mac
+      @sensor_discovery[id] = SensorMeta.new(
+        sensor.name,
+        sensor.type,
+        sensor.level,
+
+        # TODO:: calculate x, y if a loc is given
+        sensor.x,
+        sensor.y
+      )
+
+      sensor.module_id = sensor.binding = sensor.loc = nil
+
+      # check if this sensor has a user defined location
+      if location = locs[id]?
+        sensor.x = location.x
+        sensor.y = location.y
+        sensor.level = location.level
+      end
+
+      if sensor.x && (level_id ? sensor.level == level_id : true)
+        # TODO:: calulate the lat, lon and s2 cell id
+
+        levels[sensor.level] << sensor
+      end
+    end
+
+    levels.each do |level, sensors|
+      sensor = sensors.first
+
+      self["#{level_id}:sensors"] = {
+        value:   sensors,
+        ts_hint: "complex",
+        ts_map:  {
+          x: "xloc",
+          y: "yloc",
+        },
+        ts_tag_keys: {"s2_cell_id"},
+        ts_tags:     {
+          pos_building: sensor.building,
+          pos_level:    level,
+        },
+      }
+    end
+
+    levels
+  end
+
+  # ===============================
+  # LOCATION DETAILS
+  # ===============================
 
   # Updates a single zone, syncing the metadata
   protected def update_level_details(level_details, zone, metadata)
@@ -165,8 +274,11 @@ class Place::AreaManagement < PlaceOS::Driver
     logger.error(exception: error) { "obtaining level metadata" }
   end
 
-  protected def update_level_locations(level_counts, level_id, details)
+  protected def update_level_locations(level_counts, level_id, details, sensor_data)
     areas = @level_areas[level_id]? || [] of AreaConfig
+    unsorted_sensors = sensor_data.try &.[]?(level_id) || [] of SensorDetail
+    sensors = Hash(SensorType, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
+    unsorted_sensors.each { |sensor| sensors[sensor.type] << sensor }
 
     # Provide the frontend with the list of all known desk ids on a level
     self["#{level_id}:desk_ids"] = details[:desk_ids]
@@ -207,11 +319,16 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
 
+    sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
+      values.sum(&.value) / values.size
+    end
+
     # build the level overview
     level_counts[level_id] = {
       wireless_devices: wireless_count,
       desk_usage:       desk_count,
       capacity:         details,
+      sensors:          sensor_summary,
     }
 
     # we need to know the map dimensions to be able to count people in areas
@@ -234,8 +351,16 @@ class Place::AreaManagement < PlaceOS::Driver
     end
 
     # Calculate the device counts for each area
-    area_counts = [] of AreaDetails
-    if map_width && map_height
+    area_counts = [] of Hash(String, String | Int32 | Float64)
+    if map_width != -1.0
+      # adjust sensor x,y so we check if they are in areas
+      sensors.each do |_type, array|
+        array.each do |sensor|
+          sensor.x = sensor.x.not_nil! * map_width
+          sensor.y = sensor.y.not_nil! * map_height
+        end
+      end
+
       areas.each do |area|
         count = 0
 
@@ -254,23 +379,33 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
 
+        # build sensor summary for the area
+        area_sensors = Hash(SensorType, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
+        sensors.each do |type, array|
+          array.each do |sensor|
+            area_sensors[type] << sensor if polygon.contains(sensor.x.not_nil!, sensor.y.not_nil!)
+          end
+        end
+
+        sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
+          values.sum(&.value) / values.size
+        end
+
         area_counts << {
-          area_id: area.id,
-          name:    area.name,
-          count:   count,
-        }
+          "area_id" => area.id,
+          "name"    => area.name,
+          "count"   => (count * @duplication_factor).to_i,
+        }.merge(sensor_summary)
       end
     end
 
     # Provide the frontend the area details
     self["#{level_id}:areas"] = {
-      value:     area_counts,
-      ts_hint:   "complex",
-      ts_fields: {
-        pos_level: level_id,
-      },
+      value:   area_counts,
+      ts_hint: "complex",
       ts_tags: {
         pos_building: @building_id,
+        pos_level:    level_id,
       },
     }
   rescue error
@@ -280,21 +415,21 @@ class Place::AreaManagement < PlaceOS::Driver
 
   @level_counts : Hash(String, RawLevelDetails) = {} of String => RawLevelDetails
 
-  def request_locations
+  def request_locations(sensor_data : Hash(String, Array(SensorDetail))? = nil)
     @update_lock.synchronize do
       sync_level_details
 
       # level => user count
       level_counts = {} of String => RawLevelDetails
       @level_details.each do |level_id, details|
-        update_level_locations(level_counts, level_id, details)
+        update_level_locations(level_counts, level_id, details, sensor_data)
       end
       @level_counts = level_counts
       update_overview
     end
   end
 
-  def request_level_locations(level_id : String) : Nil
+  def request_level_locations(level_id : String, sensor_data : Hash(String, Array(SensorDetail))? = nil) : Nil
     @update_lock.synchronize do
       zone = Zone.from_json(staff_api.zone(level_id).get.to_json)
       if !zone.tags.includes?("level")
@@ -304,7 +439,7 @@ class Place::AreaManagement < PlaceOS::Driver
       metadata = Metadata.from_json(staff_api.metadata(level_id).get.to_json)
 
       update_level_details @level_details, zone, metadata
-      update_level_locations @level_counts, level_id, @level_details[level_id]
+      update_level_locations @level_counts, level_id, @level_details[level_id], sensor_data
       update_overview
     end
   end
@@ -323,7 +458,7 @@ class Place::AreaManagement < PlaceOS::Driver
     area.polygon.contains(x, y)
   end
 
-  protected def build_level_stats(wireless_devices, desk_usage, capacity)
+  protected def build_level_stats(wireless_devices, desk_usage, capacity, sensors)
     # raw data
     total_desks = capacity[:total_desks]
     total_capacity = capacity[:total_capacity]
@@ -342,17 +477,21 @@ class Place::AreaManagement < PlaceOS::Driver
     recommendation = remaining_capacity + remaining_capacity * individual_impact
 
     {
-      desk_count:       total_desks,
-      desk_usage:       desk_usage,
-      device_capacity:  total_capacity,
-      device_count:     wireless_devices,
-      estimated_people: adjusted_devices.to_i,
-      percentage_use:   percentage_use,
+      "desk_count"       => total_desks,
+      "desk_usage"       => desk_usage,
+      "device_capacity"  => total_capacity,
+      "device_count"     => wireless_devices,
+      "estimated_people" => adjusted_devices.to_i,
+      "percentage_use"   => percentage_use,
 
       # higher the number, better the recommendation
-      recommendation: recommendation,
-    }
+      "recommendation" => recommendation,
+    }.merge(sensors)
   end
+
+  # ===============================
+  # RATE LIMITER
+  # ===============================
 
   # This is to limit the number of "real-time" updates
   # batching operations to provide fast updates that don't waste CPU cycles
@@ -391,10 +530,15 @@ class Place::AreaManagement < PlaceOS::Driver
       @rate_limit.receive
       @schedule_lock.synchronize do
         begin
+          sensor_data = {} of String => Array(SensorDetail)
           if @update_all
-            request_locations
+            sensor_data = request_sensor_data if @include_sensors
+            request_locations sensor_data
           else
-            @update_levels.each { |level_id| request_level_locations level_id }
+            @update_levels.each do |level_id|
+              sensor_data = request_sensor_data(level_id) if @include_sensors
+              request_level_locations level_id, sensor_data
+            end
           end
         rescue error
           logger.error(exception: error) { "error updating floors" }

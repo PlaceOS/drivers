@@ -1,6 +1,5 @@
-module Place; end
-
 require "place_calendar"
+require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "qr-code"
 require "qr-code/export/png"
@@ -104,7 +103,7 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def client
-    if (@wait_time * @queue_size) > 10.seconds
+    if (@wait_time * @queue_size) > 90.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end
     @queue_lock.synchronize { @queue_size += 1 }

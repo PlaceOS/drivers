@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 # NOTES
 # (*1) Projector ID
 # (*2) Model code: "xxH" inscription

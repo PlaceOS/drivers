@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 # [header, command, id, data.size, [data], checksum]
 
 DriverSpecs.mock_driver "Samsung::Displays::MDCProtocol" do

@@ -1,8 +1,7 @@
 require "uri"
 require "jwt"
 require "./models"
-
-module Floorsense; end
+require "placeos-driver"
 
 # Documentation:
 # https://apiguide.smartalock.com/
@@ -144,6 +143,23 @@ class Floorsense::Desks < PlaceOS::Driver
       booking = check_response BookingResponse.from_json(response.body.not_nil!)
       booking.user = get_user(booking.uid)
       booking
+    else
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  def confirm_booking(booking_id : String | Int64)
+    token = get_token
+    uri = "/restapi/desk-confirm?bkid=#{booking_id}"
+
+    response = post(uri, headers: {
+      "Accept"        => "application/json",
+      "Authorization" => token,
+    })
+
+    if response.success?
+      true
     else
       expire_token! if response.status_code == 401
       raise "unexpected response #{response.status_code}\n#{response.body}"

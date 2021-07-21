@@ -1,8 +1,7 @@
-module Place; end
-
 require "json"
 require "oauth2"
 require "placeos"
+require "placeos-driver"
 
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
@@ -21,6 +20,8 @@ class Place::StaffAPI < PlaceOS::Driver
   })
 
   @place_domain : URI = URI.parse("https://staff.app.api.com")
+  @host_header : String = ""
+
   @username : String = ""
   @password : String = ""
   @client_id : String = ""
@@ -38,7 +39,9 @@ class Place::StaffAPI < PlaceOS::Driver
     @password = setting(String, :password)
     @client_id = setting(String, :client_id)
     @redirect_uri = setting(String, :redirect_uri)
+
     @place_domain = URI.parse(config.uri.not_nil!)
+    @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
 
     @running_a_spec = setting?(Bool, :running_a_spec) || false
   end
@@ -57,6 +60,38 @@ class Place::StaffAPI < PlaceOS::Driver
       logger.debug { "issue parsing system #{id}:\n#{response.body.inspect}" }
       raise error
     end
+  end
+
+  def systems(
+    q : String? = nil,
+    zone_id : String? = nil,
+    capacity : Int32? = nil,
+    bookable : Bool? = nil,
+    features : String? = nil,
+    limit : Int32 = 1000,
+    offset : Int32 = 0
+  )
+    placeos_client.systems.search(
+      q: q,
+      limit: limit,
+      offset: offset,
+      zone_id: zone_id,
+      capacity: capacity,
+      bookable: bookable,
+      features: features
+    )
+  end
+
+  def systems_in_building(zone_id : String, ids_only : Bool = true)
+    levels = zones(parent: zone_id)
+    if ids_only
+      hash = {} of String => Array(String)
+      levels.each { |level| hash[level.id] = systems(zone_id: level.id).map(&.id) }
+    else
+      hash = {} of String => Array(::PlaceOS::Client::API::Models::System)
+      levels.each { |level| hash[level.id] = systems(zone_id: level.id) }
+    end
+    hash
   end
 
   # Staff details returns the information from AD
@@ -142,6 +177,69 @@ class Place::StaffAPI < PlaceOS::Driver
     raise "failed to update guest #{id}: #{response.status_code}" unless response.success?
   end
 
+  @[Security(Level::Support)]
+  def query_guests(period_start : Int64, period_end : Int64, zones : Array(String))
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s
+      form.add "period_end", period_end.to_s
+      form.add "zone_ids", zones.join(",")
+    end
+
+    response = patch("/api/staff/v1/guests?#{params}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  # ===================================
+  # CALENDAR EVENT ACTIONS (via staff api)
+  # ===================================
+  @[Security(Level::Support)]
+  def query_events(
+    period_start : Int64,
+    period_end : Int64,
+    zones : Array(String)? = nil,
+    systems : Array(String)? = nil,
+    capacity : Int32? = nil,
+    features : String? = nil,
+    bookable : Bool? = nil,
+    include_cancelled : Bool? = nil
+  )
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s
+      form.add "period_end", period_end.to_s
+      form.add "zone_ids", zones.join(",") if zones && !zones.empty?
+      form.add "system_ids", systems.join(",") if systems && !systems.empty?
+      form.add "capacity", capacity.to_s if capacity
+      form.add "features", features if features
+      form.add "bookable", bookable.to_s if !bookable.nil?
+      form.add "include_cancelled", include_cancelled.to_s if !include_cancelled.nil?
+    end
+
+    response = patch("/api/staff/v1/events?#{params}", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => "Bearer #{token}",
+    })
+
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
@@ -151,6 +249,11 @@ class Place::StaffAPI < PlaceOS::Driver
 
   def metadata_children(id : String, key : String? = nil)
     placeos_client.metadata.children(id, key)
+  end
+
+  @[Security(Level::Support)]
+  def write_metadata(id : String, key : String, payload : JSON::Any, description : String = "")
+    placeos_client.metadata.update(id, key, payload, description)
   end
 
   # ===================================
@@ -401,7 +504,8 @@ class Place::StaffAPI < PlaceOS::Driver
   protected def placeos_client : PlaceOS::Client
     PlaceOS::Client.new(
       @place_domain,
-      token: OAuth2::AccessToken::Bearer.new(token, nil)
+      token: OAuth2::AccessToken::Bearer.new(token, nil),
+      host_header: @host_header
     )
   end
 
@@ -423,6 +527,8 @@ class Place::StaffAPI < PlaceOS::Driver
       redirect_uri: @redirect_uri,
       authorize_uri: "#{origin}/auth/oauth/authorize",
       token_uri: "#{origin}/auth/oauth/token")
+
+    oauth2_client.headers_cb { |headers| headers.add("Host", @host_header) }
 
     access_token = oauth2_client.get_access_token_using_resource_owner_credentials(
       @username,
@@ -455,5 +561,43 @@ class OpenSSL::SSL::Context::Client
     {% if compare_versions(LibSSL::OPENSSL_VERSION, "1.0.2") >= 0 %}
       self.default_verify_param = "ssl_server"
     {% end %}
+  end
+end
+
+# Allow for header modification
+class OAuth2::Client
+  def headers_cb(&@headers_cb : HTTP::Headers -> Nil)
+  end
+
+  private def get_access_token : AccessToken
+    headers = HTTP::Headers{
+      "Accept"       => "application/json",
+      "Content-Type" => "application/x-www-form-urlencoded",
+    }
+
+    body = URI::Params.build do |form|
+      case @auth_scheme
+      when .request_body?
+        form.add("client_id", @client_id)
+        form.add("client_secret", @client_secret)
+      when .http_basic?
+        headers.add(
+          "Authorization",
+          "Basic #{Base64.strict_encode("#{@client_id}:#{@client_secret}")}"
+        )
+      end
+      yield form
+    end
+
+    cb = @headers_cb
+    cb.call(headers) if cb
+
+    response = HTTP::Client.post token_uri, form: body, headers: headers
+    case response.status
+    when .ok?, .created?
+      OAuth2::AccessToken.from_json(response.body)
+    else
+      raise OAuth2::Error.new(response.body)
+    end
   end
 end
