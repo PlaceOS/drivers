@@ -252,7 +252,7 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def write_metadata(id : String, key : String, payload : JSON::Any, description : String? = nil)
+  def write_metadata(id : String, key : String, payload : JSON::Any, description : String = "")
     placeos_client.metadata.update(id, key, payload, description)
   end
 
