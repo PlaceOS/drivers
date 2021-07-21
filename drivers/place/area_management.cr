@@ -190,7 +190,7 @@ class Place::AreaManagement < PlaceOS::Driver
       sensor.loc = nil
 
       # check if this sensor has a user defined location
-      if location = locs[id]
+      if location = locs[id]?
         sensor.x = location.x
         sensor.y = location.y
         sensor.level = location.level
