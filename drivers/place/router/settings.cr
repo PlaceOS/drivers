@@ -106,7 +106,11 @@ module Place::Router::Settings
           nodes << inode
 
           if source.is_a? Alias
-            aliases[source.name] = inode
+            name = source.name
+            if prev = aliases[name]?
+              raise "invalid configuration: \"#{name}\" refers to both #{prev} and #{inode}"
+            end
+            aliases[name] = inode
             next
           end
 

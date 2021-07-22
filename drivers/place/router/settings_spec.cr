@@ -38,5 +38,16 @@ describe Settings::Connections do
       })
       aliases.keys.should contain "Foo"
     end
+
+    it "detects alias conflicts" do
+      map = Settings::Connections::Map.from_json <<-JSON
+        {
+          "Switcher_1": ["*Foo", "*Foo"]
+        }
+        JSON
+      expect_raises(Exception) do
+        Settings::Connections.parse map, sys: "abc123"
+      end
+    end
   end
 end
