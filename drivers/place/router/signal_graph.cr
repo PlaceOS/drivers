@@ -137,6 +137,11 @@ class Place::Router::SignalGraph
     end
   end
 
+  # Checks if *node* is a system input.
+  def input?(node : Node::Ref) : Bool
+    g.outdegree(node.id).zero?
+  end
+
   # Provide the signal nodes that form system inputs.
   def inputs
     # Graph connectivity is inverse to signal direction, hence sinks here.
@@ -146,6 +151,11 @@ class Place::Router::SignalGraph
   # Provide all signal nodes that can be routed to *destination*.
   def inputs(destination : Node::Ref)
     g.subtree(destination.id)
+  end
+
+  # Checks if *node* is a system output.
+  def output?(node : Node::Ref) : Bool
+    g.indegree(node.id).zero?
   end
 
   # Provide the signal nodes that form system outputs.

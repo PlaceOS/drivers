@@ -137,6 +137,18 @@ describe SignalGraph do
     end
   end
 
+  describe "#input?" do
+    g = SignalGraph.build nodes, connections
+
+    it "returns true if the node is an input" do
+      g.input?(inputs.values.sample).should be_true
+    end
+
+    it "returns false otherwise" do
+      g.input?(outputs.values.sample).should be_false
+    end
+  end
+
   describe "#inputs" do
     it "provides a list of input nodes within the graph" do
       g = SignalGraph.build nodes, connections
@@ -152,6 +164,18 @@ describe SignalGraph do
       reachable = g.inputs outputs[:display]
       expected = {inputs[:foo], inputs[:bar]}.map &.id
       expected.each { |input| reachable.should contain input }
+    end
+  end
+
+  describe "#output?" do
+    g = SignalGraph.build nodes, connections
+
+    it "returns true if the node is an output" do
+      g.output?(outputs.values.sample).should be_true
+    end
+
+    it "returns false otherwise" do
+      g.output?(inputs.values.sample).should be_false
     end
   end
 
