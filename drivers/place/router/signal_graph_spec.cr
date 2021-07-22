@@ -23,9 +23,9 @@ module PlaceOS::Driver
 
     def self.driver_metadata?(id) : DriverModel::Metadata?
       m = DriverModel::Metadata.new
-      m.implements << Interface::Switchable.to_s
-      m.implements << Interface::Selectable.to_s
-      m.implements << Interface::Mutable.to_s
+      m.implements << {{Interface::Switchable.name(generic_args: false).stringify}}
+      m.implements << {{Interface::Selectable.name(generic_args: false).stringify}}
+      m.implements << {{Interface::Mutable.name(generic_args: false).stringify}}
       m
     end
   end
