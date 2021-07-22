@@ -147,7 +147,7 @@ class Place::AreaManagement < PlaceOS::Driver
   end
 
   def write_sensor_discovery
-    staff_api.write_metadata(@building_id, "sensor-locations", @sensor_discovery)
+    staff_api.write_metadata(@building_id, "sensor-discovered", @sensor_discovery)
   end
 
   # returns the sensor location data that has been configured
