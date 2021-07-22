@@ -31,16 +31,19 @@ class Xovis::SensorAPI < PlaceOS::Driver
     @poll_rate = (setting?(Int32, :poll_rate) || 15).seconds
     @mac = URI.parse(config.uri.not_nil!).hostname.not_nil!
 
+    query_capacity = setting?(Bool, :query_capacity)
+    query_counts = setting?(Bool, :query_counts)
+
     schedule.clear
     schedule.every(@poll_rate) do
-      count_data
-      capacity_data
+      capacity_data unless query_capacity == false
+      count_data unless query_counts == false
     end
     schedule.every(5.minutes) { device_status }
     schedule.in(@poll_rate / 3) do
       device_status
-      count_data
-      capacity_data
+      capacity_data unless query_capacity == false
+      count_data unless query_counts == false
     end
   end
 
