@@ -56,6 +56,8 @@ class Place::AreaManagement < PlaceOS::Driver
     sensors: Hash(String, Float64),
   )
 
+  # zone_id => sensors
+  @level_sensors : Hash(String, Hash(String, SensorMeta)) = {} of String => Hash(String, SensorMeta)
   # zone_id => areas
   @level_areas : Hash(String, Array(AreaConfig)) = {} of String => Array(AreaConfig)
   # area_id => area
@@ -153,30 +155,10 @@ class Place::AreaManagement < PlaceOS::Driver
   # returns the sensor location data that has been configured
   def sensor_locations(level_id : String? = nil)
     if level_id
-      # TODO:: cache this data
-      level_data = staff_api.metadata(level_id, "sensor-locations").get["sensor-locations"]?.try(&.[]("details").as_h)
-      meta = if level_data
-               Hash(String, SensorMeta).from_json(level_data.to_json)
-             else
-               {} of String => SensorMeta
-             end
-      meta.each_value { |sensor| sensor.level = level_id }
-      return meta
+      @level_sensors[level_id]? || {} of String => SensorMeta
+    else
+      @level_sensors.values.reduce { |acc, i| acc.merge(i) }
     end
-
-    locs = {} of String => SensorMeta
-    data = staff_api.metadata_children(@building_id, "sensor-locations").get.as_a.each do |zone_data|
-      level_id = zone_data["zone"]["id"].as_s
-      level_data = zone_data["metadata"]["sensor-locations"]?.try(&.[]("details").as_h)
-      meta = if level_data
-               Hash(String, SensorMeta).from_json(level_data.to_json)
-             else
-               {} of String => SensorMeta
-             end
-      meta.transform_values! { |sensor| sensor.level = level_id; sensor }
-      locs.merge! meta
-    end
-    locs
   end
 
   # Queries all the sensors in a building and exposes the data
@@ -191,9 +173,9 @@ class Place::AreaManagement < PlaceOS::Driver
 
     return levels if sensors.empty?
     details = Array(SensorDetail).from_json(sensors.to_json)
-    locs = sensor_locations(level_id)
 
     building_id = @building_id
+    locs = sensor_locations(level_id)
 
     details.each do |sensor|
       id = sensor.id ? "#{sensor.mac}-#{sensor.id}" : sensor.mac
@@ -274,6 +256,15 @@ class Place::AreaManagement < PlaceOS::Driver
       area_data.each { |area| @areas[area.id] = area }
     else
       @level_areas.delete(zone.id)
+    end
+
+    if sensors = metadata["sensor-locations"]?
+      sensor_data = Hash(String, SensorMeta).from_json(sensors.details.to_json)
+      zone_id = zone.id
+      sensor_data.transform_values! { |sensor| sensor.level = zone_id; sensor }
+      @level_sensors[zone_id] = sensor_data
+    else
+      @level_sensors.delete(zone.id)
     end
   end
 
