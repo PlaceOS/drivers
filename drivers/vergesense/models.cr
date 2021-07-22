@@ -58,6 +58,6 @@ module Vergesense
     include JSON::Serializable
 
     property count : UInt32?
-    property coordinates : Array(Array(Array(Float64)))?
+    property coordinates : Array(Array(Float64)?)?
   end
 end
