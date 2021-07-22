@@ -139,7 +139,7 @@ class Place::Router::SignalGraph
 
   # Checks if *node* is a system input.
   def input?(node : Node::Ref) : Bool
-    g.outdegree(node.id).zero?
+    g.sink? node.id
   end
 
   # Provide the signal nodes that form system inputs.
@@ -155,7 +155,7 @@ class Place::Router::SignalGraph
 
   # Checks if *node* is a system output.
   def output?(node : Node::Ref) : Bool
-    g.indegree(node.id).zero?
+    g.source? node.id
   end
 
   # Provide the signal nodes that form system outputs.

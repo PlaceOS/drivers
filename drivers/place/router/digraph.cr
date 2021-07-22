@@ -150,18 +150,28 @@ class Place::Router::Digraph(N, E)
     @nodes.each_key
   end
 
-  # Provides all nodes with an out-degree of zero.
-  def sinks : Enumerable(UInt64)
-    nodes.select { |id| outdegree(id).zero? }
+  # Checks if a node has incoming edges only.
+  def sink?(id) : Bool
+    outdegree(id).zero? && !indegree(id).zero?
   end
 
-  # Provides all nodes with an in-degree of zero.
+  # Provides all nodes with incoming edges only.
+  def sinks : Enumerable(UInt64)
+    nodes.select { |id| sink? id }
+  end
+
+  # Checks if a node has outgoing edges only.
+  def source?(id) : Bool
+    !outdegree(id).zero? && indegree(id).zero?
+  end
+
+  # Provides all nodes with outgoing edges only.
   #
   # OPTIMIZE: this is _very_ slow [O(V * E)], but works for testing purposes.
   # Switching the sparse matrix should assist so not worth optimising for this
   # setup.
   def sources : Enumerable(UInt64)
-    nodes.select { |id| indegree(id).zero? }
+    nodes.select { |id| source? id }
   end
 
   # The outgoing edges from *id*.
