@@ -37,10 +37,17 @@ end
 class Switcher < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Switchable(Int32, Int32)
 
-  def switch_to(input)
+  def switch_to(input : Int32)
+    self[:input] = input
   end
 
-  def switch(map)
+  def switch(map : Hash(Int32, Array(Int32)) | Hash(String, Hash(Int32, Array(Int32))))
+    map = map.values.first if map.is_a? Hash(String, Hash(Int32, Array(Int32)))
+    map.each do |(input, outputs)|
+      outputs.each do |output|
+        self["output#{output}"] = input
+      end
+    end
   end
 end
 
@@ -65,4 +72,6 @@ DriverSpecs.mock_driver "Place::Router" do
   status[:inputs].as_a.should contain("Foo")
   status[:inputs].as_a.should contain("Bar")
   status[:outputs].as_a.should contain("Display_1")
+
+  exec(:route, "Foo", "Display_1").get
 end

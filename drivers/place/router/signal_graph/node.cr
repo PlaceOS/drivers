@@ -4,8 +4,15 @@ require "./mod"
 class Place::Router::SignalGraph
   module Node
     class Label
-      def initialize(@ref); end
+      def initialize(@ref)
+      end
+
       getter ref : Ref
+
+      def to_s(io)
+        io << ref
+      end
+
       property source : UInt64? = nil
       property locked : Bool = false
     end

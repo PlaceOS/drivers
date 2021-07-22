@@ -1,3 +1,4 @@
+require "future"
 require "placeos-driver"
 
 class Place::Router < PlaceOS::Driver
@@ -22,11 +23,13 @@ class Place::Router < PlaceOS::Driver
   # inclusion in other drivers, such as room logic, that provide auxillary
   # functionality to signal distribution.
   module Core
+    alias Node = SignalGraph::Node::Ref
+
     private getter siggraph : SignalGraph { raise "signal graph not initialized" }
 
-    private getter inputs : Hash(String, UInt64) { {} of String => UInt64 }
+    private getter inputs : Hash(String, Node) { {} of String => Node }
 
-    private getter outputs : Hash(String, UInt64) { {} of String => UInt64 }
+    private getter outputs : Hash(String, Node) { {} of String => Node }
 
     macro included
       default_settings({
@@ -40,7 +43,7 @@ class Place::Router < PlaceOS::Driver
         @siggraph = SignalGraph.build nodes, links
 
         # Given a node, provide a string ref to it within this system context.
-        local_ref = ->(n : SignalGraph::Node::Ref) do
+        local_ref = ->(n : Node) do
           aliases.key_for?(n) || n.to_s.lchop("#{system.id}/")
         end
 
@@ -48,7 +51,7 @@ class Place::Router < PlaceOS::Driver
         onodes = nodes.each.select { |n| siggraph.output? n }
 
         @inputs, @outputs = {inodes, onodes}.map do |nodes|
-          nodes.map { |n| {local_ref.call(n), n.id} }.to_h
+          nodes.map { |n| {local_ref.call(n), n} }.to_h
         end
 
         self[:inputs] = inputs.keys
@@ -58,8 +61,54 @@ class Place::Router < PlaceOS::Driver
 
     # Routes signal from *input* to *output*.
     def route(input : String, output : String)
-      logger.debug { "Requesting route from #{input} to #{output}" }
-      "foo"
+      logger.info { "requesting route from #{input} to #{output}" }
+
+      src = inputs[input]
+      dst = outputs[output]
+
+      path = siggraph.route(src, dst) || raise "no route from #{src} to #{dst}"
+
+      execs = path.compact_map do |(node, edge, next_node)|
+        logger.debug { "#{node} -> #{next_node}" }
+
+        raise "#{next_node} is locked, aborting" if next_node.locked
+
+        case edge
+        in SignalGraph::Edge::Static
+          nil
+        in SignalGraph::Edge::Active
+          lazy do
+            # OPTIMIZE: split this to perform an inital pass to build a hash
+            # from Driver::Proxy => [Edge::Active] then form the minimal set of
+            # execs that satisfies these.
+            sys = edge.mod.sys == system.id ? system : system(edge.mod.sys)
+            mod = sys.get edge.mod.name, edge.mod.idx
+
+            res = case func = edge.func
+                  in SignalGraph::Edge::Func::Mute
+                    raise NotImplementedError.new "graph based muting unavailable"
+                  in SignalGraph::Edge::Func::Select
+                    mod.switch_to func.input
+                  in SignalGraph::Edge::Func::Switch
+                    mod.switch({func.input => [func.output]})
+                  end
+            next_node.source = node.ref.id
+            res
+          end
+        end
+      end
+
+      logger.debug { "found path" }
+      execs = execs.to_a
+
+      logger.debug { "running execs" }
+      execs = execs.map &.get
+
+      logger.debug { "awaiting responses" }
+      # TODO: support timeout on these - maybe run via the driver queue?
+      execs = execs.map &.get
+
+      :ok
     end
   end
 
