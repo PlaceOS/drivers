@@ -151,14 +151,32 @@ class Place::AreaManagement < PlaceOS::Driver
   end
 
   # returns the sensor location data that has been configured
-  def sensor_locations
-    # TODO:: cache this data
-    data = staff_api.metadata(@building_id, "sensor-locations").get["sensor-locations"]?.try(&.[]("details").as_h)
-    if data
-      Hash(String, SensorMeta).from_json(data.to_json)
-    else
-      {} of String => SensorMeta
+  def sensor_locations(level_id : String? = nil)
+    if level_id
+      # TODO:: cache this data
+      level_data = staff_api.metadata(level_id, "sensor-locations").get["sensor-locations"]?.try(&.[]("details").as_h)
+      meta = if level_data
+               Hash(String, SensorMeta).from_json(level_data.to_json)
+             else
+               {} of String => SensorMeta
+             end
+      meta.each_value { |sensor| sensor.level = level_id }
+      return meta
     end
+
+    locs = {} of String => SensorMeta
+    data = staff_api.metadata_children(@building_id, "sensor-locations").get.as_a.each do |zone_data|
+      level_id = zone_data["zone"]["id"].as_s
+      level_data = zone_data["metadata"]["sensor-locations"]?.try(&.[]("details").as_h)
+      meta = if level_data
+               Hash(String, SensorMeta).from_json(level_data.to_json)
+             else
+               {} of String => SensorMeta
+             end
+      meta.each_value { |sensor| sensor.level = level_id }
+      locs.merge! meta
+    end
+    locs
   end
 
   # Queries all the sensors in a building and exposes the data
@@ -173,7 +191,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
     return levels if sensors.empty?
     details = Array(SensorDetail).from_json(sensors.to_json)
-    locs = sensor_locations
+    locs = sensor_locations(level_id)
 
     details.each do |sensor|
       id = sensor.id ? "#{sensor.mac}-#{sensor.id}" : sensor.mac
