@@ -22,7 +22,8 @@ class Place::Router::SignalGraph
 
     # FIXME: drop if / after renaming InputSelection -> Selectable
     def selectable?
-       PlaceOS::Driver::Interface::InputSelection.to_s.in? metadata.implements
+      interface = {{PlaceOS::Driver::Interface::InputSelection.name(generic_args: false).stringify}}
+      interface.in? metadata.implements
     end
 
     macro finished
