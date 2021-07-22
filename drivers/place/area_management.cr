@@ -157,7 +157,7 @@ class Place::AreaManagement < PlaceOS::Driver
     if level_id
       @level_sensors[level_id]? || {} of String => SensorMeta
     else
-      @level_sensors.values.reduce { |acc, i| acc.merge(i) }
+      @level_sensors.values.reduce({} of String => SensorMeta) { |acc, i| acc.merge!(i) }
     end
   end
 
@@ -429,8 +429,6 @@ class Place::AreaManagement < PlaceOS::Driver
 
   def request_locations(sensor_data : Hash(String, Array(SensorDetail))? = nil)
     @update_lock.synchronize do
-      sync_level_details
-
       # level => user count
       level_counts = {} of String => RawLevelDetails
       @level_details.each do |level_id, details|
@@ -544,6 +542,7 @@ class Place::AreaManagement < PlaceOS::Driver
         begin
           sensor_data = {} of String => Array(SensorDetail)
           if @update_all
+            @update_lock.synchronize { sync_level_details }
             sensor_data = request_sensor_data if @include_sensors
             request_locations sensor_data
           else
