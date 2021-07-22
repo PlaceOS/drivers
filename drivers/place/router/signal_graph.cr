@@ -25,12 +25,12 @@ class Place::Router::SignalGraph
 
   # Inserts *node*.
   protected def insert(node : Node::Ref)
-    g[node.id] = Node::Label.new
+    g[node.id] = Node::Label.new node
   end
 
   # :ditto:
   protected def insert(node : Node::Mute)
-    mute = Node::Label.new
+    mute = Node::Label.new node
     mute.source = Mute.id
     mute.locked = true
     g[node.id] = mute

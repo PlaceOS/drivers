@@ -4,6 +4,8 @@ require "./mod"
 class Place::Router::SignalGraph
   module Node
     class Label
+      def initialize(@ref); end
+      getter ref : Ref
       property source : UInt64? = nil
       property locked : Bool = false
     end
@@ -61,10 +63,16 @@ class Place::Router::SignalGraph
     end
 
     # Virtual node representing (any) mute source
-    struct Mute
+    struct Mute < Ref
       class_getter instance : self { new }
 
-      protected def initialize; end
+      protected def initialize
+        @mod = uninitialized Mod
+      end
+
+      def mod
+        nil
+      end
 
       def id
         0_u64
