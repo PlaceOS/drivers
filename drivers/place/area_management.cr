@@ -173,7 +173,7 @@ class Place::AreaManagement < PlaceOS::Driver
              else
                {} of String => SensorMeta
              end
-      meta.each_value { |sensor| sensor.level = level_id }
+      meta.transform_values! { |sensor| sensor.level = level_id; sensor }
       locs.merge! meta
     end
     locs
@@ -214,7 +214,7 @@ class Place::AreaManagement < PlaceOS::Driver
         sensor.level = location.level
       end
 
-      if sensor.x && (level_id ? sensor.level == level_id : true)
+      if sensor.x && (level_id ? sensor.level == level_id : sensor.level)
         # TODO:: calulate the lat, lon and s2 cell id
 
         levels[sensor.level] << sensor
