@@ -27,8 +27,9 @@ class Place::Router::SignalGraph
 
     macro finished
       {% for interface in PlaceOS::Driver::Interface.constants %}
+        {% type = PlaceOS::Driver::Interface.constant(interface) %}
         def {{interface.underscore}}?
-          PlaceOS::Driver::Interface::{{interface}}.to_s.in? metadata.implements
+          {{type.name(generic_args: false).stringify}}.in? metadata.implements
         end
       {% end %}
     end
