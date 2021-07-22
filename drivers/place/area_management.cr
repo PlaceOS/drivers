@@ -360,6 +360,10 @@ class Place::AreaManagement < PlaceOS::Driver
       when Int64, Float64
         map_height = map_height_raw.to_f
       end
+    elsif sensor_summary.size > 0
+      # all sensor x, y values are % based
+      map_width = 100.0
+      map_height = 100.0
     end
 
     # Calculate the device counts for each area
@@ -367,9 +371,10 @@ class Place::AreaManagement < PlaceOS::Driver
     if map_width != -1.0
       # adjust sensor x,y so we check if they are in areas
       sensors.each do |_type, array|
-        array.each do |sensor|
+        array.map! do |sensor|
           sensor.x = sensor.x.not_nil! * map_width
           sensor.y = sensor.y.not_nil! * map_height
+          sensor
         end
       end
 
