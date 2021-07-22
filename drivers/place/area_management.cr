@@ -193,6 +193,8 @@ class Place::AreaManagement < PlaceOS::Driver
     details = Array(SensorDetail).from_json(sensors.to_json)
     locs = sensor_locations(level_id)
 
+    building_id = @building_id
+
     details.each do |sensor|
       id = sensor.id ? "#{sensor.mac}-#{sensor.id}" : sensor.mac
       @sensor_discovery[id] = SensorMeta.new(
@@ -212,6 +214,7 @@ class Place::AreaManagement < PlaceOS::Driver
         sensor.x = location.x
         sensor.y = location.y
         sensor.level = location.level
+        sensor.building = building_id
       end
 
       if sensor.x && (level_id ? sensor.level == level_id : sensor.level)
@@ -224,7 +227,7 @@ class Place::AreaManagement < PlaceOS::Driver
     levels.each do |level, sensors|
       sensor = sensors.first
 
-      self["#{level_id}:sensors"] = {
+      self["#{level}:sensors"] = {
         value:   sensors,
         ts_hint: "complex",
         ts_map:  {
@@ -233,7 +236,7 @@ class Place::AreaManagement < PlaceOS::Driver
         },
         ts_tag_keys: {"s2_cell_id"},
         ts_tags:     {
-          pos_building: sensor.building,
+          pos_building: building_id,
           pos_level:    level,
         },
       }
