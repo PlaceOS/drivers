@@ -32,7 +32,7 @@ module Vergesense
 
     property building_ref_id : String?
     property floor_ref_id : String?
-    property space_ref_id : String
+    property space_ref_id : String?
     property space_type : String?
     property name : String?
     property capacity : UInt32?
