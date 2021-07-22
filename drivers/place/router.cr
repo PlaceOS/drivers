@@ -37,26 +37,34 @@ class Place::Router < PlaceOS::Driver
       })
 
       def on_update
+        load_siggraph
         previous_def
-        connections = setting(Settings::Connections::Map, :connections)
-        nodes, links, aliases = Settings::Connections.parse connections, system.id
-        @siggraph = SignalGraph.build nodes, links
-
-        # Given a node, provide a string ref to it within this system context.
-        local_ref = ->(n : Node) do
-          aliases.key_for?(n) || n.to_s.lchop("#{system.id}/")
-        end
-
-        inodes = nodes.each.select { |n| siggraph.input? n }
-        onodes = nodes.each.select { |n| siggraph.output? n }
-
-        @inputs, @outputs = {inodes, onodes}.map do |nodes|
-          nodes.map { |n| {local_ref.call(n), n} }.to_h
-        end
-
-        self[:inputs] = inputs.keys
-        self[:outputs] = outputs.keys
       end
+    end
+
+    protected def load_siggraph
+      logger.debug { "loading signal graph from settings" }
+
+      connections = setting(Settings::Connections::Map, :connections)
+      nodes, links, aliases = Settings::Connections.parse connections, system.id
+      @siggraph = SignalGraph.build nodes, links
+
+      # Given a node, provide a string ref to it within this system context.
+      local_ref = ->(n : Node) do
+        aliases.key_for?(n) || n.to_s.lchop("#{system.id}/")
+      end
+
+      inodes = nodes.each.select { |n| siggraph.input? n }
+      onodes = nodes.each.select { |n| siggraph.output? n }
+
+      @inputs, @outputs = {inodes, onodes}.map do |nodes|
+        nodes.map { |n| {local_ref.call(n), n} }.to_h
+      end
+
+      on_siggraph_loaded
+    end
+
+    protected def on_siggraph_loaded
     end
 
     # Routes signal from *input* to *output*.
@@ -113,4 +121,9 @@ class Place::Router < PlaceOS::Driver
   end
 
   include Core
+
+  protected def on_siggraph_loaded
+    self[:inputs] = inputs.keys
+    self[:outputs] = outputs.keys
+  end
 end
