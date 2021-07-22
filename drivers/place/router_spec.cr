@@ -59,5 +59,10 @@ DriverSpecs.mock_driver "Place::Router" do
     },
   })
 
-  #exec(:route, "a", "b").get.should eq("foo")
+  # Give the settings time to load
+  sleep 0.1
+
+  status[:inputs].as_a.should contain("Foo")
+  status[:inputs].as_a.should contain("Bar")
+  status[:outputs].as_a.should contain("Display_1")
 end
