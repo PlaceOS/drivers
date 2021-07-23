@@ -61,10 +61,10 @@ class Place::Router < PlaceOS::Driver
         nodes.map { |n| {local_ref.call(n), n} }.to_h
       end
 
-      on_siggraph_loaded
+      on_siggraph_load
     end
 
-    protected def on_siggraph_loaded
+    protected def on_siggraph_load
     end
 
     # Routes signal from *input* to *output*.
@@ -122,7 +122,7 @@ class Place::Router < PlaceOS::Driver
 
   include Core
 
-  protected def on_siggraph_loaded
+  protected def on_siggraph_load
     self[:inputs] = inputs.keys
     self[:outputs] = outputs.keys
   end
