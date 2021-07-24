@@ -107,7 +107,9 @@ class Place::Router < PlaceOS::Driver
 
   protected def on_siggraph_load
     aliases = resolver.invert.transform_keys &.id
-    to_name = ->(id : UInt64) { aliases[id]? || siggraph[id].ref.to_s }
+    to_name = ->(id : UInt64) do
+      aliases[id]? || siggraph[id].ref.to_s.lchop("#{system.id}/")
+    end
 
     self[:inputs] = siggraph.inputs.map(&to_name).to_a
     self[:outputs] = siggraph.outputs.map(&to_name).to_a
