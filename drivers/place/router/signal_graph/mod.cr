@@ -40,5 +40,14 @@ class Place::Router::SignalGraph
     def to_s(io)
       io << sys << '/' << name << '_' << idx
     end
+
+    def self.parse?(ref)
+      if m = ref.match /^(.+)\/(.+)\_(\d+)$/
+        sys = m[1]
+        mod = m[2]
+        idx = m[3].to_i
+        new sys, mod, idx
+      end
+    end
   end
 end

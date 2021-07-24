@@ -25,17 +25,11 @@ class Place::Router < PlaceOS::Driver
   module Core
     alias Node = SignalGraph::Node::Ref
 
-    private getter siggraph : SignalGraph { raise "signal graph not initialized" }
+    private getter! siggraph : SignalGraph
 
-    private getter inputs : Hash(String, Node) { {} of String => Node }
-
-    private getter outputs : Hash(String, Node) { {} of String => Node }
+    private getter! resolver : Hash(String, Node)
 
     macro included
-      default_settings({
-        connections: {} of Nil => Nil,
-      })
-
       def on_update
         load_siggraph
         previous_def
@@ -49,30 +43,19 @@ class Place::Router < PlaceOS::Driver
       nodes, links, aliases = Settings::Connections.parse connections, system.id
       @siggraph = SignalGraph.build nodes, links
 
-      # Given a node, provide a string ref to it within this system context.
-      local_ref = ->(n : Node) do
-        aliases.key_for?(n) || n.to_s.lchop("#{system.id}/")
+      @resolver = Hash(String, Node).new(aliases.size) do |cache, key|
+        cache[key] = Node.resolve key, system.id
       end
-
-      inodes = nodes.each.select { |n| siggraph.input? n }
-      onodes = nodes.each.select { |n| siggraph.output? n }
-
-      @inputs, @outputs = {inodes, onodes}.map do |nodes|
-        nodes.map { |n| {local_ref.call(n), n} }.to_h
-      end
+      resolver.merge! aliases
 
       on_siggraph_load
-    end
-
-    protected def on_siggraph_load
     end
 
     # Routes signal from *input* to *output*.
     def route(input : String, output : String)
       logger.info { "requesting route from #{input} to #{output}" }
 
-      src = inputs[input]
-      dst = outputs[output]
+      src, dst = resolver.values_at input, output
 
       path = siggraph.route(src, dst) || raise "no route from #{src} to #{dst}"
 
@@ -123,7 +106,10 @@ class Place::Router < PlaceOS::Driver
   include Core
 
   protected def on_siggraph_load
-    self[:inputs] = inputs.keys
-    self[:outputs] = outputs.keys
+    aliases = resolver.invert.transform_keys &.id
+    to_name = ->(id : UInt64) { aliases[id]? || siggraph[id].ref.to_s }
+
+    self[:inputs] = siggraph.inputs.map(&to_name).to_a
+    self[:outputs] = siggraph.outputs.map(&to_name).to_a
   end
 end
