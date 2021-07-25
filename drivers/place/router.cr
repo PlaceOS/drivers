@@ -49,6 +49,19 @@ class Place::Router < PlaceOS::Driver
       on_siggraph_load
     end
 
+    protected def on_siggraph_load
+      aliases = Node::Resolver.invert
+      to_name = ->(ref : Node) { aliases[ref]? || ref.local }
+      self[:inputs] = siggraph.inputs.map(&.ref).map(&to_name).to_a
+      self[:outputs] = siggraph.outputs.map(&.ref).map(&to_name).to_a
+    end
+
+    protected def proxy_for(target : Node | SignalGraph::Edge::Active)
+      mod = target.mod
+      sys = mod.sys == system.id ? system : system(mod.sys)
+      sys.get mod.name, mod.idx
+    end
+
     # Routes signal from *input* to *output*.
     def route(input : Node, output : Node)
       logger.info { "requesting route from #{input} to #{output}" }
@@ -68,9 +81,7 @@ class Place::Router < PlaceOS::Driver
             # OPTIMIZE: split this to perform an inital pass to build a hash
             # from Driver::Proxy => [Edge::Active] then form the minimal set of
             # execs that satisfies these.
-            sys = edge.mod.sys == system.id ? system : system(edge.mod.sys)
-            mod = sys.get edge.mod.name, edge.mod.idx
-
+            mod = proxy_for edge
             res = case func = edge.func
                   in SignalGraph::Edge::Func::Mute
                     mod.mute func.state, func.index
@@ -119,11 +130,4 @@ class Place::Router < PlaceOS::Driver
   end
 
   include Core
-
-  protected def on_siggraph_load
-    aliases = Node::Resolver.invert
-    to_name = ->(ref : Node) { aliases[ref]? || ref.local }
-    self[:inputs] = siggraph.inputs.map(&.ref).map(&to_name).to_a
-    self[:outputs] = siggraph.outputs.map(&.ref).map(&to_name).to_a
-  end
 end
