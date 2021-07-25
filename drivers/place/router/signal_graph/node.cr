@@ -41,7 +41,7 @@ class Place::Router::SignalGraph
       #   Ref.resolve("Display_1:hdmi", "sys-abc123")
       #   # => DeviceInput(sys: "sys-abc123", mod: {"Display", 1}, input: "hdmi")
       #
-      def self.resolve(key : String, sys : String)
+      def self.resolve(key : String, sys = SignalGraph.system)
         ref = key.includes?('/') ? key : "#{sys}/#{key}"
         {% begin %}
           {% for type in @type.subclasses %}

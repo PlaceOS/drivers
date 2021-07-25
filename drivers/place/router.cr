@@ -39,12 +39,14 @@ class Place::Router < PlaceOS::Driver
     protected def load_siggraph
       logger.debug { "loading signal graph from settings" }
 
+      SignalGraph.system = system.id
+
       connections = setting(Settings::Connections::Map, :connections)
-      nodes, links, aliases = Settings::Connections.parse connections, system.id
+      nodes, links, aliases = Settings::Connections.parse connections
       @siggraph = SignalGraph.build nodes, links
 
       @resolver = Hash(String, Node).new(aliases.size) do |cache, key|
-        cache[key] = Node.resolve key, system.id
+        cache[key] = Node.resolve key
       end
       resolver.merge! aliases
 
@@ -126,9 +128,7 @@ class Place::Router < PlaceOS::Driver
 
   protected def on_siggraph_load
     aliases = resolver.invert.transform_keys &.id
-    to_name = ->(id : UInt64) do
-      aliases[id]? || siggraph[id].ref.to_s.lchop("#{system.id}/")
-    end
+    to_name = ->(id : UInt64) { aliases[id]? || siggraph[id].ref.to_s }
 
     self[:inputs] = siggraph.inputs.map(&to_name).to_a
     self[:outputs] = siggraph.outputs.map(&to_name).to_a
