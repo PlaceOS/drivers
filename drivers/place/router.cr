@@ -77,7 +77,7 @@ class Place::Router < PlaceOS::Driver
 
             res = case func = edge.func
                   in SignalGraph::Edge::Func::Mute
-                    raise NotImplementedError.new "graph based muting unavailable"
+                    mod.mute func.state, func.index
                   in SignalGraph::Edge::Func::Select
                     mod.switch_to func.input
                   in SignalGraph::Edge::Func::Switch
@@ -100,6 +100,25 @@ class Place::Router < PlaceOS::Driver
       execs = execs.map &.get
 
       :ok
+    end
+
+    # Set mute *state* on *input_or_output*.
+    #
+    # If the device supports local muting this will be activated, or the closest
+    # mute source found and routed.
+    def mute(input_or_output : String, state : Bool = true)
+      if state
+        route "MUTE", input_or_output
+      else
+        # FIXME: implement unmute. Possible approach: track previous source on
+        # each node and restore this.
+        raise NotImplementedError.new "unmuting not supported (yet)"
+      end
+    end
+
+    # Disable signal muting on *input_or_output*.
+    def unmute(input_or_output : String)
+      mute input_or_output, false
     end
   end
 

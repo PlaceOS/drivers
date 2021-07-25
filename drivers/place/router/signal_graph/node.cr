@@ -18,7 +18,12 @@ class Place::Router::SignalGraph
       end
 
       property source : UInt64? = nil
+
       property locked : Bool = false
+
+      def muted? : Bool
+        source == Mute.id
+      end
     end
 
     # Base structure for referring to a node within the graph.
