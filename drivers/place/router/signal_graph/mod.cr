@@ -4,7 +4,7 @@ require "placeos-driver/interface/switchable"
 
 class Place::Router::SignalGraph
   # Reference to a PlaceOS module that provides IO nodes within the graph.
-  private class Mod
+  class Mod
     getter sys : String
     getter name : String
     getter idx : Int32

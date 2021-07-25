@@ -56,10 +56,17 @@ class Place::Router < PlaceOS::Driver
       self[:outputs] = siggraph.outputs.map(&.ref).map(&to_name).to_a
     end
 
-    protected def proxy_for(target : NodeRef | SignalGraph::Edge::Active)
-      mod = target.mod
-      sys = mod.sys == system.id ? system : system(mod.sys)
-      sys.get mod.name, mod.idx
+    protected def proxy_for(node : NodeRef)
+      case node
+      when SignalGraph::Device, SignalGraph::DeviceInput, SignalGraph::DeviceOuput
+        proxy_for node.mod
+      else
+        raise "no device associated with #{node}"
+      end
+    end
+
+    protected def proxy_for(mod : SignalGraph::Mod)
+      (mod.sys == system.id ? system : system mod.sys).get mod.name, mod.idx
     end
 
     # Routes signal from *input* to *output*.
@@ -81,7 +88,7 @@ class Place::Router < PlaceOS::Driver
             # OPTIMIZE: split this to perform an inital pass to build a hash
             # from Driver::Proxy => [Edge::Active] then form the minimal set of
             # execs that satisfies these.
-            mod = proxy_for edge
+            mod = proxy_for edge.mod
             res = case func = edge.func
                   in SignalGraph::Edge::Func::Mute
                     mod.mute func.state, func.index
