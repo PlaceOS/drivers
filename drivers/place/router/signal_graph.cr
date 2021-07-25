@@ -34,7 +34,7 @@ class Place::Router::SignalGraph
   # :ditto:
   protected def insert(node : Node::Mute)
     mute = Node::Label.new node
-    mute.source = Mute.id
+    mute.source = Mute
     mute.locked = true
     g[node.id] = mute
   end
@@ -111,7 +111,7 @@ class Place::Router::SignalGraph
     mod_io.each { |mod, (inputs, outputs)| siggraph.link mod, inputs, outputs }
 
     # Set a loopback source on all inputs.
-    siggraph.inputs.each { |id| siggraph[id].source = id }
+    siggraph.inputs.each { |node| node.source = node.ref }
 
     siggraph
   end
@@ -153,12 +153,12 @@ class Place::Router::SignalGraph
   # Provide the signal nodes that form system inputs.
   def inputs
     # Graph connectivity is inverse to signal direction, hence sinks here.
-    g.sinks
+    g.sinks.map { |id| g[id] }
   end
 
   # Provide all signal nodes that can be routed to *destination*.
   def inputs(destination : Node::Ref)
-    g.subtree(destination.id)
+    g.subtree(destination.id).map { |id| g[id] }
   end
 
   # Checks if *node* is a system output.
@@ -168,6 +168,6 @@ class Place::Router::SignalGraph
 
   # Provide the signal nodes that form system outputs.
   def outputs
-    g.sources
+    g.sources.map { |id| g[id] }
   end
 end

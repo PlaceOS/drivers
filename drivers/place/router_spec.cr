@@ -33,7 +33,6 @@ class Display < DriverSpecs::MockDriver
   end
 end
 
-# :nodoc:
 class Switcher < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Switchable(Int32, Int32)
 

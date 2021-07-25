@@ -27,8 +27,6 @@ class Place::Router < PlaceOS::Driver
 
     private getter! siggraph : SignalGraph
 
-    private getter! resolver : Hash(String, Node)
-
     macro included
       def on_update
         load_siggraph
@@ -45,21 +43,17 @@ class Place::Router < PlaceOS::Driver
       nodes, links, aliases = Settings::Connections.parse connections
       @siggraph = SignalGraph.build nodes, links
 
-      @resolver = Hash(String, Node).new(aliases.size) do |cache, key|
-        cache[key] = Node.resolve key
-      end
-      resolver.merge! aliases
+      Node::Resolver.clear
+      Node::Resolver.merge! aliases
 
       on_siggraph_load
     end
 
     # Routes signal from *input* to *output*.
-    def route(input : String, output : String)
+    def route(input : Node, output : Node)
       logger.info { "requesting route from #{input} to #{output}" }
 
-      src, dst = resolver.values_at input, output
-
-      path = siggraph.route(src, dst) || raise "no route from #{src} to #{dst}"
+      path = siggraph.route(input, output) || raise "no route found"
 
       execs = path.compact_map do |(node, edge, next_node)|
         logger.debug { "#{node} -> #{next_node}" }
@@ -85,7 +79,7 @@ class Place::Router < PlaceOS::Driver
                   in SignalGraph::Edge::Func::Switch
                     mod.switch({func.input => [func.output]})
                   end
-            next_node.source = siggraph[src].source
+            next_node.source = siggraph[input].source
             res
           end
         end
@@ -108,9 +102,9 @@ class Place::Router < PlaceOS::Driver
     #
     # If the device supports local muting this will be activated, or the closest
     # mute source found and routed.
-    def mute(input_or_output : String, state : Bool = true)
+    def mute(input_or_output : Node, state : Bool = true)
       if state
-        route "MUTE", input_or_output
+        route SignalGraph::Mute, input_or_output
       else
         # FIXME: implement unmute. Possible approach: track previous source on
         # each node and restore this.
@@ -119,7 +113,7 @@ class Place::Router < PlaceOS::Driver
     end
 
     # Disable signal muting on *input_or_output*.
-    def unmute(input_or_output : String)
+    def unmute(input_or_output : Node)
       mute input_or_output, false
     end
   end
@@ -127,10 +121,8 @@ class Place::Router < PlaceOS::Driver
   include Core
 
   protected def on_siggraph_load
-    aliases = resolver.invert.transform_keys &.id
-    to_name = ->(id : UInt64) { aliases[id]? || siggraph[id].ref.to_s }
-
-    self[:inputs] = siggraph.inputs.map(&to_name).to_a
-    self[:outputs] = siggraph.outputs.map(&to_name).to_a
+    aliases = Node::Resolver.invert
+    self[:inputs] = siggraph.inputs.map { |ref| aliases[ref] }.to_a
+    self[:outputs] = siggraph.outputs.map { |ref| aliases[ref] }.to_a
   end
 end

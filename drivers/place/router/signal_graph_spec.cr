@@ -152,8 +152,8 @@ describe SignalGraph do
   describe "#inputs" do
     it "provides a list of input nodes within the graph" do
       g = SignalGraph.build nodes, connections
-      expected = inputs.values.map &.id
-      discovered = g.inputs.to_a
+      expected = inputs.values
+      discovered = g.inputs.map(&.ref).to_a
       expected.each { |input| discovered.should contain input }
     end
   end
@@ -161,8 +161,8 @@ describe SignalGraph do
   describe "#inputs(destination)" do
     it "provides a list of inputs nodes accessible to an output" do
       g = SignalGraph.build nodes, connections
-      reachable = g.inputs outputs[:display]
-      expected = {inputs[:foo], inputs[:bar]}.map &.id
+      reachable = g.inputs(outputs[:display]).map(&.ref).to_a
+      expected = {inputs[:foo], inputs[:bar]}
       expected.each { |input| reachable.should contain input }
     end
   end
@@ -182,8 +182,8 @@ describe SignalGraph do
   describe "#outputs" do
     it "list the output nodes present in the graph" do
       g = SignalGraph.build nodes, connections
-      expected = outputs.values.map &.id
-      discovered = g.outputs.to_a
+      expected = outputs.values
+      discovered = g.outputs.map(&.ref).to_a
       expected.each { |output| discovered.should contain output }
     end
   end

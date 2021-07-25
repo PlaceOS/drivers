@@ -1,4 +1,4 @@
-require "set"
+require "json"
 require "./mod"
 
 class Place::Router::SignalGraph
@@ -17,7 +17,7 @@ class Place::Router::SignalGraph
         io << ref
       end
 
-      property source : UInt64? = nil
+      property source : Ref? = nil
 
       property locked : Bool = false
 
@@ -26,11 +26,15 @@ class Place::Router::SignalGraph
       end
     end
 
+    class_getter! resolver : Hash(String, Ref)
+
     # Base structure for referring to a node within the graph.
     abstract struct Ref
-      # Node identifier for usage as the graph ID.
-      def id
-        self.class.hash ^ self.hash
+      Resolver = Hash(String, Ref).new { |cache, key| cache[key] = resolve key }
+
+      def self.new(pull : JSON::PullParser)
+        # TODO: also read int id's
+        resolve pull.read_string
       end
 
       # Resolves a string-based node *key* to a fully-qualified reference.
@@ -44,11 +48,21 @@ class Place::Router::SignalGraph
       def self.resolve(key : String, sys = SignalGraph.system)
         ref = key.includes?('/') ? key : "#{sys}/#{key}"
         {% begin %}
+          Resolver[key]? || \
           {% for type in @type.subclasses %}
             {{type}}.parse?(ref) || \
           {% end %}
           raise "malformed node ref: \"#{key}\""
         {% end %}
+      end
+
+      # Node identifier for usage as the graph ID.
+      def id
+        self.class.hash ^ self.hash
+      end
+
+      def ==(other : Ref)
+        id == other.id
       end
 
       private module ClassMethods(T)
@@ -58,6 +72,19 @@ class Place::Router::SignalGraph
 
       macro inherited
         extend ClassMethods(self)
+      end
+    end
+
+    # Reference to an externally defined node that has been propogated from a
+    # remote system.
+    struct External < Ref
+      def initialize(@id)
+      end
+
+      getter id : UInt64
+
+      def self.parse?(ref) : self?
+        nil
       end
     end
 
