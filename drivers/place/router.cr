@@ -23,7 +23,7 @@ class Place::Router < PlaceOS::Driver
   # inclusion in other drivers, such as room logic, that provide auxillary
   # functionality to signal distribution.
   module Core
-    alias Node = SignalGraph::Node::Ref
+    alias NodeRef = SignalGraph::Node::Ref
 
     private getter! siggraph : SignalGraph
 
@@ -43,27 +43,27 @@ class Place::Router < PlaceOS::Driver
       nodes, links, aliases = Settings::Connections.parse connections
       @siggraph = SignalGraph.build nodes, links
 
-      Node::Resolver.clear
-      Node::Resolver.merge! aliases
+      NodeRef::Resolver.clear
+      NodeRef::Resolver.merge! aliases
 
       on_siggraph_load
     end
 
     protected def on_siggraph_load
-      aliases = Node::Resolver.invert
-      to_name = ->(ref : Node) { aliases[ref]? || ref.local }
+      aliases = NodeRef::Resolver.invert
+      to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local }
       self[:inputs] = siggraph.inputs.map(&.ref).map(&to_name).to_a
       self[:outputs] = siggraph.outputs.map(&.ref).map(&to_name).to_a
     end
 
-    protected def proxy_for(target : Node | SignalGraph::Edge::Active)
+    protected def proxy_for(target : NodeRef | SignalGraph::Edge::Active)
       mod = target.mod
       sys = mod.sys == system.id ? system : system(mod.sys)
       sys.get mod.name, mod.idx
     end
 
     # Routes signal from *input* to *output*.
-    def route(input : Node, output : Node)
+    def route(input : NodeRef, output : NodeRef)
       logger.info { "requesting route from #{input} to #{output}" }
 
       path = siggraph.route(input, output) || raise "no route found"
@@ -113,7 +113,7 @@ class Place::Router < PlaceOS::Driver
     #
     # If the device supports local muting this will be activated, or the closest
     # mute source found and routed.
-    def mute(input_or_output : Node, state : Bool = true)
+    def mute(input_or_output : NodeRef, state : Bool = true)
       if state
         route SignalGraph::Mute, input_or_output
       else
@@ -124,7 +124,7 @@ class Place::Router < PlaceOS::Driver
     end
 
     # Disable signal muting on *input_or_output*.
-    def unmute(input_or_output : Node)
+    def unmute(input_or_output : NodeRef)
       mute input_or_output, false
     end
   end
