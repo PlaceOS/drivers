@@ -33,8 +33,13 @@ class Place::Router::SignalGraph
       Resolver = Hash(String, Ref).new { |cache, key| cache[key] = resolve key }
 
       def self.new(pull : JSON::PullParser)
-        # TODO: also read int id's
-        resolve pull.read_string
+        if key = pull.read? String
+          resolve key
+        elsif id = pull.read? UInt64
+          External.new id
+        else
+          pull.raise "malformed node ref"
+        end
       end
 
       # Resolves a string-based node *key* to a fully-qualified reference.
