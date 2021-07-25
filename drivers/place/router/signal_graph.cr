@@ -106,6 +106,9 @@ class Place::Router::SignalGraph
     # Wire up the active edges.
     mod_io.each { |mod, (inputs, outputs)| siggraph.link mod, inputs, outputs }
 
+    # Set a loopback source on all inputs.
+    siggraph.inputs.each { |id| siggraph[id].source = id }
+
     siggraph
   end
 

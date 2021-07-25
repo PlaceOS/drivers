@@ -83,7 +83,7 @@ class Place::Router < PlaceOS::Driver
                   in SignalGraph::Edge::Func::Switch
                     mod.switch({func.input => [func.output]})
                   end
-            next_node.source = node.ref.id
+            next_node.source = siggraph[src].source
             res
           end
         end
