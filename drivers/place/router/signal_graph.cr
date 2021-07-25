@@ -71,12 +71,12 @@ class Place::Router::SignalGraph
   # intermediate devices (e.g. a input on a display, which in turn is attached to
   # the switcher above).
   #
-  # *connections* declares the physical links that exist between these.
+  # *links* declares the interconnections between devices.
   #
   # Modules associated with any of these nodes are then introspected for
   # switching, input selection and mute control based on the interfaces they
   # expose.
-  def self.build(nodes : Enumerable(Node::Ref), connections : Enumerable({Node::Ref, Node::Ref}))
+  def self.build(nodes : Enumerable(Node::Ref), links : Enumerable({Node::Ref, Node::Ref}))
     mod_io = Hash(Mod, {Set(Input), Set(Output)}).new do |h, k|
       h[k] = {Set(Input).new, Set(Output).new}
     end
@@ -90,17 +90,18 @@ class Place::Router::SignalGraph
       siggraph.insert node
 
       # Track device IO in use for building active edges
-      inputs, outputs = mod_io[node.mod]
       case node
       when Input
+        inputs, _ = mod_io[node.mod]
         inputs << node
       when Output
+        _, outputs = mod_io[node.mod]
         outputs << node
       end
     end
 
     # Insert the static edges.
-    connections.each { |source, dest| siggraph.connect source, dest }
+    links.each { |source, dest| siggraph.connect source, dest }
 
     # Wire up the active edges.
     mod_io.each { |mod, (inputs, outputs)| siggraph.link mod, inputs, outputs }

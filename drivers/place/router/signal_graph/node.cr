@@ -3,6 +3,10 @@ require "./mod"
 
 class Place::Router::SignalGraph
   module Node
+    # Metadata tracked against each signal node.
+    #
+    # This class is intended to be reopened and expanded as required when
+    # extending this into other usage contexts.
     class Label
       def initialize(@ref)
       end
@@ -17,17 +21,21 @@ class Place::Router::SignalGraph
       property locked : Bool = false
     end
 
+    # Base structure for referring to a node within the graph.
     abstract struct Ref
-      getter mod : Mod
-
-      def initialize(sys, name, idx)
-        @mod = Mod.new sys, name, idx
-      end
-
+      # Node identifier for usage as the graph ID.
       def id
         self.class.hash ^ self.hash
       end
 
+      # Resolves a string-based node *key* to a fully-qualified reference.
+      #
+      # If a system component is not present within *key*, this is resolved
+      # within the context of *sys*. For example:
+      #
+      #   Ref.resolve("Display_1:hdmi", "sys-abc123")
+      #   # => DeviceInput(sys: "sys-abc123", mod: {"Display", 1}, input: "hdmi")
+      #
       def self.resolve(key : String, sys : String)
         ref = key.includes?('/') ? key : "#{sys}/#{key}"
         {% begin %}
@@ -37,12 +45,32 @@ class Place::Router::SignalGraph
           raise "malformed node ref: \"#{key}\""
         {% end %}
       end
+
+      private module ClassMethods(T)
+        # Parses a string-based *ref* to {{@type}}.
+        abstract def parse?(ref : String) : T?
+      end
+
+      macro inherited
+        extend ClassMethods(self)
+      end
     end
 
-    # Reference to the default / central node for a device
+    # Reference to the default / central node for a device.
+    #
+    # These take the cannonical string form of:
+    #
+    #   sys-abc123/Display_1
+    #   │          │       │
+    #   │          │       └module index
+    #   │          └module namme
+    #   └system
+    #
     struct Device < Ref
-      def initialize(sys, mod, idx)
-        super
+      getter mod : Mod
+
+      def initialize(sys, name, idx)
+        @mod = Mod.new sys, name, idx
       end
 
       def initialize(@mod)
@@ -52,7 +80,7 @@ class Place::Router::SignalGraph
         io << mod
       end
 
-      def self.parse?(ref)
+      def self.parse?(ref) : self?
         if mod = Mod.parse? ref
           new mod
         end
@@ -60,11 +88,22 @@ class Place::Router::SignalGraph
     end
 
     # Reference to a signal output from a device.
+    #
+    # These take the cannonical string form of:
+    #
+    #   sys-abc123/Switcher_1.1
+    #   │          │        │ │
+    #   │          │        │ └output
+    #   │          │        └module index
+    #   │          └module namme
+    #   └system
+    #
     struct DeviceOutput < Ref
+      getter mod : Mod
       getter output : Int32 | String
 
       def initialize(sys, name, idx, @output)
-        super sys, name, idx
+        @mod = Mod.new sys, name, idx
       end
 
       def initialize(@mod, @output)
@@ -74,7 +113,7 @@ class Place::Router::SignalGraph
         io << mod << '.' << output
       end
 
-      def self.parse?(ref)
+      def self.parse?(ref) : self?
         m, _, o = ref.rpartition '.'
         if mod = Mod.parse? m
           output = o.to_i? || o
@@ -84,11 +123,22 @@ class Place::Router::SignalGraph
     end
 
     # Reference to a signal input to a device.
+    #
+    # These take the cannonical string form of:
+    #
+    #   sys-abc123/Display_1:hdmi
+    #   │          │       │ │
+    #   │          │       │ └input
+    #   │          │       └module index
+    #   │          └module namme
+    #   └system
+    #
     struct DeviceInput < Ref
+      getter mod : Mod
       getter input : Int32 | String
 
       def initialize(sys, name, idx, @input)
-        super sys, name, idx
+        @mod = Mod.new sys, name, idx
       end
 
       def initialize(@mod, @input)
@@ -98,7 +148,7 @@ class Place::Router::SignalGraph
         io << mod << ':' << input
       end
 
-      def self.parse?(ref)
+      def self.parse?(ref) : self?
         m, _, i = ref.rpartition ':'
         if mod = Mod.parse? m
           input = i.to_i? || i
@@ -107,23 +157,20 @@ class Place::Router::SignalGraph
       end
     end
 
-    # Virtual node representing (any) mute source
+    # Virtual node representing (any) mute source.
+    #
+    # This may be refernced simply as `MUTE`.
     struct Mute < Ref
       class_getter instance : self { new }
 
       protected def initialize
-        @mod = uninitialized Mod
-      end
-
-      def mod
-        nil
       end
 
       def id
         0_u64
       end
 
-      def self.parse?(ref)
+      def self.parse?(ref) : self?
         instance if ref.upcase == "MUTE"
       end
 
