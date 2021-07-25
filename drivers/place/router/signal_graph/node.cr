@@ -22,7 +22,7 @@ class Place::Router::SignalGraph
       property locked : Bool = false
 
       def muted? : Bool
-        source == Mute.id
+        source == Mute
       end
     end
 
