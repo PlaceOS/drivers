@@ -122,7 +122,7 @@ class Place::Router < PlaceOS::Driver
 
   protected def on_siggraph_load
     aliases = Node::Resolver.invert
-    self[:inputs] = siggraph.inputs.map { |ref| aliases[ref] }.to_a
-    self[:outputs] = siggraph.outputs.map { |ref| aliases[ref] }.to_a
+    self[:inputs] = siggraph.inputs.map { |node| aliases[node.ref] }.to_a
+    self[:outputs] = siggraph.outputs.map { |node| aliases[node.ref] }.to_a
   end
 end
