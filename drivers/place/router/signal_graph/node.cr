@@ -14,7 +14,7 @@ class Place::Router::SignalGraph
       getter ref : Ref
 
       def to_s(io)
-        io << ref
+        io << ref.local
       end
 
       property source : Ref? = nil
@@ -68,6 +68,10 @@ class Place::Router::SignalGraph
 
       def ==(other : Ref)
         id == other.id
+      end
+
+      def local
+        to_s.lchop "#{SignalGraph.system}/"
       end
 
       private module ClassMethods(T)
