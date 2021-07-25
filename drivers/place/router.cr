@@ -56,7 +56,7 @@ class Place::Router < PlaceOS::Driver
       path = siggraph.route(input, output) || raise "no route found"
 
       execs = path.compact_map do |(node, edge, next_node)|
-        logger.debug { "#{node} -> #{next_node}" }
+        logger.debug { "#{node} → #{next_node}" }
 
         raise "#{next_node} is locked, aborting" if next_node.locked
 
