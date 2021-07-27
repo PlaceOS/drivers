@@ -6,9 +6,9 @@ require "placeos-driver/interface/locatable"
 require "./models"
 
 class Floorsense::BookingsSync < PlaceOS::Driver
-  descriptive_name "Floorsense Bookings Sync"
+  descriptive_name "Floorsense Desk Bookings Sync"
   generic_name :FloorsenseBookingSync
-  description %(syncs PlaceOS bookings with floorsense booking system)
+  description %(syncs PlaceOS desk bookings with floorsense booking system)
 
   accessor floorsense : Floorsense_1
   accessor staff_api : StaffAPI_1
