@@ -12,13 +12,6 @@ class Place::Router < PlaceOS::Driver
   descriptive_name "Signal router"
   description "A universal matrix switcher."
 
-  def on_load
-    on_update
-  end
-
-  def on_update
-  end
-
   # Core routing methods and functionality. This exists as module to enable
   # inclusion in other drivers, such as room logic, that provide auxillary
   # functionality to signal distribution.
@@ -30,7 +23,9 @@ class Place::Router < PlaceOS::Driver
     macro included
       def on_update
         load_siggraph
-        previous_def
+        {% if @type.has_method? :on_update %}
+          previous_def
+        {% end %}
       end
     end
 
