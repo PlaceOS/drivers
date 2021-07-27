@@ -17,9 +17,6 @@ class Place::Router::SignalGraph
 
   Mute = Node::Mute.instance
 
-  # Default system to use when unspecified.
-  class_property! system : String
-
   private getter g : Digraph(Node::Label, Edge::Label)
 
   private def initialize(initial_capacity = nil)

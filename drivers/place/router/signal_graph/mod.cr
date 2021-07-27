@@ -16,10 +16,6 @@ class Place::Router::SignalGraph
       @id = id || raise %("#{name}/#{idx}" does not exist in #{sys})
     end
 
-    def self.new(name, idx)
-      new SignalGraph.system, name, idx
-    end
-
     def metadata
       PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
     end
@@ -42,8 +38,7 @@ class Place::Router::SignalGraph
     def_equals_and_hash @id
 
     def to_s(io)
-      io << sys << '/' unless sys == SignalGraph.system
-      io << name << '_' << idx
+      io << sys << '/' << name << '_' << idx
     end
 
     def self.parse?(ref)

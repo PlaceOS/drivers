@@ -4,9 +4,6 @@ require "./mod"
 class Place::Router::SignalGraph
   module Node
     # Metadata tracked against each signal node.
-    #
-    # This class is intended to be reopened and expanded as required when
-    # extending this into other usage contexts.
     class Label
       def initialize(@ref)
       end
@@ -14,7 +11,7 @@ class Place::Router::SignalGraph
       getter ref : Ref
 
       def to_s(io)
-        io << ref.local
+        io << ref
       end
 
       property source : Ref? = nil
@@ -26,22 +23,8 @@ class Place::Router::SignalGraph
       end
     end
 
-    class_getter! resolver : Hash(String, Ref)
-
     # Base structure for referring to a node within the graph.
     abstract struct Ref
-      Resolver = Hash(String, Ref).new { |cache, key| cache[key] = resolve key }
-
-      def self.new(pull : JSON::PullParser)
-        if key = pull.read? String
-          resolve key
-        elsif id = pull.read? UInt64
-          External.new id
-        else
-          pull.raise "malformed node ref"
-        end
-      end
-
       # Resolves a string-based node *key* to a fully-qualified reference.
       #
       # If a system component is not present within *key*, this is resolved
@@ -50,10 +33,9 @@ class Place::Router::SignalGraph
       #   Ref.resolve("Display_1:hdmi", "sys-abc123")
       #   # => DeviceInput(sys: "sys-abc123", mod: {"Display", 1}, input: "hdmi")
       #
-      def self.resolve(key : String, sys = SignalGraph.system)
+      def self.resolve(key : String, sys = nil)
         ref = key.includes?('/') ? key : "#{sys}/#{key}"
         {% begin %}
-          Resolver[key]? || \
           {% for type in @type.subclasses %}
             {{type}}.parse?(ref) || \
           {% end %}
@@ -70,8 +52,8 @@ class Place::Router::SignalGraph
         id == other.id
       end
 
-      def local
-        to_s.lchop "#{SignalGraph.system}/"
+      def local(sys : String)
+        to_s.lchop "#{sys}/"
       end
 
       private module ClassMethods(T)
@@ -81,19 +63,6 @@ class Place::Router::SignalGraph
 
       macro inherited
         extend ClassMethods(self)
-      end
-    end
-
-    # Reference to an externally defined node that has been propogated from a
-    # remote system.
-    struct External < Ref
-      def initialize(@id)
-      end
-
-      getter id : UInt64
-
-      def self.parse?(ref) : self?
-        nil
       end
     end
 

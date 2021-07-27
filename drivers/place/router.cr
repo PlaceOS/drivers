@@ -18,7 +18,11 @@ class Place::Router < PlaceOS::Driver
   module Core
     alias NodeRef = SignalGraph::Node::Ref
 
+    # TODO: use a single graph shared between all instances - need to work on a
+    # method to handle updates / settings changes without requiring a rebuild.
     private getter! siggraph : SignalGraph
+
+    private getter! resolver : Hash(String, NodeRef)
 
     macro included
       def on_update
@@ -32,21 +36,21 @@ class Place::Router < PlaceOS::Driver
     protected def load_siggraph
       logger.debug { "loading signal graph from settings" }
 
-      SignalGraph.system = system.id
-
       connections = setting(Settings::Connections::Map, :connections)
-      nodes, links, aliases = Settings::Connections.parse connections
+      nodes, links, aliases = Settings::Connections.parse connections, system.id
       @siggraph = SignalGraph.build nodes, links
 
-      NodeRef::Resolver.clear
-      NodeRef::Resolver.merge! aliases
+      @resolver = Hash(String, NodeRef).new do |cache, key|
+        cache[key] = NodeRef.resolve key, system.id
+      end
+      resolver.merge! aliases
 
       on_siggraph_load
     end
 
     protected def on_siggraph_load
-      aliases = NodeRef::Resolver.invert
-      to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local }
+      aliases = resolver.invert
+      to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local(system.id) }
       self[:inputs] = siggraph.inputs.map(&.ref).map(&to_name).to_a
       self[:outputs] = siggraph.outputs.map(&.ref).map(&to_name).to_a
     end
@@ -65,10 +69,12 @@ class Place::Router < PlaceOS::Driver
     end
 
     # Routes signal from *input* to *output*.
-    def route(input : NodeRef, output : NodeRef)
+    def route(input : String, output : String)
       logger.info { "requesting route from #{input} to #{output}" }
 
-      path = siggraph.route(input, output) || raise "no route found"
+      src, dst = resolver.values_at input, output
+
+      path = siggraph.route(src, dst) || raise "no route found"
 
       execs = path.compact_map do |(node, edge, next_node)|
         logger.debug { "#{node} → #{next_node}" }
@@ -92,7 +98,7 @@ class Place::Router < PlaceOS::Driver
                   in SignalGraph::Edge::Func::Switch
                     mod.switch({func.input => [func.output]})
                   end
-            next_node.source = siggraph[input].source
+            next_node.source = siggraph[src].source
             res
           end
         end
@@ -115,9 +121,9 @@ class Place::Router < PlaceOS::Driver
     #
     # If the device supports local muting this will be activated, or the closest
     # mute source found and routed.
-    def mute(input_or_output : NodeRef, state : Bool = true)
+    def mute(input_or_output : String, state : Bool = true)
       if state
-        route SignalGraph::Mute, input_or_output
+        route "MUTE", input_or_output
       else
         # FIXME: implement unmute. Possible approach: track previous source on
         # each node and restore this.
@@ -126,7 +132,7 @@ class Place::Router < PlaceOS::Driver
     end
 
     # Disable signal muting on *input_or_output*.
-    def unmute(input_or_output : NodeRef)
+    def unmute(input_or_output : String)
       mute input_or_output, false
     end
   end
