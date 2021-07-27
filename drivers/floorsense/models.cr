@@ -30,26 +30,88 @@ module Floorsense
     end
   end
 
-  class AuthResponse
+  class Resp(T)
     include JSON::Serializable
-
-    class Info
-      include JSON::Serializable
-
-      property token : String
-      property sessionid : String
-    end
 
     @[JSON::Field(key: "type")]
     property msg_type : String
     property result : Bool
-    property message : String?
 
     # Returned on failure
+    property message : String?
     property code : Int32?
 
     # Returned on success
-    property info : Info?
+    property info : T?
+  end
+
+  class AuthInfo
+    include JSON::Serializable
+
+    property token : String
+    property sessionid : String
+  end
+
+  class LockerInfo
+    include JSON::Serializable
+
+    property canid : Int32
+
+    @[JSON::Field(key: "bid")]
+    property bus_id : Int32
+
+    @[JSON::Field(key: "lid")]
+    property locker_id : Int32
+
+    property reserved : Bool
+    property status : Int32
+    property firmware : String
+    property disabled : Bool
+    property confirmed : Bool
+
+    property closed : Bool?
+    property usbcharger : Bool?
+    property usbcharging : Bool?
+    property typename : String?
+    property uid : String?
+    property groupid : Int32?
+    property hardware : Int32?
+    property type : String?
+    property key : String?
+    property usbcurrent : Int32?
+    property resid : String?
+  end
+
+  class LockerBooking
+    include JSON::Serializable
+
+    property created : Int64
+    property start : Int64
+    property finish : Int64
+
+    @[JSON::Field(key: "cid")]
+    property controller_id : Int32
+
+    @[JSON::Field(key: "resid")]
+    property reservation_id : String
+
+    @[JSON::Field(key: "uid")]
+    property user_id : String
+
+    property key : String
+    property pin : String
+    property restype : String
+    property lastopened : Int64
+    property released : Int64
+    property active : Int32
+    property releasecode : Int32
+
+    def released?
+      self.active == 1
+    end
+
+    # not included in the responses but we will merge this
+    property user : User?
   end
 
   class DeskStatus
@@ -86,21 +148,6 @@ module Floorsense
     property occupiedtime : Int32
   end
 
-  class DesksResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    # Returned on success
-    property info : Array(DeskStatus)?
-  end
-
   class UserLocation
     include JSON::Serializable
 
@@ -128,21 +175,6 @@ module Floorsense
     property active : Bool?
   end
 
-  class LocateResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    # Returned on success
-    property info : Array(UserLocation)?
-  end
-
   class Floor
     include JSON::Serializable
 
@@ -156,21 +188,6 @@ module Floorsense
     property location1 : String?
     property location2 : String?
     property location3 : String?
-  end
-
-  class FloorsResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    # Returned on success
-    property info : Array(Floor)?
   end
 
   class BookingStatus
@@ -209,34 +226,6 @@ module Floorsense
     property user : User?
   end
 
-  class BookingsResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    # Returned on success (desk => bookings)
-    property info : Hash(String, Array(BookingStatus))?
-  end
-
-  class BookingResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-    property info : BookingStatus?
-  end
-
   class User
     include JSON::Serializable
 
@@ -246,36 +235,6 @@ module Floorsense
     property desc : String?
     property lastlogin : Int64?
     property expiry : Int64?
-  end
-
-  class UserResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    # Returned on success
-    property info : User?
-  end
-
-  class UsersResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    # Returned on success
-    property info : Array(User)?
   end
 
   class LogEntry
@@ -299,21 +258,6 @@ module Floorsense
     property eventtime : Int64
   end
 
-  class LogResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    # Returned on success
-    property info : Array(LogEntry)?
-  end
-
   class RFID
     include JSON::Serializable
 
@@ -322,36 +266,23 @@ module Floorsense
     property desc : String?
   end
 
-  class RFIDResponse
+  class ControllerInfo
     include JSON::Serializable
 
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
+    @[JSON::Field(key: "cid")]
+    property controller_id : Int32
 
-    # Returned on failure
-    property message : String?
-    property code : Int32?
+    property online : Bool
+    property lockers : Bool
+    property desks : Bool
 
-    # Returned on success
-    property info : RFID?
-  end
+    property id : String
+    property name : String
+    property location1 : String
+    property location2 : String
+    property location3 : String
+    property location4 : String
 
-  class GenericResponse
-    include JSON::Serializable
-
-    @[JSON::Field(key: "type")]
-    property msg_type : String
-    property result : Bool
-
-    # Returned on failure
-    property message : String?
-    property code : Int32?
-
-    property info : JSON::Any?
-
-    def info
-      @info || JSON::Any.new(true)
-    end
+    property mode : String
   end
 end

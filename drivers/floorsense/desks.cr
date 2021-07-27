@@ -25,6 +25,8 @@ class Floorsense::Desks < PlaceOS::Driver
   @auth_expiry : Time = 1.minute.ago
   @user_cache : Hash(String, User) = {} of String => User
 
+  @controllers : Hash(Int32, ControllerInfo) = {} of Int32 => ControllerInfo
+
   def on_load
     on_update
   end
@@ -55,7 +57,7 @@ class Floorsense::Desks < PlaceOS::Driver
     logger.debug { "received login response #{data}" }
 
     if response.success?
-      resp = AuthResponse.from_json(data)
+      resp = Resp(AuthInfo).from_json(data)
       token = resp.info.not_nil!.token
       payload, _ = JWT.decode(token, verify: false, validate: false)
       @auth_expiry = (Time.unix payload["exp"].as_i64) - 5.minutes
@@ -63,7 +65,7 @@ class Floorsense::Desks < PlaceOS::Driver
     else
       case response.status_code
       when 401
-        resp = AuthResponse.from_json(data)
+        resp = Resp(AuthInfo).from_json(data)
         logger.warn { "#{resp.message} (#{resp.code})" }
       else
         logger.error { "authentication failed with HTTP #{response.status_code}" }
@@ -72,98 +74,198 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
-  def floors
-    token = get_token
-    uri = "/restapi/floorplan-list"
+  protected def check_success(response) : Bool
+    return true if response.success?
+    expire_token! if response.status_code == 401
+    raise "unexpected response #{response.status_code}\n#{response.body}"
+  end
 
-    response = get(uri, headers: {
+  macro parse(response, klass, &modify)
+    check_success({{response}})
+    check_response Resp({{klass}}).from_json({{response}}.body.not_nil!) {{modify}}
+  end
+
+  def default_headers
+    {
       "Accept"        => "application/json",
-      "Authorization" => token,
+      "Authorization" => get_token,
+    }
+  end
+
+  def controller_list
+    response = get("/restapi/slave-list", headers: default_headers)
+    controllers = parse response, Array(ControllerInfo)
+
+    mappings = {} of Int32 => ControllerInfo
+    controllers.each { |ctrl| mappings[ctrl.controller_id] = ctrl }
+    self[:controllers] = mappings
+    @controllers = mappings
+  end
+
+  def lockers(controller_id : String | Int32)
+    response = get("/restapi/locker-list?cid=#{controller_id}", headers: default_headers)
+    parse response, Array(LockerInfo)
+  end
+
+  def locker(controller_id : String | Int32, bus_id : String | Int32, locker_id : String | Int32)
+    response = get("/restapi/locker-status?cid=#{controller_id}&bid=#{bus_id}&lid=#{locker_id}", headers: default_headers)
+    parse response, LockerInfo
+  end
+
+  enum LedState
+    Off
+    On
+    Slow
+    Medium
+    Fast
+  end
+
+  def locker_control(
+    controller_id : String | Int32,
+    bus_id : String | Int32,
+    locker_id : String | Int32,
+    light : Bool? = nil,
+    led : LedState? = nil,
+    led_colour : String? = nil,
+    buzzer : String? = nil,
+    usb_charging : String? = nil,
+    detect : Bool? = nil
+  )
+    response = post("/restapi/locker-control", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("cid", controller_id.to_s)
+      form.add("bid", bus_id.to_s)
+      form.add("lid", locker_id.to_s)
+
+      form.add("light", light ? "on" : "off") if !light.nil?
+      form.add("led", led.to_s.downcase) if led
+      form.add("led-colour", led_colour) if led_colour
+      form.add("buzzer", buzzer) if buzzer
+      form.add("usbchg", usb_charging) if usb_charging
+      form.add("detect", "true") if detect
     })
 
-    if response.success?
-      check_response FloorsResponse.from_json(response.body.not_nil!)
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    check_success(response)
+  end
+
+  def locker_reservation(
+    controller_id : String | Int32,
+    locker_key : String,
+    user_id : String,
+    type : String? = nil,
+    duration : Int32? = nil,
+    restype : String = "adhoc" # also supports fixed
+  )
+    response = post("/restapi/res-create", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("cid", controller_id.to_s)
+      form.add("key", locker_key)
+      form.add("uid", user_id)
+
+      form.add("type", type) if type
+      form.add("duration", duration.to_s) if duration
+      form.add("restype", restype)
+    })
+
+    parse response, LockerBooking
+  end
+
+  def locker_reservations(active : Bool? = nil, user_id : String? = nil)
+    query = URI::Params.build { |form|
+      form.add("uid", user_id) if user_id
+      form.add("active", "1") if active
+    }
+
+    response = get("/restapi/res-list?#{query}", headers: default_headers)
+    parse response, Array(LockerBooking)
+  end
+
+  @[Security(Level::Support)]
+  def locker_release(reservation_id : String)
+    response = post("/restapi/res-release", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("resid", reservation_id)
+    })
+
+    check_success(response)
+  end
+
+  @[Security(Level::Support)]
+  def locker_change_pin(reservation_id : String, pin : Int32)
+    response = post("/restapi/res", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("resid", reservation_id)
+      form.add("pin", pin.to_s)
+    })
+
+    check_success(response)
+  end
+
+  @[Security(Level::Support)]
+  def locker_unlock(
+    controller_id : String | Int32,
+    locker_key : String,
+    user_id : String
+  )
+    response = post("/restapi/locker-unlock", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("cid", controller_id.to_s)
+      form.add("key", locker_key)
+      form.add("uid", user_id)
+    })
+
+    check_success(response)
+  end
+
+  def floors
+    response = get("/restapi/floorplan-list", headers: default_headers)
+    parse response, Array(Floor)
   end
 
   def desks(plan_id : String | Int32)
-    token = get_token
-    uri = "/restapi/floorplan-desk?planid=#{plan_id}"
-
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      check_response DesksResponse.from_json(response.body.not_nil!)
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    response = get("/restapi/floorplan-desk?planid=#{plan_id}", headers: default_headers)
+    parse response, Array(DeskStatus)
   end
 
   def bookings(plan_id : String, period_start : Int64? = nil, period_end : Int64? = nil)
-    token = get_token
     period_start ||= Time.utc.to_unix
     period_end ||= 15.minutes.from_now.to_unix
     uri = "/restapi/floorplan-booking?planid=#{plan_id}&start=#{period_start}&finish=#{period_end}"
 
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      bookings_map = check_response(BookingsResponse.from_json(response.body.not_nil!))
-      bookings_map.each do |_id, bookings|
-        # get the user information
-        bookings.each { |booking| booking.user = get_user(booking.uid) }
-      end
-      bookings_map
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
+    response = get(uri, headers: default_headers)
+    bookings_map = parse response, Hash(String, Array(BookingStatus))
+    bookings_map.each do |_id, bookings|
+      # get the user information
+      bookings.each { |booking| booking.user = get_user(booking.uid) }
     end
+    bookings_map
   end
 
   def get_booking(booking_id : String | Int64)
-    token = get_token
-    uri = "/restapi/booking?bkid=#{booking_id}"
-
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      booking = check_response BookingResponse.from_json(response.body.not_nil!)
-      booking.user = get_user(booking.uid)
-      booking
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    response = get("/restapi/booking?bkid=#{booking_id}", headers: default_headers)
+    booking = parse response, BookingStatus
+    booking.user = get_user(booking.uid)
+    booking
   end
 
   def confirm_booking(booking_id : String | Int64)
-    token = get_token
-    uri = "/restapi/desk-confirm?bkid=#{booking_id}"
-
-    response = post(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      true
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    response = post("/restapi/desk-confirm?bkid=#{booking_id}", headers: default_headers)
+    check_success(response)
   end
 
   def create_booking(
@@ -177,20 +279,17 @@ class Floorsense::Desks < PlaceOS::Driver
     booking_type : String = "advance"
   )
     desks_on_plan = desks(plan_id)
-    desk = desks_on_plan.find { |entry| entry.key == key }
+    desk = desks_on_plan.find(&.key.==(key))
 
     raise "could not find desk #{key} on plan #{plan_id}" unless desk
-
-    token = get_token
-    uri = "/restapi/booking-create"
 
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     starting ||= now.at_beginning_of_day.to_unix
     ending ||= now.at_end_of_day.to_unix
 
-    response = post(uri, headers: {
+    response = post("/restapi/booking-create", headers: {
       "Accept"        => "application/json",
-      "Authorization" => token,
+      "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
       form.add("uid", user_id.to_s)
@@ -203,32 +302,19 @@ class Floorsense::Desks < PlaceOS::Driver
       form.add("confexpiry", ending.to_s)
     })
 
-    if response.success?
-      booking = check_response BookingResponse.from_json(response.body.not_nil!)
-      booking.user = get_user(booking.uid)
-      booking
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    booking = parse response, BookingStatus
+    booking.user = get_user(booking.uid)
+    booking
   end
 
   def release_booking(booking_id : String | Int64)
-    token = get_token
-    uri = "/restapi/booking-release"
-
-    response = post(uri, headers: {
+    response = post("/restapi/booking-release", headers: {
       "Accept"        => "application/json",
-      "Authorization" => token,
+      "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build(&.add("bkid", booking_id.to_s)))
 
-    if response.success?
-      true
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    check_success(response)
   end
 
   def create_user(
@@ -239,12 +325,9 @@ class Floorsense::Desks < PlaceOS::Driver
     pin : String? = nil,
     usertype : String = "user"
   )
-    token = get_token
-    uri = "/restapi/user-create"
-
-    response = post(uri, headers: {
+    response = post("/restapi/user-create", headers: {
       "Accept"        => "application/json",
-      "Authorization" => token,
+      "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
       form.add("name", name)
@@ -255,14 +338,9 @@ class Floorsense::Desks < PlaceOS::Driver
       form.add("usertype", "user")
     })
 
-    if response.success?
-      user = check_response UserResponse.from_json(response.body.not_nil!)
-      @user_cache[user.uid] = user
-      user
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    user = parse response, User
+    @user_cache[user.uid] = user
+    user
   end
 
   def create_rfid(
@@ -270,12 +348,9 @@ class Floorsense::Desks < PlaceOS::Driver
     card_number : String,
     description : String? = nil
   )
-    token = get_token
-    uri = "/restapi/rfid-create"
-
-    response = post(uri, headers: {
+    response = post("/restapi/rfid-create", headers: {
       "Accept"        => "application/json",
-      "Authorization" => token,
+      "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
       form.add("uid", user_id)
@@ -283,71 +358,34 @@ class Floorsense::Desks < PlaceOS::Driver
       form.add("desc", description.not_nil!) if description
     })
 
-    if response.success?
-      check_response GenericResponse.from_json(response.body.not_nil!)
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    parse(response, User) { |resp| resp || JSON::Any.new(true) }
   end
 
   def delete_rfid(card_number : String)
-    token = get_token
-    uri = "/restapi/rfid-delete"
-
-    response = post(uri, headers: {
+    response = post("/restapi/rfid-delete", headers: {
       "Accept"        => "application/json",
-      "Authorization" => token,
+      "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
       form.add("csn", card_number)
     })
 
-    if response.success?
-      true
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    check_success(response)
   end
 
   def get_rfid(card_number : String)
-    token = get_token
-    uri = "/restapi/rfid?csn=#{card_number}"
-
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      check_response RFIDResponse.from_json(response.body.not_nil!)
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    response = get("/restapi/rfid?csn=#{card_number}", headers: default_headers)
+    parse response, RFID
   end
 
   def get_user(user_id : String)
     existing = @user_cache[user_id]?
     return existing if existing
 
-    token = get_token
-    uri = "/restapi/user?uid=#{user_id}"
-
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      user = check_response UserResponse.from_json(response.body.not_nil!)
-      @user_cache[user_id] = user
-      user
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    response = get("/restapi/user?uid=#{user_id}", headers: default_headers)
+    user = parse response, User
+    @user_cache[user_id] = user
+    user
   end
 
   def user_list(email : String? = nil, name : String? = nil, description : String? = nil)
@@ -357,24 +395,11 @@ class Floorsense::Desks < PlaceOS::Driver
       form.add("desc", description.not_nil!) if description
     }
 
-    token = get_token
-    uri = "/restapi/user-list?#{query}"
-
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      check_response UsersResponse.from_json(response.body.not_nil!)
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    response = get("/restapi/user-list?#{query}", headers: default_headers)
+    parse response, Array(User)
   end
 
   def event_log(codes : Array(String | Int32), event_id : Int64? = nil, after : Int64? = nil, limit : Int32 = 1)
-    token = get_token
     query = URI::Params.build { |form|
       form.add("codes", codes.join(",", &.to_s))
       form.add("after", after.not_nil!.to_s) if after
@@ -382,46 +407,22 @@ class Floorsense::Desks < PlaceOS::Driver
       form.add("limit", limit.to_s)
     }
 
-    uri = "/restapi/event-log?#{query}"
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
-    if response.success?
-      # Responses are not returned sorted, we want the oldest event first
-      # oldest first as we want to process events in the order that they happen
-      check_response(LogResponse.from_json(response.body.not_nil!)).sort do |a, b|
-        if a.eventtime == b.eventtime
-          a.eventid <=> b.eventid
-        else
-          a.eventtime <=> b.eventtime
-        end
+    response = get("/restapi/event-log?#{query}", headers: default_headers)
+    logs = parse response, Array(LogEntry)
+    logs.sort do |a, b|
+      if a.eventtime == b.eventtime
+        a.eventid <=> b.eventid
+      else
+        a.eventtime <=> b.eventtime
       end
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
     end
   end
 
   def at_location(controller_id : String, desk_key : String)
-    token = get_token
-    uri = "/restapi/user-locate?cid=#{controller_id}&desk_key=#{desk_key}"
-
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
-
+    response = get("/restapi/user-locate?cid=#{controller_id}&desk_key=#{desk_key}", headers: default_headers)
     logger.debug { "at_location response: #{response.body}" }
-
-    if response.success?
-      users = check_response UsersResponse.from_json(response.body.not_nil!)
-      users.first?
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+    users = parse response, Array(User)
+    users.first?
   end
 
   @[Security(Level::Support)]
@@ -430,31 +431,23 @@ class Floorsense::Desks < PlaceOS::Driver
   end
 
   def locate(key : String, controller_id : String? = nil)
-    token = get_token
     uri = if controller_id
             "/restapi/user-locate?cid=#{controller_id}&key=#{URI.encode_www_form key}"
           else
             "/restapi/user-locate?name=#{URI.encode_www_form key}"
           end
 
-    response = get(uri, headers: {
-      "Accept"        => "application/json",
-      "Authorization" => token,
-    })
+    response = get(uri, headers: default_headers)
+    parse response, Array(UserLocation)
+  end
 
-    if response.success?
-      resp = LocateResponse.from_json(response.body.not_nil!)
-      # Select users where there is a desk key found
-      check_response(resp).select(&.key)
-    else
-      expire_token! if response.status_code == 401
-      raise "unexpected response #{response.status_code}\n#{response.body}"
-    end
+  protected def check_response(resp)
+    check_response(resp) { |value| value.not_nil! }
   end
 
   protected def check_response(resp)
     if resp.result
-      resp.info.not_nil!
+      yield resp.info
     else
       raise "bad response result (#{resp.code}) #{resp.message}"
     end
