@@ -80,6 +80,9 @@ module Floorsense
     property key : String?
     property usbcurrent : Int32?
     property resid : String?
+
+    # not included by default, used by locker mappings
+    property! controller_id : Int32
   end
 
   class LockerBooking

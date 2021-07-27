@@ -27,6 +27,9 @@ class Floorsense::Desks < PlaceOS::Driver
 
   @controllers : Hash(Int32, ControllerInfo) = {} of Int32 => ControllerInfo
 
+  # Locker key => controller id
+  @lockers : Hash(String, LockerInfo) = {} of String => LockerInfo
+
   def on_load
     on_update
   end
@@ -34,6 +37,10 @@ class Floorsense::Desks < PlaceOS::Driver
   def on_update
     @username = URI.encode_www_form setting(String, :username)
     @password = URI.encode_www_form setting(String, :password)
+
+    schedule.clear
+    schedule.every(1.hour) { sync_locker_list }
+    schedule.in(5.seconds) { sync_locker_list }
   end
 
   def expire_token!
@@ -92,6 +99,19 @@ class Floorsense::Desks < PlaceOS::Driver
     }
   end
 
+  def sync_locker_list
+    lockers = {} of String => LockerInfo
+    controller_list.each do |controller_id, controller|
+      next unless controller.lockers
+      lockers(controller_id).each do |locker|
+        next unless locker.key
+        locker.controller_id = controller_id
+        lockers[locker.key.not_nil!] = locker
+      end
+    end
+    @lockers = lockers
+  end
+
   def controller_list
     response = get("/restapi/slave-list", headers: default_headers)
     controllers = parse response, Array(ControllerInfo)
@@ -102,13 +122,19 @@ class Floorsense::Desks < PlaceOS::Driver
     @controllers = mappings
   end
 
+  def all_lockers
+    return @lockers.values unless @lockers.empty?
+    sync_locker_list.values
+  end
+
   def lockers(controller_id : String | Int32)
     response = get("/restapi/locker-list?cid=#{controller_id}", headers: default_headers)
     parse response, Array(LockerInfo)
   end
 
-  def locker(controller_id : String | Int32, bus_id : String | Int32, locker_id : String | Int32)
-    response = get("/restapi/locker-status?cid=#{controller_id}&bid=#{bus_id}&lid=#{locker_id}", headers: default_headers)
+  def locker(locker_key : String)
+    lock = @lockers[locker_key]
+    response = get("/restapi/locker-status?cid=#{lock.controller_id}&bid=#{lock.bus_id}&lid=#{lock.locker_id}", headers: default_headers)
     parse response, LockerInfo
   end
 
@@ -121,9 +147,7 @@ class Floorsense::Desks < PlaceOS::Driver
   end
 
   def locker_control(
-    controller_id : String | Int32,
-    bus_id : String | Int32,
-    locker_id : String | Int32,
+    locker_key : String,
     light : Bool? = nil,
     led : LedState? = nil,
     led_colour : String? = nil,
@@ -131,14 +155,16 @@ class Floorsense::Desks < PlaceOS::Driver
     usb_charging : String? = nil,
     detect : Bool? = nil
   )
+    lock = @lockers[locker_key]
+
     response = post("/restapi/locker-control", headers: {
       "Accept"        => "application/json",
       "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
-      form.add("cid", controller_id.to_s)
-      form.add("bid", bus_id.to_s)
-      form.add("lid", locker_id.to_s)
+      form.add("cid", lock.controller_id.to_s)
+      form.add("bid", lock.bus_id.to_s)
+      form.add("lid", lock.locker_id.to_s)
 
       form.add("light", light ? "on" : "off") if !light.nil?
       form.add("led", led.to_s.downcase) if led
@@ -152,19 +178,20 @@ class Floorsense::Desks < PlaceOS::Driver
   end
 
   def locker_reservation(
-    controller_id : String | Int32,
     locker_key : String,
     user_id : String,
     type : String? = nil,
     duration : Int32? = nil,
     restype : String = "adhoc" # also supports fixed
   )
+    lock = @lockers[locker_key]
+
     response = post("/restapi/res-create", headers: {
       "Accept"        => "application/json",
       "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
-      form.add("cid", controller_id.to_s)
+      form.add("cid", lock.controller_id.to_s)
       form.add("key", locker_key)
       form.add("uid", user_id)
 
@@ -215,16 +242,17 @@ class Floorsense::Desks < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def locker_unlock(
-    controller_id : String | Int32,
     locker_key : String,
     user_id : String
   )
+    lock = @lockers[locker_key]
+
     response = post("/restapi/locker-unlock", headers: {
       "Accept"        => "application/json",
       "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
-      form.add("cid", controller_id.to_s)
+      form.add("cid", lock.controller_id.to_s)
       form.add("key", locker_key)
       form.add("uid", user_id)
     })
