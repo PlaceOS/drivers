@@ -158,9 +158,13 @@ class Place::Router < PlaceOS::Driver
     def mute(input_or_output : String, state : Bool = true)
       logger.debug { "#{state ? nil : "un"}muting #{input_or_output}" }
 
-      node = resolver[input_or_output]
+      ref = resolver[input_or_output]
 
-      proxy_for(node).mute state
+      proxy_for(ref).mute state
+
+      node = siggraph[ref]
+      node.meta["mute"] = JSON::Any.new state
+      node.notify
 
       # TODO: implement graph based muting
       # if state

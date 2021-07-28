@@ -22,7 +22,7 @@ class Place::Router::SignalGraph
       property locked : Bool = false
 
       @[JSON::Field(ignore: true)]
-      property meta : Hash(String, JSON::Any)?
+      property meta : Hash(String, JSON::Any) { Hash(String, JSON::Any).new }
       protected def on_to_json(json)
         meta.try &.each do |key, value|
           json.field(key) { value.to_json(json) }

@@ -73,4 +73,6 @@ DriverSpecs.mock_driver "Place::Router" do
   status[:outputs].as_a.should contain("Display_1")
 
   exec(:route, "Foo", "Display_1").get
+
+  exec(:mute, "Display_1").get
 end
