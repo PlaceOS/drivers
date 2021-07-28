@@ -50,32 +50,39 @@ class Place::Router < PlaceOS::Driver
       aliases = resolver.invert
       to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local(system.id) }
 
-      unless inputs = setting?(Settings::Inputs, :inputs)
-        # Auto-detect system inputs if unspecified
-        inputs = siggraph.inputs.map do |node|
-          name = to_name.call node.ref
-          {name, {"name" => JSON::Any.new name}}
-        end.to_h
-      end
-      self[:inputs] = inputs.map do |key, meta|
-        ref = resolver[key]
-        siggraph[ref].watch { |node| self["input/#{key}"] = node }
-        siggraph[ref].meta = meta
-        key
-      end
+      {% begin %}
+        # Read input / output metadata from settings
+        {% for io in {:inputs, :outputs} %}
+          unless {{io.id}} = setting?(Settings::{{io.id.capitalize}}, {{io}})
+            # Auto-detect system inputs if unspecified
+            {{io.id}} = siggraph.{{io.id}}.map do |node|
+              name = to_name.call node.ref
+              {name, {"name" => JSON::Any.new name}}
+            end.to_h
+          end
+        {% end %}
 
-      unless outputs = setting?(Settings::Outputs, :outputs)
-        outputs = siggraph.outputs.map do |node|
-          name = to_name.call node.ref
-          {name, {"name" => JSON::Any.new name}}
-        end.to_h
-      end
-      self[:outputs] = outputs.map do |key, meta|
-        ref = resolver[key]
-        siggraph[ref].watch { |node| self["output/#{key}"] = node }
-        siggraph[ref].meta = meta
-        key
-      end
+        self[:inputs] = inputs.map do |key, meta|
+          ref = resolver[key]
+          siggraph[ref].watch { |node| self["input/#{key}"] = node }
+          siggraph[ref].meta = meta
+          key
+        end
+
+        self[:outputs] = outputs.map do |key, meta|
+          ref = resolver[key]
+
+          reachable = siggraph.inputs(ref).compact_map do |node|
+            name = to_name.call node.ref
+            name if inputs.has_key? name
+          end
+          meta["inputs"] = JSON::Any.new reachable.map { |i| JSON::Any.new i }.to_a
+
+          siggraph[ref].watch { |node| self["output/#{key}"] = node }
+          siggraph[ref].meta = meta
+          key
+        end
+      {% end %}
     end
 
     protected def proxy_for(node : NodeRef)
