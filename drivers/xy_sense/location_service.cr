@@ -56,7 +56,7 @@ class XYSense::LocationService < PlaceOS::Driver
     include JSON::Serializable
 
     property id : String
-    property name : String
+    property name : String?
     property capacity : Int32
     property category : String
   end
@@ -162,7 +162,12 @@ class XYSense::LocationService < PlaceOS::Driver
     area_occupancy = {} of String => Occupancy
     spaces.each do |space|
       space.details = @space_details[space.space_id]
-      area_occupancy[space.details.name] = space
+      space_name = space.details.name
+      unless space_name
+        logger.warn { "missing space name for id #{space.details.id}" }
+        next
+      end
+      area_occupancy[space_name] = space
     end
     @occupancy_mappings[zone_id] = area_occupancy
     area_manager.update_available({zone_id})
@@ -198,6 +203,7 @@ class XYSense::LocationService < PlaceOS::Driver
       if capacity == 1
         next unless space.headcount > 0
         next if location.presence && location != "desk"
+
         {
           location:    :desk,
           at_location: space.headcount,
@@ -212,6 +218,7 @@ class XYSense::LocationService < PlaceOS::Driver
         }
       else
         next if location.presence && location != "area"
+
         {
           location:    :area,
           at_location: space.headcount,
