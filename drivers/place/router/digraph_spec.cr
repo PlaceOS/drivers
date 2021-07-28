@@ -4,7 +4,6 @@ require "./digraph"
 alias Digraph = Place::Router::Digraph
 
 describe Digraph do
-
   describe "node insertion / retrieval" do
     it "inserts a node with the specified ID" do
       g = Digraph(String, String).new

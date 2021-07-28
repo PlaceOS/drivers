@@ -16,7 +16,6 @@ class Place::Router::SignalGraph
       record Mute,
         state : Bool,
         index : Int32 | String = 0
-        # layer : Int32 | String = "AudioVideo"
 
       record Select,
         input : Int32 | String
@@ -24,7 +23,6 @@ class Place::Router::SignalGraph
       record Switch,
         input : Int32 | String,
         output : Int32 | String
-        # layer :
 
       # NOTE: currently not supported. Requires interaction via
       # Proxy::RemoteDriver to support dynamic method execution.

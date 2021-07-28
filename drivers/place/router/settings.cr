@@ -73,7 +73,7 @@ module Place::Router::Settings
     # The device that recieves the signal.
     alias Sink = Device
     # FIXME: support deserializing into union to support output aliases
-    #alias Sink = Device | Alias
+    # alias Sink = Device | Alias
 
     # Identifier for the input on Sink.
     alias Input = String

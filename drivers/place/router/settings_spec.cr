@@ -34,7 +34,7 @@ describe Settings::Connections do
       nodes.size.should eq(6)
       links.should contain({
         SignalGraph::Output.new("abc123", "Switcher", 1, 1),
-        SignalGraph::Input.new("abc123", "Display", 1, "hdmi")
+        SignalGraph::Input.new("abc123", "Display", 1, "hdmi"),
       })
       aliases.keys.should contain "Foo"
     end
