@@ -33,6 +33,9 @@ class XYSense::LocationService < PlaceOS::Driver
   def on_update
     @floor_mappings = setting(Hash(String, NamedTuple(zone_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.map { |_, detail| detail[:zone_id] }
+
+    schedule.clear
+    schedule.every(30.minutes) { sync_floor_states }
   end
 
   # ===================================
@@ -77,6 +80,25 @@ class XYSense::LocationService < PlaceOS::Driver
   @space_details = {} of String => SpaceDetails
   @change_lock = Mutex.new
 
+  def update_space_details
+    @change_lock.synchronize do
+      # Get the floor details from either the status push event or module update
+      floors = xy_sense.status(Hash(String, FloorDetails), :floors)
+      space_details = {} of String => SpaceDetails
+
+      floors.each do |floor_id, floor|
+        mapping = @floor_mappings[floor_id]?
+        next unless mapping
+
+        # track space data
+        floor.spaces.each { |space| space_details[space.id] = space }
+      end
+
+      # update to new space details
+      @space_details = space_details
+    end
+  end
+
   protected def floor_details_changed(_sub = nil, payload = nil)
     @change_lock.synchronize do
       # Get the floor details from either the status push event or module update
@@ -111,6 +133,26 @@ class XYSense::LocationService < PlaceOS::Driver
         end
       }
     end
+  end
+
+  def floor_subscriptions
+    @floor_subscriptions.keys
+  end
+
+  def sync_floor_states
+    logger.debug { "-- updating space details..." }
+    details = update_space_details
+    logger.debug { "-- details:\n#{details}" }
+
+    logger.debug { "-- grabbing floor details..." }
+    xy = xy_sense
+    @change_lock.synchronize do
+      floor_subscriptions.each do |zone_id|
+        level_state_change(zone_id, xy.status(Array(Occupancy), zone_id))
+      end
+    end
+    logger.debug { "-- floor states synced!" }
+    @occupancy_mappings
   end
 
   # Zone_id => area => occupancy details
