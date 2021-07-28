@@ -18,8 +18,6 @@ class Place::Router < PlaceOS::Driver
   module Core
     alias NodeRef = SignalGraph::Node::Ref
 
-    # TODO: use a single graph shared between all instances - need to work on a
-    # method to handle updates / settings changes without requiring a rebuild.
     private getter! siggraph : SignalGraph
 
     private getter! resolver : Hash(String, NodeRef)
@@ -57,7 +55,7 @@ class Place::Router < PlaceOS::Driver
 
     protected def proxy_for(node : NodeRef)
       case node
-      when SignalGraph::Device, SignalGraph::DeviceInput, SignalGraph::DeviceOuput
+      when SignalGraph::Device, SignalGraph::Input, SignalGraph::Output
         proxy_for node.mod
       else
         raise "no device associated with #{node}"
@@ -70,7 +68,7 @@ class Place::Router < PlaceOS::Driver
 
     # Routes signal from *input* to *output*.
     def route(input : String, output : String)
-      logger.info { "requesting route from #{input} to #{output}" }
+      logger.debug { "requesting route from #{input} to #{output}" }
 
       src, dst = resolver.values_at input, output
 
@@ -122,13 +120,18 @@ class Place::Router < PlaceOS::Driver
     # If the device supports local muting this will be activated, or the closest
     # mute source found and routed.
     def mute(input_or_output : String, state : Bool = true)
-      if state
-        route "MUTE", input_or_output
-      else
-        # FIXME: implement unmute. Possible approach: track previous source on
-        # each node and restore this.
-        raise NotImplementedError.new "unmuting not supported (yet)"
-      end
+      logger.debug { "#{state ? nil : "un"}muting #{input_or_output}" }
+
+      node = resolver[input_or_output]
+
+      proxy_for(node).mute state
+
+      # TODO: implement graph based muting
+      # if state
+      #   route "MUTE", input_or_output
+      # else
+      #   ...
+      # end
     end
 
     # Disable signal muting on *input_or_output*.

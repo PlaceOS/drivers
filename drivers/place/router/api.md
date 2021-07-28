@@ -4,26 +4,24 @@
 Performs all intermiedate device interaction required to route a signal between two points.
 Supports specifying either local i/o aliases (see settings), or node ref's.
 
-## `mute(state = true, input_or_output = default)`
+## `mute(input_or_output, state = true)`
 Activates or deactivates a signal mute for the associated IO.
 If this is not possible, (e.g. unsupported by the device) an error is returned.
 
-## `unmute(input_or_output = default)`
+## `unmute(input_or_output)`
 Deactivates signal mute for the passed IO.
 
-## `volume(level, input_or_output = default)`
-Set the volume level on a signal node.
 
 # Status
 
 ## `inputs`
-Provides a list of the input aliases currently available to the system.
+Provides a list of inputs currently available to the system.
 ```json
 [ "foo", "bar" ]
 ```
 
-## `input/<alias>`
-Provides a hash of status information for the associated input alias.
+## `input/<ref>`
+Provides a hash of status information for the associated input ref.
 ```json
 {
   "name": "human friendly name",

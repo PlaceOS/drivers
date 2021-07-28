@@ -17,10 +17,6 @@ class Place::Router::SignalGraph
       property source : Ref? = nil
 
       property locked : Bool = false
-
-      def muted? : Bool
-        source == Mute
-      end
     end
 
     # Base structure for referring to a node within the graph.
@@ -73,7 +69,7 @@ class Place::Router::SignalGraph
     #   sys-abc123/Display_1
     #   │          │       │
     #   │          │       └module index
-    #   │          └module namme
+    #   │          └module name
     #   └system
     #
     struct Device < Ref
