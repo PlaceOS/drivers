@@ -1,22 +1,33 @@
 require "json"
 require "./mod"
+require "./watchable"
 
 class Place::Router::SignalGraph
   module Node
     # Metadata tracked against each signal node.
     class Label
+      include JSON::Serializable
+      include Watchable
+
       def initialize(@ref)
       end
-
-      getter ref : Ref
 
       def to_s(io)
         io << ref
       end
 
-      property source : Ref? = nil
+      getter ref : Ref
 
+      property source : Ref? = nil
       property locked : Bool = false
+
+      @[JSON::Field(ignore: true)]
+      property meta : Hash(String, JSON::Any)?
+      protected def on_to_json(json)
+        meta.try &.each do |key, value|
+          json.field(key) { value.to_json(json) }
+        end
+      end
     end
 
     # Base structure for referring to a node within the graph.
@@ -50,6 +61,10 @@ class Place::Router::SignalGraph
 
       def local(sys : String)
         to_s.lchop "#{sys}/"
+      end
+
+      def to_json(json)
+        json.string to_s
       end
 
       private module ClassMethods(T)

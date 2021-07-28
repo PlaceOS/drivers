@@ -195,4 +195,24 @@ describe SignalGraph do
 
   pending "#merge" do
   end
+
+  describe SignalGraph::Node::Label do
+    it "supports change notification" do
+      n = SignalGraph::Device.new("sys-123", "Display", 1)
+      g = SignalGraph.build [n], [] of {SignalGraph::Node::Ref, SignalGraph::Node::Ref}
+
+      x = 0
+
+      g[n].watch { x += 1 }
+
+      x.should eq 0
+      g[n].notify
+      x.should eq 1
+
+      g[n].locked.should be_false
+      g[n].locked = true
+      x.should eq 2
+      g[n].locked.should be_true
+    end
+  end
 end

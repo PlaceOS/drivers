@@ -131,4 +131,8 @@ module Place::Router::Settings
       {nodes, links, aliases}
     end
   end
+
+  alias Inputs = Hash(String, Hash(String, JSON::Any))
+
+  alias Outputs = Hash(String, Hash(String, JSON::Any))
 end

@@ -49,8 +49,33 @@ class Place::Router < PlaceOS::Driver
     protected def on_siggraph_load
       aliases = resolver.invert
       to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local(system.id) }
-      self[:inputs] = siggraph.inputs.map(&.ref).map(&to_name).to_a
-      self[:outputs] = siggraph.outputs.map(&.ref).map(&to_name).to_a
+
+      unless inputs = setting?(Settings::Inputs, :inputs)
+        # Auto-detect system inputs if unspecified
+        inputs = siggraph.inputs.map do |node|
+          name = to_name.call node.ref
+          {name, {"name" => JSON::Any.new name}}
+        end.to_h
+      end
+      self[:inputs] = inputs.map do |key, meta|
+        ref = resolver[key]
+        siggraph[ref].watch { |node| self["input/#{key}"] = node }
+        siggraph[ref].meta = meta
+        key
+      end
+
+      unless outputs = setting?(Settings::Outputs, :outputs)
+        outputs = siggraph.outputs.map do |node|
+          name = to_name.call node.ref
+          {name, {"name" => JSON::Any.new name}}
+        end.to_h
+      end
+      self[:outputs] = outputs.map do |key, meta|
+        ref = resolver[key]
+        siggraph[ref].watch { |node| self["output/#{key}"] = node }
+        siggraph[ref].meta = meta
+        key
+      end
     end
 
     protected def proxy_for(node : NodeRef)
