@@ -103,6 +103,9 @@ class Place::Router < PlaceOS::Driver
     end
 
     # Routes signal from *input* to *output*.
+    #
+    # Performs all intermediate device interaction based on current system
+    # config.
     def route(input : String, output : String)
       logger.debug { "requesting route from #{input} to #{output}" }
 
