@@ -132,7 +132,11 @@ module Place::Router::Settings
     end
   end
 
+  # Inputs and their associated metadata. Attributes specified here are progated
+  # to the assocated input status keys. This allows information such as name,
+  # type etc to be exposed to UI's.
   alias Inputs = Hash(String, Hash(String, JSON::Any))
 
+  # Outputs and their associated metadata.
   alias Outputs = Hash(String, Hash(String, JSON::Any))
 end

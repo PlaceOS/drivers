@@ -62,6 +62,8 @@ class Place::Router < PlaceOS::Driver
           end
         {% end %}
 
+        # Expose a list of input keys, along with an `input/<key>` with a hash
+        # of metadata and state info for each.
         self[:inputs] = inputs.map do |key, meta|
           ref = resolver[key]
           siggraph[ref].watch { |node| self["input/#{key}"] = node }
@@ -69,9 +71,11 @@ class Place::Router < PlaceOS::Driver
           key
         end
 
+        # As above, but for the outputs.
         self[:outputs] = outputs.map do |key, meta|
           ref = resolver[key]
 
+          # Discover inputs available to each output
           reachable = siggraph.inputs(ref).compact_map do |node|
             name = to_name.call node.ref
             name if inputs.has_key? name
