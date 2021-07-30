@@ -61,8 +61,6 @@ module Place::Router::Settings
       def self.parse?(raw : String)
         if name = raw.lchop?('*')
           new name
-        else
-          nil
         end
       end
     end
@@ -110,7 +108,7 @@ module Place::Router::Settings
           if source.is_a? Alias
             name = source.name
             if prev = aliases[name]?
-              raise "invalid configuration: \"#{name}\" refers to both #{prev} and #{inode}"
+              raise %(invalid configuration: "#{name}" refers to both #{prev} and #{inode})
             end
             aliases[name] = inode
             next

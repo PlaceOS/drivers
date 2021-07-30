@@ -12,6 +12,7 @@ class Display < DriverSpecs::MockDriver
     HDMI
     HDMI2
   end
+
   include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
   # implement the abstract methods required by the interfaces

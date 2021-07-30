@@ -159,7 +159,7 @@ class Place::Router < PlaceOS::Driver
     # If the device supports local muting this will be activated, or the closest
     # mute source found and routed.
     def mute(input_or_output : String, state : Bool = true)
-      logger.debug { "#{state ? nil : "un"}muting #{input_or_output}" }
+      logger.debug { "#{state ? "muting" : "unmuting"} #{input_or_output}" }
 
       ref = resolver[input_or_output]
 
