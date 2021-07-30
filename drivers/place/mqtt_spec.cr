@@ -51,7 +51,6 @@ DriverSpecs.mock_driver "Place::MQTT" do
   publish.packet_length = publish.calculate_length
 
   transmit publish.to_slice
-  sleep 0.1 # wait a bit for processing
   status["root/topic"].should eq("testing")
 
   # ============================
