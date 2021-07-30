@@ -19,7 +19,7 @@ DriverSpecs.mock_driver "Panasonic::Display::Protocol2" do
   responds("NTCONTROL 1 09b075be\r")
   should_send("#{password}00PON\r")
   responds("00PON\r")
-  sleep 8.seconds
+
   expect_reconnect
   responds("NTCONTROL 1 09b075be\r")
   should_send("#{password}00QPW\r")
@@ -66,7 +66,7 @@ DriverSpecs.mock_driver "Panasonic::Display::Protocol2" do
   responds("NTCONTROL 1 09b075be\r")
   should_send("#{password}00POF\r")
   responds("00POF\r")
-  sleep 8.seconds
+
   expect_reconnect
   responds("NTCONTROL 1 09b075be\r")
   should_send("#{password}00QPW\r")
