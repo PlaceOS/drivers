@@ -225,7 +225,7 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "include_cancelled", include_cancelled.to_s if !include_cancelled.nil?
     end
 
-    response = patch("/api/staff/v1/events?#{params}", headers: {
+    response = get("/api/staff/v1/events?#{params}", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
     })
