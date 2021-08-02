@@ -91,10 +91,10 @@ module Gallagher
     property credential_class : String
 
     @[JSON::Field(key: "minimumNumber")]
-    property minimum_number : String
+    property minimum_number : String?
 
     @[JSON::Field(key: "maximumNumber")]
-    property maximum_number : String
+    property maximum_number : String?
   end
 
   class Invitation
