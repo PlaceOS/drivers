@@ -206,11 +206,9 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
 
-    levels.each do |level, sensors|
-      sensor = sensors.first
-
+    levels.each do |level, the_sensors|
       self["#{level}:sensors"] = {
-        value:   sensors,
+        value:   the_sensors,
         ts_hint: "complex",
         ts_map:  {
           x: "xloc",
