@@ -82,3 +82,7 @@ dependencies:
   awscr-signer:
     github: taylorfinnell/awscr-signer
     version: ~> 0.8
+
+  bacnet:
+    github: spider-gazelle/crystal-bacnet
+    version: ~> 0.10
