@@ -20,13 +20,13 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   descriptive_name "AMX SVSI N-Series Encoder"
   generic_name :Encoder
 
-  private DELIMITER = '\r'
+  private DELIMITER = "\r"
 
   mapped_enum Command do
     GetStatus   = "getStatus"
     VideoSource = "vidsrc"
-    LiveMode    = "live"
-    LocalMode   = "local"
+    Live        = "live"
+    Local       = "local"
     Disable     = "txdisable"
     Mute        = "mute"
     Unmute      = "unmute"
@@ -91,7 +91,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
 
     prop, value = data.split(':')
 
-    case Response.from_value? prop.downcase
+    case Response.parse? prop
     in Response::Name
       self[:device_name] = value
     in Response::Stream
@@ -108,7 +108,12 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   end
 
   def do_send(command : Command, *args, **options)
-    arguments = args.empty? ? [command.mapped_value] : args.to_a.unshift(command.mapped_value)
+    arguments = [command.mapped_value]
+
+    unless (splat = args.to_a).is_a? Array(NoReturn)
+      arguments += splat
+    end
+
     request = "#{arguments.join(':')}#{DELIMITER}"
     send(request, **options)
   end

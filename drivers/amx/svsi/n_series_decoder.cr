@@ -16,7 +16,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   @mute : Bool = false
   @stream : Int32? = nil
 
-  private DELIMITER = '\r'
+  private DELIMITER = "\r"
 
   mapped_enum Command do
     GetStatus     = "getStatus"
@@ -205,7 +205,12 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   end
 
   def do_send(command : Command, *args, **options)
-    arguments = args.empty? ? [command.mapped_value] : args.to_a.unshift(command.mapped_value)
+    arguments = [command.mapped_value]
+
+    unless (splat = args.to_a).is_a? Array(NoReturn)
+      arguments += splat
+    end
+
     request = "#{arguments.join(':')}#{DELIMITER}"
     send(request, **options)
   end
