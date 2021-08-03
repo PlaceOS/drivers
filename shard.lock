@@ -19,7 +19,7 @@ shards:
 
   bacnet:
     git: https://github.com/spider-gazelle/crystal-bacnet.git
-    version: 0.10.3
+    version: 0.10.4
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
@@ -127,7 +127,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.6
+    version: 1.13.7
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
