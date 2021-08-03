@@ -205,7 +205,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   end
 
   def do_send(command : Command, *args, **options)
-    arguments = [command.mapped_value] + args
+    arguments = args.empty? ? [command.mapped_value] : args.to_a.unshift(command.mapped_value)
     request = "#{arguments.join(':')}#{DELIMITER}"
     send(request, **options)
   end
