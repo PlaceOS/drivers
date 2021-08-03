@@ -1,6 +1,6 @@
 require "uri"
 require "uuid"
-
+require "placeos-driver"
 require "./models"
 
 module OfficeRnd
@@ -74,13 +74,21 @@ module OfficeRnd
       end
     end
 
+    def get_header
+      headers = {
+        "Accept"        => "application/json",
+        "Authorization" => get_token,
+      }
+    end
+
     # Floor
     ###########################################################################
 
     # Get a floor
     #
     def floor(floor_id : String)
-      get_request("/floors/#{floor_id}", Floor)
+      path = "/floors/#{floor_id}"
+      get_request(path, Floor)
     end
 
     # Get floors
@@ -148,15 +156,7 @@ module OfficeRnd
     # Make a booking
     #
     def create_bookings(bookings : Array(Booking))
-      response = post("/bookings", body: bookings.to_json, headers: {
-        "Content-Type"  => "application/json",
-        "Accept"        => "application/json",
-        "Authorization" => get_token,
-      })
-      unless response.success?
-        expire_token! if response.status_code == 401
-        raise "unexpected response #{response.status_code}\n#{response.body}"
-      end
+      post_request("/bookings", body: bookings.to_json)
     end
 
     # Create a booking
@@ -215,7 +215,7 @@ module OfficeRnd
     #
     def office(name : String)
       path = "/offices/#{name}"
-      get_request(path, Office)
+      get_request(path, Array(Office))
     end
 
     # Resource
@@ -248,21 +248,28 @@ module OfficeRnd
     # Internal Helpers
     #############################################################################
 
-    private macro get_request(path, result_type)
-      begin
-        %token = get_token
-        %response = get({{path}}, headers: {
-          "Accept" => "application/json",
-          "Authorization" => %token
-        })
-
-        if %response.success?
-          {{result_type}}.from_json(%response.body)
-        else
-          expire_token! if %response.status_code == 401
-          raise "unexpected response #{%response.status_code}\n#{%response.body}"
-        end
-      end
+    private def parse_response(response : HTTP::Client::Response)
+      expire_token! if response.status_code == 401
+      raise "unexpected response #{response.status_code}\n#{response.body}"
     end
+
+    private def get_request(path, result_type)
+      response = get(path, get_header)
+      parse_response(response)
+    end
+
+    private def delete_request(path)
+      response = delete(path, headers: get_header)
+      parse_response(response)
+    end
+
+    {% for method in %w(post put) %}
+      private def {{method.id}}_request(path, body : JSON::Any | String)
+        header = get_header
+        header["Content-Type"] = "application/json"
+        response = {{method.id}}(path, body, header)
+        parse_response(response)
+      end
+    {% end %}
   end
 end

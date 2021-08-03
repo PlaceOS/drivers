@@ -1,8 +1,12 @@
-module Place; end
-
 require "place_calendar"
+require "placeos-driver"
+require "placeos-driver/interface/mailer"
+require "qr-code"
+require "qr-code/export/png"
 
 class Place::Calendar < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::Mailer
+
   descriptive_name "PlaceOS Calendar"
   generic_name :Calendar
 
@@ -18,12 +22,20 @@ class Place::Calendar < PlaceOS::Driver
       signing_key: "PEM encoded private key",
     },
     calendar_config_office: {
-      _note_:        "rename to 'calendar_config' for use",
-      tenant:        "",
-      client_id:     "",
-      client_secret: "",
+      _note_:          "rename to 'calendar_config' for use",
+      tenant:          "",
+      client_id:       "",
+      client_secret:   "",
+      conference_type: nil, # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
     },
     rate_limit: 5,
+
+    # defaults to calendar_service_account if not configured
+    mailer_from:     "email_or_office_userPrincipalName",
+    email_templates: {visitor: {checkin: {
+      subject: "%{name} has arrived",
+      text:    "for your meeting at %{time}",
+    }}},
   })
 
   alias GoogleParams = NamedTuple(
@@ -38,6 +50,7 @@ class Place::Calendar < PlaceOS::Driver
     tenant: String,
     client_id: String,
     client_secret: String,
+    conference_type: String | Nil,
   )
 
   @client : PlaceCalendar::Client? = nil
@@ -50,16 +63,32 @@ class Place::Calendar < PlaceOS::Driver
   @queue_size = 0
   @wait_time : Time::Span = 300.milliseconds
 
+  @mailer_from : String? = nil
+
   def on_load
+    @channel = Channel(Nil).new(2)
     spawn { rate_limiter }
     on_update
   end
 
   def on_update
+    if proxy_config = setting?(NamedTuple(host: String, port: Int32, auth: NamedTuple(username: String, password: String)?), :proxy)
+      ConnectProxy.proxy_uri = "http://#{proxy_config[:host]}:#{proxy_config[:port]}"
+      if proxy_auth = proxy_config[:auth]
+        ConnectProxy.username = proxy_auth[:username]
+        ConnectProxy.password = proxy_auth[:password]
+      end
+    end
+
+    ConnectProxy.verify_tls = !!setting?(Bool, :proxy_verify_tls)
+    ConnectProxy.disable_crl_checks = !!setting?(Bool, :proxy_disable_crl)
+
     @service_account = setting?(String, :calendar_service_account).presence
     @rate_limit = setting?(Int32, :rate_limit) || 3
     @wait_time = 1.second / @rate_limit
-    @channel = Channel(Nil).new(@rate_limit)
+
+    @mailer_from = setting?(String, :mailer_from).presence || @service_account
+    @templates = setting?(Templates, :email_templates) || Templates.new
 
     @client_lock.synchronize do
       # Work around crystal limitation of splatting a union
@@ -74,7 +103,7 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def client
-    if (@wait_time * @queue_size) > 10.seconds
+    if (@wait_time * @queue_size) > 90.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end
     @queue_lock.synchronize { @queue_size += 1 }
@@ -89,6 +118,68 @@ class Place::Calendar < PlaceOS::Driver
     @queue_size
   end
 
+  def generate_svg_qrcode(text : String) : String
+    QRCode.new(text).as_svg
+  end
+
+  def generate_png_qrcode(text : String, size : Int32 = 128) : String
+    Base64.strict_encode QRCode.new(text).as_png(size: size)
+  end
+
+  @[Security(Level::Support)]
+  def send_mail(
+    to : String | Array(String),
+    subject : String,
+    message_plaintext : String? = nil,
+    message_html : String? = nil,
+    resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
+    attachments : Array(Attachment) = [] of Attachment,
+    cc : String | Array(String) = [] of String,
+    bcc : String | Array(String) = [] of String,
+    from : String | Array(String) | Nil = nil
+  )
+    sender = case from
+             in String
+               from
+             in Array(String)
+               from.first? || @mailer_from.not_nil!
+             in Nil
+               @mailer_from.not_nil!
+             end
+
+    logger.debug { "an email was sent from: #{sender}, to: #{to}" }
+
+    client &.calendar.send_mail(
+      sender,
+      to,
+      subject,
+      message_plaintext,
+      message_html,
+      resource_attachments,
+      attachments,
+      cc,
+      bcc
+    )
+  end
+
+  @[Security(Level::Administrator)]
+  def access_token(user_id : String? = nil)
+    logger.info { "access token requested #{user_id}" }
+    client &.access_token(user_id)
+  end
+
+  @[Security(Level::Support)]
+  def get_groups(user_id : String)
+    logger.debug { "getting group membership for user: #{user_id}" }
+    client &.get_groups(user_id)
+  end
+
+  @[Security(Level::Support)]
+  def get_members(group_id : String)
+    logger.debug { "listing members of group: #{group_id}" }
+    client &.get_members(group_id)
+  end
+
   @[Security(Level::Support)]
   def list_users(query : String? = nil, limit : Int32? = nil)
     logger.debug { "listing user details, query #{query}" }
@@ -98,13 +189,46 @@ class Place::Calendar < PlaceOS::Driver
   @[Security(Level::Support)]
   def get_user(user_id : String)
     logger.debug { "getting user details for #{user_id}" }
-    client &.get_user(user_id)
+    client &.get_user_by_email(user_id)
   end
 
   @[Security(Level::Support)]
   def list_calendars(user_id : String)
     logger.debug { "listing calendars for #{user_id}" }
     client &.list_calendars(user_id)
+  end
+
+  # NOTE:: GraphAPI Only!
+  @[Security(Level::Support)]
+  def get_user_manager(user_id : String)
+    logger.debug { "getting manager details for #{user_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.get_user_manager(user_id).to_place_calendar
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only! - here for use with configuration
+  @[Security(Level::Support)]
+  def list_groups(query : String?)
+    logger.debug { "listing groups, filtering by #{query}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.list_groups(query)
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  @[Security(Level::Support)]
+  def get_group(group_id : String)
+    logger.debug { "getting group #{group_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        _client.calendar.as(PlaceCalendar::Office365).client.get_group(group_id)
+      end
+    end
   end
 
   @[Security(Level::Support)]
@@ -138,6 +262,7 @@ class Place::Calendar < PlaceOS::Driver
     event_end : Int64? = nil,
     description : String = "",
     attendees : Array(PlaceCalendar::Event::Attendee) = [] of PlaceCalendar::Event::Attendee,
+    location : String? = nil,
     timezone : String? = nil,
     user_id : String? = nil,
     calendar_id : String? = nil
@@ -151,14 +276,15 @@ class Place::Calendar < PlaceOS::Driver
     event.host = calendar_id
     event.title = title
     event.body = description
+    event.location = location
     event.timezone = timezone
     event.attendees = attendees
-    event.event_start = Time.unix(event_start)
-    if event_end
-      event.event_end = Time.unix(event_end)
-    else
-      event.all_day = true
-    end
+
+    tz = Time::Location.load(timezone) if timezone
+    event.event_start = timezone ? Time.unix(event_start).in tz.not_nil! : Time.unix(event_start)
+    event.event_end = timezone ? Time.unix(event_end).in tz.not_nil! : Time.unix(event_end) if event_end
+
+    event.all_day = true unless event_end
 
     client &.create_event(user_id, event, calendar_id)
   end

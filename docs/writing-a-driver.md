@@ -139,6 +139,27 @@ end
 
 ```
 
+You can also add a pre-processor to data coming in. This can be useful
+if you want to strip away a protocol layer i.e. you are communicating
+over Telnet and want to remove the telnet signals leaving the raw
+comms for tokenising
+
+```crystal
+
+def on_load
+  transport.pre_processor do |bytes|
+    # you must return some byte data or nil if no processing is required
+    # tokenisation occurs on the data returned here
+    bytes[1..-2]
+  end
+end
+
+def received(data, task)
+  # data coming in here is both pre_processed and tokenised
+end
+
+```
+
 
 #### HTTP Client
 
@@ -255,6 +276,17 @@ accessor screen : Screen?
 
 ```
 
+Cross system communication is possible if you know the ID of the remote system.
+
+```crystal
+# once you have reference to the remote system you can perform any
+# actions that you might perform on the local system
+sys = system("sys-12345")
+
+sys.name #=> "Name of remote system"
+sys[:Display_2][:power] #=> true
+```
+
 
 ### Subscriptions
 
@@ -342,6 +374,12 @@ end
 
 ```
 
+You can update the local settings of a module, persisting them to the database. Settings must be JSON serialisable
+
+```crystal
+define_setting(:my_setting_name, "some JSON serialisable data")
+```
+
 
 ### Logger
 
@@ -352,15 +390,12 @@ There is a logger available: https://crystal-lang.org/api/latest/Logger.html
 
 ```crystal
 
-logger.warn "error unknown response"
-
-# You should typically use the block form for debug and info messages
-# this only performs string interpolations if a debugging session is attached
+logger.warn { "error unknown response" }
 logger.debug { "function called with #{value}" }
 
 ```
 
-The logging format has been pre-configured so all logging from Engine is uniform and simple to parse
+The logging format has been pre-configured so all logging from PlaceOS is uniform and simple to parse
 
 
 ### Metadata

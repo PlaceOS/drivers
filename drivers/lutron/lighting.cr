@@ -1,4 +1,4 @@
-module Lutron; end
+require "placeos-driver"
 
 # Documentation: https://aca.im/driver_docs/Lutron/lutron-lighting.pdf
 

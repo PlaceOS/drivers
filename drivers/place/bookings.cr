@@ -1,13 +1,15 @@
-module Place; end
-
+require "placeos-driver"
 require "place_calendar"
+require "placeos-driver/interface/locatable"
 
 class Place::Bookings < PlaceOS::Driver
+  include Interface::Locatable
+
   descriptive_name "PlaceOS Bookings"
   generic_name :Bookings
 
   default_settings({
-    calendar_id:            "defaults@system.email",
+    calendar_id:            nil,
     calendar_time_zone:     "Australia/Sydney",
     book_now_default_title: "Ad Hoc booking",
     disable_book_now:       false,
@@ -44,7 +46,7 @@ class Place::Bookings < PlaceOS::Driver
     schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_events }
 
     cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
-    cache_polling_period += Random.rand(90).seconds + Random.rand(1000).milliseconds
+    cache_polling_period += Random.rand(30).seconds + Random.rand(1000).milliseconds
     schedule.every(cache_polling_period) { poll_events }
 
     time_zone = setting?(String, :calendar_time_zone).presence
@@ -109,14 +111,26 @@ class Place::Bookings < PlaceOS::Driver
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
     title ||= @default_title
     starting = Time.utc.to_unix
-    ending = period_in_seconds.seconds.from_now.to_unix
+    ending = starting + period_in_seconds
 
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
-    calendar.create_event(title, starting, ending, [{
-      name:  @calendar_id,
-      email: @calendar_id,
-    }], nil, @time_zone.name, owner, owner)
+    host_calendar = owner.presence || @calendar_id
+    room_email = system.email.not_nil!
+    room_is_organizer = host_calendar == room_email
+    event = calendar.create_event(
+      title,
+      starting,
+      ending,
+      "",
+      [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer)],
+      @time_zone.name,
+      nil,
+      host_calendar
+    )
+    # Update booking info after creating event
+    poll_events
+    event
   end
 
   def poll_events : Nil
@@ -218,9 +232,9 @@ class Place::Bookings < PlaceOS::Driver
 
       self[:in_use] = booked && !current_pending
     else
-      self[:current_pending] = nil
-      self[:next_pending] = nil
-      self[:pending] = nil
+      self[:current_pending] = false
+      self[:next_pending] = false
+      self[:pending] = false
 
       self[:in_use] = booked
     end
@@ -235,6 +249,10 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   protected def upcoming : PlaceCalendar::Event?
+    status?(PlaceCalendar::Event, :next_booking)
+  end
+
+  protected def pending : PlaceCalendar::Event?
     status?(PlaceCalendar::Event, :next_booking)
   end
 
@@ -263,5 +281,70 @@ class Place::Bookings < PlaceOS::Driver
     end
   rescue error
     logger.error { "processing change event: #{error.inspect_with_backtrace}" }
+  end
+
+  # ===================================
+  # Locatable Interface functions
+  # ===================================
+  protected def to_location_format(events : Enumerable(PlaceCalendar::Event))
+    sys = system.config
+    events.map do |event|
+      event_ends = event.all_day? ? event.event_start.in(@time_zone).at_end_of_day : event.event_end.not_nil!
+      {
+        location: :meeting,
+        mac:      @calendar_id,
+        event_id: event.id,
+        map_id:   sys.map_id,
+        sys_id:   sys.id,
+        ends_at:  event_ends.to_unix,
+        private:  !!event.private?,
+      }
+    end
+  end
+
+  def locate_user(email : String? = nil, username : String? = nil)
+    logger.debug { "searching for #{email}, #{username}" }
+
+    email = email.to_s.downcase
+    username = username.to_s.downcase
+    matching_events = [] of PlaceCalendar::Event
+
+    if event = current
+      emails = event.attendees.map(&.email.downcase)
+      if host = event.host
+        emails << host.downcase
+      end
+
+      if emails.includes?(email) || emails.includes?(username)
+        logger.debug { "found user {#{email}, #{username}} in list of attendees" }
+        matching_events << event
+      elsif !username.empty? && emails.find(&.starts_with?(username))
+        logger.debug { "found email starting with username '#{username}' in list of attendees" }
+        matching_events << event
+      end
+    end
+
+    to_location_format matching_events
+  end
+
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
+    locate_user(email, username).map(&.[](:mac))
+  end
+
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
+    logger.debug { "searching for owner of #{mac_address}" }
+    sys_email = @calendar_id.downcase
+    if sys_email == mac_address.downcase && (host = current.try &.host)
+      {
+        location:    "meeting",
+        assigned_to: host,
+        mac_address: sys_email,
+      }
+    end
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    logger.debug { "searching devices in zone #{zone_id}" }
+    [] of Nil
   end
 end

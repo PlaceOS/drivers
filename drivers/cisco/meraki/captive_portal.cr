@@ -1,9 +1,6 @@
-module Cisco; end
-
-module Cisco::Meraki; end
-
 require "json"
 require "openssl"
+require "placeos-driver"
 
 class Cisco::Meraki::CaptivePortal < PlaceOS::Driver
   # Discovery Information
@@ -105,7 +102,7 @@ class Cisco::Meraki::CaptivePortal < PlaceOS::Driver
 
     check_code = challenge.code
     guest_codes = generate_guest_data(challenge.email, Time.utc.to_unix, challenge.timezone)
-    matched = guest_codes.scan(/.{#{@code_length}}/).select { |code| code[0] == check_code }.size > 0
+    matched = guest_codes.scan(/.{#{@code_length}}/).count { |code| code[0] == check_code } > 0
 
     if matched
       challenge.expires = @access_duration.from_now
