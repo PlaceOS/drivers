@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
   expect_http_request do |request, response|
     case request.path
@@ -154,14 +156,12 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
       "count": 21,
       "coordinates": [
         [
-          [
-            2.2673,
-            4.3891
-          ],
-          [
-            6.2573,
-            1.5303
-          ]
+          2.2673,
+          4.3891
+        ],
+        [
+          6.2573,
+          1.5303
         ]
       ],
       "distances": {
@@ -190,7 +190,7 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
         "geometry"        => {"type" => "Polygon", "coordinates" => [[[93.850772, 44.676952], [93.850739, 44.676929], [93.850718, 44.67695], [93.850751, 44.676973], [93.850772, 44.676952], [93.850772, 44.676952]]]},
         "people"          => {
           "count"       => 21,
-          "coordinates" => [[[2.2673, 4.3891], [6.2573, 1.5303]]],
+          "coordinates" => [[2.2673, 4.3891], [6.2573, 1.5303]],
         },
         "timestamp"       => "2019-08-21T21:10:25Z",
         "motion_detected" => true,

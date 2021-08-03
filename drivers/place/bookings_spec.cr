@@ -1,6 +1,8 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Place::Bookings" do
   system({
-    Calendar: {Calendar},
+    Calendar: {CalendarMock},
   })
 
   # Check it calculates state properly
@@ -40,7 +42,8 @@ DriverSpecs.mock_driver "Place::Bookings" do
   status[:status].should eq("free")
 end
 
-class Calendar < DriverSpecs::MockDriver
+# :nodoc:
+class CalendarMock < DriverSpecs::MockDriver
   def on_load
     self[:checked_calendar] = nil
     self[:deleted_event] = nil

@@ -1,4 +1,4 @@
-module Place; end
+require "placeos-driver"
 
 class Place::UserGroupMappings < PlaceOS::Driver
   descriptive_name "User Group Mappings"
@@ -78,8 +78,9 @@ class Place::UserGroupMappings < PlaceOS::Driver
     logger.debug { "checking groups of: #{id}" }
 
     # Loading the existing user info in PlaceOS (we need the users id)
-    email = staff_api.user(id).get["email"].as_s
-    logger.debug { "found placeos user info: #{email}" }
+    user = NamedTuple(email: String, login_name: String?).from_json staff_api.user(id).get.to_json
+    email = user[:login_name].presence || user[:email]
+    logger.debug { "found placeos user info: #{user[:email]}, id #{user[:email]}" }
 
     # Request user details from GraphAPI or Google
     users_groups = calendar_api.get_groups(email).get

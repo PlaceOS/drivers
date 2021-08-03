@@ -1,4 +1,5 @@
 require "openssl"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Cisco::Meraki::CaptivePortal" do
   date = Time.unix(1599477274).in(Time::Location.load("Australia/Sydney")).to_s("%Y%m%d")

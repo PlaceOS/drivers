@@ -1,7 +1,7 @@
-module Place; end
-
 require "json"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
+require "placeos-driver/interface/sensor"
 
 class Place::LocationServices < PlaceOS::Driver
   descriptive_name "PlaceOS Location Services"
@@ -9,7 +9,8 @@ class Place::LocationServices < PlaceOS::Driver
   description %(collects location data from compatible services and combines the data)
 
   default_settings({
-    debug_webhook: false,
+    debug_webhook:   false,
+    search_building: false,
 
     # various groups of people one might be interested in contacting
     emergency_contacts: {
@@ -24,15 +25,45 @@ class Place::LocationServices < PlaceOS::Driver
 
   @debug_webhook : Bool = false
   @emergency_contacts : Hash(String, String) = {} of String => String
+  @search_building : Bool = true
+
+  getter building_id : String { get_building_id.not_nil! }
+  getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   def on_update
     @debug_webhook = setting?(Bool, :debug_webhook) || false
     @emergency_contacts = setting?(Hash(String, String), :emergency_contacts) || Hash(String, String).new
+    @search_building = setting?(Bool, :search_building) || false
+    @building_id = nil
+    @systems = nil
+
+    schedule.clear
+
+    # Keep mappings up to date
+    if @search_building
+      schedule.every(1.hour) { @systems = get_systems_list.not_nil! if @systems }
+    end
 
     if !@emergency_contacts.empty?
-      schedule.clear
       schedule.every(6.hours, immediate: true) { update_contacts_list }
     end
+  end
+
+  # Finds the building ID for the current location services object
+  def get_building_id
+    zone_ids = system["StaffAPI"].zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine building zone id" }
+    nil
+  end
+
+  # Grabs the list of systems in the building
+  def get_systems_list
+    system["StaffAPI"].systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
+  rescue error
+    logger.warn(exception: error) { "unable to obtain list of systems in the building" }
+    nil
   end
 
   # Runs through all the services that support the Locatable interface
@@ -44,6 +75,31 @@ class Place::LocationServices < PlaceOS::Driver
     system.implementing(Interface::Locatable).locate_user(email, username).get.each do |locations|
       located.concat locations.as_a
     end
+
+    if @search_building
+      building = JSON::Any.new building_id
+      results = [] of Tuple(JSON::Any, PlaceOS::Driver::Proxy::Drivers::Responses)
+
+      # Map
+      systems.each do |level_id, system_ids|
+        level_id = JSON::Any.new level_id
+        system_ids.each do |system_id|
+          results << {level_id, system(system_id).implementing(Interface::Locatable).locate_user(email, username)}
+        end
+      end
+
+      # reduce
+      results.each do |(level_id, result)|
+        result.get.each do |locations|
+          located.concat(locations.as_a.tap &.each { |location|
+            location = location.as_h
+            location["level"] = level_id
+            location["building"] = building
+          })
+        end
+      end
+    end
+
     located
   end
 
@@ -55,6 +111,21 @@ class Place::LocationServices < PlaceOS::Driver
     system.implementing(Interface::Locatable).macs_assigned_to(email, username).get.each do |found|
       macs.concat found.as_a.map(&.as_s)
     end
+
+    if @search_building
+      results = [] of PlaceOS::Driver::Proxy::Drivers::Responses
+
+      # Map
+      systems.each do |_level_id, system_ids|
+        system_ids.each do |system_id|
+          results << system(system_id).implementing(Interface::Locatable).macs_assigned_to(email, username)
+        end
+      end
+
+      # reduce
+      results.each &.get.each { |found| macs.concat found.as_a.map(&.as_s) }
+    end
+
     macs
   end
 
@@ -68,6 +139,29 @@ class Place::LocationServices < PlaceOS::Driver
         break
       end
     end
+
+    if owner.nil? && @search_building
+      results = [] of PlaceOS::Driver::Proxy::Drivers::Responses
+
+      # Map
+      systems.each do |_level_id, system_ids|
+        system_ids.each do |system_id|
+          results << system(system_id).implementing(Interface::Locatable).check_ownership_of(mac_address)
+        end
+      end
+
+      # reduce
+      results.each do |sys_results|
+        sys_results.get.each do |result|
+          if result != nil
+            owner = result
+            break
+          end
+        end
+        break unless owner.nil?
+      end
+    end
+
     owner
   end
 
@@ -79,6 +173,82 @@ class Place::LocationServices < PlaceOS::Driver
       located.concat locations.as_a
     end
     located
+  end
+
+  # ===============================
+  # Sensor data collection
+  # ===============================
+
+  # sensor search + filtered search
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil)
+    logger.debug { "searching sensors of type: #{type.inspect}, mac: #{mac.inspect}, zone_id: #{zone_id}" }
+    located = [] of JSON::Any
+    system.implementing(Interface::Sensor).sensors(type, mac, zone_id).get.each do |locations|
+      located.concat locations.as_a
+    end
+
+    if @search_building
+      building = JSON::Any.new building_id
+      results = [] of Tuple(JSON::Any, PlaceOS::Driver::Proxy::Drivers::Responses)
+
+      # Map
+      systems.each do |level_id, system_ids|
+        next if zone_id && zone_id != level_id
+        level_id = JSON::Any.new level_id
+        system_ids.each do |system_id|
+          results << {level_id, system(system_id).implementing(Interface::Sensor).sensors(type, mac, zone_id)}
+        end
+      end
+
+      # reduce
+      results.each do |(level_id, result)|
+        result.get.each do |locations|
+          located.concat(locations.as_a.tap &.each { |location|
+            location = location.as_h
+            location["level"] = level_id
+            location["building"] = building
+          })
+        end
+      end
+    end
+
+    located
+  end
+
+  def sensor(mac : String, id : String? = nil)
+    logger.debug { "querying sensor with mac: #{mac}, id: #{id.inspect}" }
+    located = [] of JSON::Any
+    system.implementing(Interface::Sensor).sensor(mac, id).get.each do |locations|
+      located.concat locations.as_a
+    end
+
+    return located.first unless located.empty?
+
+    if @search_building
+      building = JSON::Any.new building_id
+      results = [] of Tuple(JSON::Any, PlaceOS::Driver::Proxy::Drivers::Responses)
+
+      # Map
+      systems.each do |level_id, system_ids|
+        level_id = JSON::Any.new level_id
+        system_ids.each do |system_id|
+          results << {level_id, system(system_id).implementing(Interface::Sensor).sensor(mac, id)}
+        end
+      end
+
+      # reduce
+      results.each do |(level_id, result)|
+        result.get.each do |locations|
+          located.concat(locations.as_a.tap &.each { |location|
+            location = location.as_h
+            location["level"] = level_id
+            location["building"] = building
+          })
+        end
+      end
+    end
+
+    located.first unless located.empty?
   end
 
   # ===============================
@@ -95,6 +265,24 @@ class Place::LocationServices < PlaceOS::Driver
     # ip, username, domain, hostname
     ip_map = Array(Tuple(String, String, String, String?)).from_json(body)
     system.implementing(Interface::Locatable).ip_username_mappings(ip_map)
+
+    SUCCESS_RESPONSE
+  end
+
+  def mac_address_mappings(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "MAC mappings webhook received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body } if @debug_webhook
+
+    # username, macs, domain
+    username, macs, domain = Tuple(String, Array(String), String?).from_json(body)
+    username = username.strip
+    macs = macs.compact_map do |mac|
+      mac = mac.strip.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
+      mac if mac.size == 12
+    end
+    return {HTTP::Status::NOT_ACCEPTABLE, {} of String => String, nil} if username.empty? || macs.empty?
+
+    system.implementing(Interface::Locatable).mac_address_mappings(username, macs, domain)
 
     SUCCESS_RESPONSE
   end

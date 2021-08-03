@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
@@ -42,6 +43,7 @@ class Nec::Display < PlaceOS::Driver
   end
 
   def connected
+    schedule.clear
     schedule.every(50.seconds, true) do
       do_poll
     end
@@ -81,12 +83,17 @@ class Nec::Display < PlaceOS::Driver
   end
 
   enum Audio
-    Audio1      = 1
-    Audio2      = 2
-    Audio3      = 3
-    Hdmi        = 4
-    Tv          = 6
-    DisplayPort = 7
+    Audio1        =  1
+    Audio2        =  2
+    Audio3        =  3
+    Hdmi          =  4
+    Tv            =  6
+    DisplayPort1  =  7
+    DisplayPort2  =  8
+    Hdmi2         = 10
+    Hdmi3         = 11
+    MultiPicture  = 13
+    ComputeModule = 14
   end
 
   def switch_audio(input : Audio)
@@ -235,7 +242,7 @@ class Nec::Display < PlaceOS::Driver
       else
         length = 4
       end
-      value.to_s(16, true).rjust(length, '0')
+      value.to_s(16, upcase: true).rjust(length, '0')
     end
   end
 
@@ -263,12 +270,12 @@ class Nec::Display < PlaceOS::Driver
         str.write_byte self.value # Type
 
         message_length = command.size + 2
-        message_length += 4 if data                        # If there is data, add 4 to the message length
-        str << message_length.to_s(16, true).rjust(2, '0') # Message length
-        str.write_byte 0x02                                # Start of messsage
-        str << command                                     # Message
-        str << data.to_s(16, true).rjust(4, '0') if data   # Data if required
-        str.write_byte 0x03                                # End of message
+        message_length += 4 if data                                # If there is data, add 4 to the message length
+        str << message_length.to_s(16, upcase: true).rjust(2, '0') # Message length
+        str.write_byte 0x02                                        # Start of messsage
+        str << command                                             # Message
+        str << data.to_s(16, upcase: true).rjust(4, '0') if data   # Data if required
+        str.write_byte 0x03                                        # End of message
       end
 
       String.build do |str|

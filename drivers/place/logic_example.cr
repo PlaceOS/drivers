@@ -1,4 +1,4 @@
-module Place; end
+require "placeos-driver"
 
 class Place::LogicExample < PlaceOS::Driver
   descriptive_name "Example Logic"

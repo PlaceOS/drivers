@@ -1,7 +1,7 @@
-module Whispir; end
+require "placeos-driver"
+require "placeos-driver/interface/sms"
 
 # Documentation: https://whispir.github.io/api/#messages
-require "placeos-driver/interface/sms"
 
 class Whispir::Messages < PlaceOS::Driver
   include Interface::SMS

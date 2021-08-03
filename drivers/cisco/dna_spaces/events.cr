@@ -21,6 +21,8 @@ abstract class Cisco::DNASpaces::Events
     "USER_PRESENCE"          => UserPresenceWrapper,
     "APP_ACTIVATION"         => AppActivactionWrapper,
     "DEVICE_COUNT"           => DeviceCountWrapper,
+    "BLE_RSSI_UPDATE"        => BleRssiUpdateWrapper,
+    "IOT_TELEMETRY"          => IotTelemetryWrapper,
   }
 
   @[JSON::Field(key: "recordUid")]
@@ -115,4 +117,18 @@ class Cisco::DNASpaces::DeviceCountWrapper < Cisco::DNASpaces::Events
 
   @[JSON::Field(key: "deviceCounts")]
   getter payload : DeviceCount
+end
+
+class Cisco::DNASpaces::BleRssiUpdateWrapper < Cisco::DNASpaces::Events
+  getter eventType : String = "BLE_RSSI_UPDATE"
+
+  @[JSON::Field(key: "bleRssiUpdate")]
+  getter payload : BleRssiUpdate
+end
+
+class Cisco::DNASpaces::IotTelemetryWrapper < Cisco::DNASpaces::Events
+  getter eventType : String = "IOT_TELEMETRY"
+
+  @[JSON::Field(key: "iotTelemetry")]
+  getter payload : IotTelemetry
 end

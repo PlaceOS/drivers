@@ -1,5 +1,4 @@
-module Place; end
-
+require "placeos-driver"
 require "pinger"
 
 class Place::Pinger < PlaceOS::Driver

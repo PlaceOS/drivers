@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Xovis::SensorAPI" do
   # =========================
   # GET TOKEN
@@ -25,7 +27,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:reset_count)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <response xmlns:ns2="http://www.xovis.com/common-types" xmlns:ns3="http://www.xovis.com/count-data">
@@ -46,7 +48,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:count_data)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8"?>
     <ns2:count-data xmlns:ns2="http://www.xovis.com/count-data" xmlns:ns3="http://www.xovis.com/count-data">
@@ -84,7 +86,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:device_status)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << <<-XML
     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -165,7 +167,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:is_alive?)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <response xmlns:ns2="http://www.xovis.com/common-types" xmlns:ns3="http://www.xovis.com/count-data">
@@ -185,7 +187,7 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   retval = exec(:capacity_data)
 
   # We should request a new token from Floorsense
-  expect_http_request do |request, response|
+  expect_http_request do |_request, response|
     response.status_code = 200
     response.output << %(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <persistence-info xmlns:ns2="http://www.xovis.com/common-types" xmlns="http://www.xovis.com/common">
@@ -235,27 +237,42 @@ DriverSpecs.mock_driver "Xovis::SensorAPI" do
   # What the function should return (for use in making further requests)
   retval.get.should eq(true)
   status["line-counts"].should eq([{
+    "status"      => "normal",
+    "type"        => "queue_size",
+    "value"       => 9.0,
+    "last_seen"   => 1588676700,
+    "mac"         => "80:1F:12:73:2F:A4",
+    "id"          => "line-0",
     "name"        => "Line 0",
-    "id"          => "0",
-    "first-entry" => "2020-04-27T11:40:00+02:00",
-    "last-entry"  => "2020-05-05T13:05:00+02:00",
-    "entry-count" => 9,
+    "location"    => "sensor",
     "capacity"    => 100,
+    "first_entry" => 1587980400,
+    "last_entry"  => 1588676700,
   }])
   status["zone-occupancy-counts"].should eq([{
-    "name"        => "Zone 0",
-    "id"          => "0",
-    "first-entry" => "2020-05-05T12:22:00+02:00",
-    "last-entry"  => "2020-05-05T13:05:00+02:00",
-    "entry-count" => 1,
+    "status"      => "normal",
+    "type"        => "people_count",
+    "value"       => 1.0,
+    "last_seen"   => 1588676700,
+    "mac"         => "80:1F:12:73:2F:A4",
+    "id"          => "zone-occupancy-0",
+    "name"        => "Occupancy Zone 0",
+    "location"    => "sensor",
     "capacity"    => 80,
+    "first_entry" => 1588674120,
+    "last_entry"  => 1588676700,
   }])
   status["zone-in-out-counts"].should eq([{
-    "name"        => "Zone 0",
-    "id"          => "0",
-    "first-entry" => "2020-05-05T12:22:00+02:00",
-    "last-entry"  => "2020-05-05T13:05:00+02:00",
-    "entry-count" => 1,
+    "status"      => "normal",
+    "type"        => "counter",
+    "value"       => 1.0,
+    "last_seen"   => 1588676700,
+    "mac"         => "80:1F:12:73:2F:A4",
+    "id"          => "zone-in-out-0",
+    "name"        => "In Out Zone 0",
+    "location"    => "sensor",
     "capacity"    => 80,
+    "first_entry" => 1588674120,
+    "last_entry"  => 1588676700,
   }])
 end

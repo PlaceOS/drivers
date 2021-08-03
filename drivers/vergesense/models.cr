@@ -32,7 +32,7 @@ module Vergesense
 
     property building_ref_id : String?
     property floor_ref_id : String?
-    property space_ref_id : String
+    property space_ref_id : String?
     property space_type : String?
     property name : String?
     property capacity : UInt32?
@@ -58,6 +58,6 @@ module Vergesense
     include JSON::Serializable
 
     property count : UInt32?
-    property coordinates : Array(Array(Array(Float64)))?
+    property coordinates : Array(Array(Float64)?)?
   end
 end

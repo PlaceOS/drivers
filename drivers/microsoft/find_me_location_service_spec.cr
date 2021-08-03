@@ -1,6 +1,8 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Microsoft::FindMeLocationService" do
   system({
-    FindMe: {FindMe},
+    FindMe: {FindMeMock},
   })
 
   now = Time.local
@@ -45,7 +47,8 @@ DriverSpecs.mock_driver "Microsoft::FindMeLocationService" do
   ])
 end
 
-class FindMe < DriverSpecs::MockDriver
+# :nodoc:
+class FindMeMock < DriverSpecs::MockDriver
   def user_details(usernames : String | Array(String))
     JSON.parse %([{"Alias":"dwatson","LastUpdate":"2015-11-12T02:25:50.017Z","Confidence":100,
        "Coordinates":{"Building":"SYDNEY","Level":"L14","X":76,"Y":29,"LocationDescription":"2140","MapByLocationId":true},

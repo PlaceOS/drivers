@@ -1,6 +1,5 @@
-module Place; end
-
 require "place_calendar"
+require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "qr-code"
 require "qr-code/export/png"
@@ -23,10 +22,11 @@ class Place::Calendar < PlaceOS::Driver
       signing_key: "PEM encoded private key",
     },
     calendar_config_office: {
-      _note_:        "rename to 'calendar_config' for use",
-      tenant:        "",
-      client_id:     "",
-      client_secret: "",
+      _note_:          "rename to 'calendar_config' for use",
+      tenant:          "",
+      client_id:       "",
+      client_secret:   "",
+      conference_type: nil, # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
     },
     rate_limit: 5,
 
@@ -50,6 +50,7 @@ class Place::Calendar < PlaceOS::Driver
     tenant: String,
     client_id: String,
     client_secret: String,
+    conference_type: String | Nil,
   )
 
   @client : PlaceCalendar::Client? = nil
@@ -71,6 +72,17 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   def on_update
+    if proxy_config = setting?(NamedTuple(host: String, port: Int32, auth: NamedTuple(username: String, password: String)?), :proxy)
+      ConnectProxy.proxy_uri = "http://#{proxy_config[:host]}:#{proxy_config[:port]}"
+      if proxy_auth = proxy_config[:auth]
+        ConnectProxy.username = proxy_auth[:username]
+        ConnectProxy.password = proxy_auth[:password]
+      end
+    end
+
+    ConnectProxy.verify_tls = !!setting?(Bool, :proxy_verify_tls)
+    ConnectProxy.disable_crl_checks = !!setting?(Bool, :proxy_disable_crl)
+
     @service_account = setting?(String, :calendar_service_account).presence
     @rate_limit = setting?(Int32, :rate_limit) || 3
     @wait_time = 1.second / @rate_limit
@@ -91,7 +103,7 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   protected def client
-    if (@wait_time * @queue_size) > 10.seconds
+    if (@wait_time * @queue_size) > 90.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end
     @queue_lock.synchronize { @queue_size += 1 }
@@ -250,6 +262,7 @@ class Place::Calendar < PlaceOS::Driver
     event_end : Int64? = nil,
     description : String = "",
     attendees : Array(PlaceCalendar::Event::Attendee) = [] of PlaceCalendar::Event::Attendee,
+    location : String? = nil,
     timezone : String? = nil,
     user_id : String? = nil,
     calendar_id : String? = nil
@@ -263,14 +276,15 @@ class Place::Calendar < PlaceOS::Driver
     event.host = calendar_id
     event.title = title
     event.body = description
+    event.location = location
     event.timezone = timezone
     event.attendees = attendees
-    event.event_start = Time.unix(event_start)
-    if event_end
-      event.event_end = Time.unix(event_end)
-    else
-      event.all_day = true
-    end
+
+    tz = Time::Location.load(timezone) if timezone
+    event.event_start = timezone ? Time.unix(event_start).in tz.not_nil! : Time.unix(event_start)
+    event.event_end = timezone ? Time.unix(event_end).in tz.not_nil! : Time.unix(event_end) if event_end
+
+    event.all_day = true unless event_end
 
     client &.create_event(user_id, event, calendar_id)
   end

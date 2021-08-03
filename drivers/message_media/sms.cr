@@ -1,4 +1,4 @@
-module MessageMedia; end
+require "placeos-driver"
 
 # Documentation: https://developers.messagemedia.com/code/messages-api-documentation/
 require "placeos-driver/interface/sms"

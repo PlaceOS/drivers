@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Lumens::DC193" do
   # On connect it queries the state of the device
   should_send(Bytes[0xA0, 0xB7, 0x00, 0x00, 0x00, 0xAF])

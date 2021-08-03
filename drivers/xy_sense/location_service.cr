@@ -1,7 +1,6 @@
-module XYSense; end
-
 require "json"
 require "oauth2"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 
 class XYSense::LocationService < PlaceOS::Driver
@@ -34,6 +33,9 @@ class XYSense::LocationService < PlaceOS::Driver
   def on_update
     @floor_mappings = setting(Hash(String, NamedTuple(zone_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.map { |_, detail| detail[:zone_id] }
+
+    schedule.clear
+    schedule.every(30.minutes) { sync_floor_states }
   end
 
   # ===================================
@@ -54,7 +56,7 @@ class XYSense::LocationService < PlaceOS::Driver
     include JSON::Serializable
 
     property id : String
-    property name : String
+    property name : String?
     property capacity : Int32
     property category : String
   end
@@ -77,6 +79,25 @@ class XYSense::LocationService < PlaceOS::Driver
   @floor_subscriptions = {} of String => PlaceOS::Driver::Subscriptions::Subscription
   @space_details = {} of String => SpaceDetails
   @change_lock = Mutex.new
+
+  def update_space_details
+    @change_lock.synchronize do
+      # Get the floor details from either the status push event or module update
+      floors = xy_sense.status(Hash(String, FloorDetails), :floors)
+      space_details = {} of String => SpaceDetails
+
+      floors.each do |floor_id, floor|
+        mapping = @floor_mappings[floor_id]?
+        next unless mapping
+
+        # track space data
+        floor.spaces.each { |space| space_details[space.id] = space }
+      end
+
+      # update to new space details
+      @space_details = space_details
+    end
+  end
 
   protected def floor_details_changed(_sub = nil, payload = nil)
     @change_lock.synchronize do
@@ -107,11 +128,31 @@ class XYSense::LocationService < PlaceOS::Driver
       # Subscribe to new data
       (desired - existing).each { |floor_id|
         zone_id = monitor[floor_id]
-        @floor_subscriptions[floor_id] = xy_sense.subscribe(floor_id) do |_sub, payload|
-          level_state_change(zone_id, Array(Occupancy).from_json(payload))
+        @floor_subscriptions[floor_id] = xy_sense.subscribe(floor_id) do |_sub, message|
+          level_state_change(zone_id, Array(Occupancy).from_json(message))
         end
       }
     end
+  end
+
+  def floor_subscriptions
+    @floor_subscriptions.keys
+  end
+
+  def sync_floor_states
+    logger.debug { "-- updating space details..." }
+    details = update_space_details
+    logger.debug { "-- details:\n#{details}" }
+
+    logger.debug { "-- grabbing floor details..." }
+    xy = xy_sense
+    @change_lock.synchronize do
+      floor_subscriptions.each do |zone_id|
+        level_state_change(zone_id, xy.status(Array(Occupancy), zone_id))
+      end
+    end
+    logger.debug { "-- floor states synced!" }
+    @occupancy_mappings
   end
 
   # Zone_id => area => occupancy details
@@ -121,7 +162,12 @@ class XYSense::LocationService < PlaceOS::Driver
     area_occupancy = {} of String => Occupancy
     spaces.each do |space|
       space.details = @space_details[space.space_id]
-      area_occupancy[space.details.name] = space
+      space_name = space.details.name
+      unless space_name
+        logger.warn { "missing space name for id #{space.details.id}" }
+        next
+      end
+      area_occupancy[space_name] = space
     end
     @occupancy_mappings[zone_id] = area_occupancy
     area_manager.update_available({zone_id})
@@ -155,7 +201,9 @@ class XYSense::LocationService < PlaceOS::Driver
       # Assume this means we're looking at a desk
       capacity = space.details.capacity
       if capacity == 1
+        next unless space.headcount > 0
         next if location.presence && location != "desk"
+
         {
           location:    :desk,
           at_location: space.headcount,
@@ -170,6 +218,7 @@ class XYSense::LocationService < PlaceOS::Driver
         }
       else
         next if location.presence && location != "area"
+
         {
           location:    :area,
           at_location: space.headcount,

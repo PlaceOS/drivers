@@ -1,7 +1,7 @@
-module Floorsense; end
-
+require "uri"
 require "json"
 require "oauth2"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "./models"
 
@@ -22,6 +22,7 @@ class Floorsense::LocationService < PlaceOS::Driver
         name:        "friendly name for documentation",
       },
     },
+    include_bookings: false,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -30,11 +31,14 @@ class Floorsense::LocationService < PlaceOS::Driver
   # Level zone => building_zone
   @building_mappings : Hash(String, String?) = {} of String => String?
 
+  @include_bookings : Bool = false
+
   def on_load
     on_update
   end
 
   def on_update
+    @include_bookings = setting?(Bool, :include_bookings) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @floor_mappings.each do |plan_id, details|
       level = details[:level_id]
@@ -57,7 +61,14 @@ class Floorsense::LocationService < PlaceOS::Driver
   end
 
   def check_ownership_of(mac_address : String) : OwnershipMAC?
-    logger.debug { "sensor incapable of tracking #{mac_address}" }
+    floor_mac = URI::Params.parse mac_address
+    user = floorsense.at_location(floor_mac["cid"], floor_mac["key"]).get
+    {
+      location:    "desk",
+      assigned_to: user["name"].as_s,
+      mac_address: mac_address,
+    }
+  rescue
     nil
   end
 
@@ -68,22 +79,51 @@ class Floorsense::LocationService < PlaceOS::Driver
     plan_id = @zone_mappings[zone_id]?
     return [] of Nil unless plan_id
 
+    building = @building_mappings[zone_id]?
+
     raw_desks = floorsense.desks(plan_id).get.to_json
-    Array(DeskStatus).from_json(raw_desks).compact_map do |desk|
-      {
-        location:    "desk",
-        at_location: desk.occupied ? 1 : 0,
-        map_id:      desk.key,
-        level:       zone_id,
-        building:    @building_mappings[zone_id]?,
-        capacity:    1,
+    desks = Array(DeskStatus).from_json(raw_desks).compact_map do |desk|
+      if desk.occupied
+        {
+          location:    :desk,
+          at_location: 1,
+          map_id:      desk.key,
+          level:       zone_id,
+          building:    building,
+          capacity:    1,
 
-        # So we can look up who is at a desk at some point in the future
-        mac: "cid:#{desk.cid}-#{desk.key}",
+          # So we can look up who is at a desk at some point in the future
+          mac: "cid=#{desk.cid}&key=#{desk.key}",
 
-        floorsense_status:    desk.status,
-        floorsense_desk_type: desk.desk_type,
-      }
+          floorsense_status:    desk.status,
+          floorsense_desk_type: desk.desk_type,
+        }
+      end
     end
+
+    current = [] of BookingStatus
+
+    if @include_bookings
+      raw_bookings = floorsense.bookings(plan_id).get.to_json
+      Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
+        current << bookings.first unless bookings.empty?
+      end
+    end
+
+    current.map { |booking|
+      {
+        location:    :booking,
+        type:        "desk",
+        checked_in:  booking.active,
+        asset_id:    booking.key,
+        booking_id:  booking.booking_id,
+        building:    building,
+        level:       zone_id,
+        ends_at:     booking.finish,
+        mac:         "cid=#{booking.cid}&key=#{booking.key}",
+        staff_email: booking.user.try &.email,
+        staff_name:  booking.user.try &.name,
+      }
+    } + desks
   end
 end

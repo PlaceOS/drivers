@@ -1,5 +1,4 @@
-module Gantner; end
-
+require "placeos-driver"
 require "openssl/cipher"
 require "./json_models"
 require "base64"

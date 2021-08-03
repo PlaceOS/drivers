@@ -1,7 +1,6 @@
 require "uri"
 require "uuid"
-
-module PointGrab; end
+require "placeos-driver"
 
 # Documentation: https://aca.im/driver_docs/PointGrab/CogniPointAPI2-1.pdf
 

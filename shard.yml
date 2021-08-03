@@ -1,20 +1,16 @@
 name: drivers
 version: 2.2.0
 
-# compile target
-targets:
-  test-harness:
-    main: src/app.cr
-
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
+    version: ~> 4.4
 
   email:
     github: arcage/crystal-email
 
-  exec_from:
-    github: place-labs/exec_from
+  inactive-support:
+    github: spider-gazelle/inactive-support
 
   jwt:
     github: crystal-community/jwt
@@ -33,16 +29,20 @@ dependencies:
 
   placeos-compiler:
     github: placeos/compiler
-    version: ~> 3.3
+    version: ~> 3.5
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 4.0
+    version: ~> 5.0
 
   # The PlaceOS API client
   placeos:
     github: placeos/crystal-client
     version: ~> 2.2
+
+  # HTTP Client helper
+  responsible:
+    github: place-labs/responsible
 
   rwlock:
     github: spider-gazelle/readers-writer
@@ -65,3 +65,24 @@ dependencies:
   # For QR .png file export
   stumpy_png:
     github: stumpycr/stumpy_png
+
+  # the STOMP protocol
+  stomp:
+    github: spider-gazelle/stomp
+
+  # MQTT protocol
+  mqtt:
+    github: spider-gazelle/crystal-mqtt
+
+  # XML to JSON convertor
+  oq:
+    github: blacksmoke16/oq
+    version: ~> 1.2
+
+  awscr-signer:
+    github: taylorfinnell/awscr-signer
+    version: ~> 0.8
+
+  bacnet:
+    github: spider-gazelle/crystal-bacnet
+    version: ~> 0.10

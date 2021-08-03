@@ -1,5 +1,4 @@
-module Place; end
-
+require "placeos-driver/spec"
 require "placeos-driver/interface/locatable"
 
 WIRELESS_LOC = {

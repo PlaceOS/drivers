@@ -1,5 +1,4 @@
-module Lumens; end
-
+require "placeos-driver"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/zoomable"
 

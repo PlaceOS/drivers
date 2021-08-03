@@ -1,3 +1,5 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Place::StaffAPI" do
   settings({
     # PlaceOS API creds, so we can query the zone metadata
