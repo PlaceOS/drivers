@@ -1,3 +1,4 @@
+require "inactive-support/mapped_enum"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 
@@ -19,9 +20,20 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   descriptive_name "AMX SVSI N-Series Encoder"
   generic_name :Encoder
 
+  private DELIMITER = '\r'
+
+  mapped_enum Command do
+    GetStatus   = "getStatus"
+    VideoSource = "vidsrc"
+    LiveMode    = "live"
+    LocalMode   = "local"
+    Disable     = "txdisable"
+    Mute        = "mute"
+    Unmute      = "unmute"
+  end
+
   def on_load
-    # 0x0D (<CR> carriage return \r)
-    transport.tokenizer = Tokenizer.new(Bytes[0x0D])
+    transport.tokenizer = Tokenizer.new(DELIMITER)
   end
 
   def connected
@@ -33,20 +45,20 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   end
 
   def do_poll
-    do_send("getStatus", priority: 0)
+    do_send(Command::GetStatus, priority: 0)
   end
 
   def switch_to(input : Input, **options)
-    do_send("vidsrc", input, **options)
+    do_send(Command::VideoSource, input, **options)
   end
 
-  Modes = ["1", "2", "3", "4", "5", "6", "7", "8"]
+  Modes = (1..8).map &.to_s
 
   def media_source(mode : String)
     if mode == "live"
-      do_send("live")
+      do_send(Command::Live)
     elsif Modes.includes?(mode)
-      do_send("local", mode)
+      do_send(Command::Local, mode)
     else
       raise("invalid mode #{mode}")
     end
@@ -58,12 +70,19 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
     layer : MuteLayer = MuteLayer::AudioVideo
   )
     if state
-      do_send("txdisable") if layer.audio_video? || layer.video?
-      do_send("mute") if layer.audio_video? || layer.audio?
+      do_send(Command::Disable) if layer.audio_video? || layer.video?
+      do_send(Command::Mute) if layer.audio_video? || layer.audio?
     else
-      do_send("txdisable") if layer.audio_video? || layer.video?
-      do_send("unmute") if layer.audio_video? || layer.audio?
+      do_send(Command::Disable) if layer.audio_video? || layer.video?
+      do_send(Command::Unmute) if layer.audio_video? || layer.audio?
     end
+  end
+
+  enum Response
+    Name
+    Stream
+    Playmode
+    Mute
   end
 
   def received(data, task)
@@ -72,22 +91,25 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
 
     prop, value = data.split(':')
 
-    case prop.downcase
-    when "name",
-         self[:device_name] = value
-    when "stream"
+    case Response.from_value? prop.downcase
+    in Response::Name
+      self[:device_name] = value
+    in Response::Stream
       self[:stream_id] = value.to_i
-    when "playmode"
+    in Response::Playmode
       self[:mute] = value == "off"
-    when "mute"
+    in Response::Mute
       self[:audio_mute] = value == "1"
+    in Nil
+      raise "Invalid response: #{prop}"
     end
 
     task.try(&.success)
   end
 
-  def do_send(*args, **options)
-    command = "#{args.join(':')}\r"
-    send(command, **options)
+  def do_send(command : Command, *args, **options)
+    arguments = [command.mapped_value] + args
+    request = "#{arguments.join(':')}#{DELIMITER}"
+    send(request, **options)
   end
 end

@@ -176,27 +176,29 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
 
     prop, value = data.split(':')
 
-    case Response.from_mapped_value(prop.downcase)
-    in .stream?
+    case Response.from_mapped_value?(prop.downcase)
+    in Response::Stream
       self[:video] = @stream = value.to_i
-    in .stream_audio?
+    in Response::StreamAudio
       stream_id = value.to_i
       self[:audio_actual] = stream_id
       self[:audio] = stream_id == 0 ? (@mute ? 0 : @stream) : stream_id
-    in .name?
+    in Response::Name
       self[:device_name] = value
-    in .playmode?
+    in Response::Playmode
       self[:local_playback] = value == "local"
-    in .playlist?
+    in Response::Playlist
       self[:playlist] = value.to_i
-    in .mute?
+    in Response::Mute
       self[:mute] = @mute = value == "1"
-    in .scaler_bypass?
+    in Response::ScalerBypass
       self[:scaler_active] = value != "no"
-    in .mode?
+    in Response::Mode
       self[:output_res] = value
-    in .input_res?
+    in Response::InputRes
       self[:input_res] = value
+    in Nil
+      raise "Unexpected response: #{prop}"
     end
 
     task.try(&.success)
