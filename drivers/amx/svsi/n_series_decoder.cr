@@ -1,3 +1,4 @@
+require "inactive-support/mapped_enum"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 
@@ -17,6 +18,21 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
 
   private DELIMITER = '\r'
 
+  mapped_enum Command do
+    GetStatus     = "getStatus"
+    Set           = "set"
+    SetSettings   = "setSettings"
+    SwitchKVM     = "KVMMasterIP"
+    Mute          = "mute"
+    Unmute        = "unmute"
+    SetAudio      = "seta"
+    Live          = "live"
+    Local         = "local"
+    ScalerEnable  = "scalerenable"
+    ScalerDisable = "scalerdisable"
+    ModeSet       = "modeset"
+  end
+
   def on_load
     transport.tokenizer = Tokenizer.new(DELIMITER)
   end
@@ -30,7 +46,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   end
 
   def do_poll
-    do_send("getStatus", priority: 0)
+    do_send(Command::GetStatus, priority: 0)
   end
 
   def switch_to(input : Int32)
@@ -39,7 +55,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   end
 
   def switch_video(stream_id : Int32)
-    do_send("set", stream_id)
+    do_send(Command::Set, stream_id)
   end
 
   def switch_audio(stream_id : Int32)
@@ -49,7 +65,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
 
   def switch_kvm(ip_address : String, video_follow : Bool = true)
     host = "#{ip_address},#{video_follow ? 1 : 0}"
-    do_send("KVMMasterIP", host)
+    do_send(Command::SwitchKVM, host)
   end
 
   def mute(
@@ -58,24 +74,24 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
     layer : MuteLayer = MuteLayer::AudioVideo
   )
     if state
-      do_send("mute", name: :mute)
-      do_send("seta", 0)
+      do_send(Command::Mute, name: :mute)
+      do_send(Command::SetAudio, 0)
     else
-      do_send("seta", @previous_stream || 0)
-      do_send("unmute", name: :mute)
+      do_send(Command::SetAudio, @previous_stream || 0)
+      do_send(Command::Unmute, name: :mute)
     end
   end
 
   def live(state : Bool = true)
-    state ? do_send("live") : local(self[:playlist].as_i)
+    state ? do_send(Command::Live) : local(self[:playlist].as_i)
   end
 
   def local(playlist : Int32 = 0)
-    do_send("local", playlist)
+    do_send(Command::Local, playlist)
   end
 
   def scaler(state : Bool)
-    action = state ? "scalerenable" : "scalardisable"
+    action = state ? Command::ScalerEnable : Command::ScalerDisable
     do_send(action, name: :scaler)
   end
 
@@ -93,7 +109,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
       logger.error { "\"#{mode}\" is not a valid resolution" }
       return
     end
-    do_send("modeset", mode)
+    do_send(Command::ModeSet, mode)
   end
 
   def videowall(
@@ -115,7 +131,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
 
   def videowall_enable(state : Bool = true)
     state = state ? "on" : "off"
-    do_send("setSettings", "wallEnable", state)
+    do_send(Command::SetSettings, "wallEnable", state)
   end
 
   def videowall_disable
@@ -123,13 +139,13 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   end
 
   def videowall_size(width : Int32, height : Int32)
-    do_send("setSettings", "wallHorMons", width)
-    do_send("setSettings", "wallVerMons", height)
+    do_send(Command::SetSettings, "wallHorMons", width)
+    do_send(Command::SetSettings, "wallVerMons", height)
   end
 
   def videowall_position(x : Int32, y : Int32)
-    do_send("setSettings", "wallMonPosV", x)
-    do_send("setSettings", "wallMonPosH", y)
+    do_send(Command::SetSettings, "wallMonPosV", x)
+    do_send(Command::SetSettings, "wallMonPosH", y)
   end
 
   enum VideowallScalingMode
@@ -139,7 +155,19 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   end
 
   def videowall_scaling(scaling_mode : VideowallScalingMode)
-    do_send("setSettings", "wallStretch", scaling_mode)
+    do_send(Command::SetSettings, "wallStretch", scaling_mode)
+  end
+
+  mapped_enum Response do
+    Stream       = "stream"
+    StreamAudio  = "streamaudio"
+    Name         = "name"
+    Playmode     = "playmode"
+    Playlist     = "playlist"
+    Mute         = "mute"
+    ScalerBypass = "scalerbypass"
+    Mode         = "mode"
+    InputRes     = "inputres"
   end
 
   def received(data, task)
@@ -148,34 +176,35 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
 
     prop, value = data.split(':')
 
-    case prop.downcase
-    when "stream"
+    case Response.from_mapped_value(prop.downcase)
+    in .stream?
       self[:video] = @stream = value.to_i
-    when "streamaudio"
+    in .stream_audio?
       stream_id = value.to_i
       self[:audio_actual] = stream_id
       self[:audio] = stream_id == 0 ? (@mute ? 0 : @stream) : stream_id
-    when "name",
-         self[:device_name] = value
-    when "playmode"
+    in .name?
+      self[:device_name] = value
+    in .playmode?
       self[:local_playback] = value == "local"
-    when "playlist"
+    in .playlist?
       self[:playlist] = value.to_i
-    when "mute"
+    in .mute?
       self[:mute] = @mute = value == "1"
-    when "scalerbypass"
+    in .scaler_bypass?
       self[:scaler_active] = value != "no"
-    when "mode"
+    in .mode?
       self[:output_res] = value
-    when "inputres"
+    in .input_res?
       self[:input_res] = value
     end
 
     task.try(&.success)
   end
 
-  def do_send(*args, **options)
-    command = "#{args.join(':')}\r"
-    send(command, **options)
+  def do_send(command : Command, *args, **options)
+    arguments = [command.mapped_value] + args
+    request = "#{arguments.join(':')}#{DELIMITER}"
+    send(request, **options)
   end
 end
