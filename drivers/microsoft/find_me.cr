@@ -29,8 +29,12 @@ class Microsoft::FindMe < PlaceOS::Driver
     params : Hash(String, String?) = {} of String => String?,
     headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new
   ) : String
+    logger.debug { "requesting: #{method} #{path}" }
+
     headers["Authorization"] = @auth_token unless @auth_token.empty?
     response = http(method, path, body, params, headers)
+
+    logger.debug { "authentication required: #{response.status_code == 401}" }
 
     if response.status_code == 401 && response.headers["WWW-Authenticate"]?
       supported = response.headers.get("WWW-Authenticate")
@@ -47,9 +51,12 @@ class Microsoft::FindMe < PlaceOS::Driver
       # Authenticate the client
       @auth_token = NTLM.authenticate_http(challenge, @username, @password)
       headers["Authorization"] = @auth_token
+
+      logger.debug { "authenticated" }
       response = http(method, path, body, params, headers)
     end
 
+    logger.debug { "request returned:\n#{response.body}" }
     raise "request #{path} failed with status: #{response.status_code}" unless response.success?
 
     response.body
@@ -57,7 +64,6 @@ class Microsoft::FindMe < PlaceOS::Driver
 
   def levels
     data = make_request("GET", "/FindMeService/api/MeetingRooms/BuildingLevelsWithMeetingRooms")
-    logger.debug { "levels request returned: #{data}" }
 
     levels = Array(Microsoft::Level).from_json(data)
     buildings = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
@@ -69,8 +75,6 @@ class Microsoft::FindMe < PlaceOS::Driver
   def user_details(usernames : String | Array(String))
     users = usernames.is_a?(String) ? [usernames] : usernames
     data = make_request("GET", "/FindMeService/api/ObjectLocation/Users/#{users.join(",")}?getExtendedData=true")
-
-    logger.debug { "user details request returned #{data}" }
 
     Array(Microsoft::Location).from_json(data).reject { |loc| {"NoRecentData", "NoData"}.includes?(loc.status) }
   end
