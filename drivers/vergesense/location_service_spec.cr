@@ -1,7 +1,9 @@
+require "placeos-driver/spec"
+
 DriverSpecs.mock_driver "Vergesense::LocationService" do
   system({
-    Vergesense:     {Vergesense},
-    AreaManagement: {AreaManagement},
+    Vergesense:     {VergesenseMock},
+    AreaManagement: {AreaManagementMock},
   })
 
   resp = exec(:device_locations, "zone-level").get
@@ -11,7 +13,8 @@ DriverSpecs.mock_driver "Vergesense::LocationService" do
   ])
 end
 
-class Vergesense < DriverSpecs::MockDriver
+# :nodoc:
+class VergesenseMock < DriverSpecs::MockDriver
   def on_load
     self["vergesense_building_id-floor_id"] = {
       "floor_ref_id" => "floor_id",
@@ -56,7 +59,8 @@ class Vergesense < DriverSpecs::MockDriver
   end
 end
 
-class AreaManagement < DriverSpecs::MockDriver
+# :nodoc:
+class AreaManagementMock < DriverSpecs::MockDriver
   def update_available(zones : Array(String))
     logger.info { "requested update to #{zones}" }
     nil

@@ -3,7 +3,7 @@ require "qr-code/export/png"
 require "base64"
 require "email"
 require "uri"
-
+require "placeos-driver"
 require "placeos-driver/interface/mailer"
 
 class Place::Smtp < PlaceOS::Driver
@@ -18,9 +18,10 @@ class Place::Smtp < PlaceOS::Driver
     sender: "support@place.tech",
     # host:     "smtp.host",
     # port:     587,
-    tls_mode: EMail::Client::TLSMode::STARTTLS.to_s,
-    username: "", # Username/Password for SMTP servers with basic authorization
-    password: "",
+    tls_mode:          EMail::Client::TLSMode::STARTTLS.to_s,
+    ssl_verify_ignore: false,
+    username:          "", # Username/Password for SMTP servers with basic authorization
+    password:          "",
 
     email_templates: {visitor: {checkin: {
       subject: "%{name} has arrived",
@@ -41,6 +42,7 @@ class Place::Smtp < PlaceOS::Driver
   @port : Int32 = 587
   @tls_mode : EMail::Client::TLSMode = EMail::Client::TLSMode::STARTTLS
   @send_lock : Mutex = Mutex.new
+  @ssl_verify_ignore : Bool = false
 
   def on_load
     on_update
@@ -62,6 +64,7 @@ class Place::Smtp < PlaceOS::Driver
     @host = setting?(String, :host) || host
     @port = setting?(Int32, :port) || port
     @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || tls_mode
+    @ssl_verify_ignore = setting?(Bool, :ssl_verify_ignore) || false
 
     @smtp_client = new_smtp_client
 
@@ -79,6 +82,7 @@ class Place::Smtp < PlaceOS::Driver
     end
 
     email_config.use_tls(@tls_mode)
+    email_config.tls_context.verify_mode = OpenSSL::SSL::VerifyMode::None if @ssl_verify_ignore
 
     EMail::Client.new(email_config)
   end

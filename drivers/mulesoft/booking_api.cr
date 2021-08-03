@@ -1,24 +1,23 @@
-module MuleSoft; end
-
+require "placeos-driver"
 require "./models"
 
 class MuleSoft::BookingsAPI < PlaceOS::Driver
   descriptive_name "MuleSoft Bookings API"
   generic_name :Bookings
   description %(Retrieves and creates bookings using the MuleSoft API)
-  uri_base "https://dev.api.sydney.edu.au"
+  uri_base "https://api.sydney.edu.au"
 
   default_settings({
     venue_code:         "venue code",
     base_path:          "/usyd-edu-timetable-exp-api-v1/v1/",
-    polling_period:     5,
+    polling_cron:       "*/30 7-20 * * *",
     time_zone:          "Australia/Sydney",
     ssl_key:            "private key",
     ssl_cert:           "certificate",
-    ssl_auth_enabled:   false,
+    ssl_auth_enabled:   true,
     username:           "basic auth username",
     password:           "basic auth password",
-    basic_auth_enabled: false,
+    basic_auth_enabled: true,
     running_a_spec:     false,
   })
 
@@ -39,6 +38,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
   end
 
   def on_update
+    schedule.clear
     @running_a_spec = !!setting(Bool, :running_a_spec)
 
     @username = setting(String, :username)
@@ -51,7 +51,7 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
 
     @host = URI.parse(config.uri.not_nil!).host.not_nil!
 
-    time_zone = setting?(String, :calendar_time_zone).presence
+    time_zone = setting?(String, :time_zone).presence
     @time_zone = Time::Location.load(time_zone) if time_zone
 
     @ssl_auth_enabled = !!setting?(Bool, :ssl_auth_enabled)
@@ -60,18 +60,20 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
 
     schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_bookings }
 
-    polling_period = (setting?(UInt32, :polling_period) || 5_u32).minutes
-    polling_period += Random.rand(30).seconds + Random.rand(1000).milliseconds
-    schedule.every(polling_period) { poll_bookings }
+    cron_string = setting?(String, :polling_cron).presence || "*/30 7-20 * * *"
+    schedule.cron(cron_string, @time_zone) { poll_bookings(random_delay: true) }
   end
 
-  def poll_bookings
+  def poll_bookings(random_delay : Bool = false)
     now = Time.local @time_zone
-    from = now.at_beginning_of_month
-    to = now.at_end_of_month
+    from = now - 1.week
+    to = now + 1.week
 
     logger.debug { "polling bookings #{@venue_code}, from #{from}, to #{to}, in #{@time_zone.name}" }
-
+    if random_delay
+      logger.debug { "random delay of <30seconds to reduce instantaneous Mulesoft API load" }
+      sleep Random.rand(30.0)
+    end
     query_bookings(@venue_code, from, to)
 
     check_current_booking
@@ -117,13 +119,13 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
     self[:next_booking] = next_booking ? @bookings[next_booking].to_placeos : nil
   end
 
-  def query_bookings(venue_code : String, starts_at : Time = Time.local.at_beginning_of_day, ends_at : Time = Time.local.at_end_of_day)
+  protected def query_bookings(venue_code : String, starts_at : Time = Time.local.at_beginning_of_day, ends_at : Time = Time.local.at_end_of_day)
     client = HTTP::Client.new(host: @host, tls: (@ssl_auth_enabled ? @context : nil))
 
     params = {
       "startDateTime" => starts_at.to_s("%FT%T"),
       "endDateTime"   => ends_at.to_s("%FT%T"),
-    }.map { |k, v| "#{k}=#{v}" }.join("&")
+    }.join('&') { |k, v| "#{k}=#{v}" }
 
     headers = HTTP::Headers{
       "Content-Type" => "application/json",

@@ -1,15 +1,7 @@
-DriverSpecs.mock_driver "Cisco::Meraki::Dashboard" do
-  # The dashboard should request the floorplan sizes on load
-  expect_http_request do |request, response|
-    headers = request.headers
-    if headers["X-Cisco-Meraki-API-Key"]? == "configure for the dashboard API"
-      response.status_code = 200
-      response << %([{"floorPlanId":"floor-123","name":"Level 1","width":30.5,"height":20}])
-    else
-      response.status_code = 401
-    end
-  end
+require "./scanning_api"
+require "placeos-driver/spec"
 
+DriverSpecs.mock_driver "Cisco::Meraki::Dashboard" do
   # Send the request
   retval = exec(:fetch, "/api/v0/organizations")
 
@@ -26,7 +18,4 @@ DriverSpecs.mock_driver "Cisco::Meraki::Dashboard" do
 
   # Should return the payload
   retval.get.should eq %([{"id":"org id","name":"place tech"}])
-
-  # Should standardise the format of MAC addresses
-  exec(:format_mac, "0x12:34:A6-789B").get.should eq %(1234a6789b)
 end

@@ -2,14 +2,14 @@ module MuleSoft
   class Booking
     include JSON::Serializable
 
-    @[JSON::Field(key: "activityName")]
-    property title : String
+    @[JSON::Field(key: "unitName")]
+    property title : String?
 
     @[JSON::Field(key: "activityType")]
-    property type : String
-
-    @[JSON::Field(key: "activityDescription")]
     property body : String
+
+    @[JSON::Field(key: "unitCode")]
+    property recurring_master_id : String?
 
     @[JSON::Field(key: "startDateTime", converter: MuleSoft::DateTimeConvertor)]
     property event_start : Int64
@@ -23,12 +23,12 @@ module MuleSoft
     # otherwise when to_json is called all the field names revert to the MuleSoft ones
     def to_placeos
       value = {
-        "name"        => @title,
-        "title"       => @type,
-        "body"        => @body,
-        "event_start" => @event_start,
-        "event_end"   => @event_end,
-        "location"    => @location,
+        "title"               => @title,
+        "body"                => @body,
+        "recurring_master_id" => @recurring_master_id,
+        "event_start"         => @event_start,
+        "event_end"           => @event_end,
+        "location"            => @location,
       }
     end
   end

@@ -1,6 +1,5 @@
-module Place; end
-
 require "json"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 
 class Place::DeskBookingsLocations < PlaceOS::Driver
@@ -135,6 +134,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
       {
         location:    :booking,
+        type:        @booking_type,
         checked_in:  booking.checked_in,
         asset_id:    booking.asset_id,
         booking_id:  booking.id,

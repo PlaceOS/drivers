@@ -1,9 +1,8 @@
-module Cisco; end
-
 require "set"
 require "jwt"
 require "s2_cells"
 require "simple_retry"
+require "placeos-driver"
 require "placeos-driver/interface/locatable"
 
 class Cisco::DNASpaces < PlaceOS::Driver
@@ -178,7 +177,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   # MAC Address => Location (including user)
-  @locations : Hash(String, DeviceLocationUpdate) = {} of String => DeviceLocationUpdate
+  @locations : Hash(String, DeviceLocationUpdate | IotTelemetry) = {} of String => DeviceLocationUpdate | IotTelemetry
   @loc_lock : Mutex = Mutex.new
 
   def locations
@@ -278,7 +277,14 @@ class Cisco::DNASpaces < PlaceOS::Driver
           when DeviceEntry
             # This is used entirely for
             @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
-          when DeviceLocationUpdate
+          when DeviceLocationUpdate, IotTelemetry
+            if !payload.has_position?
+              iot_payload = payload.as(IotTelemetry)
+              # process other IoT telemetry such as presense or temperature etc
+              self[iot_payload.device.mac_address] = payload
+              next
+            end
+
             # Keep track of device location
             device_mac = format_mac(payload.device.mac_address)
             existing = nil
@@ -409,7 +415,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
             location
           end
         end
-      }.sort { |a, b|
+      }.sort! { |a, b|
         b.last_seen <=> a.last_seen
       }.map { |location|
         lat = location.latitude
@@ -438,7 +444,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
         offset_y = 0.0
 
         # Add our zone IDs to the response
-        location.location_mappings.each do |tag, location_id|
+        location.location_mappings.each_value do |location_id|
           if level_data = @floorplan_mappings[location_id]?
             level_data.each do |key, value|
               case key
@@ -545,7 +551,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
       offset_y = 0.0
 
       # any adjustments required for these locations?
-      locations.first.location_mappings.each do |tag, location_id|
+      locations.first.location_mappings.each_value do |location_id|
         if level_data = adjustments[location_id]?
           offset_x, offset_y, map_width, map_height = level_data
           break
@@ -598,8 +604,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   # This provides the DNA Spaces dashboard with stream consumption status
-  protected def update_monitoring_status(running = true) : Nil
-    response = post("/api/partners/v1/monitoring/status", headers: {
+  @[Security(PlaceOS::Driver::Level::Administrator)]
+  def update_monitoring_status(running : Bool = true) : Nil
+    response = put("/api/partners/v1/monitoring/status", headers: {
       "Content-Type" => "application/json",
       "X-API-KEY"    => @api_key,
     }, body: {

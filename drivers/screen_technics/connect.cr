@@ -1,5 +1,4 @@
-module ScreenTechnics; end
-
+require "placeos-driver"
 require "placeos-driver/interface/moveable"
 require "placeos-driver/interface/stoppable"
 
@@ -128,7 +127,7 @@ class ScreenTechnics::Connect < PlaceOS::Driver
     logger.debug { "Screen sent #{data}" }
 
     # Builds an array of numbers from the returned string
-    parts = data.split(/,/).map { |part| part.strip.to_i }
+    parts = data.split(/,/).map &.strip.to_i
     cmd = CMD_LOOKUP[parts[0] - 100]?
 
     if cmd
