@@ -1,5 +1,4 @@
-module Place; end
-
+require "placeos-driver/spec"
 require "placeos-driver/interface/locatable"
 
 WIRELESS_LOC = {
@@ -38,6 +37,24 @@ class WirelessLocation < DriverSpecs::MockDriver
   def locate_user(email : String? = nil, username : String? = nil)
     [WIRELESS_LOC]
   end
+
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
+    [] of String
+  end
+
+  alias OwnershipMAC = NamedTuple(
+    location: String,
+    assigned_to: String,
+    mac_address: String,
+  )
+
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
+    nil
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    nil
+  end
 end
 
 class DeskLocation < DriverSpecs::MockDriver
@@ -45,5 +62,23 @@ class DeskLocation < DriverSpecs::MockDriver
 
   def locate_user(email : String? = nil, username : String? = nil)
     [DESK_LOC]
+  end
+
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
+    [] of String
+  end
+
+  alias OwnershipMAC = NamedTuple(
+    location: String,
+    assigned_to: String,
+    mac_address: String,
+  )
+
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
+    nil
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    nil
   end
 end

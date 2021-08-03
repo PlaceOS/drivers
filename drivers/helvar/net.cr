@@ -1,4 +1,4 @@
-module Helvar; end
+require "placeos-driver"
 
 # Documentation: https://aca.im/driver_docs/Helvar/HelvarNet-Overview.pdf
 

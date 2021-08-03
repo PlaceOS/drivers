@@ -15,7 +15,7 @@ From a driver code structure standpoint there is no difference between these typ
 During a test, the loaded module is loaded with a TCP transport, HTTP enabled and logic module capabilities.
 This allows for testing the full capabilities of any driver.
 
-The driver is lunched as it would be in production.
+The driver is launched as it would be in production.
 
 
 ## Expectations

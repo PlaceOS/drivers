@@ -1,4 +1,4 @@
-module MessageMedia; end
+require "placeos-driver"
 
 # Documentation: https://developers.messagemedia.com/code/messages-api-documentation/
 require "placeos-driver/interface/sms"
@@ -9,6 +9,7 @@ class MessageMedia::SMS < PlaceOS::Driver
   # Discovery Information
   generic_name :SMS
   descriptive_name "MessageMedia SMS service"
+  uri_base "https://api.messagemedia.com"
 
   default_settings({
     basic_auth: {
@@ -22,7 +23,6 @@ class MessageMedia::SMS < PlaceOS::Driver
   end
 
   def on_update
-    # NOTE:: base URI https://api.messagemedia.com
   end
 
   def send_sms(

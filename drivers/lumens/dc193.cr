@@ -1,5 +1,4 @@
-module Lumens; end
-
+require "placeos-driver"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/zoomable"
 
@@ -77,7 +76,7 @@ class Lumens::DC193 < PlaceOS::Driver
     send Bytes[0xA0, 0x50, 0x00, 0x00, 0x00, 0xAF], priority: 0
   end
 
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 1)
+  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
     return false if @frozen
 
     position = (position < 0 ? 0 : @zoom_max) unless @zoom_range.includes?(position)

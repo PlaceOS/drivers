@@ -1,7 +1,4 @@
-module Cisco; end
-
-module Cisco::Switch; end
-
+require "placeos-driver"
 require "set"
 
 class Cisco::Switch::SnoopingCatalyst < PlaceOS::Driver
@@ -122,17 +119,16 @@ class Cisco::Switch::SnoopingCatalyst < PlaceOS::Driver
       end
     end
 
-    # Detect more data available
-    # ==> --More--
-    if data =~ /More/
+    case data
+    when /More/
+      # Detect more data available
+      # ==> --More--
       send(" ", priority: 99, retries: 0)
       return task.try &.success
-    end
-
-    # Interface MAC Address detection
-    # 33    e4b9.7aa5.aa7f    STATIC      Gi3/0/8
-    # 10    f4db.e618.10a4    DYNAMIC     Te2/0/40
-    if data =~ /STATIC|DYNAMIC/
+    when /STATIC|DYNAMIC/
+      # Interface MAC Address detection
+      # 33    e4b9.7aa5.aa7f    STATIC      Gi3/0/8
+      # 10    f4db.e618.10a4    DYNAMIC     Te2/0/40
       parts = data.split(/\s+/).reject(&.empty?)
       mac = format(parts[1])
       interface = normalise(parts[-1])
@@ -140,15 +136,13 @@ class Cisco::Switch::SnoopingCatalyst < PlaceOS::Driver
       @interface_macs[interface] = mac if mac && interface
 
       return :success
-    end
-
-    # Interface change detection
-    # 07-Aug-2014 17:28:26 %LINK-I-Up:  gi2
-    # 07-Aug-2014 17:28:31 %STP-W-PORTSTATUS: gi2: STP status Forwarding
-    # 07-Aug-2014 17:44:43 %LINK-I-Up:  gi2, aggregated (1)
-    # 07-Aug-2014 17:44:47 %STP-W-PORTSTATUS: gi2: STP status Forwarding, aggregated (1)
-    # 07-Aug-2014 17:45:24 %LINK-W-Down:  gi2, aggregated (2)
-    if data =~ /%LINK/
+    when /%LINK/
+      # Interface change detection
+      # 07-Aug-2014 17:28:26 %LINK-I-Up:  gi2
+      # 07-Aug-2014 17:28:31 %STP-W-PORTSTATUS: gi2: STP status Forwarding
+      # 07-Aug-2014 17:44:43 %LINK-I-Up:  gi2, aggregated (1)
+      # 07-Aug-2014 17:44:47 %STP-W-PORTSTATUS: gi2: STP status Forwarding, aggregated (1)
+      # 07-Aug-2014 17:45:24 %LINK-W-Down:  gi2, aggregated (2)
       interface = normalise(data.split(",")[0].split(/\s/)[-1])
 
       if data =~ /Up:/
@@ -166,9 +160,7 @@ class Cisco::Switch::SnoopingCatalyst < PlaceOS::Driver
       self[:interfaces] = @check_interface
 
       return task.try &.success
-    end
-
-    if data.starts_with?("Total number")
+    when .starts_with?("Total number")
       logger.debug { "Processing #{@snooping.size} bindings" }
       checked = Set(String).new
       devices = {} of String => NamedTuple(mac: String, ip: String)
@@ -215,43 +207,40 @@ class Cisco::Switch::SnoopingCatalyst < PlaceOS::Driver
     # Port  Name         Status     Vlan     Duplex  Speed Type
     # Gi1/1            notconnect   1      auto   auto No Gbic
     # Fa6/1            connected  1      a-full  a-100 10/100BaseTX
-    if entries.includes?("connected")
+    case entries
+    when .includes?("connected")
       interface = entries[0].downcase
-      return task.try &.success if @check_interface.includes? interface
-
-      logger.debug { "Interface Up: #{interface}" }
-      @check_interface << interface
-
-      return task.try &.success
-    elsif entries.includes?("notconnect")
+      unless @check_interface.includes? interface
+        logger.debug { "Interface Up: #{interface}" }
+        @check_interface << interface
+      end
+    when .includes?("notconnect")
       interface = entries[0].downcase
-      return task.try &.success unless @check_interface.includes? interface
-
-      # Delete the lookup records
-      logger.debug { "Interface Down: #{interface}" }
-      @check_interface.delete(interface)
-
-      return task.try &.success
-    end
-
-    # We are looking for MAC to IP address mappings
-    # =============================================
-    # MacAddress      IpAddress    Lease(sec)  Type       VLAN  Interface
-    # ------------------  ---------------  ----------  -------------  ----  --------------------
-    # 00:21:CC:D5:33:F4   10.151.130.1   16283     dhcp-snooping   113   GigabitEthernet3/0/43
-    # Total number of bindings: 3
-    if entries.size > 2
-      interface = normalise(entries[-1])
-
-      # We only want entries that are currently active
       if @check_interface.includes? interface
-        # Ensure the data is valid
-        mac = entries[0]
-        if mac =~ /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/
-          mac = format(mac)
-          ip = entries[1]
+        # Delete the lookup records
+        logger.debug { "Interface Down: #{interface}" }
+        @check_interface.delete(interface)
+      end
+    else
+      if entries.size > 2
+        # We are looking for MAC to IP address mappings
+        # =============================================
+        # MacAddress      IpAddress    Lease(sec)  Type       VLAN  Interface
+        # ------------------  ---------------  ----------  -------------  ----  --------------------
+        # 00:21:CC:D5:33:F4   10.151.130.1   16283     dhcp-snooping   113   GigabitEthernet3/0/43
+        # Total number of bindings: 3
+        interface = normalise(entries[-1])
 
-          @snooping << {mac, ip, interface} unless @ignore_macs.includes?(mac[0..5])
+        # We only want entries that are currently active
+        if @check_interface.includes? interface
+          # Ensure the data is valid
+          mac = entries[0]
+          if mac =~ /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/
+            mac = format(mac)
+            ip = entries[1]
+
+            @snooping << {mac, ip, interface} unless @ignore_macs.includes?(mac[0..5])
+          end
         end
       end
     end
