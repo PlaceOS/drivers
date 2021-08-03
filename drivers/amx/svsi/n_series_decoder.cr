@@ -18,7 +18,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   private DELIMITER = '\r'
 
   def on_load
-    transport.tokenizer = Tokenizer.new(DELIMITER.bytes)
+    transport.tokenizer = Tokenizer.new(DELIMITER)
   end
 
   def connected
