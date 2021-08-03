@@ -41,6 +41,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   end
 
   Modes = ["1", "2", "3", "4", "5", "6", "7", "8"]
+
   def media_source(mode : String)
     if mode == "live"
       do_send("live")
@@ -73,7 +74,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
 
     case prop.downcase
     when "name",
-      self[:device_name] = value
+         self[:device_name] = value
     when "stream"
       self[:stream_id] = value.to_i
     when "playmode"

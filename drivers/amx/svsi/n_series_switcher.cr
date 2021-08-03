@@ -1,4 +1,5 @@
 require "placeos-driver/interface/muteable"
+
 # require "placeos-driver/interface/switchable"
 
 # Documentation: https://aca.im/driver_docs/AMX/N8000SeriesAPICommandListRev1.1.pdf
@@ -71,7 +72,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
     :videowall,
     # miscellaneous commands
     :script, :goto, :tcpclient, :udpclient, :reboot, :gc_serial, :gc_openrelay,
-    :gc_closerelay, :gc_ir
+    :gc_closerelay, :gc_ir,
   ]
 
   {% for name in CommonCommands %}
@@ -129,24 +130,24 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   def switch_audio(inouts : Hash(Int32, InOut | Array(InOut)), **options)
     inouts.each do |input, output|
       outputs = output.is_a?(InOut) ? [output] : output
-        if input != 0
-          # 'in_ip' => ['ip1', 'ip2'] etc
-          input_actual = get_input(input)
-          outputs.each do |o|
-            output_actual = get_output(o)
+      if input != 0
+        # 'in_ip' => ['ip1', 'ip2'] etc
+        input_actual = get_input(input)
+        outputs.each do |o|
+          output_actual = get_output(o)
 
-            audioon(input_actual,  **options)
-            audioon(output_actual, **options)
+          audioon(input_actual, **options)
+          audioon(output_actual, **options)
 
-            self["audio#{output_actual}"] = input_actual
-            do_send(:switchaudio, output_actual, input_actual, **options)
-          end
-        else
-          # nil => ['ip1', 'ip2'] etc
-          outputs.each do |o|
-            audiooff(get_output(o), **options)
-          end
+          self["audio#{output_actual}"] = input_actual
+          do_send(:switchaudio, output_actual, input_actual, **options)
         end
+      else
+        # nil => ['ip1', 'ip2'] etc
+        outputs.each do |o|
+          audiooff(get_output(o), **options)
+        end
+      end
     end
   end
 
@@ -174,18 +175,18 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
     case resp.size
     when 13 # Encoder or decoder status
       self[resp[0]] = {
-        communications: resp[1] == "1",
-        dvioff: resp[2] == "1",
-        scaler: resp[3] == "1",
+        communications:  resp[1] == "1",
+        dvioff:          resp[2] == "1",
+        scaler:          resp[3] == "1",
         source_detected: resp[4] == "1",
-        mode: resp[5],
-        audio_enabled: resp[6] == "1",
-        video_stream: resp[7].to_i,
-        audio_stream: resp[8] == "follow video" ? resp[8] : resp[8].to_i,
-        playlist: resp[9],
-        colorspace: resp[10],
-        hdmiaudio: resp[11],
-        resolution: resp[12]
+        mode:            resp[5],
+        audio_enabled:   resp[6] == "1",
+        video_stream:    resp[7].to_i,
+        audio_stream:    resp[8] == "follow video" ? resp[8] : resp[8].to_i,
+        playlist:        resp[9],
+        colorspace:      resp[10],
+        hdmiaudio:       resp[11],
+        resolution:      resp[12],
       }
     when 10 # Audio Transceiver or window processor status
       self[resp[0]] = resp

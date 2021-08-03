@@ -85,8 +85,9 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
     "1080p60",
     "720p60",
     "4K30",
-    "4K25"
+    "4K25",
   ]
+
   def output_resolution(mode : String)
     unless OutputModes.includes?(mode)
       logger.error { "\"#{mode}\" is not a valid resolution" }
@@ -100,7 +101,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
     height : Int32,
     x_pos : Int32,
     y_pos : Int32,
-    scale : VideowallScalingMode = VideowallScalingMode:: Auto
+    scale : VideowallScalingMode = VideowallScalingMode::Auto
   )
     if width > 1 && height > 1
       videowall_size(width, height)
@@ -155,7 +156,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
       self[:audio_actual] = stream_id
       self[:audio] = stream_id == 0 ? (@mute ? 0 : @stream) : stream_id
     when "name",
-      self[:device_name] = value
+         self[:device_name] = value
     when "playmode"
       self[:local_playback] = value == "local"
     when "playlist"
