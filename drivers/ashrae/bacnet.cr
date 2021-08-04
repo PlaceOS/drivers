@@ -1,8 +1,11 @@
 require "placeos-driver"
+require "placeos-driver/interface/sensor"
 require "socket"
 require "./bacnet_models"
 
 class Ashrae::BACnet < PlaceOS::Driver
+  include Interface::Sensor
+
   generic_name :BACnet
   descriptive_name "BACnet Connector"
   description %(makes BACnet data available to other drivers in PlaceOS)
@@ -14,8 +17,8 @@ class Ashrae::BACnet < PlaceOS::Driver
     dispatcher_key: "secret",
     bbmd_ip:        "192.168.0.1",
     known_devices:  [{
-      ip:   "192.168.86.25",
-      id:   389999,
+      ip: "192.168.86.25",
+      id: 389999,
       net:  0x0F0F,
       addr: "0A",
     }],
@@ -30,9 +33,9 @@ class Ashrae::BACnet < PlaceOS::Driver
     }
   end
 
-  getter! udp_server : UDPSocket
-  getter! bacnet_client : ::BACnet::Client::IPv4
-  getter! device_registry : ::BACnet::Client::DeviceRegistry
+  protected getter! udp_server : UDPSocket
+  protected getter! bacnet_client : ::BACnet::Client::IPv4
+  protected getter! device_registry : ::BACnet::Client::DeviceRegistry
 
   alias DeviceInfo = ::BACnet::Client::DeviceRegistry::DeviceInfo
 
@@ -53,6 +56,11 @@ class Ashrae::BACnet < PlaceOS::Driver
     client.on_transmit do |message, address|
       if address.address == Socket::IPAddress::BROADCAST
         logger.debug { "sending broadcase message #{message.inspect}" }
+
+        # send to the known devices (in case BBMD does not forward message)
+        devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
+        devices.each { |dev| server.send message, to: dev.address }
+
         # Send this message to the BBMD
         message.data_link.request_type = ::BACnet::Message::IPv4::Request::DistributeBroadcastToNetwork
         payload = DispatchProtocol.new
@@ -114,6 +122,24 @@ class Ashrae::BACnet < PlaceOS::Driver
     perform_discovery if bbmd_ip.presence
   end
 
+  protected def object_value(obj)
+    val = obj.value.try &.value
+    case val
+    in ::BACnet::Time, ::BACnet::Date
+      val.value
+    in ::BACnet::BitString, BinData
+      nil
+    in ::BACnet::PropertyIdentifier
+      val.property_type
+    in ::BACnet::ObjectIdentifier
+      {val.object_type, val.instance_number}
+    in Nil, Bool, UInt64, Int64, Float32, Float64, String
+      val
+    end
+  rescue
+    nil
+  end
+
   def devices
     device_registry.devices.map do |device|
       {
@@ -127,30 +153,13 @@ class Ashrae::BACnet < PlaceOS::Driver
         id:         device.object_ptr.instance_number,
 
         objects: device.objects.map { |obj|
-          value = begin
-            val = obj.value.try &.value
-            case val
-            in ::BACnet::Time, ::BACnet::Date
-              val.value
-            in ::BACnet::BitString, BinData
-              nil
-            in ::BACnet::PropertyIdentifier
-              val.property_type
-            in ::BACnet::ObjectIdentifier
-              {val.object_type, val.instance_number}
-            in Nil, Bool, UInt64, Int64, Float32, Float64, String
-              val
-            end
-          rescue
-            nil
-          end
           {
             name: obj.name,
             type: obj.object_type,
             id:   obj.instance_id,
 
             unit:  obj.unit,
-            value: value,
+            value: object_value(obj),
             seen:  obj.changed,
           }
         },
@@ -161,7 +170,9 @@ class Ashrae::BACnet < PlaceOS::Driver
   def query_known_devices
     devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
     devices.each do |info|
-      device_registry.inspect_device(info.address, info.identifier, info.net, info.addr)
+      if info.id
+        device_registry.inspect_device(info.address, info.identifier, info.net, info.addr)
+      end
     end
     "inspected #{devices.size} devices"
   end
@@ -244,11 +255,44 @@ class Ashrae::BACnet < PlaceOS::Driver
     value
   end
 
+  def write_binary(device_id : UInt32, instance_id : UInt32, value : Bool, object_type : ObjectType = ObjectType::BinaryValue)
+    val = value ? 1 : 0
+    object = get_object_details(device_id, instance_id, object_type)
+    val = ::BACnet::Object.new.set_value(val)
+    val.short_tag = 9_u8
+    bacnet_client.write_property(
+      object.ip_address,
+      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+      ::BACnet::PropertyType::PresentValue,
+      val
+    )
+    value
+  end
+
   protected def new_device_found(device)
     logger.debug { "new device found: #{device.name}, #{device.model_name} (#{device.vendor_name}) with #{device.objects.size} objects" }
     logger.debug { device.inspect } if @verbose_debug
 
     @devices[device.object_ptr.instance_number] = device
+
+    device_id = device.object_ptr.instance_number
+    device.objects.each { |obj| self[object_binding(device_id, obj)] = object_value(obj) }
+  end
+
+  protected def object_binding(device_id, obj)
+    "#{device_id}.#{obj.object_type}[#{obj.instance_id}]"
+  end
+
+  def poll_device(device_id : UInt32)
+    device = @devices[device_id]?
+    return false unless device
+
+    device.objects.each do |obj|
+      next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
+      obj.sync_value(bacnet_client)
+      self[object_binding(device_id, obj)] = object_value(obj)
+    end
+    true
   end
 
   def received(data, task)
@@ -263,5 +307,121 @@ class Ashrae::BACnet < PlaceOS::Driver
     end
 
     task.try &.success
+  end
+
+  # ======================
+  # Sensor interface
+  # ======================
+
+  protected def to_sensor(device_id, object, filter_type = nil) : Interface::Sensor::Detail?
+    sensor_type = case object.unit
+                  when Nil
+                    # required for case statement to work
+                  when .degrees_fahrenheit?, .degrees_celsius?, .degrees_kelvin?
+                    if object.name.includes? "air"
+                      SensorType::AmbientTemp
+                    else
+                      SensorType::Temperature
+                    end
+                  when .percent_relative_humidity?
+                    SensorType::Humidity
+                  when .pounds_force_per_square_inch?
+                    SensorType::Pressure
+                    # when
+                    #  SensorType::Presence
+                  when .volts?, .millivolts?, .kilovolts?, .megavolts?
+                    SensorType::Voltage
+                  when .milliamperes?, .amperes?
+                    SensorType::Current
+                  when .millimeters_of_water?, .centimeters_of_water?, .inches_of_water?, .cubic_feet?, .cubic_meters?, .imperial_gallons?, .milliliters?, .liters?, .us_gallons?
+                    SensorType::Volume
+                  when .milliwatts?, .watts?, .kilowatts?, .megawatts?, .watt_hours?, .kilowatt_hours?, .megawatt_hours?
+                    SensorType::Power
+                  when .hertz?, .kilohertz?, .megahertz?
+                    SensorType::Frequency
+                  when .cubic_feet_per_second?, .cubic_feet_per_minute?, .cubic_feet_per_hour?, .cubic_meters_per_second?, .cubic_meters_per_minute?, .cubic_meters_per_hour?, .imperial_gallons_per_minute?, .milliliters_per_second?, .liters_per_second?, .liters_per_minute?, .liters_per_hour?, .us_gallons_per_minute?, .us_gallons_per_hour?
+                    SensorType::Flow
+                  when .percent?
+                    SensorType::Level
+                  when .no_units?
+                    if object.name.includes? "count"
+                      SensorType::Counter
+                    end
+                  end
+    return nil unless sensor_type
+    return nil if filter_type && sensor_type != filter_type
+
+    obj_value = object_value(object)
+    value = case obj_value
+            in String, Nil, ::Time, ::BACnet::PropertyIdentifier::PropertyType, Tuple(ObjectType, UInt32)
+              nil
+            in Bool
+              obj_value ? 1.0 : 0.0
+            in UInt64, Int64, Float32, Float64
+              obj_value.to_f64
+            end
+    return nil if value.nil?
+
+    Interface::Sensor::Detail.new(
+      type: sensor_type,
+      value: value,
+      last_seen: object.changed.to_unix,
+      mac: device_id.to_s,
+      id: "#{object.object_type}[#{object.instance_id}]",
+      name: object.name,
+      module_id: module_id,
+      binding: object_binding(device_id, object)
+    )
+  end
+
+  NO_MATCH = [] of Interface::Sensor::Detail
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
+
+    filter = type ? Interface::Sensor::SensorType.parse?(type) : Nil
+
+    if mac
+      device_id = mac.to_u32?
+      return NO_MATCH unless device_id
+      device = @devices[device_id]?
+      return NO_MATCH unless device
+      return device.objects.compact_map { |obj| to_sensor(device_id, obj, filter) }
+    end
+
+    matches = @devices.map { |(device_id, device)| device.objects.compact_map { |obj| to_sensor(device_id, obj, filter) } }
+    matches.flatten
+  rescue error
+    logger.warn(exception: error) { "searching for sensors" }
+    NO_MATCH
+  end
+
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
+    return nil unless id
+    device_id = mac.to_u32?
+    return nil unless device_id
+    device = @devices[device_id]?
+    return nil unless device
+
+    # id should be in the format "object_type[instance_id]"
+    obj_type_string, instance_id_string = id.split('[', 2)
+    instance_id = instance_id_string.rchop.to_u32?
+    return nil unless instance_id
+
+    object_type = ObjectType.parse?(obj_type_string)
+    return nil unless object_type
+
+    object = get_object_details(device_id, instance_id, object_type)
+
+    if object.changed < 1.minutes.ago
+      begin
+        object.sync_value(bacnet_client)
+      rescue error
+        logger.warn(exception: error) { "failed to obtain latest value for sensor at #{mac}.#{id}" }
+      end
+    end
+
+    to_sensor(device_id, object)
   end
 end
