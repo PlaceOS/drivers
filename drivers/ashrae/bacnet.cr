@@ -322,7 +322,7 @@ class Ashrae::BACnet < PlaceOS::Driver
   # Sensor interface
   # ======================
 
-  protected def to_sensor(device_id, object, filter_type = nil) : Interface::Sensor::Detail?
+  protected def to_sensor(device_id, device, object, filter_type = nil) : Interface::Sensor::Detail?
     sensor_type = case object.unit
                   when Nil
                     # required for case statement to work
@@ -377,7 +377,7 @@ class Ashrae::BACnet < PlaceOS::Driver
       last_seen: object.changed.to_unix,
       mac: device_id.to_s,
       id: "#{object.object_type}[#{object.instance_id}]",
-      name: object.name,
+      name: "#{device.name}: #{object.name}",
       module_id: module_id,
       binding: object_binding(device_id, object)
     )
@@ -395,10 +395,10 @@ class Ashrae::BACnet < PlaceOS::Driver
       return NO_MATCH unless device_id
       device = @devices[device_id]?
       return NO_MATCH unless device
-      return device.objects.compact_map { |obj| to_sensor(device_id, obj, filter) }
+      return device.objects.compact_map { |obj| to_sensor(device_id, device, obj, filter) }
     end
 
-    matches = @devices.map { |(device_id, device)| device.objects.compact_map { |obj| to_sensor(device_id, obj, filter) } }
+    matches = @devices.map { |(device_id, device)| device.objects.compact_map { |obj| to_sensor(device_id, device, obj, filter) } }
     matches.flatten
   rescue error
     logger.warn(exception: error) { "searching for sensors" }
@@ -431,6 +431,6 @@ class Ashrae::BACnet < PlaceOS::Driver
       end
     end
 
-    to_sensor(device_id, object)
+    to_sensor(device_id, device, object)
   end
 end
