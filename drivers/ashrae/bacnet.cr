@@ -17,12 +17,13 @@ class Ashrae::BACnet < PlaceOS::Driver
     dispatcher_key: "secret",
     bbmd_ip:        "192.168.0.1",
     known_devices:  [{
-      ip: "192.168.86.25",
-      id: 389999,
+      ip:   "192.168.86.25",
+      id:   389999,
       net:  0x0F0F,
       addr: "0A",
     }],
     verbose_debug: false,
+    poll_period:   3,
   })
 
   def websocket_headers
@@ -108,7 +109,14 @@ class Ashrae::BACnet < PlaceOS::Driver
     bbmd_ip = setting?(String, :bbmd_ip) || ""
     @bbmd_ip = Socket::IPAddress.new(bbmd_ip, 0xBAC0) if bbmd_ip.presence
     @verbose_debug = setting?(Bool, :verbose_debug) || false
+
+    schedule.clear
     schedule.in(5.seconds) { query_known_devices }
+
+    poll_period = setting?(UInt32, :poll_period) || 3
+    schedule.every(poll_period.minutes) do
+      @devices.each_key { |device_id| poll_device(device_id) }
+    end
 
     perform_discovery if bbmd_ip.presence
   end
@@ -303,6 +311,7 @@ class Ashrae::BACnet < PlaceOS::Driver
 
     if protocol.message.received?
       message = IO::Memory.new(protocol.data).read_bytes(::BACnet::Message::IPv4)
+      logger.debug { "dispatch sent:\n#{message.inspect}" } if @verbose_debug
       bacnet_client.received message, @bbmd_ip
     end
 
