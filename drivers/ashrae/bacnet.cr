@@ -388,7 +388,7 @@ class Ashrae::BACnet < PlaceOS::Driver
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
     logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
 
-    filter = type ? Interface::Sensor::SensorType.parse?(type) : Nil
+    filter = type ? Interface::Sensor::SensorType.parse?(type) : nil
 
     if mac
       device_id = mac.to_u32?
