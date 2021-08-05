@@ -16,11 +16,19 @@ class Place::Router::SignalGraph
         io << ref
       end
 
+      # The `Node::Ref` used when creating this node.
       getter ref : Ref
 
+      # `Ref` of the upstream signal source currently feeding this node.
       property source : Ref? = nil
+
+      # Locked state. When `true` changes to signal routes that transit this
+      # are blocked.
       property locked : Bool = false
 
+      # Additional metadata passed in from settings. Information here is
+      # propogated to exposed state keys. May be used for any information needed
+      # by a user interface or external system.
       @[JSON::Field(ignore: true)]
       property meta : Hash(String, JSON::Any) { Hash(String, JSON::Any).new }
 
