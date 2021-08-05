@@ -50,13 +50,8 @@ class Place::Router < PlaceOS::Driver
 
     private getter! resolver : Hash(String, NodeRef)
 
-    macro included
-      def on_update
-        load_siggraph
-        {% if @type.has_method? :on_update %}
-          previous_def
-        {% end %}
-      end
+    def on_update
+      load_siggraph
     end
 
     protected def load_siggraph
