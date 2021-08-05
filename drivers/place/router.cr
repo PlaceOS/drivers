@@ -116,6 +116,12 @@ class Place::Router < PlaceOS::Driver
         node.watch { self["output/#{key}"] = node }
         key
       end
+
+      on_siggraph_loaded inputs, outputs
+    end
+
+    # Optional callback for overriding by driver extending this.
+    protected def on_siggraph_loaded(input, outputs)
     end
 
     protected def proxy_for(node : NodeRef)
