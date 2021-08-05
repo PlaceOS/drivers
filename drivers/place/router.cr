@@ -46,6 +46,8 @@ class Place::Router < PlaceOS::Driver
   module Core
     alias NodeRef = SignalGraph::Node::Ref
 
+    alias Node = SignalGraph::Node::Label
+
     private getter! siggraph : SignalGraph
 
     private getter! resolver : Hash(String, NodeRef)
@@ -69,47 +71,51 @@ class Place::Router < PlaceOS::Driver
       on_siggraph_load
     end
 
+    # Reads settings with node metadata into the graph.
+    protected def load_io(key : Symbol) : Enumerable(Node)?
+      logger.debug { "loading #{key}" }
+      if io = setting?(Settings::IOMeta, key)
+        io.map do |(key, meta)|
+          ref = resolver[key]
+          node = siggraph[ref]
+          node.meta = meta
+          node
+        end
+      else
+        logger.debug { "no #{key} configured" }
+        nil
+      end
+    end
+
     protected def on_siggraph_load
       aliases = resolver.invert
-      to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local(system.id) }
+      to_name = ->(n : Node) { aliases[n.ref]? || n.ref.local(system.id) }
 
-      {% begin %}
-        # Read input / output metadata from settings
-        {% for io in {:inputs, :outputs} %}
-          unless {{io.id}}_config = setting?(Settings::{{io.id.capitalize}}, {{io}})
-            # Auto-detect system io if unspecified
-            {{io.id}}_config = siggraph.{{io.id}}.map do |node|
-              name = to_name.call node.ref
-              {name, {"name" => JSON::Any.new name}}
-            end.to_h
-          end
-        {% end %}
+      inputs = load_io(:inputs) || siggraph.inputs.to_a
+      outputs = load_io(:output) || siggraph.outputs.to_a
 
-        # Expose a list of input keys, along with an `input/<key>` with a hash
-        # of metadata and state info for each.
-        self[:inputs] = inputs_config.map do |key, meta|
-          ref = resolver[key]
-          siggraph[ref].watch { |node| self["input/#{key}"] = node }
-          siggraph[ref].meta = meta
-          key
-        end
+      # Expose a list of input keys, along with an `input/<key>` with a hash of
+      # metadata and state info for each.
+      self[:inputs] = inputs.map do |node|
+        key = to_name.call node
+        node["name"] ||= key
+        node.watch { self["input/#{key}"] = node }
+        key
+      end
 
-        # As above, but for the outputs.
-        self[:outputs] = outputs_config.map do |key, meta|
-          ref = resolver[key]
+      # As above, but for the outputs.
+      self[:outputs] = outputs.map do |node|
+        key = to_name.call node
 
-          # Discover inputs available to each output
-          reachable = siggraph.inputs(ref).compact_map do |node|
-            name = to_name.call node.ref
-            name if inputs_config.has_key? name
-          end
-          meta["inputs"] = JSON::Any.new reachable.map { |i| JSON::Any.new i }.to_a
+        node["name"] ||= key
 
-          siggraph[ref].watch { |node| self["output/#{key}"] = node }
-          siggraph[ref].meta = meta
-          key
-        end
-      {% end %}
+        # Discover inputs available to each output
+        reachable = siggraph.inputs(node.ref).select &.in?(inputs)
+        node["inputs"] = reachable.map(&to_name).to_a
+
+        node.watch { self["output/#{key}"] = node }
+        key
+      end
     end
 
     protected def proxy_for(node : NodeRef)
@@ -189,8 +195,7 @@ class Place::Router < PlaceOS::Driver
       proxy_for(ref).mute state
 
       node = siggraph[ref]
-      node.meta["mute"] = JSON::Any.new state
-      node.notify
+      node["mute"] = state
 
       # TODO: implement graph based muting
       # if state

@@ -3,6 +3,7 @@ class Place::Router::SignalGraph
     # Subscribe to updates.
     def watch(&handler : self ->) : Nil
       subscribers << handler
+      handler.call self
     end
 
     # Notify subscribers with current state.

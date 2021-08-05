@@ -26,11 +26,32 @@ class Place::Router::SignalGraph
       # are blocked.
       property locked : Bool = false
 
-      # Additional metadata passed in from settings. Information here is
-      # propogated to exposed state keys. May be used for any information needed
-      # by a user interface or external system.
+      # Additional metadata passed in from settings or dynamically applied.
+      # Information here is propogated to exposed state keys. May be used for
+      # any information needed by a user interface or external system.
       @[JSON::Field(ignore: true)]
       property meta : Hash(String, JSON::Any) { Hash(String, JSON::Any).new }
+
+      delegate :[], :[]?, to: meta
+
+      # Sets a metadata property of `self`.
+      def []=(key, value : JSON::Any)
+        meta[key] = value
+        self.notify
+        value
+      end
+
+      def []=(key, value)
+        self[key] = JSON::Any.new value
+      end
+
+      def []=(key, value : Array)
+        self[key] = JSON::Any.new value.map { |x| JSON::Any.new x }
+      end
+
+      def []=(key, value : Hash)
+        self[key] = JSON::Any.new value.transform_values { |x| JSON::Any.new x }
+      end
 
       protected def on_to_json(json)
         @meta.try &.each do |key, value|
