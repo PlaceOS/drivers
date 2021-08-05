@@ -1,7 +1,7 @@
 require "spec"
 require "./settings"
 
-alias Settings = Place::Router::Settings
+alias Settings = Place::Router::Core::Settings
 alias SignalGraph = Place::Router::SignalGraph
 
 module PlaceOS::Driver::Proxy::System

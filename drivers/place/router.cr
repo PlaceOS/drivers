@@ -81,9 +81,9 @@ class Place::Router < PlaceOS::Driver
       {% begin %}
         # Read input / output metadata from settings
         {% for io in {:inputs, :outputs} %}
-          unless {{io.id}} = setting?(Settings::{{io.id.capitalize}}, {{io}})
-            # Auto-detect system inputs if unspecified
-            {{io.id}} = siggraph.{{io.id}}.map do |node|
+          unless {{io.id}}_config = setting?(Settings::{{io.id.capitalize}}, {{io}})
+            # Auto-detect system io if unspecified
+            {{io.id}}_config = siggraph.{{io.id}}.map do |node|
               name = to_name.call node.ref
               {name, {"name" => JSON::Any.new name}}
             end.to_h
@@ -92,7 +92,7 @@ class Place::Router < PlaceOS::Driver
 
         # Expose a list of input keys, along with an `input/<key>` with a hash
         # of metadata and state info for each.
-        self[:inputs] = inputs.map do |key, meta|
+        self[:inputs] = inputs_config.map do |key, meta|
           ref = resolver[key]
           siggraph[ref].watch { |node| self["input/#{key}"] = node }
           siggraph[ref].meta = meta
@@ -100,13 +100,13 @@ class Place::Router < PlaceOS::Driver
         end
 
         # As above, but for the outputs.
-        self[:outputs] = outputs.map do |key, meta|
+        self[:outputs] = outputs_config.map do |key, meta|
           ref = resolver[key]
 
           # Discover inputs available to each output
           reachable = siggraph.inputs(ref).compact_map do |node|
             name = to_name.call node.ref
-            name if inputs.has_key? name
+            name if inputs_config.has_key? name
           end
           meta["inputs"] = JSON::Any.new reachable.map { |i| JSON::Any.new i }.to_a
 

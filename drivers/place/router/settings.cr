@@ -1,7 +1,7 @@
 require "json"
 require "./signal_graph"
 
-module Place::Router::Settings
+module Place::Router::Core::Settings
   # Types for representing the settings format for defining connections.
   module Connections
     module Deserializable
