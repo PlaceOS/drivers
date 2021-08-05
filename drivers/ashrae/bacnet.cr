@@ -46,6 +46,10 @@ class Ashrae::BACnet < PlaceOS::Driver
   @devices : Hash(UInt32, DeviceInfo) = {} of UInt32 => DeviceInfo
   @mutex : Mutex = Mutex.new(:reentrant)
 
+  protected def get_device(device_id : UInt32)
+    @mutex.synchronize { @devices[device_id]? }
+  end
+
   def on_load
     # We only use dispatcher for broadcast messages, a local port for primary comms
     server = UDPSocket.new
@@ -115,7 +119,8 @@ class Ashrae::BACnet < PlaceOS::Driver
 
     poll_period = setting?(UInt32, :poll_period) || 3
     schedule.every(poll_period.minutes) do
-      @devices.each_key { |device_id| poll_device(device_id) }
+      keys = @mutex.synchronize { @devices.keys }
+      keys.each { |device_id| poll_device(device_id) }
     end
 
     perform_discovery if bbmd_ip.presence
@@ -148,31 +153,37 @@ class Ashrae::BACnet < PlaceOS::Driver
     nil
   end
 
+  protected def device_details(device)
+    {
+      name:        device.name,
+      model_name:  device.model_name,
+      vendor_name: device.vendor_name,
+
+      ip_address: device.ip_address.to_s,
+      network:    device.network,
+      address:    device.address,
+      id:         device.object_ptr.instance_number,
+
+      objects: device.objects.map { |obj|
+        {
+          name: obj.name,
+          type: obj.object_type,
+          id:   obj.instance_id,
+
+          unit:  obj.unit,
+          value: object_value(obj),
+          seen:  obj.changed,
+        }
+      },
+    }
+  end
+
+  def device(device_id : UInt32)
+    device_details get_device(device_id).not_nil!
+  end
+
   def devices
-    device_registry.devices.map do |device|
-      {
-        name:        device.name,
-        model_name:  device.model_name,
-        vendor_name: device.vendor_name,
-
-        ip_address: device.ip_address.to_s,
-        network:    device.network,
-        address:    device.address,
-        id:         device.object_ptr.instance_number,
-
-        objects: device.objects.map { |obj|
-          {
-            name: obj.name,
-            type: obj.object_type,
-            id:   obj.instance_id,
-
-            unit:  obj.unit,
-            value: object_value(obj),
-            seen:  obj.changed,
-          }
-        },
-      }
-    end
+    device_registry.devices.map { |device| device_details device }
   end
 
   def query_known_devices
@@ -185,26 +196,36 @@ class Ashrae::BACnet < PlaceOS::Driver
     "inspected #{devices.size} devices"
   end
 
-  def update_values(device_id : UInt32)
-    if device = @devices[device_id]?
-      client = bacnet_client
-      @mutex.synchronize do
-        device.objects.each &.sync_value(client)
+  def poll_device(device_id : UInt32)
+    device = get_device(device_id)
+    return false unless device
+
+    client = bacnet_client
+    @mutex.synchronize do
+      device.objects.each do |obj|
+        next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
+        obj.sync_value(client)
+        self[object_binding(device_id, obj)] = object_value(obj)
       end
-      "updated #{device.objects.size} values"
-    else
-      raise "device #{device_id} not found"
     end
+    true
   end
 
+  # Performs a WhoIs discovery against the BACnet network
   def perform_discovery : Nil
     bacnet_client.who_is
   end
 
   alias ObjectType = ::BACnet::ObjectIdentifier::ObjectType
 
+  def update_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
+    obj = get_object_details(device_id, instance_id, object_type)
+    obj.sync_value(bacnet_client)
+    self[object_binding(device_id, obj)] = object_value(obj)
+  end
+
   protected def get_object_details(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
-    device = @devices[device_id]
+    device = get_device(device_id).not_nil!
     device.objects.find { |obj| obj.object_ptr.object_type == object_type && obj.object_ptr.instance_number == instance_id }.not_nil!
   end
 
@@ -214,7 +235,9 @@ class Ashrae::BACnet < PlaceOS::Driver
       object.ip_address,
       ::BACnet::ObjectIdentifier.new(object_type, instance_id),
       ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value)
+      ::BACnet::Object.new.set_value(value),
+      network: object.network,
+      address: object.address
     )
     value
   end
@@ -225,7 +248,9 @@ class Ashrae::BACnet < PlaceOS::Driver
       object.ip_address,
       ::BACnet::ObjectIdentifier.new(object_type, instance_id),
       ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value)
+      ::BACnet::Object.new.set_value(value),
+      network: object.network,
+      address: object.address
     )
     value
   end
@@ -236,7 +261,9 @@ class Ashrae::BACnet < PlaceOS::Driver
       object.ip_address,
       ::BACnet::ObjectIdentifier.new(object_type, instance_id),
       ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value)
+      ::BACnet::Object.new.set_value(value),
+      network: object.network,
+      address: object.address
     )
     value
   end
@@ -247,7 +274,9 @@ class Ashrae::BACnet < PlaceOS::Driver
       object.ip_address,
       ::BACnet::ObjectIdentifier.new(object_type, instance_id),
       ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value)
+      ::BACnet::Object.new.set_value(value),
+      network: object.network,
+      address: object.address
     )
     value
   end
@@ -258,7 +287,9 @@ class Ashrae::BACnet < PlaceOS::Driver
       object.ip_address,
       ::BACnet::ObjectIdentifier.new(object_type, instance_id),
       ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value)
+      ::BACnet::Object.new.set_value(value),
+      network: object.network,
+      address: object.address
     )
     value
   end
@@ -272,7 +303,9 @@ class Ashrae::BACnet < PlaceOS::Driver
       object.ip_address,
       ::BACnet::ObjectIdentifier.new(object_type, instance_id),
       ::BACnet::PropertyType::PresentValue,
-      val
+      val,
+      network: object.network,
+      address: object.address
     )
     value
   end
@@ -281,7 +314,7 @@ class Ashrae::BACnet < PlaceOS::Driver
     logger.debug { "new device found: #{device.name}, #{device.model_name} (#{device.vendor_name}) with #{device.objects.size} objects" }
     logger.debug { device.inspect } if @verbose_debug
 
-    @devices[device.object_ptr.instance_number] = device
+    @mutex.synchronize { @devices[device.object_ptr.instance_number] = device }
 
     device_id = device.object_ptr.instance_number
     device.objects.each { |obj| self[object_binding(device_id, obj)] = object_value(obj) }
@@ -289,18 +322,6 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   protected def object_binding(device_id, obj)
     "#{device_id}.#{obj.object_type}[#{obj.instance_id}]"
-  end
-
-  def poll_device(device_id : UInt32)
-    device = @devices[device_id]?
-    return false unless device
-
-    device.objects.each do |obj|
-      next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
-      obj.sync_value(bacnet_client)
-      self[object_binding(device_id, obj)] = object_value(obj)
-    end
-    true
   end
 
   def received(data, task)
@@ -393,12 +414,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     if mac
       device_id = mac.to_u32?
       return NO_MATCH unless device_id
-      device = @devices[device_id]?
+      device = get_device device_id
       return NO_MATCH unless device
       return device.objects.compact_map { |obj| to_sensor(device_id, device, obj, filter) }
     end
 
-    matches = @devices.map { |(device_id, device)| device.objects.compact_map { |obj| to_sensor(device_id, device, obj, filter) } }
+    matches = @mutex.synchronize do
+      @devices.map do |(device_id, device)|
+        device.objects.compact_map { |obj| to_sensor(device_id, device, obj, filter) }
+      end
+    end
     matches.flatten
   rescue error
     logger.warn(exception: error) { "searching for sensors" }
@@ -410,7 +435,7 @@ class Ashrae::BACnet < PlaceOS::Driver
     return nil unless id
     device_id = mac.to_u32?
     return nil unless device_id
-    device = @devices[device_id]?
+    device = get_device device_id
     return nil unless device
 
     # id should be in the format "object_type[instance_id]"
