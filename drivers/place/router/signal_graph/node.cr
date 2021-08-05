@@ -33,7 +33,7 @@ class Place::Router::SignalGraph
       property meta : Hash(String, JSON::Any) { Hash(String, JSON::Any).new }
 
       protected def on_to_json(json)
-        meta.try &.each do |key, value|
+        @meta.try &.each do |key, value|
           json.field(key) { value.to_json(json) }
         end
       end
