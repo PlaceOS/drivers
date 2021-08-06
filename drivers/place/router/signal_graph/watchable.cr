@@ -1,9 +1,9 @@
 class Place::Router::SignalGraph
   module Watchable
     # Subscribe to updates.
-    def watch(&handler : self ->) : Nil
+    def watch(initial = true, &handler : self ->) : Nil
       subscribers << handler
-      handler.call self
+      handler.call(self) if initial
     end
 
     # Notify subscribers with current state.

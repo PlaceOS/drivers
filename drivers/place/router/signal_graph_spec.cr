@@ -203,7 +203,7 @@ describe SignalGraph do
 
       x = 0
 
-      g[n].watch { x += 1 }
+      g[n].watch(initial: false) { x += 1 }
 
       x.should eq 0
       g[n].notify
