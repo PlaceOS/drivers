@@ -64,6 +64,10 @@ class Place::Router < PlaceOS::Driver
       def to_s(io)
         io << ref
       end
+
+      def watch(&handler : self ->)
+        @label.watch { handler.call self }
+      end
     end
 
     private getter! siggraph : SignalGraph
@@ -135,7 +139,8 @@ class Place::Router < PlaceOS::Driver
         key
       end
 
-      on_siggraph_loaded inputs, outputs
+      inodes, onodes = {inputs, outputs}.map &.each.map { |n| signal_node n.ref }
+      on_siggraph_loaded inodes, onodes
     end
 
     # Optional callback for overriding by driver extending this.
@@ -144,7 +149,10 @@ class Place::Router < PlaceOS::Driver
 
     protected def signal_node(key : String)
       ref = resolver[key]
+      signal_node ref
+    end
 
+    protected def signal_node(ref : NodeRef)
       node = siggraph[ref]
 
       proxy = lazy do
