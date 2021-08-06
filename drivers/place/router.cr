@@ -46,7 +46,25 @@ class Place::Router < PlaceOS::Driver
   module Core
     alias NodeRef = SignalGraph::Node::Ref
 
-    alias Node = SignalGraph::Node::Label
+    # Wrapper for providng simple interaction with a signal node and it's
+    # associated driver.
+    struct SignalNode
+      @label : SignalGraph::Node::Label
+      @proxy : Future::Compute(PlaceOS::Driver::Proxy::Driver)
+
+      def initialize(@label, @proxy)
+      end
+
+      forward_missing_to @label
+
+      def proxy
+        @proxy.get
+      end
+
+      def to_s(io)
+        io << ref
+      end
+    end
 
     private getter! siggraph : SignalGraph
 
@@ -72,7 +90,7 @@ class Place::Router < PlaceOS::Driver
     end
 
     # Reads settings with node metadata into the graph.
-    protected def load_io(key : Symbol) : Enumerable(Node)?
+    protected def load_io(key : Symbol) : Enumerable(SignalGraph::Node::Label)?
       logger.debug { "loading #{key}" }
       if io = setting?(Settings::IOMeta, key)
         io.map do |(key, meta)|
@@ -89,7 +107,7 @@ class Place::Router < PlaceOS::Driver
 
     protected def on_siggraph_load
       aliases = resolver.invert
-      to_name = ->(n : Node) { aliases[n.ref]? || n.ref.local(system.id) }
+      to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local(system.id) }
 
       inputs = load_io(:inputs) || siggraph.inputs.to_a
       outputs = load_io(:output) || siggraph.outputs.to_a
@@ -97,7 +115,7 @@ class Place::Router < PlaceOS::Driver
       # Expose a list of input keys, along with an `input/<key>` with a hash of
       # metadata and state info for each.
       self[:inputs] = inputs.map do |node|
-        key = to_name.call node
+        key = to_name.call node.ref
         node["name"] ||= key
         node.watch { self["input/#{key}"] = node }
         key
@@ -105,13 +123,13 @@ class Place::Router < PlaceOS::Driver
 
       # As above, but for the outputs.
       self[:outputs] = outputs.map do |node|
-        key = to_name.call node
+        key = to_name.call node.ref
 
         node["name"] ||= key
 
         # Discover inputs available to each output
         reachable = siggraph.inputs(node.ref).select &.in?(inputs)
-        node["inputs"] = reachable.map(&to_name).to_a
+        node["inputs"] = reachable.map(&.ref).map(&to_name).to_a
 
         node.watch { self["output/#{key}"] = node }
         key
@@ -124,13 +142,21 @@ class Place::Router < PlaceOS::Driver
     protected def on_siggraph_loaded(input, outputs)
     end
 
-    protected def proxy_for(node : NodeRef)
-      case node
-      when SignalGraph::Device, SignalGraph::Input, SignalGraph::Output
-        proxy_for node.mod
-      else
-        raise "no device associated with #{node}"
+    protected def signal_node(key : String)
+      ref = resolver[key]
+
+      node = siggraph[ref]
+
+      proxy = lazy do
+        case ref
+        when SignalGraph::Device, SignalGraph::Input, SignalGraph::Output
+          proxy_for ref.mod
+        else
+          raise "no device associated with #{ref}"
+        end
       end
+
+      SignalNode.new node, proxy
     end
 
     protected def proxy_for(mod : SignalGraph::Mod)
@@ -196,11 +222,8 @@ class Place::Router < PlaceOS::Driver
     def mute(input_or_output : String, state : Bool = true)
       logger.debug { "#{state ? "muting" : "unmuting"} #{input_or_output}" }
 
-      ref = resolver[input_or_output]
-
-      proxy_for(ref).mute state
-
-      node = siggraph[ref]
+      node = signal_node input_or_output
+      node.proxy.mute state
       node["mute"] = state
 
       # TODO: implement graph based muting
