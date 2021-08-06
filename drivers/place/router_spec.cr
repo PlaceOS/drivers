@@ -69,11 +69,14 @@ DriverSpecs.mock_driver "Place::Router" do
   # Give the settings time to load
   sleep 0.1
 
-  status[:inputs].as_a.should contain("Foo")
-  status[:inputs].as_a.should contain("Bar")
-  status[:outputs].as_a.should contain("Display_1")
+  status["inputs"].as_a.should contain("Foo")
+  status["inputs"].as_a.should contain("Bar")
+  status["outputs"].as_a.should contain("Display_1")
+  status["output/Display_1"]["inputs"].should eq(["Foo", "Bar"])
 
   exec(:route, "Foo", "Display_1").get
+  status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
 
   exec(:mute, "Display_1").get
+  status["output/Display_1"]["mute"].should be_true
 end
