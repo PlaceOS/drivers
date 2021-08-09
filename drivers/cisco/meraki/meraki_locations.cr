@@ -603,6 +603,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   getter cameras
 
+
   def update_sensor_cache
     analytics = {} of String => CamAnalytics
     cameras.each do |cam|
