@@ -46,7 +46,7 @@ module Cisco::Meraki
       property people : Int32
     end
 
-    @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::ISO8601_MS))]
+    @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::CameraAnalytics::ISO8601_MS))]
     property ts : Time
     property zones : Hash(Int64, PeopleCount)
   end
