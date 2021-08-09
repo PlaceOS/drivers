@@ -61,6 +61,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     req(location, &.body)
   end
 
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def fetch_all(location : String)
+    responses = [] of String
+    req_all_pages(location) { |response| responses << response.body }
+    responses
+  end
+
   protected def req(location : String)
     if (@wait_time * @queue_size) > 10.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
@@ -99,23 +106,44 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   end
 
-  EMPTY_HEADERS    = {} of String => String
-  SUCCESS_RESPONSE = {HTTP::Status::OK, EMPTY_HEADERS, nil}
-
-  @[Security(PlaceOS::Driver::Level::Support)]
-  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
-    clients = [] of Client
-    next_page = "/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=#{timespan}"
+  protected def req_all_pages(location : String) : Nil
+    next_page = location
 
     loop do
       break unless next_page
 
       next_page = req(next_page) do |response|
-        clients.concat Array(Client).from_json(response.body)
+        yield response
         LinkHeader.new(response)["next"]?
       end
     end
+  end
 
+  EMPTY_HEADERS    = {} of String => String
+  SUCCESS_RESPONSE = {HTTP::Status::OK, EMPTY_HEADERS, nil}
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def organizations
+    req("/api/v1/organizations?perPage=1000") do |response|
+      Array(Organization).from_json(response.body)
+    end
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def networks(organization_id : String)
+    nets = [] of Network
+    req_all_pages("/api/v1/organizations/#{organization_id}/networks?perPage=1000") do |response|
+      nets.concat Array(Network).from_json(response.body)
+    end
+    nets
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
+    clients = [] of Client
+    req_all_pages "/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=#{timespan}" do |response|
+      clients.concat Array(Client).from_json(response.body)
+    end
     clients
   end
 

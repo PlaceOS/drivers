@@ -12,6 +12,10 @@ class DashboardMock < DriverSpecs::MockDriver
       %([])
     end
   end
+
+  def fetch_all(location : String)
+    [fetch(location)]
+  end
 end
 
 DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
@@ -67,21 +71,27 @@ DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
       "lat": 25.2011012305148,
       "lng": 55.2749184519053,
       "mac": "68:3a:1e:54:5b:0c",
-      "name": "1F-07"
+      "name": "1F-07",
+      "model": "MV22",
+      "firmware": "camera-4-13",
+      "serial": "Q2HV-KAM-ETSG"
   },
   "683a1e5474ed": {
       "floorPlanId": "g_727894289773756679",
       "lat": 25.2008175846893,
       "lng": 55.2746475487948,
       "mac": "68:3a:1e:54:74:ed",
-      "name": "GF-29"
+      "name": "GF-29",
+      "model": "MV22",
+      "firmware": "camera-4-13",
+      "serial": "Q2HV-KAM-ETSG"
   }})
   macs = Hash(String, Cisco::Meraki::NetworkDevice).from_json(macs_raw)
 
   macs.each do |_mac, wap_device|
     floor_plan = floors[wap_device.floor_plan_id]
     # do some unit testing
-    loc = Cisco::Meraki::Location.calculate_location(floor_plan, wap_device, Time.utc)
+    loc = Cisco::Meraki::DeviceLocation.calculate_location(floor_plan, wap_device, Time.utc)
     pp! loc
     loc.to_json
   end
