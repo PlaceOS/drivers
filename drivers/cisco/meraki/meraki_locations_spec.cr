@@ -10,6 +10,8 @@ class DashboardMock < DriverSpecs::MockDriver
       %([{"floorPlanId":"floor-123","name":"Level 1","width":30.5,"height":20,"topLeftCorner":{"lat":0,"lng":0},"bottomLeftCorner":{"lat":0,"lng":0},"bottomRightCorner":{"lat":0,"lng":0}}])
     when "/api/v1/networks/network_id/devices"
       %([])
+    else
+      %([])
     end
   end
 

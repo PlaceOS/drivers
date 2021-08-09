@@ -149,7 +149,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   end
 
   protected def req_all(location : String)
-    dashboard.fetch_all(location).get.as_a.map(&.as_s).each { |resp| yield resp }
+    dashboard.fetch_all(location).get.as_a.each { |resp| yield resp.as_s }
   end
 
   struct Lookup
@@ -568,9 +568,11 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     # mac address => device location
     network_devices = {} of String => NetworkDevice
+    cameras = [] of NetworkDevice
 
     req_all("/api/v1/networks/#{network_id}/devices?perPage=1000") { |response|
       Array(NetworkDevice).from_json(response).each do |device|
+        cameras << device if device.firmware.starts_with?("cam")
         next unless device.floor_plan_id
         network_devices[format_mac(device.mac)] = device
       end
@@ -578,6 +580,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     }
 
     @network_devices = network_devices
+    @cameras = cameras
 
     {floor_plans, network_devices}
   end
@@ -596,10 +599,10 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     level: String?)
 
   @camera_analytics = {} of String => CamAnalytics
+  @cameras = [] of NetworkDevice
 
-  def cameras
-    @network_devices.values.select(&.firmware.starts_with?("cam"))
-  end
+  getter cameras
+
 
   def update_sensor_cache
     analytics = {} of String => CamAnalytics
