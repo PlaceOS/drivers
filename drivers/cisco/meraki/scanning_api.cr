@@ -38,6 +38,7 @@ module Cisco::Meraki
 
   class CameraAnalytics
     include JSON::Serializable
+    ISO8601_MS = "%FT%T>>.%3N%z"
 
     class PeopleCount
       include JSON::Serializable
@@ -45,7 +46,7 @@ module Cisco::Meraki
       property people : Int32
     end
 
-    @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::ISO8601))]
+    @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::ISO8601_MS))]
     property ts : Time
     property zones : Hash(Int64, PeopleCount)
   end
