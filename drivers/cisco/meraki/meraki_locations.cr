@@ -2,10 +2,12 @@ require "json"
 require "s2_cells"
 require "placeos-driver"
 require "./scanning_api"
+require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/locatable"
 
 class Cisco::Meraki::Locations < PlaceOS::Driver
   include Interface::Locatable
+  include Interface::Sensor
 
   # Discovery Information
   descriptive_name "Meraki Location Service"
@@ -116,9 +118,14 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     schedule.clear
     if @default_network.presence
+      schedule.every(59.seconds) { update_sensor_cache }
       schedule.every(2.minutes) { map_users_to_macs } unless disable_username_lookup
       schedule.every(29.minutes) { sync_floorplan_sizes }
-      schedule.in(30.milliseconds) { sync_floorplan_sizes }
+
+      schedule.in(30.milliseconds) do
+        sync_floorplan_sizes
+        update_sensor_cache
+      end
     end
     schedule.every(30.minutes) { cleanup_caches }
 
@@ -141,6 +148,10 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     yield dashboard.fetch(location).get.as_s
   end
 
+  protected def req_all(location : String)
+    dashboard.fetch_all(location).get.as_a.map(&.as_s).each { |resp| yield resp }
+  end
+
   struct Lookup
     include JSON::Serializable
 
@@ -152,7 +163,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   end
 
   # MAC Address => Location
-  @locations : Hash(String, Location) = {} of String => Location
+  @locations : Hash(String, DeviceLocation) = {} of String => DeviceLocation
   @ip_lookup : Hash(String, Lookup) = {} of String => Lookup
 
   def lookup_ip(address : String)
@@ -546,7 +557,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     floor_plans = {} of String => FloorPlan
 
-    req("/api/v1/networks/#{network_id}/floorPlans") { |response|
+    req_all("/api/v1/networks/#{network_id}/floorPlans?perPage=1000") { |response|
       Array(FloorPlan).from_json(response).each do |plan|
         floor_plans[plan.id] = plan
       end
@@ -558,7 +569,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     # mac address => device location
     network_devices = {} of String => NetworkDevice
 
-    req("/api/v1/networks/#{network_id}/devices") { |response|
+    req_all("/api/v1/networks/#{network_id}/devices?perPage=1000") { |response|
       Array(NetworkDevice).from_json(response).each do |device|
         next unless device.floor_plan_id
         network_devices[format_mac(device.mac)] = device
@@ -569,6 +580,55 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     @network_devices = network_devices
 
     {floor_plans, network_devices}
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def camera_analytics(serial : String)
+    req("/api/v1/devices/#{serial}/camera/analytics/live") do |response|
+      CameraAnalytics.from_json(response)
+    end
+  end
+
+  alias CamAnalytics = NamedTuple(
+    camera: NetworkDevice,
+    details: CameraAnalytics,
+    building: String?,
+    level: String?)
+
+  @camera_analytics = {} of String => CamAnalytics
+
+  def cameras
+    @network_devices.values.select(&.firmware.starts_with?("cam"))
+  end
+
+  def update_sensor_cache
+    analytics = {} of String => CamAnalytics
+    cameras.each do |cam|
+      mappings = @floorplan_mappings[cam.floor_plan_id]?
+      counts = camera_analytics(cam.serial)
+      mac = format_mac(cam.mac)
+      if mappings
+        analytics[mac] = {
+          camera:   cam,
+          details:  counts,
+          building: mappings["building"]?.as(String?),
+          level:    mappings["level"]?.as(String?),
+        }
+      else
+        analytics[mac] = {
+          camera:   cam,
+          details:  counts,
+          building: nil.as(String?),
+          level:    nil.as(String?),
+        }
+      end
+
+      counts.zones.each do |area_id, count|
+        self["people-#{mac}-#{area_id}"] = count.people
+        self["presence-#{mac}-#{area_id}"] = count.people > 0
+      end
+    end
+    @camera_analytics = analytics
   end
 
   # Webhook endpoint for scanning API, expects version 3
@@ -608,7 +668,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     logger.debug { "updated #{locations_updated} locations" }
   end
 
-  protected def parse(existing, ignore_older, drift_older, observation) : Location?
+  protected def parse(existing, ignore_older, drift_older, observation) : DeviceLocation?
     locations_raw = observation.locations
 
     # We'll attempt to return a location based on the nearest WAP
@@ -618,7 +678,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         return wap_device.location unless wap_device.location.nil?
 
         if floor_plan = @floorplan_sizes[wap_device.floor_plan_id.not_nil!]?
-          return wap_device.location = Location.calculate_location(floor_plan, wap_device, last_seen.time)
+          return wap_device.location = DeviceLocation.calculate_location(floor_plan, wap_device, last_seen.time)
         end
       end
       return nil
@@ -764,5 +824,98 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     user_mac_mappings do |storage|
       macs.each { |mac| map_user_mac(format_mac(mac), username, storage) }
     end
+  end
+
+  # ======================
+  # Sensor interface:
+  # ======================
+
+  protected def to_sensors(zone_id, filter, camera, details, building, level)
+    sensors = [] of Interface::Sensor::Detail
+    return sensors if zone_id && !zone_id.in?({building, level})
+
+    formatted_mac = format_mac(camera.mac)
+
+    {SensorType::PeopleCount, SensorType::Presence}.each do |type|
+      next if filter && filter != type
+
+      time = details.ts.to_unix
+      type_indicator = type.to_s.underscore.split('_', 2)[0]
+
+      details.zones.each do |area_id, count|
+        value = case type
+                when SensorType::PeopleCount
+                  count.people.to_f
+                when SensorType::Presence
+                  count.people > 0 ? 1.0 : 0.0
+                else
+                  # Will never make it here
+                  raise "unknown sensor"
+                end
+
+        sensor = Interface::Sensor::Detail.new(
+          type: type,
+          value: value,
+          last_seen: time,
+          mac: camera.mac,
+          id: "#{area_id}-#{type_indicator}",
+          name: "#{camera.name} Presence: #{camera.model} (#{camera.serial})",
+
+          module_id: module_id,
+          binding: "#{type_indicator}-#{formatted_mac}-#{area_id}"
+        )
+
+        sensor.building = building
+        sensor.level = level
+        sensors << sensor
+      end
+    end
+
+    sensors
+  end
+
+  NO_MATCH = [] of Interface::Sensor::Detail
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
+
+    return NO_MATCH if type && !type.in?({"Presence", "PeopleCount"})
+    filter = type ? SensorType.parse(type) : nil
+
+    if mac
+      cam_state = @camera_analytics[format_mac(mac)]?
+      return NO_MATCH unless cam_state
+      return to_sensors(zone_id, filter, **cam_state)
+    end
+
+    @camera_analytics.values.flat_map { |cam_data| to_sensors(zone_id, filter, **cam_data) }
+  end
+
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
+
+    return nil unless id
+    cam_state = @camera_analytics[format_mac(mac)]?
+    return nil unless cam_state
+
+    # https://crystal-lang.org/api/1.1.0/String.html#rpartition(search:Char%7CString):Tuple(String,String,String)-instance-method
+    area_str, _, sensor_type = id.rpartition('-')
+
+    filter = case sensor_type
+             when "people"
+               SensorType::PeopleCount
+             when "presence"
+               SensorType::Presence
+             else
+               return nil
+             end
+
+    area_id = area_str.to_i64?
+    return nil unless area_id
+
+    zone_count = cam_state[:details].zones[area_id]?.try &.people
+    return nil unless zone_count
+
+    to_sensors(nil, filter, **cam_state).find { |sensor| sensor.id == id }
   end
 end
