@@ -18,6 +18,9 @@ class Place::AreaManagement < PlaceOS::Driver
     # time in seconds
     poll_rate: 60,
 
+    # How many decimal places area summaries should be rounded to
+    rounding_precision: 2,
+
     # How many wireless devices should we ignore
     duplication_factor: 0.8,
 
@@ -79,6 +82,8 @@ class Place::AreaManagement < PlaceOS::Driver
   @include_sensors : Bool = false
   @sensor_discovery = {} of String => SensorMeta
 
+  @rounding_precision : UInt32 = 2
+
   def on_load
     spawn { rate_limiter }
     spawn(same_thread: true) { update_scheduler }
@@ -99,6 +104,8 @@ class Place::AreaManagement < PlaceOS::Driver
     @location_service = setting?(String, :location_service).presence || "LocationServices"
     @duplication_factor = setting?(Float64, :duplication_factor) || 0.8
     @sensor_discovery = {} of String => SensorMeta
+
+    @rounding_precision = setting?(UInt32, :rounding_precision) || 2_u32
 
     # Areas are defined in metadata, this is mainly here so we can write specs
     if building_areas = setting?(Hash(String, Array(AreaSetting)), :areas)
@@ -330,7 +337,7 @@ class Place::AreaManagement < PlaceOS::Driver
     end
 
     sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
-      values.sum(&.value) / values.size
+      (values.sum(&.value) / values.size).round(@rounding_precision)
     end
 
     # build the level overview
@@ -403,7 +410,7 @@ class Place::AreaManagement < PlaceOS::Driver
         end
 
         sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
-          values.sum(&.value) / values.size
+          (values.sum(&.value) / values.size).round(@rounding_precision)
         end
 
         area_counts << {
