@@ -603,7 +603,6 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   getter cameras
 
-
   def update_sensor_cache
     analytics = {} of String => CamAnalytics
     cameras.each do |cam|
@@ -627,8 +626,8 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       end
 
       counts.zones.each do |area_id, count|
-        self["people-#{mac}-#{area_id}"] = count.people
-        self["presence-#{mac}-#{area_id}"] = count.people > 0
+        self["people-#{mac}-#{area_id}"] = count.person
+        self["presence-#{mac}-#{area_id}"] = count.person > 0
       end
     end
     @camera_analytics = analytics
@@ -848,9 +847,9 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       details.zones.each do |area_id, count|
         value = case type
                 when SensorType::PeopleCount
-                  count.people.to_f
+                  count.person.to_f
                 when SensorType::Presence
-                  count.people > 0 ? 1.0 : 0.0
+                  count.person > 0 ? 1.0 : 0.0
                 else
                   # Will never make it here
                   raise "unknown sensor"
@@ -916,7 +915,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     area_id = area_str.to_i64?
     return nil unless area_id
 
-    zone_count = cam_state[:details].zones[area_id]?.try &.people
+    zone_count = cam_state[:details].zones[area_id]?.try &.person
     return nil unless zone_count
 
     to_sensors(nil, filter, **cam_state).find { |sensor| sensor.id == id }

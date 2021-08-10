@@ -10,6 +10,21 @@ class DashboardMock < DriverSpecs::MockDriver
       %([{"floorPlanId":"floor-123","name":"Level 1","width":30.5,"height":20,"topLeftCorner":{"lat":0,"lng":0},"bottomLeftCorner":{"lat":0,"lng":0},"bottomRightCorner":{"lat":0,"lng":0}}])
     when "/api/v1/networks/network_id/devices"
       %([])
+    when "/api/v1/devices/Q2HV-KAM-ETSG/camera/analytics/live"
+      %({
+          "ts": "2021-08-09T23:56:52.236Z",
+          "zones": {
+              "582653201791058186": {
+                  "person": 0
+              },
+              "582653201791058185": {
+                  "person": 0
+              },
+              "0": {
+                  "person": 0
+              }
+          }
+      })
     else
       %([])
     end
@@ -97,4 +112,13 @@ DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
     pp! loc
     loc.to_json
   end
+
+  exec(:camera_analytics, "Q2HV-KAM-ETSG").get.should eq({
+    "ts"    => "2021-08-09T23:56:52.236+0000",
+    "zones" => {
+      "582653201791058186" => {"person" => 0},
+      "582653201791058185" => {"person" => 0},
+      "0"                  => {"person" => 0},
+    },
+  })
 end
