@@ -38,12 +38,12 @@ module Cisco::Meraki
 
   class CameraAnalytics
     include JSON::Serializable
-    ISO8601_MS = "%FT%T>>.%3N%z"
+    ISO8601_MS = "%FT%T.%3N%z"
 
     class PeopleCount
       include JSON::Serializable
 
-      property people : Int32
+      property person : Int32
     end
 
     @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::CameraAnalytics::ISO8601_MS))]
