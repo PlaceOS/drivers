@@ -1,6 +1,5 @@
 require "placeos-driver"
 require "placeos-driver/interface/powerable"
-require "./router"
 
 class Place::Meet < PlaceOS::Driver
   generic_name :System
@@ -11,7 +10,11 @@ class Place::Meet < PlaceOS::Driver
     This driver provides a high-level API for interaction with devices, systems \
     and integrations found within common workplace collaboration spaces.
     DESC
+end
 
+require "./router"
+
+class Place::Meet < PlaceOS::Driver
   include Router::Core
 
   protected def on_siggraph_loaded(inputs, outputs)
@@ -22,7 +25,7 @@ class Place::Meet < PlaceOS::Driver
     case output.source
     when nil
       output.proxy.power false
-    when Mute
+    when Router::SignalGraph::Mute
       # nothing to do here
     else
       output.proxy.power true
@@ -41,7 +44,7 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # Set the volume of a signal node within the system.
-  def volume(input_or_output : String, level : Int32)
+  def volume(input_or_output : String, level : Int64)
     logger.info { "setting volume on #{input_or_output} to #{level}" }
     node = signal_node input_or_output
     node.proxy.volume level

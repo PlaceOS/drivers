@@ -79,4 +79,7 @@ DriverSpecs.mock_driver "Place::Meet" do
 
   exec(:mute, "Display_1").get
   status["output/Display_1"]["mute"].should be_true
+
+  exec(:powerup).get
+  status["active"].should eq true
 end
