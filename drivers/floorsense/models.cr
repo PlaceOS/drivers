@@ -227,6 +227,9 @@ module Floorsense
 
     # not included in the responses but we will merge this
     property user : User?
+
+    @[JSON::Field(ignore: true)]
+    property! place_id : String
   end
 
   class User
