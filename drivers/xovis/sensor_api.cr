@@ -2,6 +2,8 @@ require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "xml"
 
+# Documentation: https://aca.im/driver_docs/Xovis/Xovis-REST-API.pdf
+
 class Xovis::SensorAPI < PlaceOS::Driver
   include Interface::Sensor
 

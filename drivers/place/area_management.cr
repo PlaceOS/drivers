@@ -50,7 +50,7 @@ class Place::AreaManagement < PlaceOS::Driver
     total_desks: Int32,
     total_capacity: Int32,
     desk_ids: Array(String),
-  )
+    desk_mappings: Hash(String, String))
 
   alias RawLevelDetails = NamedTuple(
     wireless_devices: Int32,
@@ -82,6 +82,8 @@ class Place::AreaManagement < PlaceOS::Driver
   @include_sensors : Bool = false
   @sensor_discovery = {} of String => SensorMeta
 
+  @desk_id_mappings = [] of String
+
   @rounding_precision : UInt32 = 2
 
   def on_load
@@ -99,6 +101,7 @@ class Place::AreaManagement < PlaceOS::Driver
   def on_update
     @building_id = setting(String, :building)
     @include_sensors = setting?(Bool, :include_sensors) || false
+    @desk_id_mappings = setting?(Array(String), :desk_id_mappings) || [] of String
 
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
     @location_service = setting?(String, :location_service).presence || "LocationServices"
@@ -241,17 +244,38 @@ class Place::AreaManagement < PlaceOS::Driver
     return unless zone.tags.includes?("level")
 
     if desks = metadata["desks"]?
+      desk_map = {} of String => String
+
+      if @desk_id_mappings.empty?
+        ids = desks.details.as_a.map { |desk| desk["id"].as_s }
+      else
+        desk_details = desks.details.as_a
+        ids = Array(String).new(desk_details.size)
+
+        desk_details.each do |desk|
+          desk_id = desk["id"].as_s
+          ids << desk_id
+          @desk_id_mappings.each do |mapping|
+            if alt_id = desk[mapping]?
+              desk_map[alt_id.as_s] = desk_id
+            end
+          end
+        end
+      end
+
       ids = desks.details.as_a.map { |desk| desk["id"].as_s }
       level_details[zone.id] = {
         total_desks:    ids.size,
         total_capacity: zone.capacity,
         desk_ids:       ids,
+        desk_mappings:  desk_map,
       }
     else
       level_details[zone.id] = {
         total_desks:    zone.count,
         total_capacity: zone.capacity,
         desk_ids:       [] of String,
+        desk_mappings:  {} of String => String,
       }
     end
 
@@ -303,6 +327,18 @@ class Place::AreaManagement < PlaceOS::Driver
     # Get location data for the level
     locations = location_service.device_locations(level_id).get.as_a
 
+    # Apply any map id transformations
+    desk_mappings = details[:desk_mappings]
+    if !desk_mappings.empty?
+      locations.each do |loc|
+        if loc["location"]? == "desk"
+          if maps_to = desk_mappings[loc["map_id"].as_s]?
+            loc["map_id"].raw = maps_to
+          end
+        end
+      end
+    end
+
     # Provide to the frontend
     self[level_id] = {
       value:   locations,
@@ -336,8 +372,12 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
 
+    people_counts = sensors.delete(SensorType::PeopleCount)
     sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
       (values.sum(&.value) / values.size).round(@rounding_precision)
+    end
+    if people_counts
+      sensor_summary["people_count"] = people_counts.sum(&.value)
     end
 
     # build the level overview
@@ -409,8 +449,12 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
 
+        people_counts = area_sensors.delete(SensorType::PeopleCount)
         sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
           (values.sum(&.value) / values.size).round(@rounding_precision)
+        end
+        if people_counts
+          sensor_summary["people_count"] = people_counts.sum(&.value)
         end
 
         area_counts << {
@@ -570,4 +614,8 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
   end
+end
+
+struct JSON::Any
+  setter raw
 end
