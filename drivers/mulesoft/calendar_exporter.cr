@@ -19,8 +19,8 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
   @deleted_events : Int32 = 0
   # An array of Attendee that has only the system (room) email address. Generally static
   @just_this_system : NamedTuple(email: String, name: String) = {email: "", name: ""}
-  
-  def on_load  
+
+  def on_load
     @just_this_system = {
       "email": system.email.not_nil!,
       "name":  system.name,
@@ -30,40 +30,40 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
 
   def on_update
     subscriptions.clear
-    
+
     @time_zone_string = setting?(String, :calendar_time_zone).presence
     @time_zone = Time::Location.load(@time_zone_string.not_nil!) if @time_zone_string
     self[:timezone] = Time.local.to_s
 
     subscription = system.subscribe(:Bookings_1, :bookings) do |subscription, mulesoft_bookings|
-      logger.debug {"DETECTED changed in Mulesoft Bookings.."}
+      logger.debug { "DETECTED changed in Mulesoft Bookings.." }
       latest_bookings : Array(Hash(String, Int64 | String | Nil)) = [] of Hash(String, Int64 | String | Nil)
-      latest_bookings  = Array(Hash(String, Int64 | String | Nil)).from_json(mulesoft_bookings)
-      logger.debug {"#{latest_bookings.size} bookings in total"}
- 
+      latest_bookings = Array(Hash(String, Int64 | String | Nil)).from_json(mulesoft_bookings)
+      logger.debug { "#{latest_bookings.size} bookings in total" }
+
       # determine which bookings are no longer present (note that this includes bookings that still exist in Mulesoft but are no longer inside the query range of Bookings_1)
       removed_bookings = @bookings - latest_bookings
 
       # filter out bookings that have already ended (no point in deleting their Calendar event)
       now = Time.utc.to_unix
-      deleted_bookings = removed_bookings.reject{ |b| b["event_end"].not_nil!.to_i64 < now}
+      deleted_bookings = removed_bookings.reject { |b| b["event_end"].not_nil!.to_i64 < now }
 
       update_events
 
       # delete the events of any deleted bookings
-      deleted_bookings.each {|b| delete_matching_event(b)}
+      deleted_bookings.each { |b| delete_matching_event(b) }
 
       # export any new bookings
       @bookings = latest_bookings
-      @bookings.each {|b| export_booking(b)}
+      @bookings.each { |b| export_booking(b) }
     end
   end
 
   def status
     {
-      "bookings": @bookings,
-      "events":   @existing_events,
-      "deleted_events":   @deleted_events
+      "bookings":       @bookings,
+      "events":         @existing_events,
+      "deleted_events": @deleted_events,
     }
   end
 
@@ -111,14 +111,14 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
     # Mulesoft booking titles are often nil. Use the body instead in this case
     booking["title"] = booking["body"] if booking["title"].nil?
     booking["title"] = "#{booking["recurring_master_id"]} #{booking["title"]}"
-    logger.debug {"Checking for existing events that match DELETED: #{booking}"}
+    logger.debug { "Checking for existing events that match DELETED: #{booking}" }
 
     if event_id = event_already_exists?(booking, @existing_events)
-      logger.debug {">>> DELETING event #{event_id}"}
+      logger.debug { ">>> DELETING event #{event_id}" }
       calendar.delete_event(calendar_id: system.email.not_nil!, event_id: event_id)
       self[:deleted_events] = @deleted_events += 1
     else
-      logger.debug {">>> NO EXISTING events for DELETED booking #{booking["title"]}"}
+      logger.debug { ">>> NO EXISTING events for DELETED booking #{booking["title"]}" }
     end
   end
 
