@@ -47,7 +47,7 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # Set the volume of a signal node within the system.
-  def volume(input_or_output : String, level : Int64)
+  def volume(level : Int32, input_or_output : String)
     logger.info { "setting volume on #{input_or_output} to #{level}" }
     node = signal_node input_or_output
     node.proxy.volume level
