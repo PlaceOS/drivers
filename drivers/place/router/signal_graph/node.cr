@@ -70,13 +70,13 @@ class Place::Router::SignalGraph
       #   Ref.resolve("Display_1:hdmi", "sys-abc123")
       #   # => DeviceInput(sys: "sys-abc123", mod: {"Display", 1}, input: "hdmi")
       #
-      def self.resolve(key : String, sys = nil)
+      def self.resolve?(key : String, sys = nil)
         ref = key.includes?('/') ? key : "#{sys}/#{key}"
         {% begin %}
           {% for type in @type.subclasses %}
             {{type}}.parse?(ref) || \
           {% end %}
-          raise "malformed node ref: \"#{key}\""
+          nil
         {% end %}
       end
 

@@ -1,3 +1,4 @@
+require "levenshtein"
 require "future"
 require "placeos-driver"
 
@@ -84,13 +85,26 @@ class Place::Router < PlaceOS::Driver
       connections = setting(Settings::Connections::Map, :connections)
       nodes, links, aliases = Settings::Connections.parse connections, system.id
       @siggraph = SignalGraph.build nodes, links
-
-      @resolver = Hash(String, NodeRef).new do |cache, key|
-        cache[key] = NodeRef.resolve key, system.id
-      end
-      resolver.merge! aliases
+      @resolver = init_resolver aliases
 
       on_siggraph_load
+    end
+
+    protected def init_resolver(seed)
+      resolver = Hash(String, NodeRef).new(initial_capacity: seed.size) do |cache, key|
+        if ref = NodeRef.resolve? key, system.id
+          cache[key] = ref
+        else
+          alt = Levenshtein.find key, cache.keys, 3
+          msg = String.build do |err|
+            err << %(unknown signal node "#{key}")
+            err << %( - did you mean "#{alt}"?) if alt
+          end
+          raise KeyError.new msg
+        end
+      end
+      resolver.merge! seed
+      resolver
     end
 
     # Reads settings with node metadata into the graph.
