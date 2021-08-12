@@ -17,6 +17,7 @@ require "./router"
 
 class Place::Meet < PlaceOS::Driver
   include Interface::Muteable
+  include Interface::Powerable
   include Router::Core
 
   protected def on_siggraph_loaded(inputs, outputs)
@@ -25,24 +26,24 @@ class Place::Meet < PlaceOS::Driver
 
   protected def on_output_change(output)
     case output.source
-    when nil
-      output.proxy.power false
-    when Router::SignalGraph::Mute
+    when Router::SignalGraph::Mute, nil
       # nothing to do here
     else
       output.proxy.power true
     end
   end
 
-  def powerup
-    logger.debug { "Powering up" }
-    self[:active] = true
-  end
+  # Sets the overall room power state.
+  def power(state : Bool)
+    return if state == self[:active]?
+    logger.debug { "Powering #{state ? "up" : "down"}" }
+    self[:active] = state
 
-  def shutdown
-    logger.debug { "Shutting down" }
-    system.implementing(PlaceOS::Driver::Interface::Powerable).power false
-    self[:active] = false
+    if state
+      # no action - devices power on when signal is routed
+    else
+      system.implementing(Interface::Powerable).power false
+    end
   end
 
   # Set the volume of a signal node within the system.
@@ -55,7 +56,7 @@ class Place::Meet < PlaceOS::Driver
 
   # Sets the mute state on a signal node within the system.
   def mute(state : Bool = true, input_or_output : Int32 | String = 0, layer : MuteLayer = MuteLayer::AudioVideo)
-    # Need to still accept int's for Muteable interface compatibility.
+    # Int32's accepted for Muteable interface compatibility
     unless input_or_output.is_a? String
       raise ArgumentError.new("invalid input or output reference: #{input_or_output}")
     end
