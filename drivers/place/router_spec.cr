@@ -77,9 +77,6 @@ DriverSpecs.mock_driver "Place::Router" do
   exec(:route, "Foo", "Display_1").get
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
 
-  exec(:mute, "Display_1").get
-  status["output/Display_1"]["mute"].should be_true
-
   expect_raises(
     PlaceOS::Driver::RemoteException,
     %(unknown signal node "Baz" - did you mean "Bar"?)

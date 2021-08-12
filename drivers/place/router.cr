@@ -237,29 +237,7 @@ class Place::Router < PlaceOS::Driver
       :ok
     end
 
-    # Set mute *state* on *input_or_output*.
-    #
-    # If the device supports local muting this will be activated, or the closest
-    # mute source found and routed.
-    def mute(input_or_output : String, state : Bool = true)
-      logger.debug { "#{state ? "muting" : "unmuting"} #{input_or_output}" }
-
-      node = signal_node input_or_output
-      node.proxy.mute state
-      node["mute"] = state
-
-      # TODO: implement graph based muting
-      # if state
-      #   route "MUTE", input_or_output
-      # else
-      #   ...
-      # end
-    end
-
-    # Disable signal muting on *input_or_output*.
-    def unmute(input_or_output : String)
-      mute input_or_output, false
-    end
+    # TODO: implement graph based muting
   end
 
   include Core
