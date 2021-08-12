@@ -206,20 +206,20 @@ class Place::Router < PlaceOS::Driver
           nil
         in SignalGraph::Edge::Active
           lazy do
+            next_node.source = siggraph[src].source
+
             # OPTIMIZE: split this to perform an inital pass to build a hash
             # from Driver::Proxy => [Edge::Active] then form the minimal set of
             # execs that satisfies these.
             mod = proxy_for edge.mod
-            res = case func = edge.func
-                  in SignalGraph::Edge::Func::Mute
-                    mod.mute func.state, func.index
-                  in SignalGraph::Edge::Func::Select
-                    mod.switch_to func.input
-                  in SignalGraph::Edge::Func::Switch
-                    mod.switch({func.input => [func.output]})
-                  end
-            next_node.source = siggraph[src].source
-            res
+            case func = edge.func
+            in SignalGraph::Edge::Func::Mute
+              mod.mute func.state, func.index
+            in SignalGraph::Edge::Func::Select
+              mod.switch_to func.input
+            in SignalGraph::Edge::Func::Switch
+              mod.switch({func.input => [func.output]})
+            end
           end
         end
       end
