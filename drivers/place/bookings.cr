@@ -16,7 +16,10 @@ class Place::Bookings < PlaceOS::Driver
     disable_end_meeting:    false,
     pending_period:         5,
     pending_from:           5,
-    cache_polling_period:   2,
+    cache_polling_period:   5,
+
+    # as graph API is eventually consistent we want to delay syncing for a moment
+    change_event_sync_delay: 5,
 
     control_ui:  "https://if.panel/to_be_used_for_control",
     catering_ui: "https://if.panel/to_be_used_for_catering",
@@ -32,6 +35,7 @@ class Place::Bookings < PlaceOS::Driver
   @pending_period : Time::Span = 5.minutes
   @pending_before : Time::Span = 5.minutes
   @bookings : Array(JSON::Any) = [] of JSON::Any
+  @change_event_sync_delay : UInt32 = 5_u32
 
   def on_load
     monitor("staff/event/changed") { |_subscription, payload| check_change(payload) }
@@ -63,6 +67,8 @@ class Place::Bookings < PlaceOS::Driver
 
     pending_before = setting?(UInt32, :pending_before) || 5_u32
     @pending_before = pending_before.minutes
+
+    @change_event_sync_delay = setting?(UInt32, :change_event_sync_delay) || 5_u32
 
     @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
 
@@ -270,11 +276,13 @@ class Place::Bookings < PlaceOS::Driver
   protected def check_change(payload : String)
     event = StaffEventChange.from_json(payload)
     if event.system_id == system.id
+      sleep @change_event_sync_delay
       poll_events
       check_current_booking
     else
       matching = @bookings.select { |b| b["id"] == event.event_id }
       if matching
+        sleep @change_event_sync_delay
         poll_events
         check_current_booking
       end
