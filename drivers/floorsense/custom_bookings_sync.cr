@@ -603,7 +603,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       metadata = staff_api.metadata(
         zone_id,
         "desks"
-      ).get.as_a
+      ).get["desks"]["details"].as_a
 
       lookup_key = @floorsense_lookup_key
       metadata.each do |desk|
