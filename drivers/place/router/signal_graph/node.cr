@@ -45,6 +45,10 @@ class Place::Router::SignalGraph
         self[key] = JSON::Any.new value
       end
 
+      def []=(key, value : Int)
+        self[key] = JSON::Any.new value.to_i64
+      end
+
       def []=(key, value : Array)
         self[key] = JSON::Any.new value.map { |x| JSON::Any.new x }
       end
@@ -70,13 +74,13 @@ class Place::Router::SignalGraph
       #   Ref.resolve("Display_1:hdmi", "sys-abc123")
       #   # => DeviceInput(sys: "sys-abc123", mod: {"Display", 1}, input: "hdmi")
       #
-      def self.resolve(key : String, sys = nil)
+      def self.resolve?(key : String, sys = nil)
         ref = key.includes?('/') ? key : "#{sys}/#{key}"
         {% begin %}
           {% for type in @type.subclasses %}
             {{type}}.parse?(ref) || \
           {% end %}
-          raise "malformed node ref: \"#{key}\""
+          nil
         {% end %}
       end
 
