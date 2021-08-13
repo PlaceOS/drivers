@@ -1,3 +1,4 @@
+require "levenshtein"
 require "future"
 require "placeos-driver"
 
@@ -84,13 +85,26 @@ class Place::Router < PlaceOS::Driver
       connections = setting(Settings::Connections::Map, :connections)
       nodes, links, aliases = Settings::Connections.parse connections, system.id
       @siggraph = SignalGraph.build nodes, links
-
-      @resolver = Hash(String, NodeRef).new do |cache, key|
-        cache[key] = NodeRef.resolve key, system.id
-      end
-      resolver.merge! aliases
+      @resolver = init_resolver aliases
 
       on_siggraph_load
+    end
+
+    protected def init_resolver(seed)
+      resolver = Hash(String, NodeRef).new(initial_capacity: seed.size) do |cache, key|
+        if ref = NodeRef.resolve? key, system.id
+          cache[key] = ref
+        else
+          alt = Levenshtein.find key, cache.keys, 3
+          msg = String.build do |err|
+            err << %(unknown signal node "#{key}")
+            err << %( - did you mean "#{alt}"?) if alt
+          end
+          raise KeyError.new msg
+        end
+      end
+      resolver.merge! seed
+      resolver
     end
 
     # Reads settings with node metadata into the graph.
@@ -192,20 +206,20 @@ class Place::Router < PlaceOS::Driver
           nil
         in SignalGraph::Edge::Active
           lazy do
+            next_node.source = siggraph[src].source
+
             # OPTIMIZE: split this to perform an inital pass to build a hash
             # from Driver::Proxy => [Edge::Active] then form the minimal set of
             # execs that satisfies these.
             mod = proxy_for edge.mod
-            res = case func = edge.func
-                  in SignalGraph::Edge::Func::Mute
-                    mod.mute func.state, func.index
-                  in SignalGraph::Edge::Func::Select
-                    mod.switch_to func.input
-                  in SignalGraph::Edge::Func::Switch
-                    mod.switch({func.input => [func.output]})
-                  end
-            next_node.source = siggraph[src].source
-            res
+            case func = edge.func
+            in SignalGraph::Edge::Func::Mute
+              mod.mute func.state, func.index
+            in SignalGraph::Edge::Func::Select
+              mod.switch_to func.input
+            in SignalGraph::Edge::Func::Switch
+              mod.switch({func.input => [func.output]})
+            end
           end
         end
       end
@@ -223,29 +237,7 @@ class Place::Router < PlaceOS::Driver
       :ok
     end
 
-    # Set mute *state* on *input_or_output*.
-    #
-    # If the device supports local muting this will be activated, or the closest
-    # mute source found and routed.
-    def mute(input_or_output : String, state : Bool = true)
-      logger.debug { "#{state ? "muting" : "unmuting"} #{input_or_output}" }
-
-      node = signal_node input_or_output
-      node.proxy.mute state
-      node["mute"] = state
-
-      # TODO: implement graph based muting
-      # if state
-      #   route "MUTE", input_or_output
-      # else
-      #   ...
-      # end
-    end
-
-    # Disable signal muting on *input_or_output*.
-    def unmute(input_or_output : String)
-      mute input_or_output, false
-    end
+    # TODO: implement graph based muting
   end
 
   include Core
