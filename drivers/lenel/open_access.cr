@@ -170,13 +170,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
     personid : Int32,
     activate_epoch : Int32,
     deactivate_epoch : Int32,
-    uselimit : Int32? = nil,
-    timezone : String? = nil
+    uselimit : Int32? = nil
   )
-    time_zone = timezone || default_timezone
-    activate = Time.unix(activate_epoch).in Time::Location.load(time_zone)
-    deactivate = Time.unix(deactivate_epoch).in Time::Location.load(time_zone)
-    logger.debug { "Creating badge for cardholder #{personid}, valid from: #{activate} til #{deactivate}" }
+    activate = Time.unix(activate_epoch).in Time::Location.load(default_timezone)
+    deactivate = Time.unix(deactivate_epoch).in Time::Location.load(default_timezone)
 
     create_badge(
       type: type,
@@ -206,13 +203,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate_epoch : Int32,
     deactivate_epoch : Int32,
     id : Int64? = nil,
-    uselimit : Int32? = nil,
-    timezone : String? = nil
+    uselimit : Int32? = nil
   )
-    time_zone = timezone || default_timezone
-    activate = Time.unix(activate_epoch).in Time::Location.load(time_zone)
-    deactivate = Time.unix(deactivate_epoch).in Time::Location.load(time_zone)
-    logger.debug { "Updating badge #{badgekey} with id #{id} valid from: #{activate} til #{deactivate}" }
+    activate = Time.unix(activate_epoch).in Time::Location.load(default_timezone)
+    deactivate = Time.unix(deactivate_epoch).in Time::Location.load(default_timezone)
 
     update_badge(
       badgekey: badgekey,
