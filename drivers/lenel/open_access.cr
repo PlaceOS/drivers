@@ -17,7 +17,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     directory_id:   "",
     username:       "",
     password:       "",
-    timezone:       "Asia/Dubai",
+    timezone:       "UTC",
   })
 
   private getter client : OpenAccess::Client do
@@ -34,7 +34,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   end
 
   private getter default_timezone : String do
-    setting?(String, :timezone) || "Asia/Dubai"
+    setting?(String, :timezone) || "UTC"
   end
 
   def on_load
