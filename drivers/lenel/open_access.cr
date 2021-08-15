@@ -275,6 +275,23 @@ class Lenel::OpenAccess < PlaceOS::Driver
     logger.debug { "deleting cardholder #{id}" }
     client.delete Cardholder, **args
   end
+
+  # List Logged Events
+  @[Security(Level::Support)]
+  def list_events(filter : String)
+    client.get_logged_events filter
+  end
+
+  # List events that occured during a given time window. Default to past 24h.
+  def list_events_in_range(
+    filter : String,
+    from : Time? = nil,
+    til : Time? = nil
+  )
+    til ||= Time.local.in Time::Location.load(default_timezone)
+    from ||= til - 1.day
+    client.get_logged_events (filter + %( AND timestamp >= #{from.to_s} AND timestamp <= #{til.to_s}))
+  end
 end
 
 ################################################################################

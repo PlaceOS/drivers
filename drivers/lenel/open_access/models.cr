@@ -77,6 +77,43 @@ module Lenel::OpenAccess::Models
     forward_missing_to json_unmapped
   end
 
+  struct Event < Element
+    getter serial_number : Int32
+    getter timestamp : Time
+    getter description : String?
+    getter controller_id : Int32
+    getter device_id : Int32
+    getter subdevice_id : Int32?
+    getter segment_id : Int32?
+    getter event_type : Int32
+    getter event_subtype : Int32?
+    getter event_text : String?
+    getter badge_id : Int32?
+    getter badge_id_str : String?
+    getter badge_extended_id : String?
+    getter badge_issue_code : Int32?
+    getter asset_id : Int32?
+    getter cardholder_key : Int32?
+    # getter alarm_priority : Int32?
+    # getter alarm_ack_blue_channel : Int32?
+    # getter alarm_ack_green_channel : Int32?
+    # getter alarm_ack_red_channel : Int32?
+    # getter alarm_blue_channel : Int32?
+    # getter alarm_green_channel : Int32?
+    # getter alarm_red_channel : Int32?
+    getter access_result : Int32?
+    getter cardholder_entered : Bool?
+    getter duress : Bool?
+    getter controller_name : String?
+    getter event_source_name : String?
+    getter cardholder_first_name : String?
+    getter cardholder_last_name : String?
+    getter device_name : String?
+    getter subdevice_name : String?
+    # getter must_acknowledge : Bool?
+    # getter must_mark_in_progress : Bool?
+  end
+
   abstract struct Person < Element
     getter id : Int32
     getter firstname : String
