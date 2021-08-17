@@ -20,6 +20,12 @@ class Place::Meet < PlaceOS::Driver
   include Interface::Powerable
   include Router::Core
 
+  def on_update
+    self[:name] = system.name
+
+    load_siggraph
+  end
+
   protected def on_siggraph_loaded(inputs, outputs)
     outputs.each &.watch { |node| on_output_change node }
   end
