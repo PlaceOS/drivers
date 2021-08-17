@@ -17,7 +17,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
     directory_id:   "",
     username:       "",
     password:       "",
-    timezone:       "UTC",
   })
 
   private getter client : OpenAccess::Client do
@@ -31,11 +30,6 @@ class Lenel::OpenAccess < PlaceOS::Driver
       wrapper.before_lenel_request.try &.each &.call(request)
     end
     wrapper
-  end
-
-  private getter default_timezone : Time::Location do
-    tz = setting?(String, :timezone) || "UTC"
-    Time::Location.load tz
   end
 
   def on_load
@@ -171,10 +165,12 @@ class Lenel::OpenAccess < PlaceOS::Driver
     personid : Int32,
     activate_epoch : Int32,
     deactivate_epoch : Int32,
-    uselimit : Int32? = nil
+    uselimit : Int32? = nil,
+    timezone : String? = nil
   )
-    activate = Time.unix(activate_epoch).in default_timezone
-    deactivate = Time.unix(deactivate_epoch).in default_timezone
+    tz = timezone ? Time::Location.load(timezone) : Time::Location.load_local
+    activate = Time.unix(activate_epoch).in tz
+    deactivate = Time.unix(deactivate_epoch).in tz
 
     create_badge(
       type: type,
@@ -204,10 +200,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate_epoch : Int32,
     deactivate_epoch : Int32,
     id : Int64? = nil,
-    uselimit : Int32? = nil
+    timezone : String? = nil
   )
-    activate = Time.unix(activate_epoch).in default_timezone
-    deactivate = Time.unix(deactivate_epoch).in default_timezone
+    tz = timezone ? Time::Location.load(timezone) : Time::Location.load_local
+    activate = Time.unix(activate_epoch).in tz
+    deactivate = Time.unix(deactivate_epoch).in tz
 
     update_badge(
       badgekey: badgekey,
@@ -283,7 +280,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     from : Time? = nil,
     til : Time? = nil
   )
-    til ||= Time.local.in default_timezone
+    til ||= Time.local
     from ||= til - 1.day
     client.get_logged_events (filter + %( AND timestamp >= #{from.to_s} AND timestamp <= #{til.to_s}))
   end
