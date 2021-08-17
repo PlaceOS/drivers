@@ -165,12 +165,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
     personid : Int32,
     activate_epoch : Int32,
     deactivate_epoch : Int32,
-    uselimit : Int32? = nil,
-    timezone : String? = nil
+    uselimit : Int32? = nil
   )
-    tz = timezone ? Time::Location.load(timezone) : Time::Location.load_local
-    activate = Time.unix(activate_epoch).in tz
-    deactivate = Time.unix(deactivate_epoch).in tz
+    activate = Time.unix(activate_epoch)
+    deactivate = Time.unix(deactivate_epoch)
 
     create_badge(
       type: type,
@@ -200,12 +198,10 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate_epoch : Int32,
     deactivate_epoch : Int32,
     id : Int64? = nil,
-    uselimit : Int32? = nil,
-    timezone : String? = nil
+    uselimit : Int32? = nil
   )
-    tz = timezone ? Time::Location.load(timezone) : Time::Location.load_local
-    activate = Time.unix(activate_epoch).in tz
-    deactivate = Time.unix(deactivate_epoch).in tz
+    activate = Time.unix(activate_epoch)
+    deactivate = Time.unix(deactivate_epoch)
 
     update_badge(
       badgekey: badgekey,

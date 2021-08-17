@@ -1,5 +1,12 @@
 require "json"
 
+# Ensure that UTC time strings provide the offset as "+00:00" instead of "Z", as required by Openaccess
+struct Time
+  def to_json(json : JSON::Builder)
+    json.string(self.to_s "%FT%T%:z")
+  end
+end
+
 # DTO's for OpenAccess entities.
 #
 # These are intentionally lightweight. In cases where a entity holds a
