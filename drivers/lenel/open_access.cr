@@ -200,6 +200,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate_epoch : Int32,
     deactivate_epoch : Int32,
     id : Int64? = nil,
+    uselimit : Int32? = nil,
     timezone : String? = nil
   )
     tz = timezone ? Time::Location.load(timezone) : Time::Location.load_local
