@@ -265,20 +265,33 @@ class Place::Calendar < PlaceOS::Driver
     location : String? = nil,
     timezone : String? = nil,
     user_id : String? = nil,
-    calendar_id : String? = nil
+    calendar_id : String? = nil,
+    online_meeting_id : String? = nil,
+    online_meeting_provider : String? = nil,
+    online_meeting_url : String? = nil,
+    online_meeting_sip : String? = nil,
+    online_meeting_phones : Array(String)? = nil,
+    online_meeting_pin : String? = nil
   )
     user_id = (user_id || @service_account.presence || calendar_id).not_nil!
     calendar_id = calendar_id || user_id
 
     logger.debug { "creating event on #{calendar_id}" }
 
-    event = PlaceCalendar::Event.new
-    event.host = calendar_id
-    event.title = title
-    event.body = description
-    event.location = location
-    event.timezone = timezone
-    event.attendees = attendees
+    event = PlaceCalendar::Event.new(
+      host: calendar_id,
+      title: title,
+      body: description,
+      location: location,
+      timezone: timezone,
+      attendees: attendees,
+      online_meeting_id: online_meeting_id,
+      online_meeting_url: online_meeting_url,
+      online_meeting_sip: online_meeting_sip,
+      online_meeting_pin: online_meeting_pin,
+      online_meeting_phones: online_meeting_phones,
+      online_meeting_provider: online_meeting_provider,
+    )
 
     tz = Time::Location.load(timezone) if timezone
     event.event_start = timezone ? Time.unix(event_start).in tz.not_nil! : Time.unix(event_start)
