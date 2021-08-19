@@ -1,9 +1,9 @@
 require "json"
 
 # Ensure that UTC time strings provide the offset as "+00:00" instead of "Z", as required by Openaccess
-struct Time
-  def to_json(json : JSON::Builder)
-    json.string(self.to_s "%FT%T%:z")
+module Lenel::TimeConverter
+  def self.to_json(value : Time, json : JSON::Builder)
+    json.string(value.to_s("%FT%T:z"))
   end
 end
 
@@ -86,7 +86,10 @@ module Lenel::OpenAccess::Models
 
   struct Event < Element
     getter serial_number : Int32?
+
+    @[JSON::Field(converter: Lenel::TimeConverter)]
     getter timestamp : Time
+
     getter description : String?
     getter controller_id : Int32
     getter device_id : Int32
@@ -129,8 +132,13 @@ module Lenel::OpenAccess::Models
 
   struct Badge < Element
     getter badgekey : Int32
+
+    @[JSON::Field(converter: Lenel::TimeConverter)]
     getter activate : Time?
+
+    @[JSON::Field(converter: Lenel::TimeConverter)]
     getter deactivate : Time?
+
     getter id : Int64?
     getter personid : Int32?
     getter status : Int32?
