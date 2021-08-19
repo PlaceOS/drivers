@@ -85,7 +85,7 @@ module Lenel::OpenAccess::Models
   end
 
   struct Event < Element
-    getter serial_number : Int32
+    getter serial_number : Int32?
     getter timestamp : Time
     getter description : String?
     getter controller_id : Int32
@@ -101,13 +101,13 @@ module Lenel::OpenAccess::Models
     getter badge_issue_code : Int32?
     getter asset_id : Int32?
     getter cardholder_key : Int32?
-    # getter alarm_priority : Int32?
-    # getter alarm_ack_blue_channel : Int32?
-    # getter alarm_ack_green_channel : Int32?
-    # getter alarm_ack_red_channel : Int32?
-    # getter alarm_blue_channel : Int32?
-    # getter alarm_green_channel : Int32?
-    # getter alarm_red_channel : Int32?
+    getter alarm_priority : Int32?
+    getter alarm_ack_blue_channel : Int32?
+    getter alarm_ack_green_channel : Int32?
+    getter alarm_ack_red_channel : Int32?
+    getter alarm_blue_channel : Int32?
+    getter alarm_green_channel : Int32?
+    getter alarm_red_channel : Int32?
     getter access_result : Int32?
     getter cardholder_entered : Bool?
     getter duress : Bool?
@@ -117,8 +117,8 @@ module Lenel::OpenAccess::Models
     getter cardholder_last_name : String?
     getter device_name : String?
     getter subdevice_name : String?
-    # getter must_acknowledge : Bool?
-    # getter must_mark_in_progress : Bool?
+    getter must_acknowledge : Bool?
+    getter must_mark_in_progress : Bool?
   end
 
   abstract struct Person < Element
