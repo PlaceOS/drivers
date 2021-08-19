@@ -250,7 +250,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     end
     cardholders.first?
   end
-  
+
   # Creates a new cardholder.
   #
   # An error will be returned if an existing cardholder exists for the specified
