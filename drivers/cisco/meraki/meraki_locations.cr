@@ -654,6 +654,11 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         existing = @locations[client_mac]?
 
         logger.debug { "parsing new observation for #{client_mac}" } if @debug_webhook
+        # If a filter is set, then ignore this device unless it matches
+        if @regex_filter_device_os && observation.os && /#{@regex_filter_device_os}/.match(observation.os.not_nil!).nil?
+          logger.debug { "FILTERED OUT #{client_mac}: OS did not match" } if @debug_webhook
+          next
+        end
         location = parse(existing, ignore_older, drift_older, observation)
         if location
           @locations[client_mac] = location
