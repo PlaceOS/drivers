@@ -655,7 +655,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
         logger.debug { "parsing new observation for #{client_mac}" } if @debug_webhook
         # If a filter is set, then ignore this device unless it matches
-        if @regex_filter_device_os && observation.os && /#{@regex_filter_device_os}/.match(observation.os.not_nil!).nil?
+        if @regex_filter_device_os && /#{@regex_filter_device_os}/.match(observation.os || "").nil?
           logger.debug { "FILTERED OUT #{client_mac}: OS did not match" } if @debug_webhook
           next
         end
