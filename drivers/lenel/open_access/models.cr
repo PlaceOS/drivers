@@ -91,8 +91,8 @@ module Lenel::OpenAccess::Models
     getter timestamp : Time
 
     getter description : String?
-    getter controller_id : Int32
-    getter device_id : Int32
+    getter controller_id : Int32?
+    getter device_id : Int32?
     getter subdevice_id : Int32?
     getter segment_id : Int32?
     getter event_type : Int32
