@@ -50,7 +50,7 @@ jobs:
       - name: Driver Report
         # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
-        run: ./harness report ${{ steps.changes.outputs.files }}
+        run: ./harness report --tests=1 ${{ steps.changes.outputs.files }}
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -85,7 +85,7 @@ jobs:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
-        run: ./harness report
+        run: ./harness report --tests=1
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
