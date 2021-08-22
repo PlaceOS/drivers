@@ -67,6 +67,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
   @access_groups_endpoint : String = "/api/access_groups"
   @cardholders_endpoint : String = "/api/cardholders"
+  @divisions_endpoint : String = "/api/divisions"
   @card_types_endpoint : String = "/api/card_types"
   @events_endpoint : String = "/api/events"
   @pdfs_endpoint : String = "/api/personal_data_fields"
@@ -81,8 +82,11 @@ class Gallagher::RestAPI < PlaceOS::Driver
     raise "endpoints request failed with #{response.status_code}\n#{response.body}" unless response.success?
     payload = JSON.parse response.body
 
+    logger.debug { "endpoints query returned:\n#{payload.inspect}" }
+
     api_version = SemanticVersion.parse(payload["version"].as_s.split('.')[0..2].join('.'))
     @cardholders_endpoint = get_path payload["features"]["cardholders"]["cardholders"]["href"].as_s
+    @divisions_endpoint = @cardholders_endpoint.sub("cardholders", "divisions")
     @access_groups_endpoint = get_path payload["features"]["accessGroups"]["accessGroups"]["href"].as_s
     @events_endpoint = get_path payload["features"]["events"]["events"]["href"].as_s
 
@@ -140,7 +144,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     name = %("#{name}") if name && exact_match
     response = get(@pdfs_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
     raise "PDFS request failed with #{response.status_code}\n#{response.body}" unless response.success?
-    Results(PDF).from_json response.body
+    get_results(PDF, response.body)
   end
 
   def get_cardholder(id : String)
@@ -150,7 +154,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   end
 
   def query_cardholders(filter : String, pdf_name : String? = nil, exact_match : Bool = true)
-    pdf_id = "pdf_" + (pdf_name ? get_pdfs(pdf_name).results.first.id : @fixed_pdf_id).not_nil!
+    pdf_id = "pdf_" + (pdf_name ? get_pdfs(pdf_name).first.id : @fixed_pdf_id).not_nil!
     query = {
       pdf_id => exact_match ? %("#{filter}") : filter,
       "top"  => "10000",
@@ -158,18 +162,18 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
     response = get(@cardholders_endpoint, query, headers: @headers)
     raise "cardholder query request failed with #{response.status_code}\n#{response.body}" unless response.success?
-    Results(Cardholder).from_json(response.body)
+    get_results(Cardholder, response.body)
   end
 
   def query_card_types
     response = get(@card_types_endpoint, {"top" => "10000"}, headers: @headers)
     raise "card types request failed with #{response.status_code}\n#{response.body}" unless response.success?
-    Results(CardType).from_json(response.body)
+    get_results(CardType, response.body)
   end
 
   def get_card_type(id : String | Int32 | Nil = nil)
     card = id || @default_card_type || raise("no default card type provided")
-    response = get("#{@card_types_endpoint}/#{id}", headers: @headers)
+    response = get("#{@card_types_endpoint}/#{card}", headers: @headers)
     raise "card type request failed with #{response.status_code}\n#{response.body}" unless response.success?
     CardType.from_json(response.body)
   end
@@ -269,7 +273,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   end
 
   def cardholder_exists?(filter : String)
-    !query_cardholders(filter).results.empty?
+    !query_cardholders(filter).empty?
   end
 
   def remove_cardholder_access(
@@ -277,6 +281,68 @@ class Gallagher::RestAPI < PlaceOS::Driver
     href : String? = nil
   )
     update_cardholder(id, href, authorised: false)
+  end
+
+  def get_access_group(id : String)
+    response = get("#{@access_groups_endpoint}/#{id}", headers: @headers)
+    raise "access group request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    AccessGroup.from_json(response.body)
+  end
+
+  def get_access_groups(name : String? = nil, exact_match : Bool = true)
+    # surround the parameter with double quotes for an exact match
+    name = %("#{name}") if name && exact_match
+    response = get(@access_groups_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    raise "access groups request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    get_results(AccessGroup, response.body)
+  end
+
+  def get_access_group_members(id : String)
+    response = get("#{@access_groups_endpoint}/#{id}/cardholders", headers: @headers)
+    raise "access group members request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    get_results(AccessGroupMembership, response.body)
+  end
+
+  def get_division(id : String)
+    response = get("#{@divisions_endpoint}/#{id}", headers: @headers)
+    raise "division request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def get_divisions(name : String? = nil, exact_match : Bool = true)
+    # surround the parameter with double quotes for an exact match
+    name = %("#{name}") if name && exact_match
+    response = get(@divisions_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    raise "divisions request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    get_results(JSON::Any, response.body)
+  end
+
+  macro get_results(klass, response)
+    %results = Results({{klass}}).from_json {{response}}
+    %result_array = %results.results
+    loop do
+      %next_uri = %results.next_uri
+      break unless %next_uri
+      %results = Results({{klass}}).from_json(get_raw(%next_uri[:href]))
+      %result_array.concat %results.results
+    end
+    %result_array
+  end
+
+  protected def get_raw(href : String)
+    response = get(get_path(href), headers: @headers)
+    raise "raw request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    response.body
+  end
+
+  def get_href(href : String)
+    response = get(get_path(href), headers: @headers)
+    raise "generic request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def delete_href(href : String)
+    delete_card(href)
   end
 
   protected def process(response) : String

@@ -163,4 +163,43 @@ module Gallagher
     property from : Time?
     property until : Time?
   end
+
+  class AccessGroup
+    include JSON::Serializable
+
+    property href : String
+    property id : String
+    property name : String
+    property description : String?
+
+    property parent : NamedTuple(
+      href: String,
+      name: String,
+    )?
+
+    property division : NamedTuple(
+      href: String,
+    )
+
+    property cardholders : NamedTuple(
+      href: String,
+    )
+
+    property children : Array(NamedTuple(
+      href: String,
+      name: String,
+    ))?
+  end
+
+  class AccessGroupMembership
+    include JSON::Serializable
+
+    property href : String
+    property cardholder : NamedTuple(
+      href: String,
+      name: String,
+    )
+    property from : Time?
+    property until : Time?
+  end
 end
