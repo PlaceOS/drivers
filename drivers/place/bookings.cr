@@ -15,7 +15,7 @@ class Place::Bookings < PlaceOS::Driver
     disable_book_now:       false,
     disable_end_meeting:    false,
     pending_period:         5,
-    pending_from:           5,
+    pending_before:         5,
     cache_polling_period:   5,
 
     # as graph API is eventually consistent we want to delay syncing for a moment
@@ -53,7 +53,7 @@ class Place::Bookings < PlaceOS::Driver
     cache_polling_period += Random.rand(30).seconds + Random.rand(1000).milliseconds
     schedule.every(cache_polling_period) { poll_events }
 
-    time_zone = setting?(String, :calendar_time_zone).presence
+    time_zone = setting?(String, :calendar_time_zone).presence || config.control_system.not_nil!.timezone.presence
     @time_zone = Time::Location.load(time_zone) if time_zone
 
     @default_title = setting?(String, :book_now_default_title).presence || "Ad Hoc booking"
