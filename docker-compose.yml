@@ -19,12 +19,12 @@ services:
       - 127.0.0.1:8085:8080
       - 127.0.0.1:4444:4444
     volumes:
-      - ./.git:/app/.git
-      - ./.logs:/app/report_failures
-      - ./drivers:/app/drivers
-      - ./lib:/app/lib
-      - ./src:/app/src
-      - ./repositories:/app/repositories
+      - ${PWD}/.git:/app/.git
+      - ${PWD}/.logs:/app/report_failures
+      - ${PWD}/drivers:/app/drivers
+      - ${PWD}/lib:/app/lib
+      - ${PWD}/src:/app/src
+      - ${PWD}/repositories:/app/repositories
     environment:
       <<: *build-client-env
       CI: ${CI:-}
@@ -37,9 +37,10 @@ services:
     restart: always
     hostname: build
     volumes:
-      - ./repositories:/app/repositories
-      - ./drivers:/app/repositories/drivers
+      - ${PWD}/repositories:/app/repositories
+      - ${PWD}:/app/repositories/drivers
     environment:
+      GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
       AWS_KEY: ${AWS_KEY}
       AWS_SECRET: ${AWS_SECRET}
       AWS_REGION: ${AWS_REGION:-p-southeast-2}
@@ -62,8 +63,8 @@ services:
     environment:
       SHARDS_OPTS: "--ignore-crystal-version"
     volumes:
-      - ./shard.lock:/wd/shard.lock
-      - ./shard.yml:/wd/shard.yml
-      - ./shard.override.yml:/wd/shard.override.yml
-      - ./.shards:/wd/.shards
-      - ./lib:/wd/lib
+      - ${PWD}/shard.lock:/wd/shard.lock
+      - ${PWD}/shard.yml:/wd/shard.yml
+      - ${PWD}/shard.override.yml:/wd/shard.override.yml
+      - ${PWD}/.shards:/wd/.shards
+      - ${PWD}/lib:/wd/lib
