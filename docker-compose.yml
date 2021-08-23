@@ -1,4 +1,9 @@
 version: "3.7"
+
+x-build-client-env: &build-client-env
+  PLACEOS_BUILD_HOST: ${PLACEOS_BUILD_HOST:-build}
+  PLACEOS_BUILD_PORT: ${PLACEOS_BUILD_PORT:-3000}
+
 services:
   # Driver test harness
   drivers:
@@ -6,9 +11,8 @@ services:
     restart: always
     container_name: placeos-drivers
     hostname: drivers
-    environment:
-      - CRYSTAL_PATH=lib:/lib/local-shards
     depends_on:
+      - build
       - redis
       - install-shards
     ports:
@@ -22,16 +26,30 @@ services:
       - ./src:/app/src
       - ./repositories:/app/repositories
     environment:
-      - REDIS_URL=redis://redis:6379
-      - TZ=$TZ
-      - CI=${CI:-}
+      <<: *build-client-env
+      CI: ${CI:-}
+      CRYSTAL_PATH: lib:/lib/local-shards
+      REDIS_URL: redis://redis:6379
+      TZ: $TZ
+
+  build:
+    image: placeos/build:${PLACE_BUILD_TAG:-nightly}
+    restart: always
+    hostname: build
+    environment:
+      <<: *deployment-env
+      AWS_KEY: ${AWS_KEY}
+      AWS_SECRET: ${AWS_SECRET}
+      AWS_REGION: ${AWS_REGION:-p-southeast-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-arn:aws:s3:::placeos-drivers}
+      TZ: $TZ
 
   redis:
     image: eqalpha/keydb
     restart: always
     hostname: redis
     environment:
-      - TZ=$TZ
+      TZ: $TZ
 
   # Ensures shards are installed.
   install-shards:
@@ -40,7 +58,7 @@ services:
     working_dir: /wd
     command: ash -c 'shards check -q || shards install'
     environment:
-      - SHARDS_OPTS="--ignore-crystal-version"
+      SHARDS_OPTS: "--ignore-crystal-version"
     volumes:
       - ./shard.lock:/wd/shard.lock
       - ./shard.yml:/wd/shard.yml

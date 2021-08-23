@@ -1,0 +1,30 @@
+name: Build
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+jobs:
+  build:
+    name: "Build"
+    runs-on: ubuntu-latest
+    environment: Build
+    steps:
+      - uses: actions/checkout@v2
+      - id: extract_branch
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      - name: Build Drivers
+        run: |
+          ./harness build \
+            --discover \
+            --strict-driver-info \
+            --repository-uri https://github.com/${{ github.repository }} \
+            --repository-path "./" \
+            --branch ${{ steps.extract_branch.outputs.branch }} \
+            --commit ${{ github.sha }}
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_SECRET: ${{ secrets.AWS_SECRET }}
+          AWS_KEY: ${{ secrets.AWS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}

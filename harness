@@ -101,6 +101,9 @@ case $command in
   report)
     report $@
     ;;
+  build)
+    build $@
+    ;;
   up)
     up
     ;;
