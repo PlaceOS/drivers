@@ -11,12 +11,13 @@ jobs:
     environment: Build
     steps:
       - uses: actions/checkout@v2
-      - id: extract_branch
+      - name: Extract branch name
+        id: extract_branch
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
       - name: Build Drivers
         run: |
-          ./harness build \
+          ./harness build build \
             --discover \
             --strict-driver-info \
             --repository-uri https://github.com/${{ github.repository }} \
