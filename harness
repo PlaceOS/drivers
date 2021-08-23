@@ -74,6 +74,17 @@ report() {
   exit ${exit_code}
 }
 
+build() {
+  docker-compose run \
+                     --rm \
+                     --no-deps \
+                     -v ./repositories:/app/repositories \
+                     -v ./drivers:/app/repositories/drivers \
+                     build \
+                     bash /app/scripts/entrypoint.sh \
+                     $@
+}
+
 usage() {
   cat <<EOF
 Usage: harness [-h|--help] [command]

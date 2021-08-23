@@ -20,7 +20,7 @@ jobs:
             --discover \
             --strict-driver-info \
             --repository-uri https://github.com/${{ github.repository }} \
-            --repository-path "./" \
+            --repository-path ./repositories/drivers \
             --branch ${{ steps.extract_branch.outputs.branch }} \
             --commit ${{ github.sha }}
         env:

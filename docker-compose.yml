@@ -37,7 +37,6 @@ services:
     restart: always
     hostname: build
     environment:
-      <<: *deployment-env
       AWS_KEY: ${AWS_KEY}
       AWS_SECRET: ${AWS_SECRET}
       AWS_REGION: ${AWS_REGION:-p-southeast-2}
