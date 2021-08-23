@@ -652,12 +652,16 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       observations.each do |observation|
         client_mac = format_mac(observation.client_mac)
         existing = @locations[client_mac]?
-
         logger.debug { "parsing new observation for #{client_mac}" } if @debug_webhook
+
         # If a filter is set, then ignore this device unless it matches
-        if @regex_filter_device_os && /#{@regex_filter_device_os}/.match(observation.os || "").nil?
-          logger.debug { "FILTERED OUT #{client_mac}: OS \"#{observation.os}\" did not match \"#{@regex_filter_device_os}\"" } if @debug_webhook
-          next
+        if @regex_filter_device_os
+          # client.os has more accurate data (observation.os is usually nil for iPhones)
+          client = @client_details[observation.client_mac]?
+          if client.nil? || /#{@regex_filter_device_os}/.match(client.os || "").nil?
+            logger.debug { "FILTERED OUT #{client_mac}: OS \"#{observation.os}\" did not match \"#{@regex_filter_device_os}\"" } if @debug_webhook
+            next
+          end
         end
         location = parse(existing, ignore_older, drift_older, observation)
         if location
