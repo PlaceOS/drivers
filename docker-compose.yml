@@ -36,11 +36,14 @@ services:
     image: placeos/build:${PLACE_BUILD_TAG:-nightly}
     restart: always
     hostname: build
+    volumes:
+      - ./repositories:/app/repositories
+      - ./drivers:/app/repositories/drivers
     environment:
       AWS_KEY: ${AWS_KEY}
       AWS_SECRET: ${AWS_SECRET}
       AWS_REGION: ${AWS_REGION:-p-southeast-2}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-arn:aws:s3:::placeos-drivers}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-placeos-drivers}
       TZ: $TZ
 
   redis:

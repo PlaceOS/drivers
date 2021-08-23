@@ -82,6 +82,7 @@ build() {
                      -v ./drivers:/app/repositories/drivers \
                      build \
                      bash /app/scripts/entrypoint.sh \
+                     build \
                      $@
 }
 
