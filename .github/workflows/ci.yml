@@ -26,7 +26,6 @@ jobs:
     name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
     runs-on: ubuntu-latest
     continue-on-error: ${{ !matrix.stable }}
-    environment: CI
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +67,6 @@ jobs:
     needs: subset-report
     runs-on: ubuntu-latest
     continue-on-error: ${{ !matrix.stable }}
-    environment: CI
     strategy:
       fail-fast: false
       matrix:
