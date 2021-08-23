@@ -657,7 +657,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         # If a filter is set, then ignore this device unless it matches
         if @regex_filter_device_os
           # client.os has more accurate data (observation.os is usually nil for iPhones)
-          client = @client_details[observation.client_mac]?
+          client = @client_details[format_mac(observation.client_mac)]?
           if client.nil? || /#{@regex_filter_device_os}/.match(client.os || "").nil?
             logger.debug { "FILTERED OUT #{client_mac}: OS \"#{observation.os}\" did not match \"#{@regex_filter_device_os}\"" } if @debug_webhook
             next
