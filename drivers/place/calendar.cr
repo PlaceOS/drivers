@@ -248,12 +248,12 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def delete_event(calendar_id : String, event_id : String, user_id : String? = nil)
+  def delete_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false)
     user_id = user_id || @service_account.presence || calendar_id
 
     logger.debug { "deleting event #{event_id} on #{calendar_id}" }
 
-    client &.delete_event(user_id, event_id, calendar_id: calendar_id)
+    client &.delete_event(user_id, event_id, calendar_id: calendar_id, notify: notify)
   end
 
   @[Security(Level::Support)]
