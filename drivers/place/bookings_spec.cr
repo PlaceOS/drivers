@@ -60,7 +60,8 @@ class CalendarMock < DriverSpecs::MockDriver
     period_start : Int64,
     period_end : Int64,
     time_zone : String? = nil,
-    user_id : String? = nil
+    user_id : String? = nil,
+    include_cancelled : Bool = false
   )
     self[:checked_calendar] = calendar_id
     @events

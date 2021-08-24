@@ -232,7 +232,7 @@ class Place::Calendar < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def list_events(calendar_id : String, period_start : Int64, period_end : Int64, time_zone : String? = nil, user_id : String? = nil)
+  def list_events(calendar_id : String, period_start : Int64, period_end : Int64, time_zone : String? = nil, user_id : String? = nil, include_cancelled : Bool = false)
     location = time_zone ? Time::Location.load(time_zone) : Time::Location.local
     period_start = Time.unix(period_start).in location
     period_end = Time.unix(period_end).in location
@@ -242,7 +242,8 @@ class Place::Calendar < PlaceOS::Driver
 
     client &.list_events(user_id, calendar_id,
       period_start: period_start,
-      period_end: period_end
+      period_end: period_end,
+      showDeleted: include_cancelled
     )
   end
 

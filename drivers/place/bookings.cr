@@ -17,12 +17,15 @@ class Place::Bookings < PlaceOS::Driver
     pending_period:         5,
     pending_before:         5,
     cache_polling_period:   5,
+    cache_days:             30,
 
     # as graph API is eventually consistent we want to delay syncing for a moment
     change_event_sync_delay: 5,
 
     control_ui:  "https://if.panel/to_be_used_for_control",
     catering_ui: "https://if.panel/to_be_used_for_catering",
+
+    include_cancelled_bookings: false,
   })
 
   accessor calendar : Calendar_1
@@ -36,6 +39,8 @@ class Place::Bookings < PlaceOS::Driver
   @pending_before : Time::Span = 5.minutes
   @bookings : Array(JSON::Any) = [] of JSON::Any
   @change_event_sync_delay : UInt32 = 5_u32
+  @cache_days : Time::Span = 30.days
+  @include_cancelled_bookings : Bool = false
 
   def on_load
     monitor("staff/event/changed") { |_subscription, payload| check_change(payload) }
@@ -68,9 +73,14 @@ class Place::Bookings < PlaceOS::Driver
     pending_before = setting?(UInt32, :pending_before) || 5_u32
     @pending_before = pending_before.minutes
 
+    cache_days = setting?(UInt32, :cache_days) || 30_u32
+    @cache_days = cache_days.days
+
     @change_event_sync_delay = setting?(UInt32, :change_event_sync_delay) || 5_u32
 
     @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
+
+    @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
 
     # Write to redis last on the off chance there is a connection issue
     self[:default_title] = @default_title
@@ -142,7 +152,7 @@ class Place::Bookings < PlaceOS::Driver
   def poll_events : Nil
     now = Time.local @time_zone
     start_of_week = now.at_beginning_of_week.to_unix
-    four_weeks_time = start_of_week + 30.days.to_i
+    four_weeks_time = start_of_week + @cache_days.to_i
 
     logger.debug { "polling events #{@calendar_id}, from #{start_of_week}, to #{four_weeks_time}, in #{@time_zone.name}" }
 
@@ -150,7 +160,8 @@ class Place::Bookings < PlaceOS::Driver
       @calendar_id,
       start_of_week,
       four_weeks_time,
-      @time_zone.name
+      @time_zone.name,
+      include_cancelled: @include_cancelled_bookings
     ).get
 
     @bookings = events.as_a.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
