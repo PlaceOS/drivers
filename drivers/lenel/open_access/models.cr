@@ -3,7 +3,7 @@ require "json"
 # Ensure that UTC time strings provide the offset as "+00:00" instead of "Z", as required by Openaccess
 module Lenel::TimeConverter
   def self.to_json(value : Time, json : JSON::Builder)
-    json.string(value.to_s("%FT%T:z"))
+    json.string(value.to_s("%FT%T%:z"))
   end
 end
 
