@@ -329,13 +329,17 @@ class Place::AreaManagement < PlaceOS::Driver
 
     # Apply any map id transformations
     desk_mappings = details[:desk_mappings]
-    if !desk_mappings.empty?
-      locations.each do |loc|
+    if desk_mappings.empty?
+      locations = locations.map(&.as_h)
+    else
+      locations = locations.map do |loc|
+        loc = loc.as_h
         if loc["location"]? == "desk"
           if maps_to = desk_mappings[loc["map_id"].as_s]?
-            loc["map_id"].raw = maps_to
+            loc["map_id"] = JSON::Any.new(maps_to)
           end
         end
+        loc
       end
     end
 
@@ -614,8 +618,4 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
   end
-end
-
-struct JSON::Any
-  setter raw
 end
