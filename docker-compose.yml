@@ -37,7 +37,6 @@ services:
     restart: always
     hostname: build
     volumes:
-      - ${PWD}/repositories:/app/repositories
       - ${PWD}:/app/repositories/drivers
     environment:
       GIT_DISCOVERY_ACROSS_FILESYSTEM: 1

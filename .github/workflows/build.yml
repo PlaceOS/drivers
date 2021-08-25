@@ -11,10 +11,7 @@ jobs:
     environment: Build
     steps:
       - uses: actions/checkout@v2
-      - name: Extract branch name
-        id: extract_branch
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      - uses: FranzDiebold/github-env-vars-action@v2  # https://github.com/github/feedback/discussions/5251
       - name: Build Drivers
         run: |
           ./harness build \
@@ -22,7 +19,7 @@ jobs:
             --strict-driver-info \
             --repository-uri https://github.com/${{ github.repository }} \
             --repository-path ./repositories/drivers \
-            --branch ${{ steps.extract_branch.outputs.branch }} \
+            --branch $CI_ACTION_REF_NAME \
             --commit ${{ github.sha }}
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
