@@ -19,12 +19,9 @@ services:
       - 127.0.0.1:8085:8080
       - 127.0.0.1:4444:4444
     volumes:
-      - ${PWD}/.git:/app/.git
       - ${PWD}/.logs:/app/report_failures
-      - ${PWD}/drivers:/app/drivers
-      - ${PWD}/lib:/app/lib
-      - ${PWD}/src:/app/src
       - ${PWD}/repositories:/app/repositories
+      - ${PWD}:/app/repositories/local
     environment:
       <<: *build-client-env
       CI: ${CI:-}
@@ -37,8 +34,10 @@ services:
     restart: always
     hostname: build
     volumes:
-      - ${PWD}:/app/repositories/drivers
+      - ${PWD}/repositories:/app/repositories
+      - ${PWD}:/app/repositories/local
     environment:
+      PLACEOS_BUILD_LOCAL: 1
       GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
       AWS_KEY: ${AWS_KEY}
       AWS_SECRET: ${AWS_SECRET}
