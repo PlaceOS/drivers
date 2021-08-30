@@ -98,7 +98,7 @@ class Ashrae::BACnet < PlaceOS::Driver
     @bacnet_client = client
 
     # Track the discovery of devices
-    registry = ::BACnet::Client::DeviceRegistry.new(client)
+    registry = ::BACnet::Client::DeviceRegistry.new(client, logger)
     registry.on_new_device { |device| new_device_found(device) }
     @device_registry = registry
 
@@ -210,6 +210,7 @@ class Ashrae::BACnet < PlaceOS::Driver
     sent = [] of UInt32
     @seen_devices.each_value do |info|
       sent << info.id.not_nil!
+      logger.debug { "inspecting #{info.address} - #{info.id}" }
       device_registry.inspect_device(info.address, info.identifier, info.net, info.addr)
     end
     devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
@@ -217,6 +218,7 @@ class Ashrae::BACnet < PlaceOS::Driver
       if id = info.id
         next if id.in? sent
         sent << id
+        logger.debug { "inspecting #{info.address} - #{info.id}" }
         device_registry.inspect_device(info.address, info.identifier, info.net, info.addr)
       end
     end
