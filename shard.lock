@@ -19,7 +19,7 @@ shards:
 
   bacnet:
     git: https://github.com/spider-gazelle/crystal-bacnet.git
-    version: 0.10.7
+    version: 0.10.8
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
@@ -95,7 +95,7 @@ shards:
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
-    version: 1.5.1
+    version: 1.6.0
 
   link-header:
     git: https://github.com/spider-gazelle/link-header.git
@@ -163,11 +163,11 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.4.16
+    version: 5.4.17
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
-    version: 0.4.0
+    version: 0.5.1
 
   placeos-models:
     git: https://github.com/placeos/models.git
