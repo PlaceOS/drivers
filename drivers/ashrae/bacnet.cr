@@ -64,7 +64,13 @@ class Ashrae::BACnet < PlaceOS::Driver
 
         # send to the known devices (in case BBMD does not forward message)
         devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
-        devices.each { |dev| server.send message, to: dev.address }
+        devices.each do |dev|
+          begin
+            server.send message, to: dev.address
+          rescue error
+            logger.warn(exception: error) { "error sending message to #{dev.address}" }
+          end
+        end
 
         # Send this message to the BBMD
         message.data_link.request_type = ::BACnet::Message::IPv4::Request::DistributeBroadcastToNetwork
