@@ -5,7 +5,7 @@ module Ashrae
   class DeviceAddress
     include JSON::Serializable
 
-    def initialize(@ip, @id, @net, @addr, @name, @model_name, @vendor_name)
+    def initialize(@ip, @id, @net, @addr)
     end
 
     getter ip : String

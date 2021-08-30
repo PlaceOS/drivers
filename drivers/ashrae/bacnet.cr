@@ -46,6 +46,7 @@ class Ashrae::BACnet < PlaceOS::Driver
   @devices : Hash(UInt32, DeviceInfo) = {} of UInt32 => DeviceInfo
   @mutex : Mutex = Mutex.new(:reentrant)
   @bbmd_forwarding : Array(UInt8) = [] of UInt8
+  @seen_devices : Hash(UInt32, DeviceAddress) = {} of UInt32 => DeviceAddress
 
   protected def get_device(device_id : UInt32)
     @mutex.synchronize { @devices[device_id]? }
@@ -206,13 +207,20 @@ class Ashrae::BACnet < PlaceOS::Driver
   end
 
   def query_known_devices
+    sent = [] of UInt32
+    @seen_devices.each_value do |info|
+      sent << info.id.not_nil!
+      device_registry.inspect_device(info.address, info.identifier, info.net, info.addr)
+    end
     devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
     devices.each do |info|
-      if info.id
+      if id = info.id
+        next if id.in? sent
+        sent << id
         device_registry.inspect_device(info.address, info.identifier, info.net, info.addr)
       end
     end
-    "inspected #{devices.size} devices"
+    "inspected #{sent.size} devices"
   end
 
   def poll_device(device_id : UInt32)
@@ -353,9 +361,55 @@ class Ashrae::BACnet < PlaceOS::Driver
       message = IO::Memory.new(protocol.data).read_bytes(::BACnet::Message::IPv4)
       logger.debug { "dispatch sent:\n#{message.inspect}" } if @verbose_debug
       bacnet_client.received message, @bbmd_ip
+
+      app = message.application
+
+      is_iam = false
+      is_cov = case app
+               when ::BACnet::ConfirmedRequest
+                 app.service.cov_notification?
+               when ::BACnet::UnconfirmedRequest
+                 is_iam = app.service.i_am?
+                 app.service.cov_notification?
+               else
+                 false
+               end
+      network = message.network
+
+      if network && is_cov
+        ip = if message.data_link.request_type.forwarded_npdu?
+               ip_add = message.data_link.address
+               "#{ip_add.ip1}.#{ip_add.ip2}.#{ip_add.ip3}.#{ip_add.ip4}"
+             else
+               protocol.ip_address
+             end
+        if network.source_specifier
+          addr = network.source_address
+          net = network.source.network
+        end
+        device = message.objects.find { |obj| obj.tag == 1 }.not_nil!.to_object_id.instance_number
+        # prop = message.objects.find { |obj| obj.tag == 2 }
+        @seen_devices[device] = DeviceAddress.new(ip, device, net, addr)
+      end
+
+      if network && is_iam
+        ip = if message.data_link.request_type.forwarded_npdu?
+               ip_add = message.data_link.address
+               "#{ip_add.ip1}.#{ip_add.ip2}.#{ip_add.ip3}.#{ip_add.ip4}"
+             else
+               protocol.ip_address
+             end
+        details = ::BACnet::Client::Message::IAm.parse(message)
+        device = details[:object_id].instance_number
+        @seen_devices[device] = DeviceAddress.new(ip, device, details[:network], details[:address])
+      end
     end
 
     task.try &.success
+  end
+
+  def seen_devices
+    @seen_devices
   end
 
   # ======================
