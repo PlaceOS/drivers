@@ -45,6 +45,7 @@ class Ashrae::BACnet < PlaceOS::Driver
   @bbmd_ip : Socket::IPAddress = Socket::IPAddress.new("127.0.0.1", 0xBAC0)
   @devices : Hash(UInt32, DeviceInfo) = {} of UInt32 => DeviceInfo
   @mutex : Mutex = Mutex.new(:reentrant)
+  @bbmd_forwarding : Array(UInt8) = [] of UInt8
 
   protected def get_device(device_id : UInt32)
     @mutex.synchronize { @devices[device_id]? }
@@ -60,6 +61,15 @@ class Ashrae::BACnet < PlaceOS::Driver
     client = ::BACnet::Client::IPv4.new
     client.on_transmit do |message, address|
       if address.address == Socket::IPAddress::BROADCAST
+        if @bbmd_forwarding.size == 4
+          message.data_link.request_type = ::BACnet::Message::IPv4::Request::ForwardedNPDU
+          message.data_link.address.ip1 = @bbmd_forwarding[0]
+          message.data_link.address.ip2 = @bbmd_forwarding[1]
+          message.data_link.address.ip3 = @bbmd_forwarding[2]
+          message.data_link.address.ip4 = @bbmd_forwarding[3]
+          message.data_link.address.port = 47808_u16
+        end
+
         logger.debug { "sending broadcase message #{message.inspect}" }
 
         # send to the known devices (in case BBMD does not forward message)
@@ -117,6 +127,9 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   def on_update
     bbmd_ip = setting?(String, :bbmd_ip) || ""
+    bbmd_forwarding = setting?(String, :bbmd_forwarding) || ""
+
+    @bbmd_forwarding = bbmd_forwarding.strip.split(".").select(&.presence).map(&.to_u8)
     @bbmd_ip = Socket::IPAddress.new(bbmd_ip, 0xBAC0) if bbmd_ip.presence
     @verbose_debug = setting?(Bool, :verbose_debug) || false
 
