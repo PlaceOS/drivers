@@ -19,7 +19,7 @@ shards:
 
   bacnet:
     git: https://github.com/spider-gazelle/crystal-bacnet.git
-    version: 0.10.8
+    version: 0.10.9
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
