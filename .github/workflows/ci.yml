@@ -40,7 +40,7 @@ jobs:
       - id: changes
         uses: trilom/file-changes-action@v1.2.4
         with:
-          output: ' '
+          output: " "
       - uses: actions/checkout@v2
       - name: Cache shards
         uses: actions/cache@v2
@@ -50,7 +50,7 @@ jobs:
       - name: Driver Report
         # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
-        run: ./harness report --tests=1 ${{ steps.changes.outputs.files }}
+        run: ./harness report --tests=15 --builds=2 ${{ steps.changes.outputs.files }}
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -85,7 +85,7 @@ jobs:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
-        run: ./harness report --tests=1
+        run: ./harness report --tests=15 --builds=2
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
