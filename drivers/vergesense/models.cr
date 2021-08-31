@@ -30,9 +30,9 @@ module Vergesense
   class Space
     include JSON::Serializable
 
-    property building_ref_id : String
-    property floor_ref_id : String
-    property space_ref_id : String
+    property building_ref_id : String?
+    property floor_ref_id : String?
+    property space_ref_id : String?
     property space_type : String?
     property name : String?
     property capacity : UInt32?
