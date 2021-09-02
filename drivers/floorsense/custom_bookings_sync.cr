@@ -8,7 +8,7 @@ require "./models"
 class Floorsense::CustomBookingsSync < PlaceOS::Driver
   descriptive_name "Floorsense Custom Bookings Sync"
   generic_name :FloorsenseBookingSync
-  description %(syncs PlaceOS desk bookings with floorsense booking system, this version expects users to exist on the platform already)
+  description %(syncs PlaceOS desk bookings with floorsense booking system)
 
   accessor floorsense : Floorsense_1
   accessor staff_api : StaffAPI_1
