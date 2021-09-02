@@ -472,8 +472,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     create_floor_bookings.each do |booking|
       floor_user = begin
-        place_user = staff_api.user(booking.user_id).get
-        get_floorsense_user(place_user)
+        get_floorsense_user(booking.user_id)
       rescue error
         logger.warn(exception: error) { "unable to find or create user #{booking.user_id} (#{booking.user_email}) in floorsense" }
         next
@@ -557,16 +556,17 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     place_bookings.size + adhoc.size
   end
 
-  def get_floorsense_user(place_user : JSON::Any) : String
+  def get_floorsense_user(place_user_id : String) : String
+    place_user = staff_api.user(place_user_id).get
     placeos_staff_id = place_user[@user_lookup].as_s
-    users = floorsense.user_list(description: placeos_staff_id).get.as_a
+    floorsense_users = floorsense.user_list(description: placeos_staff_id).get.as_a
     
-    user_id = users.first?.try(&.[]("uid").as_s)
+    user_id = floorsense_users.first?.try(&.[]("uid").as_s)
     user_id ||= floorsense.create_user(place_user["name"].as_s, place_user["email"].as_s, placeos_staff_id).get["uid"].as_s if @create_floorsense_users
-    raise "floorsense user not found for #{placeos_staff_id}" unless user_id
+    raise "Floorsense user not found for #{placeos_staff_id}" unless user_id
 
     card_number = place_user["card_number"]?.try(&.as_s)
-    spawn { ensure_card_synced(card_number, user_id) } if user_id && card_number && !card_number.empty?
+    spawn(same_thread: true) { ensure_card_synced(card_number, user_id) } if user_id && card_number && !card_number.empty?
     user_id
   end
 
