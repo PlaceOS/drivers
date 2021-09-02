@@ -34,6 +34,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     user_lookup:        "staff_id",
 
     floorsense_lookup_key: "floorsensedeskid",
+    create_floorsense_users: false
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -44,6 +45,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   # Desk ID mappings cache
   @desk_mapping_cache : Hash(String, Hash(String, DeskMeta)) = {} of String => Hash(String, DeskMeta)
   @floorsense_lookup_key : String = "floorsensedeskid"
+  @create_floorsense_users : Bool = false
 
   @booking_type : String = "desk"
   @key_prefix : String = "desk-"
@@ -74,6 +76,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     @user_lookup = setting?(String, :user_lookup).presence || "staff_id"
 
     @floorsense_lookup_key = setting?(String, :floorsense_lookup_key).presence || "floorsensedeskid"
+    @create_floorsense_users = setting?(Bool, :create_floorsense_users) || false
 
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @floor_mappings.each do |plan_id, details|
@@ -469,9 +472,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     create_floor_bookings.each do |booking|
       floor_user = begin
-        place_user = staff_api.user(booking.user_id).get
-        staff_id = place_user[@user_lookup].as_s
-        get_floorsense_user(staff_id)
+        get_floorsense_user(booking.user_id)
       rescue error
         logger.warn(exception: error) { "unable to find or create user #{booking.user_id} (#{booking.user_email}) in floorsense" }
         next
@@ -555,13 +556,35 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     place_bookings.size + adhoc.size
   end
 
-  def get_floorsense_user(placeos_staff_id : String) : String
-    users = floorsense.user_list(description: placeos_staff_id).get.as_a
-    user_id = users.first?.try(&.[]("uid").as_s)
-    raise "floorsense user not found for #{placeos_staff_id}" unless user_id
+  def get_floorsense_user(place_user_id : String) : String
+    place_user = staff_api.user(place_user_id).get
+    placeos_staff_id = place_user[@user_lookup].as_s
+    floorsense_users = floorsense.user_list(description: placeos_staff_id).get.as_a
+    
+    user_id = floorsense_users.first?.try(&.[]("uid").as_s)
+    user_id ||= floorsense.create_user(place_user["name"].as_s, place_user["email"].as_s, placeos_staff_id).get["uid"].as_s if @create_floorsense_users
+    raise "Floorsense user not found for #{placeos_staff_id}" unless user_id
+
+    card_number = place_user["card_number"]?.try(&.as_s)
+    spawn(same_thread: true) { ensure_card_synced(card_number, user_id) } if user_id && card_number && !card_number.empty?
     user_id
   end
 
+  protected def ensure_card_synced(card_number : String, user_id : String) : Nil
+    existing_user = begin
+      floorsense.get_rfid(card_number).get["uid"].as_s
+    rescue
+      nil
+    end
+
+    if existing_user != user_id
+      floorsense.delete_rfid(card_number)
+      floorsense.create_rfid(user_id, card_number)
+    end
+  rescue error
+    logger.warn(exception: error) { "failed to sync card number #{card_number} for user #{user_id}" }
+  end
+  
   # ===================================
   # Booking Queries
   # ===================================
