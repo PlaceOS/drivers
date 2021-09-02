@@ -33,8 +33,8 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     zero_padding_size:  7,
     user_lookup:        "staff_id",
 
-    floorsense_lookup_key: "floorsensedeskid",
-    create_floorsense_users: false
+    floorsense_lookup_key:   "floorsensedeskid",
+    create_floorsense_users: false,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -560,7 +560,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     place_user = staff_api.user(place_user_id).get
     placeos_staff_id = place_user[@user_lookup].as_s
     floorsense_users = floorsense.user_list(description: placeos_staff_id).get.as_a
-    
+
     user_id = floorsense_users.first?.try(&.[]("uid").as_s)
     user_id ||= floorsense.create_user(place_user["name"].as_s, place_user["email"].as_s, placeos_staff_id).get["uid"].as_s if @create_floorsense_users
     raise "Floorsense user not found for #{placeos_staff_id}" unless user_id
@@ -584,7 +584,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   rescue error
     logger.warn(exception: error) { "failed to sync card number #{card_number} for user #{user_id}" }
   end
-  
+
   # ===================================
   # Booking Queries
   # ===================================
