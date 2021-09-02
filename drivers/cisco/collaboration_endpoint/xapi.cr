@@ -77,13 +77,10 @@ module Cisco::CollaborationEndpoint::XAPI
   end
 
   # Serialize an xConfiguration action into a transmittable command.
-  def self.xconfiguration(
-    path : String,
-    *args,
-    hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type,
-    **kwargs
-  )
-    create_action ActionType::XConfiguration, path, *args, **kwargs.merge({hash_args: hash_args})
+  def self.xconfiguration(path : String, setting : String, value : JSON::Any::Type)
+    create_action ActionType::XConfiguration, path, hash_args: {
+      setting => value,
+    }
   end
 
   # Serialize an xStatus request into transmittable command.

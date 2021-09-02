@@ -103,10 +103,26 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
   end
 
   # Apply a single configuration on the device.
-  def xconfiguration(path : String, setting : String, value : JSON::Any::Type)
-    request = XAPI.xconfiguration(path, hash_args: {setting => value})
+  def xconfiguration(
+    path : String,
+    hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type,
+    **kwargs
+  )
+    promises = hash_args.map do |setting, value|
+      apply_configuration(path, setting, value)
+    end
+    kwargs.each do |setting, value|
+      promise = apply_configuration(path, setting, value)
+      promises << promise
+    end
+    Promise.all(promises).get.first
+  end
 
-    do_send request, name: "#{path} #{setting}" do |response|
+  protected def apply_configuration(path : String, setting : String, value : JSON::Any::Type)
+    request = XAPI.xconfiguration(path, setting, value)
+    promise = Promise.new(Bool)
+
+    task = do_send request, name: "#{path} #{setting}" do |response|
       result = response["CommandResponse/Configuration/status"]?
 
       if result == "Error"
@@ -115,9 +131,14 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
         logger.error { "#{reason} (#{xpath})" }
         :abort
       else
+        promise.resolve true
         true
       end
     end
+
+    task.get
+    promise.reject(RuntimeError.new "failed to set configuration: #{path} #{setting}: #{value}") if task.state == :abort
+    promise
   end
 
   def xstatus(path : String)

@@ -312,4 +312,83 @@ DriverSpecs.mock_driver "Cisco::CollaborationEndpoint" do
   })
 
   expect_raises(PlaceOS::Driver::RemoteException) { resp.get }
+
+  # Multiline commands
+  resp = exec(:xcommand, "SystemUnit SignInBanner Set", "Hello\nWorld!")
+  data = String.new expect_send
+  data.starts_with?(%(xCommand SystemUnit SignInBanner Set | resultId=")).should be_true
+  data.ends_with?(%(Hello\nWorld!\n.\n)).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+      "CommandResponse":{
+          "SignInBannerSetResult":{
+              "status":"OK"
+          }
+      },
+      "ResultId": "#{id}"
+  })
+
+  resp.get.should eq "OK"
+
+  # Multuple settings return a unit :success when all ok
+  resp = exec(:xconfiguration, "Video Input Connector 1", {InputSourceType: :Camera, Name: "Borris", Quality: :Motion})
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Video Input Connector 1 InputSourceType: "Camera" | resultId=")).should be_true
+  id = data.split('"')[-2]
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Video Input Connector 1 Name: "Borris" | resultId=")).should be_true
+  id = data.split('"')[-2]
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Video Input Connector 1 Quality: "Motion" | resultId=")).should be_true
+  id = data.split('"')[-2]
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  resp.get.should eq true
+
+  # Multiple settings with failure with return a command failure
+  resp = exec(:xconfiguration, "Video Input Connector 1", {InputSourceType: :Camera, Foo: "Bar", Quality: :Motion})
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Video Input Connector 1 InputSourceType: "Camera" | resultId=")).should be_true
+  id = data.split('"')[-2]
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Video Input Connector 1 Foo: "Bar" | resultId=")).should be_true
+  id = data.split('"')[-2]
+  responds %({
+    "CommandResponse":{
+      "Configuration":{
+        "status":"Error",
+        "Reason":{
+          "Value":"No match on address expression."
+        },
+        "XPath":{
+          "Value":"Configuration/Video/Input/Connector[1]/Foo"
+        }
+      }
+    },
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Video Input Connector 1 Quality: "Motion" | resultId=")).should be_true
+  id = data.split('"')[-2]
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  expect_raises(PlaceOS::Driver::RemoteException) { resp.get }
 end
