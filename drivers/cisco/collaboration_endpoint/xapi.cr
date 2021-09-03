@@ -1,5 +1,6 @@
 require "json"
 require "./response"
+require "./feedback"
 
 # monkey patching task is how we attach custom data
 # request_payload is set by send if it's defined

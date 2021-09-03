@@ -128,6 +128,134 @@ DriverSpecs.mock_driver "Cisco::CollaborationEndpoint" do
   })
 
   # ====
+  # Connection setup
+  puts "\nCONNECTION SETUP:\n=============="
+  should_send "Echo off\n"
+  responds "\e[?1034h\r\nOK\r\n"
+
+  should_send "xPreferences OutputMode JSON\n"
+
+  # ====
+  # System registration
+  puts "\nSYSTEM REGISTRATION:\n=============="
+
+  data = String.new expect_send
+  data.starts_with?(%(xCommand Peripherals Connect ID: "uuid" Name: "PlaceOS" Type: ControlSystem | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+    "CommandResponse":{
+      "PeripheralsConnectResult":{
+        "status":"OK"
+      }
+    },
+    "ResultId": "#{id}"
+  })
+
+  # ====
+  # Config push
+  puts "\nCONFIG PUSH:\n=============="
+
+  data = String.new expect_send
+  data.starts_with?(%(xFeedback register /Configuration | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  should_send "xConfiguration *\n"
+  responds %({
+    "Configuration":{
+      "Audio":{
+        "DefaultVolume":{
+          "valueSpaceRef":"/Valuespace/INT_0_100",
+          "Value":"50"
+        },
+        "Input":{
+          "Line":[
+            {
+              "id":"1",
+              "VideoAssociation":{
+                "MuteOnInactiveVideo":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                  "Value":"On"
+                },
+                "VideoInputSource":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_PresentationSources_2",
+                  "Value":"2"
+                }
+              }
+            }
+          ],
+          "Microphone":[
+            {
+              "id":"1",
+              "EchoControl":{
+                "Dereverberation":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                  "Value":"Off"
+                },
+                "Mode":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                  "Value":"On"
+                },
+                "NoiseReduction":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                  "Value":"On"
+                }
+              },
+              "Level":{
+                "valueSpaceRef":"/Valuespace/INT_0_24",
+                "Value":"14"
+              },
+              "Mode":{
+                "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                "Value":"On"
+              }
+            },
+            {
+              "id":"2",
+              "EchoControl":{
+                "Dereverberation":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                  "Value":"Off"
+                },
+                "Mode":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                  "Value":"On"
+                },
+                "NoiseReduction":{
+                  "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                  "Value":"On"
+                }
+              },
+              "Level":{
+                "valueSpaceRef":"/Valuespace/INT_0_24",
+                "Value":"14"
+              },
+              "Mode":{
+                "valueSpaceRef":"/Valuespace/TTPAR_OnOff",
+                "Value":"On"
+              }
+            }
+          ]
+        },
+        "Microphones":{
+          "Mute":{
+            "Enabled":{
+              "valueSpaceRef":"/Valuespace/TTPAR_MuteEnabled",
+              "Value":"True"
+            }
+          }
+        }
+      }
+    }
+  })
+
+  status[:configuration].should eq({"tet" => 123})
+
+  # ====
   # Audio Status
   resp = exec(:xstatus, "Audio")
   data = String.new expect_send

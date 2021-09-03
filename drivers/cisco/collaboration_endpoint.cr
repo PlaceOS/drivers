@@ -13,33 +13,50 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
       username: :cisco,
       password: :cisco,
     },
-    building:    "building_code",
-    ignore_macs: {
-      "Cisco Phone Dock" => "7001b5",
+    peripheral_id: "uuid",
+    configuration: {
+      "Audio Microphones Mute"              => {"Enabled" => "False"},
+      "Audio Input Line 1 VideoAssociation" => {
+        "MuteOnInactiveVideo" => "On",
+        "VideoInputSource"    => 2,
+      },
     },
   })
 
-  def on_load
-    on_update
+  getter peripheral_id : String do
+    uuid = generate_request_uuid
+    define_setting(:peripheral_id, uuid)
+    uuid
   end
 
-  def on_unload; end
+  protected getter feedback : Feedback = Feedback.new
+
+  def on_load
+    # NOTE:: on_load doesn't call on_update as on_update disconnects
+    @peripheral_id = setting?(String, :peripheral_id)
+    driver = self
+    driver.load_settings if driver.responds_to?(:load_settings)
+  end
 
   def on_update
+    driver = self
+    driver.load_settings if driver.responds_to?(:load_settings)
+
+    # Force a reconnect and event resubscribe following module updates.
+    disconnect
   end
 
   def connected
-    # init_connection
-    # register_control_system.then do
-    #  schedule.every('30s') { heartbeat timeout: 35 }
-    # end
+    init_connection
+    register_control_system
+    schedule.every(30.seconds) { heartbeat timeout: 35 }
 
-    # push_config
-    # sync_config
+    push_config
+    sync_config
   end
 
   def disconnected
-    # clear_device_subscriptions
+    clear_feedback_subscriptions
     schedule.clear
   end
 
@@ -50,13 +67,12 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
   # ------------------------------
   # Exec methods
 
+  alias JSONBasic = Enumerable::JSONBasic
+  alias Config = Hash(String, Hash(String, JSONBasic))
+
   # Push a configuration settings to the device.
-  def xconfiguration(path : String, settings : String? = nil)
-    if settings.nil?
-      #    send_xconfigurations path
-    else
-      #    send_xconfigurations path, settings
-    end
+  def xconfigurations(config : Config)
+    config.each { |path, settings| xconfiguration(path, settings) }
   end
 
   # Execute an xCommand on the device.
@@ -105,7 +121,7 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
   # Apply a single configuration on the device.
   def xconfiguration(
     path : String,
-    hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type,
+    hash_args : Hash(String, JSONBasic) = {} of String => JSONBasic,
     **kwargs
   )
     promises = hash_args.map do |setting, value|
@@ -118,7 +134,7 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
     Promise.all(promises).get.first
   end
 
-  protected def apply_configuration(path : String, setting : String, value : JSON::Any::Type)
+  protected def apply_configuration(path : String, setting : String, value : JSONBasic)
     request = XAPI.xconfiguration(path, setting, value)
     promise = Promise.new(Bool)
 
@@ -173,8 +189,20 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
     promise.get
   end
 
+  # ------------------------------
+  # Base comms
+
+  def init_connection
+    send "Echo off\n", priority: 96 do |data, task|
+      response = String.new(data)
+      task.success if response.includes? "\e[?1034h"
+    end
+
+    send "xPreferences OutputMode JSON\n", wait: false
+  end
+
   protected def do_send(command, multiline_body = nil, **options)
-    do_send(command, multiline_body, **options) { nil }
+    do_send(command, multiline_body, **options) { true }
   end
 
   protected def do_send(command, multiline_body = nil, **options, &callback : ::PlaceOS::Driver::Task::ResponseCallback)
@@ -195,23 +223,16 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
     logger.debug { "<- #{payload}" }
     response = XAPI.parse payload
 
-    if task.nil?
-      # device_subscriptions.notify(response)
-      return
-    end
+    return feedback.notify(response) if task.nil?
 
     if task.xapi_request_id == response["ResultId"]?
       command_result = task.xapi_callback.try &.call(response)
 
-      # device_subscriptions.notify(response) if command_result.nil?
-      if command_result == :abort
-        task.abort
-      else
-        task.success command_result
-      end
+      feedback.notify(response) if command_result.nil?
+      command_result == :abort ? task.abort : task.success(command_result)
     else
       # Otherwise support interleaved async events
-      # device_subscriptions.notify(response)
+      feedback.notify(response)
     end
   rescue error : JSON::ParseException
     payload = String.new(data).strip
@@ -225,6 +246,102 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
       logger.debug { "Malformed device response: #{error}\n#{payload}" }
       task.try &.abort "Malformed device response: #{error}"
     end
+  end
+
+  # ------------------------------
+  # Event subscription
+
+  # Subscribe to feedback from the device.
+  def register_feedback(path : String, &update_handler : Proc(String, Enumerable::JSONComplex, Nil))
+    logger.debug { "Subscribing to device feedback for #{path}" }
+
+    unless feedback.contains? path
+      request = XAPI.xfeedback :register, path
+      # Always returns an empty response, nothing special to handle
+      result = do_send request
+    end
+
+    feedback.insert path, &update_handler
+
+    result.try(&.get) || true
+  end
+
+  def unregister_feedback(path : String)
+    return clear_feedback_subscriptions if path == "/"
+    logger.debug { "Unsubscribing feedback for #{path}" }
+    feedback.remove path
+    do_send XAPI.xfeedback(:deregister, path)
+  end
+
+  def clear_feedback_subscriptions
+    logger.debug { "Unsubscribing all feedback" }
+    @status_keys.clear
+    feedback.clear
+    do_send XAPI.xfeedback(:deregister_all)
+  end
+
+  # ------------------------------
+  # Module status
+
+  @status_keys = Hash(String, Hash(String, Enumerable::JSONComplex)).new do |hash, key|
+    hash[key] = {} of String => Enumerable::JSONComplex
+  end
+
+  # Bind arbitary device feedback to a status variable.
+  def bind_feedback(path : String, status_key : String)
+    register_feedback path do |value_path, value|
+      if value_path == path
+        self[status_key] = value
+      else
+        key_path = value_path.sub(path, "")
+        hash = @status_keys[status_key]
+        hash[key_path] = value
+        self[status_key] = hash
+      end
+    end
+  end
+
+  # Bind device status to a module status variable.
+  def bind_status(path : String, status_key : String)
+    bind_feedback "/Status/#{path.tr " ", "/"}", status_key
+    payload = xstatus(path)
+
+    # single value?
+    if payload.size == 1 && (value = payload[path]?)
+      self[status_key] = value
+    else
+      self[status_key] = @status_keys[status_key] = payload.transform_keys do |key|
+        key.sub(path, "")
+      end
+    end
+    payload
+  end
+
+  def push_config
+    if config = setting?(Config, :configuration)
+      xconfigurations config
+    end
+  end
+
+  def sync_config
+    bind_feedback "/Configuration", "configuration"
+    send "xConfiguration *\n", wait: false
+  end
+
+  # ------------------------------
+  # Connectivity management
+
+  def register_control_system
+    xcommand "Peripherals Connect",
+      hash_args: Hash(String, JSON::Any::Type){"ID" => self.peripheral_id},
+      name: "PlaceOS",
+      type: :ControlSystem
+  end
+
+  def heartbeat(timeout : Int32)
+    xcommand "Peripherals HeartBeat",
+      hash_args: Hash(String, JSON::Any::Type){"ID" => self.peripheral_id},
+      timeout: timeout
   end
 end
 
