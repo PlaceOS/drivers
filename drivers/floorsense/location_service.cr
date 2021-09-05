@@ -33,6 +33,9 @@ class Floorsense::LocationService < PlaceOS::Driver
 
   @include_bookings : Bool = false
 
+  # eui64 => floorsense desk id
+  @eui64_to_desk_id : Hash(String, String) = {} of String => String
+
   def on_load
     on_update
   end
@@ -45,6 +48,10 @@ class Floorsense::LocationService < PlaceOS::Driver
       @building_mappings[level] = details[:building_id]
       @zone_mappings[level] = plan_id
     end
+  end
+
+  def eui64_to_desk_id(id : String)
+    @eui64_to_desk_id[id]?
   end
 
   # ===================================
@@ -83,6 +90,8 @@ class Floorsense::LocationService < PlaceOS::Driver
 
     raw_desks = floorsense.desks(plan_id).get.to_json
     desks = Array(DeskStatus).from_json(raw_desks).compact_map do |desk|
+      @eui64_to_desk_id[desk.eui64] = desk.key
+
       if desk.occupied
         {
           location:    :desk,

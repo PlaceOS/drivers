@@ -13,6 +13,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   accessor floorsense : Floorsense_1
   accessor staff_api : StaffAPI_1
   accessor area_management : AreaManagement_1
+  accessor locations : FloorsenseLocationService_1
 
   bind Floorsense_1, :event_49, :booking_created
   bind Floorsense_1, :event_50, :booking_released
@@ -583,6 +584,24 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     end
   rescue error
     logger.warn(exception: error) { "failed to sync card number #{card_number} for user #{user_id}" }
+  end
+
+  def eui64_to_desk_id(id : String)
+    if foor_id = locations.eui64_to_desk_id(id).get.raw
+      floor_desk_id = foor_id.as(String)
+      place_id = floor_desk_id
+      level_id = nil
+
+      @desk_mapping_cache.each do |level, lookup|
+        if meta = lookup[floor_desk_id]?
+          level_id = level
+          place_id = meta.place_id || floor_desk_id
+          break
+        end
+      end
+
+      {level: level_id, desk_id: place_id} if level_id
+    end
   end
 
   # ===================================
