@@ -18,15 +18,13 @@ end
 
 module Cisco::CollaborationEndpoint::XAPI
   # Regexp's for tokenizing the xAPI command and response structure.
-  JSON_RESPONSE = /(?<=^})|(?<=^{})[\r\n]+/
+  INVALID_COMMAND = /(?<=Command not recognized\.)[\r\n]+/
 
-  INVALID_COMMAND = /(?<=^Command not recognized\.)[\r\n]+/
+  SUCCESS = /(?<=OK)[\r\n]+/
 
-  SUCCESS = /(?<=^OK)[\r\n]+/
+  COMMAND_RESPONSE = Regex.union(INVALID_COMMAND, SUCCESS)
 
-  COMMAND_RESPONSE = Regex.union(JSON_RESPONSE, INVALID_COMMAND, SUCCESS)
-
-  LOGIN_COMPLETE = /\*r Login successful[\r\n]+/
+  LOGIN_COMPLETE = /Login successful/
 
   enum ActionType
     XConfiguration

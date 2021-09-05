@@ -30,6 +30,7 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
   end
 
   protected getter feedback : Feedback = Feedback.new
+  @ready : Bool = false
 
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
@@ -47,15 +48,15 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
   end
 
   def connected
-    init_connection
-    register_control_system
     schedule.every(30.seconds) { heartbeat timeout: 35 }
-
-    push_config
-    sync_config
+    schedule.in(30.seconds) { disconnect unless @ready }
   end
 
   def disconnected
+    @ready = false
+    transport.tokenizer = nil
+    queue.clear abort_current: true
+
     clear_feedback_subscriptions
     schedule.clear
   end
@@ -144,7 +145,10 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
       if result == "Error"
         reason = response["CommandResponse/Configuration/Reason"]?
         xpath = response["CommandResponse/Configuration/XPath"]?
-        logger.error { "#{reason} (#{xpath})" }
+
+        error_msg = "#{reason} (#{xpath})"
+        promise.reject(RuntimeError.new error_msg)
+        logger.error { error_msg }
         :abort
       else
         promise.resolve true
@@ -152,8 +156,10 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
       end
     end
 
-    task.get
-    promise.reject(RuntimeError.new "failed to set configuration: #{path} #{setting}: #{value}") if task.state == :abort
+    spawn(same_thread: true) do
+      task.get
+      promise.reject(RuntimeError.new "failed to set configuration: #{path} #{setting}: #{value}") if task.state == :abort
+    end
     promise
   end
 
@@ -176,29 +182,66 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
         if error
           reason = response["CommandResponse/Status/Reason"]?
           xpath = response["CommandResponse/Status/XPath"]?
-          logger.error { "#{reason} (#{xpath})" }
+          error_msg = "#{reason} (#{xpath})"
+          promise.reject(RuntimeError.new error_msg)
+          logger.error { error_msg }
         else
-          logger.error { "bad response: #{response[:CommandResponse]}" }
+          error_msg = "bad response: #{response[:CommandResponse]}"
+          logger.error { error_msg }
+          promise.reject(RuntimeError.new error_msg)
         end
         :abort
       end
     end
 
-    task.get
-    promise.reject(RuntimeError.new "failed to obtain status: #{path}") if task.state == :abort
+    spawn(same_thread: true) do
+      task.get
+      promise.reject(RuntimeError.new "failed to obtain status: #{path}") if task.state == :abort
+    end
     promise.get
   end
 
   # ------------------------------
   # Base comms
 
-  def init_connection
+  protected def init_connection
+    transport.tokenizer = Tokenizer.new do |io|
+      raw = io.gets_to_end
+      data = raw.lstrip
+      index = if data.starts_with?("{")
+                count = 0
+                pos = 0
+                data.each_char_with_index do |char, i|
+                  pos = i
+                  count += 1 if char == '{'
+                  count -= 1 if char == '}'
+                  break if count.zero?
+                end
+                pos if count.zero?
+              else
+                data =~ XAPI::COMMAND_RESPONSE
+              end
+
+      if index
+        message = data[0..index]
+        index += raw.byte_index_to_char_index(raw.byte_index(message).not_nil!).not_nil!
+        index = raw.char_index_to_byte_index(index + 1)
+      end
+
+      index || -1
+    end
+
     send "Echo off\n", priority: 96 do |data, task|
       response = String.new(data)
       task.success if response.includes? "\e[?1034h"
     end
 
-    send "xPreferences OutputMode JSON\n", wait: false
+    send "xPreferences OutputMode JSON\n", priority: 95, wait: false
+
+    register_control_system
+
+    push_config
+    sync_config
   end
 
   protected def do_send(command, multiline_body = nil, **options)
@@ -221,6 +264,16 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
   def received(data, task)
     payload = String.new(data)
     logger.debug { "<- #{payload}" }
+
+    if !@ready
+      if payload =~ XAPI::LOGIN_COMPLETE
+        @ready = true
+        logger.info { "Connection ready, initializing connection" }
+        init_connection
+      end
+      return
+    end
+
     response = XAPI.parse payload
 
     return feedback.notify(response) if task.nil?
@@ -231,7 +284,6 @@ class Cisco::CollaborationEndpoint < PlaceOS::Driver
       feedback.notify(response) if command_result.nil?
       command_result == :abort ? task.abort : task.success(command_result)
     else
-      # Otherwise support interleaved async events
       feedback.notify(response)
     end
   rescue error : JSON::ParseException

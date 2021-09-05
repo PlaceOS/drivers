@@ -38,7 +38,7 @@ class Cisco::CollaborationEndpoint::Feedback
   end
 
   def notify(payload : Hash(String, Enumerable::JSONComplex))
-    payload.each { |key, value| notify(key, value) }
+    payload.each { |key, value| notify("/#{key}", value) }
   end
 
   def clear

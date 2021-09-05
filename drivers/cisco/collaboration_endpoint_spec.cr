@@ -127,12 +127,12 @@ DriverSpecs.mock_driver "Cisco::CollaborationEndpoint" do
     "Configuration/Audio/Microphones/Mute/Enabled" => true,
   })
 
+  transmit "welcome\n*r Login successful\r\n"
+
   # ====
   # Connection setup
   puts "\nCONNECTION SETUP:\n=============="
-  should_send "Echo off\n"
-  responds "\e[?1034h\r\nOK\r\n"
-
+  should_send("Echo off\n").responds "\e[?1034h\r\nOK\r\n"
   should_send "xPreferences OutputMode JSON\n"
 
   # ====
@@ -157,7 +157,31 @@ DriverSpecs.mock_driver "Cisco::CollaborationEndpoint" do
   puts "\nCONFIG PUSH:\n=============="
 
   data = String.new expect_send
-  data.starts_with?(%(xFeedback register /Configuration | resultId=")).should be_true
+  data.starts_with?(%(xConfiguration Audio Microphones Mute Enabled: "False" | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Audio Input Line 1 VideoAssociation MuteOnInactiveVideo: "On" | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  data.starts_with?(%(xConfiguration Audio Input Line 1 VideoAssociation VideoInputSource: 2 | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  data.starts_with?(%(xFeedback Register /Configuration | resultId=")).should be_true
   id = data.split('"')[-2]
 
   responds %({
@@ -253,7 +277,28 @@ DriverSpecs.mock_driver "Cisco::CollaborationEndpoint" do
     }
   })
 
-  status[:configuration].should eq({"tet" => 123})
+  status[:configuration].should eq({
+    "/Audio/DefaultVolume" => 50,
+    "/Audio/Input/Line/1"  => {
+      "VideoAssociation/MuteOnInactiveVideo" => true,
+      "VideoAssociation/VideoInputSource"    => 2,
+    },
+    "/Audio/Input/Microphone/1" => {
+      "EchoControl/Dereverberation" => false,
+      "EchoControl/Mode"            => true,
+      "EchoControl/NoiseReduction"  => true,
+      "Level"                       => 14,
+      "Mode"                        => true,
+    },
+    "/Audio/Input/Microphone/2" => {
+      "EchoControl/Dereverberation" => false,
+      "EchoControl/Mode"            => true,
+      "EchoControl/NoiseReduction"  => true,
+      "Level"                       => 14,
+      "Mode"                        => true,
+    },
+    "/Audio/Microphones/Mute/Enabled" => true,
+  })
 
   # ====
   # Audio Status
