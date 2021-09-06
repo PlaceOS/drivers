@@ -27,6 +27,24 @@ module Vergesense
     property spaces : Array(Space)
   end
 
+  struct Sensor
+    include JSON::Serializable
+
+    property units : String
+    property value : Float64
+  end
+
+  struct Environment
+    include JSON::Serializable
+
+    property sensor : String
+    property timestamp : Time
+
+    property humidity : Sensor
+    property iaq : Sensor
+    property temperature : Sensor
+  end
+
   class Space
     include JSON::Serializable
 
@@ -37,9 +55,10 @@ module Vergesense
     property name : String?
     property capacity : UInt32?
     property max_capacity : UInt32?
-    property geometry : Geometry?
+    # property geometry : Geometry?
     property people : People?
-    property timestamp : String?
+    property environment : Environment?
+    property timestamp : Time?
     property motion_detected : Bool?
 
     def floor_key
@@ -58,6 +77,6 @@ module Vergesense
     include JSON::Serializable
 
     property count : UInt32?
-    property coordinates : Array(Array(Float64)?)?
+    # property coordinates : Array(Array(Float64)?)?
   end
 end
