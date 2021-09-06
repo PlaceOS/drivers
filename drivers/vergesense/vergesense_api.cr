@@ -126,6 +126,12 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         floor_space.people = remote_space.people
         floor_space.motion_detected = remote_space.motion_detected
         floor_space.timestamp = remote_space.timestamp
+        floor_space.environment = remote_space.environment
+        floor_space.name = remote_space.name
+        floor_space.capacity = remote_space.capacity
+        floor_space.max_capacity = remote_space.max_capacity
+      else
+        floor.spaces << remote_space
       end
     end
   end
