@@ -147,6 +147,12 @@ class Gallagher::RestAPI < PlaceOS::Driver
     get_results(PDF, response.body)
   end
 
+  def get_pdf(user_id : String, pdf_id : String | UInt64)
+    response = get("#{@cardholders_endpoint}/#{user_id}/personal_data/#{pdf_id}", headers: @headers)
+    raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    response.body
+  end
+
   def get_cardholder(id : String)
     response = get("#{@cardholders_endpoint}/#{id}", headers: @headers)
     raise "cardholder request failed with #{response.status_code}\n#{response.body}" unless response.success?
