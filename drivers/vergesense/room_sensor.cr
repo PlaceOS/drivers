@@ -105,9 +105,9 @@ class Vergesense::RoomSensor < PlaceOS::Driver
       build_sensor_details(:presence)
     when "humidity"
       build_sensor_details(:humidity)
-    when "temp"
+    when "temperature"
       build_sensor_details(:ambient_temp)
-    when "air"
+    when "air_quality"
       build_sensor_details(:air_quality)
     end
   end
@@ -128,11 +128,11 @@ class Vergesense::RoomSensor < PlaceOS::Driver
               time = space.environment.try &.timestamp
               space.environment.try &.humidity.value
             when .ambient_temp?
-              id = "temp"
+              id = "temperature"
               time = space.environment.try &.timestamp
               space.environment.try &.temperature.value
             when .air_quality?
-              id = "air"
+              id = "air_quality"
               time = space.environment.try &.timestamp
               space.environment.try &.iaq.value
             else
@@ -147,7 +147,9 @@ class Vergesense::RoomSensor < PlaceOS::Driver
       mac: "verg-#{@space_id}",
       id: id,
       name: "#{floor_name} #{space.name} (#{space.space_type})",
-      limit_high: limit_high
+      limit_high: limit_high,
+      module_id: module_id,
+      binding: id
     )
   end
 
