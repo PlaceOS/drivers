@@ -378,7 +378,11 @@ class Place::AreaManagement < PlaceOS::Driver
 
     people_counts = sensors.delete(SensorType::PeopleCount)
     sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
-      (values.sum(&.value) / values.size).round(@rounding_precision)
+      if values.size > 0
+        (values.sum(&.value) / values.size).round(@rounding_precision)
+      else
+        0.0
+      end
     end
     if people_counts
       sensor_summary["people_count"] = people_counts.sum(&.value)
@@ -455,7 +459,11 @@ class Place::AreaManagement < PlaceOS::Driver
 
         people_counts = area_sensors.delete(SensorType::PeopleCount)
         sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
-          (values.sum(&.value) / values.size).round(@rounding_precision)
+          if values.size > 0
+            (values.sum(&.value) / values.size).round(@rounding_precision)
+          else
+            0.0
+          end
         end
         if people_counts
           sensor_summary["people_count"] = people_counts.sum(&.value)
@@ -479,7 +487,7 @@ class Place::AreaManagement < PlaceOS::Driver
       },
     }
   rescue error
-    log_location_parsing(error, level_id)
+    logger.debug(exception: error) { "while parsing #{level_id}" }
     sleep 200.milliseconds
   end
 
@@ -514,11 +522,6 @@ class Place::AreaManagement < PlaceOS::Driver
 
   protected def update_overview
     self[:overview] = @level_counts.transform_values { |details| build_level_stats(**details) }
-  end
-
-  protected def log_location_parsing(error, level_id)
-    logger.debug(exception: error) { "while parsing #{level_id}" }
-  rescue
   end
 
   def is_inside?(x : Float64, y : Float64, area_id : String)
