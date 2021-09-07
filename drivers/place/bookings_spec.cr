@@ -1,14 +1,19 @@
 require "placeos-driver/spec"
+require "placeos-driver/interface/sensor"
 
 DriverSpecs.mock_driver "Place::Bookings" do
   system({
     Calendar: {CalendarMock},
+    Sensor:   {SensorMock},
   })
 
   # Check it calculates state properly
   exec(:poll_events).get
   bookings = status[:bookings].as_a
   bookings.size.should eq(4)
+
+  sleep 200.milliseconds
+
   status[:booked].should eq(true)
   status[:in_use].should eq(false)
   status[:pending].should eq(true)
@@ -40,6 +45,42 @@ DriverSpecs.mock_driver "Place::Bookings" do
   status[:current_pending].should eq(false)
   status[:next_pending].should eq(false)
   status[:status].should eq("free")
+
+  status[:people_count].should eq(12.0)
+  status[:sensor_name].should eq("Mock People Count")
+  status[:presence].should eq(true)
+end
+
+# :nodoc:
+class SensorMock < DriverSpecs::MockDriver
+  include PlaceOS::Driver::Interface::Sensor
+
+  alias Interface = PlaceOS::Driver::Interface
+
+  def on_load
+    self[:people_count] = 12.0
+  end
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    if type == "people_count"
+      [Interface::Sensor::Detail.new(
+        type: Interface::Sensor::SensorType::PeopleCount,
+        value: 12.0,
+        last_seen: Time.utc.to_unix,
+        mac: "mock-people-count",
+        id: nil,
+        name: "Mock People Count",
+        module_id: "mod-Sensor/1",
+        binding: "people_count"
+      )]
+    else
+      [] of Interface::Sensor::Detail
+    end
+  end
+
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    nil
+  end
 end
 
 # :nodoc:
