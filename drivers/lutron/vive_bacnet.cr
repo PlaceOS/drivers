@@ -48,6 +48,7 @@ class Lutron::ViveBacnet < PlaceOS::Driver
                      nil
                    end
       self[:occupancy] = @occupancy
+      self[:occupancy_sensor] = @occupancy.nil? ? nil : (@occupancy ? 1.0 : 0.0)
       @last_updated = Time.utc.to_unix
     end
 
@@ -98,7 +99,7 @@ class Lutron::ViveBacnet < PlaceOS::Driver
         id: "occupancy",
         name: "#{system.name}: occupancy",
         module_id: module_id,
-        binding: "occupancy"
+        binding: "occupancy_sensor"
       ),
     ]
   end
@@ -117,7 +118,7 @@ class Lutron::ViveBacnet < PlaceOS::Driver
       id: "occupancy",
       name: "#{system.name}: occupancy",
       module_id: module_id,
-      binding: "occupancy"
+      binding: "occupancy_sensor"
     )
   end
 end
