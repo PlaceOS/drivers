@@ -218,7 +218,7 @@ class Vergesense::LocationService < PlaceOS::Driver
             end
     return nil unless value
 
-    Detail.new(
+    detail = Detail.new(
       type: sensor,
       value: value,
       last_seen: (time || Time.utc).to_unix,
@@ -227,6 +227,8 @@ class Vergesense::LocationService < PlaceOS::Driver
       name: "#{floor.name} #{space.name} (#{space.space_type})",
       limit_high: limit_high
     )
+    detail.level = zone_id
+    detail
   end
 
   protected def space_sensors(zone_id : String, floor : Vergesense::Floor, space : Vergesense::Space)
@@ -234,7 +236,7 @@ class Vergesense::LocationService < PlaceOS::Driver
       build_sensor_details(zone_id, floor, space, :people_count),
       build_sensor_details(zone_id, floor, space, :presence),
       build_sensor_details(zone_id, floor, space, :humidity),
-      build_sensor_details(zone_id, floor, space, :temperature),
+      build_sensor_details(zone_id, floor, space, :ambient_temp),
       build_sensor_details(zone_id, floor, space, :air_quality),
     ].compact!
   end

@@ -16,6 +16,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
   @buildings : Array(Building) = [] of Building
   @floors : Hash(String, Floor) = {} of String => Floor
+  @spaces : Hash(String, String) = {} of String => String
 
   @debug_payload : Bool = false
   @poll_every : Time::Span? = nil
@@ -47,6 +48,8 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         init_floors
         init_spaces
         init_floors_status
+
+        self["init_complete"] = true
       end
     end
   rescue e
@@ -75,6 +78,10 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
     # Return a 200 response
     SUCCESS_RESPONSE
+  end
+
+  def floor_key(space_id : String)
+    @spaces[space_id]
   end
 
   private def init_buildings
@@ -133,6 +140,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
       else
         floor.spaces << remote_space
       end
+      @spaces[remote_space.space_ref_id] = remote_space.floor_key
     end
   end
 
