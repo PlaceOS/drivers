@@ -87,6 +87,7 @@ class Place::Bookings < PlaceOS::Driver
     @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
 
     # Write to redis last on the off chance there is a connection issue
+    self[:room_name] = setting?(String, :room_name).presence || config.control_system.not_nil!.display_name.presence || config.control_system.not_nil!.name
     self[:default_title] = @default_title
     self[:disable_book_now] = @disable_book_now
     self[:disable_end_meeting] = @disable_end_meeting
