@@ -540,6 +540,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
         user_id: user_id,
         user_email: user_email,
         user_name: user_name,
+        checked_in: booking.confirmed == "true",
         zones: [floor_details[:building_id]?, floor_details[:level_id]].compact,
         extension_data: {
           floorsense_id: booking.booking_id,
