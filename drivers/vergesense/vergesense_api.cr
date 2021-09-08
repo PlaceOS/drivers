@@ -134,13 +134,17 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         floor_space.motion_detected = remote_space.motion_detected
         floor_space.timestamp = remote_space.timestamp
         floor_space.environment = remote_space.environment
-        floor_space.name = remote_space.name
-        floor_space.capacity = remote_space.capacity
-        floor_space.max_capacity = remote_space.max_capacity
+        floor_space.name = remote_space.name if remote_space.name
+        floor_space.capacity = remote_space.capacity if remote_space.capacity
+        floor_space.max_capacity = remote_space.max_capacity if remote_space.max_capacity
       else
         floor.spaces << remote_space
       end
-      @spaces[remote_space.space_ref_id] = remote_space.floor_key
+
+      # cache the lookups for simple floor discovery
+      if space_ref = remote_space.space_ref_id
+        @spaces[space_ref] = remote_space.floor_key
+      end
     end
   end
 

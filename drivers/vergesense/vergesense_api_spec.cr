@@ -135,7 +135,6 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
         "name"            => "Conference Room 0721",
         "capacity"        => 4,
         "max_capacity"    => 3,
-        "geometry"        => {"type" => "Polygon", "coordinates" => [[[93.850772, 44.676952], [93.850739, 44.676929], [93.850718, 44.67695], [93.850751, 44.676973], [93.850772, 44.676952], [93.850772, 44.676952]]]},
         "people"          => {"count" => 2},
       },
     ],
@@ -154,16 +153,6 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
     "timestamp": "2019-08-21T21:10:25Z",
     "people": {
       "count": 21,
-      "coordinates": [
-        [
-          2.2673,
-          4.3891
-        ],
-        [
-          6.2573,
-          1.5303
-        ]
-      ],
       "distances": {
         "units": "meters",
         "values": [1.5]
@@ -187,10 +176,8 @@ DriverSpecs.mock_driver "Vergesense::VergesenseAPI" do
         "name"            => "Conference Room 0721",
         "capacity"        => 4,
         "max_capacity"    => 3,
-        "geometry"        => {"type" => "Polygon", "coordinates" => [[[93.850772, 44.676952], [93.850739, 44.676929], [93.850718, 44.67695], [93.850751, 44.676973], [93.850772, 44.676952], [93.850772, 44.676952]]]},
         "people"          => {
-          "count"       => 21,
-          "coordinates" => [[2.2673, 4.3891], [6.2573, 1.5303]],
+          "count" => 21,
         },
         "timestamp"       => "2019-08-21T21:10:25Z",
         "motion_detected" => true,
