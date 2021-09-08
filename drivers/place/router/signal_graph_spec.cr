@@ -30,7 +30,6 @@ class PlaceOS::Driver
     end
   end
 
-
   # Settings:
   #
   # connections = {
@@ -216,5 +215,4 @@ class PlaceOS::Driver
       end
     end
   end
-
 end
