@@ -2,27 +2,7 @@ require "placeos-driver"
 require "promise"
 require "uuid"
 
-class Cisco::CollaborationEndpoint < PlaceOS::Driver
-  # Discovery Information
-  descriptive_name "Cisco Collaboration Endpoint"
-  generic_name :CollaborationEndpoint
-  tcp_port 22
-
-  default_settings({
-    ssh: {
-      username: :cisco,
-      password: :cisco,
-    },
-    peripheral_id: "uuid",
-    configuration: {
-      "Audio Microphones Mute"              => {"Enabled" => "False"},
-      "Audio Input Line 1 VideoAssociation" => {
-        "MuteOnInactiveVideo" => "On",
-        "VideoInputSource"    => 2,
-      },
-    },
-  })
-
+module Cisco::CollaborationEndpoint
   getter peripheral_id : String do
     uuid = generate_request_uuid
     define_setting(:peripheral_id, uuid)

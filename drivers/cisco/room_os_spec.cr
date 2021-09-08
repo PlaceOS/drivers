@@ -1,7 +1,7 @@
 require "placeos-driver/spec"
 require "./collaboration_endpoint/xapi"
 
-DriverSpecs.mock_driver "Cisco::CollaborationEndpoint" do
+DriverSpecs.mock_driver "Cisco::RoomOS" do
   # Test command generation helpers
   action = Cisco::CollaborationEndpoint::XAPI.xcommand(
     "Camera PositionSet",
