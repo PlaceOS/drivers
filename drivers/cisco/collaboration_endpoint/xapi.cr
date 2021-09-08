@@ -102,7 +102,7 @@ module Cisco::CollaborationEndpoint::XAPI
     path.split(/[\s\/\\]/).reject(&.empty?)
   end
 
-  macro command(cmd_name, params)
+  macro command(cmd_name, **params)
     {% for cmd, name in cmd_name %}
       def {{name.id}}(
         {% for param, klass in params %}
@@ -113,7 +113,7 @@ module Cisco::CollaborationEndpoint::XAPI
           {% end %}
 
           {% if klass.is_a?(RangeLiteral) %}
-            {{param.id}} : Int32{% if optional %}?{% end %},
+            {{param.id}} : Int64{% if optional %}?{% end %},
           {% else %}
             {{param.id}} : {{klass}}{% if optional %}?{% end %},
           {% end %}
@@ -121,13 +121,25 @@ module Cisco::CollaborationEndpoint::XAPI
       )
         {% for param, klass in params %}
           {% if klass.is_a?(RangeLiteral) %}
-            raise ArgumentError.new("#{ {{param.stringify}} } must be within #{ {{klass}} }, was #{ {{param.id}} }") unless {{klass}}.includes?({{param}})
+            {% optional = false %}
+            {% if param.stringify.ends_with?("_") %}
+              {% optional = true %}
+              {% param = param.stringify[0..-2] %}
+            {% end %}
+            {% if optional %} if {{param.id}}{% end %}
+              raise ArgumentError.new("#{ {{param.stringify}} } must be within #{ {{klass}} }, was #{ {{param.id}} }") unless ({{klass}}).includes?({{param.id}})
+            {% if optional %}end{% end %}
           {% end %}
         {% end %}
 
-        send_xcommand(
+        # send the command
+        xcommand(
           {{cmd.stringify}},
           {% for param, klass in params %}
+            {% if param.stringify.ends_with?("_") %}
+              {% param = param.stringify[0..-2] %}
+            {% end %}
+
             {{param.id}}: {{param.id}},
           {% end %}
         )

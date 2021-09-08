@@ -3,6 +3,7 @@ require "promise"
 require "uuid"
 
 require "./collaboration_endpoint"
+require "./collaboration_endpoint/ui_extensions"
 
 class Cisco::RoomOS < PlaceOS::Driver
   # Discovery Information
@@ -35,4 +36,5 @@ class Cisco::RoomOS < PlaceOS::Driver
   })
 
   include Cisco::CollaborationEndpoint
+  include Cisco::CollaborationEndpoint::UIExtensions
 end
