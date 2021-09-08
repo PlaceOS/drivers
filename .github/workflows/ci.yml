@@ -21,11 +21,8 @@ jobs:
         uses: crystal-ameba/github-action@v0.2.12
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Cache shards
-        uses: actions/cache@v2
-        with:
-          path: lib
-          key: ${{ hashFiles('shard.lock') }}
+      - name: Install Shards
+        run: shards install --ignore-crystal-version
       - name: Docs
         run: crystal docs
 
