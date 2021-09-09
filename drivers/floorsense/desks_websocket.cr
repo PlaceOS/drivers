@@ -17,10 +17,14 @@ class Floorsense::Desks < PlaceOS::Driver
   default_settings({
     username: "srvc_acct",
     password: "password!",
+    ws_username: "srvc_acct",
+    ws_password: "password!",
   })
 
   @username : String = ""
   @password : String = ""
+  @ws_username : String = ""
+  @ws_password : String = ""
   @auth_token : String = ""
   @auth_expiry : Time = 1.minute.ago
   @user_cache : Hash(String, User) = {} of String => User
@@ -38,6 +42,8 @@ class Floorsense::Desks < PlaceOS::Driver
   def on_update
     @username = setting(String, :username)
     @password = setting(String, :password)
+    @ws_username = setting(String, :ws_username)
+    @ws_password = setting(String, :ws_password)
 
     schedule.clear
     schedule.every(1.hour) { sync_locker_list }
@@ -46,7 +52,7 @@ class Floorsense::Desks < PlaceOS::Driver
 
   def connected
     # authenticate
-    ws_post("/auth", {username: @username, password: @password}, priority: 99, name: "auth")
+    ws_post("/auth", {username: @ws_username, password: @ws_password}, priority: 99, name: "auth")
   end
 
   protected def ws_post(uri, body = nil, **options)
