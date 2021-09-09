@@ -52,7 +52,8 @@ class Floorsense::Desks < PlaceOS::Driver
 
   def connected
     # authenticate
-    ws_post("/auth", {username: @ws_username, password: @ws_password}, priority: 99, name: "auth")
+    # ws_post("/auth", {username: @ws_username, password: @ws_password}, priority: 99, name: "auth")
+    ws_post("/auth", {user: "kiosk"}, priority: 99, name: "auth")
   end
 
   protected def ws_post(uri, body = nil, **options)
