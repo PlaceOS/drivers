@@ -127,7 +127,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.11
+    version: 1.13.12
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -147,7 +147,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.10.2
+    version: 4.11.0
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
