@@ -163,7 +163,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.5.7
+    version: 5.5.8
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -202,12 +202,12 @@ shards:
     version: 1.2.3
 
   rethinkdb:
-    git: https://github.com/kingsleyh/crystal-rethinkdb.git
-    version: 0.3.0
+    git: https://github.com/place-labs/crystal-rethinkdb.git
+    version: 0.3.1+git.commit.bd193b6fed95619da3d963267bf61ed35b1fd7f5
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 5.0.1
+    version: 5.0.2
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git
