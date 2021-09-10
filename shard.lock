@@ -127,7 +127,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.13
+    version: 1.13.14
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -171,7 +171,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.10.0
+    version: 5.10.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
