@@ -369,7 +369,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     sense_bookings = floorsense_bookings(zone)
 
     # Apply desk mappings
-    @desk_mapping_cache[zone] = configured_desk_ids = placeos_desk_metadata(zone)
+    @desk_mapping_cache[zone] = configured_desk_ids = placeos_desk_metadata(zone, floor_details[:building_id])
     place_bookings.each do |booking|
       asset_id = booking.asset_id
       booking.floor_id = configured_desk_ids[asset_id]?.try(&.floor_id) || asset_id
@@ -592,16 +592,18 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       floor_desk_id = foor_id.as(String)
       place_id = floor_desk_id
       level_id = nil
+      building = nil
 
       @desk_mapping_cache.each do |level, lookup|
         if meta = lookup[floor_desk_id]?
           level_id = level
           place_id = meta.place_id || floor_desk_id
+          building = meta.building
           break
         end
       end
 
-      {level: level_id, desk_id: place_id} if level_id
+      {level: level_id, desk_id: place_id, building_id: building} if level_id
     end
   end
 
@@ -639,7 +641,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     bookings.map { |book| Booking.from_json(book.to_json) }
   end
 
-  def placeos_desk_metadata(zone_id : String)
+  def placeos_desk_metadata(zone_id : String, building_id : String?)
     desk_lookup = {} of String => DeskMeta
 
     begin
@@ -656,7 +658,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
         floor_id = desk[lookup_key]?.try(&.as_s)
         next unless floor_id
 
-        ids = DeskMeta.new(place_id, floor_id)
+        ids = DeskMeta.new(place_id, floor_id, building_id)
         desk_lookup[place_id] = ids
         desk_lookup[floor_id] = ids
       end
@@ -670,11 +672,12 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   struct DeskMeta
     include JSON::Serializable
 
-    def initialize(@place_id, @floor_id)
+    def initialize(@place_id, @floor_id, @building = nil)
     end
 
     property place_id : String
     property floor_id : String
+    property building : String?
   end
 
   class Booking
