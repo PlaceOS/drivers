@@ -1,6 +1,6 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "Floorsense::LocationService" do
+DriverSpecs.mock_driver "Floorsense::MobileCheckinLogic" do
   system({
     FloorsenseBookingSync: {FloorsenseBookingSyncMock},
     StaffAPI:              {StaffAPIMock},
