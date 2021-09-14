@@ -361,6 +361,26 @@ module Cisco::CollaborationEndpoint
   end
 
   # ------------------------------
+  # External feedback subscriptions
+
+  # Subscribe another module to async device events.
+  # Callback methods must be of arity 1 and public.
+  def on_event(path : String, mod_id : String, channel : String)
+    logger.debug { "Registering callback for #{path} to #{mod_id}/#{channel}" }
+
+    register_feedback path do |event|
+      logger.debug { "Publishing #{path} event to #{mod_id}/#{channel}" }
+      publish("#{mod_id}/#{channel}", event.to_json)
+    end
+  end
+
+  # Clear external event subscribtions for a specific device path.
+  def clear_event(path : String)
+    logger.debug { "Clearing event subscription for #{path}" }
+    unregister_feedback path
+  end
+
+  # ------------------------------
   # Connectivity management
 
   def register_control_system
