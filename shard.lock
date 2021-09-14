@@ -127,7 +127,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.11
+    version: 1.13.14
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -147,7 +147,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.10.2
+    version: 4.11.2
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -163,7 +163,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.5.4
+    version: 5.5.10
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -171,7 +171,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.10.0
+    version: 5.10.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -202,12 +202,12 @@ shards:
     version: 1.2.3
 
   rethinkdb:
-    git: https://github.com/kingsleyh/crystal-rethinkdb.git
-    version: 0.3.0
+    git: https://github.com/place-labs/crystal-rethinkdb.git
+    version: 0.3.1+git.commit.af92ace5eb60e861a41b93456ac5d73b80feb7bb
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 5.0.1
+    version: 5.0.2
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git
