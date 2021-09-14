@@ -2,6 +2,7 @@ require "uri"
 require "placeos-driver"
 require "semantic_version"
 require "./rest_api_models"
+require "base64"
 
 # Documentation: https://aca.im/driver_docs/Gallagher/Gallagher_CC_REST_API_Docs%208.10.1113.zip
 
@@ -151,6 +152,13 @@ class Gallagher::RestAPI < PlaceOS::Driver
     response = get("#{@cardholders_endpoint}/#{user_id}/personal_data/#{pdf_id}", headers: @headers)
     raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
     response.body
+  end
+
+  def get_base64_pdf(user_id : String, pdf_id : String | UInt64)
+    response = get("#{@cardholders_endpoint}/#{user_id}/personal_data/#{pdf_id}", headers: @headers)
+    raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    Base64.strict_encode(response.body)
   end
 
   def get_cardholder(id : String)
