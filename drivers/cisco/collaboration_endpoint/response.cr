@@ -1,9 +1,9 @@
 require "json"
 
 module Cisco::CollaborationEndpoint::XAPI
-  TRUTHY  = {"On", "True", "Available", "Standby", "on", "true"}
-  FALSEY  = {"Off", "False", "Unavailable", "off", "false"}
-  BOOLEAN = ->(val : String) { TRUTHY.includes?(val) }
+  TRUTHY  = {"true", "available", "standby", "on", "active"}
+  FALSEY  = {"false", "unavailable", "off", "inactive"}
+  BOOLEAN = ->(val : String) { TRUTHY.includes?(val.downcase) }
   BOOL_OR = ->(term : String) { ->(val : String) { val == term ? term : BOOLEAN.call(val) } }
   PARSERS = {
     "TTPAR_OnOff"        => BOOLEAN,
@@ -12,15 +12,16 @@ module Cisco::CollaborationEndpoint::XAPI
     "TTPAR_MuteEnabled"  => BOOLEAN,
   }
 
-  def self.value_convert(value : String, valuespace : String?)
+  def self.value_convert(value : String, valuespace : String? = nil)
     parser = PARSERS[valuespace]?
     return value.to_i64 unless parser
     parser.call(value)
   rescue
+    check = value.downcase
     # probably wasn't an integer
-    if value.in? TRUTHY
+    if check.in? TRUTHY
       true
-    elsif value.in? FALSEY
+    elsif check.in? FALSEY
       false
     else
       value
