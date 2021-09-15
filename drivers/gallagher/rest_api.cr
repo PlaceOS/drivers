@@ -271,7 +271,8 @@ class Gallagher::RestAPI < PlaceOS::Driver
     end
 
     response = patch(url, headers: @headers, body: payload)
-    Cardholder.from_json process(response)
+    result = process(response)
+    result.presence && Cardholder.from_json(result)
   end
 
   def disable_card(href : String)
