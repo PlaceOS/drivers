@@ -42,8 +42,8 @@ class Floorsense::Desks < PlaceOS::Driver
   def on_update
     @username = setting(String, :username)
     @password = setting(String, :password)
-    @ws_username = setting?(String, :ws_username)
-    @ws_password = setting?(String, :ws_password)
+    @ws_username = setting?(String, :ws_username) || @username
+    @ws_password = setting?(String, :ws_password) || @password
 
     schedule.clear
     schedule.every(1.hour) { sync_locker_list }
