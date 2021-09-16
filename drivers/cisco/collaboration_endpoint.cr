@@ -19,6 +19,7 @@ module Cisco::CollaborationEndpoint
 
   getter peripheral_id : String do
     uuid = generate_request_uuid
+    @ignore_update = true
     define_setting(:peripheral_id, uuid)
     uuid
   end
