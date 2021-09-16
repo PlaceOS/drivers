@@ -43,13 +43,13 @@ module Cisco::CollaborationEndpoint::XAPI
 
   # Serialize an xAPI action into transmittable command.
   def self.create_action(
-    action : ActionType,
+    __action__ : ActionType,
     *args,
     hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type,
     **kwargs
   )
     [
-      action.to_s.camelcase(lower: true),
+      __action__.to_s.camelcase(lower: true),
       args.compact_map(&.to_s),
       hash_args.map { |key, value|
         if value
@@ -113,9 +113,9 @@ module Cisco::CollaborationEndpoint::XAPI
           {% end %}
 
           {% if klass.is_a?(RangeLiteral) %}
-            {{param.id}} : Int64{% if optional %}?{% end %},
+            {{param.id}} : Int32{% if optional %}? = nil{% end %},
           {% else %}
-            {{param.id}} : {{klass}}{% if optional %}?{% end %},
+            {{param.id}} : {{klass}}{% if optional %}? = nil{% end %},
           {% end %}
         {% end %}
       )
@@ -134,7 +134,7 @@ module Cisco::CollaborationEndpoint::XAPI
 
         # send the command
         xcommand(
-          {{cmd.stringify}},
+          {{cmd}},
           {% for param, klass in params %}
             {% if param.stringify.ends_with?("_") %}
               {% param = param.stringify[0..-2] %}

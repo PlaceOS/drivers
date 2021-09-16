@@ -3,6 +3,20 @@ require "promise"
 require "uuid"
 
 module Cisco::CollaborationEndpoint
+  macro included
+    @@status_mappings = {} of Symbol => String
+
+    def self.map_status(**opts)
+      @@status_mappings.merge! opts.to_h
+    end
+  end
+
+  # used by many of the commands
+  enum Toogle
+    On
+    Off
+  end
+
   getter peripheral_id : String do
     uuid = generate_request_uuid
     define_setting(:peripheral_id, uuid)
@@ -12,14 +26,28 @@ module Cisco::CollaborationEndpoint
   protected getter feedback : Feedback = Feedback.new
   @ready : Bool = false
 
+  # Camera idx => Preset name => Preset id
+  alias Presets = Hash(Int32, Hash(String, Int32))
+  @presets : Presets = {} of Int32 => Hash(String, Int32)
+
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
     @peripheral_id = setting?(String, :peripheral_id)
+    @presets = setting?(Presets, :camera_presets) || @presets
     driver = self
     driver.load_settings if driver.responds_to?(:load_settings)
   end
 
+  # used when saving settings from the driver
+  # this prevents needless disconnects
+  @ignore_update : Bool = false
+
   def on_update
+    if @ignore_update
+      @ignore_update = false
+      return
+    end
+    @presets = setting?(Presets, :camera_presets) || @presets
     driver = self
     driver.load_settings if driver.responds_to?(:load_settings)
 
@@ -30,6 +58,7 @@ module Cisco::CollaborationEndpoint
   def connected
     schedule.every(30.seconds) { heartbeat timeout: 35 }
     schedule.in(30.seconds) { disconnect unless @ready }
+    @@status_mappings.each { |key, path| bind_status(path, key.to_s) }
   end
 
   def disconnected

@@ -11,14 +11,14 @@ class Cisco::RoomOS < PlaceOS::Driver
   generic_name :RoomOS
   tcp_port 22
 
-  description %(
+  description <<-DESC
     Low level driver for any Cisco Room OS device. This may be used
     if direct access is required to the device API, or a required feature
     is not provided by the device specific implementation.
 
     Where possible use the implementation for room device in use
     i.e. SX80, Room Kit etc.
-  )
+    DESC
 
   default_settings({
     ssh: {
