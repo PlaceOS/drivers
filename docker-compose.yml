@@ -37,12 +37,13 @@ services:
       - ${PWD}/repositories:/app/repositories
       - ${PWD}:/app/repositories/local
     environment:
-      PLACEOS_BUILD_LOCAL: 1
-      GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
       AWS_KEY: ${AWS_KEY}
       AWS_SECRET: ${AWS_SECRET}
       AWS_REGION: ${AWS_REGION:-p-southeast-2}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-placeos-drivers}
+      GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
+      PLACEOS_BUILD_LOCAL: 1
+      PLACEOS_ENABLE_TRACE: 1
       TZ: $TZ
 
   redis:
