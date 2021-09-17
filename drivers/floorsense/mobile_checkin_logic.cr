@@ -27,6 +27,8 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
     logger.debug { "#{user_id} scanned mac #{id}" }
 
     desk_details = booking_sync.eui64_to_desk_id(id).get
+    raise "could not find eui64 id: #{id}" if desk_details.raw.nil?
+
     level_zone = desk_details["level"].as_s
     build_zone = desk_details["building_id"]?.try &.as_s
     place_desk = desk_details["desk_id"].as_s
