@@ -370,8 +370,8 @@ module Cisco::CollaborationEndpoint
     payload = xstatus(path)
 
     # single value?
-    if payload.size == 1 && (value = payload[bind_path]?)
-      self[status_key] = value
+    if payload.size == 1 && payload.has_key?(bind_path)
+      self[status_key] = payload[bind_path]
     else
       self[status_key] = @status_keys[status_key] = payload.transform_keys do |key|
         key.sub(path, "")
