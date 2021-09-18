@@ -46,6 +46,7 @@ module Cisco::CollaborationEndpoint::XAPI
     __action__ : ActionType,
     *args,
     hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type,
+    priority : Int32? = nil, # we want to ignore this param, hence we specified it here
     **kwargs
   )
     [

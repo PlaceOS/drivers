@@ -100,7 +100,10 @@ module Cisco::CollaborationEndpoint
              "#{command} #{kwargs.keys.to_a.first}"
            end
 
-    do_send request, multiline_body, name: name do |response|
+    # use default queue priority is not specified
+    priority = kwargs[:priority]? || queue.priority
+
+    do_send request, multiline_body, name: name, priority: priority do |response|
       # The result keys are a little odd: they're a concatenation of the
       # last two command elements and 'Result', unless the command
       # failed in which case it's just 'Result'.
@@ -188,15 +191,14 @@ module Cisco::CollaborationEndpoint
         promise.resolve results
         results
       else
-        error = response["CommandResponse/Status/status"]?
-        if error
-          reason = response["CommandResponse/Status/Reason"]?
-          xpath = response["CommandResponse/Status/XPath"]?
+        if error = response["Status/status"]? || response["CommandResponse/Status/status"]?
+          reason = response["Status/Reason"]? || response["CommandResponse/Status/Reason"]?
+          xpath = response["Status/XPath"]? || response["CommandResponse/Status/XPath"]?
           error_msg = "#{reason} (#{xpath})"
           promise.reject(RuntimeError.new error_msg)
           logger.error { error_msg }
         else
-          error_msg = "bad response: #{response[:CommandResponse]}"
+          error_msg = "bad response: #{response}"
           logger.error { error_msg }
           promise.reject(RuntimeError.new error_msg)
         end
@@ -414,17 +416,19 @@ module Cisco::CollaborationEndpoint
   # ------------------------------
   # Connectivity management
 
-  def register_control_system
+  protected def register_control_system
     xcommand "Peripherals Connect",
       hash_args: Hash(String, JSON::Any::Type){"ID" => self.peripheral_id},
       name: "PlaceOS",
       type: :ControlSystem
   end
 
-  def heartbeat(timeout : Int32)
+  protected def heartbeat(timeout : Int32)
+    # high priority as otherwise the VC will indicate we've disconnected
     xcommand "Peripherals HeartBeat",
       hash_args: Hash(String, JSON::Any::Type){"ID" => self.peripheral_id},
-      timeout: timeout
+      timeout: timeout,
+      priority: 99
   end
 end
 

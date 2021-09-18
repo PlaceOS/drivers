@@ -422,16 +422,14 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
   id = data.split('"')[-2]
 
   responds %({
-    "CommandResponse":{
-        "Status":{
-            "status":"Error",
-            "Reason":{
-                "Value":"No match on address expression."
-            },
-            "XPath":{
-                "Value":"Status/Wrong"
-            }
-        }
+    "Status":{
+      "status":"Error",
+      "Reason":{
+        "Value":"No match on address expression."
+      },
+      "XPath":{
+        "Value":"Status/Wrong"
+      }
     },
     "ResultId": "#{id}"
   })
