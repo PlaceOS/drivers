@@ -352,7 +352,6 @@ module Cisco::CollaborationEndpoint
   # Bind arbitary device feedback to a status variable.
   def bind_feedback(path : String, status_key : String)
     register_feedback path do |value_path, value|
-      logger.warn { "FEEDBACK #{status_key} REGISTERED #{value_path} == #{path}" }
       if value_path == path
         self[status_key] = value
       else
@@ -366,11 +365,12 @@ module Cisco::CollaborationEndpoint
 
   # Bind device status to a module status variable.
   def bind_status(path : String, status_key : String)
-    bind_feedback "/Status/#{path.tr " ", "/"}", status_key
+    bind_path = "Status/#{path.tr " ", "/"}"
+    bind_feedback "/#{bind_path}", status_key
     payload = xstatus(path)
 
     # single value?
-    if payload.size == 1 && (value = payload[path]?)
+    if payload.size == 1 && (value = payload[bind_path]?)
       self[status_key] = value
     else
       self[status_key] = @status_keys[status_key] = payload.transform_keys do |key|

@@ -164,6 +164,15 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
     "ResultId": "#{id}"
   })
 
+  # MAPS Status ====
+  data = String.new expect_send
+  data.starts_with?(%(xFeedback Register /Status/Audio/Volume | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+    "ResultId": "#{id}"
+  })
+
   data = String.new expect_send
   data.starts_with?(%(xConfiguration Audio Input Line 1 VideoAssociation MuteOnInactiveVideo: "On" | resultId=")).should be_true
   id = data.split('"')[-2]
@@ -179,6 +188,24 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
   responds %({
     "ResultId": "#{id}"
   })
+
+  data = String.new expect_send
+  data.starts_with?(%(xStatus Audio Volume | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+              "Status":{
+                  "Audio":{
+                      "Volume":{
+                          "Value":"50"
+                      }
+                  }
+              },
+              "ResultId": "#{id}"
+          })
+
+  # Finish mapping status
+  status[:volume].should eq(50)
 
   data = String.new expect_send
   data.starts_with?(%(xFeedback Register /Configuration | resultId=")).should be_true
@@ -564,4 +591,18 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
   })
 
   expect_raises(PlaceOS::Driver::RemoteException) { resp.get }
+
+  # Out of order send
+  responds %({
+              "Status":{
+                  "Audio":{
+                      "Volume":{
+                          "Value":"52"
+                      }
+                  }
+              }
+          })
+
+  # Finish mapping status
+  status[:volume].should eq(52)
 end

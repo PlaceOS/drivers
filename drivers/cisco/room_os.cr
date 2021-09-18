@@ -37,4 +37,6 @@ class Cisco::RoomOS < PlaceOS::Driver
 
   include Cisco::CollaborationEndpoint
   include Cisco::CollaborationEndpoint::UIExtensions
+
+  map_status volume: "Audio Volume"
 end
