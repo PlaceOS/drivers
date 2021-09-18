@@ -75,6 +75,7 @@ class Cisco::RoomKit < PlaceOS::Driver
   map_status do_not_disturb: "Conference DoNotDisturb"
   map_status presentation: "Conference Presentation Mode"
   map_status peripherals: "Peripherals ConnectedDevice"
+  # selfview == camera pip
   map_status selfview: "Video Selfview Mode"
   map_status selfview_fullscreen: "Video Selfview FullScreenMode"
   map_status video_input: "Video Input"
@@ -249,4 +250,33 @@ class Cisco::RoomKit < PlaceOS::Driver
 
   @[Security(Level::Support)]
   command({"SystemUnit Boot" => :reboot}, action_: PowerOff)
+
+  # Helper methods
+  # ==============
+
+  def show_camera_pip(visible : Bool)
+    mode = visible ? Toogle::On : Toogle::Off
+    selfview mode: mode
+  end
+
+  def mic_mute(state : Bool = true)
+    state ? mic_mute_on : mic_mute_off
+  end
+
+  enum PresentationMode
+    None
+    Local
+    Remote
+  end
+
+  def presentation_mode(value : PresentationMode)
+    case value
+    in .remote?
+      presentation_start sending_mode: :LocalRemote
+    in .local?
+      presentation_start sending_mode: :LocalOnly
+    in .none?
+      presentation_stop
+    end
+  end
 end
