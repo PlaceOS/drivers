@@ -107,7 +107,7 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.5.0
+    version: 0.5.1
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
@@ -163,7 +163,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.5.13
+    version: 5.5.14
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
