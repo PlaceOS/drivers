@@ -45,16 +45,23 @@ class Cisco::RoomKit < PlaceOS::Driver
   include Cisco::CollaborationEndpoint::Powerable
   include Cisco::CollaborationEndpoint::Cameras
 
+  enum PresentationMode
+    None
+    Local
+    Remote
+  end
+
+  @presentation_mode : PresentationMode = PresentationMode::Remote
   @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new
 
   def connected
     super
 
     register_feedback "/Event/PresentationPreviewStarted" do
-      self[:local_presentation] = true
+      self[:presentation_mode] = @presentation_mode
     end
     register_feedback "/Event/PresentationPreviewStopped" do
-      self[:local_presentation] = false
+      self[:presentation_mode] = PresentationMode::None
     end
 
     @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new do |hash, key|
@@ -271,17 +278,13 @@ class Cisco::RoomKit < PlaceOS::Driver
     state ? mic_mute_on : mic_mute_off
   end
 
-  enum PresentationMode
-    None
-    Local
-    Remote
-  end
-
   def presentation_mode(value : PresentationMode)
     case value
     in .remote?
+      @presentation_mode = PresentationMode::Remote
       presentation_start sending_mode: :LocalRemote
     in .local?
+      @presentation_mode = PresentationMode::Local
       presentation_start sending_mode: :LocalOnly
     in .none?
       presentation_stop
