@@ -190,19 +190,17 @@ module Cisco::CollaborationEndpoint
       if !results.empty?
         promise.resolve results
         results
-      else
-        if error = response["Status/status"]? || response["CommandResponse/Status/status"]?
-          reason = response["Status/Reason"]? || response["CommandResponse/Status/Reason"]?
-          xpath = response["Status/XPath"]? || response["CommandResponse/Status/XPath"]?
-          error_msg = "#{reason} (#{xpath})"
-          promise.reject(RuntimeError.new error_msg)
-          logger.error { error_msg }
-        else
-          error_msg = "bad response: #{response}"
-          logger.error { error_msg }
-          promise.reject(RuntimeError.new error_msg)
-        end
+      elsif error = response["Status/status"]? || response["CommandResponse/Status/status"]?
+        reason = response["Status/Reason"]? || response["CommandResponse/Status/Reason"]?
+        xpath = response["Status/XPath"]? || response["CommandResponse/Status/XPath"]?
+        error_msg = "#{reason} (#{xpath})"
+        promise.reject(RuntimeError.new error_msg)
+        logger.error { error_msg }
         :abort
+      else
+        results[prefix] = nil
+        promise.resolve results
+        results
       end
     end
 
