@@ -45,7 +45,7 @@ class Cisco::RoomKit < PlaceOS::Driver
   include Cisco::CollaborationEndpoint::Powerable
   include Cisco::CollaborationEndpoint::Cameras
 
-  @calls = {} of String => Enumerable::JSONComplex
+  @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new
 
   def connected
     super
@@ -57,13 +57,21 @@ class Cisco::RoomKit < PlaceOS::Driver
       self[:local_presentation] = false
     end
 
+    @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new do |hash, key|
+      hash[key] = {} of String => Enumerable::JSONComplex
+    end
     self[:calls] = @calls
     register_feedback "/Status/Call" do |value_path, value|
-      @calls[value_path] = value
-      self[:calls] = @calls
-      # calls.reject! do |_, props|
-      #    props[:status] == :Idle || props.include?(:ghost)
-      # end
+      if value.is_a? Hash(String, Enumerable::JSONComplex)
+        if value["Status"]? == "Idle" || value["ghost"]? == "True"
+          @calls.delete value_path
+        else
+          @calls[value_path].merge! value
+        end
+        self[:calls] = @calls
+      else
+        logger.debug { "unexpected call status value #{value}" }
+      end
     end
   end
 
