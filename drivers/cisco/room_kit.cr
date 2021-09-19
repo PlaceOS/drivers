@@ -150,6 +150,8 @@ class Cisco::RoomKit < PlaceOS::Driver
   command({"Call Accept" => :call_accept}, call_id_: Int32)
   command({"Call Reject" => :call_reject}, call_id_: Int32)
   command({"Call Disconnect" => :hangup}, call_id_: Int32)
+  command({"Call Hold" => :call_place_on_hold}, call_id_: Int32)
+  command({"Call Resume" => :call_resume}, call_id_: Int32)
 
   command({"Call DTMFSend" => :dtmf_send},
     d_t_m_f_string: String,

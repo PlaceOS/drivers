@@ -10,6 +10,7 @@ module Cisco::CollaborationEndpoint::Cameras
   protected def save_presets
     @ignore_update = true
     define_setting(:camera_presets, @presets)
+    self[:camera_presets] = @presets.transform_values { |val| val.keys }
   end
 
   command({"Camera Preset Activate" => :camera_preset},

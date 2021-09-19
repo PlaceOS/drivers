@@ -35,6 +35,7 @@ module Cisco::CollaborationEndpoint
     # NOTE:: on_load doesn't call on_update as on_update disconnects
     @peripheral_id = setting?(String, :peripheral_id)
     @presets = setting?(Presets, :camera_presets) || @presets
+    self[:camera_presets] = @presets.transform_values { |val| val.keys }
     driver = self
     driver.load_settings if driver.responds_to?(:load_settings)
   end
@@ -49,6 +50,7 @@ module Cisco::CollaborationEndpoint
       return
     end
     @presets = setting?(Presets, :camera_presets) || @presets
+    self[:camera_presets] = @presets.transform_values { |val| val.keys }
     driver = self
     driver.load_settings if driver.responds_to?(:load_settings)
 
