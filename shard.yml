@@ -33,7 +33,7 @@ dependencies:
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 5.0
+    version: ~> 5.7
 
   # The PlaceOS API client
   placeos:
@@ -53,7 +53,6 @@ dependencies:
 
   pars:
     github: place-labs/pars
-    branch: master
 
   # For lat lon location indexing
   s2_cells:

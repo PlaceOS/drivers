@@ -150,7 +150,7 @@ class Vergesense::LocationService < PlaceOS::Driver
     nil
   end
 
-  SENSOR_TYPES = {SensorType::PeopleCount, SensorType::Presence, SensorType::Humidity, SensorType::AmbientTemp, SensorType::AirQuality}
+  SENSOR_TYPES = {SensorType::PeopleCount, SensorType::Presence, SensorType::Humidity, SensorType::Temperature, SensorType::AirQuality}
   NO_MATCH     = [] of Interface::Sensor::Detail
 
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Detail)
@@ -205,7 +205,7 @@ class Vergesense::LocationService < PlaceOS::Driver
               id = "humidity"
               time = space.environment.try &.timestamp
               space.environment.try &.humidity.value
-            when .ambient_temp?
+            when .temperature?
               id = "temp"
               time = space.environment.try &.timestamp
               space.environment.try &.temperature.value
@@ -236,7 +236,7 @@ class Vergesense::LocationService < PlaceOS::Driver
       build_sensor_details(zone_id, floor, space, :people_count),
       build_sensor_details(zone_id, floor, space, :presence),
       build_sensor_details(zone_id, floor, space, :humidity),
-      build_sensor_details(zone_id, floor, space, :ambient_temp),
+      build_sensor_details(zone_id, floor, space, :temperature),
       build_sensor_details(zone_id, floor, space, :air_quality),
     ].compact!
   end
