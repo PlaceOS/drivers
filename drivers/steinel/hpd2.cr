@@ -72,7 +72,7 @@ class Steinel::HPD2 < PlaceOS::Driver
 
   TYPES = {
     illuminance: SensorType::Illuminance,
-    temperature: SensorType::AmbientTemp,
+    temperature: SensorType::Temperature,
     humidity:    SensorType::Humidity,
     presence:    SensorType::Presence,
     people:      SensorType::PeopleCount,
@@ -110,7 +110,7 @@ class Steinel::HPD2 < PlaceOS::Driver
       time = Time.utc.to_unix
       mod_id = module_id
       self[:humidity] = humidity = Interface::Sensor::Detail.new(SensorType::Humidity, status.humidity.to_f, time, @mac, "humidity", "Humidity", module_id: mod_id, binding: "humidity")
-      self[:temperature] = temperature = Interface::Sensor::Detail.new(SensorType::AmbientTemp, status.temperature.to_f, time, @mac, "temperature", "Temperature", module_id: mod_id, binding: "temperature")
+      self[:temperature] = temperature = Interface::Sensor::Detail.new(SensorType::Temperature, status.temperature.to_f, time, @mac, "temperature", "Temperature", module_id: mod_id, binding: "temperature")
       self[:presence] = presence = Interface::Sensor::Detail.new(SensorType::Presence, status.person_presence.zero? ? 0.0 : 1.0, time, @mac, "presence", "Person Presence", module_id: mod_id, binding: "presence")
       self[:people] = people = Interface::Sensor::Detail.new(SensorType::PeopleCount, status.detected_persons.to_f, time, @mac, "people", "Detected Persons", module_id: mod_id, binding: "people")
       self[:illuminance] = illuminance = Interface::Sensor::Detail.new(SensorType::Illuminance, status.global_illuminance_lux, time, @mac, "illuminance", "Illuminance", module_id: mod_id, binding: "illuminance")

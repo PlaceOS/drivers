@@ -422,12 +422,11 @@ class Ashrae::BACnet < PlaceOS::Driver
     sensor_type = case object.unit
                   when Nil
                     # required for case statement to work
-                  when .degrees_fahrenheit?, .degrees_celsius?, .degrees_kelvin?
-                    if object.name.includes? "air"
-                      SensorType::AmbientTemp
-                    else
-                      SensorType::Temperature
+                    if object.name.includes? "count"
+                      SensorType::Counter
                     end
+                  when .degrees_fahrenheit?, .degrees_celsius?, .degrees_kelvin?
+                    SensorType::Temperature
                   when .percent_relative_humidity?
                     SensorType::Humidity
                   when .pounds_force_per_square_inch?
@@ -456,6 +455,49 @@ class Ashrae::BACnet < PlaceOS::Driver
     return nil unless sensor_type
     return nil if filter_type && sensor_type != filter_type
 
+    unit = case object.unit
+            when Nil
+            when .degrees_fahrenheit?; "[degF]"
+            when .degrees_celsius?; "Cel"
+            when .degrees_kelvin?; "K"
+            when .pounds_force_per_square_inch?; "[psi]"
+            when .volts?; "V"
+            when .millivolts?; "mV"
+            when .kilovolts?; "kV"
+            when .megavolts?; "MV"
+            when .milliamperes?; "mA"
+            when .amperes?; "A"
+            when .cubic_feet?; "[cft_i]"
+            when .cubic_meters?; "m3"
+            when .imperial_gallons?; "[gal_br]"
+            when .milliliters?; "ml"
+            when .liters?; "l"
+            when .us_gallons?; "[gal_us]"
+            when .milliwatts?; "mW"
+            when .watts?; "W"
+            when .kilowatts?; "kW"
+            when .megawatts?; "MW"
+            when .watt_hours?; "Wh"
+            when .kilowatt_hours?; "kWh"
+            when .megawatt_hours?; "MWh"
+            when .hertz?; "Hz"
+            when .kilohertz?; "kHz"
+            when .megahertz?; "MHz"
+            when .cubic_feet_per_second?; "[cft_i]/s"
+            when .cubic_feet_per_minute?; "[cft_i]/min"
+            when .cubic_feet_per_hour?; "[cft_i]/h"
+            when .cubic_meters_per_second?; "m3/s"
+            when .cubic_meters_per_minute?; "m3/min"
+            when .cubic_meters_per_hour?; "m3/h"
+            when .imperial_gallons_per_minute?; "[gal_br]/min"
+            when .milliliters_per_second?; "ml/s"
+            when .liters_per_second?; "l/s"
+            when .liters_per_minute?; "l/min"
+            when .liters_per_hour?; "l/h"
+            when .us_gallons_per_minute?; "[gal_us]/min"
+            when .us_gallons_per_hour?; "[gal_us]/h"
+            end
+
     obj_value = object_value(object)
     value = case obj_value
             in String, Nil, ::Time, ::BACnet::PropertyIdentifier::PropertyType, Tuple(ObjectType, UInt32)
@@ -475,7 +517,8 @@ class Ashrae::BACnet < PlaceOS::Driver
       id: "#{object.object_type}[#{object.instance_id}]",
       name: "#{device.name}: #{object.name}",
       module_id: module_id,
-      binding: object_binding(device_id, object)
+      binding: object_binding(device_id, object),
+      unit: unit
     )
   end
 
