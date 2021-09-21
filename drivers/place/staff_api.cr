@@ -301,6 +301,8 @@ class Place::StaffAPI < PlaceOS::Driver
     booking_start ||= now.at_beginning_of_day.to_unix
     booking_end ||= now.at_end_of_day.to_unix
 
+    checked_in_at = now.to_unix if checked_in
+
     logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
     response = post("/api/staff/v1/bookings", headers: {
       "Accept"        => "application/json",
@@ -315,6 +317,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "user_name"      => user_name,
       "zones"          => zones,
       "checked_in"     => checked_in,
+      "checked_in_at"  => checked_in_at,
       "approved"       => approved,
       "title"          => title,
       "description"    => description,
@@ -334,15 +337,29 @@ class Place::StaffAPI < PlaceOS::Driver
     title : String? = nil,
     description : String? = nil,
     timezone : String? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
+    approved : Bool? = nil,
+    checked_in : Bool? = nil
   )
     logger.debug { "updating booking #{booking_id}" }
+
+    case checked_in
+    in true
+      checked_in_at = Time.utc.to_unix
+    in false
+      checked_out_at = Time.utc.to_unix
+    in nil
+    end
+
     response = patch("/api/staff/v1/bookings/#{booking_id}", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
     }, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
+      "checked_in"     => checked_in,
+      "checked_in_at"  => checked_in_at,
+      "checked_out_at" => checked_out_at,
       "asset_id"       => asset_id,
       "title"          => title,
       "description"    => description,
