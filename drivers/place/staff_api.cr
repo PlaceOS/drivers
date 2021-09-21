@@ -319,7 +319,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "title"          => title,
       "description"    => description,
       "timezone"       => time_zone,
-      "extension_data" => extension_data,
+      "extension_data" => extension_data || JSON.parse("{}"),
     }.compact.to_json)
     raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
     true

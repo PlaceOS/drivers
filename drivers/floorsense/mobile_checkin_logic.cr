@@ -79,7 +79,8 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
         booking_end: future.to_unix,
         checked_in: true,
         approved: true,
-        time_zone: @time_zone.name
+        time_zone: @time_zone.name,
+        extension_data: NamedTuple.new
       ).get
       "adhoc"
     end
