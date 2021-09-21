@@ -30,8 +30,9 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
     raise "could not find eui64 id: #{id}" if desk_details.raw.nil?
 
     level_zone = desk_details["level"].as_s
-    build_zone = desk_details["building_id"]?.try &.as_s
     place_desk = desk_details["desk_id"].as_s
+    building_raw = desk_details["building_id"]?.try &.raw
+    build_zone = building_raw.try &.as(String)
 
     logger.debug { "located #{place_desk} for #{user_id}" }
 
