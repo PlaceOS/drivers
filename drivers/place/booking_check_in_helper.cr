@@ -95,20 +95,18 @@ STRING
     @domain = URI.parse(@check_in_url).host.not_nil!
 
     subscriptions.clear
-    system.load_complete do
-      bookings.subscribe(:current_booking) do |_sub, pending|
-        event = PlaceCalendar::Event?.from_json(pending)
-        update_current event
-      end
-      bookings.subscribe(:current_pending) { |_sub, pending| update_pending(pending == "true") }
-      bookings.subscribe(:presence) { |_sub, presence| update_presence(presence == "true") }
+    bookings.subscribe(:current_booking) do |_sub, pending|
+      event = PlaceCalendar::Event?.from_json(pending)
+      update_current event
+    end
+    bookings.subscribe(:current_pending) { |_sub, pending| update_pending(pending == "true") }
+    bookings.subscribe(:presence) { |_sub, presence| update_presence(presence == "true") }
 
-      monitor("#{config.control_system.not_nil!.id}/guest/bookings/prompted") do |_sub, response|
-        prompt_response(**NamedTuple(id: String, check_in: Bool).from_json(response))
-      end
+    monitor("#{config.control_system.not_nil!.id}/guest/bookings/prompted") do |_sub, response|
+      prompt_response(**NamedTuple(id: String, check_in: Bool).from_json(response))
     end
 
-    timezone = setting?(String, :time_zone).presence || config.control_system.not_nil!.timezone.presence
+    timezone = setting?(String, :time_zone) || config.control_system.not_nil!.timezone.presence
     @timezone = Time::Location.load(timezone) if timezone
 
     @date_time_format = setting?(String, :date_time_format) || "%c"
