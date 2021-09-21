@@ -588,7 +588,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   end
 
   def eui64_to_desk_id(id : String)
-    if foor_id = locations.eui64_to_desk_id(id).get.raw
+    if foor_id = locations.eui64_to_desk_id(id.downcase).get.raw
       floor_desk_id = foor_id.as(String)
       place_id = floor_desk_id
       level_id = nil
