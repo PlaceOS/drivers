@@ -140,7 +140,7 @@ STRING
     schedule.clear
 
     meeting = current_meeting
-    if meeting.nil? || (meeting.try(&.id) != @prompted)
+    if meeting.try(&.id) != @prompted
       self[:prompted] = false
       self[:no_show] = false
       self[:checked_in] = false
