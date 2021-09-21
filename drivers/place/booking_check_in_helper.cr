@@ -97,11 +97,8 @@ STRING
     subscriptions.clear
     system.load_complete do
       bookings.subscribe(:current_booking) do |_sub, pending|
-        if pending.presence && pending != "null"
-          update_current(PlaceCalendar::Event.from_json(pending))
-        else
-          update_current(nil)
-        end
+        event = PlaceCalendar::Event?.from_json(pending)
+        update_current event
       end
       bookings.subscribe(:current_pending) { |_sub, pending| update_pending(pending == "true") }
       bookings.subscribe(:presence) { |_sub, presence| update_presence(presence == "true") }
