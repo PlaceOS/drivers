@@ -164,7 +164,6 @@ STRING
     if people_present?
       if time_now >= check_presence_from
         bookings.start_meeting(start_time.to_unix)
-        schedule.clear
       else
         # Schedule an auto check-in check as people_present? might remain high
         schedule.at(check_presence_from) do
