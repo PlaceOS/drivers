@@ -47,7 +47,7 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
       if owner_id == user_id
         # check in or out depending on the current booking status
         checkin_out = !booking["checked_in"].as_bool
-        booking_id = booking["id"].as_s
+        booking_id = booking["id"].as_i64
         logger.debug { "found existing booking #{booking_id} with current checked-in status #{!checkin_out}" }
         staff_api.booking_check_in(booking_id, checkin_out).get.as_bool
 
