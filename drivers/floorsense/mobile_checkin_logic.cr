@@ -49,9 +49,20 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
         checkin_out = !booking["checked_in"].as_bool
         booking_id = booking["id"].as_i64
         logger.debug { "found existing booking #{booking_id} with current checked-in status #{!checkin_out}" }
-        staff_api.booking_check_in(booking_id, checkin_out).get.as_bool
 
-        checkin_out ? "checked-in" : "checked-out"
+        if checkin_out
+          staff_api.booking_check_in(booking_id, true).get.as_bool
+          "checked-in"
+        else
+          # 1 min ago to account for any server clock sync issues
+          now = 1.minute.ago.to_unix
+          staff_api.update_booking(
+            booking_id: booking_id,
+            booking_end: now,
+            checked_in: false
+          ).get
+          "checked-out"
+        end
       else
         # Desk is booked for another user
         logger.debug { "#{user_id} scanned desk owned by #{owner_id}" }
