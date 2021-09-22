@@ -1,8 +1,11 @@
 require "placeos-driver"
+require "placeos-driver/interface/switchable"
 require "./sis"
 
 class Extron::Matrix < PlaceOS::Driver
   include Extron::SIS
+  include Interface::Switchable(Input, Output)
+  include Interface::InputSelection(Input)
 
   generic_name :Switcher
   descriptive_name "Extron matrix switcher"
@@ -33,6 +36,29 @@ class Extron::Matrix < PlaceOS::Driver
     end
   end
 
+  # Implementing switchable interface
+  def switch(map : Hash(Input, Array(Output)) | Hash(String, Hash(Input, Array(Output))))
+    case map
+    in Hash(Input, Array(Output))
+      switch_map(map)
+    in Hash(String, Hash(Input, Array(Output)))
+      map.each do |layer, inout_map|
+        extron_layer = case SwitchLayer.parse(layer)
+                       in .audio?; MatrixLayer::Aud
+                       in .video?; MatrixLayer::Vid
+                       in .data?, .data2?
+                         logger.debug { "layer #{layer} not available on extron matrix" }
+                         next
+                       end
+        switch_map(inout_map, extron_layer)
+      end
+    end
+  end
+
+  def switch_to(input : Input)
+    switch_layer input
+  end
+
   alias Outputs = Array(Output)
 
   alias SignalMap = Hash(Input, Output | Outputs)
@@ -42,18 +68,18 @@ class Extron::Matrix < PlaceOS::Driver
   # `0` may be used as either an input or output to specify a disconnection at
   # the corresponding signal point. For example, to disconnect input 1 from all
   # outputs is is currently feeding `switch(1, 0)`.
-  def switch(input : Input, output : Output, layer : SwitchLayer = SwitchLayer::All)
+  def switch_one(input : Input, output : Output, layer : MatrixLayer = MatrixLayer::All)
     send Command[input, '*', output, layer], Response::Tie, &->update_io(Tie)
   end
 
   # Connect *input* to all outputs at the specified *layer*.
-  def switch_to(input : Input, layer : SwitchLayer = SwitchLayer::All)
+  def switch_layer(input : Input, layer : MatrixLayer = MatrixLayer::All)
     send Command[input, layer], Response::Switch, &->update_io(Switch)
   end
 
   # Applies a `SignalMap` as a single operation. All included ties will take
   # simultaneously on the device.
-  def switch_map(map : SignalMap, layer : SwitchLayer = SwitchLayer::All)
+  def switch_map(map : SignalMap, layer : MatrixLayer = MatrixLayer::All)
     ties = map.flat_map do |(input, outputs)|
       if outputs.is_a? Enumerable
         outputs.each.map { |output| Tie.new input, output, layer }
@@ -133,7 +159,7 @@ class Extron::Matrix < PlaceOS::Driver
     response
   end
 
-  private def update_io(input : Input, output : Output, layer : SwitchLayer)
+  private def update_io(input : Input, output : Output, layer : MatrixLayer)
     self["audio#{output}"] = input if layer.includes_audio?
     self["video#{output}"] = input if layer.includes_video?
   end
@@ -145,10 +171,10 @@ class Extron::Matrix < PlaceOS::Driver
   # Update exposed driver state to include *switch*.
   private def update_io(switch : Switch)
     if switch.layer.includes_video?
-      device_size.video.outputs.times { |o| update_io switch.input, Output.new(o + 1), SwitchLayer::Vid }
+      device_size.video.outputs.times { |o| update_io switch.input, Output.new(o + 1), MatrixLayer::Vid }
     end
     if switch.layer.includes_audio?
-      device_size.audio.outputs.times { |o| update_io switch.input, Output.new(o + 1), SwitchLayer::Aud }
+      device_size.audio.outputs.times { |o| update_io switch.input, Output.new(o + 1), MatrixLayer::Aud }
     end
   end
 end
