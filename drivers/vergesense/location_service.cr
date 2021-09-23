@@ -141,7 +141,7 @@ class Vergesense::LocationService < PlaceOS::Driver
     when "humidity"
       build_sensor_details(zone_id, floor, floor_space, :humidity)
     when "temp"
-      build_sensor_details(zone_id, floor, floor_space, :ambient_temp)
+      build_sensor_details(zone_id, floor, floor_space, :temperature)
     when "air"
       build_sensor_details(zone_id, floor, floor_space, :air_quality)
     end
