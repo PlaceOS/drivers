@@ -31,6 +31,7 @@ class Place::BookingApprover < PlaceOS::Driver
     include JSON::Serializable
 
     property id : Int64
+    property action : String
 
     property user_id : String
     property user_email : String
