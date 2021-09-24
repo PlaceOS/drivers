@@ -57,9 +57,11 @@ class Place::BookingApprover < PlaceOS::Driver
   end
 
   private def approve_booking(booking : Booking)
+    return false unless booking.action == "create"
     staff_api.approve(booking.id).get
     @bookings_approved += 1
     logger.debug { "Approved Booking #{booking.id}" } if @debug
+    true
   end
 
   def status
