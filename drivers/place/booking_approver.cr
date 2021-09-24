@@ -35,7 +35,8 @@ class Place::BookingApprover < PlaceOS::Driver
     property user_id : String
     property user_email : String
     property user_name : String
-    property asset_id : String
+
+    property resource_id : String
     property zones : Array(String)
     property booking_type : String
 
@@ -47,20 +48,12 @@ class Place::BookingApprover < PlaceOS::Driver
     property description : String?
 
     property checked_in : Bool
-    property rejected : Bool
-    property approved : Bool
 
-    property approver_id : String?
-    property approver_email : String?
-    property approver_name : String?
-
-    property booked_by_id : String
     property booked_by_email : String
     property booked_by_name : String
 
     property process_state : String?
     property last_changed : Int64?
-    property created : Int64?
   end
 
   private def approve_booking(booking : Booking)
