@@ -1,10 +1,9 @@
 require "placeos-driver"
-
-# Documentation: https://aca.im/driver_docs/AmberTech/grandview-screen.pdf
-# https://www.ambertech.com.au/Documents/GV_IP%20CONTROL_Smart%20Screen_Trifold_Manual_April2020.pdf
 require "placeos-driver/interface/moveable"
 require "placeos-driver/interface/stoppable"
 
+# Documentation: https://aca.im/driver_docs/AmberTech/grandview-screen.pdf
+# https://www.ambertech.com.au/Documents/GV_IP%20CONTROL_Smart%20Screen_Trifold_Manual_April2020.pdf
 require "./grandview_models"
 
 class AmberTech::Grandview < PlaceOS::Driver
@@ -20,6 +19,7 @@ class AmberTech::Grandview < PlaceOS::Driver
     schedule.every(1.minute) { status }
   end
 
+  # moveable interface
   def move(position : MoveablePosition, index : Int32 | String = 0)
     response = case position
                when .up?, .close?, .in?
@@ -33,6 +33,7 @@ class AmberTech::Grandview < PlaceOS::Driver
     self[:status] = parse_state StatusResp.from_json(response.body).status
   end
 
+  # stoppable interface
   def stop(index : Int32 | String = 0, emergency : Bool = false)
     response = get("/Stop.js?a=100")
     raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
@@ -56,25 +57,47 @@ class AmberTech::Grandview < PlaceOS::Driver
     info
   end
 
+  # compatibility with Screen Technics
+  def up(index : Int32 = 0)
+    move :up
+  end
+
+  def up?
+    {"opened", "opening"}.includes?(self["status"]?)
+  end
+
+  def down(index : Int32 = 0)
+    move :down
+  end
+
+  def down?
+    {"closed", "closing"}.includes?(self["status"]?)
+  end
+
   protected def parse_state(state : AmberTech::Status)
     case state
     in .stop?
       self[:moving0] = false
       self[:position0] = nil
+      self[:screen0] = "stopped"
     in .opening?
       self[:moving0] = true
       self[:position0] = MoveablePosition::Open
+      self[:screen0] = "moving_bottom"
       poll_state
     in .opened?
       self[:moving0] = false
       self[:position0] = MoveablePosition::Open
+      self[:screen0] = "at_bottom"
     in .closing?
       self[:moving0] = true
       self[:position0] = MoveablePosition::Close
+      self[:screen0] = "moving_top"
       poll_state
     in .closed?
       self[:moving0] = false
       self[:position0] = MoveablePosition::Close
+      self[:screen0] = "at_top"
     end
 
     state.to_s.downcase
