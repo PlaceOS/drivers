@@ -10,4 +10,9 @@ DriverSpecs.mock_driver "Shure::Microphone::MXA" do
   exec(:query_device_id)
   should_send("< GET DEVICE_ID >").responds "<  REP DEVICE_ID { steves dev } >"
   status[:device_id].should eq("steves dev")
+
+  responds "< SAMPLE 002 003 002 000 000 001 002 003 000 >"
+  sleep 1
+  status[:output1].should eq 2
+  status[:output2].should eq 3
 end

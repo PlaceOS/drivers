@@ -142,8 +142,8 @@ class Shure::Microphone::MXA < PlaceOS::Driver
     data = String.new(bytes)
     logger.debug { "-- received: #{data}" }
 
-    # Convert { some data here } to " some data here "
-    data = data.split("< ", 2)[1].gsub(/[\{\}]/, '"')
+    # Convert { some data here } to " some data here " and remove control chars
+    data = data.split("< ", 2)[1].gsub(/[\{\}]/, '"').rchop(" >")
 
     # Then use shellsplit to capture the parts and remove whitespace
     resp = shellsplit(data).map(&.strip)
