@@ -10,10 +10,28 @@ class Extron::Matrix < PlaceOS::Driver
   generic_name :Switcher
   descriptive_name "Extron matrix switcher"
   description "Audio-visual signal distribution device"
-  tcp_port SSH_PORT
+  tcp_port TELNET_PORT
+
+  default_settings({
+    ssh: {
+      username: :Administrator,
+      password: :extron,
+    },
+
+    # if using telnet, use this setting
+    password:     :extron,
+    input_count:  8,
+    output_count: 4,
+  })
+
+  @ready : Bool = false
 
   def on_load
-    transport.tokenizer = Tokenizer.new DELIMITER
+    # we can tokenise straight away if using SSH
+    if config.role.ssh?
+      @ready = true
+      transport.tokenizer = Tokenizer.new(DELIMITER)
+    end
     on_update
   end
 
@@ -22,6 +40,14 @@ class Extron::Matrix < PlaceOS::Driver
     outputs = setting?(UInt16, :output_count) || 1_u16
     io = MatrixSize.new inputs, outputs
     @device_size = SwitcherInformation.new video: io, audio: io
+  end
+
+  def disconnected
+    # We need to wait for a login prompt if using telnet
+    unless config.role.ssh?
+      @ready = false
+      transport.tokenizer = nil
+    end
   end
 
   getter device_size do
@@ -141,7 +167,21 @@ class Extron::Matrix < PlaceOS::Driver
 
   # Response callback for async responses.
   def received(data, task)
-    logger.debug { "Received #{String.new data}" }
+    logger.debug { "Ready #{@ready}, Received #{String.new data}" }
+
+    if !@ready
+      payload = String.new data
+      if payload =~ /Copyright/i
+        if password = setting?(String, :password)
+          send("#{password}\x0D", wait: false, priority: 99)
+        end
+        transport.tokenizer = Tokenizer.new(DELIMITER)
+        @ready = true
+        schedule.in(1.second) { query_device_info }
+      end
+      return
+    end
+
     case response = Response.parse data, as: Response::Unsolicited
     in Tie
       update_io response
