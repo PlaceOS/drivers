@@ -1,14 +1,11 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Extron::Matrix" do
-  settings({
-    input_count:  8,
-    output_count: 4,
-  })
-
   responds "\r\n"
-  responds "(c) Copyright YYYY, Extron Electronics, [model], Vx.xx, 60-XXXX-XX\r\n"
-  responds "Mon, 18 May 2015 11:27:33\r\n"
+  responds "(c) Copyright YYYY, Extron Electronics, [model], Vx.xx, 60-XXXX-XX\r\nMon, 18 May 2015 11:27:33\r\n\r\nPassword:"
+  should_send "extron\x0D"
+  responds "Login Administrator\r\n"
+  sleep 1
 
   should_send "I"
   responds "V8X4 A8X4\r\n"

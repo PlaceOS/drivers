@@ -7,7 +7,7 @@ require "./sis/*"
 # processing and general audio-visual products via SSH, telnet and serial
 # control.
 module Extron::SIS
-  TELNET_PORT =    21
+  TELNET_PORT =    23
   SSH_PORT    = 22023
 
   DELIMITER = "\r\n"
