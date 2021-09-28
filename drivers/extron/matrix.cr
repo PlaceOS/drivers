@@ -19,9 +19,7 @@ class Extron::Matrix < PlaceOS::Driver
     },
 
     # if using telnet, use this setting
-    password:     :extron,
-    input_count:  8,
-    output_count: 4,
+    password: :extron,
   })
 
   @ready : Bool = false
@@ -56,8 +54,12 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   def query_device_info
-    send Command['I'], Response::Raw do |info|
-      logger.info { info }
+    send Command['I'], Response::SwitcherInformation do |info|
+      video_io = MatrixSize.new info.video.inputs, info.video.outputs
+      audio_io = MatrixSize.new info.audio.inputs, info.audio.outputs
+      @device_size = SwitcherInformation.new video: video_io, audio: audio_io
+      self[:video_matrix] = "#{info.video.inputs}x#{info.video.outputs}"
+      self[:audio_matrix] = "#{info.audio.inputs}x#{info.audio.outputs}"
       info
     end
   end
