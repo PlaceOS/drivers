@@ -16,18 +16,18 @@ class Place::Meet < PlaceOS::Driver
     help: {
       "help-id" => {
         "title"   => "Video Conferencing",
-        "content" => "markdown"
-      }
+        "content" => "markdown",
+      },
     },
     tabs: [
       {
-        name: "VC",
-        icon: "conference",
-        inputs: ["VidConf_1"],
-        help: "help-id",
-        controls: "vidconf-controls",
-        merge_on_join: false
-      }
+        name:          "VC",
+        icon:          "conference",
+        inputs:        ["VidConf_1"],
+        help:          "help-id",
+        controls:      "vidconf-controls",
+        merge_on_join: false,
+      },
     ],
 
     # if we want to display the selected tab on displays meant only for the presenter
@@ -41,9 +41,9 @@ end
 require "./router"
 
 alias Help = Hash(String, NamedTuple(
+  icon: String?,
   title: String,
-  content: String
-))
+  content: String))
 
 class Tab
   include JSON::Serializable
@@ -82,6 +82,8 @@ class Place::Meet < PlaceOS::Driver
   @tabs : Array(Tab) = [] of Tab
   @local_tabs : Array(Tab) = [] of Tab
   @local_help : Help = Help.new
+
+  @outputs : Array(String) = [] of String
   @local_outputs : Array(String) = [] of String
   @preview_outputs : Array(String) = [] of String
 
@@ -135,12 +137,12 @@ class Place::Meet < PlaceOS::Driver
 
     if available_outputs.empty?
       if preview_outputs.empty?
-        self[:available_outputs] = nil
+        self[:available_outputs] = @outputs = all_outputs
       else
-        self[:available_outputs] = all_outputs - preview_outputs
+        self[:available_outputs] = @outputs = all_outputs - preview_outputs
       end
     else
-      self[:available_outputs] = available_outputs
+      self[:available_outputs] = @outputs = available_outputs
     end
   end
 
@@ -161,8 +163,9 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # Set the volume of a signal node within the system.
-  def volume(level : Int32, input_or_output : String)
+  def volume(level : Int32 | Float64, input_or_output : String)
     logger.info { "setting volume on #{input_or_output} to #{level}" }
+    level = level.to_f
     node = signal_node input_or_output
     node.proxy.volume level
     node["volume"] = level
@@ -196,6 +199,9 @@ class Place::Meet < PlaceOS::Driver
   def selected_input(name : String) : Nil
     self[:selected_input] = name
     self[:selected_tab] = @tabs.find(@tabs.first, &.inputs.includes?(name)).name
+
+    # Perform any desired routing
     @preview_outputs.each { |output| route(name, output) }
+    route(name, @outputs.first) if @outputs.size == 1
   end
 end

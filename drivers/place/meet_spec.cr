@@ -33,7 +33,7 @@ class Display < DriverSpecs::MockDriver
     self[:mute] = state
   end
 
-  def volume(level : Int32)
+  def volume(level : Int32 | Float64)
     self[:volume] = level
   end
 end
