@@ -49,6 +49,10 @@ class Place::Router::SignalGraph
         self[key] = JSON::Any.new value.to_i64
       end
 
+      def []=(key, value : Float)
+        self[key] = JSON::Any.new value.to_f64
+      end
+
       def []=(key, value : Array)
         self[key] = JSON::Any.new value.map { |x| JSON::Any.new x }
       end
