@@ -38,6 +38,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
           self[:floor_key] = @floor_key
         rescue error
           logger.warn(exception: error) { "attempting to bind to sensor details" }
+          self[:last_error] = error.message
           self[:floor_key] = "unknown space_ref_id in settings"
         end
       end
