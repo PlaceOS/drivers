@@ -100,8 +100,11 @@ class Nec::Projector < PlaceOS::Driver
     end
   {% end %}
 
-  def volume(vol : Int32)
-    vol = vol.clamp(@volume_min, @volume_max)
+  def volume(vol : Int32 | Float64)
+    vol = vol.to_f.clamp(0.0, 100.0)
+    percentage = vol / 100.0
+    vol_actual = (percentage * @volume_max.to_f).round_away.to_i
+
     # volume base command                           D1    D2    D3   D4    D5
     command = Bytes[0x03, 0x10, 0x00, 0x00, 0x05, 0x05, 0x00, 0x00, vol, 0x00]
     # D3 = 00 (absolute vol) or 01 (relative vol)
@@ -272,7 +275,10 @@ class Nec::Projector < PlaceOS::Driver
     when .onscreen_mute_on?, .onscreen_mute_off?
       self[:onscreen_mute] = resp.onscreen_mute_on?
     when .volume_or_image_adjust?
-      self[:volume] = req[-3] if req && data[-3] == 5 && data[-2] == 0
+      if req && data[-3] == 5 && data[-2] == 0
+        vol_percent = (req[-3].to_f / @volume_max.to_f) * 100.0
+        self[:volume] = vol_percent
+      end
       # We don't care about image adjust
     when .info?
       process_projector_info(data)

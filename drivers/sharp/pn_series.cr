@@ -128,24 +128,37 @@ class Sharp::PnSeries < PlaceOS::Driver
     do_send("AGIN   1", timeout: 20.seconds)
   end
 
-  def brightness(val : Int32)
-    do_send("VLMP#{val.clamp(@brightness_min, @brightness_max).to_s.rjust(4, ' ')}")
+  def brightness(val : Int32 | Float64)
+    val = val.to_f.clamp(0.0, 100.0)
+    percentage = val / 100.0
+    brightness = (percentage * @brightness_max.to_f).round_away.to_i
+
+    do_send("VLMP#{brightness.to_s.rjust(4, ' ')}")
   end
 
-  def contrast(val : Int32)
+  def contrast(val : Int32 | Float64)
+    val = val.to_f.clamp(0.0, 100.0)
+    percentage = val / 100.0
+    contrast = (percentage * @contrast_max.to_f).round_away.to_i
+
     # See Sharp manual
     multiplier = self[:input]? == "VGA" && @dbl_contrast ? 2 : 1
-    val = val.clamp(@contrast_min, @contrast_max) * multiplier
-    do_send("CONT#{val.to_s.rjust(4, ' ')}")
+    contrast = contrast * multiplier
+    do_send("CONT#{contrast.to_s.rjust(4, ' ')}")
   end
 
-  def volume(val : Int32)
+  def volume(val : Int32 | Float64)
     @vol_status.try(&.cancel)
     @vol_status = schedule.in(2.seconds) do
       @vol_status = nil
       volume_status
     end
-    do_send("VOLM#{val.clamp(@volume_min, @volume_max).to_s.rjust(4, ' ')}")
+
+    val = val.to_f.clamp(0.0, 100.0)
+    percentage = val / 100.0
+    vol_actual = (percentage * @volume_max.to_f).round_away.to_i
+
+    do_send("VOLM#{vol_actual.to_s.rjust(4, ' ')}")
   end
 
   # There seems to only be audio mute available
@@ -234,7 +247,8 @@ class Sharp::PnSeries < PlaceOS::Driver
       self[:input] = input || "unknown"
       logger.debug { "-- Sharp LCD, input #{self[:input]} == #{value}" }
     when "VOLM" # Volume status
-      self[:volume] = value.to_i unless self[:audio_mute]?.try(&.as_bool)
+      vol_percent = (value.to_i.to_f / @volume_max.to_f) * 100.0
+      self[:volume] = vol_percent.round(2) unless self[:audio_mute]?.try(&.as_bool)
     when "MUTE" # Mute status
       self[:audio_mute] = (mute = value.to_i == 1)
       if mute
@@ -243,9 +257,12 @@ class Sharp::PnSeries < PlaceOS::Driver
         volume_status(90) # high priority
       end
     when "CONT" # Contrast status
-      self[:contrast] = value.to_i / (self[:input]? == "VGA" && @dbl_contrast ? 2 : 1)
+      val = value.to_i / (self[:input]? == "VGA" && @dbl_contrast ? 2 : 1)
+      contrast = (val.to_f / @contrast_max.to_f) * 100.0
+      self[:contrast] = contrast.round(2)
     when "VLMP" # brightness status
-      self[:brightness] = value.to_i
+      brightness = (value.to_i.to_f / @brightness_max.to_f) * 100.0
+      self[:brightness] = brightness.round(2)
     when "PWOD"
       self[:power_on_delay] = value.to_i
     when "INF1"
