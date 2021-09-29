@@ -1,6 +1,6 @@
 require "placeos-driver"
 
-# Documentation https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm
+# Documentation https://q-syshelp.qsc.com/Content/External_Control_APIs/ECP/ECP_Commands.htm
 
 class Qsc::QSysControl < PlaceOS::Driver
   # Discovery Information
@@ -128,12 +128,19 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   # Compatibility Methods
-  def fader(fader_ids : Ids, level : Int32)
-    level = level / 10
-    ensure_array(fader_ids).each { |f_id| set_value(f_id, level, name: "fader#{f_id}", fader_type: :fader) }
+  def fader(fader_ids : Ids, level : Val)
+    level = level.to_f.clamp(0.0, 100.0)
+    percentage = level / 100.0
+    range = -100..20
+
+    # adjust into range
+    level_actual = percentage * (range.size - 1).to_f
+    level_actual = (level_actual + range.begin.to_f).round(1)
+
+    ensure_array(fader_ids).each { |f_id| set_value(f_id, level_actual, name: "fader#{f_id}", fader_type: :fader) }
   end
 
-  def faders(fader_ids : Ids, level : Int32)
+  def faders(fader_ids : Ids, level : Val)
     fader(fader_ids, level)
   end
 
@@ -268,7 +275,9 @@ class Qsc::QSysControl < PlaceOS::Driver
 
         case type
         when :fader
-          self["fader#{control_id}"] = (value.to_f * 10).to_i
+          range = -100..20
+          vol_percent = ((value.to_f - range.begin.to_f) / (range.size - 1).to_f) * 100.0
+          self["fader#{control_id}"] = vol_percent.round(2)
         when :mute
           self["fader#{control_id}_mute"] = value.to_i == 1
         end
@@ -296,7 +305,9 @@ class Qsc::QSysControl < PlaceOS::Driver
 
           case type
           when :fader
-            self["fader#{control_id}"] = (value.to_f * 10).to_i
+            range = -100..20
+            vol_percent = ((value.to_f - range.begin.to_f) / (range.size - 1).to_f) * 100.0
+            self["fader#{control_id}"] = vol_percent.round(2)
           when :mute
             self["fader#{control_id}_mute"] = value == 1
           end

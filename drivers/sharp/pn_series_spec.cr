@@ -37,7 +37,7 @@ DriverSpecs.mock_driver "Sharp::PnSeries" do
   status[:audio_mute].should eq(false)
   should_send("VOLM????\x0D\x0A")
   responds("VOLM 010\x0D\x0A")
-  status[:volume].should eq(10)
+  status[:volume].should eq(32.26)
 
   exec(:switch_to, "hdmi")
   should_send("INPS0010\x0D\x0A")
@@ -49,29 +49,28 @@ DriverSpecs.mock_driver "Sharp::PnSeries" do
   status[:input].should eq("HDMI")
   should_send("VLMP????\x0D\x0A")
   responds("VLMP  15\x0D\x0A")
-  status[:brightness].should eq(15)
+  status[:brightness].should eq(48.39)
   should_send("CONT????\x0D\x0A")
-  responds("CONT  20\x0D\x0A")
-  status[:contrast].should eq(20)
+  responds("CONT  15\x0D\x0A")
+  status[:contrast].should eq(25.0)
 
   exec(:switch_audio, "component")
   should_send("ASCA   1\x0D\x0A")
   responds("ASCA   1\x0D\x0A")
   status[:audio_input].should eq("component")
 
+  should_send("MUTE????\x0D\x0A")
+  responds("MUTE 000\x0D\x0A")
+
+  should_send("VOLM????\x0D\x0A")
+  responds("VOLM 015\x0D\x0A")
+  status[:volume].should eq(48.39)
+
   exec(:volume, 100)
+  should_send("VOLM????\x0D\x0A")
+  responds("VOLM 015\x0D\x0A")
+  status[:volume].should eq(48.39)
+
   should_send("VOLM  31\x0D\x0A")
   responds("ASCA   1\x0D\x0A")
-
-  exec(:power, false)
-  should_send("POWR   0\x0D\x0A")
-  responds("OK\x0D\x0A")
-  should_send("POWR????\x0D\x0A")
-  responds("POWR   0\x0D\x0A")
-  status[:warming].should eq(false)
-  status[:power].should eq(false)
-  should_send("MUTE????\x0D\x0A")
-  responds("MUTE   1\x0D\x0A")
-  status[:audio_mute].should eq(true)
-  status[:volume].should eq(0)
 end

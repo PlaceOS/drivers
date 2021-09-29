@@ -20,7 +20,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   generic_name :Display
 
   @power_target : Bool? = nil
-  @unmute_volume : Int32? = nil
+  @unmute_volume : Float64 = 60.0
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r")
@@ -72,10 +72,13 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   # Volume commands are sent using the inpt command
-  def volume(vol : Int32, **options)
-    vol = vol.clamp(0, 255)
-    @unmute_volume = self[:volume].as_i if (mute = vol == 0) && self[:volume]?
-    do_send(:volume, vol, **options, name: :volume)
+  def volume(vol : Float64 | Int32, **options)
+    vol = vol.to_f.clamp(0.0, 100.0)
+    percentage = vol / 100.0
+    vol_actual = (percentage * 255.0).round_away.to_i
+
+    @unmute_volume = self[:volume].as_f if (mute = vol == 0.0) && self[:volume]?
+    do_send(:volume, vol_actual, **options, name: :volume)
 
     # for a responsive UI
     self[:volume] = vol
@@ -85,7 +88,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def volume?
     do_send(:volume, name: :volume?, priority: 0).get
-    self[:volume]?.try(&.as_i)
+    self[:volume]?.try(&.as_f)
   end
 
   def mute(
@@ -101,7 +104,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute)
       video_mute?
     when .audio?
-      val = state ? 0 : @unmute_volume.not_nil!
+      val = state ? 0.0 : @unmute_volume
       volume(val)
     end
   end
@@ -181,15 +184,18 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       end
     when :av_mute
       self[:video_mute] = self[:audio_mute] = data[1] == "ON"
-      self[:volume] = 0
+      self[:volume] = 0.0
     when :video_mute
       self[:video_mute] = data[1] == "ON"
     when :volume
+      # convert to a percentage
       vol = data[1].to_i
-      self[:volume] = vol
+      vol_percent = (vol.to_f / 255.0) * 100.0
+      self[:volume] = vol_percent
+
       mute = vol == 0
       self[:audio_mute] = mute if mute
-      @unmute_volume ||= vol unless mute
+      @unmute_volume ||= vol_percent unless mute
     when :lamp
       self[:lamp_usage] = data[1].to_i
     when :input

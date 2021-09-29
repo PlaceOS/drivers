@@ -127,10 +127,10 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   # Sets the audio volume *level* (0..100) on the specified mix *group*.
-  def volume(level : Int32, group : Int32 = 1)
-    level = level.clamp 0, 100
+  def volume(level : Float64 | Int32, group : Int32 = 1)
+    level = level.to_f.clamp 0.0, 100.0
     # Device use -1000..0 levels
-    device_level = level * 10 - 1000
+    device_level = (level * 10.0).round_away.to_i - 1000
     send Command["\eD", group, '*', device_level, "GRPM\r"], Response::GroupVolume do
       level
     end

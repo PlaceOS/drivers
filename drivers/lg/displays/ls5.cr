@@ -172,8 +172,8 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
 
   {% for name in ["Volume", "Contrast", "Brightness", "Sharpness"] %}
     @[Security(Level::Administrator)]
-    def {{name.id.downcase}}(value : Int32)
-      val = value.clamp(0, 100)
+    def {{name.id.downcase}}(value : Float64 | Int32)
+      val = value.to_f.clamp(0.0, 100.0).round_away.to_i
       do_send(Command::{{name.id}}, val, name: {{name.id.downcase.stringify}})
     end
   {% end %}

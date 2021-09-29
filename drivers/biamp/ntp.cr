@@ -8,7 +8,7 @@ module Biamp::NTP
     instance : Int32? = nil,
     index_1 : Int32? = nil,
     index_2 : Int32? = nil,
-    value : String | Int32 | Float32 | Nil = nil do
+    value : String | Int32 | Float64 | Nil = nil do
     macro [](type, *params)
       {% if type == :GET || type == :GETD %}
         {{@type.name}}.new({{type}}, {{params.splat}})
