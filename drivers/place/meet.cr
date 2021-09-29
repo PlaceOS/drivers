@@ -152,6 +152,9 @@ class Place::Meet < PlaceOS::Driver
 
     if state
       # no action - devices power on when signal is routed
+      if first_output = @tabs.first?.try &.inputs.first
+        selected_input first_output
+      end
     else
       system.implementing(Interface::Powerable).power false
     end
