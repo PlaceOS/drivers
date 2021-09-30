@@ -88,7 +88,7 @@ class Place::Meet < PlaceOS::Driver
   @preview_outputs : Array(String) = [] of String
 
   def on_update
-    self[:name] = system.display_name || system.name
+    self[:name] = system.display_name.presence || system.name
     self[:local_help] = @local_help = setting?(Help, :help) || Help.new
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
