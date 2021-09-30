@@ -85,7 +85,7 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
 
       user_details = staff_api.user(user_id).get
       zones = [level_zone]
-      zones << build_zone if build_zone
+      zones.unshift(build_zone) if build_zone
 
       # Grab additional details out of the desk metadata
       title = place_desk
