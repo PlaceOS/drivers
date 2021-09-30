@@ -9,10 +9,17 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   default_settings({
-    time_zone: "Australia/Sydney",
+    time_zone:         "Australia/Sydney",
+    booking_period:    120,
+    meta_ext_mappings: {
+      "neighbourhoodID" => "neighbourhood",
+      "features"        => "deskAttributes",
+    },
   })
 
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
+  @booking_period : Time::Span? = nil
+  @meta_ext_mappings : Hash(String, String) = {} of String => String
 
   def on_load
     on_update
@@ -21,6 +28,8 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
   def on_update
     time_zone = setting?(String, :time_zone).presence || config.control_system.not_nil!.timezone.presence
     @time_zone = Time::Location.load(time_zone) if time_zone
+    @booking_period = setting?(Int32, :booking_period).try &.minutes
+    @meta_ext_mappings = setting?(Hash(String, String), :meta_ext_mappings) || {} of String => String
   end
 
   def eui64_scanned(id : String, user_id : String, booking_minutes : Int32? = nil)
@@ -70,12 +79,33 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
       end
     else
       # Perform an adhoc booking
+      booking_period = booking_minutes.try(&.minutes) || @booking_period
       now = Time.local(@time_zone)
-      future = booking_minutes ? (now + booking_minutes.minutes) : now.at_end_of_day
+      future = booking_period ? (now + booking_period) : now.at_end_of_day
 
       user_details = staff_api.user(user_id).get
       zones = [level_zone]
       zones << build_zone if build_zone
+
+      # Grab additional details out of the desk metadata
+      title = place_desk
+      ext_data = {} of String => JSON::Any
+      begin
+        logger.debug { "obtaining metadata for desk #{place_desk} on level #{level_zone}" }
+        if desk_details = placeos_desk_metadata(level_zone, place_desk)
+          title = desk_details["name"]?.try(&.as_s) || place_desk
+
+          @meta_ext_mappings.each do |meta_key, ext_key|
+            if value = desk_details[meta_key]?
+              ext_data[ext_key] = value
+            end
+          end
+        else
+          logger.warn { "desk details not found!" }
+        end
+      rescue error
+        logger.warn(exception: error) { "obtaining desk metadata" }
+      end
 
       logger.debug { "creating new booking for #{user_id} on #{place_desk}" }
 
@@ -90,10 +120,25 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
         booking_end: future.to_unix,
         checked_in: true,
         approved: true,
+        title: title,
         time_zone: @time_zone.name,
-        extension_data: NamedTuple.new
+        extension_data: ext_data
       ).get
       "adhoc"
     end
+  end
+
+  def placeos_desk_metadata(zone_id : String, asset_id : String)
+    metadata = staff_api.metadata(
+      zone_id,
+      "desks"
+    ).get["desks"]["details"].as_a
+
+    metadata.each do |desk|
+      place_id = desk["id"]?.try(&.as_s)
+      next unless place_id
+      return desk.as_h if place_id == asset_id
+    end
+    nil
   end
 end
