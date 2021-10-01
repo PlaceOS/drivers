@@ -1,5 +1,5 @@
 require "levenshtein"
-require "future"
+require "promise"
 require "placeos-driver"
 
 class Place::Router < PlaceOS::Driver
@@ -205,7 +205,7 @@ class Place::Router < PlaceOS::Driver
         in SignalGraph::Edge::Static
           nil
         in SignalGraph::Edge::Active
-          lazy do
+          Promise.defer(same_thread: true, timeout: 1.second) do
             next_node.source = siggraph[src].source
 
             # OPTIMIZE: split this to perform an inital pass to build a hash
@@ -228,11 +228,17 @@ class Place::Router < PlaceOS::Driver
       execs = execs.to_a
 
       logger.debug { "running execs" }
-      execs = execs.map &.get
+      Fiber.yield
 
       logger.debug { "awaiting responses" }
       # TODO: support timeout on these - maybe run via the driver queue?
-      execs = execs.map &.get
+      execs.each do |promise|
+        begin
+          promise.get
+        rescue error
+          logger.warn(exception: error) { "processing route" }
+        end
+      end
 
       :ok
     end
