@@ -17,7 +17,8 @@ describe Settings::Connections do
       "Display_1": {
         "hdmi": "Switcher_1.1"
       },
-      "Switcher_1": ["*Foo", "*Bar"]
+      "Switcher_1": ["*Foo", "*Bar"],
+      "*FloorBox": "Switcher_1.2"
     }
     JSON
 
@@ -31,12 +32,13 @@ describe Settings::Connections do
     it "extracts nodes, links, aliases" do
       map = Settings::Connections::Map.from_json connections
       nodes, links, aliases = Settings::Connections.parse map, sys: "abc123"
-      nodes.size.should eq(6)
+      nodes.size.should eq(7)
       links.should contain({
         SignalGraph::Output.new("abc123", "Switcher", 1, 1),
         SignalGraph::Input.new("abc123", "Display", 1, "hdmi"),
       })
       aliases.keys.should contain "Foo"
+      aliases.keys.should contain "FloorBox"
     end
 
     it "detects alias conflicts" do

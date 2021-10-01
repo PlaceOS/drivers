@@ -63,15 +63,17 @@ DriverSpecs.mock_driver "Place::Router" do
         hdmi: "Switcher_1.1",
       },
       Switcher_1: ["*Foo", "*Bar"],
+      "*FloorBox": "Switcher_1.2",
     },
   })
 
   # Give the settings time to load
-  sleep 0.1
+  sleep 2
 
   status["inputs"].as_a.should contain("Foo")
   status["inputs"].as_a.should contain("Bar")
   status["outputs"].as_a.should contain("Display_1")
+  status["outputs"].as_a.should contain("FloorBox")
   status["output/Display_1"]["inputs"].should eq(["Foo", "Bar"])
 
   exec(:route, "Foo", "Display_1").get
