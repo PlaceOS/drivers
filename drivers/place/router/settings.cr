@@ -153,9 +153,6 @@ module Place::Router::Core::Settings
   alias IOMeta = Hash(String, Hash(String, JSON::Any))
 end
 
-
-
-
 # FIXME: submit as PR to crystal standard lib to support this neatly
 struct Union
   def self.from_json_object_key?(key : String)
