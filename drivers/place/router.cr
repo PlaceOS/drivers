@@ -128,7 +128,7 @@ class Place::Router < PlaceOS::Driver
       to_name = ->(ref : NodeRef) { aliases[ref]? || ref.local(system.id) }
 
       inputs = load_io(:inputs) || siggraph.inputs.to_a
-      outputs = load_io(:output) || siggraph.outputs.to_a
+      outputs = load_io(:outputs) || siggraph.outputs.to_a
 
       # Expose a list of input keys, along with an `input/<key>` with a hash of
       # metadata and state info for each.
