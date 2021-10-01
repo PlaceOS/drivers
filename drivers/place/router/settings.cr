@@ -69,9 +69,7 @@ module Place::Router::Core::Settings
     alias Source = Device | DeviceOutput | Alias
 
     # The device that recieves the signal.
-    alias Sink = Device
-    # FIXME: support deserializing into union to support output aliases
-    # alias Sink = Device | Alias
+    alias Sink = Device | Alias
 
     # Identifier for the input on Sink.
     alias Input = String
@@ -83,10 +81,11 @@ module Place::Router::Core::Settings
     #   "Display_1": {
     #     "hdmi": "Switcher_1.1"
     #   },
-    #   "Switcher_1": ["*Foo", "*Bar"]
+    #   "Switcher_1": ["*Foo", "*Bar"],
+    #   "*FloorBox": "Switcher_1.2"
     # }
     # ```
-    alias Map = Hash(Sink, Hash(Input, Source) | Array(Source))
+    alias Map = Hash(Sink, Hash(Input, Source) | Array(Source) | DeviceOutput)
 
     # Parses a `Map` containing the system conectivity into a set of nodes and
     # links that can be used for assembling the `SignalGraph`.
@@ -95,34 +94,52 @@ module Place::Router::Core::Settings
       links = [] of {SignalGraph::Node::Ref, SignalGraph::Node::Ref}
       aliases = {} of String => SignalGraph::Node::Ref
 
+      make_alias = ->(name : String, node : SignalGraph::Node::Ref) do
+        if prev = aliases[name]?
+          raise %(invalid configuration: "#{name}" refers to both #{prev} and #{node})
+        end
+        aliases[name] = node
+      end
+
       map.each do |sink, inputs|
-        nodes << SignalGraph::Device.new sys, sink.mod, sink.idx
-
-        # Iterate source arrays as 1-based input id's
-        inputs = inputs.each.with_index(1).map &.reverse if inputs.is_a? Array
-
-        inputs.each do |input, source|
-          inode = SignalGraph::Input.new sys, sink.mod, sink.idx, input
-          nodes << inode
-
-          if source.is_a? Alias
-            name = source.name
-            if prev = aliases[name]?
-              raise %(invalid configuration: "#{name}" refers to both #{prev} and #{inode})
-            end
-            aliases[name] = inode
-            next
+        if sink.is_a? Alias
+          source = inputs
+          unless source.is_a? DeviceOutput
+            raise %(invalid configuration: "#{sink}" must link to a DeviceOutput)
+          end
+          onode = SignalGraph::Output.new sys, source.mod, source.idx, source.output
+          nodes << onode
+          make_alias.call sink.name, onode
+        else
+          # Direct link only supported by output aliases.
+          if inputs.is_a? DeviceOutput
+            raise %(invalid configuration: "#{sink}" must specify inputs as either a hash or array)
           end
 
-          onode = case source
-                  in Device
-                    SignalGraph::Device.new sys, source.mod, source.idx
-                  in DeviceOutput
-                    SignalGraph::Output.new sys, source.mod, source.idx, source.output
-                  end
-          nodes << onode
+          nodes << SignalGraph::Device.new sys, sink.mod, sink.idx
 
-          links << {onode, inode}
+          # Iterate source arrays as 1-based input id's
+          inputs = inputs.each.with_index(1).map &.reverse if inputs.is_a? Array
+
+          inputs.each do |input, source|
+            inode = SignalGraph::Input.new sys, sink.mod, sink.idx, input
+            nodes << inode
+
+            if source.is_a? Alias
+              make_alias.call source.name, inode
+              next
+            end
+
+            onode = case source
+                    in Device
+                      SignalGraph::Device.new sys, source.mod, source.idx
+                    in DeviceOutput
+                      SignalGraph::Output.new sys, source.mod, source.idx, source.output
+                    end
+            nodes << onode
+
+            links << {onode, inode}
+          end
         end
       end
 
@@ -134,4 +151,15 @@ module Place::Router::Core::Settings
   # progated to the assocated input status keys. This allows information such as
   # name, type etc to be exposed to UI's.
   alias IOMeta = Hash(String, Hash(String, JSON::Any))
+end
+
+# FIXME: submit as PR to crystal standard lib to support this neatly
+struct Union
+  def self.from_json_object_key?(key : String)
+    {% for t in T %}
+      instance = {{t}}.from_json_object_key? key
+      return instance unless instance.nil?
+    {% end %}
+    raise JSON::ParseException.new("Couldn't parse #{self} from #{key}", __LINE__, 0)
+  end
 end
