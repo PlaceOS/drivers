@@ -47,6 +47,7 @@ alias Help = Hash(String, NamedTuple(
 
 class Tab
   include JSON::Serializable
+  include JSON::Serializable::Unmapped
 
   def initialize(@icon, @name, @inputs, @help = nil, @controls = nil, @merge_on_join = nil)
   end
@@ -56,8 +57,13 @@ class Tab
   getter inputs : Array(String)
 
   getter help : String?
+
+  # such as: vidconf-controls
   getter controls : String?
   getter merge_on_join : Bool?
+
+  # For the VC controls
+  getter presentation_source : String?
 
   def merge(tab : Tab) : Tab
     input = inputs.dup.concat(tab.inputs).uniq!
