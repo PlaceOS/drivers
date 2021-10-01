@@ -159,7 +159,8 @@ class Place::Meet < PlaceOS::Driver
     self[:active] = state
 
     if state
-      # no action - devices power on when signal is routed
+      system.all(:Camera).power true
+
       if first_output = @tabs.first?.try &.inputs.first
         selected_input first_output
       end
