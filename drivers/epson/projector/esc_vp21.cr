@@ -52,7 +52,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def power?(**options) : Bool
-    do_send(:power, **options, name: :power?).get
+    do_send(:power, **options).get
     !!self[:power]?.try(&.as_bool)
   end
 
@@ -67,7 +67,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def input?
-    do_send(:input, name: :input_query, priority: 0).get
+    do_send(:input, priority: 0).get
     self[:input]
   end
 
@@ -87,7 +87,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def volume?
-    do_send(:volume, name: :volume?, priority: 0).get
+    do_send(:volume, priority: 0).get
     self[:volume]?.try(&.as_f)
   end
 
@@ -110,7 +110,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def video_mute?
-    do_send(:video_mute, name: :video_mute?, priority: 0).get
+    do_send(:video_mute, priority: 0).get
     !!self[:video_mute]?.try(&.as_bool)
   end
 
