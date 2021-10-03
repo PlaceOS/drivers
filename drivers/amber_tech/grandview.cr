@@ -31,7 +31,7 @@ class AmberTech::Grandview < PlaceOS::Driver
       subscription = system.subscribe(sync_with, :power) do |_sub, power_state|
         logger.debug { "syncing with new power-state: #{power_state.inspect}" }
         if power_state && power_state != "null"
-          power_state == "true" ? up : down
+          power_state == "true" ? down : up
         end
       end
     end
