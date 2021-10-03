@@ -155,7 +155,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.4.3
+    version: 2.4.4
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -167,15 +167,15 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.7.2
+    version: 5.7.3
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
-    version: 0.5.1
+    version: 0.6.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.10.1
+    version: 5.11.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -183,7 +183,7 @@ shards:
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
-    version: 2.2.3
+    version: 3.0.0
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
