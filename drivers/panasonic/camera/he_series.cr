@@ -68,7 +68,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   # ================
   # Camera interface
 
-  MOVEMENT_STOPPED = 0x50
+  MOVEMENT_STOPPED = 50
 
   def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
     if @invert
@@ -76,8 +76,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
       tilt_speed = -tilt_speed
     end
 
-    pan = (MOVEMENT_STOPPED + pan_speed).to_s(16).upcase.rjust(2, '0')
-    tilt = (MOVEMENT_STOPPED + tilt_speed).to_s(16).upcase.rjust(2, '0')
+    pan = (MOVEMENT_STOPPED + pan_speed).to_s.rjust(2, '0')
+    tilt = (MOVEMENT_STOPPED + tilt_speed).to_s.rjust(2, '0')
 
     # check if we want to stop panning
     if pan_speed == "50" && tilt_speed == "50"
@@ -98,8 +98,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
     request("PTS", "#{pan}#{tilt}", **options) do |resp|
       pan, tilt = resp[3..-1].scan(/.{2}/).map(&.to_a).flatten
-      self[:pan_speed] = pan.not_nil!.to_i(16) - MOVEMENT_STOPPED
-      self[:tilt_speed] = tilt.not_nil!.to_i(16) - MOVEMENT_STOPPED
+      self[:pan_speed] = pan.not_nil!.to_i - MOVEMENT_STOPPED
+      self[:tilt_speed] = tilt.not_nil!.to_i - MOVEMENT_STOPPED
     end
   end
 
@@ -181,8 +181,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   protected def move_zoom(speed : Int32, **options)
     speed = MOVEMENT_STOPPED + speed
-    request("Z", speed.to_s(16).upcase.rjust(2, '0'), **options) do |resp|
-      self[:zoom_speed] = resp[2..-1].to_i(16) - MOVEMENT_STOPPED
+    request("Z", speed.rjust(2, '0'), **options) do |resp|
+      self[:zoom_speed] = resp[2..-1].to_i - MOVEMENT_STOPPED
     end
   end
 
