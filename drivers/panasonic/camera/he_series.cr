@@ -181,7 +181,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   protected def move_zoom(speed : Int32, **options)
     speed = MOVEMENT_STOPPED + speed
-    request("Z", speed.rjust(2, '0'), **options) do |resp|
+    request("Z", speed.to_s.rjust(2, '0'), **options) do |resp|
       self[:zoom_speed] = resp[2..-1].to_i - MOVEMENT_STOPPED
     end
   end
