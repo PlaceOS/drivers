@@ -35,6 +35,10 @@ class Place::Meet < PlaceOS::Driver
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
+
+    screens: {
+      "Projector_1" => "Screen_1",
+    },
   })
 end
 
@@ -110,6 +114,20 @@ class Place::Meet < PlaceOS::Driver
         update_available_outputs
       rescue error
         logger.warn(exception: error) { "error loading signal graph" }
+      end
+    end
+
+    # manually link screen control to power state
+    subscriptions.clear
+    screens = setting?(Hash(String, String), :screens) || {} of String => String
+    screens.each do |display, screen|
+      system.subscribe(display, :power) do |_sub, power_state|
+        logger.debug { "power-state changed on #{display}: #{power_state.inspect}" }
+        if power_state && power_state != "null"
+          logger.debug { "updating screen position: #{power_state == "true" ? "down" : "up"}" }
+          mod = system[screen]
+          power_state == "true" ? mod.down : mod.up
+        end
       end
     end
   end
