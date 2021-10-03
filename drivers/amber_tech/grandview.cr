@@ -15,8 +15,25 @@ class AmberTech::Grandview < PlaceOS::Driver
   descriptive_name "Ambertech Grandview Projector Screen"
   uri_base "http://192.168.0.2"
 
+  default_settings({
+    sync_with: "Display_1",
+  })
+
   def on_load
     schedule.every(1.minute) { status }
+    on_update
+  end
+
+  def on_update
+    sync_with = setting?(String, :sync_with)
+    subscriptions.clear
+    if sync_with
+      subscription = system.subscribe(sync_with, :power) do |_sub, power_state|
+        if power_state && power_state != "null"
+          power_state == "true" ? up : down
+        end
+      end
+    end
   end
 
   # moveable interface
