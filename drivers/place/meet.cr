@@ -100,10 +100,18 @@ class Place::Meet < PlaceOS::Driver
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:preview_outputs] = @preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
 
-    load_siggraph
-    update_available_tabs
-    update_available_help
-    update_available_outputs
+    spawn(same_thread: true) do
+      begin
+        logger.debug { "loading signal graph..." }
+        load_siggraph
+        logger.debug { "signal graph loaded" }
+        update_available_tabs
+        update_available_help
+        update_available_outputs
+      rescue error
+        logger.warn(exception: error) { "error loading signal graph" }
+      end
+    end
   end
 
   protected def on_siggraph_loaded(inputs, outputs)
