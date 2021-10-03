@@ -16,20 +16,24 @@ module Place::Router::Core::Settings
       def from_json_object_key?(key : String)
         parse? key
       end
+
+      def get_parts(module_id : String) : {String, Int32?}
+        mod_name, match, index = module_id.rpartition('_')
+        if match.empty?
+          {module_id, 1}
+        else
+          {mod_name, index.to_i?}
+        end
+      end
     end
 
     # Module name of a device within the local system e.g. `"Switcher_1"`.
     record Device, mod : String, idx : Int32 do
       extend Deserializable
 
-      PATTERN = /^([a-z]+)\_(\d+)$/i
-
       def self.parse?(raw : String)
-        if m = raw.match PATTERN
-          mod = m[1]
-          idx = m[2].to_i
-          new mod, idx
-        end
+        mod, idx = get_parts(raw)
+        new mod, idx if idx
       end
     end
 
@@ -39,14 +43,14 @@ module Place::Router::Core::Settings
     record DeviceOutput, mod : String, idx : Int32, output : String | Int32 do
       extend Deserializable
 
-      PATTERN = /^([a-z]+)\_(\d+)\.(.+)$/i
-
       def self.parse?(raw : String)
-        if m = raw.match PATTERN
-          mod = m[1]
-          idx = m[2].to_i
-          output = m[3].to_i? || m[3]
-          new mod, idx, output
+        mod_name, match, outp = raw.rpartition('.')
+        if !match.empty?
+          mod, idx = get_parts(mod_name)
+          if idx
+            output = outp.to_i? || outp
+            new mod, idx, output
+          end
         end
       end
     end
