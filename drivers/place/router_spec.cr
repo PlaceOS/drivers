@@ -62,7 +62,7 @@ DriverSpecs.mock_driver "Place::Router" do
       Display_1: {
         hdmi: "Switcher_1.1",
       },
-      Switcher_1: ["*Foo", "*Bar"],
+      Switcher_1:  ["*Foo", "*Bar"],
       "*FloorBox": "Switcher_1.2",
     },
   })
@@ -85,4 +85,16 @@ DriverSpecs.mock_driver "Place::Router" do
   ) do
     exec(:route, "Foo", "Baz").get
   end
+
+  # Ensure previous status persists settings reloads for continuing nodes
+  settings({
+    connections: {
+      Display_1: {
+        hdmi: "Switcher_1.1",
+      },
+      Switcher_1: ["*Foo", "*Bar"],
+    },
+  })
+  sleep 2
+  status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
 end
