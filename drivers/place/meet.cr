@@ -203,12 +203,6 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
-  def apply_default_routes
-    @default_routes.each { |output, input| route(input, output) }
-  rescue error
-    logger.warn(exception: error) { "error applying default routes" }
-  end
-
   # Set the volume of a signal node within the system.
   def volume(level : Int32 | Float64, input_or_output : String)
     logger.info { "setting volume on #{input_or_output} to #{level}" }
@@ -245,6 +239,24 @@ class Place::Meet < PlaceOS::Driver
     self[:mute] = state
   end
 
+  # =====================
+  # System IO management
+  # ====================
+
+  def apply_default_routes
+    @default_routes.each { |output, input| route(input, output) }
+  rescue error
+    logger.warn(exception: error) { "error applying default routes" }
+  end
+
+  # we want to unroute any signal going to the display
+  # or if it's a direct connection, we want to mute the display
+  def unroute(output)
+    # TODO::
+  end
+
+  # This is the currently selected input
+  # if the user selects an output then this will be routed to it
   def selected_input(name : String) : Nil
     self[:selected_input] = name
     self[:selected_tab] = @tabs.find(@tabs.first, &.inputs.includes?(name)).name
@@ -254,7 +266,12 @@ class Place::Meet < PlaceOS::Driver
     route(name, @outputs.first) if @outputs.size == 1
   end
 
-  # where name is the camera input selector ()
+  # ====================
+  # VC Camera Management
+  # ====================
+
+  # This is the camera input that is currently selected so we can switch between
+  # different cameras
   def selected_camera(camera : String)
     self[:selected_camera] = camera
     if camera_in = @vc_camera_in
