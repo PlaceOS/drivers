@@ -81,12 +81,14 @@ class Place::Router < PlaceOS::Driver
 
     protected def load_siggraph
       logger.debug { "loading signal graph from settings" }
-
       connections = setting(Settings::Connections::Map, :connections)
+      load_siggraph connections
+    end
+
+    protected def load_siggraph(connections : Settings::Connections::Map)
       nodes, links, aliases = Settings::Connections.parse connections, system.id
       @siggraph = SignalGraph.build nodes, links
       @resolver = init_resolver aliases
-
       on_siggraph_load
     end
 
