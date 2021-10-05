@@ -32,6 +32,7 @@ class Place::Meet < PlaceOS::Driver
 
     # if we want to display the selected tab on displays meant only for the presenter
     preview_outputs: ["Display_2"],
+    vc_camera_in:    "switch_camera_output_id",
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
@@ -96,6 +97,9 @@ class Place::Meet < PlaceOS::Driver
   @outputs : Array(String) = [] of String
   @local_outputs : Array(String) = [] of String
   @preview_outputs : Array(String) = [] of String
+  @vc_camera_in : String? = nil
+
+  @default_routes : Hash(String, String) = {} of String => String
 
   def on_update
     self[:name] = system.display_name.presence || system.name
@@ -103,6 +107,9 @@ class Place::Meet < PlaceOS::Driver
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:preview_outputs] = @preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
+    @vc_camera_in = setting?(String, :vc_camera_in)
+
+    @default_routes = setting?(Hash(String, String), :default_routes) || {} of String => String
 
     spawn(same_thread: true) do
       begin
@@ -186,6 +193,7 @@ class Place::Meet < PlaceOS::Driver
 
     if state
       system.all(:Camera).power true
+      apply_default_routes
 
       if first_output = @tabs.first?.try &.inputs.first
         selected_input first_output
@@ -195,13 +203,19 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  def apply_default_routes
+    @default_routes.each { |output, input| route(input, output) }
+  rescue error
+    logger.warn(exception: error) { "error applying default routes" }
+  end
+
   # Set the volume of a signal node within the system.
   def volume(level : Int32 | Float64, input_or_output : String)
     logger.info { "setting volume on #{input_or_output} to #{level}" }
     level = level.to_f
     node = signal_node input_or_output
     node.proxy.volume level
-    node["volume"] = level
+    self[:volume] = node["volume"] = level
   end
 
   # Sets the mute state on a signal node within the system.
@@ -227,6 +241,8 @@ class Place::Meet < PlaceOS::Driver
       node["mute"] = state
       node["video_mute"] = state
     end
+
+    self[:mute] = state
   end
 
   def selected_input(name : String) : Nil
@@ -236,5 +252,30 @@ class Place::Meet < PlaceOS::Driver
     # Perform any desired routing
     @preview_outputs.each { |output| route(name, output) }
     route(name, @outputs.first) if @outputs.size == 1
+  end
+
+  # where name is the camera input selector ()
+  def selected_camera(camera : String)
+    self[:selected_camera] = camera
+    if camera_in = @vc_camera_in
+      route(camera, camera_in)
+    end
+  end
+
+  def add_preset(preset : String, camera : String)
+    mod, cam_index = camera_details(camera)
+    system[mod].save_position preset, cam_index || 0
+  end
+
+  def remove_preset(preset : String, camera : String)
+    mod, cam_index = camera_details(camera)
+    system[mod].remove_position preset, cam_index || 0
+  end
+
+  alias CamDetails = NamedTuple(mod: String, index: String | Int32?)
+
+  protected def camera_details(camera : String)
+    cam = status CamDetails, "input/#{camera}"
+    {cam[:mod], cam[:index]}
   end
 end
