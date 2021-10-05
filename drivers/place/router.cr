@@ -130,10 +130,29 @@ class Place::Router < PlaceOS::Driver
       inputs = load_io(:inputs) || siggraph.inputs.to_a
       outputs = load_io(:outputs) || siggraph.outputs.to_a
 
+      # Persist previous state across module restarts or settings load
+      persist = ->(key : String, node : SignalGraph::Node::Label) do
+        self[key]?.try(&.as_h?).try &.each do |attr, value|
+          case attr
+          when "ref"
+            # Ignore
+          when "source"
+            node.source = signal_node(value.as_s).ref
+          when "locked"
+            node.locked = value.as_bool
+          else
+            node[attr] = value
+          end
+        rescue e
+          logger.info(exception: e) { "when loading previous #{key}/#{attr}" }
+        end
+      end
+
       # Expose a list of input keys, along with an `input/<key>` with a hash of
       # metadata and state info for each.
       self[:inputs] = inputs.map do |node|
         key = to_name.call node.ref
+        persist.call "input/#{key}", node
         node["name"] ||= key
         node.watch { self["input/#{key}"] = node }
         key
@@ -143,6 +162,7 @@ class Place::Router < PlaceOS::Driver
       self[:outputs] = outputs.map do |node|
         key = to_name.call node.ref
 
+        persist.call "output/#{key}", node
         node["name"] ||= key
 
         # Discover inputs available to each output
