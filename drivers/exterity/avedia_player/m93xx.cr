@@ -52,7 +52,8 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
 
     schedule.every(59.seconds) do
       logger.debug { "-- Polling Exterity Player" }
-      tv_info
+      current_channel
+      current_channel_name
     end
 
     schedule.every(1.hour) do
