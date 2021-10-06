@@ -82,14 +82,14 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
 
   def stream(uri : String)
     set(:playChannelUri, uri, name: :channel).get
-    result = String.from_json current_channel.get.payload
+    current_channel.get
 
-    if result == uri
-      name = @channel_lookup[uri]?.try &.name
-      channel_name name if name
+    name = @channel_lookup[uri]?.try &.name
+    if name && uri == self[:current_channel]
+      channel_name name
     end
 
-    result
+    name
   end
 
   def current_channel
