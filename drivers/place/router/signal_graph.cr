@@ -140,10 +140,12 @@ class Place::Router::SignalGraph
   #
   # Provides an `Iterator` that provides labels across each node, the edge, and
   # subsequent node.
-  def route(source : Node::Ref, destination : Node::Ref)
+  def route(source : Node::Ref, destination : Node::Ref, max_dist = nil)
     path = g.path destination.id, source.id, invert: true
 
     return nil unless path
+
+    return nil if max_dist && path.size > max_dist
 
     path.each_cons(2, true).map do |(succ, pred)|
       {
