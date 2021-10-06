@@ -164,9 +164,7 @@ class Place::Router::SignalGraph
   # Provide the signal nodes that form system inputs.
   def inputs
     # Graph connectivity is inverse to signal direction, hence sinks here.
-    g.sinks
-      .reject(&.== Mute.id)
-      .map { |id| g[id] }
+    g.sinks.compact_map { |id| g[id] unless id == Mute.id }
   end
 
   # Provide all signal nodes that can be routed to *destination*.
@@ -181,8 +179,6 @@ class Place::Router::SignalGraph
 
   # Provide the signal nodes that form system outputs.
   def outputs
-    g.sources
-      .reject(&.== Mute.id)
-      .map { |id| g[id] }
+    g.sources.compact_map { |id| g[id] unless id == Mute.id }
   end
 end
