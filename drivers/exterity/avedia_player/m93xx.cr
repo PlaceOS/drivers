@@ -11,16 +11,53 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
       username: :ctrl,
       password: :labrador,
     },
-    max_waits: 100,
+    max_waits:       100,
+    channel_details: [
+      {
+        name:    "Al Jazeera",
+        icon:    "https://url-to-svg-or-png",
+        channel: "udp://239.192.10.170:5000?hwchan=0",
+      },
+    ],
   })
 
+  class ChannelDetail
+    include JSON::Serializable
+
+    getter name : String
+    getter icon : String?
+    getter channel : String
+  end
+
   @ready : Bool = false
+  @channel_lookup : Hash(String, ChannelDetail) = {} of String => ChannelDetail
+
+  def on_load
+    on_update
+  end
+
+  def on_update
+    channel_lookup = {} of String => ChannelDetail
+    if channel_details = setting?(Array(ChannelDetail), :channel_details)
+      self[:channel_details] = channel_details
+      channel_details.each { |lookup| channel_lookup[lookup.channel] = lookup }
+    else
+      self[:channel_details] = nil
+    end
+    @channel_lookup = channel_lookup
+  end
 
   def connected
     self[:ready] = @ready = false
-    schedule.every(60.seconds) do
+
+    schedule.every(59.seconds) do
       logger.debug { "-- Polling Exterity Player" }
       tv_info
+    end
+
+    schedule.every(1.hour) do
+      logger.debug { "-- Polling Exterity Player" }
+      dump
     end
   end
 
@@ -38,8 +75,29 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
     end
   end
 
+  def channel_name(name : String)
+    set(:currentChannel_name, name, name: :name).get
+    current_channel_name
+  end
+
   def stream(uri : String)
-    set :playChannelUri, uri, name: :channel
+    set(:playChannelUri, uri, name: :channel).get
+    result = String.from_json current_channel.get.payload
+
+    if result == uri
+      name = @channel_lookup[uri]?.try &.name
+      channel_name name if name
+    end
+
+    result
+  end
+
+  def current_channel
+    get :currentChannel
+  end
+
+  def current_channel_name
+    get :currentChannel_name
   end
 
   def dump
@@ -97,7 +155,7 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
       task.try &.abort(message)
     else
       self[parts[0].underscore] = parts[1]
-      task.try &.success(data)
+      task.try &.success(parts[1])
     end
   end
 
@@ -107,7 +165,7 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
   end
 
   protected def set(command, data, **options)
-    do_send "^set:#{command}:#{data}!\r", **options
+    do_send "^set:#{command}:#{data}!\r", **options.merge({wait: false})
   end
 
   protected def remote(cmd, **options)
