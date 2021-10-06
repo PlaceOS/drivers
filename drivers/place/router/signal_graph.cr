@@ -61,7 +61,19 @@ class Place::Router::SignalGraph
         g[output.id, input.id] = Edge::Active.new mod, func
       end
     end
-    # TODO: insert muting subgraph
+
+    if mod.muteable?
+      if outputs.empty?
+        output = Node::Device.new mod
+        func = Edge::Func::Mute.new true
+        g[output.id, Mute.id] = Edge::Active.new mod, func
+      else
+        outputs.each do |output|
+          func = Edge::Func::Mute.new true, output.output
+          g[output.id, Mute.id] = Edge::Active.new mod, func
+        end
+      end
+    end
   end
 
   # Construct a graph from a pre-parsed configuration.
