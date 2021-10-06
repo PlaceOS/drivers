@@ -16,7 +16,7 @@ class Place::Router < PlaceOS::Driver
 
     Following configuration, this driver can be used to perform simple input → \
     output routing, regardless of intermediate hardware. Drivers it interacts \
-    with _must_ implement the `Switchable`, `InputSelection` or `Mutable` \
+    with _must_ implement the `Switchable`, `InputSelection` or `Muteable` \
     interfaces.
 
     Configuration is specified as a map of devices and their attached inputs. \
@@ -264,8 +264,6 @@ class Place::Router < PlaceOS::Driver
 
       :ok
     end
-
-    # TODO: implement graph based muting
   end
 
   include Core

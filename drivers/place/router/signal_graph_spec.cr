@@ -1,18 +1,21 @@
+abstract class PlaceOS::Driver; end
+
 require "spec"
 require "placeos-driver/driver_model"
 require "./signal_graph"
 
 alias SignalGraph = Place::Router::SignalGraph
 
-module PlaceOS::Driver
+abstract class PlaceOS::Driver
   module Interface
     module Switchable; end
 
     module Selectable; end
 
-    module Mutable; end
+    module Muteable; end
 
-    module InputMutable; end
+    # TODO: expand interfaces in `placeos-driver` to cover this
+    module InputMuteable; end
   end
 
   module Proxy::System
@@ -25,7 +28,7 @@ module PlaceOS::Driver
       m = DriverModel::Metadata.new
       m.implements << {{Interface::Switchable.name(generic_args: false).stringify}}
       m.implements << {{Interface::Selectable.name(generic_args: false).stringify}}
-      m.implements << {{Interface::Mutable.name(generic_args: false).stringify}}
+      m.implements << {{Interface::Muteable.name(generic_args: false).stringify}}
       m
     end
   end
@@ -134,6 +137,36 @@ describe SignalGraph do
           fail "path iterator did not terminate"
         end
       end
+    end
+
+    it "provides mute activation on an output device" do
+      source = SignalGraph::Mute
+      dest = outputs[:display]
+
+      path = g.route source, dest
+      path = path.not_nil!
+
+      node, edge, next_node = path.first
+      node.should eq g[source]
+      edge = edge.as SignalGraph::Edge::Active
+      edge.mod.name.should eq "Display"
+      edge.func.should eq SignalGraph::Edge::Func::Mute.new true
+      next_node.should eq g[dest]
+    end
+
+    it "provide mute activate on an intermediate switcher" do
+      source = SignalGraph::Mute
+      dest = SignalGraph::Output.new("sys-123", "Switcher", 1, 1)
+
+      path = g.route source, dest
+      path = path.not_nil!
+
+      node, edge, next_node = path.first
+      node.should eq g[source]
+      edge = edge.as SignalGraph::Edge::Active
+      edge.mod.name.should eq "Switcher"
+      edge.func.should eq SignalGraph::Edge::Func::Mute.new true, 1
+      next_node.should eq g[dest]
     end
   end
 
