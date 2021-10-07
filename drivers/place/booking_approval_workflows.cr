@@ -74,6 +74,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
   @remind_after : Time::Span = 24.hours
   @escalate_after : Time::Span = 48.hours
   @disable_attachments : Bool = true
+  @notify_managers : Bool = false
 
   alias SiteDetails = NamedTuple(approval: String, name: String, support_email: String, attachments: Hash(String, String)?)
   alias Reminders = NamedTuple(crons: Array(String), zones: Hash(String, Array(String)))
@@ -92,6 +93,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
     @remind_after = (setting?(Int32, :remind_after) || 24).hours
     @escalate_after = (setting?(Int32, :escalate_after) || 48).hours
+    @notify_managers = setting?(Bool, :notify_managers) || false
 
     @approval_lookup = setting(Hash(String, SiteDetails), :approval_type)
     attach = setting?(Bool, :disable_attachments)
@@ -286,7 +288,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         args: args
       )
 
-      if manager_email = get_manager(user_email).try(&.at(0))
+      if @notify_managers && (manager_email = get_manager(user_email).try(&.at(0)))
         mailer.send_template(
           to: manager_email,
           template: {"bookings", "manager_notify_cancelled"},
@@ -419,13 +421,13 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         end
       end
     when "notify"
-      logger.debug { "approving booking and notifing manager" }
+      logger.debug { "approving booking and notifing manager = #{@notify_managers}" }
 
       # manager needs to be notified of approval
       staff_api.approve(booking_details.id).get
       # NOTE:: user will be sent email via the approval event
 
-      if manager_email = get_manager(user_email).try(&.at(0))
+      if @notify_managers && (manager_email = get_manager(user_email).try(&.at(0)))
         mailer.send_template(
           to: manager_email,
           template: {"bookings", "notify_manager"},
