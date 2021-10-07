@@ -49,7 +49,10 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
   # * managers_manager  = managers manager has been emailed to approve
 
   accessor staff_api : StaffAPI_1
-  accessor mailer : Calendar_1
+
+  def mailer
+    system.implementing(Interface::Mailer)[0]
+  end
 
   def on_load
     # Some form of asset booking has occured
