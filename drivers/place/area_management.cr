@@ -397,8 +397,8 @@ class Place::AreaManagement < PlaceOS::Driver
     }
 
     # we need to know the map dimensions to be able to count people in areas
-    map_width = -1.0
-    map_height = -1.0
+    map_width = 100.0
+    map_height = 100.0
 
     if tmp_loc = xy_locs[0]?
       # ensure map width and height are known
@@ -413,10 +413,6 @@ class Place::AreaManagement < PlaceOS::Driver
       when Int64, Float64
         map_height = map_height_raw.to_f
       end
-    elsif sensor_summary.size > 0
-      # all sensor x, y values are % based
-      map_width = 100.0
-      map_height = 100.0
     end
 
     # Calculate the device counts for each area
