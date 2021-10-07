@@ -211,12 +211,12 @@ class Place::Router < PlaceOS::Driver
     #
     # Performs all intermediate device interaction based on current system
     # config.
-    def route(input : String, output : String)
+    def route(input : String, output : String, max_dist : Int32? = nil)
       logger.debug { "requesting route from #{input} to #{output}" }
 
       src, dst = resolver.values_at input, output
 
-      path = siggraph.route(src, dst) || raise "no route found"
+      path = siggraph.route(src, dst, max_dist) || raise "no route found"
 
       execs = path.compact_map do |(node, edge, next_node)|
         logger.debug { "#{node} → #{next_node}" }
