@@ -8,17 +8,30 @@ class Qsc::QSysControl < PlaceOS::Driver
   descriptive_name "QSC Audio DSP External Control"
   generic_name :Mixer
 
+  default_settings({
+    change_groups: {
+      "room123_phone" => {
+        id:       1,
+        controls: ["VoIPCallStatusProgress", "VoIPCallStatusRinging", "VoIPCallStatusOffHook"],
+      },
+    },
+  })
+
   alias Group = NamedTuple(id: Int32, controls: Set(String))
   alias Ids = String | Array(String)
   alias Val = Int32 | Float64
 
   @username : String? = nil
   @password : String? = nil
+
+  @connected : Bool = false
   @change_group_id : Int32 = 30
   @em_id : String? = nil
   @emergency_subscribe : PlaceOS::Driver::Subscriptions::Subscription? = nil
   @history = {} of String => Symbol
-  @change_groups = {} of Symbol => Group
+
+  @static_change_groups = {} of String => Group
+  @dynamic_change_groups = {} of String => Group
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r\n")
@@ -28,9 +41,31 @@ class Qsc::QSysControl < PlaceOS::Driver
   def on_update
     @username = setting?(String, :username)
     @password = setting?(String, :password)
-    login if @username
 
-    @change_groups.each do |_, group|
+    @static_change_groups = setting?(Hash(String, Group), :change_groups) || {} of String => Group
+
+    login if @username && @connected
+    recreate_change_groups
+  end
+
+  def connected
+    @connected = true
+    login if @username && @connected
+    schedule.every(40.seconds) do
+      logger.debug { "Maintaining Connection" }
+      about
+    end
+  end
+
+  def disconnected
+    @connected = false
+    schedule.clear
+  end
+
+  protected def recreate_change_groups
+    return unless @connected
+    change_groups = @static_change_groups.merge @dynamic_change_groups
+    change_groups.each do |_, group|
       logger.debug { "change groups" }
       group_id = group[:id]
       controls = group[:controls]
@@ -68,17 +103,6 @@ class Qsc::QSysControl < PlaceOS::Driver
         do_send("cga #{group_id} #{em_id}\n") # , wait: false)
       end
     end
-  end
-
-  def connected
-    schedule.every(40.seconds) do
-      logger.debug { "Maintaining Connection" }
-      about
-    end
-  end
-
-  def disconnected
-    schedule.clear
   end
 
   def get_status(control_id : String, **options)
@@ -201,25 +225,10 @@ class Qsc::QSysControl < PlaceOS::Driver
     phone_dial(control_id)
   end
 
-  def phone_watch(control_ids : Ids)
-    # Ensure change group exists
-    group = create_change_group(:phone)
-    group_id = group[:id]
-    controls = group[:controls]
-
-    # Add ids to change group
-    ensure_array(control_ids).each do |id|
-      unless controls.includes?(id)
-        controls << id
-        do_send("cga #{group_id} #{id}\n") # , wait: false)
-      end
-    end
-
-    update_change_group(:phone, group_id, controls)
-  end
-
   private def create_change_group(name) : Group
-    if group = @change_groups[name]?
+    name = name.to_s
+
+    if group = @dynamic_change_groups[name]?
       return group
     end
 
@@ -227,7 +236,7 @@ class Qsc::QSysControl < PlaceOS::Driver
     next_id = @change_group_id
     @change_group_id += 1
 
-    @change_groups[name] = {
+    @dynamic_change_groups[name] = {
       id:       next_id,
       controls: Set(String).new,
     }
@@ -235,18 +244,18 @@ class Qsc::QSysControl < PlaceOS::Driver
     # create change group and poll every 2 seconds
     do_send("cgc #{next_id}\n")        # , wait: false)
     do_send("cgsna #{next_id} 2000\n") # , wait: false)
-    @change_groups[name]
+    @dynamic_change_groups[name]
   end
 
   private def update_change_group(name, id, controls) : Group
-    @change_groups[name] = {
+    @dynamic_change_groups[name.to_s] = {
       id:       id,
       controls: controls,
     }
   end
 
   private def poll_change_group(name)
-    if group = @change_groups[name]
+    if group = @dynamic_change_groups[name]
       do_send("cgpna #{group[:id]}\n") # , wait: false)
     end
   end
