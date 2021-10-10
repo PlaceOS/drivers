@@ -9,7 +9,7 @@ class Qsc::QSysControl < PlaceOS::Driver
   generic_name :Mixer
 
   default_settings({
-    change_groups: {
+    _change_groups: {
       "room123_phone" => {
         id:       1,
         controls: ["VoIPCallStatusProgress", "VoIPCallStatusRinging", "VoIPCallStatusOffHook"],
@@ -50,7 +50,8 @@ class Qsc::QSysControl < PlaceOS::Driver
 
   def connected
     @connected = true
-    login if @username && @connected
+    login if @username
+    recreate_change_groups
     schedule.every(40.seconds) do
       logger.debug { "Maintaining Connection" }
       about
