@@ -264,7 +264,7 @@ class Place::Meet < PlaceOS::Driver
 
   # we want to unroute any signal going to the display
   # or if it's a direct connection, we want to mute the display
-  def unroute(output)
+  def unroute(output : Int32 | String = 0)
     mute(true, output)
   end
 
