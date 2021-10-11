@@ -691,10 +691,10 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       lookup_key = @floorsense_lookup_key
       metadata.each do |desk|
         desk = desk.as_h
-        place_id = desk["id"]?.try(&.as_s)
+        place_id = desk["id"]?.try(&.as_s.presence)
         next unless place_id
 
-        floor_id = desk[lookup_key]?.try(&.as_s)
+        floor_id = desk[lookup_key]?.try(&.as_s.presence)
         next unless floor_id
 
         # Additional data for adhoc bookings
