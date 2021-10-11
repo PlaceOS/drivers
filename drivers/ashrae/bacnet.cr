@@ -11,7 +11,7 @@ class Ashrae::BACnet < PlaceOS::Driver
   description %(makes BACnet data available to other drivers in PlaceOS)
 
   # Hookup dispatch to the BACnet BBMD device
-  uri_base "ws://dispatch/api/server/udp_dispatch?port=47808&accept=192.168.0.1"
+  uri_base "ws://dispatch/api/dispatch/v1/udp_dispatch?port=47808&accept=192.168.0.1"
 
   default_settings({
     dispatcher_key: "secret",
