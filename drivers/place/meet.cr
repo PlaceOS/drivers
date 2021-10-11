@@ -81,6 +81,19 @@ class Tab
   end
 end
 
+# This data will be stored in the tab
+class QscPhone
+  include JSON::Serializable
+
+  getter number_id : String
+  getter dial_id : String
+  getter hangup_id : String
+  getter status_id : String
+  getter ringing_id : String
+  getter offhook_id : String
+  getter dtmf_id : String
+end
+
 class Place::Meet < PlaceOS::Driver
   include Interface::Muteable
   include Interface::Powerable
@@ -252,7 +265,7 @@ class Place::Meet < PlaceOS::Driver
   # we want to unroute any signal going to the display
   # or if it's a direct connection, we want to mute the display
   def unroute(output)
-    # TODO::
+    mute(true, output)
   end
 
   # This is the currently selected input
