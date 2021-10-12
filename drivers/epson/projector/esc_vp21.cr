@@ -35,7 +35,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def disconnected
     schedule.clear
-    self[:power] = false
   end
 
   def power(state : Bool)
