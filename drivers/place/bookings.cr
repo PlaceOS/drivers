@@ -27,6 +27,7 @@ class Place::Bookings < PlaceOS::Driver
     catering_ui: "https://if.panel/to_be_used_for_catering",
 
     include_cancelled_bookings: false,
+    hide_qr_code:               false,
   })
 
   accessor calendar : Calendar_1
@@ -95,6 +96,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
+
+    self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
   end
 
   # This is how we check the rooms status
