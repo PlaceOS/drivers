@@ -48,6 +48,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       logger.debug { "-- epson Proj, requested to power off" }
       do_send(:power, "OFF", delay: 10.seconds, name: "power")
     end
+    self[:power] = state
     power?
   end
 
