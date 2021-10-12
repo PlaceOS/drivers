@@ -3,6 +3,7 @@ require "placeos-driver/interface/camera"
 require "placeos-driver/interface/powerable"
 
 # Documentation: https://aca.im/driver_docs/Panasonic/Camera%20Specifications%20V1.03E.pdf
+# for a live view: http://<ip address>/cgi-bin/mjpeg?stream=1
 
 class Panasonic::Camera::HESeries < PlaceOS::Driver
   include Interface::Camera
@@ -41,7 +42,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   def on_update
     @default_movement_speed = setting?(Int32, :default_movement_speed) || 20
-    self[:inverted] = @invert = setting?(Bool, :invert) || false
+    self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
     @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
     self[:presets] = @presets.keys
   end
@@ -71,10 +72,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   MOVEMENT_STOPPED = 50
 
   def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
-    if @invert
-      pan_speed = -pan_speed
-      tilt_speed = -tilt_speed
-    end
+    tilt_speed = -tilt_speed if @invert
 
     pan = (MOVEMENT_STOPPED + pan_speed).to_s.rjust(2, '0')
     tilt = (MOVEMENT_STOPPED + tilt_speed).to_s.rjust(2, '0')
