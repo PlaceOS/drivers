@@ -30,6 +30,7 @@ class Extron::Matrix < PlaceOS::Driver
       @ready = true
       transport.tokenizer = Tokenizer.new(DELIMITER)
     end
+    queue.delay = 200.milliseconds
     on_update
   end
 
@@ -68,7 +69,11 @@ class Extron::Matrix < PlaceOS::Driver
   def switch(map : Hash(Input, Array(Output)) | Hash(String, Hash(Input, Array(Output))))
     case map
     in Hash(Input, Array(Output))
-      switch_map(map)
+      if map.size == 1 && map.first_value.size == 1
+        switch_one(map.first_key, map.first_value.first)
+      else
+        switch_map(map)
+      end
     in Hash(String, Hash(Input, Array(Output)))
       map.each do |layer, inout_map|
         extron_layer = case SwitchLayer.parse(layer)
@@ -97,17 +102,28 @@ class Extron::Matrix < PlaceOS::Driver
   # the corresponding signal point. For example, to disconnect input 1 from all
   # outputs is is currently feeding `switch(1, 0)`.
   def switch_one(input : Input, output : Output, layer : MatrixLayer = MatrixLayer::All)
-    send Command[input, '*', output, layer], Response::Tie, &->update_io(Tie)
+    send Command[input, '*', output, layer], Response::Tie, name: "switch-#{output}-#{layer}", &->update_io(Tie)
   end
 
   # Connect *input* to all outputs at the specified *layer*.
   def switch_layer(input : Input, layer : MatrixLayer = MatrixLayer::All)
-    send Command[input, layer], Response::Switch, &->update_io(Switch)
+    send Command[input, layer], Response::Switch, name: "present-#{input}-#{layer}", &->update_io(Switch)
   end
 
   # Applies a `SignalMap` as a single operation. All included ties will take
   # simultaneously on the device.
   def switch_map(map : SignalMap, layer : MatrixLayer = MatrixLayer::All)
+    # Switch one by preference so we can rate limit requests effectively
+    # switching multiple inputs at once is not as common
+    if map.size == 1
+      outp = map.first_value
+      if outp.is_a? Array
+        return switch_one(map.first_key, outp.first, layer) if outp.size == 1
+      else
+        return switch_one(map.first_key, outp, layer)
+      end
+    end
+
     ties = map.flat_map do |(input, outputs)|
       if outputs.is_a? Enumerable
         outputs.each.map { |output| Tie.new input, output, layer }
@@ -148,9 +164,9 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   # Send *command* to the device and yield a parsed response to *block*.
-  private def send(command, parser : SIS::Response::Parser(T), &block : T -> _) forall T
+  private def send(command, parser : SIS::Response::Parser(T), **options, &block : T -> _) forall T
     logger.debug { "Sending #{command}" }
-    send command do |data, task|
+    send command, **options do |data, task|
       logger.debug { "Received #{String.new data}" }
       case response = Response.parse data, parser
       in T
