@@ -241,6 +241,16 @@ local_outputs:
 
 ```
 
+Where you have Preview Monitor(s) for previewing sources before presenting them, you configure them using:
+
+```yaml
+
+# these will show the currently selected input
+preview_outputs:
+  - Display_3
+
+```
+
 
 ## Linking up Mixer Audio
 

@@ -275,8 +275,11 @@ class Place::Meet < PlaceOS::Driver
     self[:selected_tab] = @tabs.find(@tabs.first, &.inputs.includes?(name)).name
 
     # Perform any desired routing
-    @preview_outputs.each { |output| route(name, output) }
-    route(name, @outputs.first) if @outputs.size == 1
+    if @preview_outputs.empty?
+      route(name, @outputs.first) if @outputs.size == 1
+    else
+      @preview_outputs.each { |output| route(name, output) }
+    end
   end
 
   # ====================
