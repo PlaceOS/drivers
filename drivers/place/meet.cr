@@ -356,7 +356,6 @@ class Place::Meet < PlaceOS::Driver
     local = @local_mics.dup
 
     # TODO:: merge in joined room mics
-    # TODO:: bind to feedback
 
     @available_mics = local
     self[:microphones] = @available_mics.map do |mic|
@@ -389,7 +388,7 @@ class Place::Meet < PlaceOS::Driver
       in Nil
       end
 
-      case mic.default_muted
+      case mic.default_level
       in Float64
         if level_index = mic.level_index
           mixer.fader(mic.level_id, mic.default_level, level_index)

@@ -305,7 +305,7 @@ A basic list of fader and mute values that represent the microphones available
 
 ```yaml
 
-microphones:
+local_microphones:
   - name: Hand Held Microphone
     level_id: ["HH-1234", "HH-1235"]
     mute_id: 'HH-123-45-mute'
