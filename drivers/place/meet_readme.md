@@ -297,3 +297,27 @@ change_groups: {
 },
 
 ```
+
+
+## Microphone configuration
+
+A basic list of fader and mute values that represent the microphones available
+
+```yaml
+
+microphones:
+  - name: Hand Held Microphone
+    level_id: ["HH-1234", "HH-1235"]
+    mute_id: 'HH-123-45-mute'
+
+    # optional keys
+    level_index: 4,
+    mute_index: 4,
+    level_feedback: 'faderHH-1234'
+    mute_feedback: 'faderHH-1234_mute'
+    module_id: 'Mixer_2'
+
+    default_muted: true
+    default_level: 55.8
+
+```
