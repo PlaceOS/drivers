@@ -123,6 +123,7 @@ class Place::Meet < PlaceOS::Driver
     @vc_camera_in = setting?(String, :vc_camera_in)
 
     @default_routes = setting?(Hash(String, String), :default_routes) || {} of String => String
+    init_microphones
 
     spawn(same_thread: true) do
       begin
@@ -310,5 +311,77 @@ class Place::Meet < PlaceOS::Driver
   protected def camera_details(camera : String)
     cam = status CamDetails, "input/#{camera}"
     {cam[:mod], cam[:index]}
+  end
+
+  # ===================
+  # Microphone Controls
+  # ===================
+
+  class Microphone
+    include JSON::Serializable
+
+    getter level_id : String | Array(String)
+    getter mute_id : String | Array(String)
+
+    getter level_index : Int32?
+    getter mute_index : Int32?
+
+    getter level_feedback : String do
+      id = level_id
+      "fader#{id.is_a?(Array) ? id.first : id}"
+    end
+    getter mute_feedback : String do
+      id = level_id
+      "fader#{id.is_a?(Array) ? id.first : id}_mute"
+    end
+    getter module_id : String { "Mixer_1" }
+  end
+
+  @local_mics : Hash(String, Microphone) = {} of String => Microphone
+  @available_mics : Hash(String, Microphone) = {} of String => Microphone
+
+  protected def init_microphones
+    @local_mics = setting?(Hash(String, Microphone), :local_microphones) || {} of String => Microphone
+    update_available_mics
+  rescue error
+    logger.warn(exception: error) { "failed to init microphones" }
+  end
+
+  protected def update_available_mics
+    local = @local_mics.dup
+
+    # TODO:: merge in joined room mics
+    # TODO:: bind to feedback
+
+    @available_mics = local
+    self[:microphones] = @available_mics.keys
+  end
+
+  def mic_mute(name : String, state : Bool = true)
+    mic = @available_mics[name]?
+    raise "mic #{name} not found" unless mic
+
+    mixer = system[mic.module_id]
+    if mute_index = mic.mute_index
+      mixer.mute(mic.level_id, state, mute_index)
+    else
+      mixer.mute(mic.level_id, state)
+    end
+
+    self["mic_#{name}_mute"] = state
+  end
+
+  def mic_level(name : String, level : Int32 | Float64)
+    mic = @available_mics[name]?
+    raise "mic #{name} not found" unless mic
+
+    mixer = system[mic.module_id]
+    if level_index = mic.level_index
+      mixer.fader(mic.level_id, level, level_index)
+    else
+      mixer.fader(mic.level_id, level)
+    end
+
+    self["mic_#{name}_level"] = level
   end
 end
