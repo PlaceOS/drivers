@@ -208,6 +208,7 @@ class Place::Meet < PlaceOS::Driver
     if state
       system.all(:Camera).power true
       apply_default_routes
+      apply_mic_defaults
 
       if first_output = @tabs.first?.try &.inputs.first
         selected_input first_output
@@ -320,8 +321,12 @@ class Place::Meet < PlaceOS::Driver
   class Microphone
     include JSON::Serializable
 
-    getter level_id : String | Array(String)
-    getter mute_id : String | Array(String)
+    getter name : String
+    getter level_id : String | Array(String)?
+    getter mute_id : String | Array(String)?
+
+    getter default_muted : Bool?
+    getter default_level : Float64?
 
     getter level_index : Int32?
     getter mute_index : Int32?
@@ -337,11 +342,11 @@ class Place::Meet < PlaceOS::Driver
     getter module_id : String { "Mixer_1" }
   end
 
-  @local_mics : Hash(String, Microphone) = {} of String => Microphone
-  @available_mics : Hash(String, Microphone) = {} of String => Microphone
+  @local_mics : Array(Microphone) = [] of Microphone
+  @available_mics : Array(Microphone) = [] of Microphone
 
   protected def init_microphones
-    @local_mics = setting?(Hash(String, Microphone), :local_microphones) || {} of String => Microphone
+    @local_mics = setting?(Array(Microphone), :local_microphones) || [] of Microphone
     update_available_mics
   rescue error
     logger.warn(exception: error) { "failed to init microphones" }
@@ -354,34 +359,45 @@ class Place::Meet < PlaceOS::Driver
     # TODO:: bind to feedback
 
     @available_mics = local
-    self[:microphones] = @available_mics.keys
+    self[:microphones] = @available_mics.map do |mic|
+      level_id = mic.level_id
+      mute_id = mic.mute_id
+      {
+        name:           mic.name,
+        level_id:       level_id.is_a?(Array) ? level_id : [level_id],
+        mute_id:        mute_id.is_a?(Array) ? mute_id : [mute_id],
+        level_index:    mic.level_index,
+        mute_index:     mic.mute_index,
+        level_feedback: mic.level_feedback,
+        mute_feedback:  mic.mute_feedback,
+        module_id:      mic.module_id,
+      }
+    end
   end
 
-  def mic_mute(name : String, state : Bool = true)
-    mic = @available_mics[name]?
-    raise "mic #{name} not found" unless mic
+  protected def apply_mic_defaults
+    @local_mics.each do |mic|
+      mixer = system[mic.module_id]
 
-    mixer = system[mic.module_id]
-    if mute_index = mic.mute_index
-      mixer.mute(mic.level_id, state, mute_index)
-    else
-      mixer.mute(mic.level_id, state)
+      case mic.default_muted
+      in Bool
+        if mute_index = mic.mute_index
+          mixer.mute(mic.level_id, mic.default_muted, mute_index)
+        else
+          mixer.mute(mic.level_id, mic.default_muted)
+        end
+      in Nil
+      end
+
+      case mic.default_muted
+      in Float64
+        if level_index = mic.level_index
+          mixer.fader(mic.level_id, mic.default_level, level_index)
+        else
+          mixer.fader(mic.level_id, mic.default_level)
+        end
+      in Nil
+      end
     end
-
-    self["mic_#{name}_mute"] = state
-  end
-
-  def mic_level(name : String, level : Int32 | Float64)
-    mic = @available_mics[name]?
-    raise "mic #{name} not found" unless mic
-
-    mixer = system[mic.module_id]
-    if level_index = mic.level_index
-      mixer.fader(mic.level_id, level, level_index)
-    else
-      mixer.fader(mic.level_id, level)
-    end
-
-    self["mic_#{name}_level"] = level
   end
 end
