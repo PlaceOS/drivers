@@ -112,8 +112,6 @@ class Place::Meet < PlaceOS::Driver
   @preview_outputs : Array(String) = [] of String
   @vc_camera_in : String? = nil
 
-  @default_routes : Hash(String, String) = {} of String => String
-
   def on_update
     self[:name] = system.display_name.presence || system.name
     self[:local_help] = @local_help = setting?(Help, :help) || Help.new
@@ -122,24 +120,16 @@ class Place::Meet < PlaceOS::Driver
     self[:preview_outputs] = @preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
     @vc_camera_in = setting?(String, :vc_camera_in)
 
-    @default_routes = setting?(Hash(String, String), :default_routes) || {} of String => String
-    init_microphones
-
-    spawn(same_thread: true) do
-      begin
-        logger.debug { "loading signal graph..." }
-        load_siggraph
-        logger.debug { "signal graph loaded" }
-        update_available_tabs
-        update_available_help
-        update_available_outputs
-      rescue error
-        logger.warn(exception: error) { "error loading signal graph" }
-      end
-    end
-
-    # manually link screen control to power state
     subscriptions.clear
+
+    init_signal_routing
+    init_projector_screens
+    init_master_audio
+    init_microphones
+  end
+
+  # link screen control to power state
+  protected def init_projector_screens
     screens = setting?(Hash(String, String), :screens) || {} of String => String
     screens.each do |display, screen|
       system.subscribe(display, :power) do |_sub, power_state|
@@ -153,6 +143,45 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  # Sets the overall room power state.
+  def power(state : Bool)
+    return if state == self[:active]?
+    logger.debug { "Powering #{state ? "up" : "down"}" }
+    self[:active] = state
+
+    if state
+      system.all(:Camera).power true
+      apply_master_audio_default
+      apply_default_routes
+      apply_mic_defaults
+
+      if first_output = @tabs.first?.try &.inputs.first
+        selected_input first_output
+      end
+    else
+      system.implementing(Interface::Powerable).power false
+    end
+  end
+
+  # =====================
+  # System IO management
+  # ====================
+
+  @default_routes : Hash(String, String) = {} of String => String
+
+  protected def init_signal_routing
+    @default_routes = setting?(Hash(String, String), :default_routes) || {} of String => String
+
+    logger.debug { "loading signal graph..." }
+    load_siggraph
+    logger.debug { "signal graph loaded" }
+    update_available_tabs
+    update_available_help
+    update_available_outputs
+  rescue error
+    logger.warn(exception: error) { "failed to init signal graph" }
+  end
+
   protected def on_siggraph_loaded(inputs, outputs)
     outputs.each &.watch { |node| on_output_change node }
   end
@@ -163,6 +192,32 @@ class Place::Meet < PlaceOS::Driver
       # nothing to do here
     else
       output.proxy.power true
+    end
+  end
+
+  def apply_default_routes
+    @default_routes.each { |output, input| route(input, output) }
+  rescue error
+    logger.warn(exception: error) { "error applying default routes" }
+  end
+
+  # we want to unroute any signal going to the display
+  # or if it's a direct connection, we want to mute the display
+  def unroute(output : Int32 | String = 0)
+    mute(true, output)
+  end
+
+  # This is the currently selected input
+  # if the user selects an output then this will be routed to it
+  def selected_input(name : String) : Nil
+    self[:selected_input] = name
+    self[:selected_tab] = @tabs.find(@tabs.first, &.inputs.includes?(name)).name
+
+    # Perform any desired routing
+    if @preview_outputs.empty?
+      route(name, @outputs.first) if @outputs.size == 1
+    else
+      @preview_outputs.each { |output| route(name, output) }
     end
   end
 
@@ -199,148 +254,163 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
-  # Sets the overall room power state.
-  def power(state : Bool)
-    return if state == self[:active]?
-    logger.debug { "Powering #{state ? "up" : "down"}" }
-    self[:active] = state
+  # =======================
+  # Primary volume controls
+  # =======================
 
-    if state
-      system.all(:Camera).power true
-      apply_default_routes
-      apply_mic_defaults
+  class AudioFader
+    include JSON::Serializable
 
-      if first_output = @tabs.first?.try &.inputs.first
-        selected_input first_output
+    def initialize
+    end
+
+    getter name : String? = nil
+    property level_id : String | Array(String)? = nil
+    getter mute_id : String | Array(String)? = nil
+
+    getter default_muted : Bool? = nil
+    getter default_level : Float64? = nil
+
+    getter level_index : Int32? = nil
+    getter mute_index : Int32? = nil
+
+    property level_feedback : String do
+      id = level_id
+      "fader#{id.is_a?(Array) ? id.first : id}"
+    end
+    property mute_feedback : String do
+      id = level_id
+      "fader#{id.is_a?(Array) ? id.first : id}_mute"
+    end
+    property module_id : String { "Mixer_1" }
+
+    getter? level_feedback, mute_feedback
+
+    def use_defaults?
+      @module_id.nil? && (level_id.nil? || level_id.try &.empty?) && (mute_id.nil? || mute_id.try &.empty?)
+    end
+
+    def implements_volume?
+      level_id == "\e"
+    end
+  end
+
+  @master_audio : AudioFader? = nil
+
+  protected def init_master_audio
+    audio = setting?(AudioFader, :master_audio)
+    output = @outputs.first?
+    unless audio || output
+      logger.warn { "no audio configuration found" }
+      @master_audio = nil
+      return
+    end
+    audio ||= AudioFader.new
+
+    # if nothing defined then we want to use the first output
+    # we might have configured default levels
+    if audio.use_defaults?
+      unless output
+        logger.warn { "audio partially conigured, no output found" }
+        return
       end
+
+      mod = signal_node(output).ref.mod.not_nil!
+
+      # proxy = (mod.sys == system.id ? system : system mod.sys).get mod.name, mod.idx
+      audio.module_id = "#{mod.name}_#{mod.idx}"
+      audio.level_feedback = "volume" unless audio.level_feedback?
+      audio.mute_feedback = "mute" unless audio.mute_feedback?
+      audio.level_id = "\e"
+    end
+
+    # we can subscribe to feedback before we're sure all the modules are running
+    system.subscribe(audio.module_id, audio.level_feedback) do |_sub, level|
+      self[:volume] = Float64.from_json(level) if level && level != "null"
+    end
+
+    system.subscribe(audio.module_id, audio.mute_feedback) do |_sub, muted|
+      self[:mute] = muted == "true" if muted && muted != "null"
+    end
+
+    @master_audio = audio
+  rescue error
+    logger.warn(exception: error) { "failed to init master audio" }
+  end
+
+  protected def apply_master_audio_default
+    audio = @master_audio
+    return unless audio
+    mixer = system[audio.module_id]
+
+    case audio.default_muted
+    in Bool
+      set_master_mute(mixer, audio, audio.default_muted)
+    in Nil
+      mixer.query_mutes(audio.level_id) unless audio.implements_volume?
+    end
+
+    case audio.default_level
+    in Float64
+      set_master_volume(mixer, audio, audio.default_level)
+    in Nil
+      mixer.query_faders(audio.level_id) unless audio.implements_volume?
+    end
+  end
+
+  protected def set_master_volume(mixer, audio, level)
+    if level_index = audio.level_index
+      mixer.fader(audio.level_id, level, level_index)
+    elsif audio.implements_volume?
+      mixer.volume(level)
     else
-      system.implementing(Interface::Powerable).power false
+      mixer.fader(audio.level_id, level)
+    end
+  end
+
+  protected def set_master_mute(mixer, audio, state)
+    if mute_index = audio.mute_index
+      mixer.mute(audio.level_id, state, mute_index)
+    elsif audio.implements_volume?
+      mixer.mute_audio(state)
+    else
+      mixer.mute(audio.level_id, state)
     end
   end
 
   # Set the volume of a signal node within the system.
   def volume(level : Int32 | Float64, input_or_output : String)
-    logger.info { "setting volume on #{input_or_output} to #{level}" }
-    level = level.to_f
-    node = signal_node input_or_output
-    node.proxy.volume level
-    self[:volume] = node["volume"] = level
+    audio = @master_audio
+    if audio
+      logger.debug { "setting master volume to #{level}" }
+    else
+      logger.debug { "no master output configured" }
+      return
+    end
+
+    mixer = system[audio.module_id]
+    set_master_volume(mixer, audio, level.to_f)
   end
 
   # Sets the mute state on a signal node within the system.
   def mute(state : Bool = true, input_or_output : Int32 | String = 0, layer : MuteLayer = MuteLayer::AudioVideo)
-    # Int32's accepted for Muteable interface compatibility
-    unless input_or_output.is_a? String
-      raise ArgumentError.new("invalid input or output reference: #{input_or_output}")
-    end
-
-    logger.debug { "#{state ? "muting" : "unmuting"} #{input_or_output} #{layer}" }
-
-    node = signal_node input_or_output
-
-    case layer
-    in .audio?
-      node.proxy.audio_mute(state).get
-      node["mute"] = state
-    in .video?
-      node.proxy.video_mute(state).get
-      node["video_mute"] = state
-    in .audio_video?
-      node.proxy.mute(state).get
-      node["mute"] = state
-      node["video_mute"] = state
-    end
-
-    self[:mute] = state
-  end
-
-  # =====================
-  # System IO management
-  # ====================
-
-  def apply_default_routes
-    @default_routes.each { |output, input| route(input, output) }
-  rescue error
-    logger.warn(exception: error) { "error applying default routes" }
-  end
-
-  # we want to unroute any signal going to the display
-  # or if it's a direct connection, we want to mute the display
-  def unroute(output : Int32 | String = 0)
-    mute(true, output)
-  end
-
-  # This is the currently selected input
-  # if the user selects an output then this will be routed to it
-  def selected_input(name : String) : Nil
-    self[:selected_input] = name
-    self[:selected_tab] = @tabs.find(@tabs.first, &.inputs.includes?(name)).name
-
-    # Perform any desired routing
-    if @preview_outputs.empty?
-      route(name, @outputs.first) if @outputs.size == 1
+    audio = @master_audio
+    if audio
+      logger.debug { "setting master mute to #{state}" }
     else
-      @preview_outputs.each { |output| route(name, output) }
+      logger.debug { "no master output configured" }
+      return
     end
-  end
 
-  # ====================
-  # VC Camera Management
-  # ====================
-
-  # This is the camera input that is currently selected so we can switch between
-  # different cameras
-  def selected_camera(camera : String)
-    self[:selected_camera] = camera
-    if camera_in = @vc_camera_in
-      route(camera, camera_in)
-    end
-  end
-
-  def add_preset(preset : String, camera : String)
-    mod, cam_index = camera_details(camera)
-    system[mod].save_position preset, cam_index || 0
-  end
-
-  def remove_preset(preset : String, camera : String)
-    mod, cam_index = camera_details(camera)
-    system[mod].remove_position preset, cam_index || 0
-  end
-
-  alias CamDetails = NamedTuple(mod: String, index: String | Int32?)
-
-  protected def camera_details(camera : String)
-    cam = status CamDetails, "input/#{camera}"
-    {cam[:mod], cam[:index]}
+    mixer = system[audio.module_id]
+    set_master_mute(mixer, audio, state)
   end
 
   # ===================
   # Microphone Controls
   # ===================
 
-  class Microphone
-    include JSON::Serializable
-
-    getter name : String
-    getter level_id : String | Array(String)?
-    getter mute_id : String | Array(String)?
-
-    getter default_muted : Bool?
-    getter default_level : Float64?
-
-    getter level_index : Int32?
-    getter mute_index : Int32?
-
-    getter level_feedback : String do
-      id = level_id
-      "fader#{id.is_a?(Array) ? id.first : id}"
-    end
-    getter mute_feedback : String do
-      id = level_id
-      "fader#{id.is_a?(Array) ? id.first : id}_mute"
-    end
-    getter module_id : String { "Mixer_1" }
-  end
+  alias Microphone = AudioFader
 
   @local_mics : Array(Microphone) = [] of Microphone
   @available_mics : Array(Microphone) = [] of Microphone
@@ -400,5 +470,35 @@ class Place::Meet < PlaceOS::Driver
         mixer.query_faders(mic.level_id)
       end
     end
+  end
+
+  # ====================
+  # VC Camera Management
+  # ====================
+
+  # This is the camera input that is currently selected so we can switch between
+  # different cameras
+  def selected_camera(camera : String)
+    self[:selected_camera] = camera
+    if camera_in = @vc_camera_in
+      route(camera, camera_in)
+    end
+  end
+
+  def add_preset(preset : String, camera : String)
+    mod, cam_index = camera_details(camera)
+    system[mod].save_position preset, cam_index || 0
+  end
+
+  def remove_preset(preset : String, camera : String)
+    mod, cam_index = camera_details(camera)
+    system[mod].remove_position preset, cam_index || 0
+  end
+
+  alias CamDetails = NamedTuple(mod: String, index: String | Int32?)
+
+  protected def camera_details(camera : String)
+    cam = status CamDetails, "input/#{camera}"
+    {cam[:mod], cam[:index]}
   end
 end

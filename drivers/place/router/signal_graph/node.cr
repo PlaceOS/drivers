@@ -93,6 +93,8 @@ class Place::Router::SignalGraph
         self.class.hash ^ self.hash
       end
 
+      abstract def mod
+
       def ==(other : Ref)
         id == other.id
       end
@@ -227,6 +229,9 @@ class Place::Router::SignalGraph
 
       def id
         0_u64
+      end
+
+      def mod
       end
 
       def self.parse?(ref) : self?

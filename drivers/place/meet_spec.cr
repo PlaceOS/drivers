@@ -68,6 +68,7 @@ DriverSpecs.mock_driver "Place::Meet" do
       },
       Switcher_1: ["*Foo", "*Bar"],
     },
+    local_outputs: ["Display_1"],
   })
 
   # Give the settings time to load
@@ -79,16 +80,16 @@ DriverSpecs.mock_driver "Place::Meet" do
   status["output/Display_1"]["inputs"].should eq(["Foo", "Bar"])
 
   exec(:power, true).get
-  status["active"].should eq true
+  status["active"]?.should eq true
 
   exec(:route, "Foo", "Display_1").get
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
   system(:Display_1)["power"].should be_true
 
   exec(:mute, true, "Display_1").get
-  status["output/Display_1"]["mute"].should be_true
+  status["mute"]?.should be_true
 
   exec(:volume, 50, "Display_1").get
-  status["output/Display_1"]["volume"].should eq(50)
   system(:Display_1)["volume"].should eq(50)
+  status["volume"]?.should eq(50)
 end
