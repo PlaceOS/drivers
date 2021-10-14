@@ -35,6 +35,7 @@ class Qsc::QSysControl < PlaceOS::Driver
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r\n")
+    queue.retries = 1
     on_update
   end
 
@@ -107,6 +108,8 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def get_status(control_id : String, **options)
+    fader_type = options[:fader_type]?
+    @history[control_id] = fader_type if fader_type
     do_send("cg #{control_id}\n", **options)
   end
 
@@ -120,6 +123,8 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def set_value(control_id : String, value : Val, ramp_time : Val? = nil, **options)
+    fader_type = options[:fader_type]?
+    @history[control_id] = fader_type if fader_type
     if ramp_time
       do_send("csvr \"#{control_id}\" #{value} #{ramp_time}\n", **options) # , wait: false)
       schedule.in(ramp_time.seconds + 200.milliseconds) { get_status(control_id) }
@@ -183,7 +188,7 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def mute_toggle(mute_id : Ids)
-    mute(mute_id, !self["fader#{mute_id}_mute"].try(&.as_bool))
+    mute(mute_id, !self["fader#{mute_id}_mute"]?.try(&.as_bool))
   end
 
   def snapshot(name : String, index : Int32, ramp_time : Val = 1.5)
@@ -262,11 +267,8 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def received(data, task)
-    process_response(data, task)
-  end
-
-  private def process_response(data, task, fader_type : Symbol? = nil)
     data = String.new(data)
+    puts "GOT: #{data}"
     return task.try(&.success) if data == "none\r\n"
     logger.debug { "QSys sent: #{data}" }
     resp = shellsplit(data)
@@ -275,13 +277,15 @@ class Qsc::QSysControl < PlaceOS::Driver
     when "cv"
       control_id = resp[1]
       # string rep = resp[2]
-      value = resp[3]
-      position = resp[4].to_i
+      value = resp[-2]
+      position = resp[-1].to_f
 
       self["pos_#{control_id}"] = position
 
-      if type = fader_type || @history[control_id]?
-        @history[control_id] = type
+      puts "PROCESSING #{control_id} = #{position}"
+
+      if type = @history[control_id]?
+        puts "WE HAVE A TYPE! #{type}"
 
         case type
         when :fader
@@ -304,9 +308,7 @@ class Qsc::QSysControl < PlaceOS::Driver
       control_id = resp[1]
       count = resp[2].to_i
 
-      if type = fader_type || @history[control_id]?
-        @history[control_id] = type
-
+      if type = @history[control_id]?
         # Skip strings and extract the values
         next_count = count + 3
         count = resp[next_count].to_i
@@ -374,7 +376,7 @@ class Qsc::QSysControl < PlaceOS::Driver
 
   private def do_send(req, fader_type : Symbol? = nil, **options)
     logger.debug { "sending #{req}" }
-    send(req, **options) { |data, task| process_response(data, task, fader_type) }
+    send(req, **options)
   end
 
   private def ensure_array(object)
