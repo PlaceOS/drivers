@@ -386,6 +386,7 @@ class Place::Meet < PlaceOS::Driver
           mixer.mute(mic.level_id, mic.default_muted)
         end
       in Nil
+        mixer.query_mutes(mic.level_id)
       end
 
       case mic.default_level
@@ -396,6 +397,7 @@ class Place::Meet < PlaceOS::Driver
           mixer.fader(mic.level_id, mic.default_level)
         end
       in Nil
+        mixer.query_faders(mic.level_id)
       end
     end
   end

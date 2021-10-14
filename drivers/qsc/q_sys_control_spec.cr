@@ -41,6 +41,7 @@ DriverSpecs.mock_driver "Qsc::QSysControl" do
   should_send("csv \"1\" 8.0\n")
   responds("cv \"1\" \"control string\" 9 6\r\n")
   status[:pos_1].should eq(6)
+  status[:fader1].should eq(90.83)
   status[:fader1_mute].should eq(true)
   should_send("csv \"2\" 8.0\n")
   responds("cv \"2\" \"control string\" 8 7\r\n")
@@ -50,6 +51,11 @@ DriverSpecs.mock_driver "Qsc::QSysControl" do
   responds("cv \"3\" \"control string\" 8 8\r\n")
   status[:pos_3].should eq(8)
   status[:fader3].should eq(90)
+
+  exec(:fader, "HH2:Level", 90)
+  should_send(%(csv "HH2:Level" 8.0\n))
+  responds %(cv "HH2:Level" "-53.2dB" -53.2 8.0\r\n)
+  status["faderHH2:Level"].should eq(39.0)
 
   exec(:phone_number, "0123456789", "1")
   should_send("css \"1\" \"0123456789\"\n")
