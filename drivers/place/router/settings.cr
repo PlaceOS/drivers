@@ -22,6 +22,7 @@ module Place::Router::Core::Settings
         if match.empty?
           {module_id, 1}
         else
+          # we want the `.to_i` to be able to fail, this indicates it's probably a DeviceOutput
           {mod_name, index.to_i?}
         end
       end
@@ -32,6 +33,7 @@ module Place::Router::Core::Settings
       extend Deserializable
 
       def self.parse?(raw : String)
+        return if name = raw.lchop?('*')
         mod, idx = get_parts(raw)
         new mod, idx if idx
       end
@@ -40,16 +42,23 @@ module Place::Router::Core::Settings
     # Reference to a specific output on a device that has multiple outputs.
     # This is a concatenation of the `Device` reference a `.` and the output.
     # For example, output 3 of Switcher_1 is `"Switcher_1.3"`.
-    record DeviceOutput, mod : String, idx : Int32, output : String | Int32 do
+    record DeviceOutput, mod : String, idx : Int32, output : String | Int32, layer : String? do
       extend Deserializable
 
       def self.parse?(raw : String)
+        return if name = raw.lchop?('*')
         mod_name, match, outp = raw.rpartition('.')
         if !match.empty?
           mod, idx = get_parts(mod_name)
           if idx
-            output = outp.to_i? || outp
-            new mod, idx, output
+            outp_idx, match, layer = outp.rpartition('!')
+            if match.empty?
+              output = outp.to_i? || outp
+              new mod, idx, output, nil
+            else
+              output = outp_idx.to_i? || outp_idx
+              new mod, idx, output, layer
+            end
           end
         end
       end
@@ -111,7 +120,7 @@ module Place::Router::Core::Settings
           unless source.is_a? DeviceOutput
             raise %(invalid configuration: "#{sink}" must link to a DeviceOutput)
           end
-          onode = SignalGraph::Output.new sys, source.mod, source.idx, source.output
+          onode = SignalGraph::Output.new sys, source.mod, source.idx, source.output, source.layer
           nodes << onode
           make_alias.call sink.name, onode
         else
@@ -138,7 +147,7 @@ module Place::Router::Core::Settings
                     in Device
                       SignalGraph::Device.new sys, source.mod, source.idx
                     in DeviceOutput
-                      SignalGraph::Output.new sys, source.mod, source.idx, source.output
+                      SignalGraph::Output.new sys, source.mod, source.idx, source.output, source.layer
                     end
             nodes << onode
 
