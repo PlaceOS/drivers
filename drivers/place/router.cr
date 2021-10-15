@@ -215,6 +215,10 @@ class Place::Router < PlaceOS::Driver
       logger.debug { "requesting route from #{input} to #{output}" }
 
       src, dst = resolver.values_at input, output
+      dst_node = siggraph[dst]
+
+      # does the destination request only a specific layer be switched
+      layer = PlaceOS::Driver::Interface::Switchable::SwitchLayer.parse(dst_node["layer"]?.try(&.as_s) || "all")
 
       path = siggraph.route(src, dst, max_dist) || raise "no route found"
 
@@ -240,20 +244,22 @@ class Place::Router < PlaceOS::Driver
             in SignalGraph::Edge::Func::Select
               mod.switch_to func.input
             in SignalGraph::Edge::Func::Switch
-              mod.switch({func.input => [func.output]})
+              mod.switch({layer.to_s => {func.input => [func.output]}})
             end
+            nil
           end
         end
       end
 
-      logger.debug { "found path" }
-      execs = execs.to_a
-
-      logger.debug { "running execs" }
-      Fiber.yield
+      # are there any additional switching actions to perform (combined outputs)
+      if following_outputs = dst_node["followers"]?.try &.as_a
+        logger.debug { "routing #{following_outputs.size} additional followers" }
+        following_outputs.each do |output_follow|
+          spawn(same_thread: true) { route(input, output_follow.as_s, max_dist) }
+        end
+      end
 
       logger.debug { "awaiting responses" }
-      # TODO: support timeout on these - maybe run via the driver queue?
       execs.each do |promise|
         begin
           promise.get
