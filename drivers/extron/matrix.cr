@@ -84,7 +84,12 @@ class Extron::Matrix < PlaceOS::Driver
                          logger.debug { "layer #{layer} not available on extron matrix" }
                          next
                        end
-        switch_map(inout_map, extron_layer)
+
+        if inout_map.size == 1 && inout_map.first_value.size == 1
+          switch_one(inout_map.first_key, inout_map.first_value.first, extron_layer)
+        else
+          switch_map(inout_map, extron_layer)
+        end
       end
     end
   end
