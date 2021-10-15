@@ -77,6 +77,7 @@ class Extron::Matrix < PlaceOS::Driver
     in Hash(String, Hash(Input, Array(Output)))
       map.each do |layer, inout_map|
         extron_layer = case SwitchLayer.parse(layer)
+                       in .all?  ; MatrixLayer::All
                        in .audio?; MatrixLayer::Aud
                        in .video?; MatrixLayer::Vid
                        in .data?, .data2?
