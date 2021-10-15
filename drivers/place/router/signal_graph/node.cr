@@ -152,8 +152,8 @@ class Place::Router::SignalGraph
     #
     # These take the cannonical string form of:
     #
-    #   sys-abc123/Switcher_1.1
-    #   │          │        │ │
+    #   sys-abc123/Switcher_1.1!video
+    #   │          │        │ │ │_layer
     #   │          │        │ └output
     #   │          │        └module index
     #   │          └module namme
@@ -162,16 +162,22 @@ class Place::Router::SignalGraph
     struct DeviceOutput < Ref
       getter mod : Mod
       getter output : Int32 | String
+      getter layer : String
 
-      def initialize(sys, name, idx, @output)
+      DEFAULT_LAYER = "all"
+
+      def initialize(sys, name, idx, @output, layer)
         @mod = Mod.new sys, name, idx
+        @layer = layer.try(&.downcase) || DEFAULT_LAYER
       end
 
       def initialize(@mod, @output)
+        @layer = DEFAULT_LAYER
       end
 
       def to_s(io)
         io << mod << '.' << output
+        io << '!' << @layer unless @layer == DEFAULT_LAYER
       end
 
       def self.parse?(ref) : self?

@@ -90,7 +90,7 @@ DriverSpecs.mock_driver "Place::Router" do
   settings({
     connections: {
       Display_1: {
-        hdmi: "Switcher_1.1",
+        hdmi: "Switcher_1.1!video",
       },
       Switcher_1: ["*Foo", "*Bar"],
     },
