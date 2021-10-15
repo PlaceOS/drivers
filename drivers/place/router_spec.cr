@@ -42,7 +42,10 @@ class Switcher < DriverSpecs::MockDriver
   end
 
   def switch(map : Hash(Int32, Array(Int32)) | Hash(String, Hash(Int32, Array(Int32))))
-    map = map.values.first if map.is_a? Hash(String, Hash(Int32, Array(Int32)))
+    if map.is_a? Hash(String, Hash(Int32, Array(Int32)))
+      self["last_switched_layer"] = map.keys.first
+      map = map.values.first
+    end
     map.each do |(input, outputs)|
       outputs.each do |output|
         self["output#{output}"] = input
@@ -60,7 +63,7 @@ DriverSpecs.mock_driver "Place::Router" do
   settings({
     connections: {
       Display_1: {
-        hdmi: "Switcher_1.1",
+        hdmi: "Switcher_1.1!video",
       },
       Switcher_1:  ["*Foo", "*Bar"],
       "*FloorBox": "Switcher_1.2",
@@ -78,6 +81,7 @@ DriverSpecs.mock_driver "Place::Router" do
 
   exec(:route, "Foo", "Display_1").get
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
+  system(:Switcher_1)["last_switched_layer"].should eq("video")
 
   expect_raises(
     PlaceOS::Driver::RemoteException,
@@ -90,7 +94,7 @@ DriverSpecs.mock_driver "Place::Router" do
   settings({
     connections: {
       Display_1: {
-        hdmi: "Switcher_1.1!video",
+        hdmi: "Switcher_1.1",
       },
       Switcher_1: ["*Foo", "*Bar"],
     },

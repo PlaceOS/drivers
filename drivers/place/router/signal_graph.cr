@@ -50,7 +50,7 @@ class Place::Router::SignalGraph
     if mod.switchable? && !outputs.empty?
       inputs.each do |input|
         outputs.each do |output|
-          func = Edge::Func::Switch.new input.input, output.output
+          func = Edge::Func::Switch.new input.input, output.output, output.layer
           g[output.id, input.id] = Edge::Active.new mod, func
         end
       end
