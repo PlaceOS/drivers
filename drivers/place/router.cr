@@ -217,10 +217,6 @@ class Place::Router < PlaceOS::Driver
       src, dst = resolver.values_at input, output
       dst_node = siggraph[dst]
 
-      # does the destination request only a specific layer be switched
-      default_layer = dst_node.is_a?(SignalGraph::Output) ? dst_node.layer : SignalGraph::Output::DEFAULT_LAYER
-      layer = PlaceOS::Driver::Interface::Switchable::SwitchLayer.parse(dst_node["layer"]?.try(&.as_s) || default_layer)
-
       path = siggraph.route(src, dst, max_dist) || raise "no route found"
 
       execs = path.compact_map do |(node, edge, next_node)|
@@ -245,7 +241,7 @@ class Place::Router < PlaceOS::Driver
             in SignalGraph::Edge::Func::Select
               mod.switch_to func.input
             in SignalGraph::Edge::Func::Switch
-              mod.switch({layer.to_s => {func.input => [func.output]}})
+              mod.switch({func.layer => {func.input => [func.output]}})
             end
             nil
           end

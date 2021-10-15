@@ -95,6 +95,12 @@ class Place::Router::SignalGraph
 
       abstract def mod
 
+      DEFAULT_LAYER = "all"
+
+      def layer
+        DEFAULT_LAYER
+      end
+
       def ==(other : Ref)
         id == other.id
       end
@@ -163,8 +169,6 @@ class Place::Router::SignalGraph
       getter mod : Mod
       getter output : Int32 | String
       getter layer : String
-
-      DEFAULT_LAYER = "all"
 
       def initialize(sys, name, idx, @output, layer)
         @mod = Mod.new sys, name, idx
