@@ -37,11 +37,11 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   end
 
   @invert : Bool = false
-  @default_movement_speed : Int32 = 20
+  @default_movement_speed : Int32 = 12
   @presets = {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
 
   def on_update
-    @default_movement_speed = setting?(Int32, :default_movement_speed) || 20
+    @default_movement_speed = setting?(Int32, :default_movement_speed) || 12
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
     @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
     self[:presets] = @presets.keys
