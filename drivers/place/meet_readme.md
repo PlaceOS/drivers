@@ -7,6 +7,7 @@ Docs on how to configure a tabbed control UI
 ## Routing
 
 The router is designed to graph signal paths in a system between devices.
+https://docs.google.com/document/d/1DG2s9jjMVhiW65YGPDkUnOYYpFDeW42SkGvHyp1BEjQ/
 
 * devices can be represented by modules `Display_1`
 * virutal devices can be representated by a `*`: `*Laptop_HDMI`
@@ -63,6 +64,35 @@ connections:
     '6': '*Desk_HDMI_2'
 
 ```
+
+If you have a situation where audio and video need to be switched separately then you can also define layers on the switcher outputs.
+
+```yaml
+
+# A weird audio setup
+connections:
+  # Front of house audio split from the camera video input (real world example!)
+  Display_1:
+    hdmi: Switcher_1.12
+  '*VC_Camera_1': Switcher_1.1!video
+  '*FOH_Audio': Switcher_1.1!audio
+
+  # The switcher inputs are hooked up using a hash
+  Switcher_1:
+    '1': '*Wireless_Presenter' # always on, wireless presenter
+    '2': IPTV_1         # set top box or streaming input that can be powered on
+    '5': '*Desk_HDMI_1' # i.e. laptop inputs on a table in the room
+    '6': '*Desk_HDMI_2'
+
+# as we also want the audio to follow anything being presented to the display
+# you can ensure the sources follow one another
+outputs:
+  Display_1:
+    name: Projector
+    followers: ["FOH_Audio"]
+
+```
+
 
 ### Default routes
 
@@ -252,7 +282,42 @@ preview_outputs:
 ```
 
 
-## Linking up Mixer Audio
+## Front of House Audio
+
+By default the first display in the output list is assumed to be managing audio
+However you may want to configure defaults or use Mixer controls instead of the output device
+
+```yaml
+
+# This is a mixer configuration
+master_audio:
+  name: FOH Speakers
+  level_id: ["FOH-1234", "FOH-1235"]
+  mute_id: 'FOH-123-45-mute'
+
+  level_index: 4,
+  mute_index: 4,
+  level_feedback: 'faderFOH-1234'
+  mute_feedback: 'faderFOH-1234_mute'
+  module_id: 'Mixer_2'
+
+  default_muted: false
+  default_level: 60
+
+  min_level: 40
+  max_level: 90
+
+```
+
+You can just customise defaults if you want to continue using the default output
+
+```yaml
+
+master_audio:
+  default_muted: false
+  default_level: 60
+
+```
 
 
 ## Projector Screen Linking
@@ -319,5 +384,8 @@ local_microphones:
 
     default_muted: true
     default_level: 55.8
+
+    min_level: 40
+    max_level: 90
 
 ```
