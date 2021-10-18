@@ -66,31 +66,19 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   # Implementing switchable interface
-  def switch(map : Hash(Input, Array(Output)) | Hash(String, Hash(Input, Array(Output))))
-    case map
-    in Hash(Input, Array(Output))
-      if map.size == 1 && map.first_value.size == 1
-        switch_one(map.first_key, map.first_value.first)
-      else
-        switch_map(map)
-      end
-    in Hash(String, Hash(Input, Array(Output)))
-      map.each do |layer, inout_map|
-        extron_layer = case SwitchLayer.parse(layer)
-                       in .all?  ; MatrixLayer::All
-                       in .audio?; MatrixLayer::Aud
-                       in .video?; MatrixLayer::Vid
-                       in .data?, .data2?
-                         logger.debug { "layer #{layer} not available on extron matrix" }
-                         next
-                       end
-
-        if inout_map.size == 1 && inout_map.first_value.size == 1
-          switch_one(inout_map.first_key, inout_map.first_value.first, extron_layer)
-        else
-          switch_map(inout_map, extron_layer)
-        end
-      end
+  def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
+    extron_layer = case layer
+                   in Nil, .all?; MatrixLayer::All
+                   in .audio?   ; MatrixLayer::Aud
+                   in .video?   ; MatrixLayer::Vid
+                   in .data?, .data2?
+                     logger.debug { "layer #{layer} not available on extron matrix" }
+                     return
+                   end
+    if map.size == 1 && map.first_value.size == 1
+      switch_one(map.first_key, map.first_value.first, extron_layer)
+    else
+      switch_map(map, extron_layer)
     end
   end
 
