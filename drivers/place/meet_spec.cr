@@ -45,8 +45,7 @@ class Switcher < DriverSpecs::MockDriver
     self[:input] = input
   end
 
-  def switch(map : Hash(Int32, Array(Int32)) | Hash(String, Hash(Int32, Array(Int32))))
-    map = map.values.first if map.is_a? Hash(String, Hash(Int32, Array(Int32)))
+  def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
     map.each do |(input, outputs)|
       outputs.each do |output|
         self["output#{output}"] = input

@@ -241,7 +241,7 @@ class Place::Router < PlaceOS::Driver
             in SignalGraph::Edge::Func::Select
               mod.switch_to func.input
             in SignalGraph::Edge::Func::Switch
-              mod.switch({func.layer => {func.input => [func.output]}})
+              mod.switch({func.input => [func.output]}, func.layer)
             end
             nil
           end
