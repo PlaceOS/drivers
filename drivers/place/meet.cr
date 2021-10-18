@@ -260,6 +260,7 @@ class Place::Meet < PlaceOS::Driver
 
   class AudioFader
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     def initialize
     end
@@ -273,9 +274,6 @@ class Place::Meet < PlaceOS::Driver
 
     getter level_index : Int32? = nil
     getter mute_index : Int32? = nil
-
-    getter min_level : Float64 { 0.0 }
-    getter max_level : Float64 { 100.0 }
 
     property level_feedback : String do
       id = level_id
