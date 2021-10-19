@@ -146,8 +146,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       asset_id = metadata.place_id
     else
       title = asset_id = booking_key
-      ext_data = {"floorsense_id" => JSON::Any.new(booking.booking_id)}
+      ext_data = {} of String => JSON::Any
     end
+    ext_data["floorsense_booking_id"] = JSON::Any.new(booking.booking_id)
 
     staff_api.create_booking(
       booking_start: booking.start,
@@ -275,8 +276,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
             asset_id = metadata.place_id
           else
             title = asset_id = booking_key
-            ext_data = {"floorsense_id" => JSON::Any.new(booking.booking_id)}
+            ext_data = {} of String => JSON::Any
           end
+          ext_data["floorsense_booking_id"] = JSON::Any.new(booking.booking_id)
 
           staff_api.create_booking(
             booking_start: booking.start,
@@ -431,7 +433,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       found = false
       place_bookings.each do |booking|
         # match using extenstion data
-        if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_id"]?.try(&.as_s)) && floor_id == floor_booking.booking_id
+        if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_booking_id"]?.try(&.as_s)) && floor_id == floor_booking.booking_id
           found = true
           place_booking_checked << booking.id.to_s
         else
@@ -567,8 +569,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
         asset_id = metadata.place_id
       else
         title = asset_id = booking.place_id
-        ext_data = {"floorsense_id" => JSON::Any.new(booking.booking_id)}
+        ext_data = {} of String => JSON::Any
       end
+      ext_data["floorsense_booking_id"] = JSON::Any.new(booking.booking_id)
 
       local_staff_api.create_booking(
         booking_start: booking.start,
