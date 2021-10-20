@@ -57,8 +57,19 @@ class Cisco::RoomKit < PlaceOS::Driver
   def connected
     super
 
+    subscriptions.clear
+    subscribe("presentation") do |_sub, state|
+      if state != "null"
+        if state == "true"
+          self[:presentation_mode] = PresentationMode::Remote
+        else
+          self[:presentation_mode] = @presentation_mode
+        end
+      end
+    end
+
     register_feedback "/Event/PresentationPreviewStarted" do
-      self[:presentation_mode] = @presentation_mode
+      self[:presentation_mode] = PresentationMode::Local
     end
     register_feedback "/Event/PresentationPreviewStopped" do
       self[:presentation_mode] = PresentationMode::None
@@ -283,12 +294,12 @@ class Cisco::RoomKit < PlaceOS::Driver
   def presentation_mode(value : PresentationMode)
     case value
     in .remote?
-      @presentation_mode = PresentationMode::Remote
       presentation_start sending_mode: :LocalRemote
     in .local?
       @presentation_mode = PresentationMode::Local
       presentation_start sending_mode: :LocalOnly
     in .none?
+      @presentation_mode = PresentationMode::None
       presentation_stop
     end
   end
