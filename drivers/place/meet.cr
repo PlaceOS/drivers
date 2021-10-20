@@ -149,8 +149,10 @@ class Place::Meet < PlaceOS::Driver
     logger.debug { "Powering #{state ? "up" : "down"}" }
     self[:active] = state
 
+    sys = system
+
     if state
-      system.all(:Camera).power true
+      sys.all(:Camera).power true
       apply_master_audio_default
       apply_default_routes
       apply_mic_defaults
@@ -159,7 +161,10 @@ class Place::Meet < PlaceOS::Driver
         selected_input first_output
       end
     else
-      system.implementing(Interface::Powerable).power false
+      @local_outputs.each { |output| unroute(output) }
+      @preview_outputs.each { |output| unroute(output) }
+      sys.implementing(Interface::Powerable).power false
+      sys.get("VidConf", 1).hangup if sys.exists?("VidConf", 1)
     end
   end
 
@@ -203,8 +208,8 @@ class Place::Meet < PlaceOS::Driver
 
   # we want to unroute any signal going to the display
   # or if it's a direct connection, we want to mute the display
-  def unroute(output : Int32 | String = 0)
-    mute(true, output)
+  def unroute(output : String)
+    route("MUTE", output)
   end
 
   # This is the currently selected input
