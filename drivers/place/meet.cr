@@ -131,13 +131,25 @@ class Place::Meet < PlaceOS::Driver
   # link screen control to power state
   protected def init_projector_screens
     screens = setting?(Hash(String, String), :screens) || {} of String => String
+
+    subscribe(:active) do |_sub, active_state|
+      if active_state == "true"
+        sys = system
+        screens.each do |display, screen|
+          system[screen].down if sys[display][:power] == true
+        end
+      end
+    end
+
     screens.each do |display, screen|
       system.subscribe(display, :power) do |_sub, power_state|
         logger.debug { "power-state changed on #{display}: #{power_state.inspect}" }
-        if power_state && power_state != "null"
-          logger.debug { "updating screen position: #{power_state == "true" ? "down" : "up"}" }
-          mod = system[screen]
-          power_state == "true" ? mod.down : mod.up
+        if power_state == "false"
+          logger.debug { "updating screen position: up" }
+          system[screen].up
+        elsif power_state == "true" && self[:active] == true
+          logger.debug { "updating screen position: down" }
+          system[screen].down
         end
       end
     end
