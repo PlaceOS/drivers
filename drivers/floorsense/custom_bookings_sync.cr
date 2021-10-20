@@ -461,8 +461,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     place_bookings.each do |booking|
       booking_id = booking.id.to_s
       next if place_booking_checked.includes?(booking_id)
-      place_booking_checked << booking_id
       next if time_now >= booking.booking_end
+
+      place_booking_checked << booking_id
 
       # if we get to here then the floor booking was released
       if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_booking_id"]?.try(&.as_s))
