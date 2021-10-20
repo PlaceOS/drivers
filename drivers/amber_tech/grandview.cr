@@ -21,23 +21,32 @@ class AmberTech::Grandview < PlaceOS::Driver
 
   # moveable interface
   def move(position : MoveablePosition, index : Int32 | String = 0)
-    response = case position
-               when .up?, .close?, .in?
-                 get("/Close.js?a=100")
-               when .down?, .open?, .out?
-                 get("/Open.js?a=100")
-               else
-                 raise "unsupported move option: #{position}"
-               end
+    command = case position
+              when .up?, .close?, .in?
+                "/Close.js?a=100"
+              when .down?, .open?, .out?
+                "/Open.js?a=100"
+              else
+                raise "unsupported move option: #{position}"
+              end
 
-    self[:status] = parse_state StatusResp.from_json(response.body).status
+    queue(name: "move") do |task|
+      response = get(command)
+      raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+      self[:status] = status = parse_state StatusResp.from_json(response.body).status
+      task.success status
+    end
   end
 
   # stoppable interface
   def stop(index : Int32 | String = 0, emergency : Bool = false)
-    response = get("/Stop.js?a=100")
-    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
-    self[:status] = parse_state StatusResp.from_json(response.body).status
+    queue(name: "stop", priority: 999, clear_queue: emergency) do |task|
+      response = get("/Stop.js?a=100")
+      raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+      self[:status] = status = parse_state StatusResp.from_json(response.body).status
+      task.success status
+    end
   end
 
   def status : AmberTech::Devices
