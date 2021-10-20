@@ -61,7 +61,11 @@ class Cisco::RoomKit < PlaceOS::Driver
       self[:presentation_mode] = @presentation_mode
     end
     register_feedback "/Event/PresentationPreviewStopped" do
-      self[:presentation_mode] = PresentationMode::None
+      if self[:presentation]? == true
+        self[:presentation_mode] = @presentation_mode
+      else
+        self[:presentation_mode] = PresentationMode::None
+      end
     end
 
     @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new do |hash, key|
@@ -283,13 +287,12 @@ class Cisco::RoomKit < PlaceOS::Driver
   def presentation_mode(value : PresentationMode)
     case value
     in .remote?
-      @presentation_mode = PresentationMode::Remote
       presentation_start sending_mode: :LocalRemote
     in .local?
-      @presentation_mode = PresentationMode::Local
       presentation_start sending_mode: :LocalOnly
     in .none?
       presentation_stop
     end
+    self[:presentation_mode] = @presentation_mode = value
   end
 end
