@@ -245,7 +245,8 @@ class Place::Router::SignalGraph
       end
 
       def self.parse?(ref) : self?
-        instance if ref.upcase == "MUTE"
+        # See Ref#resolve? on line 82 of this file for what is passed here
+        instance if ref.upcase.ends_with?("MUTE")
       end
 
       def to_s(io)
