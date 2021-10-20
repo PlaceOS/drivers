@@ -210,6 +210,8 @@ class Place::Meet < PlaceOS::Driver
   # or if it's a direct connection, we want to mute the display
   def unroute(output : String)
     route("MUTE", output)
+  rescue error
+    logger.debug(exception: error) { "failed to unroute #{output}" }
   end
 
   # This is the currently selected input
