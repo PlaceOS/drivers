@@ -576,6 +576,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       local_staff_api.create_booking(
         booking_start: booking.start,
         booking_end: booking.finish,
+        time_zone: @time_zone.to_s,
         booking_type: @booking_type,
         asset_id: booking.place_id,
         user_id: user_id,
