@@ -95,7 +95,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     @meta_ext_mappings = setting?(Hash(String, String), :meta_ext_mappings) || {} of String => String
 
-    time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
+    time_zone = setting?(String, :time_zone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
 
     schedule.clear
