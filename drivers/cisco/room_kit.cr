@@ -51,7 +51,7 @@ class Cisco::RoomKit < PlaceOS::Driver
     Remote
   end
 
-  @presentation_mode : PresentationMode = PresentationMode::Remote
+  @presentation_mode : PresentationMode = PresentationMode::None
   @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new
 
   def connected
@@ -60,10 +60,11 @@ class Cisco::RoomKit < PlaceOS::Driver
     subscriptions.clear
     subscribe("presentation") do |_sub, state|
       if state != "null"
-        if state == "true"
-          self[:presentation_mode] = PresentationMode::Remote
-        else
+        # presentation is typically false or "Sending"
+        if state == "false"
           self[:presentation_mode] = @presentation_mode
+        else
+          self[:presentation_mode] = PresentationMode::Remote
         end
       end
     end
@@ -72,7 +73,8 @@ class Cisco::RoomKit < PlaceOS::Driver
       self[:presentation_mode] = PresentationMode::Local
     end
     register_feedback "/Event/PresentationPreviewStopped" do
-      self[:presentation_mode] = PresentationMode::None
+      @presentation_mode = PresentationMode::None
+      self[:presentation_mode] = @presentation_mode if self[:presentation]? == false
     end
 
     @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new do |hash, key|
