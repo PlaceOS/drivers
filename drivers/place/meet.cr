@@ -348,7 +348,12 @@ class Place::Meet < PlaceOS::Driver
 
     # we can subscribe to feedback before we're sure all the modules are running
     system.subscribe(audio.module_id, audio.level_feedback) do |_sub, level|
-      self[:volume] = Float64.from_json(level) if level && level != "null"
+      raw_level = Float64.from_json(level) if level && level != "null"
+      if raw_level
+        range = audio.min_level..audio.max_level
+        vol_percent = ((raw_level.to_f - range.begin.to_f) / (range.end - range.begin)) * 100.0
+        self[:volume] = vol_percent
+      end
     end
 
     system.subscribe(audio.module_id, audio.mute_feedback) do |_sub, muted|
@@ -410,8 +415,16 @@ class Place::Meet < PlaceOS::Driver
       return
     end
 
+    level = level.to_f.clamp(0.0, 100.0)
+    percentage = level / 100.0
+    range = audio.min_level..audio.max_level
+
+    # adjust into range
+    level_actual = percentage * range.end - range.begin
+    level_actual = (level_actual + range.begin.to_f).round(1)
+
     mixer = system[audio.module_id]
-    set_master_volume(mixer, audio, level.to_f)
+    set_master_volume(mixer, audio, level_actual)
   end
 
   # Sets the mute state on a signal node within the system.
