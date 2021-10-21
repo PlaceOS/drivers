@@ -285,7 +285,7 @@ class Place::Meet < PlaceOS::Driver
 
     getter name : String? = nil
     property level_id : String | Array(String)? = nil
-    getter mute_id : String | Array(String)? = nil
+    getter mute_id : String | Array(String)? { level_id }
 
     getter default_muted : Bool? = nil
     getter default_level : Float64? = nil
@@ -301,7 +301,7 @@ class Place::Meet < PlaceOS::Driver
       "fader#{id.is_a?(Array) ? id.first : id}"
     end
     property mute_feedback : String do
-      id = level_id
+      id = mute_id || level_id
       "fader#{id.is_a?(Array) ? id.first : id}_mute"
     end
     property module_id : String { "Mixer_1" }
