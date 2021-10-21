@@ -1,11 +1,13 @@
 require "placeos-driver"
 require "placeos-driver/interface/switchable"
+require "placeos-driver/interface/muteable"
 require "./sis"
 
 class Extron::Matrix < PlaceOS::Driver
   include Extron::SIS
   include Interface::Switchable(Input, Output)
   include Interface::InputSelection(Input)
+  include Interface::Muteable
 
   generic_name :Switcher
   descriptive_name "Extron matrix switcher"
@@ -65,6 +67,46 @@ class Extron::Matrix < PlaceOS::Driver
     end
   end
 
+  # Implement the mutable interface (output => old inputs, {audio, video})
+  @muted_audio = {} of UInt16 => UInt16
+  @muted_video = {} of UInt16 => UInt16
+
+  MUTE_INPUT = 0_u16
+
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    output = index.to_u16
+    return unless output > 0
+
+    switch_layer = case layer
+                   in MuteLayer::Audio     ; MatrixLayer::Aud
+                   in MuteLayer::Video     ; MatrixLayer::Vid
+                   in MuteLayer::AudioVideo; MatrixLayer::All
+                   end
+
+    if state
+      record_mute(output, switch_layer)
+      switch_one(MUTE_INPUT, output, switch_layer)
+    else
+      video_input = audio_input = MUTE_INPUT
+      video_input = @muted_video.delete(output) || MUTE_INPUT if switch_layer.all? || switch_layer.vid?
+      audio_input = @muted_audio.delete(output) || MUTE_INPUT if switch_layer.all? || switch_layer.aud?
+
+      switch_one(audio_input, output, MatrixLayer::Aud) if audio_input > 0
+      switch_one(video_input, output, MatrixLayer::Vid) if video_input > 0
+    end
+  end
+
+  protected def record_mute(output, layer)
+    video = self["audio#{output}"]?.try(&.as_i.to_u16) || MUTE_INPUT
+    audio = self["video#{output}"]?.try(&.as_i.to_u16) || MUTE_INPUT
+    @muted_video[output] = video unless video == MUTE_INPUT || !(layer.all? || layer.vid?)
+    @muted_audio[output] = audio unless audio == MUTE_INPUT || !(layer.all? || layer.aud?)
+  end
+
   # Implementing switchable interface
   def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
     extron_layer = case layer
@@ -96,11 +138,15 @@ class Extron::Matrix < PlaceOS::Driver
   # the corresponding signal point. For example, to disconnect input 1 from all
   # outputs is is currently feeding `switch(1, 0)`.
   def switch_one(input : Input, output : Output, layer : MatrixLayer = MatrixLayer::All)
+    @muted_audio.delete(output) if layer.all? || layer.aud?
+    @muted_video.delete(output) if layer.all? || layer.vid?
     send Command[input, '*', output, layer], Response::Tie, name: "switch-#{output}-#{layer}", &->update_io(Tie)
   end
 
   # Connect *input* to all outputs at the specified *layer*.
   def switch_layer(input : Input, layer : MatrixLayer = MatrixLayer::All)
+    @muted_audio = {} of UInt16 => UInt16 if layer.all? || layer.aud?
+    @muted_video = {} of UInt16 => UInt16 if layer.all? || layer.aud?
     send Command[input, layer], Response::Switch, name: "present-#{input}-#{layer}", &->update_io(Switch)
   end
 
@@ -120,8 +166,14 @@ class Extron::Matrix < PlaceOS::Driver
 
     ties = map.flat_map do |(input, outputs)|
       if outputs.is_a? Enumerable
-        outputs.each.map { |output| Tie.new input, output, layer }
+        outputs.each.map do |output|
+          @muted_audio.delete(output) if layer.all? || layer.aud?
+          @muted_video.delete(output) if layer.all? || layer.vid?
+          Tie.new input, output, layer
+        end
       else
+        @muted_audio.delete(outputs) if layer.all? || layer.aud?
+        @muted_video.delete(outputs) if layer.all? || layer.vid?
         Tie.new input, outputs, layer
       end
     end
