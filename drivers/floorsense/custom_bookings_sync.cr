@@ -670,7 +670,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get.to_json
     Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
-      current << bookings.first unless bookings.empty?
+      current.concat bookings
     end
     current
   end
