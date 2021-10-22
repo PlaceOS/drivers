@@ -261,8 +261,10 @@ class Place::Router < PlaceOS::Driver
           }
         end
 
+        ignore_source_routes = dst_node["ignore_source_routes"]?.try(&.as_bool) || false
+
         # perform_routes: {output: input}
-        if additional_routes = src_node["perform_routes"]?.try(&.as_h)
+        if !ignore_source_routes && (additional_routes = src_node["perform_routes"]?.try(&.as_h))
           logger.debug { "perfoming #{additional_routes.size} additional routes" }
 
           spawn(same_thread: true) {
