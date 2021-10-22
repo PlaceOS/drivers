@@ -211,7 +211,7 @@ class Place::Router < PlaceOS::Driver
     #
     # Performs all intermediate device interaction based on current system
     # config.
-    def route(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false)
+    def route(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false, follow_additional_routes : Bool = true)
       logger.debug { "requesting route from #{input} to #{output}" }
 
       src, dst = resolver.values_at input, output
@@ -252,21 +252,23 @@ class Place::Router < PlaceOS::Driver
       end
 
       # are there any additional switching actions to perform (combined outputs)
-      if following_outputs = dst_node["followers"]?.try(&.as_a)
-        logger.debug { "routing #{following_outputs.size} additional followers" }
+      if follow_additional_routes
+        if following_outputs = dst_node["followers"]?.try(&.as_a)
+          logger.debug { "routing #{following_outputs.size} additional followers" }
 
-        spawn(same_thread: true) {
-          following_outputs.each { |output_follow| route(input, output_follow.as_s, max_dist, simulate) }
-        }
-      end
+          spawn(same_thread: true) {
+            following_outputs.each { |output_follow| route(input, output_follow.as_s, max_dist, simulate, false) }
+          }
+        end
 
-      # perform_routes: {output: input}
-      if additional_routes = src_node["perform_routes"]?.try(&.as_h)
-        logger.debug { "perfoming #{additional_routes.size} additional routes" }
+        # perform_routes: {output: input}
+        if additional_routes = src_node["perform_routes"]?.try(&.as_h)
+          logger.debug { "perfoming #{additional_routes.size} additional routes" }
 
-        spawn(same_thread: true) {
-          additional_routes.each { |ad_output, ad_input| route(ad_input.as_s, ad_output, max_dist, simulate) }
-        }
+          spawn(same_thread: true) {
+            additional_routes.each { |ad_output, ad_input| route(ad_input.as_s, ad_output, max_dist, simulate, false) }
+          }
+        end
       end
 
       logger.debug { "awaiting responses" }
