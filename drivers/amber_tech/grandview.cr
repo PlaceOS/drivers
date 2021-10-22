@@ -16,6 +16,7 @@ class AmberTech::Grandview < PlaceOS::Driver
   uri_base "http://192.168.0.2"
 
   def on_load
+    queue.delay = 500.milliseconds
     schedule.every(1.minute) { status }
   end
 
@@ -49,21 +50,26 @@ class AmberTech::Grandview < PlaceOS::Driver
     end
   end
 
-  def status : AmberTech::Devices
-    response = get("/GetDevInfoList.js")
-    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
-    info = AmberTech::Devices.from_json(response.body)
-    state = info.device_info.first
+  def status
+    queue(name: "status", priority: 0) do |task|
+      response = get("/GetDevInfoList.js")
+      if response.success?
+        info = AmberTech::Devices.from_json(response.body)
+        state = info.device_info.first
 
-    self[:ver] = state.ver
-    self[:id] = state.id
-    self[:ip] = state.ip
-    self[:ip_subnet] = state.ip_subnet
-    self[:ip_gateway] = state.ip_gateway
-    self[:name] = state.name
-    self[:status] = parse_state state.status
+        self[:ver] = state.ver
+        self[:id] = state.id
+        self[:ip] = state.ip
+        self[:ip_subnet] = state.ip_subnet
+        self[:ip_gateway] = state.ip_gateway
+        self[:name] = state.name
+        self[:status] = parse_state state.status
 
-    info
+        task.success info
+      else
+        task.abort "request failed with #{response.status_code}\n#{response.body}"
+      end
+    end
   end
 
   # compatibility with Screen Technics
@@ -114,7 +120,7 @@ class AmberTech::Grandview < PlaceOS::Driver
 
   protected def poll_state
     schedule.clear
-    schedule.every(1.minute) { status }
-    schedule.in(2.seconds) { status }
+    schedule.every(1.minute) { status; nil }
+    schedule.in(2.seconds) { status; nil }
   end
 end
