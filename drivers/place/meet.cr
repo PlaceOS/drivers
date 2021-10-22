@@ -110,7 +110,6 @@ class Place::Meet < PlaceOS::Driver
   @outputs : Array(String) = [] of String
   @local_outputs : Array(String) = [] of String
   @preview_outputs : Array(String) = [] of String
-  @vc_camera_in : String? = nil
 
   def on_update
     self[:name] = system.display_name.presence || system.name
@@ -118,7 +117,6 @@ class Place::Meet < PlaceOS::Driver
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:preview_outputs] = @preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
-    @vc_camera_in = setting?(String, :vc_camera_in)
 
     subscriptions.clear
 
@@ -126,6 +124,7 @@ class Place::Meet < PlaceOS::Driver
     init_projector_screens
     init_master_audio
     init_microphones
+    init_vidconf
   end
 
   # link screen control to power state
@@ -513,12 +512,21 @@ class Place::Meet < PlaceOS::Driver
   # VC Camera Management
   # ====================
 
+  @vc_camera_in : String? = nil
+
+  def init_vidconf
+    @vc_camera_in = setting?(String, :vc_camera_in)
+  end
+
   # This is the camera input that is currently selected so we can switch between
   # different cameras
   def selected_camera(camera : String)
     self[:selected_camera] = camera
+
     if camera_in = @vc_camera_in
       route(camera, camera_in)
+    elsif camera_vc_in = self["input/#{camera}"]?.try &.[]?("vc_camera_input")
+      system[:VidConf].camera_select(camera_vc_in)
     end
   end
 
