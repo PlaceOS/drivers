@@ -197,6 +197,75 @@ tabs:
 ```
 
 
+configuring camera switching where cameras are connected via a switcher (single input on the VC unit)
+
+```yaml
+
+connections:
+  # outputs:
+  '*VC_Camera_Input': Switcher_1.1!video
+  Switcher_1: # inputs:
+    '35': Camera_1
+    '36': Camera_2
+
+# specify which input on the VC unit the inputs are connected
+inputs:
+  Camera_1:
+    name: Camera 1
+    icon: video_camera_front
+    type: cam
+    mod: Camera_1
+    presentable: false # don't appear as VC content
+  Camera_2:
+    name: Karijini I Camera 2
+    icon: video_camera_front
+    type: cam # this indicated we want to have this camera manually controllable
+    mod: Camera_2
+    presentable: false  # don't appear as VC content
+
+# When camera 1 or 2 is selected, we'll switch it to this output
+vc_camera_in: VC_Camera_Input
+
+```
+
+configuring camera switching where cameras are connected via a switcher but also multiple cameras are connected to the VC at once
+
+```yaml
+
+# Configure the camera inputs and outputs on the switcher
+connections:
+  # outputs:
+  '*VC_Camera_1': Switcher_1.1!video
+  '*VC_Camera_2': Switcher_1.2!video
+  Switcher_1: # inputs:
+    '35': Camera_1
+    '36': Camera_2
+
+# auto switch these these to the VC on startup
+default_routes:
+  VC_Camera_1: Camera_1
+  VC_Camera_2: Camera_2
+
+# specify which input on the VC unit the inputs are connected
+inputs:
+  Camera_1:
+    name: Camera 1
+    icon: video_camera_front
+    type: cam
+    mod: Camera_1
+    presentable: false
+    vc_camera_input: 1 # This is input on the VC codec we want to select
+  Camera_2:
+    name: Karijini I Camera 2
+    icon: video_camera_front
+    type: cam # this indicated we want to have this camera manually controllable
+    mod: Camera_2
+    presentable: false  # don't appear as VC content
+    vc_camera_input: 2
+
+```
+
+
 ### IPTV Control
 
 Configuring IPTV controls for a page
