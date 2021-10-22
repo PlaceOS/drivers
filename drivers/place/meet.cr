@@ -163,8 +163,8 @@ class Place::Meet < PlaceOS::Driver
     sys = system
 
     if state
-      sys.all(:Camera).power true
       apply_master_audio_default
+      apply_camera_defaults
       apply_default_routes
       apply_mic_defaults
 
@@ -512,10 +512,25 @@ class Place::Meet < PlaceOS::Driver
   # VC Camera Management
   # ====================
 
+  class CamDetails
+    include JSON::Serializable
+
+    getter mod : String
+    getter index : String | Int32? # if multiple cams on the one device (VidConf mod for instance)
+    getter vc_camera_input : String?
+  end
+
   @vc_camera_in : String? = nil
+  protected getter vc_camera_module : String { "Camera" }
 
   def init_vidconf
     @vc_camera_in = setting?(String, :vc_camera_in)
+    @vc_camera_module = setting?(String, :vc_camera_module)
+  end
+
+  # run on system power on
+  def apply_camera_defaults
+    system.all(vc_camera_module).power true
   end
 
   # This is the camera input that is currently selected so we can switch between
@@ -523,27 +538,27 @@ class Place::Meet < PlaceOS::Driver
   def selected_camera(camera : String)
     self[:selected_camera] = camera
 
+    cam = camera_details(camera)
+    system[cam.mod].power(true)
+
     if camera_in = @vc_camera_in
       route(camera, camera_in)
-    elsif camera_vc_in = self["input/#{camera}"]?.try &.[]?("vc_camera_input")
+    elsif camera_vc_in = cam.vc_camera_input
       system[:VidConf].camera_select(camera_vc_in)
     end
   end
 
   def add_preset(preset : String, camera : String)
-    mod, cam_index = camera_details(camera)
-    system[mod].save_position preset, cam_index || 0
+    cam = camera_details(camera)
+    system[cam.mod].save_position preset, cam.index || 0
   end
 
   def remove_preset(preset : String, camera : String)
-    mod, cam_index = camera_details(camera)
-    system[mod].remove_position preset, cam_index || 0
+    cam = camera_details(camera)
+    system[cam.mod].remove_position preset, cam.index || 0
   end
 
-  alias CamDetails = NamedTuple(mod: String, index: String | Int32?)
-
   protected def camera_details(camera : String)
-    cam = status CamDetails, "input/#{camera}"
-    {cam[:mod], cam[:index]}
+    status CamDetails, "input/#{camera}"
   end
 end
