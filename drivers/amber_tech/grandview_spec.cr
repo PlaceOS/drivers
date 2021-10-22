@@ -24,23 +24,7 @@ DriverSpecs.mock_driver "AmberTech::Grandview" do
     })
   end
 
-  retval.get.should eq({
-    "currentIp" => "10.142.196.27",
-    "devInfo"   => [
-      {
-        "ver"    => "1.0",
-        "id"     => "1015095851",
-        "ip"     => "10.142.196.27",
-        "sub"    => "255.255.255.128",
-        "gw"     => "10.142.196.1",
-        "name"   => "CII_Scrn",
-        "pass"   => "admin",
-        "pass2"  => "config",
-        "status" => "closed",
-      },
-    ],
-  })
-
+  retval.get
   status[:status].should eq "closed"
 
   retval = exec(:move, "down")
