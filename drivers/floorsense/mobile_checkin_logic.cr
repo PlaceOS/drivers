@@ -93,6 +93,11 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
       begin
         logger.debug { "obtaining metadata for desk #{place_desk} on level #{level_zone}" }
         if desk_details = placeos_desk_metadata(level_zone, place_desk)
+          # check if the desk is bookable
+          if bookable = desk_details["bookable"]?
+            return "forbidden" if (bookable.as_s?.try(&.upcase) == "FALSE") || (bookable.as_bool? == false)
+          end
+
           title = desk_details["name"]?.try(&.as_s) || place_desk
 
           @meta_ext_mappings.each do |meta_key, ext_key|
