@@ -47,8 +47,9 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
 
     logger.debug { "located #{place_desk} for #{user_id}" }
 
+    now = Time.utc.to_unix
     booking = staff_api.query_bookings(type: "desk", zones: [level_zone]).get.as_a.find do |book|
-      book["asset_id"].as_s == place_desk
+      book["asset_id"].as_s == place_desk && book["booking_start"].as_i64 <= now && book["booking_end"].as_i64 > now
     end
 
     if booking
