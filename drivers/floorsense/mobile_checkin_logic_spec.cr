@@ -31,12 +31,12 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @query_count += 1
     case @query_count
     when 1
-      [{id: 1234, asset_id: "place_desk", user_id: "test-user", checked_in: false}]
+      [{id: 1234, asset_id: "place_desk", user_id: "test-user", checked_in: false, booking_start: 1.minute.ago.to_unix, booking_end: 10.minutes.from_now.to_unix}]
     when 2
       [] of Nil
     when 3
       # desk owned by a different user
-      [{id: 1234, asset_id: "place_desk", user_id: "other-user", checked_in: false}]
+      [{id: 1234, asset_id: "place_desk", user_id: "other-user", checked_in: false, booking_start: 1.minute.ago.to_unix, booking_end: 10.minutes.from_now.to_unix}]
     end
   end
 
