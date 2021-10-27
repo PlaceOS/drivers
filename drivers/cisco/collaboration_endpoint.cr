@@ -60,11 +60,11 @@ module Cisco::CollaborationEndpoint
   end
 
   def connected
-    schedule.every(35.seconds) { heartbeat timeout: 40 }
-    schedule.in(25.seconds) do
+    schedule.every(30.seconds) { heartbeat timeout: 35 }
+    schedule.in(10.seconds) do
       if !@ready
         init_connection
-        schedule.in(25.seconds) { disconnect unless @ready }
+        schedule.in(15.seconds) { disconnect unless @ready }
       end
     end
   end
