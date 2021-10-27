@@ -146,6 +146,16 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  @[Security(Level::Support)]
+  def query_users(
+    q : String? = nil,
+    limit : Int32 = 20,
+    offset : Int32 = 0,
+    authority_id : String? = nil
+  ) : Nil
+    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id)
+  end
+
   # ===================================
   # Guest details
   # ===================================
