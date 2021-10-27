@@ -61,7 +61,6 @@ module Cisco::CollaborationEndpoint
   def connected
     schedule.every(30.seconds) { heartbeat timeout: 35 }
     schedule.in(30.seconds) { disconnect unless @ready }
-    @@status_mappings.each { |key, path| bind_status(path, key.to_s) }
   end
 
   def disconnected
@@ -254,6 +253,16 @@ module Cisco::CollaborationEndpoint
 
     push_config
     sync_config
+  rescue error
+    logger.warn(exception: error) { "error configuring xapi transport" }
+  ensure
+    @@status_mappings.each do |key, path|
+      begin
+        bind_status(path, key.to_s)
+      rescue error
+        logger.warn(exception: error) { "failed to bind status #{path} (#{key})" }
+      end
+    end
   end
 
   protected def do_send(command, multiline_body = nil, **options)
@@ -317,6 +326,11 @@ module Cisco::CollaborationEndpoint
 
   # Subscribe to feedback from the device.
   def register_feedback(path : String, &update_handler : Proc(String, Enumerable::JSONComplex, Nil))
+    if !@ready
+      feedback.insert(path, &update_handler) unless feedback.contains? path
+      return true
+    end
+
     logger.debug { "Subscribing to device feedback for #{path}" }
 
     unless feedback.contains? path
