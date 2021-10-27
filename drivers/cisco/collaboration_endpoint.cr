@@ -26,6 +26,7 @@ module Cisco::CollaborationEndpoint
 
   protected getter feedback : Feedback = Feedback.new
   @ready : Bool = false
+  @init_called : Bool = false
 
   # Camera idx => Preset name => Preset id
   alias Presets = Hash(Int32, Hash(String, Int32))
@@ -59,12 +60,18 @@ module Cisco::CollaborationEndpoint
   end
 
   def connected
-    schedule.every(30.seconds) { heartbeat timeout: 35 }
-    schedule.in(30.seconds) { disconnect unless @ready }
+    schedule.every(35.seconds) { heartbeat timeout: 40 }
+    schedule.in(25.seconds) do
+      if !@ready
+        init_connection
+        schedule.in(25.seconds) { disconnect unless @ready }
+      end
+    end
   end
 
   def disconnected
     @ready = false
+    @init_called = false
     transport.tokenizer = nil
     queue.clear abort_current: true
 
@@ -216,6 +223,7 @@ module Cisco::CollaborationEndpoint
   # Base comms
 
   protected def init_connection
+    @init_called = true
     transport.tokenizer = Tokenizer.new do |io|
       raw = io.gets_to_end
       data = raw.lstrip
@@ -242,9 +250,12 @@ module Cisco::CollaborationEndpoint
       index || -1
     end
 
-    send "Echo off\n", priority: 96 do |data, task|
+    send "Echo off\n", name: :echo_off, priority: 96 do |data, task|
       response = String.new(data)
-      task.success if response.includes? "\e[?1034h"
+      if response.includes? "\e[?1034h"
+        @ready = true
+        task.success
+      end
     end
 
     send "xPreferences OutputMode JSON\n", priority: 95, wait: false
@@ -290,7 +301,7 @@ module Cisco::CollaborationEndpoint
       if payload =~ XAPI::LOGIN_COMPLETE
         @ready = true
         logger.info { "Connection ready, initializing connection" }
-        init_connection
+        init_connection unless @init_called
       end
       return
     end
