@@ -131,7 +131,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.14
+    version: 1.13.15
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -151,7 +151,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.11.2
+    version: 4.11.3
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -175,7 +175,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.12.2
+    version: 5.13.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -191,7 +191,7 @@ shards:
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
-    version: 2.8.2
+    version: 2.8.3
 
   redis-cluster:
     git: https://github.com/caspiano/redis-cluster.cr.git
