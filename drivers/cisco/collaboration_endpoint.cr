@@ -250,17 +250,9 @@ module Cisco::CollaborationEndpoint
       index || -1
     end
 
-    send "Echo off\n", name: :echo_off, priority: 96 do |data, task|
-      response = String.new(data)
-      if response.includes? "\e[?1034h"
-        @ready = true
-        task.success
-      end
-    end
-
     send "xPreferences OutputMode JSON\n", priority: 95, wait: false
-
-    register_control_system
+    register_control_system.get
+    @ready = true
 
     push_config
     sync_config
