@@ -54,9 +54,7 @@ class Cisco::RoomKit < PlaceOS::Driver
   @presentation_mode : PresentationMode = PresentationMode::None
   @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new
 
-  def connected
-    super
-
+  protected def connection_ready
     subscriptions.clear
     subscribe("presentation") do |_sub, state|
       if state != "null"

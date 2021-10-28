@@ -63,7 +63,7 @@ module Cisco::CollaborationEndpoint
     schedule.every(30.seconds) { heartbeat timeout: 35 }
     schedule.in(10.seconds) do
       if !@ready
-        init_connection
+        init_connection unless @init_called
         schedule.in(15.seconds) { disconnect unless @ready }
       end
     end
@@ -274,6 +274,9 @@ module Cisco::CollaborationEndpoint
         logger.warn(exception: error) { "failed to bind status #{path} (#{key})" }
       end
     end
+
+    driver = self
+    driver.connection_ready if driver.responds_to?(:connection_ready)
   end
 
   protected def do_send(command, multiline_body = nil, **options)
