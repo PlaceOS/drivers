@@ -132,7 +132,6 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
   # ====
   # Connection setup
   puts "\nCONNECTION SETUP:\n=============="
-  should_send("Echo off\n").responds "\e[?1034h\r\nOK\r\n"
   should_send "xPreferences OutputMode JSON\n"
 
   # ====

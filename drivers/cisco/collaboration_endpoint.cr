@@ -31,9 +31,11 @@ module Cisco::CollaborationEndpoint
   # Camera idx => Preset name => Preset id
   alias Presets = Hash(Int32, Hash(String, Int32))
   @presets : Presets = {} of Int32 => Hash(String, Int32)
+  @feedback_paths : Array(String) = [] of String
 
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
+    queue.delay = 50.milliseconds
     @peripheral_id = setting?(String, :peripheral_id)
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:camera_presets] = @presets.transform_values { |val| val.keys }
@@ -60,6 +62,7 @@ module Cisco::CollaborationEndpoint
   end
 
   def connected
+    schedule.every(2.minutes) { ensure_feedback_registered }
     schedule.every(30.seconds) { heartbeat timeout: 35 }
     schedule.in(10.seconds) do
       if !@ready
@@ -72,6 +75,7 @@ module Cisco::CollaborationEndpoint
   def disconnected
     @ready = false
     @init_called = false
+    @feedback_paths = [] of String
     transport.tokenizer = nil
     queue.clear abort_current: true
 
@@ -81,6 +85,15 @@ module Cisco::CollaborationEndpoint
 
   def generate_request_uuid
     UUID.random.to_s
+  end
+
+  def ensure_feedback_registered
+    @feedback_paths.each do |path|
+      request = XAPI.xfeedback :register, path
+      # Always returns an empty response, nothing special to handle
+      do_send request, priority: 0
+    end
+    @feedback_paths.size
   end
 
   # ------------------------------
@@ -333,13 +346,17 @@ module Cisco::CollaborationEndpoint
   # Subscribe to feedback from the device.
   def register_feedback(path : String, &update_handler : Proc(String, Enumerable::JSONComplex, Nil))
     if !@ready
-      feedback.insert(path, &update_handler) unless feedback.contains? path
+      unless feedback.contains? path
+        @feedback_paths << path
+        feedback.insert(path, &update_handler)
+      end
       return true
     end
 
     logger.debug { "Subscribing to device feedback for #{path}" }
 
     unless feedback.contains? path
+      @feedback_paths << path
       request = XAPI.xfeedback :register, path
       # Always returns an empty response, nothing special to handle
       result = do_send request
