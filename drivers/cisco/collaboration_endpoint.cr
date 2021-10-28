@@ -88,10 +88,11 @@ module Cisco::CollaborationEndpoint
   end
 
   def ensure_feedback_registered
+    send "xPreferences OutputMode JSON\n", priority: 0, wait: false, name: "output_json"
     @feedback_paths.each do |path|
       request = XAPI.xfeedback :register, path
       # Always returns an empty response, nothing special to handle
-      do_send request, priority: 0
+      do_send request, priority: 0, name: path
     end
     @feedback_paths.size
   end
@@ -263,7 +264,7 @@ module Cisco::CollaborationEndpoint
       index || -1
     end
 
-    send "xPreferences OutputMode JSON\n", priority: 95, wait: false
+    send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
     register_control_system.get
     @ready = true
 
@@ -359,7 +360,7 @@ module Cisco::CollaborationEndpoint
       @feedback_paths << path
       request = XAPI.xfeedback :register, path
       # Always returns an empty response, nothing special to handle
-      result = do_send request
+      result = do_send request, name: path
     end
 
     feedback.insert path, &update_handler
