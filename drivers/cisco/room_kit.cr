@@ -54,6 +54,12 @@ class Cisco::RoomKit < PlaceOS::Driver
   @presentation_mode : PresentationMode = PresentationMode::None
   @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new
 
+  def connected
+    super
+    schedule.in(40.seconds) { connection_ready }
+    @feedback_paths = ["/Event/PresentationPreviewStarted", "/Event/PresentationPreviewStopped", "/Status/Call"]
+  end
+
   protected def connection_ready
     subscriptions.clear
     subscribe("presentation") do |_sub, state|

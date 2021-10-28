@@ -349,6 +349,7 @@ module Cisco::CollaborationEndpoint
     if !@ready
       unless feedback.contains? path
         @feedback_paths << path
+        @feedback_paths.uniq!
         feedback.insert(path, &update_handler)
       end
       return true
@@ -358,6 +359,7 @@ module Cisco::CollaborationEndpoint
 
     unless feedback.contains? path
       @feedback_paths << path
+      @feedback_paths.uniq!
       request = XAPI.xfeedback :register, path
       # Always returns an empty response, nothing special to handle
       result = do_send request, name: path
