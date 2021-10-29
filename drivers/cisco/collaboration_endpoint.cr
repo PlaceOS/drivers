@@ -61,7 +61,7 @@ module Cisco::CollaborationEndpoint
     disconnect
   end
 
-  @last_received : Int64 = 0_u64
+  @last_received : Int64 = 0_i64
 
   def connected
     schedule.every(2.minutes) { ensure_feedback_registered }
