@@ -76,7 +76,7 @@ DriverSpecs.mock_driver "Place::Router" do
   status["outputs"].as_a.should contain("FloorBox")
   status["output/Display_1"]["inputs"].should eq(["Foo", "Bar"])
 
-  exec(:route, "Foo", "Display_1").get
+  exec(:route_signal, "Foo", "Display_1").get
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
   system(:Switcher_1)["last_switched_layer"].should eq("video")
 
@@ -84,7 +84,7 @@ DriverSpecs.mock_driver "Place::Router" do
     PlaceOS::Driver::RemoteException,
     %(unknown signal node "Baz" - did you mean "Bar"?)
   ) do
-    exec(:route, "Foo", "Baz").get
+    exec(:route_signal, "Foo", "Baz").get
   end
 
   # Ensure previous status persists settings reloads for continuing nodes
