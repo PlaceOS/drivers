@@ -134,6 +134,7 @@ class Place::Meet < PlaceOS::Driver
     init_master_audio
     init_microphones
     init_vidconf
+    init_joining
   end
 
   # link screen control to power state
