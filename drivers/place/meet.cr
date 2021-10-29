@@ -660,6 +660,7 @@ class Place::Meet < PlaceOS::Driver
     getter function_name : String
     getter arguments : Array(JSON::Any) { [] of JSON::Any }
     getter named_args : Hash(String, JSON::Any) { {} of String => JSON::Any }
+    getter? master_only : Bool { true }
   end
 
   class JoinDetail
@@ -745,10 +746,12 @@ class Place::Meet < PlaceOS::Driver
         self[:join_confirmed] = @join_confirmed = false
 
         # TODO:: Save the current mode so we load into the same mode on an update / outage
+
         notify_rooms.each do |room_id|
           next if room_id == this_room
           system(room_id).get("System", 1).join_mode(mode_id, master: false).get
         end
+
         self[:join_master] = master
         self[:joined] = @join_selected
         self[:join_confirmed] = @join_confirmed = true
@@ -762,9 +765,15 @@ class Place::Meet < PlaceOS::Driver
         self[:joined] = mode.id
         self[:join_confirmed] = @join_confirmed = true
       end
-
-      update_available_ui
     end
+  ensure
+    # perform the custom actions
+    mode.join_actions.each do |action|
+      if master || !action.master_only?
+        system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
+      end
+    end
+    update_available_ui
   end
 
   def unlink_systems
