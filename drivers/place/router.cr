@@ -211,7 +211,7 @@ class Place::Router < PlaceOS::Driver
     #
     # Performs all intermediate device interaction based on current system
     # config.
-    def route(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false, follow_additional_routes : Bool = true)
+    def route_signal(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false, follow_additional_routes : Bool = true)
       logger.debug { "requesting route from #{input} to #{output}" }
 
       src, dst = resolver.values_at input, output
@@ -257,7 +257,7 @@ class Place::Router < PlaceOS::Driver
           logger.debug { "routing #{following_outputs.size} additional followers" }
 
           spawn(same_thread: true) {
-            following_outputs.each { |output_follow| route(input, output_follow.as_s, max_dist, simulate, false) }
+            following_outputs.each { |output_follow| route_signal(input, output_follow.as_s, max_dist, simulate, false) }
           }
         end
 
@@ -268,7 +268,7 @@ class Place::Router < PlaceOS::Driver
           logger.debug { "perfoming #{additional_routes.size} additional routes" }
 
           spawn(same_thread: true) {
-            additional_routes.each { |ad_output, ad_input| route(ad_input.as_s, ad_output, max_dist, simulate, false) }
+            additional_routes.each { |ad_output, ad_input| route_signal(ad_input.as_s, ad_output, max_dist, simulate, false) }
           }
         end
       end

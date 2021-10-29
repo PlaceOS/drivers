@@ -70,6 +70,10 @@ class Tab
   # For the VC controls
   getter presentation_source : String?
 
+  def clone : Tab
+    Tab.new(@icon, @name, inputs.dup, @help, @controls, @merge_on_join)
+  end
+
   def merge(tab : Tab) : Tab
     input = inputs.dup.concat(tab.inputs).uniq!
     Tab.new(@icon, @name, input, @help, @controls, @merge_on_join)
@@ -100,26 +104,31 @@ class Place::Meet < PlaceOS::Driver
   include Router::Core
 
   def on_load
+    init_previous_join_state
     on_update
   end
 
   @tabs : Array(Tab) = [] of Tab
-  @local_tabs : Array(Tab) = [] of Tab
-  @local_help : Help = Help.new
+  getter local_help : Help = Help.new
+  getter local_tabs : Array(Tab) = [] of Tab
 
   @outputs : Array(String) = [] of String
-  @local_outputs : Array(String) = [] of String
+  @linked_outputs = {} of String => Array(String)
+  getter local_outputs : Array(String) = [] of String
+
   @preview_outputs : Array(String) = [] of String
+  getter local_preview_outputs : Array(String) = [] of String
 
   def on_update
     self[:name] = system.display_name.presence || system.name
     self[:local_help] = @local_help = setting?(Help, :help) || Help.new
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
-    self[:preview_outputs] = @preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
+    self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
 
     subscriptions.clear
 
+    @remote_rooms = nil
     init_signal_routing
     init_projector_screens
     init_master_audio
@@ -155,11 +164,12 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # Sets the overall room power state.
-  def power(state : Bool)
+  def power(state : Bool, unlink : Bool = false)
     return if state == self[:active]?
     logger.debug { "Powering #{state ? "up" : "down"}" }
     self[:active] = state
 
+    remotes_before = remote_rooms
     sys = system
 
     if state
@@ -172,11 +182,16 @@ class Place::Meet < PlaceOS::Driver
         selected_input first_output
       end
     else
+      unlink && @join_master ? unlink_systems : unlink_internal_use
+
       @local_outputs.each { |output| unroute(output) }
-      @preview_outputs.each { |output| unroute(output) }
+      @local_preview_outputs.each { |output| unroute(output) }
       sys.implementing(Interface::Powerable).power false
       sys.get("VidConf", 1).hangup if sys.exists?("VidConf", 1)
     end
+
+    remotes_before.each { |room| room.power(state, unlink) }
+    state
   end
 
   # =====================
@@ -212,9 +227,21 @@ class Place::Meet < PlaceOS::Driver
   end
 
   def apply_default_routes
-    @default_routes.each { |output, input| route(input, output) }
+    @default_routes.each { |output, input| route_signal(input, output) }
   rescue error
     logger.warn(exception: error) { "error applying default routes" }
+  end
+
+  def route(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false, follow_additional_routes : Bool = true)
+    route_signal(input, output, max_dist, simulate, follow_additional_routes)
+
+    if links = @linked_outputs[output]?
+      links.each { |remote_out| route_signal(input, remote_out, max_dist, simulate, follow_additional_routes) }
+    end
+
+    if !simulate
+      remote_rooms.each { |room| room.route(input, output, max_dist, true, follow_additional_routes) }
+    end
   end
 
   # we want to unroute any signal going to the display
@@ -227,15 +254,19 @@ class Place::Meet < PlaceOS::Driver
 
   # This is the currently selected input
   # if the user selects an output then this will be routed to it
-  def selected_input(name : String) : Nil
+  def selected_input(name : String, simulate : Bool = false) : Nil
     self[:selected_input] = name
     self[:selected_tab] = @tabs.find(@tabs.first, &.inputs.includes?(name)).name
 
     # Perform any desired routing
-    if @preview_outputs.empty?
-      route(name, @outputs.first) if @outputs.size == 1
-    else
-      @preview_outputs.each { |output| route(name, output) }
+    if !simulate
+      if @preview_outputs.empty?
+        route_signal(name, @outputs.first) if @outputs.size == 1
+      else
+        @preview_outputs.each { |output| route_signal(name, output) }
+      end
+
+      remote_rooms.each { |room| room.selected_input(name, true) }
     end
   end
 
@@ -245,21 +276,63 @@ class Place::Meet < PlaceOS::Driver
 
   protected def update_available_help
     help = @local_help.dup
-    # TODO:: merge in joined room help
+
+    # merge in joined room help
+    remote_rooms.each do |room|
+      help.merge! Help.from_json(room.local_help.get.to_json)
+    end
+
     self[:help] = help
   end
 
   protected def update_available_tabs
-    tabs = @local_tabs.dup
-    # TODO:: merge in joined room tabs
+    tabs = @local_tabs.dup.map(&.clone)
+
+    # merge in joined room tabs
+    remote_rooms.each do |room|
+      remote_tabs = Array(Tab).from_json(room.local_tabs.get.to_json)
+      remote_tabs.each do |remote_tab|
+        next if remote_tab.merge_on_join == false
+
+        if local_tab = tabs.find { |loc_tab| loc_tab.name == remote_tab.name }
+          local_tab.merge!(remote_tab)
+        else
+          tabs << remote_tab
+        end
+      end
+    end
+
     self[:tabs] = @tabs = tabs
   end
 
   protected def update_available_outputs
     available_outputs = @local_outputs.dup
-    preview_outputs = @preview_outputs.dup
+    seen_outputs = @local_outputs.dup
 
-    # TODO:: merge in joined room settings
+    preview_outputs = @local_preview_outputs.dup
+
+    linked_outputs = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
+
+    # merge in joined room settings
+    remote_rooms.each do |room|
+      preview_outputs.concat room.local_preview_outputs.get.as_a.map(&.as_s)
+
+      # merge in outputs from remote rooms
+      remote_outputs = room.local_outputs.get.as_a.map(&.as_s)
+      remote_outputs.each_with_index do |remote_out, index|
+        next if seen_outputs.includes? remote_out
+        seen_outputs << remote_out
+
+        if local_out = available_outputs[index]?
+          linked_outputs[local_out] << remote_out
+        else
+          available_outputs << remote_out
+        end
+      end
+    end
+
+    @linked_outputs = linked_outputs
+    self[:preview_outputs] = @preview_outputs = preview_outputs
 
     if available_outputs.empty?
       if preview_outputs.empty?
@@ -459,8 +532,12 @@ class Place::Meet < PlaceOS::Driver
   protected def update_available_mics
     local = @local_mics.dup
 
-    # TODO:: merge in joined room mics
+    # merge in joined room mics
+    remote_rooms.each do |room|
+      local.concat Array(Microphone).from_json(room.local_mics.get.to_json)
+    end
 
+    # expose the details to the UI
     @available_mics = local
     self[:microphones] = @available_mics.map do |mic|
       level_id = mic.level_id
@@ -542,7 +619,7 @@ class Place::Meet < PlaceOS::Driver
     system[cam.mod].power(true)
 
     if camera_in = @vc_camera_in
-      route(camera, camera_in)
+      route_signal(camera, camera_in)
     elsif camera_vc_in = cam.vc_camera_input
       system[:VidConf].camera_select(camera_vc_in)
     end
@@ -560,5 +637,196 @@ class Place::Meet < PlaceOS::Driver
 
   protected def camera_details(camera : String)
     status CamDetails, "input/#{camera}"
+  end
+
+  # =========================
+  # Room Joining Coordination
+  # =========================
+  enum JoinType
+    # only rooms part of the join need to be notified
+    Independent
+
+    # even rooms not part of the join, need to be notified
+    FullyAware
+  end
+
+  class JoinAction
+    include JSON::Serializable
+
+    getter module_id : String
+    getter function_name : String
+    getter arguments : Array(JSON::Any) { [] of JSON::Any }
+    getter named_args : Hash(String, JSON::Any) { {} of String => JSON::Any }
+  end
+
+  class JoinDetail
+    include JSON::Serializable
+
+    getter id : String
+    getter name : String
+    getter room_ids : Array(String)
+    getter join_actions : Array(JoinAction) { [] of JoinAction }
+
+    # Do we want to merge the outputs (all outputs on all screens)
+    # or do we want them as seperate displays
+    getter? merge_outputs : Bool = true
+
+    @[JSON::Field(ignore: true)]
+    getter? linked : Bool { !room_ids.empty? }
+  end
+
+  class JoinSetting
+    include JSON::Serializable
+
+    getter type : JoinType { JoinType::Independent }
+    getter lock_remote : Bool { false }
+    getter modes : Array(JoinDetail)
+
+    @[JSON::Field(ignore: true)]
+    getter all_rooms : Set(String) do
+      modes.reduce(Set(String).new) { |rooms, mode| rooms.concat(mode.room_ids) }
+    end
+  end
+
+  @join_lock : Mutex = Mutex.new(:reentrant)
+  @join_selected : String? = nil
+  @join_confirmed : Bool = false
+  @join_settings : JoinSetting? = nil
+  @join_modes : Hash(String, JoinDetail) = {} of String => JoinDetail
+
+  # this is called on_load, before settings are loaded to setup any previous state
+  protected def init_previous_join_state
+    # TODO:: load the previous join state
+    self[:join_master] = @join_master = true
+    self[:joined] = @join_selected = nil
+    self[:join_confirmed] = @join_confirmed = true
+  end
+
+  protected def init_joining
+    @join_settings = join_settings = setting?(JoinSetting, :join_modes)
+    join_lookup = {} of String => JoinDetail
+    unless join_settings.nil?
+      @join_selected = nil
+      @join_modes = join_lookup
+    end
+
+    join_settings.modes.each { |mode| join_lookup[mode.id] = mode }
+    self[:join_modes] = @join_modes = join_lookup
+  end
+
+  def join_mode(mode_id : String, master : Bool = true)
+    mode = @join_modes[mode_id]
+    old_mode = @join_modes[@join_selected]? if @join_selected
+    join_settings = @join_settings.not_nil!
+    this_room = config.control_system.not_nil!.id
+
+    @join_lock.synchronize do
+      # check this room is included in the join
+      if master
+        notify_rooms = join_settings.type.fully_aware? ? join_settings.all_rooms : mode.room_ids
+        if mode.linked?
+          raise "unable to perform join from this system" unless notify_rooms.includes?(this_room)
+        end
+
+        # unlink independent rooms
+        if old_mode && old_mode.linked? && join_settings.type.independent?
+          unlink(old_mode.room_ids - mode.room_ids) # find the rooms not incuded in this join
+        end
+
+        # unlink fully aware systems (empty array for independent rooms, unlinked above)
+        return unlink(notify_rooms) if !mode.linked?
+
+        @join_selected = mode.id
+        @join_master = false
+        @remote_rooms = nil
+        self[:join_confirmed] = @join_confirmed = false
+
+        # TODO:: Save the current mode so we load into the same mode on an update / outage
+        notify_rooms.each do |room_id|
+          next if room_id == this_room
+          system(room_id).get("System", 1).join_mode(mode_id, master: false).get
+        end
+        self[:join_master] = master
+        self[:joined] = @join_selected
+        self[:join_confirmed] = @join_confirmed = true
+      else
+        @join_selected = mode.id
+        @join_master = false
+        @remote_rooms = nil
+
+        # TODO:: Save the current mode so we load into the same mode on an update / outage
+        self[:join_master] = master
+        self[:joined] = mode.id
+        self[:join_confirmed] = @join_confirmed = true
+      end
+
+      update_available_ui
+    end
+  end
+
+  def unlink_systems
+    currrent_selected = @join_selected
+    if currrent_selected && (current_mode = @join_modes[currrent_selected]?)
+      unlink(current_mode.room_ids)
+    end
+    unlink_internal_use
+  rescue error
+    logger.warn(exception: error) { "unlink failed" }
+  end
+
+  def unlink_internal_use
+    @join_lock.synchronize do
+      @join_selected = nil
+      @join_master = true
+      self[:join_confirmed] = @join_confirmed = false
+      self[:join_master] = true
+      self[:joined] = nil
+      @remote_rooms = nil
+
+      # TODO:: Save the current mode so we load into the same mode on an update / outage
+      update_available_ui
+
+      self[:join_confirmed] = @join_confirmed = true
+    end
+  rescue error
+    logger.error(exception: error) { "ui state failed to be applied unjoining room" }
+  end
+
+  protected def update_available_ui
+    update_available_help
+    # VC tab to not be merged
+    update_available_tabs
+    update_available_outputs
+    update_available_mics
+  rescue error
+    logger.error(exception: error) { "ui state failed to be applied in room join" }
+  end
+
+  protected def unlink(rooms : Enumerable(String))
+    this_room = config.control_system.not_nil!.id
+    rooms.each do |room|
+      if room == this_room
+        unlink_internal_use
+        next
+      end
+      system(room).get("System", 1).unlink_internal_use
+    end
+  end
+
+  # cache the proxies for performance reasons
+  protected getter remote_rooms : Array(PlaceOS::Driver::Proxy::Driver) do
+    if selected = @join_selected
+      if mode = @join_modes[selected]
+        this_room = config.control_system.not_nil!.id
+        mode.room_ids.compact_map do |room|
+          next if room == this_room
+          system(room).get("System", 1)
+        end
+      else
+        [] of PlaceOS::Driver::Proxy::Driver
+      end
+    else
+      [] of PlaceOS::Driver::Proxy::Driver
+    end
   end
 end
