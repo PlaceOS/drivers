@@ -715,7 +715,7 @@ class Place::Meet < PlaceOS::Driver
       @join_modes = join_lookup
     end
 
-    join_settings.modes.each { |mode| join_lookup[mode.id] = mode }
+    join_settings.try &.modes.each { |mode| join_lookup[mode.id] = mode }
     self[:join_modes] = @join_modes = join_lookup
   end
 
@@ -725,56 +725,58 @@ class Place::Meet < PlaceOS::Driver
     join_settings = @join_settings.not_nil!
     this_room = config.control_system.not_nil!.id
 
-    @join_lock.synchronize do
-      # check this room is included in the join
-      if master
-        notify_rooms = join_settings.type.fully_aware? ? join_settings.all_rooms : mode.room_ids
-        if mode.linked?
-          raise "unable to perform join from this system" unless notify_rooms.includes?(this_room)
+    begin
+      @join_lock.synchronize do
+        # check this room is included in the join
+        if master
+          notify_rooms = join_settings.type.fully_aware? ? join_settings.all_rooms : mode.room_ids
+          if mode.linked?
+            raise "unable to perform join from this system" unless notify_rooms.includes?(this_room)
+          end
+
+          # unlink independent rooms
+          if old_mode && old_mode.linked? && join_settings.type.independent?
+            unlink(old_mode.room_ids - mode.room_ids) # find the rooms not incuded in this join
+          end
+
+          # unlink fully aware systems (empty array for independent rooms, unlinked above)
+          return unlink(notify_rooms) if !mode.linked?
+
+          @join_selected = mode.id
+          @join_master = false
+          @remote_rooms = nil
+          self[:join_confirmed] = @join_confirmed = false
+
+          # TODO:: Save the current mode so we load into the same mode on an update / outage
+
+          notify_rooms.each do |room_id|
+            next if room_id == this_room
+            system(room_id).get("System", 1).join_mode(mode_id, master: false).get
+          end
+
+          self[:join_master] = master
+          self[:joined] = @join_selected
+          self[:join_confirmed] = @join_confirmed = true
+        else
+          @join_selected = mode.id
+          @join_master = false
+          @remote_rooms = nil
+
+          # TODO:: Save the current mode so we load into the same mode on an update / outage
+          self[:join_master] = master
+          self[:joined] = mode.id
+          self[:join_confirmed] = @join_confirmed = true
         end
-
-        # unlink independent rooms
-        if old_mode && old_mode.linked? && join_settings.type.independent?
-          unlink(old_mode.room_ids - mode.room_ids) # find the rooms not incuded in this join
-        end
-
-        # unlink fully aware systems (empty array for independent rooms, unlinked above)
-        return unlink(notify_rooms) if !mode.linked?
-
-        @join_selected = mode.id
-        @join_master = false
-        @remote_rooms = nil
-        self[:join_confirmed] = @join_confirmed = false
-
-        # TODO:: Save the current mode so we load into the same mode on an update / outage
-
-        notify_rooms.each do |room_id|
-          next if room_id == this_room
-          system(room_id).get("System", 1).join_mode(mode_id, master: false).get
-        end
-
-        self[:join_master] = master
-        self[:joined] = @join_selected
-        self[:join_confirmed] = @join_confirmed = true
-      else
-        @join_selected = mode.id
-        @join_master = false
-        @remote_rooms = nil
-
-        # TODO:: Save the current mode so we load into the same mode on an update / outage
-        self[:join_master] = master
-        self[:joined] = mode.id
-        self[:join_confirmed] = @join_confirmed = true
       end
-    end
-  ensure
-    # perform the custom actions
-    mode.join_actions.each do |action|
-      if master || !action.master_only?
-        system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
+    ensure
+      # perform the custom actions
+      mode.join_actions.each do |action|
+        if master || !action.master_only?
+          system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
+        end
       end
+      update_available_ui
     end
-    update_available_ui
   end
 
   def unlink_systems
