@@ -61,9 +61,17 @@ module Cisco::CollaborationEndpoint
     disconnect
   end
 
+  @last_received : Int64 = 0_u64
+
   def connected
     schedule.every(2.minutes) { ensure_feedback_registered }
-    schedule.every(30.seconds) { heartbeat timeout: 35 }
+    schedule.every(30.seconds) do
+      if @last_received > 40.seconds.ago.to_unix
+        heartbeat timeout: 35
+      else
+        disconnect
+      end
+    end
     schedule.in(10.seconds) do
       if !@ready
         init_connection unless @init_called
@@ -303,6 +311,7 @@ module Cisco::CollaborationEndpoint
   end
 
   def received(data, task)
+    @last_received = Time.utc.to_unix
     payload = String.new(data)
     logger.debug { "<- #{payload}" }
 
