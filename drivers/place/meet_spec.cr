@@ -4,7 +4,8 @@ require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
 
-class Display < DriverSpecs::MockDriver
+# :nodoc:
+class DisplayMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Powerable
   include PlaceOS::Driver::Interface::Muteable
 
@@ -38,7 +39,8 @@ class Display < DriverSpecs::MockDriver
   end
 end
 
-class Switcher < DriverSpecs::MockDriver
+# :nodoc:
+class SwitcherMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Switchable(Int32, Int32)
 
   def switch_to(input : Int32)
@@ -56,8 +58,8 @@ end
 
 DriverSpecs.mock_driver "Place::Meet" do
   system({
-    Display:  {Display},
-    Switcher: {Switcher},
+    Display:  {DisplayMock},
+    Switcher: {SwitcherMock},
   })
 
   settings({

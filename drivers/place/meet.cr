@@ -313,20 +313,23 @@ class Place::Meet < PlaceOS::Driver
 
     linked_outputs = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
 
-    # merge in joined room settings
-    remote_rooms.each do |room|
-      preview_outputs.concat room.local_preview_outputs.get.as_a.map(&.as_s)
+    # Grab the join mode if any
+    if join_mode = @join_modes[@join_selected]?
+      # merge in joined room settings
+      remote_rooms.each do |room|
+        preview_outputs.concat room.local_preview_outputs.get.as_a.map(&.as_s)
 
-      # merge in outputs from remote rooms
-      remote_outputs = room.local_outputs.get.as_a.map(&.as_s)
-      remote_outputs.each_with_index do |remote_out, index|
-        next if seen_outputs.includes? remote_out
-        seen_outputs << remote_out
+        # merge in outputs from remote rooms
+        remote_outputs = room.local_outputs.get.as_a.map(&.as_s)
+        remote_outputs.each_with_index do |remote_out, index|
+          next if seen_outputs.includes? remote_out
+          seen_outputs << remote_out
 
-        if local_out = available_outputs[index]?
-          linked_outputs[local_out] << remote_out
-        else
-          available_outputs << remote_out
+          if join_mode.merge_outputs? && (local_out = available_outputs[index]?)
+            linked_outputs[local_out] << remote_out
+          else
+            available_outputs << remote_out
+          end
         end
       end
     end
