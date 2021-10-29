@@ -523,7 +523,7 @@ class Place::Meet < PlaceOS::Driver
 
   alias Microphone = AudioFader
 
-  @local_mics : Array(Microphone) = [] of Microphone
+  getter local_mics : Array(Microphone) = [] of Microphone
   @available_mics : Array(Microphone) = [] of Microphone
 
   protected def init_microphones
