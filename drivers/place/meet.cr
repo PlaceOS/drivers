@@ -191,7 +191,7 @@ class Place::Meet < PlaceOS::Driver
         selected_input first_output
       end
     else
-      unlink && @join_master ? unlink_systems : unlink_internal_use
+      unlink_systems if unlink
 
       @local_outputs.each { |output| unroute(output) }
       @local_preview_outputs.each { |output| unroute(output) }
