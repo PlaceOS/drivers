@@ -717,6 +717,12 @@ class Place::Meet < PlaceOS::Driver
     self[:join_master] = @join_master = master.nil? ? true : master
     self[:joined] = @join_selected = setting?(String, :join_selected)
     self[:join_confirmed] = @join_confirmed = true
+
+    if @join_modes[@join_selected]?.nil?
+      self[:join_master] = @join_master = true
+      self[:joined] = @join_selected = nil
+      self[:join_confirmed] = @join_confirmed = true
+    end
   end
 
   protected def init_joining
@@ -788,11 +794,15 @@ class Place::Meet < PlaceOS::Driver
   end
 
   def unlink_systems
-    currrent_selected = @join_selected
-    if currrent_selected && (current_mode = @join_modes[currrent_selected]?)
-      unlink(current_mode.room_ids)
+    if unlink_mode = @join_modes.find { |_id, mode| !mode.linked? }
+      join_mode(unlink_mode[0])
+    else
+      currrent_selected = @join_selected
+      if currrent_selected && (current_mode = @join_modes[currrent_selected]?)
+        unlink(current_mode.room_ids)
+      end
+      unlink_internal_use
     end
-    unlink_internal_use
   rescue error
     logger.warn(exception: error) { "unlink failed" }
   end
