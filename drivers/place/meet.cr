@@ -712,6 +712,7 @@ class Place::Meet < PlaceOS::Driver
 
   # this is called on_load, before settings are loaded to setup any previous state
   protected def init_previous_join_state
+    init_joining
     master = setting?(Bool, :join_master)
     self[:join_master] = @join_master = master.nil? ? true : master
     self[:joined] = @join_selected = setting?(String, :join_selected)
