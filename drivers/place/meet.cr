@@ -120,8 +120,11 @@ class Place::Meet < PlaceOS::Driver
   getter local_preview_outputs : Array(String) = [] of String
 
   @shutdown_devices : Array(String)? = nil
+  @ignore_update : Int64 = 0_i64
 
   def on_update
+    return if (Time.utc.to_unix - @ignore_update) < 3
+
     self[:name] = system.display_name.presence || system.name
     self[:local_help] = @local_help = setting?(Help, :help) || Help.new
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
@@ -709,20 +712,15 @@ class Place::Meet < PlaceOS::Driver
 
   # this is called on_load, before settings are loaded to setup any previous state
   protected def init_previous_join_state
-    # TODO:: load the previous join state
-    self[:join_master] = @join_master = true
-    self[:joined] = @join_selected = nil
+    master = setting?(Bool, :join_master)
+    self[:join_master] = @join_master = master.nil? ? true : master
+    self[:joined] = @join_selected = setting?(String, :join_selected)
     self[:join_confirmed] = @join_confirmed = true
   end
 
   protected def init_joining
     @join_settings = join_settings = setting?(JoinSetting, :join_modes)
     join_lookup = {} of String => JoinDetail
-    unless join_settings.nil?
-      @join_selected = nil
-      @join_modes = join_lookup
-    end
-
     join_settings.try &.modes.each { |mode| join_lookup[mode.id] = mode }
     self[:join_modes] = @join_modes = join_lookup
   end
@@ -742,6 +740,9 @@ class Place::Meet < PlaceOS::Driver
             raise "unable to perform join from this system" unless notify_rooms.includes?(this_room)
           end
 
+          @join_selected = mode.id
+          @join_master = true
+
           # unlink independent rooms
           if old_mode && old_mode.linked? && join_settings.type.independent?
             unlink(old_mode.room_ids - mode.room_ids) # find the rooms not incuded in this join
@@ -750,17 +751,14 @@ class Place::Meet < PlaceOS::Driver
           # unlink fully aware systems (empty array for independent rooms, unlinked above)
           return unlink(notify_rooms) if !mode.linked?
 
-          @join_selected = mode.id
-          @join_master = false
           @remote_rooms = nil
           self[:join_confirmed] = @join_confirmed = false
-
-          # TODO:: Save the current mode so we load into the same mode on an update / outage
 
           notify_rooms.each do |room_id|
             next if room_id == this_room
             system(room_id).get("System", 1).join_mode(mode_id, master: false).get
           end
+          persist_join_state
 
           self[:join_master] = master
           self[:joined] = @join_selected
@@ -770,7 +768,8 @@ class Place::Meet < PlaceOS::Driver
           @join_master = false
           @remote_rooms = nil
 
-          # TODO:: Save the current mode so we load into the same mode on an update / outage
+          persist_join_state
+
           self[:join_master] = master
           self[:joined] = mode.id
           self[:join_confirmed] = @join_confirmed = true
@@ -799,20 +798,28 @@ class Place::Meet < PlaceOS::Driver
 
   def unlink_internal_use
     @join_lock.synchronize do
-      @join_selected = nil
+      @join_selected = nil unless @join_modes[@join_selected]?.try(&.room_ids.empty?)
       @join_master = true
       self[:join_confirmed] = @join_confirmed = false
       self[:join_master] = true
-      self[:joined] = nil
+      self[:joined] = @join_selected
       @remote_rooms = nil
 
-      # TODO:: Save the current mode so we load into the same mode on an update / outage
+      persist_join_state
       update_available_ui
 
       self[:join_confirmed] = @join_confirmed = true
     end
   rescue error
     logger.error(exception: error) { "ui state failed to be applied unjoining room" }
+  end
+
+  protected def persist_join_state
+    @ignore_update = Time.utc.to_unix
+    define_setting(:join_master, @join_master)
+    define_setting(:join_selected, @join_selected)
+  rescue error
+    logger.error(exception: error) { "failed to persist join state" }
   end
 
   protected def update_available_ui
