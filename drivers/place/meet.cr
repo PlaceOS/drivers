@@ -119,12 +119,15 @@ class Place::Meet < PlaceOS::Driver
   @preview_outputs : Array(String) = [] of String
   getter local_preview_outputs : Array(String) = [] of String
 
+  @shutdown_devices : Array(String)? = nil
+
   def on_update
     self[:name] = system.display_name.presence || system.name
     self[:local_help] = @local_help = setting?(Help, :help) || Help.new
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
+    @shutdown_devices = setting?(Array(String), :shutdown_devices)
 
     subscriptions.clear
 
@@ -187,7 +190,12 @@ class Place::Meet < PlaceOS::Driver
 
       @local_outputs.each { |output| unroute(output) }
       @local_preview_outputs.each { |output| unroute(output) }
-      sys.implementing(Interface::Powerable).power false
+
+      if devices = @shutdown_devices
+        devices.each { |device| sys[device].power false }
+      else
+        sys.implementing(Interface::Powerable).power false
+      end
       sys.get("VidConf", 1).hangup if sys.exists?("VidConf", 1)
     end
 
