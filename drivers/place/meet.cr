@@ -120,6 +120,7 @@ class Place::Meet < PlaceOS::Driver
   getter local_preview_outputs : Array(String) = [] of String
 
   @shutdown_devices : Array(String)? = nil
+  @local_vidconf : String = "VidConf_1"
   @ignore_update : Int64 = 0_i64
 
   def on_update
@@ -131,6 +132,7 @@ class Place::Meet < PlaceOS::Driver
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
     @shutdown_devices = setting?(Array(String), :shutdown_devices)
+    @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
 
     subscriptions.clear
 
@@ -199,7 +201,7 @@ class Place::Meet < PlaceOS::Driver
       else
         sys.implementing(Interface::Powerable).power false
       end
-      sys.get("VidConf", 1).hangup if sys.exists?("VidConf", 1)
+      sys[@local_vidconf].hangup if sys.exists?(@local_vidconf)
     end
 
     remotes_before.each { |room| room.power(state, unlink) }
@@ -636,7 +638,7 @@ class Place::Meet < PlaceOS::Driver
     if camera_in = @vc_camera_in
       route_signal(camera, camera_in)
     elsif camera_vc_in = cam.vc_camera_input
-      system[:VidConf].camera_select(camera_vc_in)
+      system[@local_vidconf].camera_select(camera_vc_in)
     end
   end
 
@@ -859,9 +861,13 @@ class Place::Meet < PlaceOS::Driver
     if selected = @join_selected
       if mode = @join_modes[selected]
         this_room = config.control_system.not_nil!.id
-        mode.room_ids.compact_map do |room|
-          next if room == this_room
-          system(room).get("System", 1)
+        if mode.room_ids.includes? this_room
+          mode.room_ids.compact_map do |room|
+            next if room == this_room
+            system(room).get("System", 1)
+          end
+        else
+          [] of PlaceOS::Driver::Proxy::Driver
         end
       else
         [] of PlaceOS::Driver::Proxy::Driver
