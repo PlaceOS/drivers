@@ -277,8 +277,11 @@ class Place::Meet < PlaceOS::Driver
   # This is the currently selected input
   # if the user selects an output then this will be routed to it
   def selected_input(name : String, simulate : Bool = false) : Nil
-    self[:selected_input] = name
-    self[:selected_tab] = @tabs.find(@tabs.first, &.inputs.includes?(name)).name
+    selected_tab = @tabs.find(&.inputs.includes?(name)).name
+    if selected_tab || !simulate
+      self[:selected_input] = name
+      self[:selected_tab] = selected_tab || @tabs.first
+    end
 
     # Perform any desired routing
     if !simulate
