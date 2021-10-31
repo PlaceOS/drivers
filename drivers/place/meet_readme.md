@@ -458,3 +458,40 @@ local_microphones:
     max_level: 90
 
 ```
+
+
+## Joining Config
+
+Where systems can be merged you can define the various modes that are supported between the rooms.
+
+* there are two types `fully_aware` or `independent` (default)
+  * fully_aware: rooms that are not technically part of the join are aware of the join
+  * independent: only rooms part of the join are notified of the join
+
+```yaml
+
+join_modes:
+  type: fully_aware
+  # input 1 in both rooms is merged (versus becoming a seperate input)
+  merge_outputs: true # default true
+  modes:
+    # id links mode across rooms.
+    # useful in fully linked where joining room_ids might differ between systems
+    - id: unlinked
+      name: Independent
+      room_ids: []
+      # join actions are optional
+      join_actions:
+        - module_id: Mixer_1
+          function_name: trigger
+          # supports named arguments too
+          arguments: ["UnjoinAll"]
+    - id: join-all
+      name: All Rooms
+      room_ids: ["sys-Cia-PnmTLC", "sys-Cia-ehhm8h", "sys-Cia-_e0jWQ"]
+      join_actions:
+        - module_id: Mixer_1
+          function_name: trigger
+          arguments: ["Join-all"]
+
+```
