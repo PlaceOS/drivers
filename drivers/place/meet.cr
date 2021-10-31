@@ -113,7 +113,7 @@ class Place::Meet < PlaceOS::Driver
   getter local_tabs : Array(Tab) = [] of Tab
 
   @outputs : Array(String) = [] of String
-  @linked_outputs = {} of String => Array(String)
+  @linked_outputs = {} of String => Hash(String, String)
   getter local_outputs : Array(String) = [] of String
 
   @preview_outputs : Array(String) = [] of String
@@ -136,7 +136,7 @@ class Place::Meet < PlaceOS::Driver
 
     subscriptions.clear
 
-    @remote_rooms = nil
+    reset_remote_cache
     init_signal_routing
     init_projector_screens
     init_master_audio
@@ -250,11 +250,19 @@ class Place::Meet < PlaceOS::Driver
     route_signal(input, output, max_dist, simulate, follow_additional_routes)
 
     if links = @linked_outputs[output]?
-      links.each { |remote_out| route_signal(input, remote_out, max_dist, simulate, follow_additional_routes) }
+      links.each { |_sys_id, remote_out| route_signal(input, remote_out, max_dist, simulate, follow_additional_routes) }
     end
 
     if !simulate
-      remote_rooms.each { |room| room.route(input, output, max_dist, true, follow_additional_routes) }
+      remote_systems.each do |remote_system|
+        room = remote_system.room_logic
+        sys_id = remote_system.system_id
+        if links = @linked_outputs[output]?
+          if remote_out = links[sys_id]?
+            room.route(input, remote_out, max_dist, true, follow_additional_routes)
+          end
+        end
+      end
     end
   end
 
@@ -325,12 +333,14 @@ class Place::Meet < PlaceOS::Driver
 
     preview_outputs = @local_preview_outputs.dup
 
-    linked_outputs = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
+    linked_outputs = Hash(String, Hash(String, String)).new { |hash, key| hash[key] = {} of String => String }
 
     # Grab the join mode if any
     if join_mode = @join_modes[@join_selected]?
       # merge in joined room settings
-      remote_rooms.each do |room|
+      remote_systems.each do |remote_system|
+        room = remote_system.room_logic
+        remote_system_id = remote_system.system_id
         preview_outputs.concat room.local_preview_outputs.get.as_a.map(&.as_s)
 
         # merge in outputs from remote rooms
@@ -340,7 +350,7 @@ class Place::Meet < PlaceOS::Driver
           seen_outputs << remote_out
 
           if join_mode.merge_outputs? && (local_out = available_outputs[index]?)
-            linked_outputs[local_out] << remote_out
+            linked_outputs[local_out][remote_system_id] = remote_out
           else
             available_outputs << remote_out
           end
@@ -760,7 +770,7 @@ class Place::Meet < PlaceOS::Driver
           # unlink fully aware systems (empty array for independent rooms, unlinked above)
           return unlink(notify_rooms) if !mode.linked?
 
-          @remote_rooms = nil
+          reset_remote_cache
           self[:join_confirmed] = @join_confirmed = false
 
           notify_rooms.each do |room_id|
@@ -775,7 +785,7 @@ class Place::Meet < PlaceOS::Driver
         else
           @join_selected = mode.id
           @join_master = false
-          @remote_rooms = nil
+          reset_remote_cache
 
           persist_join_state
 
@@ -816,7 +826,7 @@ class Place::Meet < PlaceOS::Driver
       self[:join_confirmed] = @join_confirmed = false
       self[:join_master] = true
       self[:joined] = @join_selected
-      @remote_rooms = nil
+      reset_remote_cache
 
       persist_join_state
       update_available_ui
@@ -856,24 +866,41 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
-  # cache the proxies for performance reasons
-  protected getter remote_rooms : Array(PlaceOS::Driver::Proxy::Driver) do
+  struct RemoteSystem
+    getter system_id : String
+    getter room_logic : PlaceOS::Driver::Proxy::Driver
+
+    def initialize(@system_id : String, @room_logic : PlaceOS::Driver::Proxy::Driver)
+    end
+  end
+
+  protected getter remote_systems : Array(RemoteSystem) do
     if selected = @join_selected
       if mode = @join_modes[selected]
         this_room = config.control_system.not_nil!.id
         if mode.room_ids.includes? this_room
           mode.room_ids.compact_map do |room|
             next if room == this_room
-            system(room).get("System", 1)
+            RemoteSystem.new(room, system(room).get("System", 1))
           end
         else
-          [] of PlaceOS::Driver::Proxy::Driver
+          [] of RemoteSystem
         end
       else
-        [] of PlaceOS::Driver::Proxy::Driver
+        [] of RemoteSystem
       end
     else
-      [] of PlaceOS::Driver::Proxy::Driver
+      [] of RemoteSystem
     end
+  end
+
+  # cache the proxies for performance reasons
+  protected getter remote_rooms : Array(PlaceOS::Driver::Proxy::Driver) do
+    remote_systems.map(&.room_logic)
+  end
+
+  protected def reset_remote_cache
+    @remote_systems = nil
+    @remote_rooms = nil
   end
 end
