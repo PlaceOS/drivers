@@ -36,6 +36,7 @@ services:
     volumes:
       - ${PWD}/repositories:/app/repositories
       - ${PWD}:/app/repositories/local
+      - ${PWD}/binaries:/app/bin/drivers
     environment:
       AWS_REGION: ${AWS_REGION:-ap-southeast-2}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-placeos-drivers}

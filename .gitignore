@@ -10,3 +10,4 @@ docs
 lib
 .logs
 repositories/*
+binaries
