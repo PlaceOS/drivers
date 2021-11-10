@@ -31,7 +31,7 @@ module Cisco::CollaborationEndpoint
   # Camera idx => Preset name => Preset id
   alias Presets = Hash(Int32, Hash(String, Int32))
   @presets : Presets = {} of Int32 => Hash(String, Int32)
-  @feedback_paths : Array(String) = [] of String
+  getter feedback_paths : Array(String) = [] of String
 
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
@@ -81,7 +81,7 @@ module Cisco::CollaborationEndpoint
   end
 
   def disconnected
-    @ready = false
+    self[:ready] = @ready = false
     @init_called = false
     @feedback_paths = [] of String
     transport.tokenizer = nil
@@ -274,7 +274,7 @@ module Cisco::CollaborationEndpoint
 
     send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
     register_control_system.get
-    @ready = true
+    self[:ready] = @ready = true
 
     push_config
     sync_config
@@ -317,7 +317,7 @@ module Cisco::CollaborationEndpoint
 
     if !@ready
       if payload =~ XAPI::LOGIN_COMPLETE
-        @ready = true
+        self[:ready] = @ready = true
         logger.info { "Connection ready, initializing connection" }
         init_connection unless @init_called
       end

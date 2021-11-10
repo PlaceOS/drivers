@@ -204,7 +204,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     logger.debug { "binding to #{mod}" }
 
     @codec_mod = mod
-    system.subscribe(@codec_mod, :connected) do |_sub, value|
+    system.subscribe(@codec_mod, :ready) do |_sub, value|
       next unless value == "true"
       subscriptions.clear
       subscribe_events
