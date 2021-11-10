@@ -576,4 +576,9 @@ class Ashrae::BACnet < PlaceOS::Driver
 
     to_sensor(device_id, device, object)
   end
+
+  @[Security(Level::Support)]
+  def save_seen_devices
+    define_setting(:known_devices, @seen_devices.values)
+  end
 end
