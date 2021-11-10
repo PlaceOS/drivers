@@ -16,7 +16,7 @@ module Cisco::CollaborationEndpoint::Cameras
   command({"Camera Preset Activate" => :camera_preset},
     preset_id: 1..35)
   command({"Camera Preset Store" => :camera_store_preset},
-    camera_id: 1..1,
+    camera_id: 1..2,
     preset_id: 1..35, # Optional - codec will auto-assign if omitted
     name_: String,
     take_snapshot_: Bool,
