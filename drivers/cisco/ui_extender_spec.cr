@@ -20,7 +20,7 @@ class VidConfMock < DriverSpecs::MockDriver
   def on_load
     spawn(same_thread: true) {
       sleep 0.5
-      self[:connected] = true
+      self[:ready] = self[:connected] = true
     }
   end
 
