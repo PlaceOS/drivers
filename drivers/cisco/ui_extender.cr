@@ -83,8 +83,9 @@ class Cisco::UIExtender < PlaceOS::Driver
     codec.xcommand "UserInterface Extensions Panel Close"
   end
 
-  protected def on_extensions_panel_clicked(event)
-    id = event["PanelId"].as_s
+  protected def on_extensions_panel_clicked(event) : Nil
+    id = event["/Event/UserInterface/Extensions/Panel/Clicked/PanelId"]?.try &.as_s
+    return unless id
     logger.debug { "#{id} opened" }
     self[:__active_panel] = id
   end
@@ -153,8 +154,23 @@ class Cisco::UIExtender < PlaceOS::Driver
   end
 
   # Callback for changes to widget state.
-  def on_extensions_widget_action(event : JSON::Any)
-    id, value, type = event.as_h.values_at "WidgetId", "Value", "Type"
+  @action_merged : Hash(String, JSON::Any) = {} of String => JSON::Any
+
+  def on_extensions_widget_action(event : Hash(String, JSON::Any))
+    current_key = event.keys.first
+    case current_key
+    when "/Event/UserInterface/Extensions/Widget/Action/WidgetId"
+      @action_merged["WidgetId"] = event[current_key]
+    when "/Event/UserInterface/Extensions/Widget/Action", "/Event/UserInterface/Extensions/Widget/Action/Value"
+      @action_merged["Value"] = event[current_key]
+    when "/Event/UserInterface/Extensions/Widget/Action/Type"
+      @action_merged["Type"] = event[current_key]
+    else
+      logger.debug { "ignoring key #{current_key} processing widget_action event" }
+    end
+    return unless @action_merged.size == 3
+    id, value, type = @action_merged.values_at "WidgetId", "Value", "Type"
+    @action_merged = {} of String => JSON::Any
 
     logger.debug { "#{id} #{type}" }
 
@@ -276,7 +292,7 @@ class Cisco::UIExtender < PlaceOS::Driver
       monitor("#{mod_id}/#{function}") do |_sub, event_json|
         begin
           logger.debug { "#{function} received #{event_json}" }
-          callback.call(JSON::Any.from_json event_json)
+          callback.call(Hash(String, JSON::Any).from_json event_json)
         rescue error
           logger.error(exception: error) { "processing panel event" }
         end
@@ -288,7 +304,9 @@ class Cisco::UIExtender < PlaceOS::Driver
   protected def clear_events(**opts)
     subscriptions.clear
     each_mapping(**opts) do |path, _function, _callback, _codec|
-      codec.clear_event path
+      future = codec.clear_event(path)
+      future.get
+      future
     end
   end
 
@@ -380,7 +398,7 @@ class Cisco::UIExtender < PlaceOS::Driver
         {% for method in @type.methods %}
           {% method_name = method.name.stringify %}
           {% if method.args.size == 1 && !IGNORE_METHODS.includes?(method_name) && method_name[0..2] == "on_" %}
-            { {{method_name}}, ->(event : JSON::Any) { {{method_name.id}}(event); nil } },
+            { {{method_name}}, ->(event : Hash(String, JSON::Any)) { {{method_name.id}}(event); nil } },
           {% end %}
         {% end %}
       ]

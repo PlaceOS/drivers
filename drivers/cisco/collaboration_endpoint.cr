@@ -246,6 +246,7 @@ module Cisco::CollaborationEndpoint
 
   protected def init_connection
     @init_called = true
+
     transport.tokenizer = Tokenizer.new do |io|
       raw = io.gets_to_end
       data = raw.lstrip
@@ -317,10 +318,13 @@ module Cisco::CollaborationEndpoint
 
     if !@ready
       if payload =~ XAPI::LOGIN_COMPLETE
-
+        send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
         self[:ready] = @ready = true
         logger.info { "Connection ready, initializing connection" }
-        init_connection unless @init_called
+        spawn(same_thread: true) do
+          sleep 0.5
+          init_connection unless @init_called
+        end
       end
       return
     end
@@ -450,9 +454,8 @@ module Cisco::CollaborationEndpoint
   # Callback methods must be of arity 1 and public.
   def on_event(path : String, mod_id : String, channel : String)
     logger.debug { "Registering callback for #{path} to #{mod_id}/#{channel}" }
-
-    register_feedback path do |event|
-      event_json = event.to_json
+    register_feedback path do |event_path, value|
+      event_json = {event_path => value}.to_json
       logger.debug { "Publishing #{path} event to #{mod_id}/#{channel} with payload #{event_json}" }
       publish("#{mod_id}/#{channel}", event_json)
     end
