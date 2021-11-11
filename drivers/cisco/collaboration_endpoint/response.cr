@@ -63,7 +63,7 @@ module Enumerable
         res.merge!(raw.flatten_xapi_json(key, delimiter))
       in Hash(String, JSON::Any)
         value = raw["Value"]?
-        if value
+        if value && value.as_h?.nil?
           valuespaceref = raw["valueSpaceRef"]?.try &.as_s.split('/').last
           res[key] = Cisco::CollaborationEndpoint::XAPI.value_convert(value.as_s, valuespaceref)
         elsif id
