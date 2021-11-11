@@ -317,6 +317,7 @@ module Cisco::CollaborationEndpoint
 
     if !@ready
       if payload =~ XAPI::LOGIN_COMPLETE
+
         self[:ready] = @ready = true
         logger.info { "Connection ready, initializing connection" }
         init_connection unless @init_called
@@ -451,8 +452,9 @@ module Cisco::CollaborationEndpoint
     logger.debug { "Registering callback for #{path} to #{mod_id}/#{channel}" }
 
     register_feedback path do |event|
-      logger.debug { "Publishing #{path} event to #{mod_id}/#{channel}" }
-      publish("#{mod_id}/#{channel}", event.to_json)
+      event_json = event.to_json
+      logger.debug { "Publishing #{path} event to #{mod_id}/#{channel} with payload #{event_json}" }
+      publish("#{mod_id}/#{channel}", event_json)
     end
   end
 
