@@ -233,6 +233,8 @@ class Cisco::UIExtender < PlaceOS::Driver
   # Push the current module state to the device.
   def sync_widget_state
     @__status__.each do |key, value|
+      next if key == "connected"
+
       # Non-widget related status prefixed with `__`
       next if key =~ /^__.*/
       case value
@@ -270,8 +272,14 @@ class Cisco::UIExtender < PlaceOS::Driver
   protected def subscribe_events(**opts)
     mod_id = module_id
     each_mapping(**opts) do |path, function, callback, codec|
-      monitor("placeos/#{mod_id}/#{function}") do |_sub, event_json|
-        callback.call(JSON::Any.from_json event_json)
+      logger.debug { "monitoring #{mod_id}/#{function}" }
+      monitor("#{mod_id}/#{function}") do |_sub, event_json|
+        begin
+          logger.debug { "#{function} received #{event_json}" }
+          callback.call(JSON::Any.from_json event_json)
+        rescue error
+          logger.error(exception: error) { "processing panel event" }
+        end
       end
       codec.on_event path, mod_id, function
     end

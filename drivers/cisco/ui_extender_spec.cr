@@ -5,13 +5,20 @@ DriverSpecs.mock_driver "Cisco::UIExtender" do
   system({
     VidConf: {VidConfMock},
   })
-
-  system({
-    VidConf: {VidConfMock},
-  })
+  sleep 1
 
   resp = exec(:set, "something", true).get
   puts resp.inspect
+  sleep 1
+  status[:something].should eq(true)
+
+  PlaceOS::Driver::RedisStorage.with_redis &.publish("placeos/spec_runner/on_extensions_widget_action", {
+    "WidgetId" => "something",
+    "Value" => false,
+    "Type" => "changed"
+  }.to_json)
+  sleep 1
+  status[:something].should eq(false)
   sleep 1
 end
 
