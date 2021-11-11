@@ -270,7 +270,7 @@ class Cisco::UIExtender < PlaceOS::Driver
   protected def subscribe_events(**opts)
     mod_id = module_id
     each_mapping(**opts) do |path, function, callback, codec|
-      monitor("#{mod_id}/#{function}") do |_sub, event_json|
+      monitor("placeos/#{mod_id}/#{function}") do |_sub, event_json|
         callback.call(JSON::Any.from_json event_json)
       end
       codec.on_event path, mod_id, function
