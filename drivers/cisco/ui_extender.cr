@@ -247,7 +247,7 @@ class Cisco::UIExtender < PlaceOS::Driver
   # Build a list of device XPath -> callback mappings.
   protected def event_mappings
     ui_callbacks.map do |(function_name, callback)|
-      path = "/Event/UserInterface/#{function_name[3..-1].tr "_", "/"}"
+      path = "/Event/UserInterface/#{function_name[3..-1].split("_").map(&.capitalize).join("/")}"
       {path, function_name, callback}
     end
   end
