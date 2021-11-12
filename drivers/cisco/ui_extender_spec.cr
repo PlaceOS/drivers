@@ -19,7 +19,7 @@ DriverSpecs.mock_driver "Cisco::UIExtender" do
     "/Event/UserInterface/Extensions/Widget/Action" => false,
   }.to_json)
   PlaceOS::Driver::RedisStorage.with_redis &.publish("placeos/spec_runner/on_extensions_widget_action", {
-    "/Event/UserInterface/Extensions/Widget/Action/Type" => "changed"
+    "/Event/UserInterface/Extensions/Widget/Action/Type" => "changed",
   }.to_json)
   sleep 1
   status[:something].should eq(false)

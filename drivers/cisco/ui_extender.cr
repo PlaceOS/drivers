@@ -214,15 +214,23 @@ class Cisco::UIExtender < PlaceOS::Driver
   # Internals
 
   @codec_mod : String = ""
+  @subscriptions : Array(PlaceOS::Driver::Subscriptions::Subscription) = [] of PlaceOS::Driver::Subscriptions::Subscription
+
+  protected def clear_subscriptions
+    @subscriptions.each { |sub| subscriptions.unsubscribe(sub) }
+    @subscriptions.clear
+  end
 
   # Bind to a Cisco CE device module.
   protected def bind(mod : String, &bind_cb : Proc(Nil))
     logger.debug { "binding to #{mod}" }
 
     @codec_mod = mod
+    subscriptions.clear
+    @subscriptions.clear
     system.subscribe(@codec_mod, :ready) do |_sub, value|
       next unless value == "true"
-      subscriptions.clear
+      clear_subscriptions
       subscribe_events
       bind_cb.call
       sync_widget_state
@@ -289,7 +297,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     mod_id = module_id
     each_mapping(**opts) do |path, function, callback, codec|
       logger.debug { "monitoring #{mod_id}/#{function}" }
-      monitor("#{mod_id}/#{function}") do |_sub, event_json|
+      @subscriptions << monitor("#{mod_id}/#{function}") do |_sub, event_json|
         begin
           logger.debug { "#{function} received #{event_json}" }
           callback.call(Hash(String, JSON::Any).from_json event_json)
@@ -302,7 +310,7 @@ class Cisco::UIExtender < PlaceOS::Driver
   end
 
   protected def clear_events(**opts)
-    subscriptions.clear
+    clear_subscriptions
     each_mapping(**opts) do |path, _function, _callback, _codec|
       future = codec.clear_event(path)
       future.get
