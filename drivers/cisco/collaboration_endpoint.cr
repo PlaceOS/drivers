@@ -73,10 +73,8 @@ module Cisco::CollaborationEndpoint
       end
     end
     schedule.in(10.seconds) do
-      if !@ready
-        init_connection unless @init_called
-        schedule.in(15.seconds) { disconnect unless @ready }
-      end
+      init_connection unless @ready || @init_called
+      schedule.in(15.seconds) { disconnect if !@ready || self["configuration"]?.nil? }
     end
   end
 
