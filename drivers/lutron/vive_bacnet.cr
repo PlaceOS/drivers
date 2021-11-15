@@ -54,9 +54,9 @@ class Lutron::ViveBacnet < PlaceOS::Driver
 
     schedule.clear
     schedule.every((4 + rand(3)).seconds) do
-      bacnet.update_value(@device_id, 2, "AnalogValue")
-      bacnet.update_value(@device_id, 3, "BinaryValue")
-      bacnet.update_value(@device_id, 8, "MultiStateValue")
+      bacnet.update_value(@device_id, 2, "AnalogValue").get
+      bacnet.update_value(@device_id, 3, "BinaryValue").get
+      bacnet.update_value(@device_id, 8, "MultiStateValue").get
     end
   end
 
