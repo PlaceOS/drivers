@@ -58,6 +58,8 @@ class Ashrae::BACnet < PlaceOS::Driver
     server.bind "0.0.0.0", 0xBAC0
     @udp_server = server
 
+    queue.timeout = 2.seconds
+
     # Hook up the client to the transport
     client = ::BACnet::Client::IPv4.new
     client.on_transmit do |message, address|
@@ -234,14 +236,20 @@ class Ashrae::BACnet < PlaceOS::Driver
       device.objects.each do |obj|
         next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
         name = object_binding(device_id, obj)
-        queue(name: name, priority: 0) do |task|
-          obj.sync_value(client)
-          self[name] = object_value(obj)
-          task.success
+        queue(name: name, priority: 0, timeout: 500.milliseconds) do |task|
+          spawn_action(task) do
+            obj.sync_value(client)
+            self[name] = object_value(obj)
+          end
         end
       end
     end
     true
+  end
+
+  protected def spawn_action(task, &block : -> Nil)
+    spawn(same_thread: true) { task.success block.call }
+    Fiber.yield
   end
 
   # Performs a WhoIs discovery against the BACnet network
@@ -256,9 +264,10 @@ class Ashrae::BACnet < PlaceOS::Driver
     name = object_binding(device_id, obj)
 
     queue(name: name, priority: 50) do |task|
-      obj.sync_value(bacnet_client)
-      self[name] = object_value(obj)
-      task.success
+      spawn_action(task) do
+        obj.sync_value(bacnet_client)
+        self[name] = object_value(obj)
+      end
     end
   end
 
@@ -271,14 +280,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     object = get_object_details(device_id, instance_id, object_type)
 
     queue(priority: 99) do |task|
-      bacnet_client.write_property(
-        object.ip_address,
-        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-        ::BACnet::PropertyType::PresentValue,
-        ::BACnet::Object.new.set_value(value),
-        network: object.network,
-        address: object.address
-      )
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
     end
     value
   end
@@ -287,14 +298,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     object = get_object_details(device_id, instance_id, object_type)
 
     queue(priority: 99) do |task|
-      bacnet_client.write_property(
-        object.ip_address,
-        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-        ::BACnet::PropertyType::PresentValue,
-        ::BACnet::Object.new.set_value(value),
-        network: object.network,
-        address: object.address
-      )
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
     end
     value
   end
@@ -303,14 +316,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     object = get_object_details(device_id, instance_id, object_type)
 
     queue(priority: 99) do |task|
-      bacnet_client.write_property(
-        object.ip_address,
-        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-        ::BACnet::PropertyType::PresentValue,
-        ::BACnet::Object.new.set_value(value),
-        network: object.network,
-        address: object.address
-      )
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
     end
     value
   end
@@ -319,14 +334,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     object = get_object_details(device_id, instance_id, object_type)
 
     queue(priority: 99) do |task|
-      bacnet_client.write_property(
-        object.ip_address,
-        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-        ::BACnet::PropertyType::PresentValue,
-        ::BACnet::Object.new.set_value(value),
-        network: object.network,
-        address: object.address
-      )
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
     end
     value
   end
@@ -335,14 +352,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     object = get_object_details(device_id, instance_id, object_type)
 
     queue(priority: 99) do |task|
-      bacnet_client.write_property(
-        object.ip_address,
-        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-        ::BACnet::PropertyType::PresentValue,
-        ::BACnet::Object.new.set_value(value),
-        network: object.network,
-        address: object.address
-      )
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
     end
     value
   end
@@ -354,14 +373,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     val.short_tag = 9_u8
 
     queue(priority: 99) do |task|
-      bacnet_client.write_property(
-        object.ip_address,
-        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-        ::BACnet::PropertyType::PresentValue,
-        val,
-        network: object.network,
-        address: object.address
-      )
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          val,
+          network: object.network,
+          address: object.address
+        )
+      end
     end
     value
   end
