@@ -233,8 +233,12 @@ class Ashrae::BACnet < PlaceOS::Driver
     @mutex.synchronize do
       device.objects.each do |obj|
         next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
-        obj.sync_value(client)
-        self[object_binding(device_id, obj)] = object_value(obj)
+        name = object_binding(device_id, obj)
+        queue(name: name, priority: 0) do |task|
+          obj.sync_value(client)
+          self[name] = object_value(obj)
+          task.success
+        end
       end
     end
     true
@@ -249,8 +253,13 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   def update_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
     obj = get_object_details(device_id, instance_id, object_type)
-    obj.sync_value(bacnet_client)
-    self[object_binding(device_id, obj)] = object_value(obj)
+    name = object_binding(device_id, obj)
+
+    queue(name: name, priority: 50) do |task|
+      obj.sync_value(bacnet_client)
+      self[name] = object_value(obj)
+      task.success
+    end
   end
 
   protected def get_object_details(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
@@ -260,66 +269,81 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   def write_real(device_id : UInt32, instance_id : UInt32, value : Float32, object_type : ObjectType = ObjectType::AnalogValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      bacnet_client.write_property(
+        object.ip_address,
+        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+        ::BACnet::PropertyType::PresentValue,
+        ::BACnet::Object.new.set_value(value),
+        network: object.network,
+        address: object.address
+      )
+    end
     value
   end
 
   def write_double(device_id : UInt32, instance_id : UInt32, value : Float64, object_type : ObjectType = ObjectType::LargeAnalogValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      bacnet_client.write_property(
+        object.ip_address,
+        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+        ::BACnet::PropertyType::PresentValue,
+        ::BACnet::Object.new.set_value(value),
+        network: object.network,
+        address: object.address
+      )
+    end
     value
   end
 
   def write_unsigned_int(device_id : UInt32, instance_id : UInt32, value : UInt64, object_type : ObjectType = ObjectType::PositiveIntegerValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      bacnet_client.write_property(
+        object.ip_address,
+        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+        ::BACnet::PropertyType::PresentValue,
+        ::BACnet::Object.new.set_value(value),
+        network: object.network,
+        address: object.address
+      )
+    end
     value
   end
 
   def write_signed_int(device_id : UInt32, instance_id : UInt32, value : Int64, object_type : ObjectType = ObjectType::IntegerValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      bacnet_client.write_property(
+        object.ip_address,
+        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+        ::BACnet::PropertyType::PresentValue,
+        ::BACnet::Object.new.set_value(value),
+        network: object.network,
+        address: object.address
+      )
+    end
     value
   end
 
   def write_string(device_id : UInt32, instance_id : UInt32, value : String, object_type : ObjectType = ObjectType::CharacterStringValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      bacnet_client.write_property(
+        object.ip_address,
+        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+        ::BACnet::PropertyType::PresentValue,
+        ::BACnet::Object.new.set_value(value),
+        network: object.network,
+        address: object.address
+      )
+    end
     value
   end
 
@@ -328,14 +352,17 @@ class Ashrae::BACnet < PlaceOS::Driver
     object = get_object_details(device_id, instance_id, object_type)
     val = ::BACnet::Object.new.set_value(val)
     val.short_tag = 9_u8
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      val,
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      bacnet_client.write_property(
+        object.ip_address,
+        ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+        ::BACnet::PropertyType::PresentValue,
+        val,
+        network: object.network,
+        address: object.address
+      )
+    end
     value
   end
 
