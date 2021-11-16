@@ -157,6 +157,7 @@ class Cisco::UIExtender < PlaceOS::Driver
   @action_merged : Hash(String, JSON::Any) = {} of String => JSON::Any
 
   def on_extensions_widget_action(event : Hash(String, JSON::Any))
+    logger.debug { "received widget action update #{event}" }
     current_key = event.keys.first
     case current_key
     when "/Event/UserInterface/Extensions/Widget/Action/WidgetId"
@@ -168,11 +169,12 @@ class Cisco::UIExtender < PlaceOS::Driver
     else
       logger.debug { "ignoring key #{current_key} processing widget_action event" }
     end
+    logger.debug { "current action state: #{@action_merged}" }
     return unless @action_merged.size == 3
     id, value, type = @action_merged.values_at "WidgetId", "Value", "Type"
     @action_merged = {} of String => JSON::Any
 
-    logger.debug { "#{id} #{type}" }
+    logger.debug { "#{id} #{type} = #{value}" }
 
     id = id.as_s
     type = type.as_s
