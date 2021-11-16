@@ -64,7 +64,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
 
     self[:humidity] = floor_space.environment.try &.humidity.value
     self[:temperature] = floor_space.environment.try &.temperature.value
-    self[:air_quality] = floor_space.environment.try &.iaq.value
+    self[:air_quality] = floor_space.environment.try(&.iaq.try(&.value))
 
     self[:capacity] = floor_space.max_capacity || floor_space.capacity
   end
@@ -136,7 +136,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
             when .air_quality?
               id = "air_quality"
               time = space.environment.try &.timestamp
-              space.environment.try &.iaq.value
+              space.environment.try(&.iaq.try(&.value))
             else
               raise "sensor type unavailable: #{sensor}"
             end

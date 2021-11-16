@@ -41,7 +41,7 @@ module Vergesense
     property timestamp : Time
 
     property humidity : Sensor
-    property iaq : Sensor
+    property iaq : Sensor?
     property temperature : Sensor
   end
 
