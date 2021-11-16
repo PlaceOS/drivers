@@ -36,6 +36,7 @@ module Cisco::CollaborationEndpoint
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
     queue.delay = 50.milliseconds
+    queue.timeout = 2.seconds
     @peripheral_id = setting?(String, :peripheral_id)
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:camera_presets] = @presets.transform_values { |val| val.keys }
@@ -283,7 +284,7 @@ module Cisco::CollaborationEndpoint
     end
 
     send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
-    register_control_system.get
+    raise "failed to register control system" unless register_control_system.get.success?
     self[:ready] = @ready = true
 
     push_config
