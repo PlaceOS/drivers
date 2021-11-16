@@ -56,12 +56,13 @@ class Ashrae::BACnet < PlaceOS::Driver
     # We only use dispatcher for broadcast messages, a local port for primary comms
     server = UDPSocket.new
     server.bind "0.0.0.0", 0xBAC0
+    server.write_timeout = 200.milliseconds
     @udp_server = server
 
     queue.timeout = 2.seconds
 
     # Hook up the client to the transport
-    client = ::BACnet::Client::IPv4.new
+    client = ::BACnet::Client::IPv4.new(0, 2.seconds)
     client.on_transmit do |message, address|
       if address.address == Socket::IPAddress::BROADCAST
         if @bbmd_forwarding.size == 4
