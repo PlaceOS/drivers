@@ -220,8 +220,8 @@ class Cisco::UIExtender < PlaceOS::Driver
 
   protected def clear_subscriptions
     logger.debug { "clearing subscriptions!" }
-    # @subscriptions.each { |sub| subscriptions.unsubscribe(sub) }
-    # @subscriptions.clear
+    @subscriptions.each { |sub| subscriptions.unsubscribe(sub) }
+    @subscriptions.clear
   end
 
   # Bind to a Cisco CE device module.
@@ -229,7 +229,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     logger.debug { "binding to #{mod}" }
 
     @codec_mod = mod
-    # subscriptions.clear
+    subscriptions.clear
     @subscriptions.clear
     system.subscribe(@codec_mod, :ready) do |_sub, value|
       logger.debug { "codec ready: #{value}" }
