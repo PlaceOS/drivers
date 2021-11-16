@@ -398,6 +398,7 @@ module Cisco::CollaborationEndpoint
     return clear_feedback_subscriptions if path == "/"
     logger.debug { "Unsubscribing feedback for #{path}" }
     feedback.remove path
+    @feedback_paths.delete path
     do_send XAPI.xfeedback(:deregister, path)
   end
 
@@ -405,6 +406,7 @@ module Cisco::CollaborationEndpoint
     logger.debug { "Unsubscribing all feedback" }
     @status_keys.clear
     feedback.clear
+    @feedback_paths.clear
     do_send XAPI.xfeedback(:deregister_all)
   end
 
