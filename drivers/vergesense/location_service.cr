@@ -212,8 +212,7 @@ class Vergesense::LocationService < PlaceOS::Driver
             when .air_quality?
               id = "air"
               time = space.environment.try &.timestamp
-              iaq = space.environment.try &.iaq
-              iaq.nil? ? nil : iaq.not_nil!.value
+              space.environment.try(&.iaq.try(&.value))
             else
               raise "sensor type unavailable: #{sensor}"
             end
