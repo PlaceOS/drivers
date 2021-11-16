@@ -59,7 +59,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.2.4
+    version: 1.2.5
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -131,7 +131,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.15
+    version: 1.14.0
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -151,7 +151,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.11.3
+    version: 4.12.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -175,7 +175,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.13.0
+    version: 5.14.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
