@@ -95,10 +95,21 @@ module Cisco::CollaborationEndpoint
 
   def ensure_feedback_registered
     send "xPreferences OutputMode JSON\n", priority: 0, wait: false, name: "output_json"
-    @feedback_paths.each do |path|
+    results = @feedback_paths.map do |path|
       request = XAPI.xfeedback :register, path
       # Always returns an empty response, nothing special to handle
-      do_send request, priority: 0, name: path
+      do_send(request, priority: 0, name: path)
+    end
+    spawn(same_thread: true) do
+      success = 0
+      results.each do |task|
+        begin
+          success += 1 if task.get.state.success?
+        rescue
+        end
+      end
+      logger.debug { "FEEDBACK REGISTERED #{success}" }
+      disconnect unless success > 0
     end
     @feedback_paths.size
   end
