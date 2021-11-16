@@ -219,6 +219,7 @@ class Cisco::UIExtender < PlaceOS::Driver
   @subscriptions : Array(PlaceOS::Driver::Subscriptions::Subscription) = [] of PlaceOS::Driver::Subscriptions::Subscription
 
   protected def clear_subscriptions
+    logger.debug { "clearing subscriptions!" }
     @subscriptions.each { |sub| subscriptions.unsubscribe(sub) }
     @subscriptions.clear
   end
@@ -231,6 +232,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     subscriptions.clear
     @subscriptions.clear
     system.subscribe(@codec_mod, :ready) do |_sub, value|
+      logger.debug { "codec ready: #{value}" }
       next unless value == "true"
       clear_subscriptions
       subscribe_events
@@ -363,6 +365,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     logger.debug { "linking #{id} state to #{mod}.#{state}" }
 
     system[mod].subscribe(state) do |_sub, value|
+      logger.debug { "#{mod}.#{state} changed to #{value}, updating #{id}" }
       payload = value.presence ? JSON.parse(value).raw.as(String | Bool | Nil) : nil
       set id, payload
     end
