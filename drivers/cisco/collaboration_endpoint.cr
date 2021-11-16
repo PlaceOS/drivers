@@ -284,7 +284,7 @@ module Cisco::CollaborationEndpoint
     end
 
     send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
-    raise "failed to register control system" unless register_control_system.get.state.success?
+    register_control_system.get
     self[:ready] = @ready = true
 
     push_config
