@@ -301,7 +301,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     mod_id = module_id
     each_mapping(**opts) do |path, function, callback, codec|
       logger.debug { "monitoring #{mod_id}/#{function}" }
-      @subscriptions << monitor("placeos/#{mod_id}/#{function}") do |_sub, event_json|
+      @subscriptions << monitor("#{mod_id}/#{function}") do |_sub, event_json|
         begin
           logger.debug { "#{function} received #{event_json}" }
           callback.call(Hash(String, JSON::Any).from_json event_json)
