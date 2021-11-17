@@ -853,7 +853,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   protected def to_sensors(zone_id, filter, camera, details, building, level)
     sensors = [] of Interface::Sensor::Detail
-    return sensors if zone_id && !zone_id.in?({building, level})
+    return sensors if zone_id && (building || level) && !zone_id.in?({building, level})
 
     formatted_mac = format_mac(camera.mac)
 
