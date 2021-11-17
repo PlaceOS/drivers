@@ -32,7 +32,7 @@ class AmberTech::Grandview < PlaceOS::Driver
               end
 
     queue(name: "move") do |task|
-      response = get(command)
+      response = get(command, headers: build_headers)
       raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
       self[:status] = status = parse_state StatusResp.from_json(response.body).status
       task.success status
@@ -42,7 +42,7 @@ class AmberTech::Grandview < PlaceOS::Driver
   # stoppable interface
   def stop(index : Int32 | String = 0, emergency : Bool = false)
     queue(name: "stop", priority: 999, clear_queue: emergency) do |task|
-      response = get("/Stop.js?a=100")
+      response = get("/Stop.js?a=100", headers: build_headers)
       raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
 
       self[:status] = status = parse_state StatusResp.from_json(response.body).status
@@ -67,7 +67,14 @@ class AmberTech::Grandview < PlaceOS::Driver
   end
 
   protected def perform_status_request
-    get("/GetDevInfoList.js")
+    get("/GetDevInfoList.js", headers: build_headers)
+  end
+
+  protected def build_headers
+    {
+      "Host" => URI.parse(config.uri.not_nil!).host.not_nil!,
+      "Connection" => "keep-alive"
+    }
   end
 
   protected def parse_status(response)
