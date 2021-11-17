@@ -51,25 +51,37 @@ class AmberTech::Grandview < PlaceOS::Driver
   end
 
   def status
-    queue(name: "status", priority: 0) do |task|
-      response = get("/GetDevInfoList.js")
-      if response.success?
-        info = AmberTech::Devices.from_json(response.body)
-        state = info.device_info.first
-
-        self[:ver] = state.ver
-        self[:id] = state.id
-        self[:ip] = state.ip
-        self[:ip_subnet] = state.ip_subnet
-        self[:ip_gateway] = state.ip_gateway
-        self[:name] = state.name
-        self[:status] = parse_state state.status
-
-        task.success info
-      else
-        task.abort "request failed with #{response.status_code}\n#{response.body}"
+    if queue.online
+      queue(name: "status", priority: 0) do |task|
+        response = perform_status_request
+        if response.success?
+          task.success parse_status(response)
+        else
+          task.abort "request failed with #{response.status_code}\n#{response.body}"
+        end
       end
+    else
+      response = perform_status_request
+      parse_status(response) if response.success?
     end
+  end
+
+  protected def perform_status_request
+    get("/GetDevInfoList.js")
+  end
+
+  protected def parse_status(response)
+    info = AmberTech::Devices.from_json(response.body)
+    state = info.device_info.first
+
+    self[:ver] = state.ver
+    self[:id] = state.id
+    self[:ip] = state.ip
+    self[:ip_subnet] = state.ip_subnet
+    self[:ip_gateway] = state.ip_gateway
+    self[:name] = state.name
+    self[:status] = parse_state state.status
+    info
   end
 
   # compatibility with Screen Technics
