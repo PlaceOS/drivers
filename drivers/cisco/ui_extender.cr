@@ -231,10 +231,16 @@ class Cisco::UIExtender < PlaceOS::Driver
     @codec_mod = mod
     subscriptions.clear
     @subscriptions.clear
+
+    sleep 2
+
     system.subscribe(@codec_mod, :ready) do |_sub, value|
       logger.debug { "codec ready: #{value}" }
       next unless value == "true"
       clear_subscriptions
+
+      sleep 2
+
       subscribe_events
       bind_cb.call
       sync_widget_state
