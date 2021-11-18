@@ -73,8 +73,6 @@ module Cisco::CollaborationEndpoint
 
   def connected
     reset_connection_flags
-    transport.send "xPreferences OutputMode JSON\n"
-    queue.clear abort_current: true
     schedule.every(2.minutes) { ensure_feedback_registered }
     schedule.every(30.seconds) do
       if @last_received > 40.seconds.ago.to_unix
@@ -87,6 +85,11 @@ module Cisco::CollaborationEndpoint
       init_connection unless @ready || @init_called
       schedule.in(15.seconds) { disconnect if !@ready || self["configuration"]?.nil? }
     end
+    begin
+      transport.send "xPreferences OutputMode JSON\n"
+    rescue
+    end
+    queue.clear abort_current: true
   end
 
   def disconnected
