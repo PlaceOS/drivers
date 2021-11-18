@@ -332,15 +332,12 @@ module Cisco::CollaborationEndpoint
     payload = String.new(data)
     logger.debug { "<- #{payload}" }
 
-    if !@ready
-      if payload =~ XAPI::LOGIN_COMPLETE
-        send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
-        self[:ready] = @ready = true
-        logger.info { "Connection ready, initializing connection" }
-        spawn(same_thread: true) do
-          sleep 0.5
-          init_connection unless @init_called
-        end
+    if transport.tokenizer.nil? && payload =~ XAPI::LOGIN_COMPLETE
+      send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
+      logger.info { "Connection ready, initializing connection" }
+      spawn(same_thread: true) do
+        sleep 0.5
+        init_connection unless @init_called
       end
       return
     end
