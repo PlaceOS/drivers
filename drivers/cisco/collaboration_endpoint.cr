@@ -64,7 +64,16 @@ module Cisco::CollaborationEndpoint
 
   @last_received : Int64 = 0_i64
 
+  protected def reset_connection_flags
+    @ready = false
+    @init_called = false
+    @feedback_paths = [] of String
+    transport.tokenizer = nil
+  end
+
   def connected
+    reset_connection_flags
+    self[:ready] = false
     schedule.every(2.minutes) { ensure_feedback_registered }
     schedule.every(30.seconds) do
       if @last_received > 40.seconds.ago.to_unix
@@ -80,14 +89,11 @@ module Cisco::CollaborationEndpoint
   end
 
   def disconnected
-    self[:ready] = @ready = false
-    @init_called = false
-    @feedback_paths = [] of String
-    transport.tokenizer = nil
-    queue.clear abort_current: true
-
-    clear_feedback_subscriptions
     schedule.clear
+    reset_connection_flags
+    clear_feedback_subscriptions(false)
+    queue.clear abort_current: true
+    self[:ready] = false
   end
 
   def generate_request_uuid
@@ -402,12 +408,12 @@ module Cisco::CollaborationEndpoint
     do_send XAPI.xfeedback(:deregister, path)
   end
 
-  def clear_feedback_subscriptions
+  def clear_feedback_subscriptions(connected = true)
     logger.debug { "Unsubscribing all feedback" }
     @status_keys.clear
     feedback.clear
     @feedback_paths.clear
-    do_send XAPI.xfeedback(:deregister_all)
+    do_send XAPI.xfeedback(:deregister_all) if connected
   end
 
   # ------------------------------
