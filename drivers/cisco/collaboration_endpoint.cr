@@ -35,12 +35,14 @@ module Cisco::CollaborationEndpoint
 
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
-    queue.delay = 50.milliseconds
-    queue.timeout = 2.seconds
+    queue.delay = 80.milliseconds
+    queue.timeout = 3.seconds
     @peripheral_id = setting?(String, :peripheral_id)
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:camera_presets] = @presets.transform_values { |val| val.keys }
     driver = self
+
+    sleep rand(3...9)
     driver.load_settings if driver.responds_to?(:load_settings)
   end
 
