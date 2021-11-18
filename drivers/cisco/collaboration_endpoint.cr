@@ -73,6 +73,7 @@ module Cisco::CollaborationEndpoint
 
   def connected
     reset_connection_flags
+    queue.clear abort_current: true
     self[:ready] = false
     schedule.every(2.minutes) { ensure_feedback_registered }
     schedule.every(30.seconds) do
@@ -290,14 +291,11 @@ module Cisco::CollaborationEndpoint
       index || -1
     end
 
-    register_control_system.get
+    raise "failed to register control system" unless register_control_system.get.state.success?
     self[:ready] = @ready = true
 
     push_config
     sync_config
-  rescue error
-    logger.warn(exception: error) { "error configuring xapi transport" }
-  ensure
     @@status_mappings.each do |key, path|
       begin
         bind_status(path, key.to_s)
@@ -308,6 +306,9 @@ module Cisco::CollaborationEndpoint
 
     driver = self
     driver.connection_ready if driver.responds_to?(:connection_ready)
+  rescue error
+    @init_called = false
+    logger.warn(exception: error) { "error configuring xapi transport" }
   end
 
   protected def do_send(command, multiline_body = nil, **options)
