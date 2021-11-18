@@ -42,7 +42,6 @@ module Cisco::CollaborationEndpoint
     self[:camera_presets] = @presets.transform_values { |val| val.keys }
     driver = self
     driver.load_settings if driver.responds_to?(:load_settings)
-    sleep rand(1.0...3.0)
   end
 
   # used when saving settings from the driver
@@ -340,8 +339,7 @@ module Cisco::CollaborationEndpoint
       sleep 500.milliseconds
       transport.send "xPreferences OutputMode JSON\n"
       logger.info { "initializing connection" }
-      sleep 500.milliseconds
-      spawn(same_thread: true) { init_connection unless @init_called }
+      spawn(same_thread: true) { init_connection }
       return
     end
 
