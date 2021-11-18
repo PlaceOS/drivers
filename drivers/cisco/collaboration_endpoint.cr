@@ -266,8 +266,6 @@ module Cisco::CollaborationEndpoint
 
   protected def init_connection
     @init_called = true
-    transport.send "xPreferences OutputMode JSON\n"
-
     transport.tokenizer = Tokenizer.new do |io|
       raw = io.gets_to_end
       data = raw.lstrip
@@ -338,8 +336,10 @@ module Cisco::CollaborationEndpoint
 
     if transport.tokenizer.nil? && payload =~ XAPI::LOGIN_COMPLETE
       queue.clear abort_current: true
+      sleep 500.milliseconds
       transport.send "xPreferences OutputMode JSON\n"
       logger.info { "initializing connection" }
+      sleep 500.milliseconds
       spawn(same_thread: true) { init_connection unless @init_called }
       return
     end
