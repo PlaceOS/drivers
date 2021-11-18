@@ -41,9 +41,8 @@ module Cisco::CollaborationEndpoint
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:camera_presets] = @presets.transform_values { |val| val.keys }
     driver = self
-
-    sleep rand(3...9)
     driver.load_settings if driver.responds_to?(:load_settings)
+    sleep rand(1.0...3.0)
   end
 
   # used when saving settings from the driver
