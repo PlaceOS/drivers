@@ -405,7 +405,7 @@ module Cisco::CollaborationEndpoint
     do_send XAPI.xfeedback(:deregister, path)
   end
 
-  def clear_feedback_subscriptions(connected = true)
+  def clear_feedback_subscriptions(connected : Bool = true)
     logger.debug { "Unsubscribing all feedback" }
     @status_keys.clear
     feedback.clear
