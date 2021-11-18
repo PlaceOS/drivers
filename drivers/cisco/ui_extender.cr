@@ -308,11 +308,13 @@ class Cisco::UIExtender < PlaceOS::Driver
     each_mapping(**opts) do |path, function, callback, codec|
       logger.debug { "monitoring #{mod_id}/#{function}" }
       @subscriptions << monitor("#{mod_id}/#{function}") do |_sub, event_json|
-        begin
-          logger.debug { "#{function} received #{event_json}" }
-          callback.call(Hash(String, JSON::Any).from_json event_json)
-        rescue error
-          logger.error(exception: error) { "processing panel event" }
+        logger.debug { "#{function} received #{event_json}" }
+        spawn do
+          begin
+            callback.call(Hash(String, JSON::Any).from_json(event_json))
+          rescue error
+            logger.error(exception: error) { "processing panel event" }
+          end
         end
       end
       codec.on_event path, mod_id, function
@@ -371,9 +373,15 @@ class Cisco::UIExtender < PlaceOS::Driver
     logger.debug { "linking #{id} state to #{mod}.#{state}" }
 
     system[mod].subscribe(state) do |_sub, value|
-      logger.debug { "#{mod}.#{state} changed to #{value}, updating #{id}" }
-      payload = value.presence ? JSON.parse(value).raw.as(String | Bool | Nil) : nil
-      set id, payload
+      spawn do
+        begin
+          logger.debug { "#{mod}.#{state} changed to #{value}, updating #{id}" }
+          payload = value.presence ? JSON.parse(value).raw.as(String | Bool | Nil) : nil
+          set id, payload
+        rescue error
+          logger.error(exception: error) { "module status update" }
+        end
+      end
     end
   end
 
