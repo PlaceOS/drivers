@@ -376,7 +376,7 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
 
-    people_counts = sensors.delete(SensorType::PeopleCount)
+    people_counts = sensors[SensorType::PeopleCount]?
     sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
       if values.size > 0
         (values.sum(&.value) / values.size).round(@rounding_precision)
@@ -385,7 +385,7 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
     if people_counts
-      sensor_summary["people_count"] = people_counts.sum(&.value)
+      sensor_summary["people_count_sum"] = people_counts.sum(&.value)
     end
 
     # build the level overview
@@ -453,7 +453,7 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
 
-        people_counts = area_sensors.delete(SensorType::PeopleCount)
+        people_counts = area_sensors[SensorType::PeopleCount]?
         sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
           if values.size > 0
             (values.sum(&.value) / values.size).round(@rounding_precision)
@@ -462,7 +462,7 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
         if people_counts
-          sensor_summary["people_count"] = people_counts.sum(&.value)
+          sensor_summary["people_count_sum"] = people_counts.sum(&.value)
         end
 
         area_counts << {
