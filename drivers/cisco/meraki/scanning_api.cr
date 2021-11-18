@@ -127,7 +127,7 @@ module Cisco::Meraki
     @[JSON::Field(key: "recentDeviceMac")]
     property recent_device_mac : String?
     property ssid : String?
-    property vlan : Int32?
+    property vlan : String?
     property switchport : String?
     property status : String
     property notes : String?
