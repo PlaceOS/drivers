@@ -266,7 +266,7 @@ module Cisco::CollaborationEndpoint
 
   protected def init_connection
     @init_called = true
-    send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
+    transport.send "xPreferences OutputMode JSON\n"
 
     transport.tokenizer = Tokenizer.new do |io|
       raw = io.gets_to_end
