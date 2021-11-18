@@ -142,6 +142,7 @@ class Ashrae::BACnet < PlaceOS::Driver
 
     poll_period = setting?(UInt32, :poll_period) || 3
     schedule.every(poll_period.minutes) do
+      logger.debug { "--- Polling all known bacnet devices" }
       keys = @mutex.synchronize { @devices.keys }
       keys.each { |device_id| poll_device(device_id) }
     end
@@ -233,17 +234,17 @@ class Ashrae::BACnet < PlaceOS::Driver
     return false unless device
 
     client = bacnet_client
-    @mutex.synchronize do
-      device.objects.each do |obj|
-        next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
-        name = object_binding(device_id, obj)
-        queue(name: name, priority: 0, timeout: 500.milliseconds) do |task|
-          spawn_action(task) do
-            obj.sync_value(client)
-            self[name] = object_value(obj)
-          end
+    objects = @mutex.synchronize { device.objects.dup }
+    objects.each do |obj|
+      next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
+      name = object_binding(device_id, obj)
+      queue(name: name, priority: 0, timeout: 500.milliseconds) do |task|
+        spawn_action(task) do
+          obj.sync_value(client)
+          self[name] = object_value(obj)
         end
       end
+      Fiber.yield
     end
     true
   end
