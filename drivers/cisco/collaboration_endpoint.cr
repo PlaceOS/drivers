@@ -73,8 +73,8 @@ module Cisco::CollaborationEndpoint
 
   def connected
     reset_connection_flags
+    transport.send "xPreferences OutputMode JSON\n"
     queue.clear abort_current: true
-    self[:ready] = false
     schedule.every(2.minutes) { ensure_feedback_registered }
     schedule.every(30.seconds) do
       if @last_received > 40.seconds.ago.to_unix
@@ -334,6 +334,7 @@ module Cisco::CollaborationEndpoint
     logger.debug { "<- #{payload}" }
 
     if transport.tokenizer.nil? && payload =~ XAPI::LOGIN_COMPLETE
+      queue.clear abort_current: true
       transport.send "xPreferences OutputMode JSON\n"
       logger.info { "initializing connection" }
       spawn(same_thread: true) { init_connection unless @init_called }
