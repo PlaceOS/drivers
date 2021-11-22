@@ -624,7 +624,7 @@ class Place::Meet < PlaceOS::Driver
 
     getter mod : String
     getter index : String | Int32? # if multiple cams on the one device (VidConf mod for instance)
-    getter vc_camera_input : String?
+    getter vc_camera_input : String | Int32?
   end
 
   @vc_camera_in : String? = nil
