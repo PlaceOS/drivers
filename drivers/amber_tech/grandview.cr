@@ -72,8 +72,8 @@ class AmberTech::Grandview < PlaceOS::Driver
 
   protected def build_headers
     {
-      "Host" => URI.parse(config.uri.not_nil!).host.not_nil!,
-      "Connection" => "keep-alive"
+      "Host"       => URI.parse(config.uri.not_nil!).host.not_nil!,
+      "Connection" => "keep-alive",
     }
   end
 
