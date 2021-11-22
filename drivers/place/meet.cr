@@ -54,7 +54,7 @@ class Tab
   include JSON::Serializable
   include JSON::Serializable::Unmapped
 
-  def initialize(@icon, @name, @inputs, @help = nil, @controls = nil, @merge_on_join = nil)
+  def initialize(@icon, @name, @inputs, @help = nil, @controls = nil, @merge_on_join = nil, @json_unmapped = Hash(String, JSON::Any).new)
   end
 
   getter icon : String
@@ -71,15 +71,17 @@ class Tab
   getter presentation_source : String?
 
   def clone : Tab
-    Tab.new(@icon, @name, inputs.dup, @help, @controls, @merge_on_join)
+    Tab.new(@icon, @name, inputs.dup, @help, @controls, @merge_on_join, @json_unmapped.dup)
   end
 
   def merge(tab : Tab) : Tab
     input = inputs.dup.concat(tab.inputs).uniq!
-    Tab.new(@icon, @name, input, @help, @controls, @merge_on_join)
+    new_unmapped = tab.json_unmapped.merge json_unmapped
+    Tab.new(@icon, @name, input, @help, @controls, @merge_on_join, new_unmapped)
   end
 
   def merge!(tab : Tab) : Tab
+    @json_unmapped.merge! tab.json_unmapped
     @inputs.concat(tab.inputs).uniq!
     self
   end
