@@ -506,6 +506,24 @@ class Floorsense::Desks < PlaceOS::Driver
     check_success(response)
   end
 
+  def update_booking(
+    booking_id : String | Int64,
+    privacy : Bool? = nil
+  )
+    response = post("/restapi/booking", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("bkid", booking_id.to_s)
+      form.add("privacy", privacy.to_s)
+    })
+
+    booking = parse response, BookingStatus
+    booking.user = get_user(booking.uid)
+    booking
+  end
+
   def create_user(
     name : String,
     email : String,
