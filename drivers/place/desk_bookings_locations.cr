@@ -27,7 +27,9 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def on_load
     monitor("staff/booking/changed") do |_subscription, payload|
       logger.debug { "received booking changed event #{payload}" }
-      booking_changed(Booking.from_json(payload))
+      booking = Booking.from_json(payload)
+      booking.user_email = booking.user_email.downcase
+      booking_changed(booking)
     end
     on_update
   end
@@ -210,7 +212,11 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def query_desk_bookings : Nil
     bookings = [] of JSON::Any
     @zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a }
-    bookings = bookings.map { |booking| Booking.from_json(booking.to_json) }
+    bookings = bookings.map do |booking|
+      booking = Booking.from_json(booking.to_json)
+      booking.user_email = booking.user_email.downcase
+      booking
+    end
 
     logger.debug { "queried desk bookings, found #{bookings.size}" }
 
