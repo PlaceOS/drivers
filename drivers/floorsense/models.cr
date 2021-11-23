@@ -291,4 +291,45 @@ module Floorsense
 
     property mode : String
   end
+
+  class Voucher
+    include JSON::Serializable
+
+    property lastuse : Int64
+    property email : String
+
+    @[JSON::Field(key: "vid")]
+    property voucher_id : String
+
+    @[JSON::Field(key: "key")]
+    property locker_key : String
+
+    @[JSON::Field(key: "cid")]
+    property controller_id : String
+
+    @[JSON::Field(key: "resid")]
+    property reservation_id : String
+
+    property pin : String
+    property created : Int64
+    property release : Bool
+    property duration : Int64
+    property expired : Int64
+    property usecount : Int64
+    property maxuse : Int64
+    property restype : String
+    property notified : Int64
+    property validfrom : Int64
+    property validto : Int64
+
+    property unlock : Bool
+    property template : String
+    property name : String
+    property notes : String
+    property cardswipe : Bool
+
+    @[JSON::Field(key: "uid")]
+    property user_id : String
+    property uri : String
+  end
 end
