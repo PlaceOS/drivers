@@ -12,6 +12,15 @@ class Cisco::DNASpaces::Device
   getter tags : Array(String)
   getter mobile : String
   getter email : String
+
+  def email
+    @email.downcase
+  end
+
+  def email_raw
+    @email
+  end
+
   getter gender : String
 
   @[JSON::Field(key: "firstName")]

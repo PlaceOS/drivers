@@ -130,7 +130,7 @@ class Floorsense::LocationService < PlaceOS::Driver
         level:       zone_id,
         ends_at:     booking.finish,
         mac:         "cid=#{booking.cid}&key=#{booking.key}",
-        staff_email: booking.user.try &.email,
+        staff_email: booking.user.try &.email.try(&.downcase),
         staff_name:  booking.user.try &.name,
       }
     } + desks
