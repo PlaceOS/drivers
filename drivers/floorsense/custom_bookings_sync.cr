@@ -36,6 +36,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     floorsense_lookup_key:   "floorsensedeskid",
     create_floorsense_users: false,
+    debug_logging:           false,
 
     # Keys to map into ad-hoc bookings
     meta_ext_mappings: {
@@ -62,12 +63,13 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   @poll_rate : Time::Span = 3.seconds
   @time_zone : Time::Location = Time::Location.load("GMT")
   @user_lookup : String = "staff_id"
+  @debug_logging : Bool = false
 
   @sync_lock = Mutex.new
 
   def on_load
     monitor("staff/booking/changed") do |_subscription, payload|
-      logger.debug { "received booking changed event #{payload}" }
+      log { "received booking changed event #{payload}" }
       booking_changed(Booking.from_json(payload))
     end
     on_update
@@ -82,6 +84,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     @booking_type = setting?(String, :booking_type).presence || "desk"
     @poll_rate = (setting?(Int32, :poll_rate) || 3).seconds
     @user_lookup = setting?(String, :user_lookup).presence || "staff_id"
+    @debug_logging = setting?(Bool, :debug_logging) || false
 
     @floorsense_lookup_key = setting?(String, :floorsense_lookup_key).presence || "floorsensedeskid"
     @create_floorsense_users = setting?(Bool, :create_floorsense_users) || false
@@ -107,6 +110,14 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     schedule.in(@poll_rate / 2) do
       schedule.every(@poll_rate * 10) { sync_bookings }
       sync_bookings
+    end
+  end
+
+  protected def log(&message : -> String)
+    if @debug_logging
+      logger.info { message.call }
+    else
+      logger.debug { message.call }
     end
   end
 
@@ -142,7 +153,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     user_name = user["name"]
     user_email = user["email"]
 
-    logger.debug { "new floorsense booking found #{booking.inspect}" }
+    log { "new floorsense booking found #{booking.inspect}" }
 
     # Check if there is a desk mapping
     booking_key = booking.key
@@ -248,7 +259,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     events.reject! { |event| event.eventid <= last_event_id }
     return if events.empty?
 
-    logger.debug { "parsing floorsense event log, #{events.size} new events" }
+    log { "parsing floorsense event log, #{events.size} new events" }
 
     @last_event_id = events.last.eventid
     events.each do |event|
@@ -280,7 +291,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
           user_name = user["name"]
           user_email = user["email"]
 
-          logger.debug { "new floorsense booking found #{booking}" }
+          log { "new floorsense booking found #{booking}" }
 
           # Check if there is a desk mapping
           booking_key = booking.key
@@ -385,7 +396,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     matching_zones = @zone_mappings.keys & event.zones
     return if matching_zones.empty?
 
-    logger.debug { "booking event is in a matching zone" }
+    log { "booking event is in a matching zone" }
 
     sync_floor(matching_zones.first)
   end
@@ -406,7 +417,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     end
     floor_details = @floor_mappings[plan_id]
 
-    logger.debug { "syncing zone #{zone}, plan-id #{plan_id}" }
+    log { "syncing zone #{zone}, plan-id #{plan_id}" }
 
     place_bookings = placeos_bookings(zone)
     sense_bookings = floorsense_bookings(zone)
@@ -433,7 +444,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       end
     end
 
-    logger.debug { "found #{adhoc.size} adhoc bookings" }
+    log { "found #{adhoc.size} adhoc bookings" }
 
     place_booking_checked = Set(String).new
     release_floor_bookings = [] of BookingStatus
@@ -457,8 +468,10 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
         end
 
         if (booking.rejected || booking.booking_end != floor_booking.finish) && floor_booking.released == 0_i64
+          log { "releasing floor booking #{floor_booking.booking_id}, as place booking #{booking.id} has been released" }
           release_floor_bookings << floor_booking
         elsif floor_booking.released > 0_i64 && floor_booking.released != booking.booking_end && !booking.rejected
+          log { "releasing place booking #{booking.id}, as floor booking #{floor_booking.booking_id} has been released" }
           # need to change end time of this booking
           release_place_bookings << {booking, floor_booking.released}
         end
@@ -467,11 +480,12 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       end
 
       if !found && floor_booking.released == 0_i64
+        log { "found new ad-hoc booking #{floor_booking.booking_id}, will create place booking" }
         create_place_bookings << floor_booking
       end
     end
 
-    logger.debug { "need to sync #{create_place_bookings.size} adhoc bookings, release #{release_place_bookings.size} bookings" }
+    log { "need to sync #{create_place_bookings.size} adhoc bookings, release #{release_place_bookings.size} bookings" }
 
     # what bookings need to be added to floorsense
     place_bookings.each do |booking|
@@ -481,40 +495,43 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
       place_booking_checked << booking_id
 
-      # if we get to here then the floor booking was released
-      if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_booking_id"]?.try(&.as_s))
-        release_place_bookings << {booking, 1.minute.ago.to_unix}
-        next
-      end
-
       found = false
       other.each do |floor_booking|
         next unless floor_booking.desc == booking_id
         found = true
 
-        # TODO:: check for booking changes?
-        # we currently are not and probably shouldn't be moving bookings to different days
-
         if (booking.rejected || booking.booking_end != floor_booking.finish) && floor_booking.released == 0_i64
+          log { "releasing floor booking #{floor_booking.booking_id}, as place booking #{booking.id} has been released" }
           release_floor_bookings << floor_booking
         elsif floor_booking.released > 0_i64 && floor_booking.released != booking.booking_end && !booking.rejected
           # need to change end time of this booking
+          log { "releasing place booking #{booking.id}, as floor booking #{floor_booking.booking_id} has been released" }
           release_place_bookings << {booking, floor_booking.released}
         elsif booking.checked_in && !floor_booking.confirmed
+          log { "confirming floor booking #{floor_booking.booking_id}, as place booking #{booking.id} has been confirmed" }
           confirm_floor_bookings << floor_booking
         end
 
         break
       end
+      next if found || booking.rejected
 
-      create_floor_bookings << booking unless found || booking.rejected
+      # if we get to here then the floor booking was released
+      if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_booking_id"]?.try(&.as_s))
+        log { "releasing place booking #{booking.id}, as floor booking #{floor_id} not found (assuming released)" }
+        release_place_bookings << {booking, 1.minute.ago.to_unix}
+      else
+        log { "creating floor booking based on #{booking.id} as no floor booking reference exists" }
+        create_floor_bookings << booking
+      end
     end
 
     other.each do |floor_booking|
+      log { "releasing floor booking #{floor_booking.booking_id}, as place booking #{floor_booking.desc} not found (assuming deleted)" }
       release_floor_bookings << floor_booking unless place_booking_checked.includes?(floor_booking.desc)
     end
 
-    logger.debug { "need to create #{create_floor_bookings.size} bookings, release #{release_floor_bookings.size} in floorsense" }
+    log { "need to create #{create_floor_bookings.size} bookings, release #{release_floor_bookings.size} in floorsense" }
 
     # update floorsense
     local_floorsense = floorsense
@@ -549,7 +566,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       end
     end
 
-    logger.debug { "floorsense bookings created" }
+    log { "floorsense bookings created" }
 
     # update placeos
     local_staff_api = staff_api
@@ -560,7 +577,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       )
     end
 
-    logger.debug { "#{release_place_bookings.size} place bookings released" }
+    log { "#{release_place_bookings.size} place bookings released" }
 
     create_place_bookings.each do |booking|
       user_id = booking.user.not_nil!.desc
@@ -612,7 +629,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       )
     end
 
-    logger.debug { "#{create_place_bookings.size} adhoc place bookings created" }
+    log { "#{create_place_bookings.size} adhoc place bookings created" }
 
     confirm_floor_bookings.each do |floor_booking|
       local_floorsense.confirm_booking(floor_booking.booking_id)
@@ -675,7 +692,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   # Booking Queries
   # ===================================
   def floorsense_bookings(zone_id : String)
-    logger.debug { "querying floorsense bookings in zone #{zone_id}" }
+    log { "querying floorsense bookings in zone #{zone_id}" }
 
     plan_id = @zone_mappings[zone_id]?
     return [] of BookingStatus unless plan_id
