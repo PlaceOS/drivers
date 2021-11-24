@@ -143,11 +143,11 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     end
 
     user = begin
-            staff_api.user(user_id.presence || user_email).get
-          rescue error
-            logger.warn(exception: error) { "floorsense user #{user_id.presence || user_email} (#{booking.user.not_nil!.name}) not found in placeos" }
-            return
-          end
+      staff_api.user(user_id.presence || user_email).get
+    rescue error
+      logger.warn(exception: error) { "floorsense user #{user_id.presence || user_email} (#{booking.user.not_nil!.name}) not found in placeos" }
+      return
+    end
 
     user_id = user["id"]
     user_name = user["name"]
@@ -281,11 +281,11 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
           end
 
           user = begin
-                  staff_api.user(user_id.presence || user_email).get
-                rescue error
-                  logger.warn(exception: error) { "floorsense user #{user_id.presence || user_email} (#{booking.user.not_nil!.name}) not found in placeos" }
-                  return
-                end
+            staff_api.user(user_id.presence || user_email).get
+          rescue error
+            logger.warn(exception: error) { "floorsense user #{user_id.presence || user_email} (#{booking.user.not_nil!.name}) not found in placeos" }
+            return
+          end
 
           user_id = user["id"]
           user_name = user["name"]
