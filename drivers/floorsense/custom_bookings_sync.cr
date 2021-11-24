@@ -123,16 +123,24 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     return unless floor_details
     booking.user = User.from_json floorsense.get_user(booking.uid).get.to_json
 
+    user_id = booking.user.not_nil!.desc
     user_email = booking.user.not_nil!.email.try &.downcase
 
-    if user_email.nil?
-      logger.warn { "no user email defined for floorsense user #{booking.user.not_nil!.name}" }
+    if user_id.presence.nil? && user_email.presence.nil?
+      logger.warn { "no user id or email defined for floorsense user #{booking.user.not_nil!.name}" }
       return
     end
 
-    user = staff_api.user(user_email).get
+    user = begin
+            staff_api.user(user_id.presence || user_email).get
+          rescue error
+            logger.warn(exception: error) { "floorsense user #{user_id.presence || user_email} (#{booking.user.not_nil!.name}) not found in placeos" }
+            return
+          end
+
     user_id = user["id"]
     user_name = user["name"]
+    user_email = user["email"]
 
     logger.debug { "new floorsense booking found #{booking.inspect}" }
 
@@ -253,16 +261,24 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
         when 49 # BOOKING_CREATE (ad-hoc?)
           next if booking.booking_type != "adhoc"
 
+          user_id = booking.user.not_nil!.desc
           user_email = booking.user.not_nil!.email.try &.downcase
 
-          if user_email.nil?
-            logger.warn { "no user email defined for floorsense user #{booking.user.not_nil!.name}" }
-            next
+          if user_id.presence.nil? && user_email.presence.nil?
+            logger.warn { "no user id or email defined for floorsense user #{booking.user.not_nil!.name}" }
+            return
           end
 
-          user = staff_api.user(user_email).get
+          user = begin
+                  staff_api.user(user_id.presence || user_email).get
+                rescue error
+                  logger.warn(exception: error) { "floorsense user #{user_id.presence || user_email} (#{booking.user.not_nil!.name}) not found in placeos" }
+                  return
+                end
+
           user_id = user["id"]
           user_name = user["name"]
+          user_email = user["email"]
 
           logger.debug { "new floorsense booking found #{booking}" }
 
