@@ -505,7 +505,7 @@ class Place::Meet < PlaceOS::Driver
     elsif audio.implements_volume?
       mixer.mute_audio(state)
     else
-      mixer.mute(audio.level_id, state)
+      mixer.mute(audio.mute_id, state)
     end
   end
 
