@@ -202,7 +202,8 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       # change the placeos end time if the booking has started
       staff_api.update_booking(
         booking_id: place_booking.id,
-        booking_end: booking.released
+        booking_end: booking.released,
+        checked_in: false
       ).get
     else
       logger.warn { "no booking found for released booking #{booking.booking_id}" }
@@ -331,7 +332,8 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
             # change the placeos end time if the booking has started
             staff_api.update_booking(
               booking_id: place_booking.id,
-              booking_end: booking.released
+              booking_end: booking.released,
+              checked_in: false
             ).get
           else
             logger.warn { "no booking found for released booking #{booking.booking_id}" }
@@ -573,7 +575,8 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     release_place_bookings.each do |booking, released|
       local_staff_api.update_booking(
         booking_id: booking.id,
-        booking_end: released
+        booking_end: released,
+        checked_in: false
       )
     end
 
