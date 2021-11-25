@@ -101,6 +101,12 @@ class Vergesense::LocationService < PlaceOS::Driver
       people_count = space.people.try(&.count)
 
       if people_count && people_count > 0
+        if env = space.environment
+          humidity = env.humidity.value
+          temperature = env.temperature.value
+          iaq = env.iaq.try &.value
+        end
+
         {
           location:    loc_type,
           at_location: people_count,
@@ -111,13 +117,16 @@ class Vergesense::LocationService < PlaceOS::Driver
 
           vergesense_space_id:   space.space_ref_id,
           vergesense_space_type: space.space_type,
+          area_humidity:         humidity,
+          area_temperature:      temperature,
+          area_air_quality:      iaq,
         }
       end
     end
   end
 
   # ===================================
-  # Locatable Interface functions
+  # Sensor Interface functions
   # ===================================
   def sensor(mac : String, id : String? = nil) : Detail?
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
