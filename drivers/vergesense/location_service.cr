@@ -24,6 +24,7 @@ class Vergesense::LocationService < PlaceOS::Driver
         name:        "friendly name for documentation",
       },
     },
+    return_empty_spaces: true,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -35,6 +36,7 @@ class Vergesense::LocationService < PlaceOS::Driver
   end
 
   def on_update
+    @return_empty_spaces = setting(Bool, :return_empty_spaces) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.values.map do |z|
       level = z[:level_id]
@@ -100,7 +102,7 @@ class Vergesense::LocationService < PlaceOS::Driver
 
       people_count = space.people.try(&.count)
 
-      if people_count && people_count > 0
+      if @return_empty_spaces || people_count && people_count > 0
         if env = space.environment
           humidity = env.humidity.value
           temperature = env.temperature.value
@@ -109,7 +111,7 @@ class Vergesense::LocationService < PlaceOS::Driver
 
         {
           location:    loc_type,
-          at_location: people_count,
+          at_location: people_count || 0,
           map_id:      space.name,
           level:       zone_id,
           building:    @building_mappings[zone_id]?,
