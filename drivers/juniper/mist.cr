@@ -106,6 +106,18 @@ class Juniper::Mist < PlaceOS::Driver
     request(Array(Map)) { |headers| get("/api/v1/sites/#{site_id}/maps", headers: headers) }
   end
 
+  def clients(site_id : String, map_id : String? = nil)
+    if map_id.presence
+      request(Array(Client)) { |headers| get("/api/v1/sites/#{site_id}/stats/maps/#{map_id}/clients", headers: headers) }
+    else
+      request(Array(Client)) { |headers| get("/api/v1/sites/#{site_id}/stats/clients", headers: headers) }
+    end
+  end
+
+  def client(site_id : String, client_mac : String)
+    request(Client) { |headers| get("/api/v1/sites/#{site_id}/stats/clients/#{client_mac}", headers: headers) }
+  end
+
   EMPTY_HEADERS    = {} of String => String
   SUCCESS_RESPONSE = {HTTP::Status::OK, EMPTY_HEADERS, nil}
 

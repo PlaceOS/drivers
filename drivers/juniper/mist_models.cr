@@ -65,6 +65,53 @@ module Juniper
     property lng : Float64
   end
 
+  class Client
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    property mac : String
+    property last_seen : Int64
+
+    property username : String?
+    property hostname : String?
+    property os : String?
+    property manufacture : String?
+    property family : String?
+    property model : String?
+
+    @[JSON::Field(key: "ip")]
+    property ip_address : String
+    property ap_mac : String
+    property ap_id : String
+    property ssid : String
+    property wlan_id : String
+    property psk_id : String
+
+    property map_id : String
+    # pixels
+    property x : Float64
+    property y : Float64
+    property num_locating_aps : Int32
+
+    # meters
+    property accuracy : Int32
+
+    property is_guest : Bool
+    property guest : Guest?
+  end
+
+  class Guest
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    property authorized : Bool
+    property authorized_time : Int64?
+    property authorized_expiring_time : Int64?
+    property name : String?
+    property email : String?
+    property company : String?
+  end
+
   abstract class WebhookEvent
     include JSON::Serializable
 
