@@ -32,6 +32,10 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     on_update
   end
 
+  def on_unload
+    @channel.close
+  end
+
   @scanning_validator : String = ""
   @scanning_secret : String = ""
   @api_key : String = ""
@@ -187,6 +191,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   protected def rate_limiter
     loop do
+      break if @channel.closed?
       begin
         @channel.send(nil)
       rescue error
@@ -197,6 +202,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   rescue
     # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter }
+    spawn { rate_limiter } unless @channel.closed?
   end
 end
