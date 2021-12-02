@@ -101,7 +101,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "Authorization" => "Bearer #{token}",
     })
 
-    raise "unexpected response for stafff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
+    raise "unexpected response for staff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
       JSON.parse(response.body)
