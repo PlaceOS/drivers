@@ -36,7 +36,7 @@ class Vergesense::LocationService < PlaceOS::Driver
   end
 
   def on_update
-    @return_empty_spaces = setting(Bool, :return_empty_spaces) || false
+    @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.values.map do |z|
       level = z[:level_id]
