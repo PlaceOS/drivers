@@ -19,6 +19,7 @@ module Juniper
     include JSON::Serializable::Unmapped
 
     property name : String
+    property id : String
 
     use_json_discriminator "type", {
       "image"  => MapImage,
