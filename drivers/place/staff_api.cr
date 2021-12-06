@@ -585,11 +585,7 @@ end
 class OpenSSL::SSL::Context::Client
   def initialize(method : LibSSL::SSLMethod = Context.default_method)
     super(method)
-
     self.verify_mode = OpenSSL::SSL::VerifyMode::NONE
-    {% if compare_versions(LibSSL::OPENSSL_VERSION, "1.0.2") >= 0 %}
-      self.default_verify_param = "ssl_server"
-    {% end %}
   end
 end
 
