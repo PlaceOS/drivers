@@ -1,6 +1,8 @@
 require "placeos-driver"
 require "./mist_models"
 
+# docs: https://aca.im/driver_docs/Juniper/mist_site_api.pdf
+
 class Juniper::MistWebsocket < PlaceOS::Driver
   generic_name :MistWebsocket
   descriptive_name "Juniper Mist Websocket"
