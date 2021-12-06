@@ -10,6 +10,9 @@ class Juniper::MistWebsocket < PlaceOS::Driver
 
   uri_base "wss://api.mist.com/api-ws/v1/stream"
   default_settings({
+    headers: {
+      "Authorization" => "Token api_token",
+    },
     api_token:        "token",
     site_id:          "site_id",
     ignore_usernames: ["host/"],
