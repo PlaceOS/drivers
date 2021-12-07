@@ -1,6 +1,7 @@
 require "placeos-driver"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
+require "./meet/qsc_phone_dialing"
 
 class Place::Meet < PlaceOS::Driver
   generic_name :System
@@ -41,6 +42,9 @@ class Place::Meet < PlaceOS::Driver
       "Projector_1" => "Screen_1",
     },
   })
+
+  EXT_INIT  = [] of Symbol
+  EXT_POWER = [] of Symbol
 end
 
 require "./router"
@@ -87,23 +91,13 @@ class Tab
   end
 end
 
-# This data will be stored in the tab
-class QscPhone
-  include JSON::Serializable
-
-  getter number_id : String
-  getter dial_id : String
-  getter hangup_id : String
-  getter status_id : String
-  getter ringing_id : String
-  getter offhook_id : String
-  getter dtmf_id : String
-end
-
 class Place::Meet < PlaceOS::Driver
   include Interface::Muteable
   include Interface::Powerable
   include Router::Core
+
+  # extensions:
+  include Place::QSCPhoneDialing
 
   def on_load
     init_previous_join_state
@@ -145,6 +139,15 @@ class Place::Meet < PlaceOS::Driver
     init_microphones
     init_vidconf
     init_joining
+
+    # initialize all the extentsions
+    {% for func in EXT_INIT %}
+      begin
+        {{func.id}}
+      rescue error
+        logger.warn(exception: error) { "error in init function: #{ {{func.id.stringify}} }" }
+      end
+    {% end %}
   end
 
   # link screen control to power state
@@ -207,6 +210,16 @@ class Place::Meet < PlaceOS::Driver
     end
 
     remotes_before.each { |room| room.power(state, unlink) }
+
+    # perform power state actions
+    {% for func in EXT_POWER %}
+      begin
+        {{func.id}}(state, unlink)
+      rescue error
+        logger.warn(exception: error) { "error in power state function: #{ {{func.id.stringify}} }" }
+      end
+    {% end %}
+
     state
   end
 
