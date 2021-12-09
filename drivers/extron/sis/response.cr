@@ -57,7 +57,7 @@ module Extron::SIS::Response
     _ <= Parse.char(' '),
     input <= Parse.string("In") >> num(Input),
     _ <= Parse.char(' '),
-    layer <= word_as_enum(SwitchLayer),
+    layer <= word_as_enum(MatrixLayer),
     Parse.const SIS::Tie.new input, output, layer,
   })
 
@@ -65,7 +65,7 @@ module Extron::SIS::Response
   Switch = Parse.do({
     input <= Parse.string("In") >> num(Input),
     _ <= Parse.char(' '),
-    layer <= word_as_enum(SwitchLayer),
+    layer <= word_as_enum(MatrixLayer),
     Parse.const SIS::Switch.new input, layer,
   })
 

@@ -119,11 +119,12 @@ class Denon::Amplifier::AvReceiver < PlaceOS::Driver
     unmute
   end
 
-  def volume(level : Int32 = 0)
-    value = 0
-    value = level if @volume_range.includes?(level.to_i)
+  def volume(level : Float64 | Int32 = 0)
+    level = level.to_f.clamp(0.0, 100.0)
+    return if self[:volume] == level
 
-    return if self[:volume] == value
+    percentage = level / 100.0
+    value = (percentage * @volume_range.end.to_f).round_away.to_i
 
     # The denon is weird 99 is volume off,
     # 99.5 is the minimum volume,
@@ -135,7 +136,6 @@ class Denon::Amplifier::AvReceiver < PlaceOS::Driver
     req += "5" if step != 0
 
     do_send(:volume, req, name: :volume) # Name prevents needless queuing of commands
-
   end
 
   def volume?
@@ -177,7 +177,8 @@ class Denon::Amplifier::AvReceiver < PlaceOS::Driver
       # self[:volume] = 0
       # vol = val.to_i32
       # self[:volume] = val unless val.to_i32 > @volume_range.max
-      self[:volume] = val
+      vol_percent = ((val.to_f * 2) / @volume_range.end.to_f) * 100.0
+      self[:volume] = vol_percent
       #    return :ignore if param.length > 3 # May send 'MVMAX 98' after volume command
       #    vol = param[0..1].to_i * 2
       #    vol += 1 if param.length == 3

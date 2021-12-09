@@ -26,13 +26,16 @@ module Cisco::CollaborationEndpoint
 
   protected getter feedback : Feedback = Feedback.new
   @ready : Bool = false
+  @init_called : Bool = false
 
   # Camera idx => Preset name => Preset id
   alias Presets = Hash(Int32, Hash(String, Int32))
   @presets : Presets = {} of Int32 => Hash(String, Int32)
+  @feedback_paths : Array(String) = [] of String
 
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
+    queue.delay = 50.milliseconds
     @peripheral_id = setting?(String, :peripheral_id)
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:camera_presets] = @presets.transform_values { |val| val.keys }
@@ -58,14 +61,29 @@ module Cisco::CollaborationEndpoint
     disconnect
   end
 
+  @last_received : Int64 = 0_i64
+
   def connected
-    schedule.every(30.seconds) { heartbeat timeout: 35 }
-    schedule.in(30.seconds) { disconnect unless @ready }
-    @@status_mappings.each { |key, path| bind_status(path, key.to_s) }
+    schedule.every(2.minutes) { ensure_feedback_registered }
+    schedule.every(30.seconds) do
+      if @last_received > 40.seconds.ago.to_unix
+        heartbeat timeout: 35
+      else
+        disconnect
+      end
+    end
+    schedule.in(10.seconds) do
+      if !@ready
+        init_connection unless @init_called
+        schedule.in(15.seconds) { disconnect unless @ready }
+      end
+    end
   end
 
   def disconnected
     @ready = false
+    @init_called = false
+    @feedback_paths = [] of String
     transport.tokenizer = nil
     queue.clear abort_current: true
 
@@ -75,6 +93,16 @@ module Cisco::CollaborationEndpoint
 
   def generate_request_uuid
     UUID.random.to_s
+  end
+
+  def ensure_feedback_registered
+    send "xPreferences OutputMode JSON\n", priority: 0, wait: false, name: "output_json"
+    @feedback_paths.each do |path|
+      request = XAPI.xfeedback :register, path
+      # Always returns an empty response, nothing special to handle
+      do_send request, priority: 0, name: path
+    end
+    @feedback_paths.size
   end
 
   # ------------------------------
@@ -217,6 +245,7 @@ module Cisco::CollaborationEndpoint
   # Base comms
 
   protected def init_connection
+    @init_called = true
     transport.tokenizer = Tokenizer.new do |io|
       raw = io.gets_to_end
       data = raw.lstrip
@@ -243,17 +272,25 @@ module Cisco::CollaborationEndpoint
       index || -1
     end
 
-    send "Echo off\n", priority: 96 do |data, task|
-      response = String.new(data)
-      task.success if response.includes? "\e[?1034h"
-    end
-
-    send "xPreferences OutputMode JSON\n", priority: 95, wait: false
-
-    register_control_system
+    send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
+    register_control_system.get
+    @ready = true
 
     push_config
     sync_config
+  rescue error
+    logger.warn(exception: error) { "error configuring xapi transport" }
+  ensure
+    @@status_mappings.each do |key, path|
+      begin
+        bind_status(path, key.to_s)
+      rescue error
+        logger.warn(exception: error) { "failed to bind status #{path} (#{key})" }
+      end
+    end
+
+    driver = self
+    driver.connection_ready if driver.responds_to?(:connection_ready)
   end
 
   protected def do_send(command, multiline_body = nil, **options)
@@ -274,6 +311,7 @@ module Cisco::CollaborationEndpoint
   end
 
   def received(data, task)
+    @last_received = Time.utc.to_unix
     payload = String.new(data)
     logger.debug { "<- #{payload}" }
 
@@ -281,7 +319,7 @@ module Cisco::CollaborationEndpoint
       if payload =~ XAPI::LOGIN_COMPLETE
         @ready = true
         logger.info { "Connection ready, initializing connection" }
-        init_connection
+        init_connection unless @init_called
       end
       return
     end
@@ -317,12 +355,23 @@ module Cisco::CollaborationEndpoint
 
   # Subscribe to feedback from the device.
   def register_feedback(path : String, &update_handler : Proc(String, Enumerable::JSONComplex, Nil))
+    if !@ready
+      unless feedback.contains? path
+        @feedback_paths << path
+        @feedback_paths.uniq!
+        feedback.insert(path, &update_handler)
+      end
+      return true
+    end
+
     logger.debug { "Subscribing to device feedback for #{path}" }
 
     unless feedback.contains? path
+      @feedback_paths << path
+      @feedback_paths.uniq!
       request = XAPI.xfeedback :register, path
       # Always returns an empty response, nothing special to handle
-      result = do_send request
+      result = do_send request, name: path
     end
 
     feedback.insert path, &update_handler

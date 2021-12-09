@@ -51,17 +51,34 @@ class Cisco::RoomKit < PlaceOS::Driver
     Remote
   end
 
-  @presentation_mode : PresentationMode = PresentationMode::Remote
+  @presentation_mode : PresentationMode = PresentationMode::None
   @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new
 
   def connected
     super
+    schedule.in(40.seconds) { connection_ready }
+    @feedback_paths = ["/Event/PresentationPreviewStarted", "/Event/PresentationPreviewStopped", "/Status/Call"]
+  end
+
+  protected def connection_ready
+    subscriptions.clear
+    subscribe("presentation") do |_sub, state|
+      if state != "null"
+        # presentation is typically false or "Sending"
+        if state == "false"
+          self[:presentation_mode] = @presentation_mode
+        else
+          self[:presentation_mode] = PresentationMode::Remote
+        end
+      end
+    end
 
     register_feedback "/Event/PresentationPreviewStarted" do
-      self[:presentation_mode] = @presentation_mode
+      self[:presentation_mode] = PresentationMode::Local
     end
     register_feedback "/Event/PresentationPreviewStopped" do
-      self[:presentation_mode] = PresentationMode::None
+      @presentation_mode = PresentationMode::None
+      self[:presentation_mode] = @presentation_mode if self[:presentation]? == false
     end
 
     @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new do |hash, key|
@@ -283,12 +300,12 @@ class Cisco::RoomKit < PlaceOS::Driver
   def presentation_mode(value : PresentationMode)
     case value
     in .remote?
-      @presentation_mode = PresentationMode::Remote
       presentation_start sending_mode: :LocalRemote
     in .local?
       @presentation_mode = PresentationMode::Local
       presentation_start sending_mode: :LocalOnly
     in .none?
+      @presentation_mode = PresentationMode::None
       presentation_stop
     end
   end

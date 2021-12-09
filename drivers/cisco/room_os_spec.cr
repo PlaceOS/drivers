@@ -132,7 +132,6 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
   # ====
   # Connection setup
   puts "\nCONNECTION SETUP:\n=============="
-  should_send("Echo off\n").responds "\e[?1034h\r\nOK\r\n"
   should_send "xPreferences OutputMode JSON\n"
 
   # ====
@@ -164,15 +163,6 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
     "ResultId": "#{id}"
   })
 
-  # MAPS Status ====
-  data = String.new expect_send
-  data.starts_with?(%(xFeedback Register /Status/Audio/Volume | resultId=")).should be_true
-  id = data.split('"')[-2]
-
-  responds %({
-    "ResultId": "#{id}"
-  })
-
   data = String.new expect_send
   data.starts_with?(%(xConfiguration Audio Input Line 1 VideoAssociation MuteOnInactiveVideo: "On" | resultId=")).should be_true
   id = data.split('"')[-2]
@@ -189,24 +179,7 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
     "ResultId": "#{id}"
   })
 
-  data = String.new expect_send
-  data.starts_with?(%(xStatus Audio Volume | resultId=")).should be_true
-  id = data.split('"')[-2]
-
-  responds %({
-              "Status":{
-                  "Audio":{
-                      "Volume":{
-                          "Value":"50"
-                      }
-                  }
-              },
-              "ResultId": "#{id}"
-          })
-
-  # Finish mapping status
-  status[:volume].should eq(50)
-
+  # MAPS Status ====
   data = String.new expect_send
   data.starts_with?(%(xFeedback Register /Configuration | resultId=")).should be_true
   id = data.split('"')[-2]
@@ -326,6 +299,34 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
     },
     "/Audio/Microphones/Mute/Enabled" => true,
   })
+
+  data = String.new expect_send
+  puts "GOT: #{data}"
+  data.starts_with?(%(xFeedback Register /Status/Audio/Volume | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+    "ResultId": "#{id}"
+  })
+
+  data = String.new expect_send
+  puts "GOT: #{data}"
+  data.starts_with?(%(xStatus Audio Volume | resultId=")).should be_true
+  id = data.split('"')[-2]
+
+  responds %({
+              "Status":{
+                  "Audio":{
+                      "Volume":{
+                          "Value":"50"
+                      }
+                  }
+              },
+              "ResultId": "#{id}"
+          })
+
+  # Finish mapping status
+  status[:volume].should eq(50)
 
   # ====
   # Audio Status

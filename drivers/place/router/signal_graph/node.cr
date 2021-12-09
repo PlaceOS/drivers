@@ -49,6 +49,10 @@ class Place::Router::SignalGraph
         self[key] = JSON::Any.new value.to_i64
       end
 
+      def []=(key, value : Float)
+        self[key] = JSON::Any.new value.to_f64
+      end
+
       def []=(key, value : Array)
         self[key] = JSON::Any.new value.map { |x| JSON::Any.new x }
       end
@@ -87,6 +91,14 @@ class Place::Router::SignalGraph
       # Node identifier for usage as the graph ID.
       def id
         self.class.hash ^ self.hash
+      end
+
+      abstract def mod
+
+      DEFAULT_LAYER = "all"
+
+      def layer
+        DEFAULT_LAYER
       end
 
       def ==(other : Ref)
@@ -146,8 +158,8 @@ class Place::Router::SignalGraph
     #
     # These take the cannonical string form of:
     #
-    #   sys-abc123/Switcher_1.1
-    #   │          │        │ │
+    #   sys-abc123/Switcher_1.1!video
+    #   │          │        │ │ │_layer
     #   │          │        │ └output
     #   │          │        └module index
     #   │          └module namme
@@ -156,16 +168,20 @@ class Place::Router::SignalGraph
     struct DeviceOutput < Ref
       getter mod : Mod
       getter output : Int32 | String
+      getter layer : String
 
-      def initialize(sys, name, idx, @output)
+      def initialize(sys, name, idx, @output, layer)
         @mod = Mod.new sys, name, idx
+        @layer = layer.try(&.downcase) || DEFAULT_LAYER
       end
 
       def initialize(@mod, @output)
+        @layer = DEFAULT_LAYER
       end
 
       def to_s(io)
         io << mod << '.' << output
+        io << '!' << @layer unless @layer == DEFAULT_LAYER
       end
 
       def self.parse?(ref) : self?
@@ -225,8 +241,12 @@ class Place::Router::SignalGraph
         0_u64
       end
 
+      def mod
+      end
+
       def self.parse?(ref) : self?
-        instance if ref.upcase == "MUTE"
+        # See Ref#resolve? on line 82 of this file for what is passed here
+        instance if ref.upcase.ends_with?("MUTE")
       end
 
       def to_s(io)

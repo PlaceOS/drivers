@@ -36,8 +36,15 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     floorsense_lookup_key:   "floorsensedeskid",
     create_floorsense_users: false,
+
+    # Keys to map into ad-hoc bookings
+    meta_ext_mappings: {
+      "neighbourhoodID" => "neighbourhood",
+      "features"        => "deskAttributes",
+    },
   })
 
+  @meta_ext_mappings : Hash(String, String) = {} of String => String
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
   # Level zone => plan_id
   @zone_mappings : Hash(String, String) = {} of String => String
@@ -86,7 +93,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       @zone_mappings[level] = plan_id
     end
 
-    time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
+    @meta_ext_mappings = setting?(Hash(String, String), :meta_ext_mappings) || {} of String => String
+
+    time_zone = setting?(String, :time_zone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
 
     schedule.clear
@@ -130,7 +139,16 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     # Check if there is a desk mapping
     booking_key = booking.key
     level_id = floor_details[:level_id]
-    asset_id = @desk_mapping_cache[level_id][booking_key]?.try(&.place_id) || booking_key
+
+    if metadata = @desk_mapping_cache[level_id][booking_key]?
+      title = metadata.title
+      ext_data = metadata.ext_data
+      asset_id = metadata.place_id
+    else
+      title = asset_id = booking_key
+      ext_data = {} of String => JSON::Any
+    end
+    ext_data["floorsense_booking_id"] = JSON::Any.new(booking.booking_id)
 
     staff_api.create_booking(
       booking_start: booking.start,
@@ -143,9 +161,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       user_name: user_name,
       zones: [floor_details[:building_id]?, level_id].compact,
       checked_in: true,
-      extension_data: {
-        floorsense_id: booking.booking_id,
-      },
+      approved: true,
+      title: title,
+      extension_data: ext_data,
     ).get
 
     area_management.update_available([floor_details[:level_id]])
@@ -251,7 +269,16 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
           # Check if there is a desk mapping
           booking_key = booking.key
           level_id = floor_details[:level_id]
-          asset_id = @desk_mapping_cache[level_id][booking_key]?.try(&.place_id) || booking_key
+
+          if metadata = @desk_mapping_cache[level_id][booking_key]?
+            title = metadata.title
+            ext_data = metadata.ext_data
+            asset_id = metadata.place_id
+          else
+            title = asset_id = booking_key
+            ext_data = {} of String => JSON::Any
+          end
+          ext_data["floorsense_booking_id"] = JSON::Any.new(booking.booking_id)
 
           staff_api.create_booking(
             booking_start: booking.start,
@@ -264,9 +291,9 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
             user_name: user_name,
             zones: [floor_details[:building_id]?, level_id].compact,
             checked_in: true,
-            extension_data: {
-              floorsense_id: event.bkid,
-            },
+            approved: true,
+            title: title,
+            extension_data: ext_data,
           ).get
         when 50 # BOOKING_RELEASE (booking ended)
           # ignore bookings that were cancelled outside of today
@@ -406,7 +433,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       found = false
       place_bookings.each do |booking|
         # match using extenstion data
-        if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_id"]?.try(&.as_s)) && floor_id == floor_booking.booking_id
+        if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_booking_id"]?.try(&.as_s)) && floor_id == floor_booking.booking_id
           found = true
           place_booking_checked << booking.id.to_s
         else
@@ -434,9 +461,15 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     place_bookings.each do |booking|
       booking_id = booking.id.to_s
       next if place_booking_checked.includes?(booking_id)
+      next if time_now >= booking.booking_end
+
       place_booking_checked << booking_id
 
-      next if time_now >= booking.booking_end
+      # if we get to here then the floor booking was released
+      if (ext_data = booking.extension_data) && (floor_id = ext_data["floorsense_booking_id"]?.try(&.as_s))
+        release_place_bookings << {booking, 1.minute.ago.to_unix}
+        next
+      end
 
       found = false
       other.each do |floor_booking|
@@ -532,19 +565,34 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       user_name = user["name"]
       user_email = user["email"]
 
+      # Check if there is a desk mapping
+      booking_key = booking.key
+      level_id = floor_details[:level_id]
+
+      if metadata = @desk_mapping_cache[level_id][booking_key]?
+        title = metadata.title
+        ext_data = metadata.ext_data
+        asset_id = metadata.place_id
+      else
+        title = asset_id = booking.place_id
+        ext_data = {} of String => JSON::Any
+      end
+      ext_data["floorsense_booking_id"] = JSON::Any.new(booking.booking_id)
+
       local_staff_api.create_booking(
         booking_start: booking.start,
         booking_end: booking.finish,
+        time_zone: @time_zone.to_s,
         booking_type: @booking_type,
         asset_id: booking.place_id,
         user_id: user_id,
         user_email: user_email,
         user_name: user_name,
-        checked_in: booking.confirmed,
-        zones: [floor_details[:building_id]?, floor_details[:level_id]].compact,
-        extension_data: {
-          floorsense_id: booking.booking_id,
-        },
+        checked_in: true,
+        approved: true,
+        title: title,
+        zones: [floor_details[:building_id]?, level_id].compact,
+        extension_data: ext_data,
       )
     end
 
@@ -618,18 +666,18 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     current = [] of BookingStatus
     start_of_day = Time.local(@time_zone).at_beginning_of_day
-    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day
+    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day - 1.minute
 
     raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get.to_json
     Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
-      current << bookings.first unless bookings.empty?
+      current.concat bookings
     end
     current
   end
 
   def placeos_bookings(zone_id : String)
     start_of_day = Time.local(@time_zone).at_beginning_of_day
-    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day
+    tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day - 1.minute
 
     bookings = staff_api.query_bookings(
       type: @booking_type,
@@ -652,13 +700,25 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
       lookup_key = @floorsense_lookup_key
       metadata.each do |desk|
-        place_id = desk["id"]?.try(&.as_s)
+        desk = desk.as_h
+        place_id = desk["id"]?.try(&.as_s.presence)
         next unless place_id
 
-        floor_id = desk[lookup_key]?.try(&.as_s)
+        floor_id = desk[lookup_key]?.try(&.as_s.presence)
         next unless floor_id
 
-        ids = DeskMeta.new(place_id, floor_id, building_id)
+        # Additional data for adhoc bookings
+        ext_data = {
+          "floorsense_id" => JSON::Any.new(floor_id),
+        }
+        title = desk["name"]?.try(&.as_s) || place_id
+        @meta_ext_mappings.each do |meta_key, ext_key|
+          if value = desk[meta_key]?
+            ext_data[ext_key] = value
+          end
+        end
+
+        ids = DeskMeta.new(place_id, floor_id, building_id, title, ext_data)
         desk_lookup[place_id] = ids
         desk_lookup[floor_id] = ids
       end
@@ -672,12 +732,14 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   struct DeskMeta
     include JSON::Serializable
 
-    def initialize(@place_id, @floor_id, @building = nil)
+    def initialize(@place_id, @floor_id, @building, @title, @ext_data)
     end
 
     property place_id : String
     property floor_id : String
     property building : String?
+    getter ext_data : Hash(String, JSON::Any)
+    getter title : String
   end
 
   class Booking

@@ -177,19 +177,21 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     power? unless self[:hard_off]?.try &.as_bool
   end
 
+  alias Num = Int32 | Float64
+
   DEVICE_SETTINGS = {
     network_standby: Bool,
     auto_off_timer:  Bool,
     auto_power:      Bool,
-    volume:          Int32,
-    contrast:        Int32,
-    brightness:      Int32,
-    sharpness:       Int32,
-    colour:          Int32,
-    tint:            Int32,
-    red_gain:        Int32,
-    green_gain:      Int32,
-    blue_gain:       Int32,
+    volume:          Num,
+    contrast:        Num,
+    brightness:      Num,
+    sharpness:       Num,
+    colour:          Num,
+    tint:            Num,
+    red_gain:        Num,
+    green_gain:      Num,
+    blue_gain:       Num,
   }
   {% for name, kind in DEVICE_SETTINGS %}
     @[Security(Level::Administrator)]
@@ -197,8 +199,8 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
       {% if kind.resolve == Bool %}
         state = value ? 1 : 0
         data = {{name.id.stringify}} == "auto_off_timer" ? Bytes[0x81, state] : state
-      {% elsif kind.resolve == Int32 %}
-        data = value.clamp(0, 100)
+      {% else %}
+        data = value.to_f.clamp(0.0, 100.0).round_away.to_i
       {% end %}
       do_send(Command.parse({{name.id.stringify}}), data, **options)
     end
@@ -207,7 +209,7 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
   def do_device_config
     {% for name, kind in DEVICE_SETTINGS %}
       %value = setting?({{kind}}, {{name.id.stringify}})
-      {{name.id}}(%value) unless %value.nil?
+      {{name.id}}(%value) if %value
     {% end %}
   end
 
