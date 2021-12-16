@@ -56,8 +56,8 @@ class Lutron::ViveLeap < PlaceOS::Driver
     # this request needs to be made before anything else to negotiate protocol version
     request = Request.new("/clientsetting", :update_request, {
       ClientSetting: {
-        ClientMajorVersion: 1
-      }
+        ClientMajorVersion: 1,
+      },
     })
     send request.to_json, priority: 99, name: request.name?
 
@@ -69,9 +69,9 @@ class Lutron::ViveLeap < PlaceOS::Driver
     request = Request.new("/login", :update_request, {
       Login: {
         ContextType: "Application",
-        LoginId: @username,
-        Password: @password
-      }
+        LoginId:     @username,
+        Password:    @password,
+      },
     })
     send request.to_json, priority: 99, name: request.name?
   end
@@ -106,11 +106,11 @@ class Lutron::ViveLeap < PlaceOS::Driver
   def zone_level(zone_id : String | Int32, level : Float64)
     request = Request.new("/zone/#{zone_id}/commandprocessor", :create_request, {
       Command: {
-        CommandType: "GoToDimmedLevel",
+        CommandType:           "GoToDimmedLevel",
         DimmedLevelParameters: {
-          Level: level
-        }
-      }
+          Level: level,
+        },
+      },
     })
     send request.to_json, name: request.name?
   end
@@ -118,11 +118,11 @@ class Lutron::ViveLeap < PlaceOS::Driver
   def zone_lighting(zone_id : String | Int32, state : Bool)
     request = Request.new("/zone/#{zone_id}/commandprocessor", :create_request, {
       Command: {
-        CommandType: "GoToSwitchedLevel",
+        CommandType:             "GoToSwitchedLevel",
         SwitchedLevelParameters: {
-          SwitchedLevel: state ? "On" : "Off"
-        }
-      }
+          SwitchedLevel: state ? "On" : "Off",
+        },
+      },
     })
     send request.to_json, name: request.name?
   end
@@ -130,11 +130,11 @@ class Lutron::ViveLeap < PlaceOS::Driver
   def zone_contact_closure(zone_id : String | Int32, state : Bool)
     request = Request.new("/zone/#{zone_id}/commandprocessor", :create_request, {
       Command: {
-        CommandType: "GoToCCOLevel",
+        CommandType:        "GoToCCOLevel",
         CCOLevelParameters: {
-          CCOLevel: state ? "Closed" : "Open"
-        }
-      }
+          CCOLevel: state ? "Closed" : "Open",
+        },
+      },
     })
     send request.to_json, name: request.name?
   end
