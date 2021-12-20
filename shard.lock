@@ -37,6 +37,10 @@ shards:
     git: https://github.com/kostya/cron_parser.git
     version: 0.4.0
 
+  crunits:
+    git: https://github.com/spider-gazelle/crunits.git
+    version: 1.1.0
+
   db:
     git: https://github.com/crystal-lang/crystal-db.git
     version: 0.10.1
@@ -55,7 +59,7 @@ shards:
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.2.4
+    version: 1.2.5
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -107,7 +111,7 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.5.0
+    version: 0.5.1
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
@@ -127,7 +131,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.11
+    version: 1.14.0
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -139,7 +143,7 @@ shards:
 
   pars:
     git: https://github.com/place-labs/pars.git
-    version: 1.1.0+git.commit.16bf2c909110cc148818f7af298afeded538123c
+    version: 1.1.0
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -147,11 +151,11 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.10.2
+    version: 4.12.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.4.3
+    version: 2.4.4
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -163,15 +167,15 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.5.5
+    version: 5.9.8
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
-    version: 0.5.1
+    version: 0.6.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.10.0
+    version: 5.14.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -179,7 +183,7 @@ shards:
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
-    version: 2.2.3
+    version: 3.0.0
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
@@ -187,7 +191,7 @@ shards:
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
-    version: 2.8.2
+    version: 2.8.3
 
   redis-cluster:
     git: https://github.com/caspiano/redis-cluster.cr.git
@@ -202,12 +206,12 @@ shards:
     version: 1.2.3
 
   rethinkdb:
-    git: https://github.com/kingsleyh/crystal-rethinkdb.git
-    version: 0.3.0
+    git: https://github.com/place-labs/crystal-rethinkdb.git
+    version: 0.3.1+git.commit.af92ace5eb60e861a41b93456ac5d73b80feb7bb
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 5.0.1
+    version: 5.0.2
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git

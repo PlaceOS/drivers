@@ -145,7 +145,13 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   end
 
   protected def req(location : String)
-    yield dashboard.fetch(location).get.as_s
+    response = dashboard.fetch(location).get.as_s
+    begin
+      yield response
+    rescue error
+      logger.debug(exception: error) { "processing failed for #{location} with response: #{response}" }
+      raise error
+    end
   end
 
   protected def req_all(location : String)
@@ -606,28 +612,32 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   def update_sensor_cache
     analytics = {} of String => CamAnalytics
     cameras.each do |cam|
-      mappings = @floorplan_mappings[cam.floor_plan_id]?
-      counts = camera_analytics(cam.serial)
-      mac = format_mac(cam.mac)
-      if mappings
-        analytics[mac] = {
-          camera:   cam,
-          details:  counts,
-          building: mappings["building"]?.as(String?),
-          level:    mappings["level"]?.as(String?),
-        }
-      else
-        analytics[mac] = {
-          camera:   cam,
-          details:  counts,
-          building: nil.as(String?),
-          level:    nil.as(String?),
-        }
-      end
+      begin
+        mappings = @floorplan_mappings[cam.floor_plan_id]?
+        counts = camera_analytics(cam.serial)
+        mac = format_mac(cam.mac)
+        if mappings
+          analytics[mac] = {
+            camera:   cam,
+            details:  counts,
+            building: mappings["building"]?.as(String?),
+            level:    mappings["level"]?.as(String?),
+          }
+        else
+          analytics[mac] = {
+            camera:   cam,
+            details:  counts,
+            building: nil.as(String?),
+            level:    nil.as(String?),
+          }
+        end
 
-      counts.zones.each do |area_id, count|
-        self["people-#{mac}-#{area_id}"] = count.person
-        self["presence-#{mac}-#{area_id}"] = count.person > 0
+        counts.zones.each do |area_id, count|
+          self["people-#{mac}-#{area_id}"] = count.person
+          self["presence-#{mac}-#{area_id}"] = count.person > 0
+        end
+      rescue error
+        logger.debug(exception: error) { "failed to obtain analytics for #{cam.name} (serial: #{cam.serial})" }
       end
     end
     @camera_analytics = analytics
@@ -843,7 +853,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   protected def to_sensors(zone_id, filter, camera, details, building, level)
     sensors = [] of Interface::Sensor::Detail
-    return sensors if zone_id && !zone_id.in?({building, level})
+    return sensors if zone_id && (building || level) && !zone_id.in?({building, level})
 
     formatted_mac = format_mac(camera.mac)
 

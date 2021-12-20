@@ -71,6 +71,7 @@ class Place::LocationServices < PlaceOS::Driver
   # requests location information on the identifier for all of them
   # concatenates the results and returns them as a single array
   def locate_user(email : String? = nil, username : String? = nil)
+    email = email.try &.downcase
     logger.debug { "searching for #{email}, #{username}" }
     located = [] of JSON::Any
     system.implementing(Interface::Locatable).locate_user(email, username).get.each do |locations|
@@ -107,6 +108,7 @@ class Place::LocationServices < PlaceOS::Driver
   # Will return an array of MAC address strings
   # lowercase with no seperation characters abcdeffd1234 etc
   def macs_assigned_to(email : String? = nil, username : String? = nil)
+    email = email.try &.downcase
     logger.debug { "listing MAC addresses assigned to #{email}, #{username}" }
     macs = [] of String
     system.implementing(Interface::Locatable).macs_assigned_to(email, username).get.each do |found|

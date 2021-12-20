@@ -376,7 +376,7 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
 
-    people_counts = sensors.delete(SensorType::PeopleCount)
+    people_counts = sensors[SensorType::PeopleCount]?
     sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
       if values.size > 0
         (values.sum(&.value) / values.size).round(@rounding_precision)
@@ -385,7 +385,7 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
     if people_counts
-      sensor_summary["people_count"] = people_counts.sum(&.value)
+      sensor_summary["people_count_sum"] = people_counts.sum(&.value)
     end
 
     # build the level overview
@@ -397,8 +397,8 @@ class Place::AreaManagement < PlaceOS::Driver
     }
 
     # we need to know the map dimensions to be able to count people in areas
-    map_width = -1.0
-    map_height = -1.0
+    map_width = 100.0
+    map_height = 100.0
 
     if tmp_loc = xy_locs[0]?
       # ensure map width and height are known
@@ -413,10 +413,6 @@ class Place::AreaManagement < PlaceOS::Driver
       when Int64, Float64
         map_height = map_height_raw.to_f
       end
-    elsif sensor_summary.size > 0
-      # all sensor x, y values are % based
-      map_width = 100.0
-      map_height = 100.0
     end
 
     # Calculate the device counts for each area
@@ -457,7 +453,7 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
 
-        people_counts = area_sensors.delete(SensorType::PeopleCount)
+        people_counts = area_sensors[SensorType::PeopleCount]?
         sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
           if values.size > 0
             (values.sum(&.value) / values.size).round(@rounding_precision)
@@ -466,7 +462,7 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
         if people_counts
-          sensor_summary["people_count"] = people_counts.sum(&.value)
+          sensor_summary["people_count_sum"] = people_counts.sum(&.value)
         end
 
         area_counts << {

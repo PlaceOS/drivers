@@ -27,6 +27,7 @@ class Place::Bookings < PlaceOS::Driver
     catering_ui: "https://if.panel/to_be_used_for_catering",
 
     include_cancelled_bookings: false,
+    hide_qr_code:               false,
   })
 
   accessor calendar : Calendar_1
@@ -56,7 +57,7 @@ class Place::Bookings < PlaceOS::Driver
     @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
 
     @perform_sensor_search = true
-    schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_events }
+    schedule.in(Random.rand(59).seconds + Random.rand(1000).milliseconds) { poll_events }
 
     cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
     cache_polling_period += Random.rand(30).seconds + Random.rand(1000).milliseconds
@@ -95,6 +96,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
+
+    self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
   end
 
   # This is how we check the rooms status

@@ -11,15 +11,15 @@ DriverSpecs.mock_driver "Biamp::Nexia" do
   should_send("RECALL 0 PRESET 1001\n")
   responds("#RECALL 0 PRESET 1001 +OK\r\n")
 
-  exec(:fader, 1, -100)
+  exec(:fader, 1, 0.0)
   should_send("SETD 1 FDRLVL 1 1 -100.0\n")
   responds("#SETD 1 FDRLVL 1 1 -100.0 +OK\r\n")
-  status["fader1_1"].should eq(-100.0)
+  status["fader1_1"].should eq(0.0)
 
-  exec(:fader, 1, -75, 2, "matrix_in")
-  should_send("SETD 1 MMLVLIN 1 2 -75.0\n")
-  responds("#SETD 1 MMLVLIN 1 2 -75.0 +OK\r\n")
-  status["matrix_in1_2"].should eq(-75.0)
+  exec(:fader, 1, 100.0, 2, "matrix_in")
+  should_send("SETD 1 MMLVLIN 1 2 12.0\n")
+  responds("#SETD 1 MMLVLIN 1 2 12.0 +OK\r\n")
+  status["matrix_in1_2"].should eq(100.0)
 
   exec(:mute, 1234, false, 3)
   should_send("SETD 1 FDRMUTE 1234 3 0\n")
@@ -39,7 +39,7 @@ DriverSpecs.mock_driver "Biamp::Nexia" do
   exec(:query_fader, 133)
   should_send("GETD 1 FDRLVL 133 1\n")
   responds("#GETD 1 FDRLVL 133 1 -100.0\r\n")
-  status["fader133_1"].should eq(-100.0)
+  status["fader133_1"].should eq(0.0)
 
   exec(:query_mute, 155)
   should_send("GETD 1 FDRMUTE 155 1\n")

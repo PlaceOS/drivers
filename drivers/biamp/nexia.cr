@@ -70,8 +70,21 @@ class Biamp::Nexia < PlaceOS::Driver
     IoOut            = "OUTLVL"
   end
 
-  def fader(id : Int32, level : Float32, index : Int32 = 1, type : Faders = Faders::Fader)
-    send Command[:SETD, device_id, type.mapped_value, id, index, level], name: "fader_#{id}"
+  protected def get_range(type : Faders)
+    return -100..0 if type.matrix_crosspoint?
+    -100..12
+  end
+
+  def fader(id : Int32, level : Float64 | Int32, index : Int32 = 1, type : Faders = Faders::Fader)
+    level = level.to_f.clamp(0.0, 100.0)
+    percentage = level / 100.0
+    range = get_range type
+
+    # adjust into range
+    level_actual = percentage * (range.size - 1).to_f
+    level_actual = level_actual + range.begin.to_f
+
+    send Command[:SETD, device_id, type.mapped_value, id, index, level_actual], name: "fader_#{id}"
   end
 
   def query_fader(id : Int32, index : Int32 = 1, type : Faders = Faders::Fader)
@@ -130,8 +143,11 @@ class Biamp::Nexia < PlaceOS::Driver
         id, index = response.params
         self["#{mute.to_s.underscore}#{id}_#{index}_mute"] = response.value == "1"
       elsif fader = Faders.from_mapped_value? response.attribute
+        range = get_range fader
+        vol_percent = ((response.value.to_f - range.begin.to_f) / (range.size - 1).to_f) * 100.0
+
         id, index = response.params
-        self["#{fader.to_s.underscore}#{id}_#{index}"] = response.value.to_f
+        self["#{fader.to_s.underscore}#{id}_#{index}"] = vol_percent
       end
     end
   end

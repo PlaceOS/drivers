@@ -101,7 +101,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "Authorization" => "Bearer #{token}",
     })
 
-    raise "unexpected response for stafff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
+    raise "unexpected response for staff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
       JSON.parse(response.body)
@@ -144,6 +144,16 @@ class Place::StaffAPI < PlaceOS::Driver
       logger.debug { "issue parsing:\n#{response.body.inspect}" }
       raise error
     end
+  end
+
+  @[Security(Level::Support)]
+  def query_users(
+    q : String? = nil,
+    limit : Int32 = 20,
+    offset : Int32 = 0,
+    authority_id : String? = nil
+  ) : Nil
+    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id)
   end
 
   # ===================================
@@ -301,6 +311,8 @@ class Place::StaffAPI < PlaceOS::Driver
     booking_start ||= now.at_beginning_of_day.to_unix
     booking_end ||= now.at_end_of_day.to_unix
 
+    checked_in_at = now.to_unix if checked_in
+
     logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
     response = post("/api/staff/v1/bookings", headers: {
       "Accept"        => "application/json",
@@ -315,11 +327,12 @@ class Place::StaffAPI < PlaceOS::Driver
       "user_name"      => user_name,
       "zones"          => zones,
       "checked_in"     => checked_in,
+      "checked_in_at"  => checked_in_at,
       "approved"       => approved,
       "title"          => title,
       "description"    => description,
       "timezone"       => time_zone,
-      "extension_data" => extension_data,
+      "extension_data" => extension_data || JSON.parse("{}"),
     }.compact.to_json)
     raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
     true
@@ -334,15 +347,29 @@ class Place::StaffAPI < PlaceOS::Driver
     title : String? = nil,
     description : String? = nil,
     timezone : String? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
+    approved : Bool? = nil,
+    checked_in : Bool? = nil
   )
     logger.debug { "updating booking #{booking_id}" }
+
+    case checked_in
+    in true
+      checked_in_at = Time.utc.to_unix
+    in false
+      checked_out_at = Time.utc.to_unix
+    in nil
+    end
+
     response = patch("/api/staff/v1/bookings/#{booking_id}", headers: {
       "Accept"        => "application/json",
       "Authorization" => "Bearer #{token}",
     }, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
+      "checked_in"     => checked_in,
+      "checked_in_at"  => checked_in_at,
+      "checked_out_at" => checked_out_at,
       "asset_id"       => asset_id,
       "title"          => title,
       "description"    => description,
@@ -558,11 +585,7 @@ end
 class OpenSSL::SSL::Context::Client
   def initialize(method : LibSSL::SSLMethod = Context.default_method)
     super(method)
-
     self.verify_mode = OpenSSL::SSL::VerifyMode::NONE
-    {% if compare_versions(LibSSL::OPENSSL_VERSION, "1.0.2") >= 0 %}
-      self.default_verify_param = "ssl_server"
-    {% end %}
   end
 end
 

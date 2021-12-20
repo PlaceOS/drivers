@@ -42,8 +42,8 @@ class Switcher < DriverSpecs::MockDriver
     self[:input] = input
   end
 
-  def switch(map : Hash(Int32, Array(Int32)) | Hash(String, Hash(Int32, Array(Int32))))
-    map = map.values.first if map.is_a? Hash(String, Hash(Int32, Array(Int32)))
+  def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
+    self["last_switched_layer"] = layer.to_s.downcase
     map.each do |(input, outputs)|
       outputs.each do |output|
         self["output#{output}"] = input
@@ -61,27 +61,42 @@ DriverSpecs.mock_driver "Place::Router" do
   settings({
     connections: {
       Display_1: {
-        hdmi: "Switcher_1.1",
+        hdmi: "Switcher_1.1!video",
       },
-      Switcher_1: ["*Foo", "*Bar"],
+      Switcher_1:  ["*Foo", "*Bar"],
+      "*FloorBox": "Switcher_1.2",
     },
   })
 
   # Give the settings time to load
-  sleep 0.1
+  sleep 2
 
   status["inputs"].as_a.should contain("Foo")
   status["inputs"].as_a.should contain("Bar")
   status["outputs"].as_a.should contain("Display_1")
+  status["outputs"].as_a.should contain("FloorBox")
   status["output/Display_1"]["inputs"].should eq(["Foo", "Bar"])
 
-  exec(:route, "Foo", "Display_1").get
+  exec(:route_signal, "Foo", "Display_1").get
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
+  system(:Switcher_1)["last_switched_layer"].should eq("video")
 
   expect_raises(
     PlaceOS::Driver::RemoteException,
     %(unknown signal node "Baz" - did you mean "Bar"?)
   ) do
-    exec(:route, "Foo", "Baz").get
+    exec(:route_signal, "Foo", "Baz").get
   end
+
+  # Ensure previous status persists settings reloads for continuing nodes
+  settings({
+    connections: {
+      Display_1: {
+        hdmi: "Switcher_1.1",
+      },
+      Switcher_1: ["*Foo", "*Bar"],
+    },
+  })
+  sleep 2
+  status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
 end

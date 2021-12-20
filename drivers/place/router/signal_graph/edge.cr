@@ -22,7 +22,8 @@ class Place::Router::SignalGraph
 
       record Switch,
         input : Int32 | String,
-        output : Int32 | String
+        output : Int32 | String,
+        layer : String
 
       # NOTE: currently not supported. Requires interaction via
       # Proxy::RemoteDriver to support dynamic method execution.
