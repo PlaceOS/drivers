@@ -4,7 +4,7 @@ require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
 
 # :nodoc:
-class RouteDisplay < DriverSpecs::MockDriver
+class RouterDisplay < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Powerable
   include PlaceOS::Driver::Interface::Muteable
 
@@ -35,7 +35,7 @@ class RouteDisplay < DriverSpecs::MockDriver
 end
 
 # :nodoc:
-class Switcher < DriverSpecs::MockDriver
+class RouterSwitcher < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Switchable(Int32, Int32)
 
   def switch_to(input : Int32)
@@ -54,8 +54,8 @@ end
 
 DriverSpecs.mock_driver "Place::Router" do
   system({
-    Display:  {Display},
-    Switcher: {Switcher},
+    Display:  {RouterDisplay},
+    Switcher: {RouterSwitcher},
   })
 
   settings({
