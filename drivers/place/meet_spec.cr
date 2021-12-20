@@ -1,5 +1,4 @@
-require "placeos-driver/driver-specs/runner"
-require "placeos-driver/driver-specs/mock_driver"
+require "placeos-driver/spec"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
@@ -9,19 +8,19 @@ class DisplayMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Powerable
   include PlaceOS::Driver::Interface::Muteable
 
-  enum Inputs
+  enum MockInputs
     HDMI
     HDMI2
   end
 
-  include PlaceOS::Driver::Interface::InputSelection(Inputs)
+  include PlaceOS::Driver::Interface::InputSelection(MockInputs)
 
   # implement the abstract methods required by the interfaces
   def power(state : Bool)
     self[:power] = state
   end
 
-  def switch_to(input : Inputs)
+  def switch_to(input : MockInputs)
     mute(false)
     self[:input] = input
   end

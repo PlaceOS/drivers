@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "placeos-driver/interface/switchable"
 
 # This driver provides an abstraction layer for systems using SVSI based signal

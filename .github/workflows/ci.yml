@@ -21,6 +21,10 @@ jobs:
         uses: crystal-ameba/github-action@v0.2.12
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Shards
+        run: shards install --ignore-crystal-version
+      - name: Docs
+        run: crystal docs
 
   subset-report:
     name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
