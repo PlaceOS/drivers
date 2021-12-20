@@ -7,7 +7,7 @@ require "placeos-driver"
 # https://apiguide.smartalock.com/
 # https://documenter.getpostman.com/view/8843075/SVmwvctF?version=latest#3bfbb050-722d-4433-889a-8793fa90af9c
 
-class Floorsense::Desks < PlaceOS::Driver
+class Floorsense::DesksWebsocket < PlaceOS::Driver
   # Discovery Information
   generic_name :Floorsense
   descriptive_name "Floorsense Desk Tracking (WS)"
