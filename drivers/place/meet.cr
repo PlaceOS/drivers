@@ -537,7 +537,7 @@ class Place::Meet < PlaceOS::Driver
     range = audio.min_level..audio.max_level
 
     # adjust into range
-    level_actual = percentage * range.end - range.begin
+    level_actual = percentage * (range.end - range.begin)
     level_actual = (level_actual + range.begin.to_f).round(1)
 
     mixer = system[audio.module_id]
