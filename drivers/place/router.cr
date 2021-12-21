@@ -239,7 +239,14 @@ class Place::Router < PlaceOS::Driver
               mod = proxy_for edge.mod
               case func = edge.func
               in SignalGraph::Edge::Func::Mute
-                mod.mute func.state, func.index
+                # check if we want to mute a video or audio layer
+                dst_layer = dst_node.ref.layer.downcase
+                case dst_layer
+                when "audio", "video"
+                  mod.mute func.state, func.index, dst_layer
+                else
+                  mod.mute func.state, func.index
+                end
               in SignalGraph::Edge::Func::Select
                 mod.switch_to func.input
               in SignalGraph::Edge::Func::Switch
