@@ -329,18 +329,18 @@ class Place::AreaManagement < PlaceOS::Driver
 
     # Apply any map id transformations
     desk_mappings = details[:desk_mappings]
-    if desk_mappings.empty?
-      locations = locations.map(&.as_h)
-    else
-      locations = locations.map do |loc|
-        loc = loc.as_h
-        if loc["location"]? == "desk"
+    locations = locations.map do |loc|
+      loc = loc.as_h
+      if location_type = loc["location"]?
+        # measurement name for simplified querying in influxdb
+        loc["measurement"] = location_type
+        if location_type == "desk"
           if maps_to = desk_mappings[loc["map_id"].as_s]?
             loc["map_id"] = JSON::Any.new(maps_to)
           end
         end
-        loc
       end
+      loc
     end
 
     # Provide to the frontend
@@ -475,9 +475,10 @@ class Place::AreaManagement < PlaceOS::Driver
 
     # Provide the frontend the area details
     self["#{level_id}:areas"] = {
-      value:   area_counts,
-      ts_hint: "complex",
-      ts_tags: {
+      value:       area_counts,
+      measurement: "area_summary",
+      ts_hint:     "complex",
+      ts_tags:     {
         pos_building: @building_id,
         pos_level:    level_id,
       },
@@ -544,6 +545,7 @@ class Place::AreaManagement < PlaceOS::Driver
     recommendation = remaining_capacity + remaining_capacity * individual_impact
 
     {
+      "measurement"      => "level_summary",
       "desk_count"       => total_desks,
       "desk_usage"       => desk_usage,
       "device_capacity"  => total_capacity,
