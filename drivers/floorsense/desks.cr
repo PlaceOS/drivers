@@ -30,6 +30,9 @@ class Floorsense::Desks < PlaceOS::Driver
   # Locker key => controller id
   @lockers : Hash(String, LockerInfo) = {} of String => LockerInfo
 
+  # Desk key => controller id
+  @desks : Hash(String, DeskInfo) = {} of String => DeskInfo
+
   def on_load
     on_update
   end
@@ -101,6 +104,8 @@ class Floorsense::Desks < PlaceOS::Driver
 
   def sync_locker_list
     lockers = {} of String => LockerInfo
+    desks = {} of String => DeskInfo
+
     controller_list.each do |controller_id, controller|
       next unless controller.lockers
       lockers(controller_id).each do |locker|
@@ -108,8 +113,15 @@ class Floorsense::Desks < PlaceOS::Driver
         locker.controller_id = controller_id
         lockers[locker.key.not_nil!] = locker
       end
+
+      desk_list(controller_id).each do |desk|
+        next unless desk.key
+        desk.controller_id = controller_id
+        desks[desk.key.not_nil!] = desk
+      end
     end
     @lockers = lockers
+    @desks = desks
   end
 
   def controller_list
@@ -120,6 +132,21 @@ class Floorsense::Desks < PlaceOS::Driver
     controllers.each { |ctrl| mappings[ctrl.controller_id] = ctrl }
     self[:controllers] = mappings
     @controllers = mappings
+  end
+
+  def settings_list(
+    group_id : Int32? = nil,
+    user_group_id : Int32? = nil,
+    controller_id : String | Int32? = nil
+  )
+    query = URI::Params.build { |form|
+      form.add("cid", controller_id.to_s) if controller_id
+      form.add("groupid", group_id.to_s) if group_id
+      form.add("ugroupid", user_group_id.to_s) if user_group_id
+    }
+
+    response = get("/restapi/setting-list?#{query}", headers: default_headers)
+    parse response, Array(JSON::Any)
   end
 
   def all_lockers
@@ -524,6 +551,72 @@ class Floorsense::Desks < PlaceOS::Driver
     booking
   end
 
+  def desk_list(controller_id : String | Int32)
+    response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
+    parse response, Array(DeskInfo)
+  end
+
+  enum LedColour
+    Red
+    Green
+    Blue
+  end
+
+  enum DeskPower
+    On
+    Off
+    Policy
+  end
+
+  enum DeskHeight
+    Sit
+    Stand
+  end
+
+  enum QiMode
+    On
+    Off
+    Auto
+  end
+
+  def desk_control(
+    desk_key : String,
+    led_state : LedState? = nil,
+    led_colour : LedColour? = nil,
+    desk_power : DeskPower? = nil,
+    desk_height : DeskHeight | Int32? = nil,
+    qi_mode : QiMode? = nil,
+    reboot : Bool = false,
+    clean : Bool = false
+  )
+    controller_id = @desks[desk_key].controller_id
+
+    response = post("/restapi/desk-control", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("cid", controller_id.to_s)
+      form.add("key", desk_key)
+
+      form.add("led", led_state.to_s.downcase) if led_state
+      form.add("led-colour", led_colour.to_s.downcase) if led_colour
+      form.add("desk-power", desk_power.to_s.downcase) if desk_power
+      form.add("desk-height", desk_height.to_s.downcase) if desk_height
+      form.add("qi-mode", qi_mode.to_s.downcase) if qi_mode
+      form.add("reboot", "true") if reboot
+      form.add("clean", "true") if clean
+    })
+
+    check_success(response)
+  end
+
+  def user_groups_list(in_use : Bool = true)
+    query = in_use ? "inuse=1" : ""
+    response = get("/restapi/usergroup-list?#{query}", headers: default_headers)
+    parse response, Array(UserGroup)
+  end
+
   def create_user(
     name : String,
     email : String,
@@ -595,11 +688,12 @@ class Floorsense::Desks < PlaceOS::Driver
     user
   end
 
-  def user_list(email : String? = nil, name : String? = nil, description : String? = nil)
+  def user_list(email : String? = nil, name : String? = nil, description : String? = nil, user_group_id : String | Int32? = nil)
     query = URI::Params.build { |form|
       form.add("email", email.not_nil!) if email
       form.add("name", name.not_nil!) if name
       form.add("desc", description.not_nil!) if description
+      form.add("ugroupid", user_group_id.to_s) if user_group_id
     }
 
     response = get("/restapi/user-list?#{query}", headers: default_headers)

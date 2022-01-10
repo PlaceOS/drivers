@@ -151,6 +151,30 @@ module Floorsense
     property occupiedtime : Int32
   end
 
+  class DeskInfo
+    include JSON::Serializable
+
+    property eui64 : String
+    property key : String?
+    property planid : Int32?
+
+    @[JSON::Field(key: "type")]
+    property desk_type : String?
+    property typename : String?
+
+    @[JSON::Field(ignore: true)]
+    property! controller_id : Int32
+  end
+
+  class UserGroup
+    include JSON::Serializable
+
+    @[JSON::Field(key: "ugroupid")]
+    property id : Int32
+    property name : String
+    property count : int32
+  end
+
   class UserLocation
     include JSON::Serializable
 
