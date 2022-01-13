@@ -14,7 +14,7 @@ class SecureOS::WsApi < PlaceOS::Driver
     basic_auth:    {
       username: "srvc_acct",
       password: "password!",
-    }
+    },
   })
 
   @rest_api_host : String = ""
