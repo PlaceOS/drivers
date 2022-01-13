@@ -172,7 +172,7 @@ module Floorsense
     @[JSON::Field(key: "ugroupid")]
     property id : Int32
     property name : String
-    property count : int32
+    property count : Int32
   end
 
   class UserLocation
