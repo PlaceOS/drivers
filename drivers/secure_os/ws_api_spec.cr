@@ -8,23 +8,44 @@ private macro respond_with(code, body)
 end
 
 DriverSpecs.mock_driver "SecureOS::WsApi" do
-  # sync on connect
+  # Getting WebSocket auth token
   expect_http_request do |req, res|
     req.method.should eq("GET")
     req.path.should eq("/api/v1/ws_auth")
     req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
     respond_with 200, {data: {token: "qwertyuio"}, status: :success}.to_json
   end
-
   should_send({type: :auth, token: "qwertyuio"}.to_json)
 
-  exec(:subscribe_states, camera_id: "1")
+  # Getting a list of cameras
+  camera = {
+    "id"       => "1",
+    "name"     => "Camera 1",
+    "settings" => {"telemetry_id" => "native"},
+    "status"   => {
+      "enabled" => true,
+      "state"   => "DISARMED",
+    },
+    "type" => "CAM",
+  }
+  expect_http_request do |req, res|
+    req.method.should eq("GET")
+    req.path.should eq("/api/v1/cameras")
+    req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
+    respond_with 200, {
+      data:   [camera],
+      status: "success",
+    }.to_json
+  end
+  status[:camera_list].should eq([camera])
+
+  # Subscribing to states/events
   should_send({
     type: :subscribe,
     data: {
       add_rules: [
         {
-          type:   :CAM,
+          type:   "CAM",
           id:     "1",
           states: [
             SecureOS::StateType::Attached,
@@ -33,10 +54,16 @@ DriverSpecs.mock_driver "SecureOS::WsApi" do
           ],
           action: :STATE_CHANGED,
         },
+        {
+          type:   "CAM",
+          id:     "1",
+          action: :EVENT,
+        },
       ],
     },
   }.to_json)
 
+  # Recieving states
   states = {
     "type"   => "CAM",
     "id"     => "1",
@@ -54,23 +81,9 @@ DriverSpecs.mock_driver "SecureOS::WsApi" do
   }.to_json)
   status[:camera_1_states].should eq(states)
 
-  exec(:subscribe_events, camera_id: "1")
-  should_send({
-    type: :subscribe,
-    data: {
-      add_rules: [
-        {
-          type:   :LPR_CAM,
-          id:     "1",
-          events: [:CAR_LP_RECOGNIZED],
-          action: :EVENT,
-        },
-      ],
-    },
-  }.to_json)
-
+  # Recieving events
   event = {
-    "type"       => "LPR_CAM",
+    "type"       => "CAM",
     "id"         => "1",
     "action"     => "CAR_LP_RECOGNIZED",
     "ticks"      => 501234,
@@ -93,33 +106,11 @@ DriverSpecs.mock_driver "SecureOS::WsApi" do
   transmit({
     type: :event,
     data: {
-      type:   :LPR_CAM,
+      type:   :CAM,
       id:     "1",
       action: :DELETED,
       time:   "2017-02-02T16:10:07.241",
     },
   }.to_json)
   status[:camera_1]["parameters"]?.should be_nil
-
-  camera = {
-    "id"       => "1",
-    "name"     => "Camera 1",
-    "settings" => {"telemetry_id" => "native"},
-    "status"   => {
-      "enabled" => true,
-      "state"   => "DISARMED",
-    },
-    "type" => "CAM",
-  }
-  exec(:camera_list)
-  expect_http_request do |req, res|
-    req.method.should eq("GET")
-    req.path.should eq("/api/v1/cameras")
-    req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
-    respond_with 200, {
-      data:   [camera],
-      status: "success",
-    }.to_json
-  end
-  status[:camera_list].should eq([camera])
 end

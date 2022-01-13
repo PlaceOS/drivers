@@ -15,10 +15,14 @@ class SecureOS::WsApi < PlaceOS::Driver
       username: "srvc_acct",
       password: "password!",
     },
+    camera_states: [StateType::Attached, StateType::Armed, StateType::Alarmed],
+    camera_events: [] of String,
   })
 
   @rest_api_host : String = ""
   @camera_list : Array(Camera) = [] of Camera
+  @camera_states : Array(StateType) = [] of StateType
+  @camera_events : Array(String) = [] of String
 
   getter! basic_auth : NamedTuple(username: String, password: String)
 
@@ -29,6 +33,8 @@ class SecureOS::WsApi < PlaceOS::Driver
   def on_update
     @rest_api_host = setting String, :rest_api_host
     @basic_auth = setting NamedTuple(username: String, password: String), :basic_auth
+    @camera_states = setting Array(StateType), :camera_states
+    @camera_events = setting Array(String), :camera_events
   end
 
   def connected
@@ -46,8 +52,7 @@ class SecureOS::WsApi < PlaceOS::Driver
     schedule.every(30.seconds) { send({type: :get_server_time}.to_json, name: :server_time) }
     schedule.every(5.minutes, immediate: true) do
       camera_list
-      subscribe_states
-      subscribe_events
+      subscribe_all
     end
   rescue error
     logger.warn(exception: error) { "Authentication failed" }
@@ -58,63 +63,38 @@ class SecureOS::WsApi < PlaceOS::Driver
     schedule.clear
   end
 
-  def subscribe_states(
-    states : Array(StateType) = [StateType::Attached, StateType::Armed, StateType::Alarmed]
-  )
-    @camera_list.each do |camera|
-      subscribe_states camera.id, camera.type, states
-    end
-  end
+  private def subscribe_all
+    states = @camera_states.empty? ? nil : @camera_states
+    events = @camera_events.empty? ? nil : @camera_events
+    rules = [] of SubscribeRule
 
-  def subscribe_states(
-    camera_id : String,
-    camera_type : String = "CAM",
-    states : Array(StateType) = [StateType::Attached, StateType::Armed, StateType::Alarmed]
-  )
+    @camera_list.each do |camera|
+      rules << SubscribeRule.new(
+        type: camera.type,
+        id: camera.id,
+        action: :STATE_CHANGED,
+        states: states,
+      )
+      rules << SubscribeRule.new(
+        type: camera.type,
+        id: camera.id,
+        action: :EVENT,
+        events: events,
+      )
+    end
+
+    return if rules.empty?
+
     send({
       type: :subscribe,
       # id: 1234, # optional id used in error responses
       data: {
-        add_rules: [
-          {
-            type:   camera_type,
-            id:     camera_id,
-            states: states,
-            action: :STATE_CHANGED,
-          },
-        ],
+        add_rules: rules,
       },
     }.to_json, wait: false)
   end
 
-  def subscribe_events(events : Array(String)? = nil)
-    @camera_list.each do |camera|
-      subscribe_events camera.id, camera.type, events
-    end
-  end
-
-  def subscribe_events(
-    camera_id : String,
-    camera_type : String = "LPR_CAM",
-    events : Array(String)? = ["CAR_LP_RECOGNIZED"]
-  )
-    send({
-      type: :subscribe,
-      # id: 1234, # optional id used in error responses
-      data: {
-        add_rules: [
-          {
-            type:   camera_type,
-            id:     camera_id,
-            events: events,
-            action: :EVENT,
-          },
-        ],
-      },
-    }.to_json, wait: false)
-  end
-
-  def camera_list
+  private def camera_list
     host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
     client = HTTP::Client.new URI.parse(host)
     client.basic_auth **basic_auth

@@ -7,6 +7,25 @@ module SecureOS
     Alarmed
   end
 
+  struct SubscribeRule
+    include JSON::Serializable
+
+    getter type : String
+    getter id : String
+    getter states : Array(StateType)? = nil
+    getter events : Array(String)? = nil
+    getter action : Symbol
+
+    def initialize(
+      @type : String,
+      @id : String,
+      @action : Symbol,
+      @states : Array(StateType)? = nil,
+      @events : Array(String)? = nil
+    )
+    end
+  end
+
   abstract class Response
     include JSON::Serializable
     include JSON::Serializable::Unmapped
