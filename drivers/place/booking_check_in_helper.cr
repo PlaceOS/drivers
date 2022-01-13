@@ -192,7 +192,7 @@ STRING
 
     logger.debug { "prompting user about meeting room booking #{meeting.id}" }
     params = generate_guest_jwt
-    mailer.send_template(params[:host_email], {"booking", "check_in_prompt"}, params)
+    mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
 
     @prompted = meeting.id.not_nil!
     self[:no_show] = false
