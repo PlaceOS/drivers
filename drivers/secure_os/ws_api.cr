@@ -37,10 +37,8 @@ class SecureOS::WsApi < PlaceOS::Driver
     client.basic_auth **basic_auth
     response = client.get "#{@rest_api_host}/api/v1/ws_auth"
     if response.success?
-      json_body = JSON.parse response.body
-      token = json_body["data"]["token"].as_s
-
-      send({type: :auth, token: token}.to_json, wait: false)
+      auth = AuthResponse.from_json response.body
+      send({type: :auth, token: auth.data.token}.to_json, wait: false)
     else
       raise "Authentication failed"
     end

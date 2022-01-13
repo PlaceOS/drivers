@@ -62,6 +62,19 @@ module SecureOS
     getter error : String
   end
 
+  struct AuthResponse
+    include JSON::Serializable
+
+    getter data : AuthToken
+    getter status : String
+  end
+
+  struct AuthToken
+    include JSON::Serializable
+
+    getter token : String
+  end
+
   struct RestResponse
     include JSON::Serializable
 

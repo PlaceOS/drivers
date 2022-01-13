@@ -13,7 +13,7 @@ DriverSpecs.mock_driver "SecureOS::WsApi" do
     req.method.should eq("GET")
     req.path.should eq("/api/v1/ws_auth")
     req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
-    respond_with 200, {data: {token: "qwertyuio"}}.to_json
+    respond_with 200, {data: {token: "qwertyuio"}, status: :success}.to_json
   end
 
   should_send({type: :auth, token: "qwertyuio"}.to_json)
