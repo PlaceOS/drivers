@@ -13,6 +13,7 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   default_settings({
     # how many minutes until we want to prompt the user
     prompt_after: 10,
+    auto_cancel:  false,
 
     # how many minutes to wait before we enable auto-check-in
     present_from: 5,
@@ -69,6 +70,7 @@ STRING
 
   protected getter! prompt_after : Time::Span
   protected getter! present_from : Time::Span
+  @auto_cancel : Bool = false
 
   getter? meeting_pending : Bool = false
   getter? people_present : Bool = false
@@ -89,6 +91,7 @@ STRING
 
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
     @present_from = (setting?(Int32, :present_from) || 5).minutes
+    @auto_cancel = setting?(Bool, :auto_cancel) || false
 
     @check_in_url = setting(String, :check_in_url)
     @no_show_url = setting(String, :no_show_url)
@@ -196,6 +199,8 @@ STRING
     self[:checked_in] = false
     self[:responded] = false
     self[:prompted] = true
+
+    prompt_response(meeting.id.not_nil!, false) if @auto_cancel
   end
 
   # processes the response if the user clicks one of the links in the email
