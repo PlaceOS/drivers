@@ -26,7 +26,11 @@ DriverSpecs.mock_driver "SecureOS::WsApi" do
         {
           type:   :CAM,
           id:     "1",
-          states: ["attached", "armed", "alarmed"],
+          states: [
+            SecureOS::StateType::Attached,
+            SecureOS::StateType::Armed,
+            SecureOS::StateType::Alarmed,
+          ],
           action: :STATE_CHANGED,
         },
       ],

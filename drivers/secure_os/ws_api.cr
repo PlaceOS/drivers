@@ -58,7 +58,9 @@ class SecureOS::WsApi < PlaceOS::Driver
     schedule.clear
   end
 
-  def subscribe_states(states : Array(String) = ["attached", "armed", "alarmed"])
+  def subscribe_states(
+    states : Array(StateType) = [StateType::Attached, StateType::Armed, StateType::Alarmed]
+  )
     @camera_list.each do |camera|
       subscribe_states camera.id, camera.type, states
     end
@@ -67,7 +69,7 @@ class SecureOS::WsApi < PlaceOS::Driver
   def subscribe_states(
     camera_id : String,
     camera_type : String = "CAM",
-    states : Array(String) = ["attached", "armed", "alarmed"]
+    states : Array(StateType) = [StateType::Attached, StateType::Armed, StateType::Alarmed]
   )
     send({
       type: :subscribe,

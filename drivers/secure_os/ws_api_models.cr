@@ -1,6 +1,12 @@
 require "json"
 
 module SecureOS
+  enum StateType
+    Attached
+    Armed
+    Alarmed
+  end
+
   abstract class Response
     include JSON::Serializable
     include JSON::Serializable::Unmapped
