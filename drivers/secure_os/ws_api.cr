@@ -130,7 +130,7 @@ class SecureOS::WsApi < PlaceOS::Driver
       raise "Faild to get camera list"
     end
   rescue error
-    logger.warn(exception: error) { "Faild to get camera list" }
+    logger.warn(exception: error) { "Failed to get camera list" }
   end
 
   def received(data, task)
