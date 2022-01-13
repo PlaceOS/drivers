@@ -127,7 +127,7 @@ class SecureOS::WsApi < PlaceOS::Driver
       json_response = RestResponse.from_json response.body
       self["camera_list"] = @camera_list = json_response.data
     else
-      raise "Faild to get camera list"
+      logger.error "Failed to get camera list"
     end
   rescue error
     logger.warn(exception: error) { "Failed to get camera list" }
