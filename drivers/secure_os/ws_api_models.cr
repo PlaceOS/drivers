@@ -33,7 +33,10 @@ module SecureOS
     getter type : String
     getter id : String | Int64?
     getter ticks : Int64
-    getter time : String # "2017-02-02T16:10:07.241"
+
+    @[JSON::Field(converter: Time::Format.new("%FT%T.%L", Time::Location::UTC))]
+    getter time : Time # "2017-02-02T16:10:07.241"
+
     getter states : Hash(String, Bool)
   end
 
@@ -44,7 +47,10 @@ module SecureOS
     getter id : String | Int64?
     getter action : String
     getter ticks : Int64?
-    getter time : String # "2017-02-02T16:10:07.241"
+
+    @[JSON::Field(converter: Time::Format.new("%FT%T.%L", Time::Location::UTC))]
+    getter time : Time # "2017-02-02T16:10:07.241"
+
     getter parameters : JSON::Any?
   end
 
@@ -54,5 +60,22 @@ module SecureOS
     getter request_id : String | Int64?
     getter message : String
     getter error : String
+  end
+
+  struct RestResponse
+    include JSON::Serializable
+
+    getter data : Array(Camera)
+    getter status : String
+  end
+
+  struct Camera
+    include JSON::Serializable
+
+    getter id : String
+    getter name : String
+    getter settings : JSON::Any
+    getter status : JSON::Any
+    getter type : String
   end
 end

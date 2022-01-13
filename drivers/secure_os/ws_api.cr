@@ -3,9 +3,9 @@ require "./ws_api_models"
 
 # docs: https://drive.google.com/file/d/1moo9NnFWukSf6fegxaZnSP5ShqSr_A03/view?usp=sharing
 
-class SecureOS::RestApi < PlaceOS::Driver
+class SecureOS::WsApi < PlaceOS::Driver
   generic_name :SecureOS
-  descriptive_name "SecureOS REST API"
+  descriptive_name "SecureOS WebSocket API"
 
   uri_base "ws://secureos.server:8888/"
   default_settings({
@@ -18,6 +18,7 @@ class SecureOS::RestApi < PlaceOS::Driver
   })
 
   @rest_api_host : String = ""
+  @camera_list : Array(Camera)?
 
   getter! basic_auth : NamedTuple(username: String, password: String)
 
@@ -44,7 +45,14 @@ class SecureOS::RestApi < PlaceOS::Driver
       raise "Authentication failed"
     end
 
+    camera_list
+    subscribe_states
+    subscribe_events
+
     schedule.every(30.seconds) { send({type: :get_server_time}.to_json, name: :server_time) }
+    schedule.every(60.seconds) { camera_list }
+    schedule.every(60.seconds) { subscribe_states }
+    schedule.every(60.seconds) { subscribe_events }
   rescue error
     logger.warn(exception: error) { "Authentication failed" }
     disconnect
@@ -52,6 +60,16 @@ class SecureOS::RestApi < PlaceOS::Driver
 
   def disconnected
     schedule.clear
+  end
+
+  def subscribe_states(states : Array(String) = ["attached", "armed", "alarmed"])
+    if cameras = @camera_list
+      cameras.each do |camera|
+        subscribe_states camera.id, camera.type, states
+      end
+    else
+      logger.warn { "No cameras to subscribe to" }
+    end
   end
 
   def subscribe_states(
@@ -75,10 +93,20 @@ class SecureOS::RestApi < PlaceOS::Driver
     }.to_json, wait: false)
   end
 
+  def subscribe_events(events : Array(String)? = nil)
+    if cameras = @camera_list
+      cameras.each do |camera|
+        subscribe_events camera.id, camera.type, events
+      end
+    else
+      logger.warn { "No cameras to subscribe to" }
+    end
+  end
+
   def subscribe_events(
     camera_id : String,
     camera_type : String = "LPR_CAM",
-    events : Array(String) = ["CAR_LP_RECOGNIZED"]
+    events : Array(String)? = ["CAR_LP_RECOGNIZED"]
   )
     send({
       type: :subscribe,
@@ -96,6 +124,21 @@ class SecureOS::RestApi < PlaceOS::Driver
     }.to_json, wait: false)
   end
 
+  def camera_list
+    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
+    client = HTTP::Client.new URI.parse(host)
+    client.basic_auth **basic_auth
+    response = client.get "#{@rest_api_host}/api/v1/cameras"
+    if response
+      json_response = RestResponse.from_json response.body
+      self["camera_list"] = @camera_list = json_response.data
+    else
+      raise "Faild to get camera list"
+    end
+  rescue error
+    logger.warn(exception: error) { "Faild to get camera list" }
+  end
+
   def received(data, task)
     raw_json = String.new data
     logger.debug { "SecureOS sent: #{raw_json}" }
@@ -105,15 +148,9 @@ class SecureOS::RestApi < PlaceOS::Driver
       response = Response.from_json raw_json
       case response
       in StateWrapper
-        self["camera_#{response.data.id}_states"] = response.data.states
+        self["camera_#{response.data.id}_states"] = response.data
       in EventWrapper
-        self["camera_#{response.data.id}_action"] = response.data.action
-        if parameters = response.data.parameters
-          self["camera_#{response.data.id}"] = parameters
-        else
-          self["camera_#{response.data.id}"] = nil
-          logger.warn { "No parameters in response" }
-        end
+        self["camera_#{response.data.id}"] = response.data
       in ErrorWrapper
         logger.warn { "SecureOS error: #{response.data}" }
         if response.data.error.in?({"INVALID_AUTH_TOKEN", "UNAUTHORIZED"})

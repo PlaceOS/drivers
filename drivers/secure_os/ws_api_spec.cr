@@ -1,4 +1,5 @@
 require "placeos-driver/spec"
+require "./ws_api_models"
 
 private macro respond_with(code, body)
   res.headers["Content-Type"] = "application/json"
@@ -6,7 +7,7 @@ private macro respond_with(code, body)
   res.output << {{body}}
 end
 
-DriverSpecs.mock_driver "SecureOS::RestApi" do
+DriverSpecs.mock_driver "SecureOS::WsApi" do
   # sync on connect
   expect_http_request do |req, res|
     req.method.should eq("GET")
@@ -32,25 +33,22 @@ DriverSpecs.mock_driver "SecureOS::RestApi" do
     },
   }.to_json)
 
+  states = {
+    "type"   => "CAM",
+    "id"     => "1",
+    "ticks"  => 501234,
+    "time"   => "2017-02-02T16:10:07.241",
+    "states" => {
+      "attached" => true,
+      "armed"    => true,
+      "alarmed"  => false,
+    },
+  }
   transmit({
     type: :state,
-    data: {
-      type:   :CAM,
-      id:     "1",
-      ticks:  501234,
-      time:   "2017-02-02T16:10:07.241",
-      states: {
-        attached: true,
-        armed:    true,
-        alarmed:  false,
-      },
-    },
+    data: states,
   }.to_json)
-  status[:camera_1_states].should eq({
-    "attached" => true,
-    "armed"    => true,
-    "alarmed"  => false,
-  })
+  status[:camera_1_states].should eq(states)
 
   exec(:subscribe_events, camera_id: "1")
   should_send({
@@ -67,25 +65,25 @@ DriverSpecs.mock_driver "SecureOS::RestApi" do
     },
   }.to_json)
 
-  event_parameters = {
-    "camera_id"       => "6",
-    "direction_name"  => "approaching",
-    "number"          => "T345 LYW",
-    "recognizer_id"   => "1",
-    "recognizer_type" => "LPR_CAM",
+  event = {
+    "type"       => "LPR_CAM",
+    "id"         => "1",
+    "action"     => "CAR_LP_RECOGNIZED",
+    "ticks"      => 501234,
+    "time"       => "2017-02-02T16:10:07.241",
+    "parameters" => {
+      "camera_id"       => "6",
+      "direction_name"  => "approaching",
+      "number"          => "T345 LYW",
+      "recognizer_id"   => "1",
+      "recognizer_type" => "LPR_CAM",
+    },
   }
   transmit({
     type: :event,
-    data: {
-      type:       :LPR_CAM,
-      id:         "1",
-      action:     :CAR_LP_RECOGNIZED,
-      ticks:      501234,
-      time:       "2017-02-02T16:10:07.241",
-      parameters: event_parameters,
-    },
+    data: event,
   }.to_json)
-  status[:camera_1].should eq(event_parameters)
+  status[:camera_1].should eq(event)
 
   # A delete event is sent if a subscribed camera is removed
   transmit({
@@ -97,5 +95,27 @@ DriverSpecs.mock_driver "SecureOS::RestApi" do
       time:   "2017-02-02T16:10:07.241",
     },
   }.to_json)
-  status[:camera_1]?.should be_nil
+  status[:camera_1]["parameters"]?.should be_nil
+
+  camera = {
+    "id"       => "1",
+    "name"     => "Camera 1",
+    "settings" => {"telemetry_id" => "native"},
+    "status"   => {
+      "enabled" => true,
+      "state"   => "DISARMED",
+    },
+    "type" => "CAM",
+  }
+  exec(:camera_list)
+  expect_http_request do |req, res|
+    req.method.should eq("GET")
+    req.path.should eq("/api/v1/cameras")
+    req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
+    respond_with 200, {
+      data:   [camera],
+      status: "success",
+    }.to_json
+  end
+  status[:camera_list].should eq([camera])
 end
