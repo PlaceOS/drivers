@@ -14,7 +14,7 @@ class SecureOS::WsApi < PlaceOS::Driver
     basic_auth:    {
       username: "srvc_acct",
       password: "password!",
-    },
+    }
   })
 
   @rest_api_host : String = ""
@@ -44,10 +44,6 @@ class SecureOS::WsApi < PlaceOS::Driver
     else
       raise "Authentication failed"
     end
-
-    camera_list
-    subscribe_states
-    subscribe_events
 
     schedule.every(30.seconds) { send({type: :get_server_time}.to_json, name: :server_time) }
     schedule.every(5.minutes, immediate: true) do
