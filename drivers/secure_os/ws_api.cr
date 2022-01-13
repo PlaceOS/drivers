@@ -18,7 +18,7 @@ class SecureOS::WsApi < PlaceOS::Driver
   })
 
   @rest_api_host : String = ""
-  @camera_list : Array(Camera)?
+  @camera_list : Array(Camera) = [] of Camera
 
   getter! basic_auth : NamedTuple(username: String, password: String)
 
@@ -65,12 +65,8 @@ class SecureOS::WsApi < PlaceOS::Driver
   end
 
   def subscribe_states(states : Array(String) = ["attached", "armed", "alarmed"])
-    if cameras = @camera_list
-      cameras.each do |camera|
-        subscribe_states camera.id, camera.type, states
-      end
-    else
-      logger.warn { "No cameras to subscribe to" }
+    @camera_list.each do |camera|
+      subscribe_states camera.id, camera.type, states
     end
   end
 
@@ -96,12 +92,8 @@ class SecureOS::WsApi < PlaceOS::Driver
   end
 
   def subscribe_events(events : Array(String)? = nil)
-    if cameras = @camera_list
-      cameras.each do |camera|
-        subscribe_events camera.id, camera.type, events
-      end
-    else
-      logger.warn { "No cameras to subscribe to" }
+    @camera_list.each do |camera|
+      subscribe_events camera.id, camera.type, events
     end
   end
 
