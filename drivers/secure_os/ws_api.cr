@@ -50,9 +50,11 @@ class SecureOS::WsApi < PlaceOS::Driver
     subscribe_events
 
     schedule.every(30.seconds) { send({type: :get_server_time}.to_json, name: :server_time) }
-    schedule.every(60.seconds) { camera_list }
-    schedule.every(60.seconds) { subscribe_states }
-    schedule.every(60.seconds) { subscribe_events }
+    schedule.every(5.minutes, immediate: true) do
+      camera_list
+      subscribe_states
+      subscribe_events
+    end
   rescue error
     logger.warn(exception: error) { "Authentication failed" }
     disconnect
