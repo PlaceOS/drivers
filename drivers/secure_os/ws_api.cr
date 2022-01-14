@@ -15,12 +15,14 @@ class SecureOS::WsApi < PlaceOS::Driver
       username: "srvc_acct",
       password: "password!",
     },
+    camera_types:  [] of String,
     camera_states: [StateType::Attached, StateType::Armed, StateType::Alarmed],
     camera_events: [] of String,
   })
 
   @rest_api_host : String = ""
   @camera_list : Array(Camera) = [] of Camera
+  @camera_types : Array(String) = [] of String
   @camera_states : Array(StateType) = [] of StateType
   @camera_events : Array(String) = [] of String
 
@@ -33,6 +35,7 @@ class SecureOS::WsApi < PlaceOS::Driver
   def on_update
     @rest_api_host = setting String, :rest_api_host
     @basic_auth = setting NamedTuple(username: String, password: String), :basic_auth
+    @camera_types = setting Array(String), :camera_types
     @camera_states = setting Array(StateType), :camera_states
     @camera_events = setting Array(String), :camera_events
   end
@@ -69,6 +72,8 @@ class SecureOS::WsApi < PlaceOS::Driver
     rules = [] of SubscribeRule
 
     @camera_list.each do |camera|
+      next unless @camera_types.includes? camera.type && !@camera_types.empty?
+
       rules << SubscribeRule.new(
         type: camera.type,
         id: camera.id,
