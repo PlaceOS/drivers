@@ -63,6 +63,40 @@ DriverSpecs.mock_driver "SecureOS::WsApi" do
     },
   }.to_json)
 
+  # Getting a list of watchlists
+  expect_http_request do |req, res|
+    req.method.should eq("GET")
+    req.path.should eq("/api/v1/watchlists")
+    req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
+    respond_with 200, {
+      data: [
+        {id: "1", name: "some list"},
+      ],
+      status: "success",
+    }.to_json
+  end
+  status[:camera_list].should eq([camera])
+
+  # Adding a license plate to a watchlist
+  exec(:watchlist_add_lp, watchlist: "some list", license_plate: "ABC", comment: "Test plate")
+  expect_http_request do |req, res|
+    req.method.should eq("POST")
+    req.path.should eq("/api/v1/watchlists/1/set")
+    req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
+    req.headers["Content-Type"]?.should eq("application/json")
+    respond_with 200, "Comment for number ABC has been set."
+  end
+
+  # Removing a license plate from a watchlist
+  exec(:watchlist_remove_lp, watchlist: "some list", license_plate: "ABC")
+  expect_http_request do |req, res|
+    req.method.should eq("POST")
+    req.path.should eq("/api/v1/watchlists/1/delete")
+    req.headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("srvc_acct:password!")}")
+    req.headers["Content-Type"]?.should eq("application/json")
+    respond_with 200, "Number ABC has been deleted from the watchlist."
+  end
+
   # Recieving states
   states = {
     "type"   => "CAM",

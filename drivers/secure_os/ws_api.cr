@@ -25,6 +25,7 @@ class SecureOS::WsApi < PlaceOS::Driver
   @camera_types : Array(String) = [] of String
   @camera_states : Array(StateType) = [] of StateType
   @camera_events : Array(String) = [] of String
+  @watchlist_list : Array(Watchlist) = [] of Watchlist
 
   getter! basic_auth : NamedTuple(username: String, password: String)
 
@@ -56,6 +57,7 @@ class SecureOS::WsApi < PlaceOS::Driver
     schedule.every(5.minutes, immediate: true) do
       camera_list
       subscribe_all
+      watchlist_list
     end
   rescue error
     logger.warn(exception: error) { "Authentication failed" }
@@ -72,7 +74,7 @@ class SecureOS::WsApi < PlaceOS::Driver
     rules = [] of SubscribeRule
 
     @camera_list.each do |camera|
-      next unless @camera_types.includes? camera.type && !@camera_types.empty?
+      next unless @camera_types.empty? || @camera_types.includes? camera.type
 
       rules << SubscribeRule.new(
         type: camera.type,
@@ -105,13 +107,73 @@ class SecureOS::WsApi < PlaceOS::Driver
     client.basic_auth **basic_auth
     response = client.get "#{@rest_api_host}/api/v1/cameras"
     if response
-      json_response = RestResponse.from_json response.body
+      json_response = CameraResponse.from_json response.body
       self["camera_list"] = @camera_list = json_response.data
     else
       logger.warn { "Failed to get camera list" }
     end
   rescue error
     logger.warn(exception: error) { "Failed to get camera list" }
+  end
+
+  def watchlist_add_lp(watchlist : String, license_plate : String, comment : String = "")
+    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
+    client = HTTP::Client.new URI.parse(host)
+    client.basic_auth **basic_auth
+
+    if wl = @watchlist_list.find { |l| l.name == watchlist }
+      response = client.post(
+        "#{@rest_api_host}/api/v1/watchlists/#{wl.id}/set",
+        headers: HTTP::Headers{"Content-Type" => "application/json"},
+        body: {
+          number:  license_plate,
+          comment: comment,
+        }.to_json
+      )
+      unless response
+        logger.warn { "Failed to add license plate to watchlist" }
+      end
+    else
+      logger.warn { "Failed to find a watchlist named: #{watchlist}" }
+    end
+  rescue error
+    logger.warn(exception: error) { "Failed to add license plate to watchlist" }
+  end
+
+  def watchlist_remove_lp(watchlist : String, license_plate : String)
+    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
+    client = HTTP::Client.new URI.parse(host)
+    client.basic_auth **basic_auth
+
+    if wl = @watchlist_list.find { |l| l.name == watchlist }
+      response = client.post(
+        "#{@rest_api_host}/api/v1/watchlists/#{wl.id}/delete",
+        headers: HTTP::Headers{"Content-Type" => "application/json"},
+        body: {number: license_plate}.to_json
+      )
+      unless response
+        logger.warn { "Failed to remove license plate from watchlist" }
+      end
+    else
+      logger.warn { "Failed to find a watchlist named: #{watchlist}" }
+    end
+  rescue error
+    logger.warn(exception: error) { "Failed to remove license plate from watchlist" }
+  end
+
+  private def watchlist_list
+    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
+    client = HTTP::Client.new URI.parse(host)
+    client.basic_auth **basic_auth
+    response = client.get "#{@rest_api_host}/api/v1/watchlists"
+    if response
+      json_response = WatchlistResponse.from_json response.body
+      self["watchlist_list"] = @watchlist_list = json_response.data
+    else
+      logger.warn { "Failed to get watchlist list" }
+    end
+  rescue error
+    logger.warn(exception: error) { "Failed to get watchlist list" }
   end
 
   def received(data, task)

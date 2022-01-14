@@ -100,7 +100,7 @@ module SecureOS
     getter token : String
   end
 
-  struct RestResponse
+  struct CameraResponse
     include JSON::Serializable
 
     getter data : Array(Camera)
@@ -115,5 +115,19 @@ module SecureOS
     getter settings : JSON::Any
     getter status : JSON::Any
     getter type : String
+  end
+
+  struct WatchlistResponse
+    include JSON::Serializable
+
+    getter data : Array(Watchlist)
+    getter status : String
+  end
+
+  struct Watchlist
+    include JSON::Serializable
+
+    getter id : String
+    getter name : String
   end
 end
