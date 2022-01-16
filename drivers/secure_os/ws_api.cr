@@ -42,10 +42,7 @@ class SecureOS::WsApi < PlaceOS::Driver
   end
 
   def connected
-    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
-    client = HTTP::Client.new URI.parse(host)
-    client.basic_auth **basic_auth
-    response = client.get "#{@rest_api_host}/api/v1/ws_auth"
+    response = http_client.get "#{@rest_api_host}/api/v1/ws_auth"
     if response.success?
       auth = AuthResponse.from_json response.body
       send({type: :auth, token: auth.data.token}.to_json, wait: false)
@@ -66,6 +63,13 @@ class SecureOS::WsApi < PlaceOS::Driver
 
   def disconnected
     schedule.clear
+  end
+
+  protected def http_client
+    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
+    client = HTTP::Client.new URI.parse(host)
+    client.basic_auth **basic_auth
+    client
   end
 
   private def subscribe_all
@@ -102,10 +106,7 @@ class SecureOS::WsApi < PlaceOS::Driver
   end
 
   private def camera_list
-    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
-    client = HTTP::Client.new URI.parse(host)
-    client.basic_auth **basic_auth
-    response = client.get "#{@rest_api_host}/api/v1/cameras"
+    response = http_client.get "#{@rest_api_host}/api/v1/cameras"
     if response
       json_response = CameraResponse.from_json response.body
       self["camera_list"] = @camera_list = json_response.data
@@ -117,12 +118,8 @@ class SecureOS::WsApi < PlaceOS::Driver
   end
 
   def watchlist_add_lp(watchlist : String, license_plate : String, comment : String = "")
-    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
-    client = HTTP::Client.new URI.parse(host)
-    client.basic_auth **basic_auth
-
     if wl = @watchlist_list.find { |l| l.name == watchlist }
-      response = client.post(
+      response = http_client.post(
         "#{@rest_api_host}/api/v1/watchlists/#{wl.id}/set",
         headers: HTTP::Headers{"Content-Type" => "application/json"},
         body: {
@@ -141,12 +138,8 @@ class SecureOS::WsApi < PlaceOS::Driver
   end
 
   def watchlist_remove_lp(watchlist : String, license_plate : String)
-    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
-    client = HTTP::Client.new URI.parse(host)
-    client.basic_auth **basic_auth
-
     if wl = @watchlist_list.find { |l| l.name == watchlist }
-      response = client.post(
+      response = http_client.post(
         "#{@rest_api_host}/api/v1/watchlists/#{wl.id}/delete",
         headers: HTTP::Headers{"Content-Type" => "application/json"},
         body: {number: license_plate}.to_json
@@ -162,10 +155,7 @@ class SecureOS::WsApi < PlaceOS::Driver
   end
 
   private def watchlist_list
-    host = setting?(Bool, :shared_host) ? config.uri.not_nil! : @rest_api_host
-    client = HTTP::Client.new URI.parse(host)
-    client.basic_auth **basic_auth
-    response = client.get "#{@rest_api_host}/api/v1/watchlists"
+    response = http_client.get "#{@rest_api_host}/api/v1/watchlists"
     if response
       json_response = WatchlistResponse.from_json response.body
       self["watchlist_list"] = @watchlist_list = json_response.data
