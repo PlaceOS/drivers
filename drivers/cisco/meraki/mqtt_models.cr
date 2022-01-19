@@ -28,10 +28,10 @@ module Cisco::Meraki
     @[JSON::Field(key: "ts")]
     getter timestamp : Int64 | String
 
-    getter desks : Array(Tuple(Float32, Float32,  # right
-Float32, Float32,                                 # left
-Float32, Float32,                                 # center
-Float32                                           # occupancy
+    getter desks : Array(Tuple(Float64, Float64,  # left
+Float64, Float64,                                 # center
+Float64, Float64,                                 # right
+Float64                                           # occupancy
 ))
   end
 

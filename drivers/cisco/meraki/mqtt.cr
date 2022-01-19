@@ -3,6 +3,7 @@ require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/locatable"
 require "../../place/mqtt_transport_adaptor"
+require "../../place/area_polygon"
 
 # documentation: https://developer.cisco.com/meraki/mv-sense/#!mqtt
 
@@ -25,18 +26,18 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     floor_mappings: [
       {
         camera_serials: ["1234", "5678"],
-        level_id: "zone-123",
-        building_id: "zone-456"
-      }
+        level_id:       "zone-123",
+        building_id:    "zone-456",
+      },
     ],
 
     desk_mappings: {
       camera_serial: [{
         id: "desk-1234",
-        x: 0.44,
-        y: 0.56
-      }]
-    }
+        x:  0.44,
+        y:  0.56,
+      }],
+    },
   })
 
   SUBS = {
@@ -166,6 +167,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   # this is where we do all of the MQTT message processing
   protected def on_message(key : String, playload : Bytes) : Nil
     json_message = String.new(playload)
+    logger.debug { "new message: #{key} = #{json_message}" }
     _merakimv, serial_no, status = key.split("/")
 
     case status
@@ -364,15 +366,15 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       floor = @floor_lookup[serial]
       illumination = lux[serial]?
 
-      detected.desks.compact_map do |(xl, yl, xr, yr, xc, yc, occupancy)|
-        if desk = desks.find { |d| is_contained(xl, yl, xr, yr, d) }
+      detected.desks.compact_map do |(lx, ly, cx, cy, rx, ry, occupancy)|
+        if desk = desks.find { |d| is_contained(lx, ly, cx, cy, rx, ry, d) }
           {
-            location: "desk",
+            location:    "desk",
             at_location: occupancy == 1.0 ? 1 : 0,
-            map_id: desk.id,
-            level: floor.level_id,
-            building: floor.building_id,
-            capacity: 1,
+            map_id:      desk.id,
+            level:       floor.level_id,
+            building:    floor.building_id,
+            capacity:    1,
 
             area_lux: illumination,
             merakimv: serial,
@@ -382,8 +384,10 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     }.flatten
   end
 
-  # TODO::
-  protected def is_contained(xl, yl, xr, yr, d)
+  # TODO:: how do we interpret this coordinate system?
+  protected def is_contained(lx, ly, cx, cy, rx, ry, d)
+    top_left = Point.new(lx, ly)
+    bottom_right = Point.new(rx, ry)
     true
   end
 end
