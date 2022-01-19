@@ -2,6 +2,22 @@ require "json"
 
 # Meraki MQTT Data Models
 module Cisco::Meraki
+  class FloorMapping
+    include JSON::Serializable
+
+    getter camera_serials : Array(String)
+    getter level_id : String
+    getter building_id : String?
+  end
+
+  class DeskLocation
+    include JSON::Serializable
+
+    getter id : String
+    getter x : Float32
+    getter y : Float32
+  end
+
   class DetectedDesks
     include JSON::Serializable
 
@@ -22,7 +38,11 @@ Float32                                           # occupancy
   class LuxLevel
     include JSON::Serializable
 
-    getter lux : Float32
+    # Not actually provided for this message, but here for testing
+    @[JSON::Field(key: "ts")]
+    getter timestamp : Int64 { Time.utc.to_unix }
+
+    getter lux : Float64
   end
 
   enum CountType

@@ -1,11 +1,13 @@
 require "./mqtt_models"
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
+require "placeos-driver/interface/locatable"
 require "../../place/mqtt_transport_adaptor"
 
 # documentation: https://developer.cisco.com/meraki/mv-sense/#!mqtt
 
 class Cisco::Meraki::MQTT < PlaceOS::Driver
+  include Interface::Locatable
   include Interface::Sensor
 
   descriptive_name "Meraki MQTT"
@@ -19,6 +21,22 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     password:   "pass",
     keep_alive: 60,
     client_id:  "placeos",
+
+    floor_mappings: [
+      {
+        camera_serials: ["1234", "5678"],
+        level_id: "zone-123",
+        building_id: "zone-456"
+      }
+    ],
+
+    desk_mappings: {
+      camera_serial: [{
+        id: "desk-1234",
+        x: 0.44,
+        y: 0.56
+      }]
+    }
   })
 
   SUBS = {
@@ -59,8 +77,24 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     @keep_alive = setting?(Int32, :keep_alive) || 60
     @client_id = setting?(String, :client_id) || ::MQTT.generate_client_id("placeos_")
 
+    # zone_id => camera serial
+    zone_lookup = Hash(String, Array(String)).new { |h, k| h[k] = [] of String }
+    # camera serial => level + building
+    floor_lookup = {} of String => FloorMapping
+    floor_mappings = setting?(Array(FloorMapping), :floor_mappings) || [] of FloorMapping
+    floor_mappings.each do |mapping|
+      mapping.camera_serials.each do |serial|
+        zone_lookup[mapping.level_id] << serial
+        zone_lookup[mapping.building_id.not_nil!] << serial if mapping.building_id
+        floor_lookup[serial] = mapping
+      end
+    end
+    @floor_lookup = floor_lookup
+
+    @desk_mappings = setting?(Hash(String, Array(DeskLocation)), :desk_mappings) || {} of String => Array(DeskLocation)
+
     existing = @subs
-    @subs = SUBS.dup
+    @subs = SUBS.to_a
 
     # TODO:: obtain MV Sense zone data here from API and add zones to subs
 
@@ -104,7 +138,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
 
   def ping
     logger.debug { "sending ping" }
-    perform_operation { @mqtt.not_nil!.ping }
+    @mqtt.not_nil!.ping
   end
 
   def received(data, task)
@@ -113,19 +147,21 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     task.try &.success
   end
 
-  getter people_counts : Hash(String, Hash(String, Tuple(Int32, Int64))) do
-    Hash(String, Hash(String, Tuple(Int32, Int64))).new do |hash, key|
-      hash[key] = {} of String => Tuple(Int32, Int64)
+  getter people_counts : Hash(String, Hash(String, Tuple(Float64, Int64))) do
+    Hash(String, Hash(String, Tuple(Float64, Int64))).new do |hash, key|
+      hash[key] = {} of String => Tuple(Float64, Int64)
     end
   end
 
-  getter vehicle_counts : Hash(String, Hash(String, Tuple(Int32, Int64))) do
-    Hash(String, Hash(String, Tuple(Int32, Int64))).new do |hash, key|
-      hash[key] = {} of String => Tuple(Int32, Int64)
+  getter vehicle_counts : Hash(String, Hash(String, Tuple(Float64, Int64))) do
+    Hash(String, Hash(String, Tuple(Float64, Int64))).new do |hash, key|
+      hash[key] = {} of String => Tuple(Float64, Int64)
     end
   end
 
-  getter lux : Hash(String, Tuple(Float32, Int64)) = {} of String => Tuple(Float32, Int64)
+  getter lux : Hash(String, Tuple(Float64, Int64)) = {} of String => Tuple(Float64, Int64)
+
+  getter desk_details : Hash(String, DetectedDesks) = {} of String => DetectedDesks
 
   # this is where we do all of the MQTT message processing
   protected def on_message(key : String, playload : Bytes) : Nil
@@ -135,19 +171,21 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     case status
     when "net.meraki.detector"
       # we assume version 3 of the API here for sanity reasons
-      self["camera_#{serial_no}_desks"] = DetectedDesks.from_json(json_message)
+      detected_desks = DetectedDesks.from_json(json_message)
+      desk_details[serial_no] = detected_desks
+      self["camera_#{serial_no}_desks"] = detected_desks
     when "light"
       light = LuxLevel.from_json(json_message)
-      lux[serial_no] = {light.lux, Time.utc.to_unix}
+      lux[serial_no] = {light.lux, light.timestamp}
       self["camera_#{serial_no}_lux"] = light.lux
     else
       # Everything else is a zone count
       entry = Entrances.from_json json_message
       case entry.count_type
       in CountType::People
-        people_counts[serial_no][status] = {entry.count, Time.unix_ms(entry.timestamp).to_unix}
+        people_counts[serial_no][status] = {entry.count.to_f64, Time.unix_ms(entry.timestamp).to_unix}
       in CountType::Vehicles
-        vehicle_counts[serial_no][status] = {entry.count, Time.unix_ms(entry.timestamp).to_unix}
+        vehicle_counts[serial_no][status] = {entry.count.to_f64, Time.unix_ms(entry.timestamp).to_unix}
       in CountType::Unknown
         # ignore
       end
@@ -181,7 +219,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
 
       if lookup
         if counts = lookup[mac]?
-          if count = lookup[zone]?
+          if count = counts[zone]?
             to_sensor(sensor_type, mac, "zone#{zone}_#{count_type}", count[0], count[1])
           end
         end
@@ -200,20 +238,28 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Detail)
     logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
 
+    serial_filter = nil
+    if zone_id && !@floor_lookup.empty?
+      serial_filter = [] of String
+      @floor_lookup.each do |serial, floor|
+        serial_filter << serial if {floor.level_id, floor.building_id}.includes?(zone_id)
+      end
+    end
+
     sensors = [] of Detail
     filter = type ? Interface::Sensor::SensorType.parse?(type) : nil
 
     case filter
     when nil
-      add_lux_values(sensors, mac)
-      add_people_counts(sensors, mac)
-      add_vehicle_counts(sensors, mac)
+      add_lux_values(sensors, mac, serial_filter)
+      add_people_counts(sensors, mac, serial_filter)
+      add_vehicle_counts(sensors, mac, serial_filter)
     when .people_count?
-      add_people_counts(sensors, mac)
+      add_people_counts(sensors, mac, serial_filter)
     when .counter?
-      add_vehicle_counts(sensors, mac)
+      add_vehicle_counts(sensors, mac, serial_filter)
     when .illuminance?
-      add_lux_values(sensors, mac)
+      add_lux_values(sensors, mac, serial_filter)
     else
       sensors
     end
@@ -222,32 +268,44 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     NO_MATCH
   end
 
-  protected def add_people_counts(sensors, mac : String? = nil)
-    if cam_counts = people_counts[mac]?
-      serial, zones = cam_counts
-      zones.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::PeopleCount, serial, "zone#{zone_name}_people", count, time) }
+  protected def add_people_counts(sensors, mac : String? = nil, serial_filter : Array(String)? = nil)
+    if mac
+      return sensors if serial_filter && !serial_filter.includes?(mac)
+      people_counts[mac]?.try &.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::PeopleCount, mac, "zone#{zone_name}_people", count, time) }
     else
-      people_counts.each { |serial, zones| zones.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::PeopleCount, serial, "zone#{zone_name}_people", count, time) } }
+      people_counts.each do |serial, zones|
+        next if serial_filter && !serial_filter.includes?(serial)
+        zones.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::PeopleCount, serial, "zone#{zone_name}_people", count, time) }
+      end
     end
     sensors
   end
 
-  protected def add_vehicle_counts(sensors, mac : String? = nil)
-    if cam_counts = vehicle_counts[mac]?
-      serial, zones = cam_counts
-      zones.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::Counter, serial, "zone#{zone_name}_vehicles", count, time) }
+  protected def add_vehicle_counts(sensors, mac : String? = nil, serial_filter : Array(String)? = nil)
+    if mac
+      return sensors if serial_filter && !serial_filter.includes?(mac)
+      vehicle_counts[mac]?.try &.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::Counter, mac, "zone#{zone_name}_vehicles", count, time) }
     else
-      vehicle_counts.each { |serial, zones| zones.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::Counter, serial, "zone#{zone_name}_vehicles", count, time) } }
+      vehicle_counts.each do |serial, zones|
+        next if serial_filter && !serial_filter.includes?(serial)
+        zones.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::Counter, serial, "zone#{zone_name}_vehicles", count, time) }
+      end
     end
     sensors
   end
 
-  protected def add_lux_values(sensors, mac : String? = nil)
-    if lux_val = lux[mac]?
-      level, time = lux_val
-      sensors << to_sensor(SensorType::Illuminance, mac, LUX_ID, level, time)
+  protected def add_lux_values(sensors, mac : String? = nil, serial_filter : Array(String)? = nil)
+    if mac
+      return sensors if serial_filter && !serial_filter.includes?(mac)
+      if lux_val = lux[mac]?
+        level, time = lux_val
+        sensors << to_sensor(SensorType::Illuminance, mac, LUX_ID, level, time)
+      end
     else
-      lux.each { |serial, (level, time)| sensors << to_sensor(SensorType::Illuminance, serial, LUX_ID, level, time) }
+      lux.each do |serial, (level, time)|
+        next if serial_filter && !serial_filter.includes?(serial)
+        sensors << to_sensor(SensorType::Illuminance, serial, LUX_ID, level, time)
+      end
     end
     sensors
   end
@@ -264,5 +322,68 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       binding: "camera_#{serial}_#{id}",
       unit: sensor_type.illuminance? ? "lx" : nil
     )
+  end
+
+  # -------------------
+  # Locatable Interface
+  # -------------------
+  @zone_lookup : Hash(String, Array(String)) = {} of String => Array(String)
+  @floor_lookup : Hash(String, FloorMapping) = {} of String => FloorMapping
+  @desk_mappings : Hash(String, Array(DeskLocation)) = {} of String => Array(DeskLocation)
+
+  def locate_user(email : String? = nil, username : String? = nil)
+    logger.debug { "sensor incapable of locating #{email} or #{username}" }
+    [] of Nil
+  end
+
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
+    logger.debug { "sensor incapable of tracking #{email} or #{username}" }
+    [] of String
+  end
+
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
+    logger.debug { "sensor incapable of tracking #{mac_address}" }
+    nil
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    logger.debug { "searching locatable in zone #{zone_id}" }
+
+    return [] of Nil if location.presence && location != "desk"
+
+    serials = @zone_lookup[zone_id]?
+    return [] of Nil unless serials && !serials.empty?
+
+    serials.compact_map { |serial|
+      desks = @desk_mappings[serial]?
+      next unless desks
+
+      detected = desk_details[serial]?
+      next unless detected
+
+      floor = @floor_lookup[serial]
+      illumination = lux[serial]?
+
+      detected.desks.compact_map do |(xl, yl, xr, yr, xc, yc, occupancy)|
+        if desk = desks.find { |d| is_contained(xl, yl, xr, yr, d) }
+          {
+            location: "desk",
+            at_location: occupancy == 1.0 ? 1 : 0,
+            map_id: desk.id,
+            level: floor.level_id,
+            building: floor.building_id,
+            capacity: 1,
+
+            area_lux: illumination,
+            merakimv: serial,
+          }
+        end
+      end
+    }.flatten
+  end
+
+  # TODO::
+  protected def is_contained(xl, yl, xr, yr, d)
+    true
   end
 end
