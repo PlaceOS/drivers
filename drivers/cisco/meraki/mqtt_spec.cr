@@ -90,17 +90,17 @@ DriverSpecs.mock_driver "Place::MQTT" do
   # CHECK SENSOR INTERFACE
   # ============================
   lux_sensor = {
-    "status" => "normal",
-    "type" => "illuminance",
-    "value" => 33.2,
+    "status"    => "normal",
+    "type"      => "illuminance",
+    "value"     => 33.2,
     "last_seen" => 1642564552,
-    "mac" => "1234",
-    "id" => "lux",
-    "name" => "Meraki Camera 1234: lux",
+    "mac"       => "1234",
+    "id"        => "lux",
+    "name"      => "Meraki Camera 1234: lux",
     "module_id" => "spec_runner",
-    "binding" => "camera_1234_lux",
-    "unit" => "lx",
-    "location" => "sensor"
+    "binding"   => "camera_1234_lux",
+    "unit"      => "lx",
+    "location"  => "sensor",
   }
   exec(:sensors).get.should eq([lux_sensor])
   exec(:sensor, "1234", "lux").get.should eq(lux_sensor)
