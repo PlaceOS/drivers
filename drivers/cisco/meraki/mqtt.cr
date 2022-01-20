@@ -366,36 +366,44 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       floor = @floor_lookup[serial]
       illumination = lux[serial]?
 
-      detected.desks.compact_map do |(lx, ly, cx, cy, rx, ry, occupancy)|
-        poly = calculate_area(lx, ly, cx, cy, rx, ry)
-        if desk = desks.find { |d| poly.contains d.x, d.y }
-          {
-            location:    "desk",
-            at_location: occupancy == 1.0 ? 1 : 0,
-            map_id:      desk.id,
-            level:       floor.level_id,
-            building:    floor.building_id,
-            capacity:    1,
+      # id => Array({distance, occupied})
+      results = Hash(String, Array(Tuple(Float64, Float64))).new { |h, k| h[k] = [] of Tuple(Float64, Float64) }
 
-            area_lux: illumination,
-            merakimv: serial,
-          }
+      # we store the closest desk point to the line,
+      # as this detected desk might be the occupancy we care about
+      detected.desks.each do |(lx, ly, cx, cy, rx, ry, occupancy)|
+        desks.each { |desk| desk.distance = calculate_distance(lx, ly, cx, cy, rx, ry, desk) }
+        if desk = desks.sort! { |a, b| a.distance <=> b.distance }.first?
+          results[desk.id] << {desk.distance, occupancy}
         end
+      end
+
+      # then for each desk id, we take the closest detected desk and use that
+      # occupancy value
+      results.map do |desk_id, distances|
+        closest = distances.sort! { |a, b| a[0] <=> b[0] }.first
+        {
+          location:    "desk",
+          at_location: closest[1] == 1.0 ? 1 : 0, # occupied?
+          map_id:      desk_id,
+          level:       floor.level_id,
+          building:    floor.building_id,
+          capacity:    1,
+
+          area_lux: illumination,
+          merakimv: serial,
+        }
       end
     }.flatten
   end
 
-  # NOTE:: the coodinate system in version 2 and 3 of Meraki is only returning
-  # a line. So this calculation is incorrect.
-  # Hopefully can work in a newer version of the API
-  protected def calculate_area(lx, ly, cx, cy, rx, ry)
-    top_left = Point.new(lx, ly)
-    bottom_right = Point.new(rx, ry)
-
-    # this is incorrect, but no other practical options
-    top_right = Point.new(rx, ly)
-    bottom_left = Point.new(lx, ry)
-
-    Polygon.new [top_left, bottom_left, bottom_right, top_right]
+  # We want to find the line closest to the offical desk point
+  protected def calculate_distance(lx, ly, cx, cy, rx, ry, desk)
+    desk = Point.new(desk.x, desk.y)
+    {
+      Point.new(lx, ly).distance_to(desk),
+      Point.new(rx, ry).distance_to(desk),
+      Point.new(cx, cy).distance_to(desk),
+    }.sum
   end
 end
