@@ -14,8 +14,8 @@ module Cisco::Meraki
     include JSON::Serializable
 
     getter id : String
-    getter x : Float32
-    getter y : Float32
+    getter x : Float64
+    getter y : Float64
   end
 
   class DetectedDesks

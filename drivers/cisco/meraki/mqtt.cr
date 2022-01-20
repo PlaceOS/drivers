@@ -25,7 +25,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
 
     floor_mappings: [
       {
-        camera_serials: ["1234", "5678"],
+        camera_serials: ["1234", "camera_serial"],
         level_id:       "zone-123",
         building_id:    "zone-456",
       },
@@ -367,7 +367,8 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       illumination = lux[serial]?
 
       detected.desks.compact_map do |(lx, ly, cx, cy, rx, ry, occupancy)|
-        if desk = desks.find { |d| is_contained(lx, ly, cx, cy, rx, ry, d) }
+        poly = calculate_area(lx, ly, cx, cy, rx, ry)
+        if desk = desks.find { |d| poly.contains d.x, d.y }
           {
             location:    "desk",
             at_location: occupancy == 1.0 ? 1 : 0,
@@ -384,10 +385,17 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     }.flatten
   end
 
-  # TODO:: how do we interpret this coordinate system?
-  protected def is_contained(lx, ly, cx, cy, rx, ry, d)
+  # NOTE:: the coodinate system in version 2 and 3 of Meraki is only returning
+  # a line. So this calculation is incorrect.
+  # Hopefully can work in a newer version of the API
+  protected def calculate_area(lx, ly, cx, cy, rx, ry)
     top_left = Point.new(lx, ly)
     bottom_right = Point.new(rx, ry)
-    true
+
+    # this is incorrect, but no other practical options
+    top_right = Point.new(rx, ly)
+    bottom_left = Point.new(lx, ry)
+
+    Polygon.new [top_left, bottom_left, bottom_right, top_right]
   end
 end
