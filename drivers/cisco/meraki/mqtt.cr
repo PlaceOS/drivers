@@ -91,6 +91,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       end
     end
     @floor_lookup = floor_lookup
+    @zone_lookup = zone_lookup
 
     @desk_mappings = setting?(Hash(String, Array(DeskLocation)), :desk_mappings) || {} of String => Array(DeskLocation)
 

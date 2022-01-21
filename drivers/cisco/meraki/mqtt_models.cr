@@ -25,11 +25,14 @@ module Cisco::Meraki
     include JSON::Serializable
 
     @[JSON::Field(key: "_v")]
-    getter api_version : String
+    getter api_version : Int32
 
     # Time in milliseconds v3,
     @[JSON::Field(key: "ts")]
-    getter timestamp : Int64 | String
+    getter time_unix : Int64?
+
+    @[JSON::Field(key: "time")]
+    getter time_string : String?
 
     getter desks : Array(Tuple(Float64, Float64,  # left
 Float64, Float64,                                 # center

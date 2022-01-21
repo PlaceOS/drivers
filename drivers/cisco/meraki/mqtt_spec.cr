@@ -104,4 +104,43 @@ DriverSpecs.mock_driver "Place::MQTT" do
   }
   exec(:sensors).get.should eq([lux_sensor])
   exec(:sensor, "1234", "lux").get.should eq(lux_sensor)
+
+  # ============================
+  # CHECK LOCATABLE INTERFACE
+  # ============================
+  puts "===== CHECKING LOCATABLE INTERFACE ====="
+  publish = MQTT::V3::Publish.new
+  publish.id = MQTT::RequestType::Publish
+  publish.message_id = 8_u16
+  publish.topic = "merakimv/camera_serial/net.meraki.detector"
+  publish.payload = %({
+    "_v": 2,
+    "time": "2022-01-20 02:14:00",
+    "coords":[],
+    "desks": [
+      [185, 282, 227, 211, 272, 158, 0],
+      [376, 197, 321, 268, 264, 365, 0],
+      [401, 450, 460, 355, 499, 273, 0],
+      [572, 348, 547, 414, 506, 483, 0],
+      [312, 571, 259, 546, 210, 515, 0],
+      [536, 492, 494, 529, 446, 560, 0],
+      [137, 542, 162, 573, 189, 597, 0]
+    ]
+  })
+  publish.packet_length = publish.calculate_length
+
+  transmit publish.to_slice
+  sleep 0.1 # wait a bit for processing
+  status["camera_1234_lux"].should eq(33.2)
+
+  exec(:device_locations, "zone-456").get.should eq([{
+    "location"    => "desk",
+    "at_location" => 0,
+    "map_id"      => "desk-1234",
+    "level"       => "zone-123",
+    "building"    => "zone-456",
+    "capacity"    => 1,
+    "area_lux"    => nil,
+    "merakimv"    => "camera_serial",
+  }])
 end
