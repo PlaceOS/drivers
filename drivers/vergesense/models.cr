@@ -64,6 +64,10 @@ module Vergesense
     def floor_key
       "#{building_ref_id}-#{floor_ref_id}".strip
     end
+
+    def ref_id
+      self.space_ref_id || self.floor_ref_id || self.space_type
+    end
   end
 
   struct Geometry
