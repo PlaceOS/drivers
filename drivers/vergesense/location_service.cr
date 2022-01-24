@@ -117,7 +117,7 @@ class Vergesense::LocationService < PlaceOS::Driver
           building:    @building_mappings[zone_id]?,
           capacity:    space.capacity,
 
-          vergesense_space_id:   space.space_ref_id,
+          vergesense_space_id:   space.ref_id,
           vergesense_space_type: space.space_type,
           area_humidity:         humidity,
           area_temperature:      temperature,
@@ -141,7 +141,7 @@ class Vergesense::LocationService < PlaceOS::Driver
     floor = @occupancy_mappings[zone_id]?
     return nil unless floor
 
-    floor_space = floor.spaces.find { |space| space.space_ref_id == space_id }
+    floor_space = floor.spaces.find { |space| space.ref_id == space_id }
     return nil unless floor_space
 
     case id
@@ -182,7 +182,7 @@ class Vergesense::LocationService < PlaceOS::Driver
 
     if space_id
       floor = @occupancy_mappings[zone_id]
-      floor_space = floor.spaces.find { |space| space.space_ref_id == space_id }
+      floor_space = floor.spaces.find { |space| space.ref_id == space_id }
       return NO_MATCH unless floor_space
       spaces = [{zone_id, floor, floor_space}]
     elsif zone_id
@@ -233,7 +233,7 @@ class Vergesense::LocationService < PlaceOS::Driver
       type: sensor,
       value: value,
       last_seen: (time || Time.utc).to_unix,
-      mac: "#{zone_id}-#{space.space_ref_id}",
+      mac: "#{zone_id}-#{space.ref_id}",
       id: id,
       name: "#{floor.name} #{space.name} (#{space.space_type})",
       limit_high: limit_high

@@ -126,7 +126,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
   private def update_floor_space(remote_space)
     floor = @floors[remote_space.floor_key]?
     if floor
-      floor_space = floor.spaces.find { |space| space.space_ref_id == remote_space.space_ref_id }
+      floor_space = floor.spaces.find { |space| space.ref_id == remote_space.ref_id }
       if floor_space
         floor_space.building_ref_id = remote_space.building_ref_id
         floor_space.floor_ref_id = remote_space.floor_ref_id
@@ -142,7 +142,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
       end
 
       # cache the lookups for simple floor discovery
-      if space_ref = remote_space.space_ref_id
+      if space_ref = remote_space.ref_id
         @spaces[space_ref] = remote_space.floor_key
       end
     end
