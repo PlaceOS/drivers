@@ -43,15 +43,15 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   SUBS = {
     # Meraki desk occupancy (coords and occupancy are floats)
     # {ts: unix_time, desks: [[lx, ly, rx, ry, cx, cy, occupancy], [...]]}
-    "merakimv/+/net.meraki.detector",
+    "/merakimv/+/net.meraki.detector",
 
     # lux levels on a camera
     # {lux: float}
-    "merakimv/+/light",
+    "/merakimv/+/light",
 
     # Number of entrances in the camera’s complete field of view
     # {ts: unix_time, counts: {person: number, vehicle: number}}
-    "merakimv/+/0",
+    "/merakimv/+/0",
   }
 
   @keep_alive : Int32 = 60
