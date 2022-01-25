@@ -28,7 +28,7 @@ DriverSpecs.mock_driver "Place::MQTT" do
   packet.id = MQTT::RequestType::Subscribe
   packet.qos = MQTT::QoS::BrokerReceived
   packet.message_id = 2_u16
-  packet.topic = "merakimv/+/net.meraki.detector"
+  packet.topic = "/merakimv/+/net.meraki.detector"
   packet.packet_length = packet.calculate_length
   should_send(packet.to_slice)
 
@@ -44,7 +44,7 @@ DriverSpecs.mock_driver "Place::MQTT" do
   packet.id = MQTT::RequestType::Subscribe
   packet.qos = MQTT::QoS::BrokerReceived
   packet.message_id = 4_u16
-  packet.topic = "merakimv/+/light"
+  packet.topic = "/merakimv/+/light"
   packet.packet_length = packet.calculate_length
   should_send(packet.to_slice)
 
@@ -60,7 +60,7 @@ DriverSpecs.mock_driver "Place::MQTT" do
   packet.id = MQTT::RequestType::Subscribe
   packet.qos = MQTT::QoS::BrokerReceived
   packet.message_id = 6_u16
-  packet.topic = "merakimv/+/0"
+  packet.topic = "/merakimv/+/0"
   packet.packet_length = packet.calculate_length
   should_send(packet.to_slice)
 
