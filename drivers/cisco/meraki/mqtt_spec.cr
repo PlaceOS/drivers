@@ -78,7 +78,7 @@ DriverSpecs.mock_driver "Place::MQTT" do
   publish = MQTT::V3::Publish.new
   publish.id = MQTT::RequestType::Publish
   publish.message_id = 8_u16
-  publish.topic = "merakimv/1234/light"
+  publish.topic = "/merakimv/1234/light"
   publish.payload = %({"lux":33.2,"ts":1642564552})
   publish.packet_length = publish.calculate_length
 
@@ -112,7 +112,7 @@ DriverSpecs.mock_driver "Place::MQTT" do
   publish = MQTT::V3::Publish.new
   publish.id = MQTT::RequestType::Publish
   publish.message_id = 8_u16
-  publish.topic = "merakimv/camera_serial/net.meraki.detector"
+  publish.topic = "/merakimv/camera_serial/net.meraki.detector"
   publish.payload = %({
     "_v": 2,
     "time": "2022-01-20 02:14:00",
