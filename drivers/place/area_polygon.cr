@@ -1,3 +1,5 @@
+require "math"
+
 # Crystal lang point in a polygon, based on
 # https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
@@ -19,6 +21,15 @@ struct Point
 
   property x : Float64
   property y : Float64
+
+  # pythagoras
+  def distance_to(point : Point)
+    # lengths of triangles edge
+    a = point.x - @x
+    b = point.y - @y
+
+    Math.sqrt((a * a) + (b * b))
+  end
 end
 
 class Polygon
