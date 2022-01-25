@@ -168,6 +168,8 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   # this is where we do all of the MQTT message processing
   protected def on_message(key : String, playload : Bytes) : Nil
     json_message = String.new(playload)
+    key = key[1..-1] if key.starts_with?("/")
+
     logger.debug { "new message: #{key} = #{json_message}" }
     _merakimv, serial_no, status = key.split("/")
 
