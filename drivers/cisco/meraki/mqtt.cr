@@ -38,6 +38,8 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
         y:  0.56,
       }],
     },
+
+    return_empty_spaces: true,
   })
 
   SUBS = {
@@ -58,6 +60,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   @username : String? = nil
   @password : String? = nil
   @client_id : String = "placeos"
+  @return_empty_spaces : Bool = true
 
   @mqtt : ::MQTT::V3::Client? = nil
   @subs : Array(String) = [] of String
@@ -73,6 +76,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   end
 
   def on_update
+    @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @username = setting?(String, :username)
     @password = setting?(String, :password)
     @keep_alive = setting?(Int32, :keep_alive) || 60
@@ -383,11 +387,16 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
 
       # then for each desk id, we take the closest detected desk and use that
       # occupancy value
-      results.map do |desk_id, distances|
+      results.compact_map do |desk_id, distances|
         closest = distances.sort! { |a, b| a[0] <=> b[0] }.first
+        occupied = closest[1] == 1.0 ? 1 : 0
+
+        # Do we want to return empty desks (depends on the frontend)
+        next if !@return_empty_spaces && occupied == 0
+
         {
           location:    "desk",
-          at_location: closest[1] == 1.0 ? 1 : 0, # occupied?
+          at_location: occupied,
           map_id:      desk_id,
           level:       floor.level_id,
           building:    floor.building_id,
