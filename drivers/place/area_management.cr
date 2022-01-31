@@ -369,7 +369,7 @@ class Place::AreaManagement < PlaceOS::Driver
         # Keep if x, y coords are present
         !loc["x"].raw.nil?
       when "desk"
-        desk_count += 1
+        desk_count += 1 if (loc["at_location"]?.try(&.as_i?) || 0) > 0
         false
       else
         false
