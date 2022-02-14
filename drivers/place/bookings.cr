@@ -383,16 +383,21 @@ class Place::Bookings < PlaceOS::Driver
     [] of Nil
   end
 
+  @sensor_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
+
   protected def check_for_sensors
     drivers = system.implementing(Interface::Sensor)
 
-    subscriptions.clear
+    if sub = @sensor_subscription
+      subscriptions.unsubscribe(sub)
+      @sensor_subscription = nil
+    end
 
     # Prefer people count data in a space
     count_data = drivers.sensors("people_count").get.flat_map(&.as_a).first?
     if count_data && count_data["module_id"]?.try(&.raw.is_a?(String))
       self[:sensor_name] = count_data["name"].as_s
-      subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
+      @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
         value = (Float64 | Nil).from_json payload
         if value
           self[:people_count] = value
@@ -408,7 +413,7 @@ class Place::Bookings < PlaceOS::Driver
       presence = drivers.sensors("presence").get.flat_map(&.as_a).first?
       if presence && presence["module_id"]?.try(&.raw.is_a?(String))
         self[:sensor_name] = presence["name"].as_s
-        subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
+        @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
           value = (Float64 | Nil).from_json payload
           self[:presence] = value ? value > 0.0 : nil
         end
