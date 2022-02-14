@@ -7,8 +7,13 @@ DriverSpecs.mock_driver "Place::Bookings" do
     Sensor:   {SensorMock},
   })
 
+  sleep 200.milliseconds
+
   # Check it calculates state properly
   exec(:poll_events).get
+
+  sleep 200.milliseconds
+
   bookings = status[:bookings].as_a
   bookings.size.should eq(4)
 
@@ -25,6 +30,8 @@ DriverSpecs.mock_driver "Place::Bookings" do
 
   # Start a meeting
   exec(:start_meeting, current_start).get
+  sleep 200.milliseconds
+
   bookings = status[:bookings].as_a
   bookings.size.should eq(4)
   status[:booked].should eq(true)
@@ -36,6 +43,8 @@ DriverSpecs.mock_driver "Place::Bookings" do
 
   # End a meeting
   exec(:end_meeting, current_start).get
+  sleep 200.milliseconds
+
   bookings = status[:bookings].as_a
   bookings.size.should eq(3)
 
