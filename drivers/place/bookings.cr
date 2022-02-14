@@ -225,8 +225,8 @@ class Place::Bookings < PlaceOS::Driver
     if current_booking
       booking = @bookings[current_booking]
       start_time = booking["event_start"].as_i64
-
       booked = true
+
       # Up to the frontend to delete pending bookings that have past their start time
       if !@disable_end_meeting
         current_pending = true if start_time > @last_booking_started
@@ -295,17 +295,23 @@ class Place::Bookings < PlaceOS::Driver
   # This is called when bookings are modified via the staff app
   # it allows us to update the cache faster than via polling alone
   protected def check_change(payload : String)
+    logger.debug { "checking for change in payload:\n#{payload}" }
+
     event = StaffEventChange.from_json(payload)
     if event.system_id == system.id
+      logger.debug { "system id match, waiting #{@change_event_sync_delay} and polling events" }
       sleep @change_event_sync_delay
       poll_events
       check_current_booking
     else
       matching = @bookings.select { |b| b["id"] == event.event_id }
       if matching
+        logger.debug { "event id match, waiting #{@change_event_sync_delay} and polling events" }
         sleep @change_event_sync_delay
         poll_events
         check_current_booking
+      else
+        logger.debug { "ignoring event as no matching events found" }
       end
     end
   rescue error
