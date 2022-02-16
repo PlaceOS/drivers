@@ -174,8 +174,13 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     @lockers = lockers
   end
 
-  def controller_list
-    response = get("/restapi/slave-list", headers: default_headers)
+  def controller_list(locker : Bool? = nil, desks : Bool? = nil)
+    query = URI::Params.build do |form|
+      form.add("locks", "true") if locker
+      form.add("desks", "true") if desks
+    end
+
+    response = get("/restapi/slave-list#{query}", headers: default_headers)
     controllers = parse response, Array(ControllerInfo)
 
     mappings = {} of Int32 => ControllerInfo
@@ -241,7 +246,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
   def get_locker_reservation(reservation_id : String,)
     query = URI::Params.build { |form|
-      form.add("resid", reservation_id) if user_id
+      form.add("resid", reservation_id) if reservation_id
     }
 
     response = get("/restapi/res?#{query}", headers: default_headers)
