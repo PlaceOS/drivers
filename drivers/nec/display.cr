@@ -119,8 +119,9 @@ class Nec::Display < PlaceOS::Driver
     send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end
 
-  def volume(val : Int32)
-    data = MsgType::SetParameter.build(Command::VolumeStatus, val.clamp(0, 100))
+  def volume(val : Int32 | Float64)
+    val = val.to_f.clamp(0.0, 100.0).round_away.to_i
+    data = MsgType::SetParameter.build(Command::VolumeStatus, val)
     send(data, name: "volume")
     send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end

@@ -27,6 +27,7 @@ class Place::Bookings < PlaceOS::Driver
     catering_ui: "https://if.panel/to_be_used_for_catering",
 
     include_cancelled_bookings: false,
+    hide_qr_code:               false,
   })
 
   accessor calendar : Calendar_1
@@ -56,7 +57,7 @@ class Place::Bookings < PlaceOS::Driver
     @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
 
     @perform_sensor_search = true
-    schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_events }
+    schedule.in(Random.rand(59).seconds + Random.rand(1000).milliseconds) { poll_events }
 
     cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
     cache_polling_period += Random.rand(30).seconds + Random.rand(1000).milliseconds
@@ -95,6 +96,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
+
+    self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
   end
 
   # This is how we check the rooms status
@@ -222,8 +225,8 @@ class Place::Bookings < PlaceOS::Driver
     if current_booking
       booking = @bookings[current_booking]
       start_time = booking["event_start"].as_i64
-
       booked = true
+
       # Up to the frontend to delete pending bookings that have past their start time
       if !@disable_end_meeting
         current_pending = true if start_time > @last_booking_started
@@ -292,17 +295,23 @@ class Place::Bookings < PlaceOS::Driver
   # This is called when bookings are modified via the staff app
   # it allows us to update the cache faster than via polling alone
   protected def check_change(payload : String)
+    logger.debug { "checking for change in payload:\n#{payload}" }
+
     event = StaffEventChange.from_json(payload)
     if event.system_id == system.id
+      logger.debug { "system id match, waiting #{@change_event_sync_delay} and polling events" }
       sleep @change_event_sync_delay
       poll_events
       check_current_booking
     else
       matching = @bookings.select { |b| b["id"] == event.event_id }
       if matching
+        logger.debug { "event id match, waiting #{@change_event_sync_delay} and polling events" }
         sleep @change_event_sync_delay
         poll_events
         check_current_booking
+      else
+        logger.debug { "ignoring event as no matching events found" }
       end
     end
   rescue error
@@ -374,16 +383,21 @@ class Place::Bookings < PlaceOS::Driver
     [] of Nil
   end
 
+  @sensor_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
+
   protected def check_for_sensors
     drivers = system.implementing(Interface::Sensor)
 
-    subscriptions.clear
+    if sub = @sensor_subscription
+      subscriptions.unsubscribe(sub)
+      @sensor_subscription = nil
+    end
 
     # Prefer people count data in a space
     count_data = drivers.sensors("people_count").get.flat_map(&.as_a).first?
     if count_data && count_data["module_id"]?.try(&.raw.is_a?(String))
       self[:sensor_name] = count_data["name"].as_s
-      subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
+      @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
         value = (Float64 | Nil).from_json payload
         if value
           self[:people_count] = value
@@ -399,7 +413,7 @@ class Place::Bookings < PlaceOS::Driver
       presence = drivers.sensors("presence").get.flat_map(&.as_a).first?
       if presence && presence["module_id"]?.try(&.raw.is_a?(String))
         self[:sensor_name] = presence["name"].as_s
-        subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
+        @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
           value = (Float64 | Nil).from_json payload
           self[:presence] = value ? value > 0.0 : nil
         end

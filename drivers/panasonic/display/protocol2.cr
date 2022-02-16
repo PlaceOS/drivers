@@ -131,7 +131,9 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     !!self[:audio_mute]?.try(&.as_bool)
   end
 
-  def volume(val : Int32)
+  def volume(val : Int32 | Float64)
+    val = val.to_f.clamp(0.0, 100.0).round_away.to_i
+
     # Unable to query current volume
     do_send(:volume, val.to_s.rjust(3, '0')).get
     self[:volume] = val
@@ -223,7 +225,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
     when :input
       self[:input] = INPUT_LOOKUP[val]
     when :volume, :volume_query
-      self[:volume] = val.not_nil!.to_i
+      self[:volume] = val.not_nil!.to_f
     when :audio_mute
       self[:audio_mute] = val.not_nil!.to_i == 1
     end

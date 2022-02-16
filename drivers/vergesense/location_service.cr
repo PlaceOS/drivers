@@ -24,6 +24,7 @@ class Vergesense::LocationService < PlaceOS::Driver
         name:        "friendly name for documentation",
       },
     },
+    return_empty_spaces: true,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -35,6 +36,7 @@ class Vergesense::LocationService < PlaceOS::Driver
   end
 
   def on_update
+    @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.values.map do |z|
       level = z[:level_id]
@@ -100,24 +102,33 @@ class Vergesense::LocationService < PlaceOS::Driver
 
       people_count = space.people.try(&.count)
 
-      if people_count && people_count > 0
+      if @return_empty_spaces || people_count && people_count > 0
+        if env = space.environment
+          humidity = env.humidity.value
+          temperature = env.temperature.value
+          iaq = env.iaq.try &.value
+        end
+
         {
           location:    loc_type,
-          at_location: people_count,
+          at_location: people_count || 0,
           map_id:      space.name,
           level:       zone_id,
           building:    @building_mappings[zone_id]?,
           capacity:    space.capacity,
 
-          vergesense_space_id:   space.space_ref_id,
+          vergesense_space_id:   space.ref_id,
           vergesense_space_type: space.space_type,
+          area_humidity:         humidity,
+          area_temperature:      temperature,
+          area_air_quality:      iaq,
         }
       end
     end
   end
 
   # ===================================
-  # Locatable Interface functions
+  # Sensor Interface functions
   # ===================================
   def sensor(mac : String, id : String? = nil) : Detail?
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
@@ -130,7 +141,7 @@ class Vergesense::LocationService < PlaceOS::Driver
     floor = @occupancy_mappings[zone_id]?
     return nil unless floor
 
-    floor_space = floor.spaces.find { |space| space.space_ref_id == space_id }
+    floor_space = floor.spaces.find { |space| space.ref_id == space_id }
     return nil unless floor_space
 
     case id
@@ -141,7 +152,7 @@ class Vergesense::LocationService < PlaceOS::Driver
     when "humidity"
       build_sensor_details(zone_id, floor, floor_space, :humidity)
     when "temp"
-      build_sensor_details(zone_id, floor, floor_space, :ambient_temp)
+      build_sensor_details(zone_id, floor, floor_space, :temperature)
     when "air"
       build_sensor_details(zone_id, floor, floor_space, :air_quality)
     end
@@ -150,7 +161,7 @@ class Vergesense::LocationService < PlaceOS::Driver
     nil
   end
 
-  SENSOR_TYPES = {SensorType::PeopleCount, SensorType::Presence, SensorType::Humidity, SensorType::AmbientTemp, SensorType::AirQuality}
+  SENSOR_TYPES = {SensorType::PeopleCount, SensorType::Presence, SensorType::Humidity, SensorType::Temperature, SensorType::AirQuality}
   NO_MATCH     = [] of Interface::Sensor::Detail
 
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Detail)
@@ -171,7 +182,7 @@ class Vergesense::LocationService < PlaceOS::Driver
 
     if space_id
       floor = @occupancy_mappings[zone_id]
-      floor_space = floor.spaces.find { |space| space.space_ref_id == space_id }
+      floor_space = floor.spaces.find { |space| space.ref_id == space_id }
       return NO_MATCH unless floor_space
       spaces = [{zone_id, floor, floor_space}]
     elsif zone_id
@@ -205,14 +216,14 @@ class Vergesense::LocationService < PlaceOS::Driver
               id = "humidity"
               time = space.environment.try &.timestamp
               space.environment.try &.humidity.value
-            when .ambient_temp?
+            when .temperature?
               id = "temp"
               time = space.environment.try &.timestamp
               space.environment.try &.temperature.value
             when .air_quality?
               id = "air"
               time = space.environment.try &.timestamp
-              space.environment.try &.iaq.value
+              space.environment.try(&.iaq.try(&.value))
             else
               raise "sensor type unavailable: #{sensor}"
             end
@@ -222,7 +233,7 @@ class Vergesense::LocationService < PlaceOS::Driver
       type: sensor,
       value: value,
       last_seen: (time || Time.utc).to_unix,
-      mac: "#{zone_id}-#{space.space_ref_id}",
+      mac: "#{zone_id}-#{space.ref_id}",
       id: id,
       name: "#{floor.name} #{space.name} (#{space.space_type})",
       limit_high: limit_high
@@ -236,7 +247,7 @@ class Vergesense::LocationService < PlaceOS::Driver
       build_sensor_details(zone_id, floor, space, :people_count),
       build_sensor_details(zone_id, floor, space, :presence),
       build_sensor_details(zone_id, floor, space, :humidity),
-      build_sensor_details(zone_id, floor, space, :ambient_temp),
+      build_sensor_details(zone_id, floor, space, :temperature),
       build_sensor_details(zone_id, floor, space, :air_quality),
     ].compact!
   end

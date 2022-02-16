@@ -1,21 +1,24 @@
+abstract class PlaceOS::Driver; end
+
 require "spec"
 require "placeos-driver/driver_model"
 require "./signal_graph"
 
-alias SignalGraph = Place::Router::SignalGraph
+alias SigGraph = Place::Router::SignalGraph
 
-module PlaceOS::Driver
+abstract class PlaceOS::Driver
   module Interface
     module Switchable; end
 
     module Selectable; end
 
-    module Mutable; end
+    module Muteable; end
 
-    module InputMutable; end
+    # TODO: expand interfaces in `placeos-driver` to cover this
+    module InputMuteable; end
   end
 
-  module Proxy::System
+  class Proxy::System
     def self.module_id?(sys, name, idx) : String?
       mock_id = {sys, name, idx}.hash
       "mod-#{mock_id}"
@@ -25,7 +28,7 @@ module PlaceOS::Driver
       m = DriverModel::Metadata.new
       m.implements << {{Interface::Switchable.name(generic_args: false).stringify}}
       m.implements << {{Interface::Selectable.name(generic_args: false).stringify}}
-      m.implements << {{Interface::Mutable.name(generic_args: false).stringify}}
+      m.implements << {{Interface::Muteable.name(generic_args: false).stringify}}
       m
     end
   end
@@ -51,48 +54,48 @@ end
 # Set of inputs in use
 # NOTE: alias are only used in the local system, no impact here
 nodes = [
-  SignalGraph::Input.new("sys-123", "Display", 1, "hdmi"),
-  SignalGraph::Input.new("sys-123", "Display", 2, "hdmi"),
-  SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
-  SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
-  SignalGraph::Output.new("sys-123", "Switcher", 1, 1),
-  SignalGraph::Device.new("sys-123", "Display", 1),
-  SignalGraph::Device.new("sys-123", "Display", 2),
-  SignalGraph::Device.new("sys-123", "Switcher", 1),
+  SigGraph::Input.new("sys-123", "Display", 1, "hdmi"),
+  SigGraph::Input.new("sys-123", "Display", 2, "hdmi"),
+  SigGraph::Input.new("sys-123", "Switcher", 1, 1),
+  SigGraph::Input.new("sys-123", "Switcher", 1, 2),
+  SigGraph::Output.new("sys-123", "Switcher", 1, 1),
+  SigGraph::Device.new("sys-123", "Display", 1),
+  SigGraph::Device.new("sys-123", "Display", 2),
+  SigGraph::Device.new("sys-123", "Switcher", 1),
 ]
 
 connections = [
-  {SignalGraph::Output.new("sys-123", "Switcher", 1, 1), SignalGraph::Input.new("sys-123", "Display", 1, "hdmi")},
+  {SigGraph::Output.new("sys-123", "Switcher", 1, 1), SigGraph::Input.new("sys-123", "Display", 1, "hdmi")},
 ]
 
 inputs = {
-  foo: SignalGraph::Input.new("sys-123", "Switcher", 1, 1),
-  bar: SignalGraph::Input.new("sys-123", "Switcher", 1, 2),
-  baz: SignalGraph::Input.new("sys-123", "Display", 2, "hdmi"),
+  foo: SigGraph::Input.new("sys-123", "Switcher", 1, 1),
+  bar: SigGraph::Input.new("sys-123", "Switcher", 1, 2),
+  baz: SigGraph::Input.new("sys-123", "Display", 2, "hdmi"),
 }
 
 outputs = {
-  display:  SignalGraph::Device.new("sys-123", "Display", 1),
-  display2: SignalGraph::Device.new("sys-123", "Display", 2),
+  display:  SigGraph::Device.new("sys-123", "Display", 1),
+  display2: SigGraph::Device.new("sys-123", "Display", 2),
 }
 
-describe SignalGraph do
+describe SigGraph do
   describe ".build" do
     it "builds from config" do
-      SignalGraph.build nodes, connections
+      SigGraph.build nodes, connections
     end
   end
 
   describe "#[]" do
-    n = SignalGraph::Device.new("sys-123", "Display", 1)
-    g = SignalGraph.build [n], [] of {SignalGraph::Node::Ref, SignalGraph::Node::Ref}
+    n = SigGraph::Device.new("sys-123", "Display", 1)
+    g = SigGraph.build [n], [] of {SigGraph::Node::Ref, SigGraph::Node::Ref}
 
     it "provides node details from a Ref" do
-      g[n].should be_a(SignalGraph::Node::Label)
+      g[n].should be_a(SigGraph::Node::Label)
     end
 
     it "provides nodes details from an ID" do
-      g[n.id].should be_a(SignalGraph::Node::Label)
+      g[n.id].should be_a(SigGraph::Node::Label)
     end
 
     it "provides the same label for both accessors" do
@@ -101,7 +104,7 @@ describe SignalGraph do
   end
 
   describe "#route" do
-    g = SignalGraph.build nodes, connections
+    g = SigGraph.build nodes, connections
 
     it "returns nil if no path exists" do
       path = g.route inputs[:foo], outputs[:display2]
@@ -119,26 +122,56 @@ describe SignalGraph do
         case step
         when 0
           node.should eq g[source]
-          edge = edge.as SignalGraph::Edge::Active
+          edge = edge.as SigGraph::Edge::Active
           edge.mod.name.should eq "Switcher"
-          edge.func.should eq SignalGraph::Edge::Func::Switch.new 1, 1
+          edge.func.should eq SigGraph::Edge::Func::Switch.new 1, 1
         when 1
-          edge.should be_a SignalGraph::Edge::Static
-          next_node.should eq g[SignalGraph::Input.new("sys-123", "Display", 1, "hdmi")]
+          edge.should be_a SigGraph::Edge::Static
+          next_node.should eq g[SigGraph::Input.new("sys-123", "Display", 1, "hdmi")]
         when 2
-          edge = edge.as SignalGraph::Edge::Active
+          edge = edge.as SigGraph::Edge::Active
           edge.mod.name.should eq "Display"
           edge.mod.idx.should eq 1
-          edge.func.should eq SignalGraph::Edge::Func::Select.new "hdmi"
+          edge.func.should eq SigGraph::Edge::Func::Select.new "hdmi"
         when 4
           fail "path iterator did not terminate"
         end
       end
     end
+
+    it "provides mute activation on an output device" do
+      source = SigGraph::Mute
+      dest = outputs[:display]
+
+      path = g.route source, dest
+      path = path.not_nil!
+
+      node, edge, next_node = path.first
+      node.should eq g[source]
+      edge = edge.as SigGraph::Edge::Active
+      edge.mod.name.should eq "Display"
+      edge.func.should eq SigGraph::Edge::Func::Mute.new true
+      next_node.should eq g[dest]
+    end
+
+    it "provide mute activate on an intermediate switcher" do
+      source = SigGraph::Mute
+      dest = SigGraph::Output.new("sys-123", "Switcher", 1, 1)
+
+      path = g.route source, dest
+      path = path.not_nil!
+
+      node, edge, next_node = path.first
+      node.should eq g[source]
+      edge = edge.as SigGraph::Edge::Active
+      edge.mod.name.should eq "Switcher"
+      edge.func.should eq SigGraph::Edge::Func::Mute.new true, 1
+      next_node.should eq g[dest]
+    end
   end
 
   describe "#input?" do
-    g = SignalGraph.build nodes, connections
+    g = SigGraph.build nodes, connections
 
     it "returns true if the node is an input" do
       g.input?(inputs.values.sample).should be_true
@@ -151,7 +184,7 @@ describe SignalGraph do
 
   describe "#inputs" do
     it "provides a list of input nodes within the graph" do
-      g = SignalGraph.build nodes, connections
+      g = SigGraph.build nodes, connections
       expected = inputs.values
       discovered = g.inputs.map(&.ref).to_a
       expected.each { |input| discovered.should contain input }
@@ -160,7 +193,7 @@ describe SignalGraph do
 
   describe "#inputs(destination)" do
     it "provides a list of inputs nodes accessible to an output" do
-      g = SignalGraph.build nodes, connections
+      g = SigGraph.build nodes, connections
       reachable = g.inputs(outputs[:display]).map(&.ref).to_a
       expected = {inputs[:foo], inputs[:bar]}
       expected.each { |input| reachable.should contain input }
@@ -168,7 +201,7 @@ describe SignalGraph do
   end
 
   describe "#output?" do
-    g = SignalGraph.build nodes, connections
+    g = SigGraph.build nodes, connections
 
     it "returns true if the node is an output" do
       g.output?(outputs.values.sample).should be_true
@@ -181,7 +214,7 @@ describe SignalGraph do
 
   describe "#outputs" do
     it "list the output nodes present in the graph" do
-      g = SignalGraph.build nodes, connections
+      g = SigGraph.build nodes, connections
       expected = outputs.values
       discovered = g.outputs.map(&.ref).to_a
       expected.each { |output| discovered.should contain output }
@@ -196,10 +229,10 @@ describe SignalGraph do
   pending "#merge" do
   end
 
-  describe SignalGraph::Node::Label do
+  describe SigGraph::Node::Label do
     it "supports change notification" do
-      n = SignalGraph::Device.new("sys-123", "Display", 1)
-      g = SignalGraph.build [n], [] of {SignalGraph::Node::Ref, SignalGraph::Node::Ref}
+      n = SigGraph::Device.new("sys-123", "Display", 1)
+      g = SigGraph.build [n], [] of {SigGraph::Node::Ref, SigGraph::Node::Ref}
 
       x = 0
 

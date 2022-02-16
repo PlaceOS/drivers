@@ -50,7 +50,7 @@ class Place::Router::SignalGraph
     if mod.switchable? && !outputs.empty?
       inputs.each do |input|
         outputs.each do |output|
-          func = Edge::Func::Switch.new input.input, output.output
+          func = Edge::Func::Switch.new input.input, output.output, output.layer
           g[output.id, input.id] = Edge::Active.new mod, func
         end
       end
@@ -61,7 +61,19 @@ class Place::Router::SignalGraph
         g[output.id, input.id] = Edge::Active.new mod, func
       end
     end
-    # TODO: insert muting subgraph
+
+    if mod.muteable?
+      if outputs.empty?
+        output = Node::Device.new mod
+        func = Edge::Func::Mute.new true
+        g[output.id, Mute.id] = Edge::Active.new mod, func
+      else
+        outputs.each do |output|
+          func = Edge::Func::Mute.new true, output.output
+          g[output.id, Mute.id] = Edge::Active.new mod, func
+        end
+      end
+    end
   end
 
   # Construct a graph from a pre-parsed configuration.
@@ -128,10 +140,12 @@ class Place::Router::SignalGraph
   #
   # Provides an `Iterator` that provides labels across each node, the edge, and
   # subsequent node.
-  def route(source : Node::Ref, destination : Node::Ref)
+  def route(source : Node::Ref, destination : Node::Ref, max_dist = nil)
     path = g.path destination.id, source.id, invert: true
 
     return nil unless path
+
+    return nil if max_dist && path.size > max_dist
 
     path.each_cons(2, true).map do |(succ, pred)|
       {
@@ -150,7 +164,7 @@ class Place::Router::SignalGraph
   # Provide the signal nodes that form system inputs.
   def inputs
     # Graph connectivity is inverse to signal direction, hence sinks here.
-    g.sinks.map { |id| g[id] }
+    g.sinks.compact_map { |id| g[id] unless id == Mute.id }
   end
 
   # Provide all signal nodes that can be routed to *destination*.
@@ -165,6 +179,6 @@ class Place::Router::SignalGraph
 
   # Provide the signal nodes that form system outputs.
   def outputs
-    g.sources.map { |id| g[id] }
+    g.sources.compact_map { |id| g[id] unless id == Mute.id }
   end
 end

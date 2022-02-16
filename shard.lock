@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 4.5.1
+    version: 4.7.0
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -23,7 +23,7 @@ shards:
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
-    version: 1.9.1
+    version: 1.10.0
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
@@ -37,9 +37,13 @@ shards:
     git: https://github.com/kostya/cron_parser.git
     version: 0.4.0
 
+  crunits:
+    git: https://github.com/spider-gazelle/crunits.git
+    version: 1.1.0
+
   db:
     git: https://github.com/crystal-lang/crystal-db.git
-    version: 0.10.1
+    version: 0.11.0
 
   debug:
     git: https://github.com/sija/debug.cr.git
@@ -51,11 +55,11 @@ shards:
 
   email:
     git: https://github.com/arcage/crystal-email.git
-    version: 0.6.3
+    version: 0.6.4
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.2.4
+    version: 1.2.5
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -107,11 +111,11 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.5.0
+    version: 0.5.1
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
-    version: 1.2.0
+    version: 1.2.1
 
   murmur3:
     git: https://github.com/aca-labs/murmur3.git
@@ -119,7 +123,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.8.0
+    version: 1.11.0
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -127,7 +131,15 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.13.14
+    version: 1.14.0
+
+  open_api:
+    git: https://github.com/elbywan/open_api.cr.git
+    version: 1.3.0
+
+  openapi-generator:
+    git: https://github.com/place-labs/openapi-generator.git
+    version: 2.1.0+git.commit.a65ffc2f7dcc6a393e7d1f9229650b520d9525be
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -135,11 +147,11 @@ shards:
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
-    version: 1.3.0
+    version: 1.3.2
 
   pars:
     git: https://github.com/place-labs/pars.git
-    version: 1.1.0+git.commit.16bf2c909110cc148818f7af298afeded538123c
+    version: 1.1.0
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -147,11 +159,11 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.11.1
+    version: 4.12.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.4.3
+    version: 2.5.1
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -159,19 +171,19 @@ shards:
 
   placeos-core-client:
     git: https://github.com/placeos/core-client.git
-    version: 0.3.1
+    version: 0.3.2
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.5.8
+    version: 5.9.10
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
-    version: 0.5.1
+    version: 0.6.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.10.1
+    version: 6.3.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -179,7 +191,7 @@ shards:
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
-    version: 2.2.3
+    version: 3.0.0
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
@@ -187,7 +199,7 @@ shards:
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
-    version: 2.8.2
+    version: 2.8.3
 
   redis-cluster:
     git: https://github.com/caspiano/redis-cluster.cr.git
@@ -203,7 +215,7 @@ shards:
 
   rethinkdb:
     git: https://github.com/place-labs/crystal-rethinkdb.git
-    version: 0.3.1+git.commit.bd193b6fed95619da3d963267bf61ed35b1fd7f5
+    version: 0.3.1+git.commit.07ce7c694a367efe3af9f8cb5670bc4bff5b6df0
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git

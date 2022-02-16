@@ -1,26 +1,26 @@
-require "placeos-driver/driver-specs/runner"
-require "placeos-driver/driver-specs/mock_driver"
+require "placeos-driver/spec"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/switchable"
 
-class Display < DriverSpecs::MockDriver
+# :nodoc:
+class DisplayMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Powerable
   include PlaceOS::Driver::Interface::Muteable
 
-  enum Inputs
+  enum MockInputs
     HDMI
     HDMI2
   end
 
-  include PlaceOS::Driver::Interface::InputSelection(Inputs)
+  include PlaceOS::Driver::Interface::InputSelection(MockInputs)
 
   # implement the abstract methods required by the interfaces
   def power(state : Bool)
     self[:power] = state
   end
 
-  def switch_to(input : Inputs)
+  def switch_to(input : MockInputs)
     mute(false)
     self[:input] = input
   end
@@ -33,20 +33,20 @@ class Display < DriverSpecs::MockDriver
     self[:mute] = state
   end
 
-  def volume(level : Int32)
+  def volume(level : Int32 | Float64)
     self[:volume] = level
   end
 end
 
-class Switcher < DriverSpecs::MockDriver
+# :nodoc:
+class SwitcherMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Switchable(Int32, Int32)
 
   def switch_to(input : Int32)
     self[:input] = input
   end
 
-  def switch(map : Hash(Int32, Array(Int32)) | Hash(String, Hash(Int32, Array(Int32))))
-    map = map.values.first if map.is_a? Hash(String, Hash(Int32, Array(Int32)))
+  def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
     map.each do |(input, outputs)|
       outputs.each do |output|
         self["output#{output}"] = input
@@ -57,8 +57,8 @@ end
 
 DriverSpecs.mock_driver "Place::Meet" do
   system({
-    Display:  {Display},
-    Switcher: {Switcher},
+    Display:  {DisplayMock},
+    Switcher: {SwitcherMock},
   })
 
   settings({
@@ -68,6 +68,7 @@ DriverSpecs.mock_driver "Place::Meet" do
       },
       Switcher_1: ["*Foo", "*Bar"],
     },
+    local_outputs: ["Display_1"],
   })
 
   # Give the settings time to load
@@ -79,16 +80,16 @@ DriverSpecs.mock_driver "Place::Meet" do
   status["output/Display_1"]["inputs"].should eq(["Foo", "Bar"])
 
   exec(:power, true).get
-  status["active"].should eq true
+  status["active"]?.should eq true
 
   exec(:route, "Foo", "Display_1").get
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
   system(:Display_1)["power"].should be_true
 
   exec(:mute, true, "Display_1").get
-  status["output/Display_1"]["mute"].should be_true
+  status["mute"]?.should be_true
 
   exec(:volume, 50, "Display_1").get
-  status["output/Display_1"]["volume"].should eq(50)
   system(:Display_1)["volume"].should eq(50)
+  status["volume"]?.should eq(50)
 end
