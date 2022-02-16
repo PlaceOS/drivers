@@ -244,7 +244,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     check_success(response)
   end
 
-  def get_locker_reservation(reservation_id : String,)
+  def get_locker_reservation(reservation_id : String)
     query = URI::Params.build { |form|
       form.add("resid", reservation_id) if reservation_id
     }
