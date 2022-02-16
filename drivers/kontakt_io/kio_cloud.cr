@@ -80,12 +80,15 @@ class KontaktIO::KioCloud < PlaceOS::Driver
       status:  :active,
       name:    name,
       channel: {
-        type:       "eventHub",
-        endpoint:   uri,
-        streamName: name,
-        accessKey:  "test",
-        secretKey:  "test",
-        region:     "test",
+        type:                "eventHub",
+        endpoint:            uri,
+        streamName:          name,
+        accessKey:           "test",
+        secretKey:           "test",
+        region:              "test",
+        sharedAccessKeyName: "test",
+        eventHubName:        "test",
+        sharedAccessKey:     "test",
       },
     }.to_json)
   end
