@@ -239,6 +239,15 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     check_success(response)
   end
 
+  def get_locker_reservation(reservation_id : String,)
+    query = URI::Params.build { |form|
+      form.add("resid", reservation_id) if user_id
+    }
+
+    response = get("/restapi/res?#{query}", headers: default_headers)
+    parse response, LockerBooking
+  end
+
   def locker_reservation(
     locker_key : String,
     user_id : String,
@@ -265,10 +274,11 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, LockerBooking
   end
 
-  def locker_reservations(active : Bool? = nil, user_id : String? = nil)
+  def locker_reservations(active : Bool? = nil, user_id : String? = nil, controller_id : String? = nil)
     query = URI::Params.build { |form|
       form.add("uid", user_id) if user_id
       form.add("active", "1") if active
+      form.add("cid", controller_id) if controller_id
     }
 
     response = get("/restapi/res-list?#{query}", headers: default_headers)
