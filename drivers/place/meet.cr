@@ -100,8 +100,10 @@ class Place::Meet < PlaceOS::Driver
   include Place::QSCPhoneDialing
 
   def on_load
-    init_previous_join_state
-    on_update
+    system.load_complete do
+      init_previous_join_state
+      on_update
+    end
   end
 
   @tabs : Array(Tab) = [] of Tab
