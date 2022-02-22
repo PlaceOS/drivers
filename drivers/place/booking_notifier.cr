@@ -6,10 +6,10 @@ require "file"
 
 require "./booking_model"
 
-class Place::BookingApprovalWorkflows < PlaceOS::Driver
-  descriptive_name "Desk Booking Approval Workflows"
-  generic_name :BookingApproval
-  description %(picks an approval strategy based on configuration)
+class Place::BookingNotifier < PlaceOS::Driver
+  descriptive_name "Desk Booking Notifier"
+  generic_name :BookingNotifier
+  description %(notifies users when a desk booking takes place)
 
   default_settings({
     timezone:         "Australia/Sydney",
@@ -18,8 +18,6 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
     date_format:      "%A, %-d %B",
 
     booking_type:        "desk",
-    remind_after:        24,
-    escalate_after:      48,
     disable_attachments: true,
 
     approval_type: {
@@ -35,23 +33,11 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         support_email: "msupport@place.com",
       },
     },
-
-    reminders: {
-      crons: ["0 10 * * *", "0 14 * * *"],
-      zones: {
-        "Australia/Sydney" => ["zone_id1", "zone_id2"],
-        "Australia/Perth"  => ["zone_id3"],
-      },
-    },
   })
-
-  # bookings states:
-  # * manager_contacted = manager has been emailed to approve
-  # * manager_reminded  = manager has been emailed a second time to approve
-  # * managers_manager  = managers manager has been emailed to approve
 
   accessor staff_api : StaffAPI_1
 
+  # We want to use the first driver in the system that is a mailer
   def mailer
     system.implementing(Interface::Mailer)[0]
   end
@@ -59,7 +45,6 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
   def on_load
     # Some form of asset booking has occured
     monitor("staff/booking/changed") { |_subscription, payload| parse_booking(payload) }
-
     on_update
   end
 
@@ -113,6 +98,60 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
           logger.warn(exception: error) { "failed to schedule reminder: #{zones} => #{timezone} : #{cron}" }
         end
       end
+    end
+  end
+
+  class Booking
+    include JSON::Serializable
+
+    # This is to support events
+    property action : String?
+
+    property id : Int64
+    property booking_type : String
+    property booking_start : Int64
+    property booking_end : Int64
+    property timezone : String?
+
+    # events use resource_id instead of asset_id
+    property asset_id : String?
+    property resource_id : String?
+
+    def asset_id : String
+      (@asset_id || @resource_id).not_nil!
+    end
+
+    property user_id : String
+    property user_email : String
+    property user_name : String
+
+    property zones : Array(String)
+
+    property checked_in : Bool?
+    property rejected : Bool?
+    property approved : Bool?
+    property process_state : String?
+    property last_changed : Int64?
+
+    property approver_name : String?
+    property approver_email : String?
+
+    property booked_by_name : String
+    property booked_by_email : String
+
+    property checked_in : Bool?
+    property title : String?
+    property description : String?
+
+    property extension_data : Hash(String, JSON::Any)
+
+    def in_progress?
+      now = Time.utc.to_unix
+      now >= @booking_start && now < @booking_end
+    end
+
+    def changed
+      Time.unix(last_changed.not_nil!)
     end
   end
 
