@@ -162,14 +162,17 @@ STRING
     check_presence_from = start_time + present_from
 
     # Can we auto check-in?
+    logger.debug { "people_present? #{people_present?}" }
     if people_present?
       if time_now >= check_presence_from
+        logger.debug { "starting meeting!" }
         bookings.start_meeting(start_time.to_unix)
       else
         # Schedule an auto check-in check as people_present? might remain high
+        logger.debug { "scheduling meeting start" }
         schedule.at(check_presence_from) do
+          logger.debug { "starting meeting!" }
           bookings.start_meeting(start_time.to_unix)
-          schedule.clear
         end
       end
       return
@@ -177,9 +180,14 @@ STRING
 
     # should we be scheduling a prompt email?
     if time_now >= prompt_at
+      logger.debug { "no show, prompting user" }
       prompt_user meeting
     else
-      schedule.at(prompt_at) { prompt_user meeting }
+      logger.debug { "scheduling no show" }
+      schedule.at(prompt_at) do
+        logger.debug { "scheduled no show, prompting user" }
+        prompt_user meeting
+      end
     end
   end
 
