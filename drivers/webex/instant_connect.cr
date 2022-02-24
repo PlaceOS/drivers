@@ -8,7 +8,7 @@ class Webex::InstantConnect < PlaceOS::Driver
     bot_access_token: "token",
   })
 
-  @audience_setting = ""
+  @audience_setting = "a4d886b0-979f-4e2c-a958-3e8c14605e51"
 
   def create_meeting(meeting_id : String)
     expiry = 24.hours.from_now.to_unix
@@ -25,10 +25,10 @@ class Webex::InstantConnect < PlaceOS::Driver
       "Authorization" => "Bearer #{setting String, :bot_access_token}",
     })
 
-    raise "request failed with #{response.status_code}" unless response.status_code == 200
-    response_body = NamedTuple(host: Array(String), guest: Array(String)).from_json(response.body.not_nil!)
-    puts response_body
-    return_hash = Hash(String, String).new
+    raise "request failed with #{response.status_code}" unless response.status_code == 200 && !response.body.nil?
+
+    response_body = NamedTuple(host: Tuple(String), guest: Tuple(String)).from_json(response.body)
+    return_hash = Hash(String, String).new(initial_capacity: 2)
     response_body.each do |key, value|
       return_hash[key.to_s] = value.first.to_s
     end
