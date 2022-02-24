@@ -76,6 +76,15 @@ module Cisco::Meraki
     end
   end
 
+  class FloorPlanLocation
+    include JSON::Serializable
+
+    property id : String
+    property name : String
+    property x : Float64
+    property y : Float64
+  end
+
   class NetworkDevice
     include JSON::Serializable
 
@@ -147,7 +156,9 @@ module Cisco::Meraki
   class DeviceLocation
     include JSON::Serializable
 
-    def initialize(@x, @y, @lng, @lat, @variance, @floor_plan_id, @floor_plan_name, @time)
+    def initialize(@x, @y, @lng, @lat, @variance, floor_plan_id, floor_plan_name, @time)
+      @wifi_floor_plan_name = floor_plan_name
+      @wifi_floor_plan_id = floor_plan_id
       @mac = nil
       @client = nil
       @rssi_records = [] of RSSI
@@ -177,10 +188,13 @@ module Cisco::Meraki
     property variance : Float64
 
     @[JSON::Field(key: "floorPlanId")]
-    property floor_plan_id : String?
+    property wifi_floor_plan_id : String?
 
     @[JSON::Field(key: "floorPlanName")]
-    property floor_plan_name : String?
+    property wifi_floor_plan_name : String?
+
+    @[JSON::Field(key: "floorPlan")]
+    property floor_plan : FloorPlanLocation?
 
     @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::ISO8601))]
     property time : Time
@@ -200,7 +214,7 @@ module Cisco::Meraki
     end
 
     def get_x : Float64?
-      if tmp = x
+      if tmp = x || floor_plan.try(&.x)
         if tmp.is_a?(Float64)
           tmp
         end
@@ -208,11 +222,19 @@ module Cisco::Meraki
     end
 
     def get_y : Float64?
-      if tmp = y
+      if tmp = y || floor_plan.try(&.y)
         if tmp.is_a?(Float64)
           tmp
         end
       end
+    end
+
+    def floor_plan_id
+      wifi_floor_plan_id || floor_plan.try(&.id)
+    end
+
+    def floor_plan_name
+      wifi_floor_plan_name || floor_plan.try(&.name)
     end
   end
 
@@ -254,6 +276,12 @@ module Cisco::Meraki
     property observations : Array(Observation)
   end
 
+  enum MessageType
+    None
+    WiFi
+    Bluetooth
+  end
+
   class DevicesSeen
     include JSON::Serializable
 
@@ -261,7 +289,7 @@ module Cisco::Meraki
     property secret : String
 
     @[JSON::Field(key: "type")]
-    property message_type : String
+    property message_type : MessageType
 
     property data : Data
   end
