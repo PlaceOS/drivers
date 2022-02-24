@@ -25,9 +25,11 @@ DriverSpecs.mock_driver "AmberTech::Grandview" do
   end
 
   retval.get
+  sleep 1
   status[:status].should eq "closed"
 
   retval = exec(:move, "down")
+  sleep 2
   expect_http_request do |request, response|
     raise "unexpected path #{request.path} for move down" unless request.path == "/Open.js"
     response.status_code = 200

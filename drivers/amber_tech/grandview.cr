@@ -16,7 +16,7 @@ class AmberTech::Grandview < PlaceOS::Driver
   uri_base "http://192.168.0.2"
 
   def on_load
-    queue.delay = 1.second
+    queue.delay = 2.seconds
     schedule.every(1.minute) { status }
   end
 
