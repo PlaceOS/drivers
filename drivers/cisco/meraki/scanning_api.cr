@@ -162,7 +162,6 @@ module Cisco::Meraki
       @mac = nil
       @client = nil
       @rssi_records = [] of RSSI
-      @nearest_ap_tags = [] of String
     end
 
     def self.calculate_location(floor : FloorPlan, device : NetworkDevice, time : Time) : DeviceLocation
@@ -200,7 +199,7 @@ module Cisco::Meraki
     property time : Time
 
     @[JSON::Field(key: "nearestApTags")]
-    property nearest_ap_tags : Array(String)
+    property nearest_ap_tags : Array(String) { [] of String }
 
     @[JSON::Field(key: "rssiRecords")]
     property rssi_records : Array(RSSI)
