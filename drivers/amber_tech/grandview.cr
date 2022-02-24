@@ -18,7 +18,7 @@ class AmberTech::Grandview < PlaceOS::Driver
   # The device requires the HTTP port closed after every request
   # (even though it responds with HTTP1.1 and doesn't return any headers)
   default_settings({
-    http_max_requests: 1
+    http_max_requests: 1,
   })
 
   def on_load
