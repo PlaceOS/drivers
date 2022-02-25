@@ -69,4 +69,33 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   def format_mac(address : String)
     address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
   end
+
+  def event_hub(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "scanning API received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body }
+  end
+
+  def create_channel(name : String, uri : String)
+    make_request("POST", "/v3/channels", body: {
+      status:  :active,
+      name:    name,
+      channel: {
+        type:                "eventHub",
+        endpoint:            uri,
+        streamName:          name,
+        accessKey:           "test",
+        secretKey:           "test",
+        region:              "test",
+        sharedAccessKeyName: "test",
+        eventHubName:        "test",
+        sharedAccessKey:     "test",
+      },
+    }.to_json)
+  end
+
+  def delete_channel(id : Int32 | String)
+    make_request("DELETE", "/v3/channels", params: {
+      "id" => id.to_s,
+    })
+  end
 end

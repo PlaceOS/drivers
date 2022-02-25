@@ -107,6 +107,7 @@ class Place::Bookings < PlaceOS::Driver
     logger.debug { "starting meeting #{meeting_start_time}" }
     @last_booking_started = meeting_start_time
     define_setting(:last_booking_started, meeting_start_time)
+    self[:last_booking_started] = meeting_start_time
     check_current_booking
   end
 
@@ -232,7 +233,7 @@ class Place::Bookings < PlaceOS::Driver
         current_pending = true if start_time > @last_booking_started
       elsif @pending_period.to_i > 0_i64
         pending_limit = (Time.unix(start_time) + @pending_period).to_unix
-        current_pending = true if start_time < pending_limit
+        current_pending = true if start_time < pending_limit && start_time > @last_booking_started
       end
 
       self[:current_booking] = booking
