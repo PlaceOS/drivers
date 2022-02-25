@@ -180,7 +180,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
       form.add("desks", "true") if desks
     end
 
-    response = get("/restapi/slave-list#{query}", headers: default_headers)
+    response = get("/restapi/slave-list?#{query}", headers: default_headers)
     controllers = parse response, Array(ControllerInfo)
 
     mappings = {} of Int32 => ControllerInfo
