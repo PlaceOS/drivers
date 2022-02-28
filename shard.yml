@@ -85,3 +85,6 @@ dependencies:
   bacnet:
     github: spider-gazelle/crystal-bacnet
     version: ~> 0.10
+
+  halite:
+    github: icyleaf/halite
