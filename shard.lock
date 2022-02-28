@@ -23,7 +23,7 @@ shards:
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
-    version: 1.9.1
+    version: 1.10.0
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
@@ -43,7 +43,7 @@ shards:
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
-    version: 0.10.1
+    version: 0.11.0
 
   debug:
     git: https://github.com/sija/debug.cr.git
@@ -55,7 +55,7 @@ shards:
 
   email:
     git: https://github.com/arcage/crystal-email.git
-    version: 0.6.3
+    version: 0.6.4
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
@@ -63,7 +63,7 @@ shards:
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
-    version: 1.3.0
+    version: 2.0.0
 
   future:
     git: https://github.com/crystal-community/future.cr.git
@@ -123,7 +123,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.10.0
+    version: 1.11.0
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -132,6 +132,14 @@ shards:
   office365:
     git: https://github.com/placeos/office365.git
     version: 1.14.0
+
+  open_api:
+    git: https://github.com/elbywan/open_api.cr.git
+    version: 1.3.0
+
+  openapi-generator:
+    git: https://github.com/place-labs/openapi-generator.git
+    version: 2.1.0+git.commit.a65ffc2f7dcc6a393e7d1f9229650b520d9525be
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -155,19 +163,19 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.4.4
+    version: 2.5.1
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
-    version: 3.5.0
+    version: 4.9.0
 
   placeos-core-client:
     git: https://github.com/placeos/core-client.git
-    version: 0.3.1
+    version: 0.4.0
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.9.10
+    version: 6.2.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -175,7 +183,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 5.15.3
+    version: 6.6.3
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -188,6 +196,10 @@ shards:
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
     version: 1.0.2
+
+  rate_limiter:
+    git: https://github.com/lbarasti/rate_limiter.git
+    version: 1.0.1
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
@@ -211,7 +223,7 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 5.0.2
+    version: 5.0.4
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git

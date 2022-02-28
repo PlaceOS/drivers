@@ -15,8 +15,14 @@ class AmberTech::Grandview < PlaceOS::Driver
   descriptive_name "Ambertech Grandview Projector Screen"
   uri_base "http://192.168.0.2"
 
+  # The device requires the HTTP port closed after every request
+  # (even though it responds with HTTP1.1 and doesn't return any headers)
+  default_settings({
+    http_max_requests: 1,
+  })
+
   def on_load
-    queue.delay = 500.milliseconds
+    queue.delay = 2.seconds
     schedule.every(1.minute) { status }
   end
 

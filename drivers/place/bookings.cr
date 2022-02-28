@@ -107,6 +107,7 @@ class Place::Bookings < PlaceOS::Driver
     logger.debug { "starting meeting #{meeting_start_time}" }
     @last_booking_started = meeting_start_time
     define_setting(:last_booking_started, meeting_start_time)
+    self[:last_booking_started] = meeting_start_time
     check_current_booking
   end
 
@@ -225,14 +226,14 @@ class Place::Bookings < PlaceOS::Driver
     if current_booking
       booking = @bookings[current_booking]
       start_time = booking["event_start"].as_i64
-
       booked = true
+
       # Up to the frontend to delete pending bookings that have past their start time
       if !@disable_end_meeting
         current_pending = true if start_time > @last_booking_started
       elsif @pending_period.to_i > 0_i64
         pending_limit = (Time.unix(start_time) + @pending_period).to_unix
-        current_pending = true if start_time < pending_limit
+        current_pending = true if start_time < pending_limit && start_time > @last_booking_started
       end
 
       self[:current_booking] = booking
@@ -295,17 +296,23 @@ class Place::Bookings < PlaceOS::Driver
   # This is called when bookings are modified via the staff app
   # it allows us to update the cache faster than via polling alone
   protected def check_change(payload : String)
+    logger.debug { "checking for change in payload:\n#{payload}" }
+
     event = StaffEventChange.from_json(payload)
     if event.system_id == system.id
+      logger.debug { "system id match, waiting #{@change_event_sync_delay} and polling events" }
       sleep @change_event_sync_delay
       poll_events
       check_current_booking
     else
       matching = @bookings.select { |b| b["id"] == event.event_id }
       if matching
+        logger.debug { "event id match, waiting #{@change_event_sync_delay} and polling events" }
         sleep @change_event_sync_delay
         poll_events
         check_current_booking
+      else
+        logger.debug { "ignoring event as no matching events found" }
       end
     end
   rescue error
@@ -377,16 +384,21 @@ class Place::Bookings < PlaceOS::Driver
     [] of Nil
   end
 
+  @sensor_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
+
   protected def check_for_sensors
     drivers = system.implementing(Interface::Sensor)
 
-    subscriptions.clear
+    if sub = @sensor_subscription
+      subscriptions.unsubscribe(sub)
+      @sensor_subscription = nil
+    end
 
     # Prefer people count data in a space
     count_data = drivers.sensors("people_count").get.flat_map(&.as_a).first?
     if count_data && count_data["module_id"]?.try(&.raw.is_a?(String))
       self[:sensor_name] = count_data["name"].as_s
-      subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
+      @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
         value = (Float64 | Nil).from_json payload
         if value
           self[:people_count] = value
@@ -402,7 +414,7 @@ class Place::Bookings < PlaceOS::Driver
       presence = drivers.sensors("presence").get.flat_map(&.as_a).first?
       if presence && presence["module_id"]?.try(&.raw.is_a?(String))
         self[:sensor_name] = presence["name"].as_s
-        subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
+        @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
           value = (Float64 | Nil).from_json payload
           self[:presence] = value ? value > 0.0 : nil
         end
