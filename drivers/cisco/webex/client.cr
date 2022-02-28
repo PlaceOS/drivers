@@ -89,7 +89,7 @@ module Cisco
 
               if message.person_id != @id
                 # Ack that this message has been processed. This will prevent the message coming again.
-                socket.send({"type" => "ack", "messageId": id}.to_json)
+                socket.send({"type" => "ack", "messageId" => id}.to_json)
 
                 if message.text.starts_with?(@name)
                   message.text = message.text.sub(@name, "").strip
