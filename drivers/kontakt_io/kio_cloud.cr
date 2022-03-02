@@ -38,8 +38,9 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     loop do
       params["page"] = page.to_s
 
-      logger.debug { "requesting: #{method} #{path}?#{params}" }
-      response = http(method, path, body, params, headers)
+      path_params = "#{path}?#{params.map { |(key, value)| "#{key}=#{value}" }.join('&')}"
+      logger.debug { "requesting: #{method} #{path_params}" }
+      response = http(method, path_params, body, headers: headers)
 
       logger.debug { "request returned:\n#{response.body}" }
       case response.status_code
