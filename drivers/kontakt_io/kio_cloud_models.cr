@@ -1,10 +1,65 @@
 require "json"
 
 module KontaktIO
+  class Page
+    include JSON::Serializable
+
+    getter size : Int32
+    getter number : Int32
+
+    @[JSON::Field(key: "totalElements")]
+    getter total_elements : Int32
+
+    @[JSON::Field(key: "totalPages")]
+    getter total_pages : Int32
+  end
+
   class Response(T)
     include JSON::Serializable
 
     getter content : Array(T)
+    getter page : Page?
+  end
+
+  class Tracking
+    include JSON::Serializable
+
+    @[JSON::Field(key: "entityId")]
+    getter entity_id : Int64?
+
+    @[JSON::Field(key: "entityName")]
+    getter entity_name : String?
+
+    @[JSON::Field(key: "trackingId")]
+    getter mac_address : String
+
+    @[JSON::Field(key: "startTime")]
+    getter start_time : Time
+
+    @[JSON::Field(key: "endTime")]
+    getter end_time : Time
+
+    getter contacts : Array(Contact)
+
+    def duration
+      contacts.first.duration_sec
+    end
+  end
+
+  class Contact
+    include JSON::Serializable
+
+    @[JSON::Field(key: "entityId")]
+    getter entity_id : Int64?
+
+    @[JSON::Field(key: "entityName")]
+    getter entity_name : String?
+
+    @[JSON::Field(key: "trackingId")]
+    getter mac_address : String
+
+    @[JSON::Field(key: "durationSec")]
+    getter duration_sec : Int32
   end
 
   class Presence
