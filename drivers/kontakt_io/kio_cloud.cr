@@ -34,36 +34,76 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     headers["Content-Type"] = "application/json"
 
     # deal with result sizes and pagination
-    params["size"] = "10000"
-    # params["page"] = page_num.to_s
+    params["size"] = "500"
+    page = 0
 
-    response = http(method, path, body, params, headers)
+    loop do
+      params["page"] = page.to_s
 
-    logger.debug { "request returned:\n#{response.body}" }
-    case response.status_code
-    when 303
-      # TODO:: follow the redirect
-    when 401
-      logger.warn { "The API Key is invalid or disabled" }
-    when 403
-      logger.warn { "User who created the API no longer has access to the Kio Cloud account or their user role doesn't allow access to the endpoint. Device error if the endpoint is not available for the device model." }
+      response = http(method, path, body, params, headers)
+
+      logger.debug { "request returned:\n#{response.body}" }
+      case response.status_code
+      when 303
+        # TODO:: follow the redirect
+      when 401
+        logger.warn { "The API Key is invalid or disabled" }
+      when 403
+        logger.warn { "User who created the API no longer has access to the Kio Cloud account or their user role doesn't allow access to the endpoint. Device error if the endpoint is not available for the device model." }
+      end
+
+      raise "request #{path} failed with status: #{response.status_code}" unless response.success?
+
+      if page_details = yield response.body
+        page += 1
+        next unless page >= page_details.total_pages
+      end
+      break response.body
     end
+  end
 
-    raise "request #{path} failed with status: #{response.status_code}" unless response.success?
+  protected def make_request(
+    method, path, body : ::HTTP::Client::BodyType = nil,
+    params : Hash(String, String?) = {} of String => String?,
+    headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new
+  ) : String
+    make_request(method, path, body, params, headers) { nil }
+  end
 
-    response.body
+  def colocations(mac_address : String, start_time : Int64? = nil, end_time : Int64? = nil) : Array(Tracking)
+    # max range is 21 days, we default to 20
+    ending = end_time ? Time.unix(end_time) : Time.utc
+    starting = start_time ? Time.unix(start_time) : (ending - 20.days)
+    tracking = [] of Tracking
+    make_request("GET", "/v3/novid/colocations", params: {
+      # mac address needs to be uppercase and pretty formed for this request
+      "trackingId" => format_mac(mac_address).upcase.scan(/\w{2}/).map(&.to_a.first).join(':'),
+      "startTime"  => starting.to_rfc3339,
+      "endTime"    => ending.to_rfc3339,
+    }) do |data|
+      resp = Response(Tracking).from_json(data)
+      tracking.concat resp.content
+      resp.page
+    end
+    tracking
   end
 
   def find(mac_address : String) : Position?
     data = make_request("GET", "/v2/positions", params: {
+      # mac address needs to be lowercase for this request (according to the API)
       "trackingId" => format_mac(mac_address),
     })
     Response(Position).from_json(data).content.first?
   end
 
   def campuses : Array(Campus)
-    data = make_request("GET", "/v2/locations/campuses")
-    Response(Campus).from_json(data).content
+    campuses = [] of Campus
+    make_request("GET", "/v2/locations/campuses") do |data|
+      resp = Response(Campus).from_json(data)
+      campuses.concat resp.content
+      resp.page
+    end
+    campuses
   end
 
   def format_mac(address : String)
