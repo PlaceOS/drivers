@@ -32,7 +32,7 @@ class KontaktIO::ContactTracing < PlaceOS::Driver
     mac_mappings = {} of String => String
     macs.each do |mac|
       mac = format_mac(mac)
-      if owner = location_services.check_ownership_of(mac).get
+      if owner = location_services.check_ownership_of(mac).get.as_h?
         username = owner["assigned_to"]?.try(&.as_s)
         next unless username
         mac_mappings[mac] = username
