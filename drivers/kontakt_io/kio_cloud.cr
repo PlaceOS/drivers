@@ -24,11 +24,9 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   # Note:: there is a limit of 40 requests a second, however we are unlikely to hit this
   protected def make_request(
     method, path, body : ::HTTP::Client::BodyType = nil,
-    params : Hash(String, String?) = {} of String => String?,
+    params : URI::Params = URI::Params.new,
     headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new
   ) : String
-    logger.debug { "requesting: #{method} #{path}" }
-
     # handle auth
     headers["Api-Key"] = @api_key
     headers["Content-Type"] = "application/json"
@@ -40,6 +38,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     loop do
       params["page"] = page.to_s
 
+      logger.debug { "requesting: #{method} #{path}?#{params}" }
       response = http(method, path, body, params, headers)
 
       logger.debug { "request returned:\n#{response.body}" }
@@ -64,7 +63,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
 
   protected def make_request(
     method, path, body : ::HTTP::Client::BodyType = nil,
-    params : Hash(String, String?) = {} of String => String?,
+    params : URI::Params = URI::Params.new,
     headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new
   ) : String
     make_request(method, path, body, params, headers) { nil }
@@ -72,10 +71,11 @@ class KontaktIO::KioCloud < PlaceOS::Driver
 
   def colocations(mac_address : String, start_time : Int64? = nil, end_time : Int64? = nil) : Array(Tracking)
     # max range is 21 days, we default to 20
-    ending = end_time ? Time.unix(end_time) : Time.utc
+    ending = end_time ? Time.unix(end_time) : 10.minutes.ago
     starting = start_time ? Time.unix(start_time) : (ending - 20.days)
     tracking = [] of Tracking
-    make_request("GET", "/v3/novid/colocations", params: {
+
+    make_request("GET", "/v3/novid/colocations", params: URI::Params{
       # mac address needs to be uppercase and pretty formed for this request
       "trackingId" => format_mac(mac_address).upcase.scan(/\w{2}/).map(&.to_a.first).join(':'),
       "startTime"  => starting.to_rfc3339,
@@ -89,7 +89,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   end
 
   def find(mac_address : String) : Position?
-    data = make_request("GET", "/v2/positions", params: {
+    data = make_request("GET", "/v2/positions", params: URI::Params{
       # mac address needs to be lowercase for this request (according to the API)
       "trackingId" => format_mac(mac_address),
     })
@@ -134,7 +134,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   end
 
   def delete_channel(id : Int32 | String)
-    make_request("DELETE", "/v3/channels", params: {
+    make_request("DELETE", "/v3/channels", params: URI::Params{
       "id" => id.to_s,
     })
   end
