@@ -36,8 +36,6 @@ class Webex::InstantConnect < PlaceOS::Driver
   def get_host_token(hash : Hash(String, String))
     response = get("api/v1/space/?int=jose&data=#{hash["host"]}")
     raise "host token request failed with #{response.status_code}" unless response.status_code == 200 && !response.body.nil?
-    puts "host token response is: #{response.inspect}"
-
     NamedTuple(token: String).from_json(response.body)[:token]
   end
 

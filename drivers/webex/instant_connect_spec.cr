@@ -9,7 +9,6 @@ DriverSpecs.mock_driver "Webex::InstantConnect" do
 
   # HTTP request to get host/guest hash
   expect_http_request do |request, response|
-    puts "request is: #{request.inspect}"
     headers = request.headers
     io = request.body
     if io
@@ -39,9 +38,7 @@ DriverSpecs.mock_driver "Webex::InstantConnect" do
 
   # final HTTP request to create meeting
   expect_http_request do |request, response|
-    puts "third request is: #{request.inspect}"
     headers = request.headers
-
     io = request.body
     if io
       data = io.gets_to_end
