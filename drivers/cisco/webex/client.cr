@@ -124,30 +124,26 @@ module Cisco
 
       def run : Void
         device = device()
-        @socket = HTTP::WebSocket.new(URI.parse(device.websocket_url))
+        @socket = socket = HTTP::WebSocket.new(URI.parse(device.websocket_url))
 
-        @socket.try(&.on_open do
-          message = {
-            "id"         => UUID.random.to_s,
-            "type"       => "authorization",
-            "trackingId" => ["webex", "-", UUID.random.to_s].join(""),
-            "data"       => {
-              "token" => ["Bearer", @access_token].join(" "),
-            },
-          }
+        socket.on_message do |message|
+          process_incoming_websocket_message(socket, message)
+        end
 
-          @socket.try(&.send(message.to_json))
-        end)
+        socket.on_binary do |binary|
+          process_incoming_websocket_message(socket, String.new(binary))
+        end
 
-        @socket.try(&.on_message do |message|
-          process_incoming_websocket_message(@socket.not_nil!, message)
-        end)
-
-        @socket.try(&.on_binary do |binary|
-          process_incoming_websocket_message(@socket.not_nil!, String.new(binary))
-        end)
-
-        @socket.try(&.run)
+        message = {
+          "id"         => UUID.random.to_s,
+          "type"       => "authorization",
+          "trackingId" => ["webex", "-", UUID.random.to_s].join(""),
+          "data"       => {
+            "token" => ["Bearer", @access_token].join(" "),
+          },
+        }
+        socket.send(message.to_json)
+        socket.run
       end
 
       def stop : Void
