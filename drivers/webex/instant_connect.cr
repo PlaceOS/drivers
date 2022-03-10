@@ -32,7 +32,7 @@ class Webex::InstantConnect < PlaceOS::Driver
     response_keys = meeting_config.keys
     response_keys.delete("token")
     response_keys.delete("spaceId")
-    meeting_config = meeting_config.reject(response_keys) 
+    meeting_config = meeting_config.reject(response_keys)
 
     response = get("api/v1/space/?int=jose&data=#{hash["guest"]}")
     raise "guest token request failed with #{response.status_code}" unless response.status_code == 200 && !response.body.nil?
