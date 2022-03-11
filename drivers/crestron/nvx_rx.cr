@@ -213,7 +213,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
         #   "UniqueId": "cc063ec3-d135-4413-9ee9-5a9264b5642c",
         #   "VideoSource": "07147488-9e0b-11e7-abc4-cec278b6b50a"
         # }]
-        query("/AvRouting/Routes", name: :routes, priority: 0) do |routes|
+        query("/AvRouting/Routes", name: :routes, priority: 1) do |routes|
           uuid = routes.dig?(0, "#{type}Source").try &.as_s?
           # FIXME: provide 'Stream1..n' rather than uuids
           self["#{type_downcase}_source"] = uuid.presence ? "Stream-#{uuid}" : "None"
