@@ -1,5 +1,5 @@
 require "placeos-driver/spec"
-require "./nvx_rx_models"
+require "./nvx_models"
 
 DriverSpecs.mock_driver "Crestron::NvxScalerControl" do
   system({

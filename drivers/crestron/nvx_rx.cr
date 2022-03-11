@@ -1,5 +1,5 @@
 require "./cres_next"
-require "./nvx_rx_models"
+require "./nvx_models"
 require "placeos-driver/interface/switchable"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
@@ -65,14 +65,14 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     update_source_info
   end
 
-  def output(disable : Bool)
-    logger.debug { "#{disable ? "disabling" : "enabling"} output sync" }
+  def output(state : Bool)
+    logger.debug { "#{state ? "enabling" : "disabling"} output sync" }
 
     update(
       "/AudioVideoInputOutput/Outputs",
       [{
         Ports: [{
-          Hdmi: {IsOutputDisabled: disable},
+          Hdmi: {IsOutputDisabled: !state},
         }],
       }],
       name: :output

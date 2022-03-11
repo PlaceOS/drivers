@@ -1,5 +1,5 @@
 require "placeos-driver"
-require "./nvx_rx_models"
+require "./nvx_models"
 
 class Crestron::NvxScalerControl < PlaceOS::Driver
   descriptive_name "Crestron NVX Scaler Control"

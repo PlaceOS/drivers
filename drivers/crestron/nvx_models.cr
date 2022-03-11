@@ -5,4 +5,9 @@ module Crestron
     MaintainAspectRatio
     StretchToFit
   end
+
+  enum SourceType
+    Audio
+    Video
+  end
 end
