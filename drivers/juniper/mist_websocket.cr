@@ -10,9 +10,6 @@ class Juniper::MistWebsocket < PlaceOS::Driver
 
   uri_base "wss://api.mist.com/api-ws/v1/stream"
   default_settings({
-    headers: {
-      "Authorization" => "Token api_token",
-    },
     api_token:        "token",
     site_id:          "site_id",
     ignore_usernames: ["host/"],
@@ -51,6 +48,13 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     @ignore_usernames = setting?(Array(String), :ignore_usernames) || [] of String
 
     connected if @connected
+  end
+
+  def websocket_headers
+    HTTP::Headers{
+      "Authorization" => @api_token,
+      "User-Agent"    => "PlaceOS/2.0 PlaceTechnology",
+    }
   end
 
   def connected
