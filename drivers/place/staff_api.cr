@@ -12,6 +12,9 @@ class Place::StaffAPI < PlaceOS::Driver
   uri_base "https://staff.app.api.com"
 
   default_settings({
+    # PlaceOS X-API-key, for simpler authentication
+    api_key: "",
+
     # PlaceOS API creds, so we can query the zone metadata
     username:     "",
     password:     "",
@@ -22,6 +25,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @place_domain : URI = URI.parse("https://staff.app.api.com")
   @host_header : String = ""
 
+  @api_key : String = ""
   @username : String = ""
   @password : String = ""
   @client_id : String = ""
@@ -34,11 +38,15 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def on_update
-    # we use the Place Client to query the desk booking data
-    @username = setting(String, :username)
-    @password = setting(String, :password)
-    @client_id = setting(String, :client_id)
-    @redirect_uri = setting(String, :redirect_uri)
+    # x-api-key is the preferred method for API access
+    @api_key = setting?(String, :api_key) || ""
+    @access_expires = 30.years.from_now if @api_key.presence
+
+    # deprecated: we use the Place Client to query the desk booking data
+    @username = setting?(String, :username) || ""
+    @password = setting?(String, :password) || ""
+    @client_id = setting?(String, :client_id) || ""
+    @redirect_uri = setting?(String, :redirect_uri) || ""
 
     @place_domain = URI.parse(config.uri.not_nil!)
     @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
@@ -47,11 +55,7 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def get_system(id : String)
-    response = get("/api/engine/v2/systems/#{id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+    response = get("/api/engine/v2/systems/#{id}", headers: authentication)
     raise "unexpected response for system id #{id}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -96,11 +100,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
   # Staff details returns the information from AD
   def staff_details(email : String)
-    response = get("/api/staff/v1/people/#{email}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+    response = get("/api/staff/v1/people/#{email}", headers: authentication)
     raise "unexpected response for staff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -120,22 +120,16 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def update_user(id : String, body_json : String) : Nil
-    response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: {
-      "Accept"        => "application/json",
-      "Content-Type"  => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
 
     raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
   end
 
   @[Security(Level::Support)]
   def resource_token
-    response = post("/api/engine/v2/users/resource_token", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+    response = post("/api/engine/v2/users/resource_token", headers: authentication)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -161,11 +155,7 @@ class Place::StaffAPI < PlaceOS::Driver
   # ===================================
   @[Security(Level::Support)]
   def guest_details(guest_id : String)
-    response = get("/api/staff/v1/guests/#{guest_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+    response = get("/api/staff/v1/guests/#{guest_id}", headers: authentication)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -178,11 +168,9 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def update_guest(id : String, body_json : String) : Nil
-    response = patch("/api/staff/v1/guests/#{id}", body: body_json, headers: {
-      "Accept"        => "application/json",
-      "Content-Type"  => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = patch("/api/staff/v1/guests/#{id}", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
 
     raise "failed to update guest #{id}: #{response.status_code}" unless response.success?
   end
@@ -195,10 +183,7 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "zone_ids", zones.join(",")
     end
 
-    response = patch("/api/staff/v1/guests?#{params}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = patch("/api/staff/v1/guests?#{params}", headers: authentication)
 
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
@@ -235,11 +220,7 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "include_cancelled", include_cancelled.to_s if !include_cancelled.nil?
     end
 
-    response = get("/api/staff/v1/events?#{params}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+    response = get("/api/staff/v1/events?#{params}", headers: authentication)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -314,10 +295,7 @@ class Place::StaffAPI < PlaceOS::Driver
     checked_in_at = now.to_unix if checked_in
 
     logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
-    response = post("/api/staff/v1/bookings", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    }, body: {
+    response = post("/api/staff/v1/bookings", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
       "booking_type"   => booking_type,
@@ -361,10 +339,7 @@ class Place::StaffAPI < PlaceOS::Driver
     in nil
     end
 
-    response = patch("/api/staff/v1/bookings/#{booking_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    }, body: {
+    response = patch("/api/staff/v1/bookings/#{booking_id}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
       "checked_in"     => checked_in,
@@ -383,10 +358,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def reject(booking_id : String | Int64)
     logger.debug { "rejecting booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: authentication)
     raise "issue rejecting booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -394,10 +366,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def approve(booking_id : String | Int64)
     logger.debug { "approving booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: authentication)
     raise "issue approving booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -405,10 +374,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def booking_state(booking_id : String | Int64, state : String)
     logger.debug { "updating booking #{booking_id} state to: #{state}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: authentication)
     raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -416,10 +382,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def booking_check_in(booking_id : String | Int64, state : Bool = true)
     logger.debug { "checking in booking #{booking_id} to: #{state}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: authentication)
     raise "issue checking in booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -427,10 +390,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def booking_delete(booking_id : String | Int64)
     logger.debug { "deleting booking #{booking_id}" }
-    response = delete("/api/staff/v1/bookings/#{booking_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = delete("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
     raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -508,10 +468,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params["checked_in"] = checked_in.to_s unless checked_in.nil?
 
     # Get the existing bookings from the API to check if there is space
-    response = get("/api/staff/v1/bookings", params, {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = get("/api/staff/v1/bookings", params, authentication)
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
 
     # Just parse it here instead of using the Bookings object
@@ -521,21 +478,26 @@ class Place::StaffAPI < PlaceOS::Driver
 
   def get_booking(booking_id : String | Int64)
     logger.debug { "getting booking #{booking_id}" }
-    response = get("/api/staff/v1/bookings/#{booking_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = get("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
     raise "issue getting booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
 
   # For accessing PlaceOS APIs
   protected def placeos_client : PlaceOS::Client
-    PlaceOS::Client.new(
-      @place_domain,
-      token: OAuth2::AccessToken::Bearer.new(token, nil),
-      host_header: @host_header
-    )
+    if @api_key.presence
+      PlaceOS::Client.new(
+        @place_domain,
+        host_header: @host_header,
+        x_api_key: @api_key
+      )
+    else
+      PlaceOS::Client.new(
+        @place_domain,
+        token: OAuth2::AccessToken::Bearer.new(token, nil),
+        host_header: @host_header
+      )
+    end
   end
 
   # ===================================
@@ -567,6 +529,16 @@ class Place::StaffAPI < PlaceOS::Driver
 
     @access_expires = (access_token.expires_in.not_nil! - 300).seconds.from_now
     @access_token = access_token.access_token
+  end
+
+  protected def authentication(headers : HTTP::Headers = HTTP::Headers.new) : HTTP::Headers
+    headers["Accept"] = "application/json"
+    if @api_key.presence
+      headers["X-API-Key"] = @api_key
+    else
+      headers["Authorization"] = "Bearer #{token}"
+    end
+    headers
   end
 
   protected def token : String
