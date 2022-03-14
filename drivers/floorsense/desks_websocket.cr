@@ -554,7 +554,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, JSON::Any
   end
 
-  ## More details on: https://apiguide.smartalock.com/#d685f36e-a513-44d9-8205-2b071922733a
+  # More details on: https://apiguide.smartalock.com/#d685f36e-a513-44d9-8205-2b071922733a
   def desk_scan(
     eui64 : String,
     key : String | Int64 | Nil = nil,
@@ -562,14 +562,14 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     uid : String? = nil
   )
     response = post("/restapi/desk-scan", headers: {
-        "Accept"        => "application/json",
-        "Authorization" => get_token,
-        "Content-Type"  => "application/x-www-form-urlencoded",
-      }, body: URI::Params.build { |form|
-        form.add("eui64", eui64.to_s)
-        form.add("key", key.to_s)
-        form.add("cid", cid.to_s) unless cid.nil?
-        form.add("uid", uid.to_s) unless uid.nil?
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("eui64", eui64.to_s)
+      form.add("key", key.to_s)
+      form.add("cid", cid.to_s) unless cid.nil?
+      form.add("uid", uid.to_s) unless uid.nil?
     })
     parse response, JSON::Any
   end
