@@ -534,6 +534,46 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, JSON::Any
   end
 
+  def activate_booking(
+    booking_id : String | Int64,
+    controller_id : String | Int64 | Nil = nil,
+    key : String | Nil = nil,
+    eui64 : String | Nil = nil,
+    userpresent : Bool? = nil
+  )
+    response = post("/restapi/booking-activate", headers: {
+      "Accept"        => "application/json",
+      "Authorization" => get_token,
+      "Content-Type"  => "application/x-www-form-urlencoded",
+    }, body: URI::Params.build { |form|
+      form.add("bkid", booking_id.to_s)
+      form.add("cid", controller_id.to_s) unless controller_id.nil?
+      form.add("key", key.to_s) unless key.nil?
+      form.add("userpresent", userpresent.to_s) unless userpresent.nil?
+    })
+    parse response, JSON::Any
+  end
+
+  ## More details on: https://apiguide.smartalock.com/#d685f36e-a513-44d9-8205-2b071922733a
+  def desk_scan(
+    eui64 : String,
+    key : String | Int64 | Nil = nil,
+    cid : String? = nil,
+    uid : String? = nil
+  )
+    response = post("/restapi/desk-scan", headers: {
+        "Accept"        => "application/json",
+        "Authorization" => get_token,
+        "Content-Type"  => "application/x-www-form-urlencoded",
+      }, body: URI::Params.build { |form|
+        form.add("eui64", eui64.to_s)
+        form.add("key", key.to_s)
+        form.add("cid", cid.to_s) unless cid.nil?
+        form.add("uid", uid.to_s) unless uid.nil?
+    })
+    parse response, JSON::Any
+  end
+
   def create_booking(
     user_id : String | Int64,
     plan_id : String | Int32,
