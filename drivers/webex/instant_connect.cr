@@ -6,14 +6,25 @@ class Webex::InstantConnect < PlaceOS::Driver
 
   default_settings({
     bot_access_token: "token",
+    jwt_audience: "a4d886b0-979f-4e2c-a958-3e8c14605e51",
   })
 
-  @audience_setting = "a4d886b0-979f-4e2c-a958-3e8c14605e51"
+  @jwt_audience : String = "a4d886b0-979f-4e2c-a958-3e8c14605e51"
+  @bot_access_token : String = ""
+
+  def on_load
+    on_update
+  end
+
+  def on_update
+    @audience_setting = setting?(String, :jwt_audience) || "a4d886b0-979f-4e2c-a958-3e8c14605e51"
+    @bot_access_token = setting(String, :bot_access_token)
+  end
 
   def create_meeting(room_id : String)
     expiry = 24.hours.from_now.to_unix
     payload = {
-      "aud": @audience_setting,
+      "aud": @jwt_audience,
       "jwt": {
         "sub": room_id,
         "exp": expiry,
@@ -45,7 +56,7 @@ class Webex::InstantConnect < PlaceOS::Driver
   def get_hash(payload : String)
     response = post("/api/v1/joseencrypt", body: payload, headers: {
       "Content-Type"  => "application/json",
-      "Authorization" => "Bearer #{setting String, :bot_access_token}",
+      "Authorization" => "Bearer #{@bot_access_token}",
     })
 
     raise "request failed with #{response.status_code}" unless response.status_code == 200 && !response.body.nil?
