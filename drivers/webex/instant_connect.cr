@@ -6,7 +6,7 @@ class Webex::InstantConnect < PlaceOS::Driver
 
   default_settings({
     bot_access_token: "token",
-    jwt_audience: "a4d886b0-979f-4e2c-a958-3e8c14605e51",
+    jwt_audience:     "a4d886b0-979f-4e2c-a958-3e8c14605e51",
   })
 
   @jwt_audience : String = "a4d886b0-979f-4e2c-a958-3e8c14605e51"
@@ -45,8 +45,8 @@ class Webex::InstantConnect < PlaceOS::Driver
 
     {
       # space_id seems to be an internal id for the meeting room
-      space_id: meeting_config["spaceId"],
-      host_token: meeting_config["token"],
+      space_id:    meeting_config["spaceId"],
+      host_token:  meeting_config["token"],
       guest_token: guest_token,
     }
   end
@@ -61,7 +61,7 @@ class Webex::InstantConnect < PlaceOS::Driver
 
     response = NamedTuple(host: Array(String), guest: Array(String)).from_json(response.body)
     {
-      host: response[:host].first,
+      host:  response[:host].first,
       guest: response[:guest].first,
     }
   end
