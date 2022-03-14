@@ -129,6 +129,10 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     request(JSON::Any) { |headers| get(location, headers: headers) }
   end
 
+  def site_list(org_id : String)
+    request(Array(Hash(String, JSON::Any))) { |headers| get("/api/v1/installer/orgs/#{org_id}/sites", headers: headers) }
+  end
+
   def maps
     request(Array(Map)) { |headers| get("/api/v1/sites/#{@site_id}/maps", headers: headers) }
   end
