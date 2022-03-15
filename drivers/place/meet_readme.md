@@ -190,7 +190,7 @@ tabs:
     # The controls we want to see on the tab
     controls: vidconf-controls
     # this defines the switch output representing the presentation input on the VC
-    presentation_source: Virtual_VC_Presentation_Ouput
+    presentation_source: Virtual_VC_Presentation_Output
     inputs:
       - VidConf_1
 
