@@ -298,6 +298,13 @@ class Place::Meet < PlaceOS::Driver
     if selected_tab || !simulate
       self[:selected_input] = name
       self[:selected_tab] = selected_tab || @tabs.first
+
+      # ensure inputs are powered on (mostly to bring VC out of standby)
+      sys = system
+      if sys.exists? name
+        mod = sys[name]
+        mod.power(true) if mod.implements? Interface::Powerable
+      end
     end
 
     # Perform any desired routing
