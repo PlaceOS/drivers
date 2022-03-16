@@ -44,6 +44,9 @@ class Place::Bookings < PlaceOS::Driver
   @cache_days : Time::Span = 30.days
   @include_cancelled_bookings : Bool = false
 
+  @current_pending : Bool = false
+  @next_pending : Bool = false
+
   @perform_sensor_search : Bool = true
 
   def on_load
@@ -109,6 +112,12 @@ class Place::Bookings < PlaceOS::Driver
     define_setting(:last_booking_started, meeting_start_time)
     self[:last_booking_started] = meeting_start_time
     check_current_booking
+  end
+
+  def checkin
+    if booking = pending
+      start_meeting booking.event_start.to_unix
+    end
   end
 
   # End either the current meeting early, or the pending meeting
@@ -254,14 +263,14 @@ class Place::Bookings < PlaceOS::Driver
 
     # Check if pending is enabled
     if @pending_period.to_i > 0_i64
-      self[:current_pending] = current_pending
-      self[:next_pending] = next_pending
+      self[:current_pending] = @current_pending = current_pending
+      self[:next_pending] = @next_pending = next_pending
       self[:pending] = current_pending || next_pending
 
       self[:in_use] = booked && !current_pending
     else
-      self[:current_pending] = false
-      self[:next_pending] = false
+      self[:current_pending] = @current_pending = false
+      self[:next_pending] = @next_pending = false
       self[:pending] = false
 
       self[:in_use] = booked
@@ -281,7 +290,11 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   protected def pending : PlaceCalendar::Event?
-    status?(PlaceCalendar::Event, :next_booking)
+    if @current_pending
+      current
+    elsif @next_pending
+      upcoming
+    end
   end
 
   class StaffEventChange
