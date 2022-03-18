@@ -286,7 +286,8 @@ class Place::StaffAPI < PlaceOS::Driver
     title : String? = nil,
     description : String? = nil,
     time_zone : String? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
+    utm_source : String? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -295,7 +296,12 @@ class Place::StaffAPI < PlaceOS::Driver
     checked_in_at = now.to_unix if checked_in
 
     logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
-    response = post("/api/staff/v1/bookings", headers: authentication, body: {
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+    end
+
+    response = post("/api/staff/v1/bookings?#{params}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
       "booking_type"   => booking_type,
@@ -356,9 +362,14 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def reject(booking_id : String | Int64)
+  def reject(booking_id : String | Int64, utm_source : String? = nil)
     logger.debug { "rejecting booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: authentication)
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+    end
+
+    response = post("/api/staff/v1/bookings/#{booking_id}/reject?#{params}", headers: authentication)
     raise "issue rejecting booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -380,17 +391,25 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def booking_check_in(booking_id : String | Int64, state : Bool = true)
+  def booking_check_in(booking_id : String | Int64, state : Bool = true, utm_source : String? = nil)
     logger.debug { "checking in booking #{booking_id} to: #{state}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: authentication)
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+      form.add "state", state.to_s
+    end
+    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?#{params}", headers: authentication)
     raise "issue checking in booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
 
   @[Security(Level::Support)]
-  def booking_delete(booking_id : String | Int64)
+  def booking_delete(booking_id : String | Int64, utm_source : String? = nil)
     logger.debug { "deleting booking #{booking_id}" }
-    response = delete("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+    end
+    response = delete("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication)
     raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
