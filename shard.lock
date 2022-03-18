@@ -11,7 +11,7 @@ shards:
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
-    version: 3.1.1
+    version: 4.0.0
 
   awscr-signer:
     git: https://github.com/taylorfinnell/awscr-signer.git
@@ -63,7 +63,7 @@ shards:
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
-    version: 1.3.0
+    version: 2.0.0
 
   future:
     git: https://github.com/crystal-community/future.cr.git
@@ -92,10 +92,6 @@ shards:
   ipaddress:
     git: https://github.com/sija/ipaddress.cr.git
     version: 0.2.1
-
-  json_mapping:
-    git: https://github.com/crystal-lang/json_mapping.cr.git
-    version: 0.1.1
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -163,19 +159,19 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.5.1
+    version: 2.6.0
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
-    version: 3.5.0
+    version: 4.9.0
 
   placeos-core-client:
     git: https://github.com/placeos/core-client.git
-    version: 0.3.2
+    version: 0.4.1
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 5.9.10
+    version: 6.2.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -183,7 +179,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 6.3.0
+    version: 7.0.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -196,6 +192,10 @@ shards:
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
     version: 1.0.2
+
+  rate_limiter:
+    git: https://github.com/lbarasti/rate_limiter.git
+    version: 1.0.1
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
@@ -214,12 +214,12 @@ shards:
     version: 1.2.3
 
   rethinkdb:
-    git: https://github.com/place-labs/crystal-rethinkdb.git
-    version: 0.3.1+git.commit.07ce7c694a367efe3af9f8cb5670bc4bff5b6df0
+    git: https://github.com/kingsleyh/crystal-rethinkdb.git
+    version: 0.3.1
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 5.0.2
+    version: 6.0.1
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git
@@ -268,8 +268,4 @@ shards:
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
-
-  yaml_mapping:
-    git: https://github.com/crystal-lang/yaml_mapping.cr.git
-    version: 0.1.1
 
