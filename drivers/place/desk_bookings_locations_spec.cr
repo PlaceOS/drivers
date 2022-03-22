@@ -40,19 +40,19 @@ class StaffAPIMock < DriverSpecs::MockDriver
       checked_in:    true,
       rejected:      false,
     },
-     {
-       id:            2,
-       booking_type:  type,
-       booking_start: start,
-       booking_end:   ending,
-       asset_id:      "desk-456",
-       user_id:       "user-456",
-       user_email:    "zdoo@org.com",
-       user_name:     "Zee Doo",
-       zones:         zones + ["zone-building"],
-       checked_in:    false,
-       rejected:      false,
-     }]
+    {
+      id:            2,
+      booking_type:  type,
+      booking_start: start,
+      booking_end:   ending,
+      asset_id:      "desk-456",
+      user_id:       "user-456",
+      user_email:    "zdoo@org.com",
+      user_name:     "Zee Doo",
+      zones:         zones + ["zone-building"],
+      checked_in:    false,
+      rejected:      false,
+    }]
   end
 
   def zone(zone_id : String)
