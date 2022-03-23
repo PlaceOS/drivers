@@ -15,14 +15,18 @@ class KontaktIO::ContactTracing < PlaceOS::Driver
 
     # obtain the raw contact information
     locations = [] of Tracking
+    errors = [] of Exception
     macs.each do |mac|
       begin
         raw_report = kontakt.colocations(mac, start_time, end_time).get.to_json
         locations.concat Array(Tracking).from_json(raw_report)
       rescue error
         logger.warn(exception: error) { "locating close contacts" }
+        errors << error
       end
     end
+
+    raise errors[0] if locations.empty? && errors.size > 0
 
     # find all the unique mac addresses in the results
     macs = Set(String).new

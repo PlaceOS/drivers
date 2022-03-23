@@ -52,7 +52,15 @@ class KontaktIO::KioCloud < PlaceOS::Driver
         logger.warn { "User who created the API no longer has access to the Kio Cloud account or their user role doesn't allow access to the endpoint. Device error if the endpoint is not available for the device model." }
       end
 
-      raise "request #{path} failed with status: #{response.status_code}" unless response.success?
+      unless response.success?
+        begin
+          error = JSON.parse response.body
+          message = error["message"]?.try(&.as_s) || "request #{path} failed"
+          raise "failed with #{response.status_code}: #{message}"
+        rescue
+          raise "request #{path} failed with status: #{response.status_code}"
+        end
+      end
 
       if page_details = yield response.body
         page += 1
