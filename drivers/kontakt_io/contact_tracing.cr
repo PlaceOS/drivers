@@ -74,11 +74,11 @@ class KontaktIO::ContactTracing < PlaceOS::Driver
       username = mac_mappings[mac]?
       duration = location.duration
 
-      if current = contacts[mac]?
+      if current = contacts[username || mac]?
         next if current[:duration] > duration
       end
 
-      contacts[mac] = {
+      contacts[username || mac] = {
         mac_address:  mac,
         username:     username,
         contact_time: location.start_time.to_unix,
