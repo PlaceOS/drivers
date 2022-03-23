@@ -61,17 +61,33 @@ class KontaktIO::ContactTracing < PlaceOS::Driver
     end
 
     # Generate the contact tracing results
-    locations.map do |location|
+    contacts = {} of String => NamedTuple(
+      mac_address: String,
+      username: String?,
+      contact_time: Int64,
+      duration: Int32,
+    )
+
+    # removes duplications
+    locations.each do |location|
       mac = format_mac(location.mac_address)
       username = mac_mappings[mac]?
-      {
+      duration = location.duration
+
+      if current = contacts[mac]?
+        next if current[:duration] > duration
+      end
+
+      contacts[mac] = {
         mac_address:  mac,
         username:     username,
         contact_time: location.start_time.to_unix,
         # duration in seconds
-        duration: location.duration,
+        duration: duration,
       }
     end
+
+    contacts.values
   end
 
   def format_mac(address : String)
