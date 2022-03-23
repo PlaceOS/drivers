@@ -13,16 +13,37 @@ class KontaktIO::ContactTracing < PlaceOS::Driver
   def close_contacts(email : String? = nil, username : String? = nil, start_time : Int64? = nil, end_time : Int64? = nil)
     macs = location_services.macs_assigned_to(email, username).get.as_a.map(&.as_s)
 
+    # break all the requests to kontakt into 24 hour segments to avoid requesting too much data
+    periods = [] of Tuple(Int64, Int64)
+    period_start = start_time || 2.days.ago.to_unix
+    period_end = end_time || 1.days.ago.to_unix
+    loop do
+      temp_ending = period_start + 24.hours.to_i
+      if temp_ending < period_end
+        periods << {period_start, temp_ending}
+      else
+        periods << {period_start, period_end}
+        break
+      end
+      period_start = temp_ending + 1
+    end
+
     # obtain the raw contact information
     locations = [] of Tracking
+    errors = [] of Exception
     macs.each do |mac|
       begin
-        raw_report = kontakt.colocations(mac, start_time, end_time).get.to_json
-        locations.concat Array(Tracking).from_json(raw_report)
+        periods.each do |(starting, ending)|
+          raw_report = kontakt.colocations(mac, starting, ending).get.to_json
+          locations.concat Array(Tracking).from_json(raw_report)
+        end
       rescue error
         logger.warn(exception: error) { "locating close contacts" }
+        errors << error
       end
     end
+
+    raise errors[0] if locations.empty? && errors.size > 0
 
     # find all the unique mac addresses in the results
     macs = Set(String).new

@@ -87,6 +87,10 @@ dependencies:
     github: spider-gazelle/crystal-bacnet
     version: ~> 0.10
 
+  # HTTP client
+  halite:
+    github: icyleaf/halite
+
   # token bucket algorithm for rate limiting
   rate_limiter:
     github: lbarasti/rate_limiter
