@@ -42,6 +42,10 @@ class Place::BookingNotifier < PlaceOS::Driver
     system.implementing(Interface::Mailer)[0]
   end
 
+  def calendar
+    system[:Calendar]
+  end
+
   def on_load
     # Some form of asset booking has occured
     monitor("staff/booking/changed") { |_subscription, payload| parse_booking(payload) }
@@ -134,7 +138,7 @@ class Place::BookingNotifier < PlaceOS::Driver
       end_datetime:   ending.to_s(@date_time_format),
       starting_unix:  booking_details.booking_start,
 
-      desk_id:    booking_details.asset_id,
+      asset_id:   booking_details.asset_id,
       user_id:    booking_details.user_id,
       user_email: booking_details.user_email,
       user_name:  booking_details.user_name,
@@ -300,7 +304,7 @@ class Place::BookingNotifier < PlaceOS::Driver
         end_datetime:   ending.to_s(@date_time_format),
         starting_unix:  booking_details.booking_start,
 
-        desk_id:    booking_details.asset_id,
+        asset_id:   booking_details.asset_id,
         user_id:    booking_details.user_id,
         user_email: booking_details.user_email,
         user_name:  booking_details.user_name,
@@ -347,7 +351,7 @@ class Place::BookingNotifier < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def get_manager(staff_email : String)
-    manager = mailer.get_user_manager(staff_email).get
+    manager = calendar.get_user_manager(staff_email).get
     (manager["email"]? || manager["username"]).as_s
   rescue error
     logger.warn { "failed to email manager of #{staff_email}\n#{error.inspect_with_backtrace}" }
