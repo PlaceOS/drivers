@@ -25,11 +25,13 @@ class Vergesense::LocationService < PlaceOS::Driver
       },
     },
     return_empty_spaces: true,
+    desk_space_types:    ["desk"],
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
   @zone_filter : Array(String) = [] of String
   @building_mappings : Hash(String, String?) = {} of String => String?
+  @desk_space_types : Array(String) = ["desk"]
 
   def on_load
     on_update
@@ -37,6 +39,7 @@ class Vergesense::LocationService < PlaceOS::Driver
 
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
+    @desk_space_types = setting?(Array(String), :desk_space_types) || ["desk"]
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.values.map do |z|
       level = z[:level_id]
@@ -96,8 +99,9 @@ class Vergesense::LocationService < PlaceOS::Driver
     floor = @occupancy_mappings[zone_id]?
     return [] of Nil unless floor
 
+    desk_types = @desk_space_types
     floor.spaces.compact_map do |space|
-      loc_type = space.space_type == "desk" ? "desk" : "area"
+      loc_type = space.space_type.in?(desk_types) ? "desk" : "area"
       next if location.presence && location != loc_type
 
       people_count = space.people.try(&.count)
