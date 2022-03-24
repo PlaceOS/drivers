@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "./booking_model"
 
 class Place::BookingApprover < PlaceOS::Driver
   descriptive_name "Booking Auto Approver"
@@ -25,36 +26,6 @@ class Place::BookingApprover < PlaceOS::Driver
 
   def on_update
     @debug = setting(Bool, :debug)
-  end
-
-  class Booking
-    include JSON::Serializable
-
-    property id : Int64
-    property action : String
-
-    property user_id : String
-    property user_email : String
-    property user_name : String
-
-    property resource_id : String
-    property zones : Array(String)
-    property booking_type : String
-
-    property booking_start : Int64
-    property booking_end : Int64
-
-    property timezone : String?
-    property title : String?
-    property description : String?
-
-    property checked_in : Bool
-
-    property booked_by_email : String
-    property booked_by_name : String
-
-    property process_state : String?
-    property last_changed : Int64?
   end
 
   private def approve_booking(booking : Booking)

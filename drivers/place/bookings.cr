@@ -28,6 +28,10 @@ class Place::Bookings < PlaceOS::Driver
 
     include_cancelled_bookings: false,
     hide_qr_code:               false,
+    custom_qr_url:              "https://domain.com/path",
+
+    # This image is displayed along with the capacity when the room is not bookable
+    offline_image:              "https://domain.com/room_image.svg"
   })
 
   accessor calendar : Calendar_1
@@ -92,6 +96,7 @@ class Place::Bookings < PlaceOS::Driver
 
     # Write to redis last on the off chance there is a connection issue
     self[:room_name] = setting?(String, :room_name).presence || config.control_system.not_nil!.display_name.presence || config.control_system.not_nil!.name
+    self[:room_capacity] = setting?(Int32, :room_capacity) || config.control_system.not_nil!.capacity
     self[:default_title] = @default_title
     self[:disable_book_now] = @disable_book_now
     self[:disable_end_meeting] = @disable_end_meeting
@@ -100,6 +105,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
 
+    self[:custom_qr_url] = setting?(String, :custom_qr_url)
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
   end
 
@@ -262,7 +268,7 @@ class Place::Bookings < PlaceOS::Driver
     end
 
     # Check if pending is enabled
-    if @pending_period.to_i > 0_i64
+    if @pending_period.to_i > 0_i64 || @pending_before.to_i > 0_i64
       self[:current_pending] = @current_pending = current_pending
       self[:next_pending] = @next_pending = next_pending
       self[:pending] = current_pending || next_pending

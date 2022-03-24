@@ -38,6 +38,10 @@ class Place::AreaManagement < PlaceOS::Driver
         },
       ],
     },
+
+    # If another systems has different desk IDs configured you can add them to
+    # desk metadata and then specify the alternative field names here
+    # desk_id_mappings: ["floorsensedeskid", "vergesensedeskid"]
   })
 
   alias AreaSetting = NamedTuple(
