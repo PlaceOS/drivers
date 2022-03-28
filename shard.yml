@@ -8,6 +8,7 @@ dependencies:
 
   email:
     github: arcage/crystal-email
+    version: ~> 0.6.0
 
   inactive-support:
     github: spider-gazelle/inactive-support

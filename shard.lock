@@ -55,7 +55,7 @@ shards:
 
   email:
     git: https://github.com/arcage/crystal-email.git
-    version: 0.7.0
+    version: 0.6.4
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
