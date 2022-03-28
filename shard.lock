@@ -55,7 +55,7 @@ shards:
 
   email:
     git: https://github.com/arcage/crystal-email.git
-    version: 0.6.4
+    version: 0.7.0
 
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
@@ -76,6 +76,10 @@ shards:
   habitat:
     git: https://github.com/luckyframework/habitat.git
     version: 0.4.7
+
+  halite:
+    git: https://github.com/icyleaf/halite.git
+    version: 0.12.1
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
@@ -127,7 +131,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.14.0
+    version: 1.14.2
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -167,11 +171,11 @@ shards:
 
   placeos-core-client:
     git: https://github.com/placeos/core-client.git
-    version: 0.4.1
+    version: 0.5.1
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.2.1
+    version: 6.3.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -179,7 +183,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 7.0.0
+    version: 7.6.7
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -219,7 +223,7 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 6.0.1
+    version: 6.0.2
 
   retriable: # Overridden
     git: https://github.com/sija/retriable.cr.git
@@ -239,7 +243,7 @@ shards:
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
-    version: 1.5.2
+    version: 1.5.3
 
   stomp:
     git: https://github.com/spider-gazelle/stomp.git
