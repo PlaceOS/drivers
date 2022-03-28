@@ -104,6 +104,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
+    self[:offline_image] = setting?(String, :offline_image)
 
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
