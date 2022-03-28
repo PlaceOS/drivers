@@ -31,7 +31,7 @@ class Place::Bookings < PlaceOS::Driver
     custom_qr_url:              "https://domain.com/path",
 
     # This image is displayed along with the capacity when the room is not bookable
-    offline_image:              "https://domain.com/room_image.svg"
+    room_image:              "https://domain.com/room_image.svg"
   })
 
   accessor calendar : Calendar_1
@@ -104,7 +104,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
-    self[:offline_image] = setting?(String, :offline_image)
+    self[:room_image] = setting?(String, :room_image)
 
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
