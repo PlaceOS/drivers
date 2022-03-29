@@ -29,6 +29,7 @@ class Place::Bookings < PlaceOS::Driver
     include_cancelled_bookings: false,
     hide_qr_code:               false,
     custom_qr_url:              "https://domain.com/path",
+    custom_qr_color:            "black",
 
     # This image is displayed along with the capacity when the room is not bookable
     room_image:              "https://domain.com/room_image.svg"
@@ -111,6 +112,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:offline_color] = setting?(String, :offline_color)
     self[:offline_image] = setting?(String, :offline_image)
 
+    self[:custom_qr_color] = setting?(String, :custom_qr_color)
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
   end
