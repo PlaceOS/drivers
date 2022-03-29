@@ -108,6 +108,9 @@ class Place::Bookings < PlaceOS::Driver
     self[:catering_ui] = setting?(String, :catering_ui)
     self[:room_image] = setting?(String, :room_image)
 
+    self[:offline_color] = setting?(String, :offline_color)
+    self[:offline_image] = setting?(String, :offline_image)
+
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
   end
