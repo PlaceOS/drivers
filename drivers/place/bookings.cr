@@ -76,7 +76,9 @@ class Place::Bookings < PlaceOS::Driver
     @default_title = setting?(String, :book_now_default_title).presence || "Ad Hoc booking"
 
     book_now = setting?(Bool, :disable_book_now)
-    @disable_book_now = book_now.nil? ? !system.bookable : !!book_now
+    not_bookable = setting?(Bool, :not_bookable) || false
+    self[:bookable] = bookable = not_bookable ? false : system.bookable
+    @disable_book_now = book_now.nil? ? !bookable : !!book_now
     @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
 
     pending_period = setting?(UInt32, :pending_period) || 5_u32
