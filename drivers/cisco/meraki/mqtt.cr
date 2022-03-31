@@ -6,6 +6,11 @@ require "../../place/mqtt_transport_adaptor"
 require "../../place/area_polygon"
 
 # documentation: https://developer.cisco.com/meraki/mv-sense/#!mqtt
+# Use https://www.desmos.com/calculator for plotting points (sample code for copy and paste)
+# data = [[1,2,3,4,5,6, 0]]
+# data.each do |d|
+# 	puts "(#{d[0]}, #{d[1]}),(#{d[2]}, #{d[3]}),(#{d[4]}, #{d[5]})"
+# end
 
 class Cisco::Meraki::MQTT < PlaceOS::Driver
   include Interface::Locatable
