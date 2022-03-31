@@ -55,7 +55,7 @@ end
 class CalendarMock < DriverSpecs::MockDriver
   def get_user_manager(staff_email : String)
     {
-      email: "manager@site.com"
+      email: "manager@site.com",
     }
   end
 end
@@ -88,19 +88,19 @@ class StaffAPIMock < DriverSpecs::MockDriver
     start = now.at_beginning_of_day.to_unix
     ending = now.at_end_of_day.to_unix
     [{
-      id:            1,
-      booking_type:  type,
-      booking_start: start,
-      booking_end:   ending,
-      asset_id:      "desk-123",
-      user_id:       "user-1234",
-      user_email:    "user1234@org.com",
-      user_name:     "Bob Jane",
-      zones:         zones + ["zone-building"],
-      checked_in:    true,
-      rejected:      false,
-      booked_by_name: "Bob Jane",
-      booked_by_email: "user1234@org.com"
+      id:              1,
+      booking_type:    type,
+      booking_start:   start,
+      booking_end:     ending,
+      asset_id:        "desk-123",
+      user_id:         "user-1234",
+      user_email:      "user1234@org.com",
+      user_name:       "Bob Jane",
+      zones:           zones + ["zone-building"],
+      checked_in:      true,
+      rejected:        false,
+      booked_by_name:  "Bob Jane",
+      booked_by_email: "user1234@org.com",
     }]
   end
 
