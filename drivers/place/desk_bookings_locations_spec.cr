@@ -57,7 +57,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
         rejected:        false,
         booked_by_name:  "Zee Doo",
         booked_by_email: "zdoo@org.com",
-      }
+      },
     ]
   end
 
