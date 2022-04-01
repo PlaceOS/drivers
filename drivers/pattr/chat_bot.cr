@@ -43,7 +43,7 @@ class Pattr::ChatBot < PlaceOS::Driver
   end
 
   def chat_data_request(method : String, headers : Hash(String, Array(String)), body : String)
-    logger.debug { "IP mappings webhook received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { "webhook received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
     logger.debug { body } if @debug_webhook
 
     request = Request.from_json(body)
@@ -54,7 +54,7 @@ class Pattr::ChatBot < PlaceOS::Driver
 
     payload = response.to_json
     logger.debug { payload } if @debug_webhook
-    {HTTP::Status::OK, {"Content-Type" => "application/json"}, payload}
+    {HTTP::Status::OK.to_i, {"Content-Type" => "application/json"}, payload}
   end
 
   # map reduce search for the users across all buildings
