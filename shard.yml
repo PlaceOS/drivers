@@ -96,3 +96,7 @@ dependencies:
   rate_limiter:
     github: lbarasti/rate_limiter
     version: ~> 1.0
+
+  # fake data for mocks
+  faker:
+    github: askn/faker
