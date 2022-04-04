@@ -288,7 +288,7 @@ class Place::StaffAPI < PlaceOS::Driver
     time_zone : String? = nil,
     extension_data : JSON::Any? = nil,
     utm_source : String? = nil,
-    limit_override : Int64? = nil,
+    limit_override : Int64? = nil
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -336,7 +336,7 @@ class Place::StaffAPI < PlaceOS::Driver
     extension_data : JSON::Any? = nil,
     approved : Bool? = nil,
     checked_in : Bool? = nil,
-    limit_override : Int64? = nil,
+    limit_override : Int64? = nil
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -347,7 +347,6 @@ class Place::StaffAPI < PlaceOS::Driver
       checked_out_at = Time.utc.to_unix
     in nil
     end
-
 
     params = URI::Params.build do |form|
       form.add "limit_override", limit_override.to_s unless limit_override.nil?
