@@ -288,6 +288,7 @@ class Place::StaffAPI < PlaceOS::Driver
     time_zone : String? = nil,
     extension_data : JSON::Any? = nil,
     utm_source : String? = nil,
+    limit_override : Int64? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -299,6 +300,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
     params = URI::Params.build do |form|
       form.add "utm_source", utm_source.to_s unless utm_source.nil?
+      form.add "limit_override", limit_override.to_s unless limit_override.nil?
     end
 
     response = post("/api/staff/v1/bookings?#{params}", headers: authentication, body: {
@@ -333,7 +335,8 @@ class Place::StaffAPI < PlaceOS::Driver
     timezone : String? = nil,
     extension_data : JSON::Any? = nil,
     approved : Bool? = nil,
-    checked_in : Bool? = nil
+    checked_in : Bool? = nil,
+    limit_override : Int64? = nil,
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -345,7 +348,12 @@ class Place::StaffAPI < PlaceOS::Driver
     in nil
     end
 
-    response = patch("/api/staff/v1/bookings/#{booking_id}", headers: authentication, body: {
+
+    params = URI::Params.build do |form|
+      form.add "limit_override", limit_override.to_s unless limit_override.nil?
+    end
+
+    response = patch("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
       "checked_in"     => checked_in,
