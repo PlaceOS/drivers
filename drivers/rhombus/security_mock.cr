@@ -11,8 +11,8 @@ class Rhombus::SecurityMock < PlaceOS::Driver
   include PlaceOS::Driver::Interface::DoorSecurity
 
   default_settings({
-    door_list_size: 30,
-    swipe_event_every: 30
+    door_list_size:    30,
+    swipe_event_every: 30,
   })
 
   def on_load
