@@ -33,7 +33,7 @@ class Rhombus::SecurityMock < PlaceOS::Driver
 
     doors = Array(Door).new(door_list_size)
     door_list_size.times do
-      door = Door.new(
+      doors << Door.new(
         Faker::Business.credit_card_number,
         Faker::Commerce.department
       )
