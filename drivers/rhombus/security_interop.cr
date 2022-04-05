@@ -74,17 +74,21 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
 
   @[Security(Level::Administrator)]
   def door_event(json : String)
+    webhook = Webhook.new Interface::DoorSecurity::DoorEvent.from_json(json)
+
     @subscriptions.each do |sub|
-      webhook = Webhook.new Interface::DoorSecurity::DoorEvent.from_json(json)
-      if secret = sub.secret
-        webhook.sign(secret)
+      begin
+        logger.debug { "notifying webhook of new door event: #{sub.webhook}" }
+        webhook.sign(sub.secret)
+        response = HTTP::Client.post(
+          sub.webhook,
+          HTTP::Headers{"Content-Type" => "application/json"},
+          webhook.to_json
+        )
+        logger.warn { "request #{sub.webhook} failed with status: #{response.status_code}\n#{response.body}" } unless response.success?
+      rescue error
+        logger.error(exception: error) { "failed to notify subscription: #{sub.webhook}" }
       end
-      response = HTTP::Client.post(
-        sub.webhook,
-        HTTP::Headers{"Content-Type" => "application/json"},
-        webhook.to_json
-      )
-      logger.warn { "request #{sub.webhook} failed with status: #{response.status_code}\n#{response.body}" } unless response.success?
     end
   end
 end
