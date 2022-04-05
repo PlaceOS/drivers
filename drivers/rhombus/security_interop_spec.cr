@@ -35,7 +35,6 @@ DriverSpecs.mock_driver "Rhombus::SecurityInterop" do
   JSON.parse(webhook.not_nil!).should eq({
     "door_id"   => "the-door",
     "timestamp" => timestamp.to_rfc3339,
-    "signature" => "",
     "action"    => "request_to_exit",
   })
 

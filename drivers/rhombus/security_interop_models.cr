@@ -18,7 +18,7 @@ module Rhombus
 
     getter door_id : String
     getter timestamp : Time
-    getter signature : String = ""
+    getter signature : String? = nil
     getter action : PlaceOS::Driver::Interface::DoorSecurity::Action
     getter card_id : String?
     getter user_name : String?
@@ -34,8 +34,12 @@ module Rhombus
       @user_email = event.user_email
     end
 
-    def sign(secret : String)
-      @signature = OpenSSL::HMAC.hexdigest(:sha256, secret, timestamp.to_rfc3339)
+    def sign(secret : String?)
+      if key = secret.presence
+        @signature = OpenSSL::HMAC.hexdigest(:sha256, key, timestamp.to_rfc3339)
+      else
+        @signature = nil
+      end
       self
     end
   end
