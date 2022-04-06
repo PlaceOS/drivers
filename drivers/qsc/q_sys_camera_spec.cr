@@ -1,2 +1,1 @@
 require "placeos-driver/spec"
-
