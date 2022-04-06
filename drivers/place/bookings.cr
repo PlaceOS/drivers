@@ -29,9 +29,10 @@ class Place::Bookings < PlaceOS::Driver
     include_cancelled_bookings: false,
     hide_qr_code:               false,
     custom_qr_url:              "https://domain.com/path",
+    custom_qr_color:            "black",
 
     # This image is displayed along with the capacity when the room is not bookable
-    offline_image:              "https://domain.com/room_image.svg"
+    room_image: "https://domain.com/room_image.svg",
   })
 
   accessor calendar : Calendar_1
@@ -76,7 +77,9 @@ class Place::Bookings < PlaceOS::Driver
     @default_title = setting?(String, :book_now_default_title).presence || "Ad Hoc booking"
 
     book_now = setting?(Bool, :disable_book_now)
-    @disable_book_now = book_now.nil? ? !system.bookable : !!book_now
+    not_bookable = setting?(Bool, :not_bookable) || false
+    self[:bookable] = bookable = not_bookable ? false : system.bookable
+    @disable_book_now = book_now.nil? ? !bookable : !!book_now
     @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
 
     pending_period = setting?(UInt32, :pending_period) || 5_u32
@@ -104,7 +107,12 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
+    self[:room_image] = setting?(String, :room_image)
 
+    self[:offline_color] = setting?(String, :offline_color)
+    self[:offline_image] = setting?(String, :offline_image)
+
+    self[:custom_qr_color] = setting?(String, :custom_qr_color)
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
   end

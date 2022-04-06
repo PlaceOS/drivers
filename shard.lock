@@ -65,6 +65,10 @@ shards:
     git: https://github.com/place-labs/exec_from.git
     version: 2.0.0
 
+  faker:
+    git: https://github.com/askn/faker.git
+    version: 0.7.0
+
   future:
     git: https://github.com/crystal-community/future.cr.git
     version: 1.0.0
@@ -175,7 +179,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.3.1
+    version: 6.3.2
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git

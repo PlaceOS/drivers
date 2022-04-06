@@ -6,6 +6,11 @@ require "../../place/mqtt_transport_adaptor"
 require "../../place/area_polygon"
 
 # documentation: https://developer.cisco.com/meraki/mv-sense/#!mqtt
+# Use https://www.desmos.com/calculator for plotting points (sample code for copy and paste)
+# data = [[1,2,3,4,5,6, 0]]
+# data.each do |d|
+# 	puts "(#{d[0]}, #{d[1]}),(#{d[2]}, #{d[3]}),(#{d[4]}, #{d[5]})"
+# end
 
 class Cisco::Meraki::MQTT < PlaceOS::Driver
   include Interface::Locatable
@@ -182,6 +187,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       # we assume version 3 of the API here for sanity reasons
       detected_desks = DetectedDesks.from_json(json_message)
       desk_details[serial_no] = detected_desks
+      average_results(serial_no, detected_desks)
       self["camera_#{serial_no}_desks"] = detected_desks
     when "light"
       light = LuxLevel.from_json(json_message)
@@ -200,6 +206,78 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       end
       self["camera_#{serial_no}_zone#{status}_#{entry.count_type.to_s.downcase}"] = entry.count
     end
+  end
+
+  @desk_occupancy = Hash(String, Array(Tuple(Int64, Bool))).new do |hash, key|
+    hash[key] = Array(Tuple(Int64, Bool)).new(4)
+  end
+
+  protected def average_results(serial, detected)
+    desks = @desk_mappings[serial]?
+    return unless desks
+
+    time = Time.utc.to_unix
+    past = desk_data_expiry_time
+
+    # id => Array({distance, occupied})
+    results = Hash(String, Array(Tuple(Float64, Bool))).new { |h, k| h[k] = [] of Tuple(Float64, Bool) }
+
+    # we store the closest desk point to the line,
+    # as this detected desk might be the occupancy we care about
+    detected.desks.each do |(lx, ly, cx, cy, rx, ry, occupancy)|
+      desks.each { |desk| desk.distance = calculate_distance(lx, ly, cx, cy, rx, ry, desk) }
+      if desk = desks.sort! { |a, b| a.distance <=> b.distance }.first?
+        results[desk.id] << {desk.distance, !occupancy.zero?}
+      end
+    end
+
+    # then for each desk id, we take the closest detected desk and use that
+    # occupancy value
+    results.each do |desk_id, distances|
+      distance, occupancy = distances.sort! { |a, b| a[0] <=> b[0] }.first
+      desk_occupation = @desk_occupancy[desk_id]
+      desk_occupation << {time, occupancy}
+      cleanup_old_data(desk_occupation, past)
+    end
+  end
+
+  # We want to find the line closest to the offical desk point
+  protected def calculate_distance(lx, ly, cx, cy, rx, ry, desk)
+    desk = Point.new(desk.x, desk.y)
+    {
+      Point.new(lx, ly).distance_to(desk),
+      Point.new(rx, ry).distance_to(desk),
+      Point.new(cx, cy).distance_to(desk),
+    }.sum
+  end
+
+  protected def desk_data_expiry_time
+    90.seconds.ago.to_unix
+  end
+
+  protected def cleanup_old_data(desk_occupation, expiry_time)
+    desk_occupation.reject! { |(time, _occupancy)| time < expiry_time }
+  end
+
+  protected def is_occupied?(desk_id, expiry_time)
+    desk_occupation = @desk_occupancy[desk_id]
+    size = desk_occupation.size
+    return 0 if size == 0
+
+    desk_occupation.reject! do |(time, _occupancy)|
+      if time < expiry_time && size > 1
+        size -= 1
+        true
+      else
+        break
+      end
+    end
+
+    occupied = 0
+    desk_occupation.each { |(_time, occupancy)| occupied += 1 if occupancy }
+
+    # We care if the desk basically had signs of life
+    (occupied / size) > 0.3 ? 1 : 0
   end
 
   # ----------------
@@ -363,36 +441,25 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     serials = @zone_lookup[zone_id]?
     return [] of Nil unless serials && !serials.empty?
 
+    return_empty_spaces = @return_empty_spaces
+    expiry_time = desk_data_expiry_time
+
     serials.compact_map { |serial|
       desks = @desk_mappings[serial]?
       next unless desks
 
-      detected = desk_details[serial]?
-      next unless detected
+      # does data exist for the desks?
+      next unless desk_details[serial]?
 
       floor = @floor_lookup[serial]
       illumination = lux[serial]?
 
-      # id => Array({distance, occupied})
-      results = Hash(String, Array(Tuple(Float64, Float64))).new { |h, k| h[k] = [] of Tuple(Float64, Float64) }
-
-      # we store the closest desk point to the line,
-      # as this detected desk might be the occupancy we care about
-      detected.desks.each do |(lx, ly, cx, cy, rx, ry, occupancy)|
-        desks.each { |desk| desk.distance = calculate_distance(lx, ly, cx, cy, rx, ry, desk) }
-        if desk = desks.sort! { |a, b| a.distance <=> b.distance }.first?
-          results[desk.id] << {desk.distance, occupancy}
-        end
-      end
-
-      # then for each desk id, we take the closest detected desk and use that
-      # occupancy value
-      results.compact_map do |desk_id, distances|
-        closest = distances.sort! { |a, b| a[0] <=> b[0] }.first
-        occupied = closest[1] == 1.0 ? 1 : 0
+      desks.compact_map do |desk|
+        desk_id = desk.id
+        occupied = is_occupied?(desk_id, expiry_time)
 
         # Do we want to return empty desks (depends on the frontend)
-        next if !@return_empty_spaces && occupied == 0
+        next if !return_empty_spaces && occupied == 0
 
         {
           location:    "desk",
@@ -407,15 +474,5 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
         }
       end
     }.flatten
-  end
-
-  # We want to find the line closest to the offical desk point
-  protected def calculate_distance(lx, ly, cx, cy, rx, ry, desk)
-    desk = Point.new(desk.x, desk.y)
-    {
-      Point.new(lx, ly).distance_to(desk),
-      Point.new(rx, ry).distance_to(desk),
-      Point.new(cx, cy).distance_to(desk),
-    }.sum
   end
 end
