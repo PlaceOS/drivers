@@ -120,16 +120,25 @@ STRING
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
   end
 
+  def ignore_long_meeting? : Bool
+    meeting = current_meeting
+    return false unless meeting
+
+    # we always want to ignore all day events
+    event_end = meeting.event_end
+    return true unless event_end
+
+    # don't ignore meetings if ignore longer than isn't set
+    ignore_length = @ignore_longer_than
+    return false unless ignore_length
+
+    # check if we're over the limit
+    meeting_length = event_end - meeting.event_start
+    meeting_length >= ignore_length
+  end
+
   protected def update_current(meeting : PlaceCalendar::Event?)
     logger.debug { "> checking current meeting: #{!!meeting}" }
-
-    if meeting && @ignore_longer_than && meeting.event_start && meeting.event_end
-      meeting_length = meeting.event_end.not_nil! - meeting.event_start
-      if meeting_length >= @ignore_longer_than.not_nil!
-        logger.debug { "> ignoring meeting due to length" }
-        meeting = nil
-      end
-    end
 
     @current_meeting = meeting
     self[:current_meeting] = !!meeting
@@ -190,15 +199,20 @@ STRING
       return
     end
 
-    # should we be scheduling a prompt email?
-    if time_now >= prompt_at
-      logger.debug { "no show, prompting user" }
-      prompt_user meeting
+    # don't prompt if a long meeting
+    if ignore_long_meeting?
+      logger.debug { "> ignoring meeting due to length" }
     else
-      logger.debug { "scheduling no show" }
-      schedule.at(prompt_at) do
-        logger.debug { "scheduled no show, prompting user" }
+      # should we be scheduling a prompt email?
+      if time_now >= prompt_at
+        logger.debug { "no show, prompting user" }
         prompt_user meeting
+      else
+        logger.debug { "scheduling no show" }
+        schedule.at(prompt_at) do
+          logger.debug { "scheduled no show, prompting user" }
+          prompt_user meeting
+        end
       end
     end
   end
