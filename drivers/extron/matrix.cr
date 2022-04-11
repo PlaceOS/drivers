@@ -44,11 +44,17 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   def disconnected
+    schedule.clear
+
     # We need to wait for a login prompt if using telnet
     unless config.role.ssh?
       @ready = false
       transport.tokenizer = nil
     end
+  end
+
+  def connected
+    schedule.every(40.seconds) { query_device_info }
   end
 
   getter device_size do
