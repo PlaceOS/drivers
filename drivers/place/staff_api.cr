@@ -2,6 +2,7 @@ require "json"
 require "oauth2"
 require "placeos"
 require "placeos-driver"
+require "place_calendar"
 
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
@@ -229,6 +230,22 @@ class Place::StaffAPI < PlaceOS::Driver
       logger.debug { "issue parsing:\n#{response.body.inspect}" }
       raise error
     end
+  end
+
+  # NOTE:: https://docs.google.com/document/d/1OaZljpjLVueFitmFWx8xy8BT8rA2lITyPsIvSYyNNW8/edit#
+  # The service account making this request needs delegated access and hence you can only edit
+  # events associated with a resource calendar
+  def update_event(system_id : String, event : PlaceCalendar::Event)
+    response = put("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    PlaceCalendar::Event.from_json(response.body)
+  end
+
+  def delete_event(system_id : String, event_id : String)
+    response = delete("/api/staff/v1/events/#{event_id}?system_id=#{system_id}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success? || response.status_code == 404
+    true
   end
 
   # ===================================
