@@ -59,7 +59,7 @@ jobs:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs/*.log
@@ -92,7 +92,7 @@ jobs:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs/*.log
