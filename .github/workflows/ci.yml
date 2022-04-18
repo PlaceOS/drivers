@@ -47,7 +47,7 @@ jobs:
           output: ' '
       - uses: actions/checkout@v3
       - name: Cache shards
-        uses: actions/cache@v3.0.1
+        uses: actions/cache@v3.0.2
         with:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
@@ -82,7 +82,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Cache shards
-        uses: actions/cache@v3.0.1
+        uses: actions/cache@v3.0.2
         with:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
