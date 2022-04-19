@@ -170,20 +170,29 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
     controller_list.each do |controller_id, controller|
       next unless controller.lockers
-      lockers(controller_id).each do |locker|
-        next unless locker.key
-        locker.controller_id = controller_id
-        lockers[locker.key.not_nil!] = locker
+
+      begin
+        lockers(controller_id).each do |locker|
+          next unless locker.key
+          locker.controller_id = controller_id
+          lockers[locker.key.not_nil!] = locker
+        end
+      rescue error
+        logger.warn(exception: error) { "obtaining locker list for controller #{controller.name} - #{controller_id}, possibly offline" }
       end
 
-      desk_list(controller_id).each do |desk|
-        next unless desk.key
-        desk.controller_id = controller_id
-        desks[desk.key.not_nil!] = desk
+      begin
+        desk_list(controller_id).each do |desk|
+          next unless desk.key
+          desk.controller_id = controller_id
+          desks[desk.key.not_nil!] = desk
+        end
+      rescue error
+        logger.warn(exception: error) { "obtaining desk list for controller #{controller.name} - #{controller_id}, possibly offline" }
       end
     end
-    @lockers = lockers
     @desks = desks
+    @lockers = lockers
   end
 
   def controller_list(locker : Bool? = nil, desks : Bool? = nil)
