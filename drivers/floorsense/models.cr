@@ -266,13 +266,13 @@ module Floorsense
     property lastlogin : Int64?
     property expiry : Int64?
     property reslimit : Int64?
-    property pin : Int64?
+    property pin : String?
     property ugroupid : Int64?
     property uidtoken : String?
     property extid : String?
     property usertype : String?
     property desc : String?
-    property privacy : String?
+    property privacy : Int32?
   end
 
   class LogEntry
