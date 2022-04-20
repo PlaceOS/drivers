@@ -272,7 +272,7 @@ module Floorsense
     property extid : String?
     property usertype : String?
     property desc : String?
-    property privacy : String?
+    property privacy : Int32?
   end
 
   class LogEntry
