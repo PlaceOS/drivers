@@ -2,6 +2,7 @@ require "json"
 require "oauth2"
 require "placeos"
 require "placeos-driver"
+require "place_calendar"
 
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
@@ -231,6 +232,22 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  # NOTE:: https://docs.google.com/document/d/1OaZljpjLVueFitmFWx8xy8BT8rA2lITyPsIvSYyNNW8/edit#
+  # The service account making this request needs delegated access and hence you can only edit
+  # events associated with a resource calendar
+  def update_event(system_id : String, event : PlaceCalendar::Event)
+    response = put("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    PlaceCalendar::Event.from_json(response.body)
+  end
+
+  def delete_event(system_id : String, event_id : String)
+    response = delete("/api/staff/v1/events/#{event_id}?system_id=#{system_id}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success? || response.status_code == 404
+    true
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
@@ -286,7 +303,9 @@ class Place::StaffAPI < PlaceOS::Driver
     title : String? = nil,
     description : String? = nil,
     time_zone : String? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
+    utm_source : String? = nil,
+    limit_override : Int64? = nil
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -295,7 +314,13 @@ class Place::StaffAPI < PlaceOS::Driver
     checked_in_at = now.to_unix if checked_in
 
     logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
-    response = post("/api/staff/v1/bookings", headers: authentication, body: {
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+      form.add "limit_override", limit_override.to_s unless limit_override.nil?
+    end
+
+    response = post("/api/staff/v1/bookings?#{params}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
       "booking_type"   => booking_type,
@@ -327,7 +352,8 @@ class Place::StaffAPI < PlaceOS::Driver
     timezone : String? = nil,
     extension_data : JSON::Any? = nil,
     approved : Bool? = nil,
-    checked_in : Bool? = nil
+    checked_in : Bool? = nil,
+    limit_override : Int64? = nil
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -339,7 +365,11 @@ class Place::StaffAPI < PlaceOS::Driver
     in nil
     end
 
-    response = patch("/api/staff/v1/bookings/#{booking_id}", headers: authentication, body: {
+    params = URI::Params.build do |form|
+      form.add "limit_override", limit_override.to_s unless limit_override.nil?
+    end
+
+    response = patch("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
       "checked_in"     => checked_in,
@@ -356,9 +386,14 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def reject(booking_id : String | Int64)
+  def reject(booking_id : String | Int64, utm_source : String? = nil)
     logger.debug { "rejecting booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: authentication)
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+    end
+
+    response = post("/api/staff/v1/bookings/#{booking_id}/reject?#{params}", headers: authentication)
     raise "issue rejecting booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -380,17 +415,25 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def booking_check_in(booking_id : String | Int64, state : Bool = true)
+  def booking_check_in(booking_id : String | Int64, state : Bool = true, utm_source : String? = nil)
     logger.debug { "checking in booking #{booking_id} to: #{state}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: authentication)
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+      form.add "state", state.to_s
+    end
+    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?#{params}", headers: authentication)
     raise "issue checking in booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
 
   @[Security(Level::Support)]
-  def booking_delete(booking_id : String | Int64)
+  def booking_delete(booking_id : String | Int64, utm_source : String? = nil)
     logger.debug { "deleting booking #{booking_id}" }
-    response = delete("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+    end
+    response = delete("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication)
     raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
     true
   end

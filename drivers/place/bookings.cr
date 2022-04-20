@@ -32,7 +32,7 @@ class Place::Bookings < PlaceOS::Driver
     custom_qr_color:            "black",
 
     # This image is displayed along with the capacity when the room is not bookable
-    room_image:              "https://domain.com/room_image.svg"
+    room_image: "https://domain.com/room_image.svg",
   })
 
   accessor calendar : Calendar_1

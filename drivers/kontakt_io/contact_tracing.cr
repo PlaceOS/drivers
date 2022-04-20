@@ -18,14 +18,14 @@ class KontaktIO::ContactTracing < PlaceOS::Driver
     period_start = start_time || 2.days.ago.to_unix
     period_end = end_time || 1.days.ago.to_unix
     loop do
-      temp_ending = period_start + 24.hours.to_i
+      temp_ending = period_start + 6.hours.to_i
       if temp_ending < period_end
         periods << {period_start, temp_ending}
       else
         periods << {period_start, period_end}
         break
       end
-      period_start = temp_ending + 1
+      period_start = temp_ending
     end
 
     # obtain the raw contact information
