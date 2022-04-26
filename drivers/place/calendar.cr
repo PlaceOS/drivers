@@ -26,7 +26,8 @@ class Place::Calendar < PlaceOS::Driver
       tenant:          "",
       client_id:       "",
       client_secret:   "",
-      conference_type: nil, # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
+      scope:           "calendars.readwrite calendars.readwrite.shared group.read.all user.read.all",
+      conference_type: nil, # This can be set to "teamsForBusiness" to automatically add a Teams link to EVERY created Event
     },
     rate_limit: 5,
 
@@ -50,6 +51,7 @@ class Place::Calendar < PlaceOS::Driver
     tenant: String,
     client_id: String,
     client_secret: String,
+    scope: String,
     conference_type: String | Nil,
   )
 
