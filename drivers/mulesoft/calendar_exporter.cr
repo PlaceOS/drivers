@@ -36,7 +36,7 @@ class MuleSoft::CalendarExporter < PlaceOS::Driver
     @time_zone = Time::Location.load(@time_zone_string.not_nil!) if @time_zone_string
     self[:timezone] = Time.local.to_s
 
-    subscription = system.subscribe(:Bookings_1, :bookings) do |subscription, mulesoft_bookings|
+    subscription = system.subscribe(:Bookings_1, :bookings) do |_subscription, mulesoft_bookings|
       logger.debug { "DETECTED changed in Mulesoft Bookings.." }
       latest_bookings : Array(Hash(String, Int64 | String | Nil)) = [] of Hash(String, Int64 | String | Nil)
       latest_bookings = Array(Hash(String, Int64 | String | Nil)).from_json(mulesoft_bookings)

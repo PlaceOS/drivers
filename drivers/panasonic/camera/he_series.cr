@@ -95,7 +95,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     end
 
     request("PTS", "#{pan}#{tilt}", **options) do |resp|
-      pan, tilt = resp[3..-1].scan(/.{2}/).map(&.to_a).flatten
+      pan, tilt = resp[3..-1].scan(/.{2}/).flat_map(&.to_a)
       self[:pan_speed] = pan.not_nil!.to_i - MOVEMENT_STOPPED
       self[:tilt_speed] = tilt.not_nil!.to_i - MOVEMENT_STOPPED
     end
@@ -226,7 +226,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   end
 
   protected def parse_pantilt(response : String)
-    pan, tilt = response[3..-1].scan(/.{4}/).map(&.to_a).flatten.compact_map(&.try &.to_i(16))
+    pan, tilt = response[3..-1].scan(/.{4}/).flat_map(&.to_a).compact_map(&.try &.to_i(16))
     self[:pan] = @pan = pan
     self[:tilt] = @tilt = tilt
   end

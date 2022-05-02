@@ -109,8 +109,9 @@ class Extron::Matrix < PlaceOS::Driver
   protected def record_mute(output, layer)
     video = self["audio#{output}"]?.try(&.as_i.to_u16) || MUTE_INPUT
     audio = self["video#{output}"]?.try(&.as_i.to_u16) || MUTE_INPUT
-    @muted_video[output] = video unless video == MUTE_INPUT || !(layer.all? || layer.vid?)
-    @muted_audio[output] = audio unless audio == MUTE_INPUT || !(layer.all? || layer.aud?)
+
+    @muted_video[output] = video if video != MUTE_INPUT && (layer.all? || layer.vid?)
+    @muted_audio[output] = audio if audio != MUTE_INPUT && (layer.all? || layer.aud?)
   end
 
   # Implementing switchable interface
