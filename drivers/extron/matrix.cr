@@ -88,9 +88,9 @@ class Extron::Matrix < PlaceOS::Driver
     return unless output > 0
 
     switch_layer = case layer
-                   in MuteLayer::Audio     ; MatrixLayer::Aud
-                   in MuteLayer::Video     ; MatrixLayer::Vid
-                   in MuteLayer::AudioVideo; MatrixLayer::All
+                   in MuteLayer::Audio      then MatrixLayer::Aud
+                   in MuteLayer::Video      then MatrixLayer::Vid
+                   in MuteLayer::AudioVideo then MatrixLayer::All
                    end
 
     if state
@@ -117,9 +117,9 @@ class Extron::Matrix < PlaceOS::Driver
   # Implementing switchable interface
   def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
     extron_layer = case layer
-                   in Nil, .all?; MatrixLayer::All
-                   in .audio?   ; MatrixLayer::Aud
-                   in .video?   ; MatrixLayer::Vid
+                   in Nil, .all? then MatrixLayer::All
+                   in .audio?    then MatrixLayer::Aud
+                   in .video?    then MatrixLayer::Vid
                    in .data?, .data2?
                      logger.debug { "layer #{layer} not available on extron matrix" }
                      return

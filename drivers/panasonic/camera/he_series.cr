@@ -61,8 +61,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   protected def parse_power(response : String)
     case response
-    when "p0"      ; self[:power] = false
-    when "p1", "p3"; self[:power] = true
+    when "p0"       then self[:power] = false
+    when "p1", "p3" then self[:power] = true
     end
   end
 
@@ -210,8 +210,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   protected def parse_installation(response : String)
     case response
-    when "ins0"; self[:installation] = Installation::Desk
-    when "ins1"; self[:installation] = Installation::Ceiling
+    when "ins0" then self[:installation] = Installation::Desk
+    when "ins1" then self[:installation] = Installation::Ceiling
     end
   end
 
@@ -249,9 +249,9 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
         body = response.body.downcase
         if body.starts_with?("er")
           case body[2]
-          when '1'; task.abort("unsupported command #{cmd}: #{body}")
-          when '2'; task.retry("camera busy, requested #{cmd}: #{body}")
-          when '3'; task.abort("query outside acceptable range, requested #{cmd}: #{body}")
+          when '1' then task.abort("unsupported command #{cmd}: #{body}")
+          when '2' then task.retry("camera busy, requested #{cmd}: #{body}")
+          when '3' then task.abort("query outside acceptable range, requested #{cmd}: #{body}")
           end
         else
           begin
@@ -277,9 +277,9 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     body = response.body.downcase
     if body.starts_with?("er")
       case body[2]
-      when '1'; raise "unsupported command #{cmd}: #{body}"
-      when '2'; raise "camera busy, requested #{cmd}: #{body}"
-      when '3'; raise "query outside acceptable range, requested #{cmd}: #{body}"
+      when '1' then raise "unsupported command #{cmd}: #{body}"
+      when '2' then raise "camera busy, requested #{cmd}: #{body}"
+      when '3' then raise "query outside acceptable range, requested #{cmd}: #{body}"
       end
     end
     body
