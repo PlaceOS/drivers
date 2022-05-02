@@ -36,7 +36,6 @@ jobs:
         stable: [true]
         crystal:
           - 1.1.1
-          - 1.4.0
         include:
           - stable: false
             crystal: nightly
@@ -75,7 +74,6 @@ jobs:
         stable: [true]
         crystal:
           - 1.1.1
-          - 1.4.0
         include:
           - stable: false
             crystal: nightly
