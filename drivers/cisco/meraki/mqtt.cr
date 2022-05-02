@@ -439,7 +439,7 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     return [] of Nil if location.presence && location != "desk"
 
     serials = @zone_lookup[zone_id]?
-    return [] of Nil unless serials && !serials.empty?
+    return [] of Nil if !serials || serials.empty?
 
     return_empty_spaces = @return_empty_spaces
     expiry_time = desk_data_expiry_time

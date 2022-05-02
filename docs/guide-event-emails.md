@@ -2,12 +2,13 @@
 
 There are three aspects to this
 
-1. real-time send an email as soon as an event occurs
-2. batching events (either periodically or via a CRON)
-3. managing state (state machine management)
+1. Sending an email in real-time as an event occurs
+2. Batching events (either periodically or via a [CRON](https://crontab.guru/))
+3. Managing state (state machine management)
 
-i.e. send email straight away if the event is today otherwise send them at 7am every morning and mark emails as sent.
-Poll every 15min to send any emails that were missed due to an outage. (by checking state)
+For example...
+- Send an email straight away if the event is today, otherwise, send them at 7 am every morning and mark the emails as sent.
+- Poll every 15min to send any emails that were missed due to an outage (by checking state)
 
 
 ## Example logic driver
@@ -77,7 +78,7 @@ class DeskBookingNotification < PlaceOS::Driver
   end
 
   # ensure we don't have two fibers processing this at once
-  # (technically the driver is thread safe, but it is concurrent)
+  # (technically the driver is thread-safe, but it is concurrent)
   @check_bookings_mutex = Mutex.new
 
   @[Security(Level::Support)]
@@ -435,7 +436,7 @@ email_templates:
         Please reach out to your <a
         href="mailto:%{support_email}?subject=%{building_name} workplace
         question">workplace support team</a> should you have any other queries,
-        otherwise we look forward to seeing you soon
+        otherwise, we look forward to seeing you soon
 
         </body></html>
 

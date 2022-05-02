@@ -2,7 +2,7 @@ version: "3.7"
 services:
   # Driver test harness
   drivers:
-    image: placeos/drivers-spec:crystal-${CRYSTAL_VERSION:-1.1.1}
+    image: placeos/drivers-spec:crystal-${CRYSTAL_VERSION:-1.4.0}
     restart: always
     container_name: placeos-drivers
     hostname: drivers
@@ -35,7 +35,7 @@ services:
 
   # Ensures shards are installed.
   install-shards:
-    image: crystallang/crystal:${CRYSTAL_VERSION:-1.1.1}-alpine
+    image: crystallang/crystal:${CRYSTAL_VERSION:-1.4.0}-alpine
     restart: "no"
     working_dir: /wd
     command: ash -c 'shards check -q || shards install'

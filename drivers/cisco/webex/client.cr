@@ -14,8 +14,7 @@ module Cisco
 
         @keywords =
           @commands
-            .map { |command| command.keywords.map { |keyword| {"#{keyword}" => command} } }
-            .flatten
+            .flat_map { |command| command.keywords.map { |keyword| {"#{keyword}" => command} } }
             .reduce { |acc, i| acc.try(&.merge(i.not_nil!)) }
 
         @id = @people.me.id

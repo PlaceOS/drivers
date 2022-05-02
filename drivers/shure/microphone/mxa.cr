@@ -178,9 +178,9 @@ class Shure::Microphone::MXA < PlaceOS::Driver
     when "dev_led_state_unmuted" then self[:led_unmuted] = value == "ON"
     else
       self[param] = case value
-                    when "ON"  ; true
-                    when "OFF" ; false
-                    when .to_i?; value.to_i
+                    when "ON"   then true
+                    when "OFF"  then false
+                    when .to_i? then value.to_i
                     else
                       value
                     end

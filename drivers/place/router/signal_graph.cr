@@ -68,6 +68,7 @@ class Place::Router::SignalGraph
         func = Edge::Func::Mute.new true
         g[output.id, Mute.id] = Edge::Active.new mod, func
       else
+        # ameba:disable Lint/ShadowingOuterLocalVar
         outputs.each do |output|
           func = Edge::Func::Mute.new true, output.output
           g[output.id, Mute.id] = Edge::Active.new mod, func

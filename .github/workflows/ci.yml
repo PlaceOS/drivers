@@ -35,7 +35,6 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.0.0
           - 1.1.1
         include:
           - stable: false
@@ -74,7 +73,6 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.0.0
           - 1.1.1
         include:
           - stable: false
