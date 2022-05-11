@@ -728,12 +728,14 @@ class Floorsense::Desks < PlaceOS::Driver
     user
   end
 
-  def user_list(email : String? = nil, name : String? = nil, description : String? = nil, user_group_id : String | Int32? = nil)
+  def user_list(email : String? = nil, name : String? = nil, description : String? = nil, user_group_id : String | Int32? = nil, limit : Int32 = 500, offset : Int32 = 0)
     query = URI::Params.build { |form|
       form.add("email", email.not_nil!) if email
       form.add("name", name.not_nil!) if name
       form.add("desc", description.not_nil!) if description
       form.add("ugroupid", user_group_id.to_s) if user_group_id
+      form.add("limit", limit.to_s)
+      form.add("offset", offset.to_s)
     }
 
     response = get("/restapi/user-list?#{query}", headers: default_headers)
