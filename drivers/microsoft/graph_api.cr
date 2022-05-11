@@ -1,9 +1,9 @@
 require "./calendar_common"
 
-class Place::Calendar < PlaceOS::Driver
+class Microsoft::GraphAPI < PlaceOS::Driver
   include Place::CalendarCommon
 
-  descriptive_name "PlaceOS Calendar"
+  descriptive_name "Microsoft Graph API"
   generic_name :Calendar
 
   uri_base "https://staff.app.api.com"
@@ -11,14 +11,6 @@ class Place::Calendar < PlaceOS::Driver
   default_settings({
     calendar_service_account: "service_account@email.address",
     calendar_config:          {
-      scopes:      ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/admin.directory.user.readonly"],
-      domain:      "primary.domain.com",
-      sub:         "default.service.account@google.com",
-      issuer:      "placeos@organisation.iam.gserviceaccount.com",
-      signing_key: "PEM encoded private key",
-    },
-    calendar_config_office: {
-      _note_:          "rename to 'calendar_config' for use",
       tenant:          "",
       client_id:       "",
       client_secret:   "",
