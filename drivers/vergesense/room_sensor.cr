@@ -36,7 +36,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
     end
   end
 
-  protected def subscribe_to_sensor
+  protected def subscribe_to_sensor : Nil
     @floor_key = vergesense.floor_key(@space_id).get.as_s
     system.subscribe(:Vergesense, 1, @floor_key) { |_sub, floor| update_sensor_state(floor) }
     self[:floor_key] = @floor_key
