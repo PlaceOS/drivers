@@ -434,6 +434,7 @@ class Place::Bookings < PlaceOS::Driver
           self[:people_count] = self[:presence] = nil
         end
       end
+      @perform_sensor_search = false
     else
       self[:people_count] = nil
 
@@ -445,12 +446,12 @@ class Place::Bookings < PlaceOS::Driver
           value = (Float64 | Nil).from_json payload
           self[:presence] = value ? value > 0.0 : nil
         end
+        @perform_sensor_search = false
       else
         self[:sensor_name] = self[:presence] = nil
+        @perform_sensor_search = true
       end
     end
-
-    @perform_sensor_search = false
   rescue error
     self[:people_count] = nil
     self[:presence] = nil
