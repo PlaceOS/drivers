@@ -1,4 +1,5 @@
 require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/switchable"
 
 # Documentation: https://aca.im/driver_docs/Kramer/protocol_3000_2.10_user.pdf
 
@@ -51,6 +52,8 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     get_machine_info
   end
 
+  include Interface::InputSelection(Input)
+  
   def switch_video(input : Int32, output : Array(Int32))
     do_send(CMDS["switch_video"], build_switch_data({input => output}))
   end
