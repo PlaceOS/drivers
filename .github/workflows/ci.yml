@@ -9,22 +9,21 @@ on:
     - cron: "0 6 * * 1"
 
 jobs:
-  style:
-    name: "Style"
+  docs:
+    name: "Crystal Docs"
     runs-on: ubuntu-latest
+    continue-on-error: true
     container: crystallang/crystal
     steps:
       - uses: actions/checkout@v3
-      - name: Format
-        run: crystal tool format --check
-      - name: Lint
-        uses: crystal-ameba/github-action@v0.2.12
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Shards
         run: shards install --ignore-crystal-version
       - name: Docs
         run: crystal docs
+
+  style:
+    name: "Style"
+    uses: PlaceOS/.github/.github/workflows/crystal-style.yml@main
 
   subset-report:
     name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
@@ -35,7 +34,6 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.0.0
           - 1.1.1
         include:
           - stable: false
@@ -74,7 +72,6 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.0.0
           - 1.1.1
         include:
           - stable: false

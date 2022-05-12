@@ -36,11 +36,11 @@ class Webex::InstantConnect < PlaceOS::Driver
 
   protected def get_meeting_details(meeting_keys)
     response = get("api/v1/space/?int=jose&data=#{meeting_keys[:host]}")
-    raise "host token request failed with #{response.status_code}" unless response.status_code == 200 && !response.body.nil?
+    raise "host token request failed with #{response.status_code}" if response_failed?(response)
     meeting_config = Hash(String, String | Bool).from_json(response.body)
 
     response = get("api/v1/space/?int=jose&data=#{meeting_keys[:guest]}")
-    raise "guest token request failed with #{response.status_code}" unless response.status_code == 200 && !response.body.nil?
+    raise "guest token request failed with #{response.status_code}" if response_failed?(response)
     guest_token = String.from_json(response.body, root: "token")
 
     {
@@ -57,12 +57,16 @@ class Webex::InstantConnect < PlaceOS::Driver
       "Authorization" => "Bearer #{@bot_access_token}",
     })
 
-    raise "request failed with #{response.status_code}" unless response.status_code == 200 && !response.body.nil?
+    raise "request failed with #{response.status_code}" if response_failed?(response)
 
     response = NamedTuple(host: Array(String), guest: Array(String)).from_json(response.body)
     {
       host:  response[:host].first,
       guest: response[:guest].first,
     }
+  end
+
+  protected def response_failed?(response)
+    response.status_code != 200 || response.body.nil?
   end
 end

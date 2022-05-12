@@ -27,7 +27,7 @@ module Cisco
         @client.headers({"Content-Type" => "application/json;charset=utf-8"})
         @client.timeout single_request_timeout
 
-        while true
+        loop do
           case method
           when "GET"
             response = @client.get absolute_url, **kwargs
