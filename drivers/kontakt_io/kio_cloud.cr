@@ -115,6 +115,26 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     campuses
   end
 
+  def rooms : Array(Room)
+    rooms = [] of Room
+    make_request("GET", "/v2/locations/rooms") do |data|
+      resp = Response(Room).from_json(data)
+      rooms.concat resp.content
+      resp.page
+    end
+    rooms
+  end
+
+  def room_occupancy : Array(RoomOccupancy)
+    room_occupancy = [] of RoomOccupancy
+    make_request("GET", "/v3/occupancy/rooms") do |data|
+      resp = Response(RoomOccupancy).from_json(data)
+      room_occupancy.concat resp.content
+      resp.page
+    end
+    room_occupancy
+  end
+
   def format_mac(address : String)
     address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
   end
