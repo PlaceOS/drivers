@@ -14,8 +14,8 @@ DriverSpecs.mock_driver "KontaktIO::SensorService" do
     },
   })
 
-  # build the cache
-  exec(:cache_occupancy_counts).get
+  # give it a moment to grab the cache
+  sleep 1
 
   # lookup a sensor value
   resp = exec(:sensor, "kontakt-195835", "people").get.not_nil!
@@ -28,9 +28,13 @@ end
 
 # :nodoc:
 class KontaktIOMock < DriverSpecs::MockDriver
-  def room_occupancy
-    [
-      {
+  def on_load
+    self[:occupancy_cached_at] = Time.utc.to_unix
+  end
+
+  def occupancy_cache
+    {
+      195835 => {
         "roomId"       => 195835,
         "roomName"     => "Open Pod",
         "floorId"      => 195528,
@@ -42,6 +46,6 @@ class KontaktIOMock < DriverSpecs::MockDriver
         "lastUpdate"   => "2022-04-21T21:55:56.751Z",
         "occupancy"    => 3,
       },
-    ]
+    }
   end
 end

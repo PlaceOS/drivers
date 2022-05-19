@@ -10,6 +10,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
   description %(collects room occupancy data from KontaktIO)
 
   accessor kontakt_io : KontaktIO_1
+  bind KontaktIO_1, :occupancy_cached_at, :update_cache
 
   default_settings({
     floor_mappings: {
@@ -19,7 +20,6 @@ class KontaktIO::SensorService < PlaceOS::Driver
         name:        "friendly name for documentation",
       },
     },
-    poll_every: 2,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -30,25 +30,21 @@ class KontaktIO::SensorService < PlaceOS::Driver
   end
 
   def on_update
-    begin
-      @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
-    rescue error
-      logger.warn(exception: error) { "invalid floor mappings" }
-    end
+    @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
 
     lookup = Hash(String, Array(Int64)).new { |hash, key| hash[key] = [] of Int64 }
     @floor_mappings.each do |kontakt_floor_id, zones|
-      kontakt_id = kontakt_floor_id.to_i64
-      if building_id = zones[:building_id]
-        lookup[building_id] << kontakt_id
+      begin
+        kontakt_id = kontakt_floor_id.to_i64
+        if building_id = zones[:building_id]
+          lookup[building_id] << kontakt_id
+        end
+        lookup[zones[:level_id]] << kontakt_id
+      rescue error
+        logger.warn(exception: error) { "invalid floor mapping #{kontakt_floor_id}" }
       end
-      lookup[zones[:level_id]] << kontakt_id
     end
     @zone_lookup = lookup
-
-    poll_every = (setting?(Int32, :poll_every) || 2).seconds
-    schedule.clear
-    schedule.every(poll_every) { cache_occupancy_counts }
   end
 
   # ===================================
@@ -56,13 +52,8 @@ class KontaktIO::SensorService < PlaceOS::Driver
   # ===================================
   @occupancy_cache : Hash(Int64, RoomOccupancy) = {} of Int64 => RoomOccupancy
 
-  def cache_occupancy_counts
-    occupancy = Array(RoomOccupancy).from_json kontakt_io.room_occupancy.get.to_json
-    cache = Hash(Int64, RoomOccupancy).new(occupancy.size) do |_hash, key|
-      raise KeyError.new(%(Missing hash key: "#{key}"))
-    end
-    occupancy.each { |room| cache[room.room_id] = room }
-    @occupancy_cache = cache
+  protected def update_cache(_sub, _event)
+    @occupancy_cache = Hash(Int64, RoomOccupancy).from_json kontakt_io.occupancy_cache.get.to_json
   end
 
   # ===================================
