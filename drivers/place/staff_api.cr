@@ -264,6 +264,11 @@ class Place::StaffAPI < PlaceOS::Driver
     placeos_client.metadata.update(id, key, payload, description)
   end
 
+  @[Security(Level::Support)]
+  def merge_metadata(id : String, key : String, payload : JSON::Any, description : String = "")
+    placeos_client.metadata.merge(id, key, payload, description)
+  end
+
   # ===================================
   # ZONE INFORMATION
   # ===================================
