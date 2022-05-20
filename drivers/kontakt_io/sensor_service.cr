@@ -130,7 +130,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
       id: id,
       name: "#{room.floor_name} #{room.room_name} (#{room.building_name})",
     )
-    if zones = @floor_mappings[room.floor_id.to_s]
+    if zones = @floor_mappings[room.floor_id.to_s]?
       detail.level = zones[:level_id]
       detail.building = zones[:building_id]
     end
