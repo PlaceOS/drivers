@@ -1,9 +1,11 @@
 require "placeos-driver"
 require "./kio_cloud_models"
 require "placeos-driver/interface/sensor"
+require "placeos-driver/interface/locatable"
 
 class KontaktIO::SensorService < PlaceOS::Driver
   include Interface::Sensor
+  include Interface::Locatable
 
   descriptive_name "KontaktIO Sensor Service"
   generic_name :KontaktSensors
@@ -20,6 +22,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
         name:        "friendly name for documentation",
       },
     },
+    return_empty_spaces: true,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -30,6 +33,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
   end
 
   def on_update
+    @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
 
     lookup = Hash(String, Array(Int64)).new { |hash, key| hash[key] = [] of Int64 }
@@ -54,6 +58,56 @@ class KontaktIO::SensorService < PlaceOS::Driver
 
   protected def update_cache(_sub, _event)
     @occupancy_cache = Hash(Int64, RoomOccupancy).from_json kontakt_io.occupancy_cache.get.to_json
+  end
+
+  # ===================================
+  # Locatable Interface functions
+  # ===================================
+  def locate_user(email : String? = nil, username : String? = nil)
+    logger.debug { "sensor incapable of locating #{email} or #{username}" }
+    [] of Nil
+  end
+
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
+    logger.debug { "sensor incapable of tracking #{email} or #{username}" }
+    [] of String
+  end
+
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
+    logger.debug { "sensor incapable of tracking #{mac_address}" }
+    nil
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    logger.debug { "searching locatable in zone #{zone_id}" }
+    floor_ids = @zone_lookup[zone_id]?
+    return [] of Nil unless floor_ids && floor_ids.size > 0
+
+    loc_type = "desk"
+    cache = @occupancy_cache
+    cache.compact_map do |(room_id, space)|
+      next unless space.floor_id.in?(floor_ids)
+      people_count = space.occupancy
+
+      if @return_empty_spaces || people_count && people_count > 0
+        # TODO:: attach space environment conditions in the future
+        # if env = space.environment
+        #  humidity = env.humidity.value
+        #  temperature = env.temperature.value
+        #  iaq = env.iaq.try &.value
+        # end
+
+        {
+          location:    loc_type,
+          at_location: people_count,
+          map_id:      space.room_name,
+          level:       zone_id,
+          building:    @floor_mappings[space.floor_id.to_s]?.try(&.[](:building_id)),
+
+          kontakt_io_room_id: room_id,
+        }
+      end
+    end
   end
 
   # ===================================
