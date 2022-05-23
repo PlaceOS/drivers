@@ -24,6 +24,16 @@ DriverSpecs.mock_driver "KontaktIO::SensorService" do
   resp["value"].should eq 3.0
   resp["level"].should eq "zone-level"
   resp["building"].should eq "zone-building"
+
+  resp = exec(:device_locations, "zone-level").get.not_nil!
+  resp.should eq([{
+    "location"        => "desk",
+    "at_location"     => 3,
+    "map_id"          => "room-195835",
+    "level"           => "zone-level",
+    "building"        => "zone-building",
+    "kontakt_io_room" => "Open Pod",
+  }])
 end
 
 # :nodoc:

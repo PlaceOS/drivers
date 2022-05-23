@@ -84,6 +84,8 @@ class KontaktIO::SensorService < PlaceOS::Driver
     return [] of Nil unless floor_ids && floor_ids.size > 0
 
     loc_type = "desk"
+    return [] of Nil if location && location != loc_type
+
     cache = @occupancy_cache
     cache.compact_map do |(room_id, space)|
       next unless space.floor_id.in?(floor_ids)
@@ -100,11 +102,11 @@ class KontaktIO::SensorService < PlaceOS::Driver
         {
           location:    loc_type,
           at_location: people_count,
-          map_id:      space.room_name,
+          map_id:      "room-#{space.room_id}",
           level:       zone_id,
           building:    @floor_mappings[space.floor_id.to_s]?.try(&.[](:building_id)),
 
-          kontakt_io_room_id: room_id,
+          kontakt_io_room: space.room_name,
         }
       end
     end
