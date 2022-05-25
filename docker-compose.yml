@@ -7,7 +7,7 @@ x-build-client-env: &build-client-env
 services:
   # Driver test harness
   drivers:
-    image: placeos/drivers-spec:crystal-build-${CRYSTAL_VERSION:-1.2.2}
+    image: placeos/drivers-spec:crystal-build-${CRYSTAL_VERSION:-1.4.1}
     restart: always
     container_name: placeos-drivers
     hostname: drivers
@@ -48,7 +48,7 @@ services:
       TZ: $TZ
 
   redis:
-    image: eqalpha/keydb
+    image: eqalpha/keydb:alpine
     restart: always
     hostname: redis
     environment:
@@ -56,7 +56,7 @@ services:
 
   # Ensures shards are installed.
   install-shards:
-    image: crystallang/crystal:${CRYSTAL_VERSION:-1.2.2}-alpine
+    image: crystallang/crystal:${CRYSTAL_VERSION:-1.4.1}-alpine
     restart: "no"
     working_dir: /wd
     command: ash -c 'shards check -q || shards install'

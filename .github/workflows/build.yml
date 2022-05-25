@@ -4,6 +4,10 @@ on:
     branches: [master]
   push:
     branches: [master]
+
+env:
+  CRYSTAL_VERSION: 1.4.1
+
 jobs:
   build:
     name: "Build"
@@ -19,9 +23,9 @@ jobs:
             --strict-driver-info \
             --repository-uri https://github.com/${{ github.repository }} \
             --repository-path ./repositories/local \
-            --branch $CI_ACTION_REF_NAME \
-            --commit ${{ github.sha }}
+            --ref ${{ github.sha }}
         env:
+          CRYSTAL_VERSION: ${{ env.CRYSTAL_VERSION }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_SECRET: ${{ secrets.AWS_SECRET }}
           AWS_KEY: ${{ secrets.AWS_KEY }}
