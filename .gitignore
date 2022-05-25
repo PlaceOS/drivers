@@ -7,7 +7,8 @@ app
 bin
 doc
 docs
+binaries
 lib
 .logs
 repositories/*
-binaries
+src

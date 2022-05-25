@@ -44,6 +44,16 @@ Before committing, please run...
 $ ./harness format
 ```
 
+## Documentation
+
+- [Writing a PlaceOS Driver](docs/writing-a-driver.md)
+- [Testing a PlaceOS Driver](docs/writing-a-spec.md)
+- [Sending Emails](docs/guide-event-emails.md)
+- [Environment Setup](docs/setup.md)
+- [Runtime Debugging](docs/runtime-debugging.md)
+- [Directory Structure](docs/directory_structure.md)
+- [PlaceOS Spec Runner HTTP API](docs/http-api.md)
+
 ## Contributing
 
 1. [Fork it](https://github.com/PlaceOS/drivers/fork)

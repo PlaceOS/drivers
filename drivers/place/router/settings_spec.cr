@@ -4,7 +4,7 @@ require "./settings"
 alias Settings = Place::Router::Core::Settings
 alias SignalGraph = Place::Router::SignalGraph
 
-module PlaceOS::Driver::Proxy::System
+class PlaceOS::Driver::Proxy::System
   def self.module_id?(sys, name, idx) : String?
     mock_id = {sys, name, idx}.hash
     "mod-#{mock_id}"

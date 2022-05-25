@@ -31,11 +31,12 @@ module Cisco::CollaborationEndpoint
   # Camera idx => Preset name => Preset id
   alias Presets = Hash(Int32, Hash(String, Int32))
   @presets : Presets = {} of Int32 => Hash(String, Int32)
-  @feedback_paths : Array(String) = [] of String
+  getter feedback_paths : Array(String) = [] of String
 
   def on_load
     # NOTE:: on_load doesn't call on_update as on_update disconnects
-    queue.delay = 50.milliseconds
+    queue.delay = 80.milliseconds
+    queue.timeout = 3.seconds
     @peripheral_id = setting?(String, :peripheral_id)
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:camera_presets] = @presets.transform_values { |val| val.keys }
@@ -63,7 +64,15 @@ module Cisco::CollaborationEndpoint
 
   @last_received : Int64 = 0_i64
 
+  protected def reset_connection_flags
+    @ready = false
+    @init_called = false
+    @feedback_paths = [] of String
+    transport.tokenizer = nil
+  end
+
   def connected
+    reset_connection_flags
     schedule.every(2.minutes) { ensure_feedback_registered }
     schedule.every(30.seconds) do
       if @last_received > 40.seconds.ago.to_unix
@@ -73,22 +82,22 @@ module Cisco::CollaborationEndpoint
       end
     end
     schedule.in(10.seconds) do
-      if !@ready
-        init_connection unless @init_called
-        schedule.in(15.seconds) { disconnect unless @ready }
-      end
+      init_connection unless @ready || @init_called
+      schedule.in(15.seconds) { disconnect if !@ready || self["configuration"]?.nil? }
     end
+    begin
+      transport.send "xPreferences OutputMode JSON\n"
+    rescue
+    end
+    queue.clear abort_current: true
   end
 
   def disconnected
-    @ready = false
-    @init_called = false
-    @feedback_paths = [] of String
-    transport.tokenizer = nil
-    queue.clear abort_current: true
-
-    clear_feedback_subscriptions
     schedule.clear
+    reset_connection_flags
+    clear_feedback_subscriptions(false)
+    queue.clear abort_current: true
+    self[:ready] = false
   end
 
   def generate_request_uuid
@@ -97,10 +106,21 @@ module Cisco::CollaborationEndpoint
 
   def ensure_feedback_registered
     send "xPreferences OutputMode JSON\n", priority: 0, wait: false, name: "output_json"
-    @feedback_paths.each do |path|
+    results = @feedback_paths.map do |path|
       request = XAPI.xfeedback :register, path
       # Always returns an empty response, nothing special to handle
-      do_send request, priority: 0, name: path
+      do_send(request, priority: 0, name: path)
+    end
+    spawn(same_thread: true) do
+      success = 0
+      results.each do |task|
+        begin
+          success += 1 if task.get.state.success?
+        rescue
+        end
+      end
+      logger.debug { "FEEDBACK REGISTERED #{success}" }
+      disconnect unless success > 0
     end
     @feedback_paths.size
   end
@@ -272,15 +292,11 @@ module Cisco::CollaborationEndpoint
       index || -1
     end
 
-    send "xPreferences OutputMode JSON\n", priority: 95, wait: false, name: "output_json"
-    register_control_system.get
-    @ready = true
+    raise "failed to register control system" unless register_control_system.get.state.success?
+    self[:ready] = @ready = true
 
     push_config
     sync_config
-  rescue error
-    logger.warn(exception: error) { "error configuring xapi transport" }
-  ensure
     @@status_mappings.each do |key, path|
       begin
         bind_status(path, key.to_s)
@@ -291,6 +307,9 @@ module Cisco::CollaborationEndpoint
 
     driver = self
     driver.connection_ready if driver.responds_to?(:connection_ready)
+  rescue error
+    @init_called = false
+    logger.warn(exception: error) { "error configuring xapi transport" }
   end
 
   protected def do_send(command, multiline_body = nil, **options)
@@ -315,12 +334,12 @@ module Cisco::CollaborationEndpoint
     payload = String.new(data)
     logger.debug { "<- #{payload}" }
 
-    if !@ready
-      if payload =~ XAPI::LOGIN_COMPLETE
-        @ready = true
-        logger.info { "Connection ready, initializing connection" }
-        init_connection unless @init_called
-      end
+    if transport.tokenizer.nil? && payload =~ XAPI::LOGIN_COMPLETE
+      queue.clear abort_current: true
+      sleep 500.milliseconds
+      transport.send "xPreferences OutputMode JSON\n"
+      logger.info { "initializing connection" }
+      spawn(same_thread: true) { init_connection }
       return
     end
 
@@ -383,14 +402,16 @@ module Cisco::CollaborationEndpoint
     return clear_feedback_subscriptions if path == "/"
     logger.debug { "Unsubscribing feedback for #{path}" }
     feedback.remove path
+    @feedback_paths.delete path
     do_send XAPI.xfeedback(:deregister, path)
   end
 
-  def clear_feedback_subscriptions
+  def clear_feedback_subscriptions(connected : Bool = true)
     logger.debug { "Unsubscribing all feedback" }
     @status_keys.clear
     feedback.clear
-    do_send XAPI.xfeedback(:deregister_all)
+    @feedback_paths.clear
+    do_send XAPI.xfeedback(:deregister_all) if connected
   end
 
   # ------------------------------
@@ -449,10 +470,10 @@ module Cisco::CollaborationEndpoint
   # Callback methods must be of arity 1 and public.
   def on_event(path : String, mod_id : String, channel : String)
     logger.debug { "Registering callback for #{path} to #{mod_id}/#{channel}" }
-
-    register_feedback path do |event|
-      logger.debug { "Publishing #{path} event to #{mod_id}/#{channel}" }
-      publish("#{mod_id}/#{channel}", event.to_json)
+    register_feedback path do |event_path, value|
+      event_json = {event_path => value}.to_json
+      logger.debug { "Publishing #{path} event to #{mod_id}/#{channel} with payload #{event_json}" }
+      publish("#{mod_id}/#{channel}", event_json)
     end
   end
 

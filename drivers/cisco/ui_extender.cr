@@ -83,8 +83,9 @@ class Cisco::UIExtender < PlaceOS::Driver
     codec.xcommand "UserInterface Extensions Panel Close"
   end
 
-  protected def on_extensions_panel_clicked(event)
-    id = event["PanelId"].as_s
+  protected def on_extensions_panel_clicked(event) : Nil
+    id = event["/Event/UserInterface/Extensions/Panel/Clicked/PanelId"]?.try &.as_s
+    return unless id
     logger.debug { "#{id} opened" }
     self[:__active_panel] = id
   end
@@ -153,10 +154,27 @@ class Cisco::UIExtender < PlaceOS::Driver
   end
 
   # Callback for changes to widget state.
-  def on_extensions_widget_action(event : JSON::Any)
-    id, value, type = event.as_h.values_at "WidgetId", "Value", "Type"
+  @action_merged : Hash(String, JSON::Any) = {} of String => JSON::Any
 
-    logger.debug { "#{id} #{type}" }
+  def on_extensions_widget_action(event : Hash(String, JSON::Any))
+    logger.debug { "received widget action update #{event}" }
+    current_key = event.keys.first
+    case current_key
+    when "/Event/UserInterface/Extensions/Widget/Action/WidgetId"
+      @action_merged["WidgetId"] = event[current_key]
+    when "/Event/UserInterface/Extensions/Widget/Action", "/Event/UserInterface/Extensions/Widget/Action/Value"
+      @action_merged["Value"] = event[current_key]
+    when "/Event/UserInterface/Extensions/Widget/Action/Type"
+      @action_merged["Type"] = event[current_key]
+    else
+      logger.debug { "ignoring key #{current_key} processing widget_action event" }
+    end
+    logger.debug { "current action state: #{@action_merged}" }
+    return unless @action_merged.size == 3
+    id, value, type = @action_merged.values_at "WidgetId", "Value", "Type"
+    @action_merged = {} of String => JSON::Any
+
+    logger.debug { "#{id} #{type} = #{value}" }
 
     id = id.as_s
     type = type.as_s
@@ -198,15 +216,25 @@ class Cisco::UIExtender < PlaceOS::Driver
   # Internals
 
   @codec_mod : String = ""
+  @subscriptions : Array(PlaceOS::Driver::Subscriptions::Subscription) = [] of PlaceOS::Driver::Subscriptions::Subscription
+
+  protected def clear_subscriptions
+    logger.debug { "clearing subscriptions!" }
+    @subscriptions.each { |sub| subscriptions.unsubscribe(sub) }
+    @subscriptions.clear
+  end
 
   # Bind to a Cisco CE device module.
   protected def bind(mod : String, &bind_cb : Proc(Nil))
     logger.debug { "binding to #{mod}" }
 
     @codec_mod = mod
-    system.subscribe(@codec_mod, :connected) do |_sub, value|
+    subscriptions.clear
+    @subscriptions.clear
+    system.subscribe(@codec_mod, :ready) do |_sub, value|
+      logger.debug { "codec ready: #{value}" }
       next unless value == "true"
-      subscriptions.clear
+      clear_subscriptions
       subscribe_events
       bind_cb.call
       sync_widget_state
@@ -233,6 +261,8 @@ class Cisco::UIExtender < PlaceOS::Driver
   # Push the current module state to the device.
   def sync_widget_state
     @__status__.each do |key, value|
+      next if key == "connected"
+
       # Non-widget related status prefixed with `__`
       next if key =~ /^__.*/
       case value
@@ -247,7 +277,7 @@ class Cisco::UIExtender < PlaceOS::Driver
   # Build a list of device XPath -> callback mappings.
   protected def event_mappings
     ui_callbacks.map do |(function_name, callback)|
-      path = "/Event/UserInterface/#{function_name[3..-1].tr "_", "/"}"
+      path = "/Event/UserInterface/#{function_name[3..-1].split("_").map(&.capitalize).join("/")}"
       {path, function_name, callback}
     end
   end
@@ -270,17 +300,27 @@ class Cisco::UIExtender < PlaceOS::Driver
   protected def subscribe_events(**opts)
     mod_id = module_id
     each_mapping(**opts) do |path, function, callback, codec|
-      monitor("#{mod_id}/#{function}") do |_sub, event_json|
-        callback.call(JSON::Any.from_json event_json)
+      logger.debug { "monitoring #{mod_id}/#{function}" }
+      @subscriptions << monitor("#{mod_id}/#{function}") do |_sub, event_json|
+        logger.debug { "#{function} received #{event_json}" }
+        spawn do
+          begin
+            callback.call(Hash(String, JSON::Any).from_json(event_json))
+          rescue error
+            logger.error(exception: error) { "processing panel event" }
+          end
+        end
       end
       codec.on_event path, mod_id, function
     end
   end
 
   protected def clear_events(**opts)
-    subscriptions.clear
+    clear_subscriptions
     each_mapping(**opts) do |path, _function, _callback, _codec|
-      codec.clear_event path
+      future = codec.clear_event(path)
+      future.get
+      future
     end
   end
 
@@ -327,8 +367,15 @@ class Cisco::UIExtender < PlaceOS::Driver
     logger.debug { "linking #{id} state to #{mod}.#{state}" }
 
     system[mod].subscribe(state) do |_sub, value|
-      payload = value.presence ? JSON.parse(value).raw.as(String | Bool | Nil) : nil
-      set id, payload
+      spawn do
+        begin
+          logger.debug { "#{mod}.#{state} changed to #{value}, updating #{id}" }
+          payload = value.presence ? JSON.parse(value).raw.as(String | Bool | Nil) : nil
+          set id, payload
+        rescue error
+          logger.error(exception: error) { "module status update" }
+        end
+      end
     end
   end
 
@@ -353,7 +400,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     in Hash(String, String | Hash(String, Array(String)))
       mod, command = action.first
       method, args = command.as(Hash(String, Array(String))).first
-      ->(value : JSON::Any) {
+      ->(_value : JSON::Any) {
         logger.debug { "proxying event to #{mod}.#{method}" }
         system[mod].__send__ method, args
         nil
@@ -372,7 +419,7 @@ class Cisco::UIExtender < PlaceOS::Driver
         {% for method in @type.methods %}
           {% method_name = method.name.stringify %}
           {% if method.args.size == 1 && !IGNORE_METHODS.includes?(method_name) && method_name[0..2] == "on_" %}
-            { {{method_name}}, ->(event : JSON::Any) { {{method_name.id}}(event); nil } },
+            { {{method_name}}, ->(event : Hash(String, JSON::Any)) { {{method_name.id}}(event); nil } },
           {% end %}
         {% end %}
       ]

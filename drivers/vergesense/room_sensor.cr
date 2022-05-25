@@ -28,21 +28,23 @@ class Vergesense::RoomSensor < PlaceOS::Driver
   def on_update
     @space_id = setting(String, :space_ref_id)
     subscriptions.clear
+    schedule.clear
 
     # Level sensors
     system.subscribe(:Vergesense, 1, "init_complete") do |_sub, value|
-      if value == "true"
-        begin
-          @floor_key = vergesense.floor_key(@space_id).get.as_s
-          system.subscribe(:Vergesense, 1, @floor_key) { |_sub, floor| update_sensor_state(floor) }
-          self[:floor_key] = @floor_key
-        rescue error
-          logger.warn(exception: error) { "attempting to bind to sensor details" }
-          self[:last_error] = error.message
-          self[:floor_key] = "unknown space_ref_id in settings"
-        end
-      end
+      subscribe_to_sensor if value == "true"
     end
+  end
+
+  protected def subscribe_to_sensor : Nil
+    @floor_key = vergesense.floor_key(@space_id).get.as_s
+    system.subscribe(:Vergesense, 1, @floor_key) { |_sub, floor| update_sensor_state(floor) }
+    self[:floor_key] = @floor_key
+  rescue error
+    schedule.in(15.seconds) { subscribe_to_sensor }
+    logger.warn(exception: error) { "attempting to bind to sensor details" }
+    self[:last_error] = error.message
+    self[:floor_key] = "unknown space_ref_id in settings"
   end
 
   protected def update_sensor_state(level : String)
@@ -64,7 +66,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
 
     self[:humidity] = floor_space.environment.try &.humidity.value
     self[:temperature] = floor_space.environment.try &.temperature.value
-    self[:air_quality] = floor_space.environment.try &.iaq.value
+    self[:air_quality] = floor_space.environment.try(&.iaq.try(&.value))
 
     self[:capacity] = floor_space.max_capacity || floor_space.capacity
   end
@@ -136,7 +138,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
             when .air_quality?
               id = "air_quality"
               time = space.environment.try &.timestamp
-              space.environment.try &.iaq.value
+              space.environment.try(&.iaq.try(&.value))
             else
               raise "sensor type unavailable: #{sensor}"
             end

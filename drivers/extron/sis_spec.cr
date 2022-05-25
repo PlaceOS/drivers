@@ -124,7 +124,7 @@ describe Response do
   describe ".parse" do
     it "builds a parser that includes device errors" do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie
-      typeof(resp).should eq (Tie | Error | Response::ParseError)
+      typeof(resp).should eq(Tie | Error | Response::ParseError)
     end
 
     it "fails for unhandled responses" do

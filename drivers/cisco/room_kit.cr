@@ -56,8 +56,7 @@ class Cisco::RoomKit < PlaceOS::Driver
 
   def connected
     super
-    schedule.in(40.seconds) { connection_ready }
-    @feedback_paths = ["/Event/PresentationPreviewStarted", "/Event/PresentationPreviewStopped", "/Status/Call"]
+    schedule.in(40.seconds) { disconnect if self["calls"]?.nil? }
   end
 
   protected def connection_ready

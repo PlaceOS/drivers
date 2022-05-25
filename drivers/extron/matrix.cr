@@ -44,11 +44,17 @@ class Extron::Matrix < PlaceOS::Driver
   end
 
   def disconnected
+    schedule.clear
+
     # We need to wait for a login prompt if using telnet
     unless config.role.ssh?
       @ready = false
       transport.tokenizer = nil
     end
+  end
+
+  def connected
+    schedule.every(40.seconds) { query_device_info }
   end
 
   getter device_size do
@@ -82,9 +88,9 @@ class Extron::Matrix < PlaceOS::Driver
     return unless output > 0
 
     switch_layer = case layer
-                   in MuteLayer::Audio     ; MatrixLayer::Aud
-                   in MuteLayer::Video     ; MatrixLayer::Vid
-                   in MuteLayer::AudioVideo; MatrixLayer::All
+                   in MuteLayer::Audio      then MatrixLayer::Aud
+                   in MuteLayer::Video      then MatrixLayer::Vid
+                   in MuteLayer::AudioVideo then MatrixLayer::All
                    end
 
     if state
@@ -103,16 +109,17 @@ class Extron::Matrix < PlaceOS::Driver
   protected def record_mute(output, layer)
     video = self["audio#{output}"]?.try(&.as_i.to_u16) || MUTE_INPUT
     audio = self["video#{output}"]?.try(&.as_i.to_u16) || MUTE_INPUT
-    @muted_video[output] = video unless video == MUTE_INPUT || !(layer.all? || layer.vid?)
-    @muted_audio[output] = audio unless audio == MUTE_INPUT || !(layer.all? || layer.aud?)
+
+    @muted_video[output] = video if video != MUTE_INPUT && (layer.all? || layer.vid?)
+    @muted_audio[output] = audio if audio != MUTE_INPUT && (layer.all? || layer.aud?)
   end
 
   # Implementing switchable interface
   def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
     extron_layer = case layer
-                   in Nil, .all?; MatrixLayer::All
-                   in .audio?   ; MatrixLayer::Aud
-                   in .video?   ; MatrixLayer::Vid
+                   in Nil, .all? then MatrixLayer::All
+                   in .audio?    then MatrixLayer::Aud
+                   in .video?    then MatrixLayer::Vid
                    in .data?, .data2?
                      logger.debug { "layer #{layer} not available on extron matrix" }
                      return

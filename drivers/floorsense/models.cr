@@ -151,6 +151,30 @@ module Floorsense
     property occupiedtime : Int32
   end
 
+  class DeskInfo
+    include JSON::Serializable
+
+    property eui64 : String
+    property key : String?
+    property planid : Int32?
+
+    @[JSON::Field(key: "type")]
+    property desk_type : String?
+    property typename : String?
+
+    @[JSON::Field(ignore: true)]
+    property! controller_id : Int32
+  end
+
+  class UserGroup
+    include JSON::Serializable
+
+    @[JSON::Field(key: "ugroupid")]
+    property id : Int32
+    property name : String
+    property count : Int32
+  end
+
   class UserLocation
     include JSON::Serializable
 
@@ -241,6 +265,14 @@ module Floorsense
     property desc : String?
     property lastlogin : Int64?
     property expiry : Int64?
+    property reslimit : Int64?
+    property pin : String?
+    property ugroupid : Int64?
+    property uidtoken : String?
+    property extid : String?
+    property usertype : String?
+    property desc : String?
+    property privacy : Int32?
   end
 
   class LogEntry
@@ -290,5 +322,46 @@ module Floorsense
     property location4 : String
 
     property mode : String
+  end
+
+  class Voucher
+    include JSON::Serializable
+
+    property lastuse : Int64
+    property email : String
+
+    @[JSON::Field(key: "vid")]
+    property voucher_id : String
+
+    @[JSON::Field(key: "key")]
+    property locker_key : String
+
+    @[JSON::Field(key: "cid")]
+    property controller_id : String
+
+    @[JSON::Field(key: "resid")]
+    property reservation_id : String
+
+    property pin : String
+    property created : Int64
+    property release : Bool
+    property duration : Int64
+    property expired : Int64
+    property usecount : Int64
+    property maxuse : Int64
+    property restype : String
+    property notified : Int64
+    property validfrom : Int64
+    property validto : Int64
+
+    property unlock : Bool
+    property template : String
+    property name : String
+    property notes : String
+    property cardswipe : Bool
+
+    @[JSON::Field(key: "uid")]
+    property user_id : String
+    property uri : String
   end
 end

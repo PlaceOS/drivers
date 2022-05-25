@@ -56,10 +56,13 @@ class Ashrae::BACnet < PlaceOS::Driver
     # We only use dispatcher for broadcast messages, a local port for primary comms
     server = UDPSocket.new
     server.bind "0.0.0.0", 0xBAC0
+    server.write_timeout = 200.milliseconds
     @udp_server = server
 
+    queue.timeout = 2.seconds
+
     # Hook up the client to the transport
-    client = ::BACnet::Client::IPv4.new
+    client = ::BACnet::Client::IPv4.new(0, 2.seconds)
     client.on_transmit do |message, address|
       if address.address == Socket::IPAddress::BROADCAST
         if @bbmd_forwarding.size == 4
@@ -139,6 +142,7 @@ class Ashrae::BACnet < PlaceOS::Driver
 
     poll_period = setting?(UInt32, :poll_period) || 3
     schedule.every(poll_period.minutes) do
+      logger.debug { "--- Polling all known bacnet devices" }
       keys = @mutex.synchronize { @devices.keys }
       keys.each { |device_id| poll_device(device_id) }
     end
@@ -230,14 +234,24 @@ class Ashrae::BACnet < PlaceOS::Driver
     return false unless device
 
     client = bacnet_client
-    @mutex.synchronize do
-      device.objects.each do |obj|
-        next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
-        obj.sync_value(client)
-        self[object_binding(device_id, obj)] = object_value(obj)
+    objects = @mutex.synchronize { device.objects.dup }
+    objects.each do |obj|
+      next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
+      name = object_binding(device_id, obj)
+      queue(name: name, priority: 0, timeout: 500.milliseconds) do |task|
+        spawn_action(task) do
+          obj.sync_value(client)
+          self[name] = object_value(obj)
+        end
       end
+      Fiber.yield
     end
     true
+  end
+
+  protected def spawn_action(task, &block : -> Nil)
+    spawn(same_thread: true) { task.success block.call }
+    Fiber.yield
   end
 
   # Performs a WhoIs discovery against the BACnet network
@@ -249,8 +263,14 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   def update_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
     obj = get_object_details(device_id, instance_id, object_type)
-    obj.sync_value(bacnet_client)
-    self[object_binding(device_id, obj)] = object_value(obj)
+    name = object_binding(device_id, obj)
+
+    queue(name: name, priority: 50) do |task|
+      spawn_action(task) do
+        obj.sync_value(bacnet_client)
+        self[name] = object_value(obj)
+      end
+    end
   end
 
   protected def get_object_details(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
@@ -260,66 +280,91 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   def write_real(device_id : UInt32, instance_id : UInt32, value : Float32, object_type : ObjectType = ObjectType::AnalogValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
+    end
     value
   end
 
   def write_double(device_id : UInt32, instance_id : UInt32, value : Float64, object_type : ObjectType = ObjectType::LargeAnalogValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
+    end
     value
   end
 
   def write_unsigned_int(device_id : UInt32, instance_id : UInt32, value : UInt64, object_type : ObjectType = ObjectType::PositiveIntegerValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
+    end
     value
   end
 
   def write_signed_int(device_id : UInt32, instance_id : UInt32, value : Int64, object_type : ObjectType = ObjectType::IntegerValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
+    end
     value
   end
 
   def write_string(device_id : UInt32, instance_id : UInt32, value : String, object_type : ObjectType = ObjectType::CharacterStringValue)
     object = get_object_details(device_id, instance_id, object_type)
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      ::BACnet::Object.new.set_value(value),
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::Object.new.set_value(value),
+          network: object.network,
+          address: object.address
+        )
+      end
+    end
     value
   end
 
@@ -328,14 +373,19 @@ class Ashrae::BACnet < PlaceOS::Driver
     object = get_object_details(device_id, instance_id, object_type)
     val = ::BACnet::Object.new.set_value(val)
     val.short_tag = 9_u8
-    bacnet_client.write_property(
-      object.ip_address,
-      ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-      ::BACnet::PropertyType::PresentValue,
-      val,
-      network: object.network,
-      address: object.address
-    )
+
+    queue(priority: 99) do |task|
+      spawn_action(task) do
+        bacnet_client.write_property(
+          object.ip_address,
+          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
+          ::BACnet::PropertyType::PresentValue,
+          val,
+          network: object.network,
+          address: object.address
+        )
+      end
+    end
     value
   end
 
@@ -457,45 +507,45 @@ class Ashrae::BACnet < PlaceOS::Driver
 
     unit = case object.unit
            when Nil
-           when .degrees_fahrenheit?          ; "[degF]"
-           when .degrees_celsius?             ; "Cel"
-           when .degrees_kelvin?              ; "K"
-           when .pounds_force_per_square_inch?; "[psi]"
-           when .volts?                       ; "V"
-           when .millivolts?                  ; "mV"
-           when .kilovolts?                   ; "kV"
-           when .megavolts?                   ; "MV"
-           when .milliamperes?                ; "mA"
-           when .amperes?                     ; "A"
-           when .cubic_feet?                  ; "[cft_i]"
-           when .cubic_meters?                ; "m3"
-           when .imperial_gallons?            ; "[gal_br]"
-           when .milliliters?                 ; "ml"
-           when .liters?                      ; "l"
-           when .us_gallons?                  ; "[gal_us]"
-           when .milliwatts?                  ; "mW"
-           when .watts?                       ; "W"
-           when .kilowatts?                   ; "kW"
-           when .megawatts?                   ; "MW"
-           when .watt_hours?                  ; "Wh"
-           when .kilowatt_hours?              ; "kWh"
-           when .megawatt_hours?              ; "MWh"
-           when .hertz?                       ; "Hz"
-           when .kilohertz?                   ; "kHz"
-           when .megahertz?                   ; "MHz"
-           when .cubic_feet_per_second?       ; "[cft_i]/s"
-           when .cubic_feet_per_minute?       ; "[cft_i]/min"
-           when .cubic_feet_per_hour?         ; "[cft_i]/h"
-           when .cubic_meters_per_second?     ; "m3/s"
-           when .cubic_meters_per_minute?     ; "m3/min"
-           when .cubic_meters_per_hour?       ; "m3/h"
-           when .imperial_gallons_per_minute? ; "[gal_br]/min"
-           when .milliliters_per_second?      ; "ml/s"
-           when .liters_per_second?           ; "l/s"
-           when .liters_per_minute?           ; "l/min"
-           when .liters_per_hour?             ; "l/h"
-           when .us_gallons_per_minute?       ; "[gal_us]/min"
-           when .us_gallons_per_hour?         ; "[gal_us]/h"
+           when .degrees_fahrenheit?           then "[degF]"
+           when .degrees_celsius?              then "Cel"
+           when .degrees_kelvin?               then "K"
+           when .pounds_force_per_square_inch? then "[psi]"
+           when .volts?                        then "V"
+           when .millivolts?                   then "mV"
+           when .kilovolts?                    then "kV"
+           when .megavolts?                    then "MV"
+           when .milliamperes?                 then "mA"
+           when .amperes?                      then "A"
+           when .cubic_feet?                   then "[cft_i]"
+           when .cubic_meters?                 then "m3"
+           when .imperial_gallons?             then "[gal_br]"
+           when .milliliters?                  then "ml"
+           when .liters?                       then "l"
+           when .us_gallons?                   then "[gal_us]"
+           when .milliwatts?                   then "mW"
+           when .watts?                        then "W"
+           when .kilowatts?                    then "kW"
+           when .megawatts?                    then "MW"
+           when .watt_hours?                   then "Wh"
+           when .kilowatt_hours?               then "kWh"
+           when .megawatt_hours?               then "MWh"
+           when .hertz?                        then "Hz"
+           when .kilohertz?                    then "kHz"
+           when .megahertz?                    then "MHz"
+           when .cubic_feet_per_second?        then "[cft_i]/s"
+           when .cubic_feet_per_minute?        then "[cft_i]/min"
+           when .cubic_feet_per_hour?          then "[cft_i]/h"
+           when .cubic_meters_per_second?      then "m3/s"
+           when .cubic_meters_per_minute?      then "m3/min"
+           when .cubic_meters_per_hour?        then "m3/h"
+           when .imperial_gallons_per_minute?  then "[gal_br]/min"
+           when .milliliters_per_second?       then "ml/s"
+           when .liters_per_second?            then "l/s"
+           when .liters_per_minute?            then "l/min"
+           when .liters_per_hour?              then "l/h"
+           when .us_gallons_per_minute?        then "[gal_us]/min"
+           when .us_gallons_per_hour?          then "[gal_us]/h"
            end
 
     obj_value = object_value(object)
@@ -575,5 +625,10 @@ class Ashrae::BACnet < PlaceOS::Driver
     end
 
     to_sensor(device_id, device, object)
+  end
+
+  @[Security(Level::Support)]
+  def save_seen_devices
+    define_setting(:known_devices, @seen_devices.values)
   end
 end

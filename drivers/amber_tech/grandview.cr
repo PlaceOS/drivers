@@ -15,8 +15,14 @@ class AmberTech::Grandview < PlaceOS::Driver
   descriptive_name "Ambertech Grandview Projector Screen"
   uri_base "http://192.168.0.2"
 
+  # The device requires the HTTP port closed after every request
+  # (even though it responds with HTTP1.1 and doesn't return any headers)
+  default_settings({
+    http_max_requests: 1,
+  })
+
   def on_load
-    queue.delay = 500.milliseconds
+    queue.delay = 2.seconds
     schedule.every(1.minute) { status }
   end
 
@@ -32,7 +38,7 @@ class AmberTech::Grandview < PlaceOS::Driver
               end
 
     queue(name: "move") do |task|
-      response = get(command)
+      response = get(command, headers: build_headers)
       raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
       self[:status] = status = parse_state StatusResp.from_json(response.body).status
       task.success status
@@ -42,7 +48,7 @@ class AmberTech::Grandview < PlaceOS::Driver
   # stoppable interface
   def stop(index : Int32 | String = 0, emergency : Bool = false)
     queue(name: "stop", priority: 999, clear_queue: emergency) do |task|
-      response = get("/Stop.js?a=100")
+      response = get("/Stop.js?a=100", headers: build_headers)
       raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
 
       self[:status] = status = parse_state StatusResp.from_json(response.body).status
@@ -51,25 +57,44 @@ class AmberTech::Grandview < PlaceOS::Driver
   end
 
   def status
-    queue(name: "status", priority: 0) do |task|
-      response = get("/GetDevInfoList.js")
-      if response.success?
-        info = AmberTech::Devices.from_json(response.body)
-        state = info.device_info.first
-
-        self[:ver] = state.ver
-        self[:id] = state.id
-        self[:ip] = state.ip
-        self[:ip_subnet] = state.ip_subnet
-        self[:ip_gateway] = state.ip_gateway
-        self[:name] = state.name
-        self[:status] = parse_state state.status
-
-        task.success info
-      else
-        task.abort "request failed with #{response.status_code}\n#{response.body}"
+    if queue.online
+      queue(name: "status", priority: 0) do |task|
+        response = perform_status_request
+        if response.success?
+          task.success parse_status(response)
+        else
+          task.abort "request failed with #{response.status_code}\n#{response.body}"
+        end
       end
+    else
+      response = perform_status_request
+      parse_status(response) if response.success?
     end
+  end
+
+  protected def perform_status_request
+    get("/GetDevInfoList.js", headers: build_headers)
+  end
+
+  protected def build_headers
+    {
+      "Host"       => URI.parse(config.uri.not_nil!).host.not_nil!,
+      "Connection" => "keep-alive",
+    }
+  end
+
+  protected def parse_status(response)
+    info = AmberTech::Devices.from_json(response.body)
+    state = info.device_info.first
+
+    self[:ver] = state.ver
+    self[:id] = state.id
+    self[:ip] = state.ip
+    self[:ip_subnet] = state.ip_subnet
+    self[:ip_gateway] = state.ip_gateway
+    self[:name] = state.name
+    self[:status] = parse_state state.status
+    info
   end
 
   # compatibility with Screen Technics

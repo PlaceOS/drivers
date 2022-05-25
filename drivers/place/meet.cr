@@ -1,6 +1,7 @@
 require "placeos-driver"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
+require "./meet/qsc_phone_dialing"
 
 class Place::Meet < PlaceOS::Driver
   generic_name :System
@@ -41,6 +42,9 @@ class Place::Meet < PlaceOS::Driver
       "Projector_1" => "Screen_1",
     },
   })
+
+  EXT_INIT  = [] of Symbol
+  EXT_POWER = [] of Symbol
 end
 
 require "./router"
@@ -54,7 +58,7 @@ class Tab
   include JSON::Serializable
   include JSON::Serializable::Unmapped
 
-  def initialize(@icon, @name, @inputs, @help = nil, @controls = nil, @merge_on_join = nil)
+  def initialize(@icon, @name, @inputs, @help = nil, @controls = nil, @merge_on_join = nil, @presentation_source = nil, @json_unmapped = Hash(String, JSON::Any).new)
   end
 
   getter icon : String
@@ -71,31 +75,20 @@ class Tab
   getter presentation_source : String?
 
   def clone : Tab
-    Tab.new(@icon, @name, inputs.dup, @help, @controls, @merge_on_join)
+    Tab.new(@icon, @name, inputs.dup, @help, @controls, @merge_on_join, @presentation_source, @json_unmapped.dup)
   end
 
   def merge(tab : Tab) : Tab
     input = inputs.dup.concat(tab.inputs).uniq!
-    Tab.new(@icon, @name, input, @help, @controls, @merge_on_join)
+    new_unmapped = tab.json_unmapped.merge json_unmapped
+    Tab.new(@icon, @name, input, @help, @controls, @merge_on_join, @presentation_source, new_unmapped)
   end
 
   def merge!(tab : Tab) : Tab
+    @json_unmapped.merge! tab.json_unmapped
     @inputs.concat(tab.inputs).uniq!
     self
   end
-end
-
-# This data will be stored in the tab
-class QscPhone
-  include JSON::Serializable
-
-  getter number_id : String
-  getter dial_id : String
-  getter hangup_id : String
-  getter status_id : String
-  getter ringing_id : String
-  getter offhook_id : String
-  getter dtmf_id : String
 end
 
 class Place::Meet < PlaceOS::Driver
@@ -103,9 +96,14 @@ class Place::Meet < PlaceOS::Driver
   include Interface::Powerable
   include Router::Core
 
+  # extensions:
+  include Place::QSCPhoneDialing
+
   def on_load
-    init_previous_join_state
-    on_update
+    system.load_complete do
+      init_previous_join_state
+      on_update
+    end
   end
 
   @tabs : Array(Tab) = [] of Tab
@@ -143,6 +141,15 @@ class Place::Meet < PlaceOS::Driver
     init_microphones
     init_vidconf
     init_joining
+
+    # initialize all the extentsions
+    {% for func in EXT_INIT %}
+      begin
+        {{func.id}}
+      rescue error
+        logger.warn(exception: error) { "error in init function: #{ {{func.id.stringify}} }" }
+      end
+    {% end %}
   end
 
   # link screen control to power state
@@ -205,6 +212,16 @@ class Place::Meet < PlaceOS::Driver
     end
 
     remotes_before.each { |room| room.power(state, unlink) }
+
+    # perform power state actions
+    {% for func in EXT_POWER %}
+      begin
+        {{func.id}}(state, unlink)
+      rescue error
+        logger.warn(exception: error) { "error in power state function: #{ {{func.id.stringify}} }" }
+      end
+    {% end %}
+
     state
   end
 
@@ -281,6 +298,13 @@ class Place::Meet < PlaceOS::Driver
     if selected_tab || !simulate
       self[:selected_input] = name
       self[:selected_tab] = selected_tab || @tabs.first
+
+      # ensure inputs are powered on (mostly to bring VC out of standby)
+      sys = system
+      if sys.exists? name
+        mod = sys[name]
+        mod.power(true) if mod.implements? Interface::Powerable
+      end
     end
 
     # Perform any desired routing
@@ -503,7 +527,7 @@ class Place::Meet < PlaceOS::Driver
     elsif audio.implements_volume?
       mixer.mute_audio(state)
     else
-      mixer.mute(audio.level_id, state)
+      mixer.mute(audio.mute_id, state)
     end
   end
 
@@ -522,7 +546,7 @@ class Place::Meet < PlaceOS::Driver
     range = audio.min_level..audio.max_level
 
     # adjust into range
-    level_actual = percentage * range.end - range.begin
+    level_actual = percentage * (range.end - range.begin)
     level_actual = (level_actual + range.begin.to_f).round(1)
 
     mixer = system[audio.module_id]
@@ -624,7 +648,7 @@ class Place::Meet < PlaceOS::Driver
 
     getter mod : String
     getter index : String | Int32? # if multiple cams on the one device (VidConf mod for instance)
-    getter vc_camera_input : String?
+    getter vc_camera_input : String | Int32?
   end
 
   @vc_camera_in : String? = nil

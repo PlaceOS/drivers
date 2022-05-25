@@ -34,7 +34,7 @@ To build the email with the links to your frontend interfaces you need to create
 
 ```yaml
 email_templates:
-  booking:
+  bookings:
     check_in_prompt:
       subject: Reminder about your meeting: %{meeting_summary}
       html: >

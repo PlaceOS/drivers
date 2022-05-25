@@ -38,6 +38,10 @@ class Place::AreaManagement < PlaceOS::Driver
         },
       ],
     },
+
+    # If another systems has different desk IDs configured you can add them to
+    # desk metadata and then specify the alternative field names here
+    # desk_id_mappings: ["floorsensedeskid", "vergesensedeskid"]
   })
 
   alias AreaSetting = NamedTuple(
@@ -329,18 +333,18 @@ class Place::AreaManagement < PlaceOS::Driver
 
     # Apply any map id transformations
     desk_mappings = details[:desk_mappings]
-    if desk_mappings.empty?
-      locations = locations.map(&.as_h)
-    else
-      locations = locations.map do |loc|
-        loc = loc.as_h
-        if loc["location"]? == "desk"
+    locations = locations.map do |loc|
+      loc = loc.as_h
+      if location_type = loc["location"]?
+        # measurement name for simplified querying in influxdb
+        loc["measurement"] = location_type
+        if location_type == "desk"
           if maps_to = desk_mappings[loc["map_id"].as_s]?
             loc["map_id"] = JSON::Any.new(maps_to)
           end
         end
-        loc
       end
+      loc
     end
 
     # Provide to the frontend
@@ -369,14 +373,14 @@ class Place::AreaManagement < PlaceOS::Driver
         # Keep if x, y coords are present
         !loc["x"].raw.nil?
       when "desk"
-        desk_count += 1
+        desk_count += 1 if (loc["at_location"]?.try(&.as_i?) || 0) > 0
         false
       else
         false
       end
     end
 
-    people_counts = sensors.delete(SensorType::PeopleCount)
+    people_counts = sensors[SensorType::PeopleCount]?
     sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
       if values.size > 0
         (values.sum(&.value) / values.size).round(@rounding_precision)
@@ -385,7 +389,7 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
     if people_counts
-      sensor_summary["people_count"] = people_counts.sum(&.value)
+      sensor_summary["people_count_sum"] = people_counts.sum(&.value)
     end
 
     # build the level overview
@@ -453,7 +457,7 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
 
-        people_counts = area_sensors.delete(SensorType::PeopleCount)
+        people_counts = area_sensors[SensorType::PeopleCount]?
         sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
           if values.size > 0
             (values.sum(&.value) / values.size).round(@rounding_precision)
@@ -462,7 +466,7 @@ class Place::AreaManagement < PlaceOS::Driver
           end
         end
         if people_counts
-          sensor_summary["people_count"] = people_counts.sum(&.value)
+          sensor_summary["people_count_sum"] = people_counts.sum(&.value)
         end
 
         area_counts << {
@@ -475,9 +479,10 @@ class Place::AreaManagement < PlaceOS::Driver
 
     # Provide the frontend the area details
     self["#{level_id}:areas"] = {
-      value:   area_counts,
-      ts_hint: "complex",
-      ts_tags: {
+      value:       area_counts,
+      measurement: "area_summary",
+      ts_hint:     "complex",
+      ts_tags:     {
         pos_building: @building_id,
         pos_level:    level_id,
       },
@@ -544,6 +549,7 @@ class Place::AreaManagement < PlaceOS::Driver
     recommendation = remaining_capacity + remaining_capacity * individual_impact
 
     {
+      "measurement"      => "level_summary",
       "desk_count"       => total_desks,
       "desk_usage"       => desk_usage,
       "device_capacity"  => total_capacity,

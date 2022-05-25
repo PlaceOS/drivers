@@ -25,6 +25,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # Max requests a second made to the dashboard
     rate_limit:    4,
     debug_payload: false,
+
+    # filter message type
+    scanning_api_filter: "WiFi",
   })
 
   def on_load
@@ -32,9 +35,14 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     on_update
   end
 
+  def on_unload
+    @channel.close
+  end
+
   @scanning_validator : String = ""
   @scanning_secret : String = ""
   @api_key : String = ""
+  @scanning_api_filter : MessageType = MessageType::WiFi
 
   @rate_limit : Int32 = 4
   @channel : Channel(Nil) = Channel(Nil).new(1)
@@ -48,6 +56,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
     @api_key = setting?(String, :meraki_api_key) || ""
+    @scanning_api_filter = setting?(MessageType, :scanning_api_filter) || MessageType::WiFi
 
     @rate_limit = setting?(Int32, :rate_limit) || 4
     @wait_time = 1.second / @rate_limit
@@ -166,8 +175,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       seen = DevicesSeen.from_json(body)
       logger.debug { "parsed meraki payload" }
 
-      # We're only interested in Wifi at the moment
-      if seen.message_type != "WiFi"
+      # filter out observations we're not interested in
+      if !@scanning_api_filter.none? && seen.message_type != @scanning_api_filter
         logger.debug { "ignoring message type: #{seen.message_type}" }
         return SUCCESS_RESPONSE
       end
@@ -187,6 +196,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
 
   protected def rate_limiter
     loop do
+      break if @channel.closed?
       begin
         @channel.send(nil)
       rescue error
@@ -197,6 +207,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   rescue
     # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter }
+    spawn { rate_limiter } unless @channel.closed?
   end
 end

@@ -13,9 +13,11 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   default_settings({
     # how many minutes until we want to prompt the user
     prompt_after: 10,
+    auto_cancel:  false,
 
     # how many minutes to wait before we enable auto-check-in
-    present_from: 5,
+    present_from:       5,
+    ignore_longer_than: 120,
 
     time_zone:        "Australia/Sydney",
     date_time_format: "%c",
@@ -67,8 +69,10 @@ STRING
   @date_format : String = "%A, %-d %B"
   @timezone : Time::Location = Time::Location::UTC
 
+  @ignore_longer_than : Time::Span? = nil
   protected getter! prompt_after : Time::Span
   protected getter! present_from : Time::Span
+  @auto_cancel : Bool = false
 
   getter? meeting_pending : Bool = false
   getter? people_present : Bool = false
@@ -87,8 +91,10 @@ STRING
   def on_update
     @jwt_private_key = setting(String, :jwt_private_key)
 
+    @ignore_longer_than = setting?(Int32, :ignore_longer_than).try &.minutes
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
     @present_from = (setting?(Int32, :present_from) || 5).minutes
+    @auto_cancel = setting?(Bool, :auto_cancel) || false
 
     @check_in_url = setting(String, :check_in_url)
     @no_show_url = setting(String, :no_show_url)
@@ -114,8 +120,26 @@ STRING
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
   end
 
+  def ignore_long_meeting? : Bool
+    meeting = current_meeting
+    return false unless meeting
+
+    # we always want to ignore all day events
+    event_end = meeting.event_end
+    return true unless event_end
+
+    # don't ignore meetings if ignore longer than isn't set
+    ignore_length = @ignore_longer_than
+    return false unless ignore_length
+
+    # check if we're over the limit
+    meeting_length = event_end - meeting.event_start
+    meeting_length >= ignore_length
+  end
+
   protected def update_current(meeting : PlaceCalendar::Event?)
-    logger.debug { "> current meeting: #{!!meeting}" }
+    logger.debug { "> checking current meeting: #{!!meeting}" }
+
     @current_meeting = meeting
     self[:current_meeting] = !!meeting
     meeting ? apply_state_changes : cleanup_state
@@ -159,24 +183,37 @@ STRING
     check_presence_from = start_time + present_from
 
     # Can we auto check-in?
+    logger.debug { "people_present? #{people_present?}" }
     if people_present?
       if time_now >= check_presence_from
+        logger.debug { "starting meeting!" }
         bookings.start_meeting(start_time.to_unix)
       else
         # Schedule an auto check-in check as people_present? might remain high
+        logger.debug { "scheduling meeting start" }
         schedule.at(check_presence_from) do
+          logger.debug { "starting meeting!" }
           bookings.start_meeting(start_time.to_unix)
-          schedule.clear
         end
       end
       return
     end
 
-    # should we be scheduling a prompt email?
-    if time_now >= prompt_at
-      prompt_user meeting
+    # don't prompt if a long meeting
+    if ignore_long_meeting?
+      logger.debug { "> ignoring meeting due to length" }
     else
-      schedule.at(prompt_at) { prompt_user meeting }
+      # should we be scheduling a prompt email?
+      if time_now >= prompt_at
+        logger.debug { "no show, prompting user" }
+        prompt_user meeting
+      else
+        logger.debug { "scheduling no show" }
+        schedule.at(prompt_at) do
+          logger.debug { "scheduled no show, prompting user" }
+          prompt_user meeting
+        end
+      end
     end
   end
 
@@ -188,14 +225,20 @@ STRING
     end
 
     logger.debug { "prompting user about meeting room booking #{meeting.id}" }
-    params = generate_guest_jwt
-    mailer.send_template(params[:host_email], {"booking", "check_in_prompt"}, params)
+    begin
+      params = generate_guest_jwt
+      mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
+    rescue error
+      logger.warn(exception: error) { "failed to notify user" }
+    end
 
     @prompted = meeting.id.not_nil!
     self[:no_show] = false
     self[:checked_in] = false
     self[:responded] = false
     self[:prompted] = true
+
+    prompt_response(meeting.id.not_nil!, false) if @auto_cancel
   end
 
   # processes the response if the user clicks one of the links in the email
