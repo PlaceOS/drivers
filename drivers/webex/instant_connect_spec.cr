@@ -1,3 +1,5 @@
+require "spec"
+
 DriverSpecs.mock_driver "Webex::InstantConnect" do
   # Send the request
   retval = exec(:create_meeting,
