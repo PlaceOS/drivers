@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+env:
+  PARALLEL_TESTS: 15
+  PARALLEL_BUILDS: 1
+
 jobs:
   docs:
     if: false # Temporarily disable as docs just _do not work_ for a driver
@@ -54,7 +58,13 @@ jobs:
       - name: Driver Report
         # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
-        run: ./harness report --verbose --tests=15 --builds=2 ${{ steps.changes.outputs.files }}
+        run: |
+          ./harness \
+          report \
+            --verbose \
+            --tests=${{ env.PARALLEL_TESTS }} \
+            --builds=${{ env.PARALLEL_BUILDS }} \
+            ${{ steps.changes.outputs.files }}
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -105,7 +115,12 @@ jobs:
       #############################################################################################
 
       - name: Driver Report
-        run: ./harness report --verbose --tests=15 --builds=2
+        run: |
+          ./harness \
+          report \
+            --verbose \
+            --tests=${{ env.PARALLEL_TESTS }} \
+            --builds=${{ env.PARALLEL_BUILDS }}
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
