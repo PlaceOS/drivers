@@ -51,6 +51,21 @@ jobs:
         with:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
+
+      # Binary Cache Logic (monthly)
+      #############################################################################################
+
+      - name: Date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m")"
+      - uses: actions/cache@v3
+        with:
+          path: binaries
+          key: ${{ env.CRYSTAL_VERSION }}-${{ steps.get-date.outputs.date }}
+
+      #############################################################################################
+
       - name: Driver Report
         # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}

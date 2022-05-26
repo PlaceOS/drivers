@@ -1,4 +1,4 @@
-name: Build
+name: Build and Publish Drivers
 on:
   pull_request:
     branches: [master]
@@ -10,11 +10,26 @@ env:
 
 jobs:
   build:
-    name: "Build"
+    name: Build
     runs-on: ubuntu-latest
     environment: Build
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
+      # Cache Logic (monthly)
+      #############################################################################################
+
+      - name: Date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m")"
+      - uses: actions/cache@v3
+        with:
+          path: binaries
+          key: ${{ env.CRYSTAL_VERSION }}-${{ steps.get-date.outputs.date }}
+
+      #############################################################################################
+
       - uses: FranzDiebold/github-env-vars-action@v2  # https://github.com/github/feedback/discussions/5251
       - name: Build Drivers
         run: |
