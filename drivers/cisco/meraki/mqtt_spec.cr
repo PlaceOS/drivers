@@ -1,4 +1,4 @@
-require "spec"
+require "placeos-driver/spec"
 require "mqtt"
 
 DriverSpecs.mock_driver "Place::MQTT" do

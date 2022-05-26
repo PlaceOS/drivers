@@ -1,4 +1,4 @@
-require "spec"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Webex::InstantConnect" do
   # Send the request
