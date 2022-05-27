@@ -1,7 +1,5 @@
 name: Build and Publish Drivers
 on:
-  pull_request:
-    branches: [master]
   push:
     branches: [master]
 
