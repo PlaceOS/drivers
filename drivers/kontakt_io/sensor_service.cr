@@ -153,17 +153,17 @@ class KontaktIO::SensorService < PlaceOS::Driver
       levels = @zone_lookup[zone_id]?
     end
 
-    if room
-      build_sensors(room, sensor_type)
-    elsif levels
-      matching = @occupancy_cache.values.select do |room|
-        floor_id = room.floor_id
-        floor_id.in?(levels) || @floor_mappings[floor_id.to_s]?.nil?
-      end
-      matching.flat_map { |room| build_sensors(room, sensor_type) }
-    else
-      @occupancy_cache.values.flat_map { |room| build_sensors(room, sensor_type) }
-    end
+    rooms = if room
+              {room}
+            elsif levels
+              @occupancy_cache.values.select do |r|
+                floor_id = r.floor_id
+                floor_id.in?(levels) || @floor_mappings[floor_id.to_s]?.nil?
+              end
+            else
+              @occupancy_cache.values
+            end
+    rooms.flat_map { |r| build_sensors(r, sensor_type) }
   end
 
   protected def build_sensor_details(room : RoomOccupancy, sensor : SensorType) : Detail
