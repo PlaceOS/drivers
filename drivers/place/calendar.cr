@@ -1,5 +1,5 @@
-require "place_calendar"
 require "placeos-driver"
+require "place_calendar"
 require "placeos-driver/interface/mailer"
 require "qr-code"
 require "qr-code/export/png"
