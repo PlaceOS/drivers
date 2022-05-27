@@ -100,17 +100,14 @@ jobs:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
 
-      # Binary Cache Logic (monthly)
+      # Binary Cache Logic
       #############################################################################################
 
-      - name: Date
-        id: get-date
-        run: |
-          echo "::set-output name=date::$(/bin/date -u "+%Y%m")"
       - uses: actions/cache@v3
         with:
           path: binaries
-          key: ${{ env.CRYSTAL_VERSION }}-${{ steps.get-date.outputs.date }}
+          key: drivers-${{ env.CRYSTAL_VERSION }}-${{ github.run_id }}
+          restore-keys: drivers-${{ env.CRYSTAL_VERSION }}-
 
       #############################################################################################
 
