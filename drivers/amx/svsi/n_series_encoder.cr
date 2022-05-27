@@ -1,6 +1,7 @@
-require "inactive-support/mapped_enum"
+require "placeos-driver"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
+require "inactive-support/mapped_enum"
 
 # Documentation: https://aca.im/driver_docs/AMX/SVSIN1000N2000Series.APICommandList.pdf
 

@@ -27,7 +27,7 @@ trap "trap_ctrlc" 2
 up() {
   echo '░░░ PlaceOS Driver Harness'
   echo '░░░ Starting environment...'
-  docker-compose up -d &> /dev/null
+  docker-compose up -d
   printf "░░░ The harness can be found at http://localhost:8085\n"
   echo '░░░ Stop the harness with `harness down`'
   say_done
@@ -42,8 +42,8 @@ down() {
 format() {
   echo '░░░ Running `crystal tool format` over `drivers` and `repositories`'
   docker-compose run \
-                     -v ./drivers:/wd/drivers \
-                     -v ./repositories:/wd/repositories \
+                     -v "${PWD}/drivers:/wd/drivers" \
+                     -v "${PWD}/repositories:/wd/repositories" \
                      --no-deps \
                      --rm \
                      install-shards \
@@ -74,6 +74,18 @@ report() {
   exit ${exit_code}
 }
 
+build() {
+  docker-compose run \
+                     --rm \
+                     --no-deps \
+                     -v "${PWD}/repositories:/app/repositories" \
+                     -v "${PWD}/drivers:/app/repositories/drivers" \
+                     build \
+                     bash /app/scripts/entrypoint.sh \
+                     build \
+                     $@
+}
+
 usage() {
   cat <<EOF
 Usage: harness [-h|--help] [command]
@@ -84,6 +96,7 @@ Command:
     report                  check all drivers' compilation status
     up                      starts the harness
     down                    stops the harness
+    build                   builds drivers and uploads them to S3
     format                  formats driver code
     help                    display this message
 EOF
@@ -100,6 +113,9 @@ shift
 case $command in
   report)
     report $@
+    ;;
+  build)
+    build $@
     ;;
   up)
     up

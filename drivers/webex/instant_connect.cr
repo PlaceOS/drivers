@@ -1,3 +1,5 @@
+require "placeos-driver"
+
 class Webex::InstantConnect < PlaceOS::Driver
   # Discovery Information
   generic_name :InstantConnect

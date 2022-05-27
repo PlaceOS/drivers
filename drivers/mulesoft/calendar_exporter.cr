@@ -1,6 +1,6 @@
-require "./models"
 require "placeos-driver"
 require "place_calendar"
+require "./models"
 
 class MuleSoft::CalendarExporter < PlaceOS::Driver
   descriptive_name "MuleSoft Bookings to Calendar Events Exporter"

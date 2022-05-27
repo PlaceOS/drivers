@@ -1,3 +1,4 @@
+require "placeos-driver"
 require "./models"
 
 class Vergesense::MqttExport < PlaceOS::Driver

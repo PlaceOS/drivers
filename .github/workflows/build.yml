@@ -1,0 +1,42 @@
+name: Build and Publish Drivers
+on:
+  push:
+    branches: [master]
+
+env:
+  CRYSTAL_VERSION: 1.4.1
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    environment: Build
+    steps:
+      - uses: actions/checkout@v3
+
+      # Binary Cache Logic
+      #############################################################################################
+
+      - uses: actions/cache@v3
+        with:
+          path: binaries
+          key: drivers-${{ env.CRYSTAL_VERSION }}-${{ github.run_id }}
+          restore-keys: drivers-${{ env.CRYSTAL_VERSION }}-
+
+      #############################################################################################
+
+      - uses: FranzDiebold/github-env-vars-action@v2  # https://github.com/github/feedback/discussions/5251
+      - name: Build Drivers
+        run: |
+          ./harness build \
+            --discover \
+            --strict-driver-info \
+            --repository-uri https://github.com/${{ github.repository }} \
+            --repository-path ./repositories/local \
+            --ref ${{ github.sha }}
+        env:
+          CRYSTAL_VERSION: ${{ env.CRYSTAL_VERSION }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_SECRET: ${{ secrets.AWS_SECRET }}
+          AWS_KEY: ${{ secrets.AWS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}

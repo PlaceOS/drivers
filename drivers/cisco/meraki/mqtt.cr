@@ -1,9 +1,9 @@
-require "./mqtt_models"
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/locatable"
 require "../../place/mqtt_transport_adaptor"
 require "../../place/area_polygon"
+require "./mqtt_models"
 
 # documentation: https://developer.cisco.com/meraki/mv-sense/#!mqtt
 # Use https://www.desmos.com/calculator for plotting points (sample code for copy and paste)

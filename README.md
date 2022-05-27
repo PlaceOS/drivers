@@ -19,6 +19,7 @@ Command:
     report                  check all drivers' compilation status
     up                      starts the harness
     down                    stops the harness
+    build                   builds drivers and uploads them to S3
     format                  formats driver code
     help                    display this message
 ```
