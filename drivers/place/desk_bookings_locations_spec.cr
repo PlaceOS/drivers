@@ -14,8 +14,8 @@ DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
   resp = exec(:device_locations, "placeos-zone-id").get
   puts resp
   resp.should eq([
-    {"location" => "booking", "type" => "desk", "checked_in" => true, "asset_id" => "desk-123", "booking_id" => 1, "building" => "zone-building", "level" => "placeos-zone-id", "ends_at" => ending, "mac" => "user-1234", "staff_email" => "user1234@org.com", "staff_name" => "Bob Jane"},
-    {"location" => "booking", "type" => "desk", "checked_in" => false, "asset_id" => "desk-456", "booking_id" => 2, "building" => "zone-building", "level" => "placeos-zone-id", "ends_at" => ending, "mac" => "user-456", "staff_email" => "zdoo@org.com", "staff_name" => "Zee Doo"},
+    {"location" => "booking", "type" => "desk", "checked_in" => true, "asset_id" => "desk-123", "booking_id" => 1, "building" => "zone-building", "level" => "placeos-zone-id", "ends_at" => ending, "started_at" => start, "mac" => "user-1234", "staff_email" => "user1234@org.com", "staff_name" => "Bob Jane"},
+    {"location" => "booking", "type" => "desk", "checked_in" => false, "asset_id" => "desk-456", "booking_id" => 2, "building" => "zone-building", "level" => "placeos-zone-id", "ends_at" => ending, "started_at" => start, "mac" => "user-456", "staff_email" => "zdoo@org.com", "staff_name" => "Zee Doo"},
   ])
 end
 

@@ -354,13 +354,14 @@ class Place::Bookings < PlaceOS::Driver
     events.map do |event|
       event_ends = event.all_day? ? event.event_start.in(@time_zone).at_end_of_day : event.event_end.not_nil!
       {
-        location: :meeting,
-        mac:      @calendar_id,
-        event_id: event.id,
-        map_id:   sys.map_id,
-        sys_id:   sys.id,
-        ends_at:  event_ends.to_unix,
-        private:  !!event.private?,
+        location:   :meeting,
+        mac:        @calendar_id,
+        event_id:   event.id,
+        map_id:     sys.map_id,
+        sys_id:     sys.id,
+        ends_at:    event_ends.to_unix,
+        started_at: event.event_start.to_unix,
+        private:    !!event.private?,
       }
     end
   end
