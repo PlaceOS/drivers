@@ -531,6 +531,11 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
+  @[Security(Level::Support)]
+  def signal(channel : String, payload : JSON::Any? = nil)
+    placeos_client.root.signal(channel, payload)
+  end
+
   # For accessing PlaceOS APIs
   protected def placeos_client : PlaceOS::Client
     if @api_key.presence
