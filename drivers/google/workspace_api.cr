@@ -1,6 +1,6 @@
-require "./calendar_common"
+require "../place/calendar_common"
 
-class Place::Calendar < PlaceOS::Driver
+class Place::WorkspaceAPI < PlaceOS::Driver
   include Place::CalendarCommon
 
   descriptive_name "Google Workplace APIs"
