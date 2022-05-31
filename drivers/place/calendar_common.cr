@@ -1,28 +1,28 @@
-require "place_calendar"
 require "placeos-driver"
+require "place_calendar"
 require "placeos-driver/interface/mailer"
 require "qr-code"
 require "qr-code/export/png"
 
 module Place::CalendarCommon
+  include PlaceOS::Driver::Interface::Mailer
+
+  alias GoogleParams = NamedTuple(
+    scopes: String | Array(String),
+    domain: String,
+    sub: String,
+    issuer: String,
+    signing_key: String,
+  )
+
+  alias OfficeParams = NamedTuple(
+    tenant: String,
+    client_id: String,
+    client_secret: String,
+    conference_type: String | Nil,
+  )
+
   macro included
-    include PlaceOS::Driver::Interface::Mailer
-
-    alias GoogleParams = NamedTuple(
-      scopes: String | Array(String),
-      domain: String,
-      sub: String,
-      issuer: String,
-      signing_key: String,
-    )
-
-    alias OfficeParams = NamedTuple(
-      tenant: String,
-      client_id: String,
-      client_secret: String,
-      conference_type: String | Nil,
-    )
-
     @client : PlaceCalendar::Client? = nil
     @service_account : String? = nil
     @client_lock : Mutex = Mutex.new
@@ -97,7 +97,7 @@ module Place::CalendarCommon
     Base64.strict_encode QRCode.new(text).as_png(size: size)
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def send_mail(
     to : String | Array(String),
     subject : String,
@@ -133,44 +133,44 @@ module Place::CalendarCommon
     )
   end
 
-  @[Security(Level::Administrator)]
+  @[PlaceOS::Driver::Security(Level::Administrator)]
   def access_token(user_id : String? = nil)
     logger.info { "access token requested #{user_id}" }
     client &.access_token(user_id)
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def get_groups(user_id : String)
     logger.debug { "getting group membership for user: #{user_id}" }
     client &.get_groups(user_id)
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def get_members(group_id : String)
     logger.debug { "listing members of group: #{group_id}" }
     client &.get_members(group_id)
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def list_users(query : String? = nil, limit : Int32? = nil)
     logger.debug { "listing user details, query #{query}" }
     client &.list_users(query, limit)
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def get_user(user_id : String)
     logger.debug { "getting user details for #{user_id}" }
     client &.get_user_by_email(user_id)
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def list_calendars(user_id : String)
     logger.debug { "listing calendars for #{user_id}" }
     client &.list_calendars(user_id)
   end
 
   # NOTE:: GraphAPI Only!
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def get_user_manager(user_id : String)
     logger.debug { "getting manager details for #{user_id}, note: graphAPI only" }
     client do |_client|
@@ -181,7 +181,7 @@ module Place::CalendarCommon
   end
 
   # NOTE:: GraphAPI Only! - here for use with configuration
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def list_groups(query : String? = nil)
     logger.debug { "listing groups, filtering by #{query}, note: graphAPI only" }
     client do |_client|
@@ -192,7 +192,7 @@ module Place::CalendarCommon
   end
 
   # NOTE:: GraphAPI Only!
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def get_group(group_id : String)
     logger.debug { "getting group #{group_id}, note: graphAPI only" }
     client do |_client|
@@ -202,7 +202,7 @@ module Place::CalendarCommon
     end
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def list_events(calendar_id : String, period_start : Int64, period_end : Int64, time_zone : String? = nil, user_id : String? = nil, include_cancelled : Bool = false)
     location = time_zone ? Time::Location.load(time_zone) : Time::Location.local
     period_start = Time.unix(period_start).in location
@@ -218,7 +218,7 @@ module Place::CalendarCommon
     )
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def delete_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false)
     user_id = user_id || @service_account.presence || calendar_id
 
@@ -227,7 +227,7 @@ module Place::CalendarCommon
     client &.delete_event(user_id, event_id, calendar_id: calendar_id, notify: notify)
   end
 
-  @[Security(Level::Support)]
+  @[PlaceOS::Driver::Security(Level::Support)]
   def create_event(
     title : String,
     event_start : Int64,
