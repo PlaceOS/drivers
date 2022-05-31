@@ -1,4 +1,4 @@
-require "./calendar_common"
+require "../place/calendar_common"
 
 class Microsoft::GraphAPI < PlaceOS::Driver
   include Place::CalendarCommon
