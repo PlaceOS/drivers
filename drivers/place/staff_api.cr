@@ -120,12 +120,27 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def create_user(body_json : String) : Nil
+    response = post("/api/engine/v2/users/#{id}", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+    raise "failed to update user #{id}: #{response.status_code}" unless response.success?
+    PlaceOS::Client::API::Models::User.from_json response.body
+  end
+
+  @[Security(Level::Support)]
   def update_user(id : String, body_json : String) : Nil
     response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: authentication(HTTP::Headers{
       "Content-Type" => "application/json",
     }))
 
-    raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
+    raise "failed to update user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def delete_user(id : String) : Nil
+    response = delete("/api/engine/v2/users/#{id}", headers: authentication)
+    raise "failed to delete user #{id}: #{response.status_code}" unless response.success?
   end
 
   @[Security(Level::Support)]
@@ -146,9 +161,10 @@ class Place::StaffAPI < PlaceOS::Driver
     q : String? = nil,
     limit : Int32 = 20,
     offset : Int32 = 0,
-    authority_id : String? = nil
+    authority_id : String? = nil,
+    include_deleted : Bool = false
   ) : Nil
-    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id)
+    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
 
   # ===================================
