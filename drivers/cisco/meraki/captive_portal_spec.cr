@@ -1,8 +1,9 @@
 require "openssl"
+require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Cisco::Meraki::CaptivePortal" do
   date = Time.unix(1599477274).in(Time::Location.load("Australia/Sydney")).to_s("%Y%m%d")
-  hexdigest = OpenSSL::Digest.new("SHA256").update("guest@email.com-#{date}-anything really").hexdigest
+  hexdigest = OpenSSL::Digest.new("SHA256").update("guest@email.com-#{date}-anything really").final.hexstring
 
   # Check the hex codes match
   retval = exec(:generate_guest_data, "guest@email.com", 1599477274, "Australia/Sydney")

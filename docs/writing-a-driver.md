@@ -1,34 +1,48 @@
-# How to write a driver
+# How to write a PlaceOS Driver
 
-There are three kind of drivers
+There are three kinds of PlaceOS Drivers...
 
-* Streaming IO (TCP, SSH, UDP, Multicast ect)
-* HTTP Client
-* Logic
+- [Streaming IO (TCP, SSH, UDP, Multicast, etc.)](#streaming-io)
+- [HTTP Client](#http-client)
+- [Logic](#logic-drivers)
 
-From a driver structure standpoint there is no difference between these types.
+From a Driver structure standpoint, there is no difference between these types.
 
-* The same driver can be used over a TCP, UDP or SSH transport.
-* All drivers support HTTP methods if a URI endpoint is defined.
-* If a driver is associated with a System then it has access to logic helpers
+- The same Driver can be used over a TCP, UDP or SSH transport.
+- All Drivers support HTTP methods if a URI endpoint is defined.
+- If a Driver is associated with a System then it has access to logic helpers
 
-However typically a driver will only implement one of these interfaces.
+However, typically a Driver will only implement one of these interfaces.
 
 
 ## Concepts
 
-Backing a driver is few different pieces that make it function.
+There are a few components of the PlaceOS Driver system...
 
-* Queue
-* Transport
-* Subscriptions
-* Scheduler
-* Settings
-* Logger
-* Metadata
-* Security
-* Interfaces
+- [Lifecycle](#lifecycle)
+- [Queue](#queue)
+- [Transport](#transport)
+- [Subscriptions](#subscriptions)
+- [Scheduler](#scheduler)
+- [Settings](#settings)
+- [Logger](#logger)
+- [Metadata](#metadata)
+- [Security](#security)
+- [Interfaces](#interfaces)
 
+### Lifecycle
+
+All PlaceOS Drivers have a lifecycle that is managed by the system.
+
+There are 5 lifecycle events:
+
+* `#on_load` - Called when a driver is added to a system.
+* `#on_update` - Called when settings are updated.
+* `#on_unload` - Called when a driver is removed from a system.
+* `#connected` - Called when a driver becomes active.
+* `#disconnected` - Called when a driver becomes inactive.
+
+For more information on these and other driver methods, see [PlaceOS Driver](https://github.com/PlaceOS/driver).
 
 ### Queue
 
@@ -63,7 +77,7 @@ end
 
 ```
 
-In most cases you won't need to use the queue explicitly however it is good to understand that it is there and how it functions.
+In most cases, you won't need to use the queue explicitly however it is good to understand that it is there and how it functions.
 
 
 ### Transport
@@ -91,7 +105,7 @@ There are a few ways to use streaming IO methods:
 
 def perform_action
   # You call send with some data.
-  # you can also optionally pass some queue options to the function
+  # You can also optionally pass some queue options to the function
   send("message data", priority: 30, name: "generic-message")
 end
 
@@ -139,10 +153,31 @@ end
 
 ```
 
+You can also add a pre-processor to data coming in. This can be useful
+if you want to strip away a protocol layer i.e. you are communicating
+over Telnet and want to remove the telnet signals leaving the raw
+comms for tokenising
+
+```crystal
+
+def on_load
+  transport.pre_processor do |bytes|
+    # you must return some byte data or nil if no processing is required
+    # tokenisation occurs on the data returned here
+    bytes[1..-2]
+  end
+end
+
+def received(data, task)
+  # data coming in here is both pre_processed and tokenised
+end
+
+```
+
 
 #### HTTP Client
 
-All drivers have built in methods for performing HTTP requests.
+All PlaceOS Drivers have built-in methods for performing HTTP requests.
 
 * For streaming IO devices this defaults to `http://device.ip.address` or `https` if the transport is using TLS / SSH.
 * All devices can provide a custom HTTP base URI.
@@ -187,9 +222,9 @@ end
 
 #### Logic drivers
 
-The main difference between logic drivers and other transports is that a logic module is directly associated with a System and cannot be shared. (all other drivers can appear in multiple systems)
+The main difference between Logic Drivers and other transports is that a logic module is directly associated with a System and cannot be shared. (all other Drivers can appear in multiple systems)
 
-* You can access remote modules in the system via the `system` helper
+- You can access remote modules in the system via the `system` helper
 
 ```crystal
 
@@ -220,7 +255,7 @@ system.exists?(:Display_2) #=> false
 
 ```
 
-you can bind to state in remote modules
+- You can bind to state in remote modules
 
 ```crystal
 
@@ -231,7 +266,7 @@ private def power_changed(subscription, new_value)
 end
 
 
-# you can also bind to internal state (available in all drivers)
+# You can also bind to Driver's internal state (available in all Drivers)
 bind :power, :power_changed
 
 ```
@@ -255,6 +290,17 @@ accessor screen : Screen?
 
 ```
 
+Cross-system communication is possible if you know the ID of the remote system.
+
+```crystal
+# once you have reference to the remote system you can perform any
+# actions that you might perform on the local system
+sys = system("sys-12345")
+
+sys.name #=> "Name of remote system"
+sys[:Display_2][:power] #=> true
+```
+
 
 ### Subscriptions
 
@@ -262,7 +308,7 @@ You can dynamically bind to state of interest in remote modules
 
 ```crystal
 
-# subscription is returned and provided with every status update in the callback
+# Subscription is returned and provided with every status update in the callback
 subscription = system.subscribe(:Display_1, :power) do |subscription, new_value|
   # values are always raw JSON strings
   JSON.parse(new_value)
@@ -279,8 +325,8 @@ subscriptions.clear
 
 ```
 
-Similarly to subscriptions, there are channels that can be setup for broadcasting
-arbitrary data that might not need be exposed as state.
+Similarly to subscriptions,  channels can be set up for broadcasting
+arbitrary data that might not need to be exposed as Driver state.
 
 ```crystal
 
@@ -297,7 +343,7 @@ publish(:channel_name, "some event")
 
 ### Scheduler
 
-There is a built in scheduler: https://github.com/spider-gazelle/tasker
+There is a built-in scheduler: https://github.com/spider-gazelle/tasker
 
 ```crystal
 
@@ -342,6 +388,12 @@ end
 
 ```
 
+You can update the local settings of a module, persisting them to the database. Settings must be JSON serialisable
+
+```crystal
+define_setting(:my_setting_name, "some JSON serialisable data")
+```
+
 
 ### Logger
 
@@ -352,15 +404,12 @@ There is a logger available: https://crystal-lang.org/api/latest/Logger.html
 
 ```crystal
 
-logger.warn "error unknown response"
-
-# You should typically use the block form for debug and info messages
-# this only performs string interpolations if a debugging session is attached
+logger.warn { "error unknown response" }
 logger.debug { "function called with #{value}" }
 
 ```
 
-The logging format has been pre-configured so all logging from Engine is uniform and simple to parse
+The logging format has been pre-configured so all logging from PlaceOS is uniform and simple to parse
 
 
 ### Metadata
@@ -381,7 +430,7 @@ Metadata is used by various components to simplify configuration.
 class MyDevice < PlaceOS::Driver
   generic_name :Driver
   descriptive_name "Driver model Test"
-  description "This is the driver used for testing"
+  description "This is the Driver used for testing"
   tcp_port 22
   default_settings({
     name:     "Room 123",
@@ -401,8 +450,8 @@ end
 
 ### Security
 
-By default all public functions are exposed for execution.
-However you can limit who is able to execute sensitive functions.
+By default, all public functions are exposed for execution.
+However, you can limit who can execute sensitive functions.
 
 ```crystal
 
@@ -419,37 +468,38 @@ The options are:
 * Administrator `Level::Administrator`
 * Support `Level::Support`
 
-
 ### Interfaces
 
-Drivers can expose any methods that make sense for the device, service or logic they encapsulate.
-Across these there are often core sets of similar functionality.
+PlaceOS Drivers can expose any methods that make sense for the device, service or logic they encapsulate.
+Across these, there are often core sets of similar functionality.
 Interfaces provide a standard way of implementing and interacting with this.
 
-Thier usage is optional, but highly encouraged as it both improves modularity and reduces complexity in driver implementations.
+Their usage is optional but highly encouraged as it both improves modularity and reduces complexity in Driver implementations.
 
-A full list of interfaces is [available in the driver framework](https://github.com/PlaceOS/driver/tree/master/src/placeos-driver/interface). This will expand over time to cover common, repeated patterns as they emerge.
+A full list of interfaces is [available in the PlaceOS Driver framework](https://github.com/PlaceOS/driver/tree/master/src/placeos-driver/interface).
+This will expand over time to cover common, repeated patterns as they emerge.
 
 #### Implementing an Interface
 
 Each interface is a module containing abstract methods, types and functionality built from these.
 
-First include the module within the driver body.
+First, include the module within the Driver body.
 ```crystal
 include Interface::Powerable
 ```
 You will then need to provide implementations of the abstract methods.
 The compiler will guide you in this.
 
-Some interfaces will also provide default implementation for other methods.
+Some interfaces will also provide a default implementation for other methods.
 These may be overridden if the device or service provides a more efficient way to directly execute the desired behaviour.
 To keep compatibility, overridden methods must maintain feature and functional parity with the original implementation.
 
 #### Using an Interface
 
 Drivers that provide an Interface can be discovered using the `system.implementing` method from any logic module.
-This will return a list of all drivers in the system which implement the Interface.
+This will return a list of all Drivers in the system which implement the Interface.
 
-Similarly, the `accessor` macro provides a way to declare a dependency on a sibling driver that provides specific functionality.
+Similarly, the `accessor` macro provides a way to declare a dependency on a sibling Driver that provides specific functionality.
 
-For more infomaration on these and for usage examples, see [logic drivers](#logic-drivers).
+For more information on these and usage examples, see [Logic Drivers](#logic-drivers).
+

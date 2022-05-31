@@ -1,22 +1,17 @@
 name: drivers
-version: 2.1.0
-crystal: 0.35.1
-
-# compile target
-targets:
-  test-harness:
-    main: src/app.cr
+version: 2.2.0
 
 dependencies:
   action-controller:
     github: spider-gazelle/action-controller
-    version: ~> 3.1
+    version: ~> 4.4
 
   email:
     github: arcage/crystal-email
+    version: ~> 0.6.0
 
-  exec_from:
-    github: place-labs/exec_from
+  inactive-support:
+    github: spider-gazelle/inactive-support
 
   jwt:
     github: crystal-community/jwt
@@ -27,16 +22,27 @@ dependencies:
   ntlm:
     github: spider-gazelle/ntlm
 
+  link-header:
+    github: spider-gazelle/link-header
+
   place_calendar:
     github: PlaceOS/calendar
 
   placeos-compiler:
     github: placeos/compiler
-    version: ~> 2.0
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 3.0
+    version: ~> 6.3
+
+  # The PlaceOS API client
+  placeos:
+    github: placeos/crystal-client
+    version: ~> 2.2
+
+  # HTTP Client helper
+  responsible:
+    github: place-labs/responsible
 
   rwlock:
     github: spider-gazelle/readers-writer
@@ -44,3 +50,53 @@ dependencies:
   # Driver deps:
   telnet:
     github: spider-gazelle/telnet.cr
+
+  pars:
+    github: spider-gazelle/pars
+
+  # For lat lon location indexing
+  s2_cells:
+    github: spider-gazelle/s2_cells
+
+  qr-code:
+    github: spider-gazelle/qr-code
+
+  # For QR .png file export
+  stumpy_png:
+    github: stumpycr/stumpy_png
+
+  # the STOMP protocol
+  stomp:
+    github: spider-gazelle/stomp
+
+  # MQTT protocol
+  mqtt:
+    github: spider-gazelle/crystal-mqtt
+
+  # XML to JSON convertor
+  oq:
+    github: blacksmoke16/oq
+    version: ~> 1.2
+
+  # signed requests to AWS APIs
+  awscr-signer:
+    github: taylorfinnell/awscr-signer
+    version: ~> 0.8
+
+  # BACnet protocol support
+  bacnet:
+    github: spider-gazelle/crystal-bacnet
+    version: ~> 0.10
+
+  # HTTP client
+  halite:
+    github: icyleaf/halite
+
+  # token bucket algorithm for rate limiting
+  rate_limiter:
+    github: lbarasti/rate_limiter
+    version: ~> 1.0
+
+  # fake data for mocks
+  faker:
+    github: askn/faker

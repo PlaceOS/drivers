@@ -1,12 +1,12 @@
-# How to write a spec
+# How to test a PlaceOS Driver
 
-There are three kind of drivers
+There are three kinds of PlaceOS Driver...
 
-* Streaming IO (TCP, SSH, UDP, Multicast, ect)
-* HTTP Client
-* Logic
+* [Streaming IO (TCP, SSH, UDP, Multicast, etc.)](#testing-streaming-io)
+* [HTTP Client](#testing-http-requests)
+* [Logic](#testing-logic)
 
-From a driver code structure standpoint there is no difference between these types.
+From a PlaceOS Driver code structure standpoint, there is no difference between these types of Driver.
 
 * The same driver can be used over a TCP, UDP or SSH transport.
 * All drivers support HTTP methods if a URI endpoint is defined.
@@ -15,7 +15,7 @@ From a driver code structure standpoint there is no difference between these typ
 During a test, the loaded module is loaded with a TCP transport, HTTP enabled and logic module capabilities.
 This allows for testing the full capabilities of any driver.
 
-The driver is lunched as it would be in production.
+The driver is launched as it would be in production.
 
 
 ## Expectations
@@ -54,10 +54,10 @@ A common test case is to ensure that module state updates as expected after tran
 
 ```crystal
 
-# transmit some data
+# Transmit some data
 transmit(">V:2,C:11,G:2001,B:1,S:1,F:100#")
 
-# check that the state updated as expected
+# Check that the state was updated as expected
 status[:area2001].should eq(1)
 
 ```
@@ -65,7 +65,7 @@ status[:area2001].should eq(1)
 
 ## Testing HTTP requests
 
-The test suite emulates a HTTP server so you can inspect HTTP requests and send canned responses to the module.
+The test suite emulates an HTTP server so you can inspect HTTP requests and send canned responses to the module.
 
 ```crystal
 
@@ -84,21 +84,21 @@ expect_http_request do |request, response|
   end
 end
 
-# check that the state updated as expected
+# Check that the state was updated as expected
 status[:area2001].should eq(1)
 
 ```
 
 Use `expect_http_request` to access an expected request coming from the module.
 
-* when the block completes, the response is sent to the module
-* you can see `request` object details here: https://crystal-lang.org/api/latest/HTTP/Request.html
-* you can see `response` object details here: https://crystal-lang.org/api/latest/HTTP/Server/Response.html
+* When the block completes, the response is sent to the module
+* You can see `request` object details here: https://crystal-lang.org/api/latest/HTTP/Request.html
+* You can see `response` object details here: https://crystal-lang.org/api/latest/HTTP/Server/Response.html
 
 
 ## Executing functions
 
-This allows you to request actions be performed in the module via the standard public interface.
+Functions allow you to request methods to be performed in the module via the standard public interface.
 
 * `exec(:function_name, argument_name: argument_value)` -> `response` a response future (async return value)
 * You should send and `responds(data)` before inspecting the `response.get`
@@ -123,7 +123,7 @@ status[:area1].should eq(2)
 
 ## Testing Logic
 
-Logic modules typically expect a system to contain some drivers which the logic modules interacts with.
+Logic modules typically expect a system to contain some drivers which the logic modules interact with.
 
 ```crystal
 
@@ -195,7 +195,7 @@ end
 
 ```
 
-Along with the physical system configuration you can test different setting configurations.
+Along with the physical system configuration, you can test different setting configurations.
 Settings can also be changed throughout the life cycle of your spec.
 
 ```crystal
@@ -211,17 +211,17 @@ end
 
 ```
 
-An action you perform on your driver might be expected to update state in the mock devices.
+A Driver's method might be expected to update some state in the mock devices.
 You can access this state via the `system` helper
 
 ```crystal
 
 DriverSpecs.mock_driver "Place::LogicExample" do
 
-  # execute a function in your logic module
+  # Execute a function in your logic module
   exec(:power, true)
 
-  # Check that the expected state has updated in you mock device
+  # Check that the expected state has been updated in your mock device
   system(:Display_1)[:power].should eq(true)
 
 end

@@ -1,0 +1,4 @@
+# NOTE:: here because of a shards ambiguous sources error
+dependencies:
+  pars:
+    github: spider-gazelle/pars

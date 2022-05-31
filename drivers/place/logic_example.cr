@@ -1,4 +1,4 @@
-module Place; end
+require "placeos-driver"
 
 class Place::LogicExample < PlaceOS::Driver
   descriptive_name "Example Logic"
@@ -20,5 +20,9 @@ class Place::LogicExample < PlaceOS::Driver
 
   def display_count
     system.count(:Display)
+  end
+
+  def not_implemented
+    raise "not implemented"
   end
 end

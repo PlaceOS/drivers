@@ -1,8 +1,7 @@
-module Cisco; end
-
-module Cisco::Meraki; end
-
+require "uri"
 require "json"
+require "link-header"
+require "placeos-driver"
 require "./scanning_api"
 
 class Cisco::Meraki::Dashboard < PlaceOS::Driver
@@ -23,75 +22,108 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     meraki_secret:    "configure if scanning API is enabled",
     meraki_api_key:   "configure for the dashboard API",
 
-    # We will always accept a reading with a confidence lower than this
-    acceptable_confidence: 5.0,
+    # Max requests a second made to the dashboard
+    rate_limit:    4,
+    debug_payload: false,
 
-    # Max Uncertainty in meters - we don't accept positions that are less certain
-    maximum_uncertainty: 25.0,
-
-    # Age we keep a confident value (without drifting towards less confidence)
-    maximum_confidence_time: 40,
-
-    # Age at which we discard a drifting value (accepting a less confident value)
-    maximum_drift_time: 160,
+    # filter message type
+    scanning_api_filter: "WiFi",
   })
 
   def on_load
+    spawn { rate_limiter }
     on_update
+  end
+
+  def on_unload
+    @channel.close
   end
 
   @scanning_validator : String = ""
   @scanning_secret : String = ""
   @api_key : String = ""
+  @scanning_api_filter : MessageType = MessageType::WiFi
 
-  @acceptable_confidence : Float64 = 5.0
-  @maximum_uncertainty : Float64 = 25.0
-  @maximum_confidence_time : Time::Span = 40.seconds
-  @maximum_drift_time : Time::Span = 160.seconds
+  @rate_limit : Int32 = 4
+  @channel : Channel(Nil) = Channel(Nil).new(1)
+  @queue_lock : Mutex = Mutex.new
+  @queue_size = 0
+  @wait_time : Time::Span = 300.milliseconds
 
-  @time_multiplier : Float64 = 0.0
-  @confidence_multiplier : Float64 = 0.0
+  @debug_payload : Bool = false
 
   def on_update
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
     @api_key = setting?(String, :meraki_api_key) || ""
+    @scanning_api_filter = setting?(MessageType, :scanning_api_filter) || MessageType::WiFi
 
-    @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
-    @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
-    @maximum_confidence_time = (setting?(Int32, :maximum_confidence_time) || 40).seconds
-    @maximum_drift_time = (setting?(Int32, :maximum_drift_time) || 160).seconds
+    @rate_limit = setting?(Int32, :rate_limit) || 4
+    @wait_time = 1.second / @rate_limit
 
-    # How much confidence do we have in this new value, relative to an old confident value
-    @time_multiplier = 1.0_f64 / (@maximum_drift_time.to_i - @maximum_confidence_time.to_i).to_f64
-    @confidence_multiplier = 1.0_f64 / (@maximum_uncertainty.to_i - @acceptable_confidence.to_i).to_f64
+    @debug_payload = setting?(Bool, :debug_payload) || false
   end
 
   # Perform fetch with the required API request limits in place
   @[Security(PlaceOS::Driver::Level::Support)]
   def fetch(location : String)
-    queue delay: 200.milliseconds do |task|
-      response = get(location, headers: {
-        "X-Cisco-Meraki-API-Key" => @api_key,
-        "Content-Type"           => "application/json",
-        "Accept"                 => "application/json",
-      })
+    req(location, &.body)
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def fetch_all(location : String)
+    responses = [] of String
+    req_all_pages(location) { |response| responses << response.body }
+    responses
+  end
+
+  protected def req(location : String)
+    if (@wait_time * @queue_size) > 10.seconds
+      raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
+    end
+
+    @queue_lock.synchronize { @queue_size += 1 }
+    @channel.receive
+    @queue_lock.synchronize { @queue_size -= 1 }
+
+    headers = HTTP::Headers{
+      "X-Cisco-Meraki-API-Key" => @api_key,
+      "Content-Type"           => "application/json",
+      "Accept"                 => "application/json",
+      "User-Agent"             => "PlaceOS/2.0 PlaceTechnology",
+    }
+
+    uri = URI.parse(location)
+    response = if uri.host.nil?
+                 get(location, headers: headers)
+               else
+                 HTTP::Client.get(location, headers: headers)
+               end
+
+    if response.success?
+      yield response
+    elsif response.status.found?
+      # Meraki might return a `302` on GET requests
+      response = HTTP::Client.get(response.headers["Location"], headers: headers)
       if response.success?
-        task.success(response.body)
-      elsif response.status.found?
-        # Meraki might return a `302` on GET requests
-        response = HTTP::Client.get(response.headers["Location"], headers: HTTP::Headers{
-          "X-Cisco-Meraki-API-Key" => @api_key,
-          "Content-Type"           => "application/json",
-          "Accept"                 => "application/json",
-        })
-        if response.success?
-          task.success(response.body)
-        else
-          task.abort "request #{location} failed with status: #{response.status_code}"
-        end
+        yield response
       else
-        task.abort "request #{location} failed with status: #{response.status_code}"
+        raise "request #{location} failed with status: #{response.status_code}"
+      end
+    else
+      raise "request #{location} failed with status: #{response.status_code}"
+    end
+  end
+
+  protected def req_all_pages(location : String) : Nil
+    next_page = location
+
+    loop do
+      break unless next_page
+
+      next_page = req(next_page) do |response|
+        yield response
+        LinkHeader.new(response)["next"]?
       end
     end
   end
@@ -99,39 +131,35 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   EMPTY_HEADERS    = {} of String => String
   SUCCESS_RESPONSE = {HTTP::Status::OK, EMPTY_HEADERS, nil}
 
-  class Lookup
-    include JSON::Serializable
-
-    property time : Time
-    property mac : String
-
-    def initialize(@time, @mac)
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def organizations
+    req("/api/v1/organizations?perPage=1000") do |response|
+      Array(Organization).from_json(response.body)
     end
   end
 
-  # MAC Address => Location
-  @locations : Hash(String, Location) = {} of String => Location
-  @ip_lookup : Hash(String, Lookup) = {} of String => Lookup
-
-  def lookup_ip(address : String)
-    @ip_lookup[address.downcase]?
-  end
-
-  def locate_mac(address : String)
-    @locations[format_mac(address)]?
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def networks(organization_id : String)
+    nets = [] of Network
+    req_all_pages("/api/v1/organizations/#{organization_id}/networks?perPage=1000") do |response|
+      nets.concat Array(Network).from_json(response.body)
+    end
+    nets
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
-  def inspect_state
-    logger.debug {
-      "IP Mappings: #{@ip_lookup.inspect}\nMAC Locations: #{@locations.inspect}"
-    }
-    {ip_mappings: @ip_lookup.size, tracking: @locations.size}
+  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
+    clients = [] of Client
+    req_all_pages "/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=#{timespan}" do |response|
+      clients.concat Array(Client).from_json(response.body)
+    end
+    clients
   end
 
   # Webhook endpoint for scanning API, expects version 3
   def scanning_api(method : String, headers : Hash(String, Array(String)), body : String)
-    logger.debug { "scanning API received: #{method},\nheaders #{headers},\nbody #{body}" }
+    logger.debug { "scanning API received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body } if @debug_payload
 
     # Return the scanning API validator code on a GET request
     return {HTTP::Status::OK.to_i, EMPTY_HEADERS, @scanning_validator} if method == "GET"
@@ -147,8 +175,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       seen = DevicesSeen.from_json(body)
       logger.debug { "parsed meraki payload" }
 
-      # We're only interested in Wifi at the moment
-      if seen.message_type != "WiFi"
+      # filter out observations we're not interested in
+      if !@scanning_api_filter.none? && seen.message_type != @scanning_api_filter
         logger.debug { "ignoring message type: #{seen.message_type}" }
         return SUCCESS_RESPONSE
       end
@@ -156,120 +184,29 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       # Check the secret matches
       raise "secret mismatch, sent: #{seen.secret}" unless seen.secret == @scanning_secret
 
-      # Extract coordinate data against the MAC address and save IP address mappings
-      observations = seen.data.observations.reject(&.locations.empty?)
-
-      ignore_older = @maximum_drift_time.ago
-      drift_older = @maximum_confidence_time.ago
-      observations.each do |observation|
-        client_mac = format_mac(observation.client_mac)
-        existing = @locations[client_mac]?
-
-        location = parse(existing, ignore_older, drift_older, observation.latest_record.time, observation.locations)
-        @locations[client_mac] = location if location
-        update_ipv4(observation)
-        update_ipv6(observation)
-      end
+      self[seen.data.network_id] = seen.data.observations
     rescue e
       logger.error { "failed to parse meraki scanning API payload\n#{e.inspect_with_backtrace}" }
+      logger.debug { "failed payload body was\n#{body}" }
     end
 
     # Return a 200 response
     SUCCESS_RESPONSE
   end
 
-  protected def parse(existing, ignore_older, drift_older, latest, locations) : Location?
-    if existing_time = existing.try &.time
-      existing = nil if existing_time < ignore_older
-    end
-
-    # remove junk
-    locations = locations.reject do |loc|
-      loc.variance > @maximum_uncertainty || loc.time < ignore_older
-    end
-
-    return existing if locations.empty?
-
-    # ensure oldest -> newest
-    locations = locations.sort { |a, b| a.time <=> b.time }
-
-    # estimate the location given the current observations
-    location = existing || locations.shift
-    locations.each do |new_loc|
-      next unless new_loc.time > location.time
-
-      # If acceptable then this is newer
-      if new_loc.variance < @acceptable_confidence
-        location = new_loc
-        next
-      end
-
-      # if more accurate and newer then we'll take this
-      if new_loc.variance < location.variance
-        location = new_loc
-        next
-      end
-
-      # should we drift the older location towards a less accurate newer location
-      if location.time < drift_older
-        # has the floor changed, we should probably accept the newer less accurate location
-        if location.floor_plan_id != new_loc.floor_plan_id
-          location = new_loc
-          next
-        end
-
-        new_uncertainty = new_loc.variance
-        old_uncertainty = location.variance
-
-        confidence_factor = 1.0 - (@confidence_multiplier * (new_uncertainty - @acceptable_confidence))
-        confidence_factor = 0.0 if confidence_factor < 0
-
-        time_diff = new_loc.time.to_unix - location.time.to_unix
-        time_factor = @time_multiplier * (time_diff - @maximum_confidence_time.to_i).to_f
-        time_factor = 0.0 if time_factor < 0
-
-        # Average of the confidence factors
-        average_multiplier = (confidence_factor + time_factor) / 2.0
-
-        new_x = new_loc.x
-        new_y = new_loc.y
-        old_x = location.x
-        old_y = location.y
-
-        # 7.5 =   5   + ((  10  -  5   ) * 0.5)
-        new_x = old_x + ((new_x - old_x) * average_multiplier)
-        new_y = old_y + ((new_y - old_y) * average_multiplier)
-        new_uncertainty = old_uncertainty + ((new_uncertainty - old_uncertainty) * average_multiplier)
-
-        new_loc.x = new_x
-        new_loc.y = new_y
-        new_loc.variance = new_uncertainty
-        location = new_loc
+  protected def rate_limiter
+    loop do
+      break if @channel.closed?
+      begin
+        @channel.send(nil)
+      rescue error
+        logger.error(exception: error) { "issue with rate limiter" }
+      ensure
+        sleep @wait_time
       end
     end
-  end
-
-  protected def update_ipv4(observation)
-    ipv4 = observation.ipv4
-    return unless ipv4
-    time = observation.latest_record.time
-    lookup = @ip_lookup[ipv4]? || Lookup.new(time, observation.client_mac)
-    lookup.time = time
-    lookup.mac = observation.client_mac
-    @ip_lookup[ipv4] = lookup
-  end
-
-  protected def update_ipv6(observation)
-    ipv6 = observation.ipv6.try &.downcase
-    return unless ipv6
-    time = observation.latest_record.time
-    lookup = @ip_lookup[ipv6]? || Lookup.new(time, observation.client_mac)
-    lookup.time = time
-    lookup.mac = observation.client_mac
-    @ip_lookup[ipv6] = lookup
-  end
-
-  def format_mac(address : String)
-    address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
+  rescue
+    # Possible error with logging exception, restart rate limiter silently
+    spawn { rate_limiter } unless @channel.closed?
   end
 end

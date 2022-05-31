@@ -1,0 +1,140 @@
+#! /usr/bin/env bash
+
+# `e`: fail script if a command's exitcode is non-zero
+# `u`: fail script if a variable is unset (unitialized)
+set -eu
+
+say_done() {
+  printf "░░░ Done.\n"
+}
+
+fail() {
+  echo "${@}" >&2
+  exit 1
+}
+
+# Called when Ctrl-C is sent
+function trap_ctrlc ()
+{
+  echo ">~"
+  echo "░░░ Cleaning up..."
+  down
+  exit 2
+}
+
+trap "trap_ctrlc" 2
+
+up() {
+  echo '░░░ PlaceOS Driver Harness'
+  echo '░░░ Starting environment...'
+  docker-compose up -d
+  printf "░░░ The harness can be found at http://localhost:8085\n"
+  echo '░░░ Stop the harness with `harness down`'
+  say_done
+}
+
+down() {
+  echo '░░░ Stopping PlaceOS Driver Harness...'
+  docker-compose down --remove-orphans &> /dev/null
+  say_done
+}
+
+format() {
+  echo '░░░ Running `crystal tool format` over `drivers` and `repositories`'
+  docker-compose run \
+                     -v "${PWD}/drivers:/wd/drivers" \
+                     -v "${PWD}/repositories:/wd/repositories" \
+                     --no-deps \
+                     --rm \
+                     install-shards \
+                     crystal tool format
+  say_done
+}
+
+report() {
+  echo '░░░ PlaceOS Driver Compilation Report'
+  echo '░░░ Pulling images...'
+  docker-compose pull &> /dev/null
+
+  # Ensure shards are satisfied before running the report
+  echo '░░░ Installing shards...'
+  docker-compose run \
+                     --rm \
+                     install-shards > /dev/null
+
+  echo '░░░ Starting environment...'
+  docker-compose up -d &> /dev/null
+
+  exit_code=0
+
+  echo '░░░ Starting report...'
+  docker exec placeos-drivers report $@ || exit_code=$?
+
+  down
+  exit ${exit_code}
+}
+
+build() {
+  docker-compose run \
+                     --rm \
+                     --no-deps \
+                     -v "${PWD}/repositories:/app/repositories" \
+                     -v "${PWD}/drivers:/app/repositories/drivers" \
+                     build \
+                     bash /app/scripts/entrypoint.sh \
+                     build \
+                     $@
+}
+
+usage() {
+  cat <<EOF
+Usage: harness [-h|--help] [command]
+
+Helper script for interfacing with the PlaceOS Driver spec runner
+
+Command:
+    report                  check all drivers' compilation status
+    up                      starts the harness
+    down                    stops the harness
+    build                   builds drivers and uploads them to S3
+    format                  formats driver code
+    help                    display this message
+EOF
+}
+
+if [ $# -eq 0 ]
+then
+  usage
+  exit 1
+fi
+
+command="$1"
+shift
+case $command in
+  report)
+    report $@
+    ;;
+  build)
+    build $@
+    ;;
+  up)
+    up
+    ;;
+  down)
+    down
+    ;;
+  format)
+    format
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    if [ -n "$command" ]; then
+      fail "Unknown command: $command"
+    else
+      usage
+      exit 1
+    fi
+    ;;
+esac

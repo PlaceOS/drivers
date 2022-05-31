@@ -1,6 +1,8 @@
 require "json"
 require "uuid"
+require "placeos-driver/spec"
 
+# :nodoc:
 module Relaxx
   SUCCESS = {
     Successful: true,

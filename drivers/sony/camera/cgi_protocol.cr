@@ -1,8 +1,5 @@
+require "placeos-driver"
 require "placeos-driver/interface/camera"
-
-module Sony; end
-
-module Sony::Camera; end
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
 
@@ -170,7 +167,10 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   # Implement Stoppable interface
-  def stop(index : Int32 | String = 1, emergency : Bool = false)
+  def stop(index : Int32 | String = 0, emergency : Bool = false)
+    # indexes start at 1 on sony cameras
+    index = index.to_i + 1
+
     action("/command/ptzf.cgi?Move=stop,motor,image#{index}",
       priority: 999,
       name: "moving",
@@ -183,7 +183,10 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   # Implement Moveable interface
-  def move(position : MoveablePosition, index : Int32 | String = 1)
+  def move(position : MoveablePosition, index : Int32 | String = 0)
+    # indexes start at 1 on sony cameras
+    index = index.to_i + 1
+
     case position
     when MoveablePosition::Up, MoveablePosition::Down,
          MoveablePosition::Left, MoveablePosition::Right
@@ -238,7 +241,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   # Implement Camera interface
-  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 1)
+  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
+    index = index.to_i + 1
     range = -100..100
     in_range range, pan_speed
     in_range range, tilt_speed
@@ -254,14 +258,18 @@ class Sony::Camera::CGI < PlaceOS::Driver
     end
   end
 
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 1)
+  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
+    index = index.to_i + 1
+
     in_range @zoom_range, position
     action("/command/ptzf.cgi?AbsoluteZoom=#{position.to_s(16)}",
       name: "zooming"
     ) { self[:zoom] = @zoom = position }
   end
 
-  def zoom(direction : ZoomDirection, index : Int32 | String = 1)
+  def zoom(direction : ZoomDirection, index : Int32 | String = 0)
+    index = index.to_i + 1
+
     if direction.stop?
       action("/command/ptzf.cgi?Move=stop,zoom,image#{index}",
         priority: 999,
@@ -280,7 +288,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     ) { query_status }
   end
 
-  def recall(position : String, index : Int32 | String = 1)
+  def recall(position : String, index : Int32 | String = 0)
     preset = @presets[position]?
     if preset
       pantilt **preset
@@ -289,7 +297,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     end
   end
 
-  def save_position(name : String, index : Int32 | String = 1)
+  def save_position(name : String, index : Int32 | String = 0)
     @presets[name] = {
       pan: @pan, tilt: @tilt, zoom: @zoom,
     }
@@ -297,7 +305,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:presets] = @presets.keys
   end
 
-  def delete_position(name : String, index : Int32 | String = 1)
+  def delete_position(name : String, index : Int32 | String = 0)
     @presets.delete name
     # TODO:: persist this to the database
     self[:presets] = @presets.keys
