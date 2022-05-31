@@ -171,7 +171,7 @@ shards:
 
   opentelemetry-api:
     git: https://github.com/wyhaines/opentelemetry-api.cr.git
-    version: 0.3.0
+    version: 0.3.1
 
   opentelemetry-instrumentation:
     git: https://github.com/wyhaines/opentelemetry-instrumentation.cr.git
@@ -199,7 +199,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.7.0
+    version: 2.7.1
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
