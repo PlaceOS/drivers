@@ -38,7 +38,7 @@ class Place::CalendarDelegated < PlaceOS::Driver
   end
 
   protected def process(response)
-    raise "request failed with #{response.status_code} (response.body)" unless response.success?
+    raise "request failed with #{response.status_code} (#{response.body})" unless response.success?
     JSON.parse(response.body)
   end
 
