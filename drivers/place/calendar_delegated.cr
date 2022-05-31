@@ -130,7 +130,7 @@ class Place::CalendarDelegated < PlaceOS::Driver
     end
 
     params["period_start"] = period_start.to_s
-    params["period_start"] = period_end.to_s
+    params["period_end"] = period_end.to_s
     params["include_cancelled"] = "true" if include_cancelled
     process client.get("/api/staff/v1/events", params: params)
   end
