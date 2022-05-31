@@ -173,4 +173,51 @@ module KontaktIO
 
     getter buildings : Array(Building)
   end
+
+  class Room
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    getter id : Int64
+    getter name : String
+
+    @[JSON::Field(key: "roomType")]
+    getter room_type : String
+    getter floor : Floor
+
+    @[JSON::Field(key: "roomNumber")]
+    getter room_number : Int64?
+  end
+
+  struct RoomOccupancy
+    include JSON::Serializable
+
+    @[JSON::Field(key: "roomId")]
+    getter room_id : Int64
+
+    @[JSON::Field(key: "roomName")]
+    getter room_name : String
+
+    @[JSON::Field(key: "floorId")]
+    getter floor_id : Int64
+
+    @[JSON::Field(key: "floorName")]
+    getter floor_name : String
+
+    @[JSON::Field(key: "buildingId")]
+    getter building_id : Int64
+
+    @[JSON::Field(key: "buildingName")]
+    getter building_name : String
+
+    @[JSON::Field(key: "campusId")]
+    getter campus_id : Int64
+
+    @[JSON::Field(key: "campusName")]
+    getter campus_name : String
+
+    @[JSON::Field(key: "lastUpdate")]
+    getter last_update : Time
+    getter occupancy : Int32
+  end
 end

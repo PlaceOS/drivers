@@ -354,13 +354,14 @@ class Place::Bookings < PlaceOS::Driver
     events.map do |event|
       event_ends = event.all_day? ? event.event_start.in(@time_zone).at_end_of_day : event.event_end.not_nil!
       {
-        location: :meeting,
-        mac:      @calendar_id,
-        event_id: event.id,
-        map_id:   sys.map_id,
-        sys_id:   sys.id,
-        ends_at:  event_ends.to_unix,
-        private:  !!event.private?,
+        location:   :meeting,
+        mac:        @calendar_id,
+        event_id:   event.id,
+        map_id:     sys.map_id,
+        sys_id:     sys.id,
+        ends_at:    event_ends.to_unix,
+        started_at: event.event_start.to_unix,
+        private:    !!event.private?,
       }
     end
   end
@@ -434,6 +435,7 @@ class Place::Bookings < PlaceOS::Driver
           self[:people_count] = self[:presence] = nil
         end
       end
+      @perform_sensor_search = false
     else
       self[:people_count] = nil
 
@@ -445,12 +447,12 @@ class Place::Bookings < PlaceOS::Driver
           value = (Float64 | Nil).from_json payload
           self[:presence] = value ? value > 0.0 : nil
         end
+        @perform_sensor_search = false
       else
         self[:sensor_name] = self[:presence] = nil
+        @perform_sensor_search = true
       end
     end
-
-    @perform_sensor_search = false
   rescue error
     self[:people_count] = nil
     self[:presence] = nil

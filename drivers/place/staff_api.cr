@@ -264,6 +264,11 @@ class Place::StaffAPI < PlaceOS::Driver
     placeos_client.metadata.update(id, key, payload, description)
   end
 
+  @[Security(Level::Support)]
+  def merge_metadata(id : String, key : String, payload : JSON::Any, description : String = "")
+    placeos_client.metadata.merge(id, key, payload, description)
+  end
+
   # ===================================
   # ZONE INFORMATION
   # ===================================
@@ -524,6 +529,11 @@ class Place::StaffAPI < PlaceOS::Driver
     response = get("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
     raise "issue getting booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
+  end
+
+  @[Security(Level::Support)]
+  def signal(channel : String, payload : JSON::Any? = nil)
+    placeos_client.root.signal(channel, payload)
   end
 
   # For accessing PlaceOS APIs
