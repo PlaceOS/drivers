@@ -121,10 +121,10 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def create_user(body_json : String) : Nil
-    response = post("/api/engine/v2/users/#{id}", body: body_json, headers: authentication(HTTP::Headers{
+    response = post("/api/engine/v2/users", body: body_json, headers: authentication(HTTP::Headers{
       "Content-Type" => "application/json",
     }))
-    raise "failed to update user #{id}: #{response.status_code}" unless response.success?
+    raise "failed to create user: #{response.status_code}" unless response.success?
     PlaceOS::Client::API::Models::User.from_json response.body
   end
 
