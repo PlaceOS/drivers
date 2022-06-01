@@ -252,7 +252,7 @@ class Place::StaffAPI < PlaceOS::Driver
   # The service account making this request needs delegated access and hence you can only edit
   # events associated with a resource calendar
   def update_event(system_id : String, event : PlaceCalendar::Event)
-    response = put("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
+    response = patch("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     PlaceCalendar::Event.from_json(response.body)
