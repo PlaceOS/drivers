@@ -138,9 +138,15 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def delete_user(id : String) : Nil
-    response = delete("/api/engine/v2/users/#{id}", headers: authentication)
+  def delete_user(id : String, force_removal : Bool = false) : Nil
+    response = delete("/api/engine/v2/users/#{id}?force_removal=#{force_removal}", headers: authentication)
     raise "failed to delete user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def revive_user(id : String) : Nil
+    response = post("/api/engine/v2/users/#{id}/revive", headers: authentication)
+    raise "failed to revive user #{id}: #{response.status_code}" unless response.success?
   end
 
   @[Security(Level::Support)]
