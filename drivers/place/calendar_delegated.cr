@@ -98,12 +98,14 @@ class Place::CalendarDelegated < PlaceOS::Driver
   protected def check_if_resource(email)
     # attempt get the system the requested email is in
     # assuming we are using this driver for resource calendars
+    email = email.downcase
     response = get("/api/engine/v2/systems/", params: {
       "email" => email,
+      "limit" => "1000",
     })
     if response.success?
-      result = Array(NamedTuple(id: String)).from_json(response.body)
-      result.first?.try &.[](:id)
+      result = Array(NamedTuple(id: String, email: String?)).from_json(response.body)
+      result.find { |response| response[:email].try(&.downcase) == email }.try &.[](:id)
     end
   end
 
