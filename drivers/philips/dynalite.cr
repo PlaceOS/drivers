@@ -36,12 +36,15 @@ class Philips::Dynalite < PlaceOS::Driver
     # No response so we should update status here
     self["area#{area}"] = scene
 
-    scene = scene - 1
-    bank = scene // 8
-    scene = scene - (bank * 8)
+    # Crazy scene encoding
+    # Supports presets: 1 - 24 (0 indexed)
+    # Presets are in 1 of 3 banks (0 indexed)
+    # Presets in a bank are encoded: 0 = P1, 1 = P2, 2 = P3, 3 = P4, A = P5, B = P6, C = P7, D = P8
+    scene = scene - 1 # zero index
+    bank = scene // 8 # calculate bank this preset resides in
+    scene = scene - (bank * 8) # select the scene in the current bank
+    scene += 6 if scene >= 4 # encode the upper bank presets (P5 -> P8)
 
-    scene = scene - 4 + 0x0A if scene > 3
-    # high fade   #join (currently all in group)
     command = Bytes[0x1c, area & 0xFF, fade_centi & 0xFF, scene & 0xFF, (fade_centi >> 8) & 0xFF, bank, 0xFF]
     schedule.in((fade + 200).milliseconds) { get_light_level(area) }
 
