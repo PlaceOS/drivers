@@ -120,7 +120,7 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def create_user(body_json : String) : Nil
+  def create_user(body_json : String)
     response = post("/api/engine/v2/users", body: body_json, headers: authentication(HTTP::Headers{
       "Content-Type" => "application/json",
     }))
@@ -169,7 +169,7 @@ class Place::StaffAPI < PlaceOS::Driver
     offset : Int32 = 0,
     authority_id : String? = nil,
     include_deleted : Bool = false
-  ) : Nil
+  )
     placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
 
