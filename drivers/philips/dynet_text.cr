@@ -119,7 +119,7 @@ class Philips::DyNetText < PlaceOS::Driver
     when "channellevel", "stopfade"
       # we ignore this echo
     else
-      logger.debug { "ignorning message: #{message}" }
+      logger.debug { "ignorning message: #{message}, key: #{check_key.inspect}" }
     end
 
     # ignore unless sucess
