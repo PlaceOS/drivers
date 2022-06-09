@@ -77,11 +77,15 @@ class Philips::DyNetText < PlaceOS::Driver
 
     # For execute commands we consider complete once we get the OK message
     if message == "OK"
-      return unless task_name
-      case task_name
-      when .starts_with?("preset"), .starts_with?("level"), .starts_with?("stopfade"), "echo", "verbose", "replies", "join"
-        logger.debug { "execute #{task_name} success!" }
-        task.try(&.success)
+      if task && task_name
+        # We want to process replies completely (return the value)
+        # however we don't want to retry in case the target doesn't exist
+        if task_name.starts_with?("get_")
+          task.retries = 0
+        else
+          logger.debug { "execute #{task_name} success!" }
+          task.success
+        end
       end
       return
     end
@@ -106,17 +110,19 @@ class Philips::DyNetText < PlaceOS::Driver
       when .ends_with?("current preset")
         preset = parts.first_value.to_i
         area = parts["area"].to_i
-        area_key = "area#{area}"
+        join = get_join parts["join"]
+        area_key = join == 255 ? "area#{area}" : "area#{area}-#{join}"
         self[area_key] = preset
-        task.not_nil!.success(preset) if task_name == area_key
+        task.not_nil!.success(preset) if task_name == "get_#{area_key}"
       when .ends_with?("level ch")
         area = parts["area"].to_i
-        area_key = "area#{area}_level"
+        join = get_join parts["join"]
+        area_key = join == 255 ? "area#{area}_level" : "area#{area}-#{join}_level"
         level = parts["targlev"].to_i(strict: false)
         self[area_key] = level
-        task.not_nil!.success(level) if task_name == area_key
+        task.not_nil!.success(level) if task_name == "get_#{area_key}"
       end
-    when "channellevel", "stopfade"
+    when "channellevel", "stopfade", .starts_with?("requestcurrentpreset"), .starts_with?("requestchannellevel")
       # we ignore this echo
     else
       logger.debug { "ignorning message: #{message}, key: #{check_key.inspect}" }
@@ -130,6 +136,12 @@ class Philips::DyNetText < PlaceOS::Driver
     send telnet.prepare(command), **options
   end
 
+  protected def get_join(value : String)
+    value = value.rchop("hex")
+    value = value.lchop("0x")
+    value.to_i(16)
+  end
+
   def get_date
     do_send "RequestDate", name: :date
   end
@@ -138,30 +150,30 @@ class Philips::DyNetText < PlaceOS::Driver
     do_send "RequestTime", name: :time
   end
 
-  def trigger(area : UInt16, scene : UInt16, fade : UInt16 = 1000_u16)
-    do_send "Preset #{scene} #{area} #{fade}", name: "preset#{area}"
+  def trigger(area : UInt16, scene : UInt16, join : UInt8 = 0xFF_u8, fade : UInt32 = 1000_u32)
+    do_send "Preset #{scene} #{area} #{fade} #{join}", name: "preset#{area}_#{join}"
   end
 
-  def get_current_preset(area : UInt16)
-    do_send "RequestCurrentPreset #{area}", name: "area#{area}"
+  def get_current_preset(area : UInt16, join : UInt8 = 0xFF_u8)
+    do_send "RequestCurrentPreset #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}" : "get_area#{area}-#{join}")
   end
 
-  def lighting(area : UInt16, state : Bool, fade : UInt16 = 1000_u16)
-    light_level(area, state ? 100.0 : 0.0, fade)
+  def lighting(area : UInt16, state : Bool, join : UInt8 = 0xFF_u8, fade : UInt32 = 1000_u32)
+    light_level(area, state ? 100.0 : 0.0, join, fade)
   end
 
-  def light_level(area : UInt16, level : Float64, fade : UInt16 = 1000_u16, channel : UInt8 = 0_u8)
+  def light_level(area : UInt16, level : Float64, join : UInt8 = 0xFF_u8, fade : UInt32 = 1000_u32, channel : UInt16 = 0_u16)
     # channel 0 is all channels
     level = level.round_away.to_i
-    do_send "ChannelLevel #{channel} #{level.clamp(0, 100)} #{area} #{fade}", name: "level#{area}_#{channel}"
+    do_send "ChannelLevel #{channel} #{level.clamp(0, 100)} #{area} #{fade} #{join}", name: "level#{area}_#{channel}_#{join}"
   end
 
-  def get_light_level(area : UInt16, channel : UInt8 = 1_u8)
+  def get_light_level(area : UInt16, join : UInt8 = 0xFF_u8, channel : UInt16 = 1_u16)
     # can't request level of channel 0 (all channels) so we default to channel 1 which should always exist
-    do_send "RequestChannelLevel #{channel} #{area}", name: "area#{area}_level"
+    do_send "RequestChannelLevel #{channel} #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}_level" : "get_area#{area}-#{join}_level")
   end
 
-  def stop_fading(area : UInt16, channel : UInt8 = 0_u8)
-    do_send "StopFade #{channel} #{area}", name: "stopfade#{area}_#{channel}"
+  def stop_fading(area : UInt16, join : UInt8 = 0xFF_u8, channel : UInt16 = 0_u16)
+    do_send "StopFade #{channel} #{area} #{join}", name: "stopfade#{area}_#{join}_#{channel}"
   end
 end

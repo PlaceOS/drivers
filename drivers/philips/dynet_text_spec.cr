@@ -54,8 +54,8 @@ DriverSpecs.mock_driver "Philips::DyNetText" do
 
   # Execute some query requests
   resp = exec :get_current_preset, 58
-  should_send "RequestCurrentPreset 58\r\x00"
-  responds "RequestCurrentPreset 58\r\n"
+  should_send "RequestCurrentPreset 58 255\r\x00"
+  responds "RequestCurrentPreset 58 255\r\n"
   responds "OK\r\n"
   # yep, it sometimes replies with a leading null byte, just to screw up anyone dealing with this protocol in C
   responds "\x00Reply with Current Preset 2, Area 58, Join ffhex\r\n"
@@ -64,8 +64,8 @@ DriverSpecs.mock_driver "Philips::DyNetText" do
   status["area58"].should eq(2)
 
   resp = exec :get_light_level, 58
-  should_send "RequestChannelLevel 1 58\r\x00"
-  responds "RequestChannelLevel 1 58\r\n"
+  should_send "RequestChannelLevel 1 58 255\r\x00"
+  responds "RequestChannelLevel 1 58 255\r\n"
   responds "OK\r\n"
   responds "Reply with Current Level Ch 1, Area 58, TargLev 100%, CurrLev 100%, Join ffhex\r\n"
 
@@ -73,18 +73,18 @@ DriverSpecs.mock_driver "Philips::DyNetText" do
   status["area58_level"].should eq(100)
 
   # Execute some update requests
-  resp = exec :trigger, 70, 2, 1000
-  should_send "Preset 2 70 1000\r\x00"
-  responds "Preset 2 70 1000\r\n"
+  resp = exec :trigger, 70, 2
+  should_send "Preset 2 70 1000 255\r\x00"
+  responds "Preset 2 70 1000 255\r\n"
   responds "OK\r\n"
   responds "Preset 2, Area 70, Fade 1000, Join 0xff\r\n"
   resp.get
   sleep 100.milliseconds
   status["area70"].should eq(2)
 
-  resp = exec :light_level, 70, 90.1, 1000
-  should_send "ChannelLevel 0 90 70 1000\r\x00"
-  responds "ChannelLevel 0 100 70 1000\r\n"
+  resp = exec :light_level, 70, 90.1
+  should_send "ChannelLevel 0 90 70 1000 255\r\x00"
+  responds "ChannelLevel 0 100 70 1000 255\r\n"
   responds "OK\r\n"
   responds "Channel Level Channel 0, Level 90%, Area 70, Fade 1000, Join ffhex\r\n"
   resp.get
@@ -92,8 +92,8 @@ DriverSpecs.mock_driver "Philips::DyNetText" do
   status["area70_level"].should eq(90)
 
   resp = exec :stop_fading, 70
-  should_send "StopFade 0 70\r\x00"
-  responds "StopFade 0 70\r\n"
+  should_send "StopFade 0 70 255\r\x00"
+  responds "StopFade 0 70 255\r\n"
   responds "OK\r\n"
   resp.get
 
