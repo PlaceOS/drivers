@@ -57,7 +57,8 @@ DriverSpecs.mock_driver "Philips::DyNetText" do
   should_send "RequestCurrentPreset 58\r\x00"
   responds "RequestCurrentPreset 58\r\n"
   responds "OK\r\n"
-  responds "Reply with Current Preset 2, Area 58, Join ffhex\r\n"
+  # yep, it sometimes replies with a leading null byte, just to screw up anyone dealing with this protocol in C
+  responds "\x00Reply with Current Preset 2, Area 58, Join ffhex\r\n"
 
   resp.get.should eq 2
   status["area58"].should eq(2)

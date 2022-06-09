@@ -41,7 +41,7 @@ class Philips::DyNetText < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data).strip
+    data = String.new(data).strip("\x00\r\n\t ")
     return if data.empty?
 
     logger.debug { "Dynalite sent: #{data}" }
