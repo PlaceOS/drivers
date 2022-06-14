@@ -31,6 +31,9 @@ class Lutron::ViveBacnet < PlaceOS::Driver
     # Light level
     system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[2]") { |_sub, value| self[:lighting_level] = value.to_f }
 
+    # Total Power (in watts)
+    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[18]") { |_sub, value| self[:power_usage] = value.to_f }
+
     # lighting on / off
     system.subscribe(:BACnet, 1, "#{@device_id}.BinaryValue[3]") { |_sub, value| self[:lighting] = value == "1" }
 
