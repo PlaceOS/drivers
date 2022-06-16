@@ -32,7 +32,14 @@ class Qbic::TouchPanel < PlaceOS::Driver
     end
 
     schedule.clear
-    schedule.every(1.minute) { get_all_leds }
+    schedule.every(1.minute) do
+      logger.debug { "polling to check connectivity" }
+      resp = get("/v1/public/info/")
+      if resp.success?
+        logger.debug { resp.body }
+        get_all_leds
+      end
+    end
   end
 
   class FailureResponse
@@ -213,6 +220,7 @@ class Qbic::TouchPanel < PlaceOS::Driver
   def get_all_leds
     query("GET", "/v1/led") do |data|
       leds = NamedTuple(results: Array(String)).from_json(data.not_nil!)[:results]
+      self[:light_names] = leds
       leds.each { |name| get_led_state(name) }
       true
     end
