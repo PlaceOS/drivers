@@ -5,7 +5,7 @@ require "uri"
 
 class Qbic::TouchPanel < PlaceOS::Driver
   descriptive_name "Qbic Touch Panel"
-  generic_name :Display
+  generic_name :Panel
 
   default_settings({
     password: "12345678",
