@@ -1,6 +1,8 @@
 require "placeos-driver"
 require "./models"
 
+# docs: https://vergesense.readme.io/reference/reference-getting-started
+
 class Vergesense::VergesenseAPI < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Vergesense API"
@@ -137,6 +139,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         floor_space.name = remote_space.name if remote_space.name
         floor_space.capacity = remote_space.capacity if remote_space.capacity
         floor_space.max_capacity = remote_space.max_capacity if remote_space.max_capacity
+        floor_space.signs_of_life = remote_space.signs_of_life
       else
         floor.spaces << remote_space
       end

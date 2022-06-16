@@ -60,6 +60,7 @@ module Vergesense
     property environment : Environment?
     property timestamp : Time?
     property motion_detected : Bool?
+    property signs_of_life : Bool?
 
     def floor_key
       "#{building_ref_id}-#{floor_ref_id}".strip
