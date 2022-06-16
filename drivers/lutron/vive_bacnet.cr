@@ -34,6 +34,9 @@ class Lutron::ViveBacnet < PlaceOS::Driver
     # Total Power (in watts)
     system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[18]") { |_sub, value| self[:power_usage] = value.to_f }
 
+    # Max Power (in watts)
+    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[19]") { |_sub, value| self[:max_power_usage] = value.to_f }
+
     # lighting on / off
     system.subscribe(:BACnet, 1, "#{@device_id}.BinaryValue[3]") { |_sub, value| self[:lighting] = value == "1" }
 
@@ -58,6 +61,8 @@ class Lutron::ViveBacnet < PlaceOS::Driver
     schedule.clear
     schedule.every((4 + rand(3)).seconds) do
       bacnet.update_value(@device_id, 2, "AnalogValue").get
+      bacnet.update_value(@device_id, 18, "AnalogValue").get
+      bacnet.update_value(@device_id, 19, "AnalogValue").get
       bacnet.update_value(@device_id, 3, "BinaryValue").get
       bacnet.update_value(@device_id, 8, "MultiStateValue").get
     end
