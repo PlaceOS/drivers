@@ -97,6 +97,9 @@ class Place::Bookings < PlaceOS::Driver
 
     @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
 
+    # ensure current booking is updated at the start of every minute
+    schedule.cron("* * * * *") { check_current_booking }
+
     # Write to redis last on the off chance there is a connection issue
     self[:room_name] = setting?(String, :room_name).presence || config.control_system.not_nil!.display_name.presence || config.control_system.not_nil!.name
     self[:room_capacity] = setting?(Int32, :room_capacity) || config.control_system.not_nil!.capacity
