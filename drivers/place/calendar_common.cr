@@ -25,12 +25,13 @@ module Place::CalendarCommon
   macro included
     @client : PlaceCalendar::Client? = nil
     @service_account : String? = nil
-    @client_lock : Mutex = Mutex.new
     @rate_limit : Int32 = 3
     @channel : Channel(Nil) = Channel(Nil).new(3)
+    @in_flight : Channel(Nil) = Channel(Nil).new(4)
 
     @queue_lock : Mutex = Mutex.new
     @queue_size = 0
+    @flight_size = 0
     @wait_time : Time::Span = 300.milliseconds
 
     @mailer_from : String? = nil
@@ -61,15 +62,13 @@ module Place::CalendarCommon
     @mailer_from = setting?(String, :mailer_from).presence || @service_account
     @templates = setting?(Templates, :email_templates) || Templates.new
 
-    @client_lock.synchronize do
-      # Work around crystal limitation of splatting a union
-      @client = begin
-        config = setting(GoogleParams, :calendar_config)
-        PlaceCalendar::Client.new(**config)
-      rescue
-        config = setting(OfficeParams, :calendar_config)
-        PlaceCalendar::Client.new(**config)
-      end
+    # Work around crystal limitation of splatting a union
+    @client = begin
+      config = setting(GoogleParams, :calendar_config)
+      PlaceCalendar::Client.new(**config)
+    rescue
+      config = setting(OfficeParams, :calendar_config)
+      PlaceCalendar::Client.new(**config)
     end
   end
 
@@ -77,16 +76,27 @@ module Place::CalendarCommon
     if (@wait_time * @queue_size) > 90.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end
+
     @queue_lock.synchronize { @queue_size += 1 }
-    @client_lock.synchronize do
-      @channel.receive
-      @queue_lock.synchronize { @queue_size -= 1 }
-      yield @client.not_nil!
+    @channel.receive
+    @in_flight.send(nil)
+
+    begin
+      @queue_lock.synchronize { @queue_size -= 1; @flight_size += 1 }
+      result = yield @client.not_nil!
+      result
+    ensure
+      @in_flight.receive
+      @queue_lock.synchronize { @flight_size -= 1 }
     end
   end
 
   def queue_size
     @queue_size
+  end
+
+  def in_flight_size
+    @flight_size
   end
 
   def generate_svg_qrcode(text : String) : String
@@ -277,6 +287,11 @@ module Place::CalendarCommon
   protected def rate_limiter
     loop do
       begin
+        # ensure there is an available slot before allowing more requests
+        @in_flight.send(nil)
+        @in_flight.receive
+
+        # allow more requests through
         @channel.send(nil)
       rescue error
         logger.error(exception: error) { "issue with rate limiter" }
