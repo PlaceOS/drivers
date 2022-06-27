@@ -1,9 +1,9 @@
-require "./calendar_common"
+require "../place/calendar_common"
 
-class Place::Calendar < PlaceOS::Driver
+class Place::WorkspaceAPI < PlaceOS::Driver
   include Place::CalendarCommon
 
-  descriptive_name "PlaceOS Calendar"
+  descriptive_name "Google Workplace APIs"
   generic_name :Calendar
 
   uri_base "https://staff.app.api.com"
@@ -16,13 +16,6 @@ class Place::Calendar < PlaceOS::Driver
       sub:         "default.service.account@google.com",
       issuer:      "placeos@organisation.iam.gserviceaccount.com",
       signing_key: "PEM encoded private key",
-    },
-    calendar_config_office: {
-      _note_:          "rename to 'calendar_config' for use",
-      tenant:          "",
-      client_id:       "",
-      client_secret:   "",
-      conference_type: nil, # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
     },
     rate_limit: 5,
 

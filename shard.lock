@@ -203,7 +203,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.7.2
+    version: 2.7.1
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git

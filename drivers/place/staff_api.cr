@@ -120,12 +120,33 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def create_user(body_json : String)
+    response = post("/api/engine/v2/users", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+    raise "failed to create user: #{response.status_code}" unless response.success?
+    PlaceOS::Client::API::Models::User.from_json response.body
+  end
+
+  @[Security(Level::Support)]
   def update_user(id : String, body_json : String) : Nil
     response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: authentication(HTTP::Headers{
       "Content-Type" => "application/json",
     }))
 
-    raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
+    raise "failed to update user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def delete_user(id : String, force_removal : Bool = false) : Nil
+    response = delete("/api/engine/v2/users/#{id}?force_removal=#{force_removal}", headers: authentication)
+    raise "failed to delete user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def revive_user(id : String) : Nil
+    response = post("/api/engine/v2/users/#{id}/revive", headers: authentication)
+    raise "failed to revive user #{id}: #{response.status_code}" unless response.success?
   end
 
   @[Security(Level::Support)]
@@ -146,9 +167,10 @@ class Place::StaffAPI < PlaceOS::Driver
     q : String? = nil,
     limit : Int32 = 20,
     offset : Int32 = 0,
-    authority_id : String? = nil
-  ) : Nil
-    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id)
+    authority_id : String? = nil,
+    include_deleted : Bool = false
+  )
+    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
 
   # ===================================
@@ -236,7 +258,7 @@ class Place::StaffAPI < PlaceOS::Driver
   # The service account making this request needs delegated access and hence you can only edit
   # events associated with a resource calendar
   def update_event(system_id : String, event : PlaceCalendar::Event)
-    response = put("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
+    response = patch("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     PlaceCalendar::Event.from_json(response.body)
