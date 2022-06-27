@@ -55,11 +55,11 @@ shards:
 
   debug:
     git: https://github.com/sija/debug.cr.git
-    version: 2.0.1
+    version: 2.0.2
 
   defined:
     git: https://github.com/wyhaines/defined.cr.git
-    version: 0.3.4
+    version: 0.3.6
 
   dtls:
     git: https://github.com/spider-gazelle/crystal-dtls.git
@@ -91,7 +91,7 @@ shards:
 
   google:
     git: https://github.com/placeos/google.git
-    version: 3.3.1
+    version: 3.4.0
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -116,6 +116,10 @@ shards:
   ipaddress:
     git: https://github.com/sija/ipaddress.cr.git
     version: 0.2.1
+
+  json-merge-patch:
+    git: https://github.com/caspiano/json-merge-patch.git
+    version: 0.1.1
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -147,7 +151,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.11.0
+    version: 1.12.0
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -155,7 +159,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.17.2
+    version: 1.18.0
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -171,11 +175,11 @@ shards:
 
   opentelemetry-api:
     git: https://github.com/wyhaines/opentelemetry-api.cr.git
-    version: 0.3.0
+    version: 0.3.4
 
   opentelemetry-instrumentation:
     git: https://github.com/wyhaines/opentelemetry-instrumentation.cr.git
-    version: 0.3.2+git.commit.47a7b5c243edf08dd9f7a4e2270a7698489dcb1b
+    version: 0.3.5
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
@@ -195,11 +199,11 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.14.0
+    version: 4.15.4
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.7.0
+    version: 2.7.2
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -211,15 +215,15 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.3.7
+    version: 6.3.8
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
-    version: 0.10.2
+    version: 0.10.5
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 8.9.1
+    version: 8.11.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -236,6 +240,10 @@ shards:
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
     version: 1.0.2
+
+  quantum:
+    git: https://github.com/place-technology/quantum.git
+    version: 0.1.1
 
   rate_limiter:
     git: https://github.com/lbarasti/rate_limiter.git
