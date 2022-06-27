@@ -126,6 +126,7 @@ class Vergesense::LocationService < PlaceOS::Driver
           area_humidity:         humidity,
           area_temperature:      temperature,
           area_air_quality:      iaq,
+          signs_of_life:         space.signs_of_life,
         }
       end
     end
