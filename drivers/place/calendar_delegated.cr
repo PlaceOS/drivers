@@ -268,6 +268,8 @@ STRING
     raise "error fetching user details: #{response.status} (response.status_code)\n#{response.body}" unless response.success?
     user = User.from_json(response.body)
 
+    logger.debug { "generating JWT for #{user.email}" }
+
     payload = {
       iss:   "POS",
       iat:   5.minutes.ago.to_unix,
