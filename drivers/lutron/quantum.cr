@@ -13,7 +13,7 @@ class Lutron::Quantum < PlaceOS::Driver
     device_key: "ab22c585-14e6-4c6b-b418-166728bcc608",
   })
 
-  @client : Client = Client.new(host_name: "", api_key: "", device_key: "")
+  protected getter! client : Client
 
   def on_load
     on_update
@@ -28,27 +28,27 @@ class Lutron::Quantum < PlaceOS::Driver
   end
 
   def level?(id : Int32)
-    status = @client.zone.get_status(id)
-    self["area#{id}_level"] = status["Level"]
+    status = @client.try(&.zone.get_status(id))
+    self["area#{id}_level"] = status.try(&.["Level"])
   end
 
   def level(id : Int32, level : String)
-    @client.zone.set_status_level(id: id, level: level)
+    @client.try(&.zone.set_status_level(id: id, level: level))
     self["area#{id}_level"] = level
   end
 
   def scene(id : Int32, scene : Int32)
-    @client.area.set_scene(id: id, scene: scene)
+    @client.try(&.area.set_scene(id: id, scene: scene))
     self["area#{id}"] = scene
   end
 
   def scene?(id : Int32)
-    status = @client.area.get_status(id: id)
-    self["area#{id}"] = status["CurrentScene"]
+    status = @client.try(&.area.get_status(id: id))
+    self["area#{id}"] = status.try(&.["CurrentScene"])
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def scenes(id : Int32)
-    @client.area.get_scenes(id: id)
+    @client.try(&.area.get_scenes(id: id))
   end
 end
