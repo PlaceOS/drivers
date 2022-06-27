@@ -25,7 +25,7 @@ services:
     environment:
       <<: *build-client-env
       CI: ${CI:-}
-      CRYSTAL_PATH: lib:/lib/local-shards
+      CRYSTAL_PATH: lib:/lib/local-shards:/usr/share/crystal/src
       REDIS_URL: redis://redis:6379
       TZ: $TZ
 
