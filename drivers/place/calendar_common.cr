@@ -152,7 +152,13 @@ module Place::CalendarCommon
   @[PlaceOS::Driver::Security(Level::Support)]
   def get_groups(user_id : String)
     logger.debug { "getting group membership for user: #{user_id}" }
-    client &.get_groups(user_id)
+
+    if @client.not_nil!.client_id == :office365
+      # Get groups will execute against the users mailbox and hence doesn't require rate limiting
+      @client.not_nil!.get_groups(user_id)
+    else
+      client &.get_groups(user_id)
+    end
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
