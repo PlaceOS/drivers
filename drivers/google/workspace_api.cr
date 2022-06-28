@@ -17,7 +17,7 @@ class Place::WorkspaceAPI < PlaceOS::Driver
       issuer:      "placeos@organisation.iam.gserviceaccount.com",
       signing_key: "PEM encoded private key",
     },
-    rate_limit: 5,
+    rate_limit: 9,
 
     # defaults to calendar_service_account if not configured
     mailer_from:     "email_or_office_userPrincipalName",
