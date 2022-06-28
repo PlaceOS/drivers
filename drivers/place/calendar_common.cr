@@ -25,9 +25,9 @@ module Place::CalendarCommon
   macro included
     @client : PlaceCalendar::Client? = nil
     @service_account : String? = nil
-    @rate_limit : Int32 = 3
-    @channel : Channel(Nil) = Channel(Nil).new(3)
-    @in_flight : Channel(Nil) = Channel(Nil).new(4)
+    @rate_limit : Int32 = 10
+    @channel : Channel(Nil) = Channel(Nil).new(9)
+    @in_flight : Channel(Nil) = Channel(Nil).new(10)
 
     @queue_lock : Mutex = Mutex.new
     @queue_size = 0
@@ -73,6 +73,11 @@ module Place::CalendarCommon
   end
 
   protected def client
+    # office365 execute queries against the users mailbox and hence doesn't require rate limiting
+    if @client.not_nil!.client_id == :office365
+      return yield(@client.not_nil!)
+    end
+
     if (@wait_time * @queue_size) > 90.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end
@@ -152,13 +157,7 @@ module Place::CalendarCommon
   @[PlaceOS::Driver::Security(Level::Support)]
   def get_groups(user_id : String)
     logger.debug { "getting group membership for user: #{user_id}" }
-
-    if @client.not_nil!.client_id == :office365
-      # Get groups will execute against the users mailbox and hence doesn't require rate limiting
-      @client.not_nil!.get_groups(user_id)
-    else
-      client &.get_groups(user_id)
-    end
+    client &.get_groups(user_id)
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
@@ -227,11 +226,22 @@ module Place::CalendarCommon
 
     logger.debug { "listing events for #{calendar_id}" }
 
-    client &.list_events(user_id, calendar_id,
-      period_start: period_start,
-      period_end: period_end,
-      showDeleted: include_cancelled
-    )
+    _client = @client.not_nil!
+    if _client.client_id == :google
+      _client.calendar.as(PlaceCalendar::Google).list_events(user_id, calendar_id,
+        period_start: period_start,
+        period_end: period_end,
+        showDeleted: include_cancelled,
+        # https://cloud.google.com/apis/docs/system-parameters (avoid hitting request quotas in common driver usage)
+        quotaUser: calendar_id[0..39]
+      )
+    else
+      _client.list_events(user_id, calendar_id,
+        period_start: period_start,
+        period_end: period_end,
+        showDeleted: include_cancelled
+      )
+    end
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
