@@ -188,15 +188,15 @@ class Place::Bookings < PlaceOS::Driver
     check_for_sensors if @perform_sensor_search
 
     now = Time.local @time_zone
-    start_of_week = now.at_beginning_of_week.to_unix
-    four_weeks_time = start_of_week + @cache_days.to_i
+    start_of_day = now.at_beginning_of_day.to_unix
+    cache_period = start_of_day + @cache_days.to_i
 
-    logger.debug { "polling events #{@calendar_id}, from #{start_of_week}, to #{four_weeks_time}, in #{@time_zone.name}" }
+    logger.debug { "polling events #{@calendar_id}, from #{start_of_day}, to #{cache_period}, in #{@time_zone.name}" }
 
     events = calendar.list_events(
       @calendar_id,
-      start_of_week,
-      four_weeks_time,
+      start_of_day,
+      cache_period,
       @time_zone.name,
       include_cancelled: @include_cancelled_bookings
     ).get
