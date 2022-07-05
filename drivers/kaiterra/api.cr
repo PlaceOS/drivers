@@ -22,20 +22,20 @@ class Kaiterra::API < PlaceOS::Driver
 
   TIME_FORMAT = "%m/%d/%Y %H:%M%S"
 
-  # Supported values for query string parameter Air Quality Index
-  enum AQI
-    Cn
-    In
-    Us
-  end
-
   def on_load
     on_update
   end
 
   def on_update
     @api_key = setting?(String, :api_key) || ""
-    @device_ids = setting?(device_ids, :api_key) || [] of String
+    @device_ids = setting?(Array(String), :device_ids) || [] of String
+  end
+
+  # Supported values for query string parameter Air Quality Index
+  enum AQI
+    Cn
+    In
+    Us
   end
 
   enum Param
