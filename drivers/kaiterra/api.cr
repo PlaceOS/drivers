@@ -54,8 +54,8 @@ class Kaiterra::API < PlaceOS::Driver
     X # Count of something, such as readings in a sampling interval
     Percentage # % => Percentage, as with relative humidity
 
-    def self.new(pull : JSON::PullParser)
-      case string = pull.read_string
+    def self.parse(string)
+      case string
     	when "µg/m³"
         Unit::MicrogramsPerCubicMeter
       when "mg/m³"
@@ -65,6 +65,10 @@ class Kaiterra::API < PlaceOS::Driver
       else
         self.parse(string)
       end
+    end
+
+    def self.new(pull : JSON::PullParser)
+      self.parse(pull.read_string)
     end
 
     def to_s
