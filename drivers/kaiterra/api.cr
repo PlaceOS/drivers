@@ -102,7 +102,7 @@ class Kaiterra::API < PlaceOS::Driver
   end
 
   def get_devices(id : String)
-    get_request("/devices/#{id}/top")
+    response = get_request("/devices/#{id}/top")
     Response.from_json(response.body)
   end
 
