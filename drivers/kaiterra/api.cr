@@ -66,6 +66,19 @@ class Kaiterra::API < PlaceOS::Driver
         self.parse(string)
       end
     end
+
+    def to_s
+      case self
+      when Unit::MicrogramsPerCubicMeter
+        "µg/m³"
+      when Unit::MilligramsPerCubicMeter
+        "mg/m³"
+      when Unit::Percentage
+        "%"
+      else
+        self.to_s
+      end
+    end
   end
 
   class Response
