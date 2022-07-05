@@ -11,7 +11,6 @@ DriverSpecs.mock_driver "Kaiterra::API" do
     device_ids: device_ids
   })
 
-
   exec(:get_devices, device_ids[0])
 
   expect_http_request do |request, response|
