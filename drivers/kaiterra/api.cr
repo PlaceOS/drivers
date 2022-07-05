@@ -6,15 +6,11 @@ class Kaiterra::API < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Kaiterra API"
   generic_name :Control
-  uri_base "https://api.kaiterra.com/v1/"
+  uri_base "https://api.kaiterra.com/v1"
 
   default_settings({
     api_key: "",
     device_ids: [] of String
-    # device_ids: [
-    #   "00000000-0031-0101-0000-00007e57c0de",
-    #   "0000000000010101000000007e57c0de"
-    # ]
   })
 
   @api_key : String = ""
@@ -57,6 +53,17 @@ class Kaiterra::API < PlaceOS::Driver
     F # Degrees Fahrenheit
     X # Count of something, such as readings in a sampling interval
     Percentage # % => Percentage, as with relative humidity
+
+    def self.parse(string)
+      case string
+      when "µg/m³"
+        Unit::MicrogramsPerCubicMeter
+      when "mg/m³"
+        Unit::MilligramsPerCubicMeter
+      else
+        self.parse(string)
+      end
+    end
   end
 
   class Response
@@ -70,12 +77,17 @@ class Kaiterra::API < PlaceOS::Driver
 
     property param : Param
     property units : Unit
-    property source : String? # The module that captured the parameter reading
+    property source : String? = nil # The module that captured the parameter reading
     property span : Int64 # The sampling interval, in seconds, over which this measurement was taken
     property points : Array(JSON::Any::Type)
   end
 
-  def get_request(path : String, aqi : AQI)
+  def get_devices(id : String)
+    get_request("/devices/#{id}/top")
+    Response.from_json(response.body)
+  end
+
+  def get_request(path : String, aqi : AQI? = nil)
     # Recommended to use these headers in docs
     headers = {
       "Accept-Encoding" => "gzip",
