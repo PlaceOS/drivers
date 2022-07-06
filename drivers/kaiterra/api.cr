@@ -109,9 +109,8 @@ class Kaiterra::API < PlaceOS::Driver
   def get_request(path : String, aqi : AQI? = nil)
     # Recommended to use these headers in docs
     headers = {
-      "Accept-Encoding" => "gzip",
-      "Content-Encoding" => "UTF-8"
+      "Accept-Encoding" => "gzip"
     }
-    get(path, headers: headers)
+    get("#{path}?api-key=#{@api_key}", headers: headers)
   end
 end
