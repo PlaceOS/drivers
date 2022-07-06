@@ -106,11 +106,40 @@ class Kaiterra::API < PlaceOS::Driver
     Response.from_json(response.body)
   end
 
-  def get_request(path : String, aqi : AQI? = nil)
-    # Recommended to use these headers in docs
-    headers = {
-      "Accept-Encoding" => "gzip"
-    }
+  class Request
+    include JSON::Serializable
+
+    property method : String
+    property relative_url : String
+    property headers : JSON::Any::Type?
+    property body : String?
+  end
+
+  class BatchResponse
+    include JSON::Serializable
+
+    property body : String
+    property code : Int64
+  end
+
+  def batch(body : Array(Request), include_headers : Bool = false)
+    response = get_request(
+      "/batch?include_headers=#{include_headers}",
+      headers: {
+        "Content-Type" => "application/json",
+        "Content-Encoding" => "UTF-8"
+      }
+    )
+    Array(BatchResponse).from_json(response.body)
+  end
+
+  private def get_request(
+    path : String,
+    aqi : AQI? = nil,
+    headers : Hash(String, String) = {} of String => String
+  )
+    # Recommended to use this header in docs
+    headers["Accept-Encoding"] = "gzip"
     get("#{path}?api-key=#{@api_key}", headers: headers)
   end
 end
