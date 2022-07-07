@@ -14,8 +14,6 @@ class Kaiterra::API < PlaceOS::Driver
 
   @api_key : String = ""
 
-  TIME_FORMAT = "%m/%d/%Y %H:%M%S"
-
   def on_load
     on_update
   end
@@ -108,7 +106,8 @@ class Kaiterra::API < PlaceOS::Driver
 
     property method : String
     property relative_url : String
-    property headers : JSON::Any::Type?
+    # headers (json, optional) - A JSON array of header description objects, each of which has a name and value object
+    property headers : Array(NamedTuple(name: String, value: String))?
     property body : String?
   end
 

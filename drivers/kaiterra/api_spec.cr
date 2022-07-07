@@ -14,37 +14,35 @@ DriverSpecs.mock_driver "Kaiterra::API" do
 
   exec(:get_devices, device_ids[0])
 
-  expect_http_request do |request, response|
-    if request.query_params["api-key"] = api_key
-      response.status_code = 200
-      response << %({
-        "data": [
-          {
-            "param": "rpm25c",
-            "units": "µg/m³",
-            "source": "km100",
-            "span": 60,
-            "points": [
-              {
-                  "ts": "2020-06-17T03:40:00Z",
-                  "value": 120
-              }
-            ]
-          },
-          {
-            "param": "rtemp",
-            "units": "%",
-            "span": 60,
-            "points": [
-              {
-                  "ts": "2020-06-17T03:40:00Z",
-                  "value": 62
-              }
-            ]
-          }
-        ]
-      })
-    end
+  expect_http_request do |_, response|
+    response.status_code = 200
+    response << %({
+      "data": [
+        {
+          "param": "rpm25c",
+          "units": "µg/m³",
+          "source": "km100",
+          "span": 60,
+          "points": [
+            {
+                "ts": "2020-06-17T03:40:00Z",
+                "value": 120
+            }
+          ]
+        },
+        {
+          "param": "rtemp",
+          "units": "%",
+          "span": 60,
+          "points": [
+            {
+                "ts": "2020-06-17T03:40:00Z",
+                "value": 62
+            }
+          ]
+        }
+      ]
+    })
   end
 
   body = Array(Kaiterra::API::Request).from_json(%([
@@ -58,11 +56,9 @@ DriverSpecs.mock_driver "Kaiterra::API" do
     }
   ]))
 
-  puts body.inspect
-
   exec(:batch, body, true)
 
-  expect_http_request do |request, response|
+  expect_http_request do |_, response|
     response.status_code = 200
     response << %([
       {
