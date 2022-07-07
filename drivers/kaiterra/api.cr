@@ -9,7 +9,7 @@ class Kaiterra::API < PlaceOS::Driver
   uri_base "https://api.kaiterra.com/v1"
 
   default_settings({
-    api_key: ""
+    api_key: "",
   })
 
   @api_key : String = ""
@@ -30,33 +30,33 @@ class Kaiterra::API < PlaceOS::Driver
   end
 
   enum Param
-    Rco2 # Carbon dioxide
-    Ro3 # Ozone
+    Rco2   # Carbon dioxide
+    Ro3    # Ozone
     Rpm25c # PM2.5
     Rpm10c # PM10
     Rhumid # Relative humidity
-    Rtemp # Temperature
-    Rtvoc # Total Volatile Organic Compounds (TVOC)
+    Rtemp  # Temperature
+    Rtvoc  # Total Volatile Organic Compounds (TVOC)
   end
 
   enum Unit
-    Ppm # Parts per million (volumetric concentration)
-    Ppb # Parts per billion
+    Ppm                     # Parts per million (volumetric concentration)
+    Ppb                     # Parts per billion
     MicrogramsPerCubicMeter # µg/m³ => Micrograms per cubic meter (mass concentration)
     MilligramsPerCubicMeter # mg/m³	=> Milligrams per cubic meter
-    C # Degrees Celsius
-    F # Degrees Fahrenheit
-    X # Count of something, such as readings in a sampling interval
-    Percentage # % => Percentage, as with relative humidity
+    C                       # Degrees Celsius
+    F                       # Degrees Fahrenheit
+    X                       # Count of something, such as readings in a sampling interval
+    Percentage              # % => Percentage, as with relative humidity
 
     def self.parse(string)
       case string
-    	when "µg/m³"
+      when "µg/m³"
         Unit::MicrogramsPerCubicMeter
       when "mg/m³"
         Unit::MilligramsPerCubicMeter
-    	when "%"
-    		Unit::Percentage
+      when "%"
+        Unit::Percentage
       else
         self.parse(string)
       end
@@ -92,7 +92,7 @@ class Kaiterra::API < PlaceOS::Driver
     property param : Param
     property units : Unit
     property source : String? # The module that captured the parameter reading
-    property span : Int64 # The sampling interval, in seconds, over which this measurement was taken
+    property span : Int64     # The sampling interval, in seconds, over which this measurement was taken
     property points : Array(JSON::Any::Type)
   end
 
@@ -122,8 +122,8 @@ class Kaiterra::API < PlaceOS::Driver
     response = get_request(
       "/batch?include_headers=#{include_headers}",
       headers: {
-        "Content-Type" => "application/json",
-        "Content-Encoding" => "UTF-8"
+        "Content-Type"     => "application/json",
+        "Content-Encoding" => "UTF-8",
       }
     )
     Array(BatchResponse).from_json(response.body)
