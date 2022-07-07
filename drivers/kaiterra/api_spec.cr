@@ -9,8 +9,7 @@ DriverSpecs.mock_driver "Kaiterra::API" do
   api_key = "apikey"
 
   settings({
-    api_key: api_key,
-    device_ids: device_ids
+    api_key: api_key
   })
 
   exec(:get_devices, device_ids[0])

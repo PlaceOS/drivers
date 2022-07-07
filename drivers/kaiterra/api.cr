@@ -9,12 +9,10 @@ class Kaiterra::API < PlaceOS::Driver
   uri_base "https://api.kaiterra.com/v1"
 
   default_settings({
-    api_key: "",
-    device_ids: [] of String
+    api_key: ""
   })
 
   @api_key : String = ""
-  @device_ids : Array(String) = [] of String
 
   TIME_FORMAT = "%m/%d/%Y %H:%M%S"
 
@@ -24,7 +22,6 @@ class Kaiterra::API < PlaceOS::Driver
 
   def on_update
     @api_key = setting?(String, :api_key) || ""
-    @device_ids = setting?(Array(String), :device_ids) || [] of String
   end
 
   # Supported values for query string parameter Air Quality Index
