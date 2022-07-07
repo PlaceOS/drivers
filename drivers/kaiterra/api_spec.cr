@@ -14,7 +14,8 @@ DriverSpecs.mock_driver "Kaiterra::API" do
 
   exec(:get_devices, device_ids[0])
 
-  expect_http_request do |_, response|
+  expect_http_request do |request, response|
+    request.query_params["api-key"].should eq(api_key)
     response.status_code = 200
     response << %({
       "data": [
@@ -55,10 +56,12 @@ DriverSpecs.mock_driver "Kaiterra::API" do
       "relative_url": "/devices/00000000-0031-0001-0000-00007e57c0de/top"
     }
   ]))
+  params = {"include_headers" => "true"}
+  exec(:batch, body, params)
 
-  exec(:batch, body, true)
-
-  expect_http_request do |_, response|
+  expect_http_request do |request, response|
+    puts request.query_params
+    request.query_params["include_headers"].should eq("true")
     response.status_code = 200
     response << %([
       {

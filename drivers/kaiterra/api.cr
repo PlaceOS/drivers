@@ -22,13 +22,6 @@ class Kaiterra::API < PlaceOS::Driver
     @api_key = setting?(String, :api_key) || ""
   end
 
-  # Supported values for query string parameter Air Quality Index
-  enum AQI
-    Cn
-    In
-    Us
-  end
-
   enum Param
     Rco2   # Carbon dioxide
     Ro3    # Ozone
@@ -96,8 +89,8 @@ class Kaiterra::API < PlaceOS::Driver
     property points : Array(JSON::Any::Type)
   end
 
-  def get_devices(id : String)
-    response = get_request("/devices/#{id}/top")
+  def get_devices(id : String, params : Hash(String, String) = {} of String => String)
+    response = get_request("/devices/#{id}/top", params)
     Response.from_json(response.body)
   end
 
@@ -118,9 +111,9 @@ class Kaiterra::API < PlaceOS::Driver
     property code : Int64
   end
 
-  def batch(body : Array(Request), include_headers : Bool = false)
-    response = get_request(
-      "/batch?include_headers=#{include_headers}",
+  def batch(body : Array(Request), params : Hash(String, String) = {} of String => String)
+    response = get_request("/batch",
+      params,
       headers: {
         "Content-Type"     => "application/json",
         "Content-Encoding" => "UTF-8",
@@ -131,11 +124,13 @@ class Kaiterra::API < PlaceOS::Driver
 
   private def get_request(
     path : String,
-    aqi : AQI? = nil,
+    params : Hash(String, String) = {} of String => String,
     headers : Hash(String, String) = {} of String => String
   )
+    params["api-key"] = @api_key
+    encoded_params = URI::Params.encode(params)
     # Recommended to use this header in docs
     headers["Accept-Encoding"] = "gzip"
-    get("#{path}?api-key=#{@api_key}", headers: headers)
+    get("#{path}?#{encoded_params}", headers: headers)
   end
 end
