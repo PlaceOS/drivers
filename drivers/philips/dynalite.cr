@@ -1,9 +1,14 @@
 require "placeos-driver"
+require "placeos-driver/interface/lighting"
 
 # Documentation: https://aca.im/driver_docs/Philips/Dynet%20Integrators%20hand%20book%20for%20the%20DNG232%20V2.pdf
 #  also https://aca.im/driver_docs/Philips/DyNet%201%20Opcode%20Master%20List%20-%202012-08-29.xls
 
 class Philips::Dynalite < PlaceOS::Driver
+  include Interface::Lighting::Scene
+  include Interface::Lighting::Level
+  alias Area = Interface::Lighting::Area
+
   # Discovery Information
   descriptive_name "Philips Dynalite Lighting"
   generic_name :Lighting
@@ -183,5 +188,37 @@ class Philips::Dynalite < PlaceOS::Driver
     logger.debug { "sending: 0x#{command.hexstring}" }
 
     send(command, **options)
+  end
+
+  # ==================
+  # Lighting Interface
+  # ==================
+  protected def check_arguments(area : Area?)
+    area_id = area.try(&.id)
+    # area_join = area.try(&.join) || 0xFF_u32
+    raise ArgumentError.new("area.id required, area.join defaults to 0xFF") unless area_id
+    area_id.to_i
+  end
+
+  def set_lighting_scene(scene : UInt32, area : Area? = nil, fade_time : UInt32 = 1000_u32)
+    area_id = check_arguments area
+    trigger(area_id, scene.to_i, fade_time.to_i)
+  end
+
+  def lighting_scene?(area : Area? = nil)
+    area_id = check_arguments area
+    get_current_preset(area_id.to_i)
+  end
+
+  def set_lighting_level(level : Float64, area : Area? = nil, fade_time : UInt32 = 1000_u32)
+    area_id = check_arguments area
+    area_channel = area.try(&.channel) || 0xFF_u32
+    light_level(area_id, level, fade_time.to_i, area_channel.to_i)
+  end
+
+  def lighting_level?(area : Area? = nil)
+    area_id = check_arguments area
+    area_channel = area.try(&.channel) || 0xFF_u32
+    get_light_level(area_id, area_channel.to_i)
   end
 end
