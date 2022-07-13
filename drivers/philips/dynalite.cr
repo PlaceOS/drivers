@@ -39,7 +39,7 @@ class Philips::Dynalite < PlaceOS::Driver
     fade_centi = fade // 10
 
     # No response so we should update status here
-    self["area#{area}"] = scene
+    self[Area.new(area.to_u32)] = scene
 
     # Crazy scene encoding
     # Supports presets: 1 - 24 (0 indexed)
@@ -90,13 +90,8 @@ class Philips::Dynalite < PlaceOS::Driver
            end
 
     # Ensure status values are valid
-    if channel == 0xFF # Area (all channels)
-      self["area#{area}_level"] = level
-    else
-      self["area#{area}_chan#{channel}_level"] = level
-      # 0 indexed but human counted
-      channel = channel - 1
-    end
+    area_key = Area.new(area.to_u32, channel: channel == 0xFF ? nil : channel.to_u32).append("level").to_s
+    self[area_key] = level
 
     # Levels are percentage based (on the PlaceOS side)
     # 0x01 == 100%
@@ -109,7 +104,6 @@ class Philips::Dynalite < PlaceOS::Driver
   end
 
   def stop_fading(area : Int32, channel : Int32 = 0xFF)
-    channel -= 1 unless channel == 0xFF
     command = Bytes[0x1c, area & 0xFF, channel & 0xFF, 0x76, 0, 0, 0xFF]
     do_send(command, name: "level_#{area}_#{channel}")
   end
@@ -120,7 +114,6 @@ class Philips::Dynalite < PlaceOS::Driver
   end
 
   def get_light_level(area : Int32, channel : Int32 = 0xFF)
-    channel -= 1 unless channel == 0xFF
     do_send(Bytes[0x1c, area & 0xFF, channel & 0xFF, 0x61, 0, 0, 0xFF], wait: true)
   end
 
@@ -149,13 +142,13 @@ class Philips::Dynalite < PlaceOS::Driver
 
       # Data 4 represets the preset offset or bank
       number += data[5] * 8 + 1
-      self["area#{data[1]}"] = number
+      self[Area.new(data[1].to_u32)] = number
       task.try &.success(number)
 
       # alternative preset response
     when 0x62
       number = data[2] + 1
-      self["area#{data[1]}"] = number
+      self[Area.new(data[1].to_u32)] = number
       task.try &.success(number)
       # level response (area or channel)
     when 0x60
@@ -165,12 +158,10 @@ class Philips::Dynalite < PlaceOS::Driver
       # 0xFF == 0%
       level = 0xFF - level
       level = level / LEVEL_PERCENTAGE
+      channel = data[2].to_u32
+      area_key = Area.new(data[1].to_u32, channel: channel == 0xFF_u32 ? nil : channel).append("level").to_s
+      self[area_key] = level
 
-      if data[2] == 0xFF # Area (all channels)
-        self["area#{data[1]}_level"] = level
-      else
-        self["area#{data[1]}_chan#{data[2] + 1}_level"] = level
-      end
       task.try &.success(level)
     else
       task.try &.success
@@ -196,7 +187,7 @@ class Philips::Dynalite < PlaceOS::Driver
   protected def check_arguments(area : Area?)
     area_id = area.try(&.id)
     # area_join = area.try(&.join) || 0xFF_u32
-    raise ArgumentError.new("area.id required, area.join defaults to 0xFF") unless area_id
+    raise ArgumentError.new("area.id required") unless area_id
     area_id.to_i
   end
 
