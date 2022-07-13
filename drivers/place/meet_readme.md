@@ -495,3 +495,38 @@ join_modes:
           arguments: ["Join-all"]
 
 ```
+
+## Lighting Config
+
+There are two lighting modes:
+
+* independent rooms (even when linked, each room controls it's lighting area, we manually sync them)
+* joining rooms (a single request will change the scene in all linked rooms)
+
+```yaml
+
+# scenes are often the same across many rooms, so should be applied to a zone
+lighting_scenes:
+  - id: 1
+    name: Full
+    icon: lightbulb
+    opacity: 1.0
+  - id: 2
+    name: Medium
+    icon: lightbulb
+    opacity: 0.5
+  - id: 3
+    name: Off
+    icon: lightbulb_outline
+    opacity: 0.8
+
+# Each room typically will have its own area or grouping, so apply this at the system level
+lighting_area:
+  id: 23
+  # join: 0xFF (only if required by the driver)
+  # channel: 3 (only if required by the driver)
+  # component: "Lighting" (only if required by the driver)
+
+# Typically set to false if using the `join` field in `lighting_area`
+lighting_independent: true
+```
