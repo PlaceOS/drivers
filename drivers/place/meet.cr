@@ -698,10 +698,13 @@ class Place::Meet < PlaceOS::Driver
     self[:microphones] = @available_mics.map do |mic|
       level_id = mic.level_id
       mute_id = mic.mute_id
+      level_array = level_id.is_a?(Array) ? level_id : [level_id]
+      mute_array = mute_id.is_a?(Array) ? mute_id : [mute_id]
+
       {
         name:           mic.name,
-        level_id:       level_id.is_a?(Array) ? level_id : [level_id],
-        mute_id:        mute_id.is_a?(Array) ? mute_id : [mute_id],
+        level_id:       level_array.compact,
+        mute_id:        mute_array.compact,
         level_index:    mic.level_index,
         mute_index:     mic.mute_index,
         level_feedback: mic.level_feedback,
