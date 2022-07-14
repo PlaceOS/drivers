@@ -646,7 +646,12 @@ class Place::Meet < PlaceOS::Driver
       unless lighting_independent
         # merge in joined room mics
         remote_rooms.each do |room|
-          light_area = light_area.join_with(LightingArea.from_json(room.local_lighting_area.get.to_json))
+          begin
+            remote_area = LightingArea.from_json(room.local_lighting_area.get.to_json)
+            light_area = light_area.join_with(remote_area)
+          rescue error
+            logger.warn(exception: error) { "ignoring lighting config in room #{room.name} (#{room.id})" }
+          end
         end
       end
 
