@@ -163,7 +163,7 @@ class Philips::DyNetText < PlaceOS::Driver
   end
 
   def get_current_preset(area : UInt16, join : UInt8 = 0xFF_u8)
-    do_send "RequestCurrentPreset #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}" : "get_area#{area}-#{join}")
+    do_send "RequestCurrentPreset #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}" : "get_area#{area}_#{join}")
   end
 
   def lighting(area : UInt16, state : Bool, join : UInt8 = 0xFF_u8, fade : UInt32 = 1000_u32)
@@ -178,7 +178,7 @@ class Philips::DyNetText < PlaceOS::Driver
 
   def get_light_level(area : UInt16, join : UInt8 = 0xFF_u8, channel : UInt16 = 1_u16)
     # can't request level of channel 0 (all channels) so we default to channel 1 which should always exist
-    do_send "RequestChannelLevel #{channel} #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}_level" : "get_area#{area}-#{join}_level")
+    do_send "RequestChannelLevel #{channel} #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}_level" : "get_area#{area}_#{join}_level")
   end
 
   def stop_fading(area : UInt16, join : UInt8 = 0xFF_u8, channel : UInt16 = 0_u16)
