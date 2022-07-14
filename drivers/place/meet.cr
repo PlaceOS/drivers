@@ -169,6 +169,7 @@ class Place::Meet < PlaceOS::Driver
       init_projector_screens
       init_master_audio
       init_microphones
+      init_accessories
       init_lighting
       init_vidconf
       init_joining
@@ -669,6 +670,42 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  # ================
+  # Room Accessories
+  # ================
+
+  struct Accessory
+    include JSON::Serializable
+
+    struct Control
+      include JSON::Serializable
+
+      getter name : String
+      getter icon : String
+      getter function_name : String
+      getter arguments : Array(JSON::Any)
+    end
+
+    getter name : String
+    getter module : String
+    getter controls : Array(Control)
+  end
+
+  getter local_accessories : Array(Accessory) = [] of Accessory
+
+  protected def init_accessories
+    @local_accessories = setting?(Array(Accessory), :room_accessories) || [] of Accessory
+    update_available_accessories
+  end
+
+  protected def update_available_accessories
+    accessories = @local_accessories.dup
+    remote_rooms.each do |room|
+      accessories.concat Array(Accessory).from_json(room.local_accessories.get.to_json)
+    end
+    self[:room_accessories] = accessories
+  end
+
   # ===================
   # Microphone Controls
   # ===================
@@ -984,6 +1021,7 @@ class Place::Meet < PlaceOS::Driver
     update_available_outputs
     update_available_mics
     update_available_lighting
+    update_available_accessories
   rescue error
     logger.error(exception: error) { "ui state failed to be applied in room join" }
   end

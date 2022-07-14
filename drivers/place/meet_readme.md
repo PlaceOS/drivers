@@ -530,3 +530,24 @@ lighting_area:
 # Typically set to false if using the `join` field in `lighting_area`
 lighting_independent: true
 ```
+
+## Additional Room Accessories
+
+These are things like blinds or air-conditioning that usually have limited controls and obsucre interfaces
+
+```yaml
+
+room_accessories:
+  - name: Shade blinds
+    module: Blinds_1
+    controls:
+      - name: Up
+        icon: vertical_align_top
+        function_name: position
+        arguments: [1, "up"]
+      - name: Down
+        icon: vertical_align_bottom
+        function_name: position
+        arguments: [1, "down"]
+
+```
