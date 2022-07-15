@@ -37,8 +37,12 @@ module Place::CalendarCommon
     @mailer_from : String? = nil
   end
 
+  def on_unload
+    @in_flight.close
+    @channel.close
+  end
+
   def on_load
-    @channel = Channel(Nil).new(2)
     spawn { rate_limiter }
     on_update
   end
@@ -56,7 +60,7 @@ module Place::CalendarCommon
     ConnectProxy.disable_crl_checks = !!setting?(Bool, :proxy_disable_crl)
 
     @service_account = setting?(String, :calendar_service_account).presence
-    @rate_limit = setting?(Int32, :rate_limit) || 3
+    @rate_limit = setting?(Int32, :rate_limit) || 10
     @wait_time = 1.second / @rate_limit
 
     @mailer_from = setting?(String, :mailer_from).presence || @service_account
@@ -317,6 +321,6 @@ module Place::CalendarCommon
     end
   rescue
     # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter }
+    spawn { rate_limiter } unless terminated?
   end
 end
