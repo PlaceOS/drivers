@@ -35,6 +35,10 @@ module Place::CalendarCommon
     @wait_time : Time::Span = 300.milliseconds
 
     @mailer_from : String? = nil
+    @debug_payload : Bool = false
+
+    @[PlaceOS::Driver::Security(Level::Administrator)]
+    getter! notifications : Hash(String, PlaceCalendar::Subscription)
   end
 
   def on_load
@@ -61,6 +65,9 @@ module Place::CalendarCommon
 
     @mailer_from = setting?(String, :mailer_from).presence || @service_account
     @templates = setting?(Templates, :email_templates) || Templates.new
+
+    @debug_payload = setting?(Bool, :debug_payload) || false
+    @notifications = setting?(Hash(String, PlaceCalendar::Subscription), :notifications) || {} of String => PlaceCalendar::Subscription
 
     # Work around crystal limitation of splatting a union
     @client = begin
@@ -318,5 +325,71 @@ module Place::CalendarCommon
   rescue
     # Possible error with logging exception, restart rate limiter silently
     spawn { rate_limiter }
+  end
+
+  # =====================
+  # Notification webhooks
+  # =====================
+  EMPTY_HEADERS      = {} of String => String
+  LIFECYCLE_RESPONSE = {HTTP::Status::ACCEPTED, EMPTY_HEADERS, nil}
+
+  # validation, created, updated and delete events https://docs.microsoft.com/en-us/graph/webhooks#notification-endpoint-validation
+  def microsoft_graph_notification(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "graph API notifiction: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body } if @debug_payload
+
+    # Parse the data posted
+    # https://docs.microsoft.com/en-us/graph/webhooks#notification-endpoint-validation
+    return {HTTP::Status::OK, {"Content-Type" => "text/plain"}, nil}
+
+    # https://docs.microsoft.com/en-us/graph/webhooks#change-notification-example
+
+    # Return a 200 response
+    SUCCESS_RESPONSE
+  end
+
+  enum GraphLifecycle
+    Missed
+    SubscriptionRemoved
+    ReauthorizationRequired
+  end
+
+  # Notification maintenance https://docs.microsoft.com/en-us/graph/webhooks-lifecycle#actions-to-take
+  def microsoft_graph_lifecycle(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "graph API notifiction: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body } if @debug_payload
+
+    # Parse the data posted
+
+    # Return a 202 response
+    LIFECYCLE_RESPONSE
+  end
+
+  enum GoogleState
+    # the notification channel was just created
+    Sync
+    # a change to the resources was detected
+    Exists
+    # assuming the notification channel was deleted? (not documented)
+    NotExists
+  end
+
+  # https://developers.google.com/calendar/api/guides/push#understanding-the-notification-message-format
+  def google_calendar_notification(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "Google Calendar notifiction: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body } if @debug_payload
+
+    # this data is always returned
+    channel_id = headers["X-Goog-Channel-ID"].first     # the placeos defined notification channel id
+    resource_id = headers["X-Goog-Resource-ID"].first   # the calendar email
+    resource_uri = headers["X-Goog-Resource-URI"].first # request that can be made to fetch the data
+    resource_state = GoogleState.parse headers["X-Goog-Resource-State"].first
+
+    # Optional data, however we do define this in PlaceOS
+    token = headers["X-Goog-Channel-Token"]?.try &.first
+    expires = headers["X-Goog-Channel-Expiration"]?.try &.first
+
+    # Return a 202 response (supports 200, 201, 202, 204, or 102 as a success code)
+    LIFECYCLE_RESPONSE
   end
 end
