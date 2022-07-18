@@ -156,6 +156,12 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     clients
   end
 
+  def get_zones(camera_serial : String)
+    req("/api/v1/devices/#{camera_serial}/camera/analytics/zones") do |response|
+      Array(CameraZone).from_json(response.body)
+    end
+  end
+
   # Webhook endpoint for scanning API, expects version 3
   def scanning_api(method : String, headers : Hash(String, Array(String)), body : String)
     logger.debug { "scanning API received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
