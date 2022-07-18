@@ -508,15 +508,15 @@ There are two lighting modes:
 # scenes are often the same across many rooms, so should be applied to a zone
 lighting_scenes:
   - id: 1
-    name: Full
+    name: "Full"
     icon: lightbulb
     opacity: 1.0
   - id: 2
-    name: Medium
+    name: "Medium"
     icon: lightbulb
     opacity: 0.5
   - id: 3
-    name: Off
+    name: "Off"
     icon: lightbulb_outline
     opacity: 0.8
 
