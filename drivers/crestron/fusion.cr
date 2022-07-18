@@ -5,7 +5,6 @@ require "uri"
 
 require "./fusion_models"
 
-
 # Documentation: https://sdkcon78221.crestron.com/sdk/Fusion_APIs/Content/Topics/Default.htm
 
 class Crestron::Fusion < PlaceOS::Driver
@@ -17,10 +16,10 @@ class Crestron::Fusion < PlaceOS::Driver
 
   default_settings({
     security_level: 1, # Security level: 0 (No Security), 1 (Clear Text), 2 (Encrypted)
-    user_id: "Fusion user id",
-    api_pass_code: "Should be the same as set in the Fusion configuration client",
-    service_url: "API Service URL, should be like http://FUSION_SERVER/RoomViewSE/APIService/",
-    content_type: "xml" # xml or json
+    user_id:        "Fusion user id",
+    api_pass_code:  "Should be the same as set in the Fusion configuration client",
+    service_url:    "API Service URL, should be like http://FUSION_SERVER/RoomViewSE/APIService/",
+    content_type:   "xml", # xml or json
   })
 
   @security_level : Int32 = 1
@@ -28,7 +27,7 @@ class Crestron::Fusion < PlaceOS::Driver
   @api_pass_code : String = ""
   @service_url : String = ""
   @content_type : String = ""
-  
+
   def on_load
     on_update
   end
@@ -46,7 +45,7 @@ class Crestron::Fusion < PlaceOS::Driver
     params["search"] = name if name
     params["node"] = node_id if node_id
     params["page"] = page if page
-    
+
     uri = URI.parse(@service_url)
     uri.path = "#{uri.path}/Rooms"
     uri.query_params = params
@@ -81,6 +80,4 @@ class Crestron::Fusion < PlaceOS::Driver
       raise "Failed to query rooms, api status code: #{response.status_code}"
     end
   end
-
-
 end
