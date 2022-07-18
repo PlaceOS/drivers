@@ -28,6 +28,8 @@ class Crestron::Fusion < PlaceOS::Driver
   @service_url : String = ""
   @content_type : String = ""
 
+  # TODO: add hanling of security level 1 and 2
+
   def on_load
     on_update
   end
