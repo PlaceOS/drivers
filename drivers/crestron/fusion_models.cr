@@ -76,6 +76,7 @@ class Crestron::Fusion
     end
 
     def self.from_xml(node : XML::Node) : self
+      # TODO: create model from xml nodes
     end
   end
 end
