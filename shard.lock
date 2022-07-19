@@ -285,6 +285,10 @@ shards:
     git: https://github.com/spider-gazelle/s2_cells.git
     version: 1.0.1
 
+  sabo:
+    git: https://github.com/place-technology/sabo.git
+    version: 0.1.0+git.commit.7886f23f60611c8bb820e5184110537811da5b6b
+
   simple_retry:
     git: https://github.com/spider-gazelle/simple_retry.git
     version: 1.1.1
@@ -332,4 +336,8 @@ shards:
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
+
+  xml_converter:
+    git: https://github.com/mamantoha/xml_converter.git
+    version: 0.4.0
 

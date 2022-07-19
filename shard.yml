@@ -100,3 +100,7 @@ dependencies:
   # fake data for mocks
   faker:
     github: askn/faker
+
+  # SOAP client
+  sabo:
+    github: place-technology/sabo
