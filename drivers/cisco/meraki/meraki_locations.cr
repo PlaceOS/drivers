@@ -1004,7 +1004,9 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   # Desk data:
   # ==========
   # desk_id => [{time, occupied}]
-  @desk_occupancy = Hash(String, Array(Tuple(Int64, Bool))).new do |hash, key|
+  getter desk_occupancy : Hash(String, Array(Tuple(Int64, Bool)))
+
+  @desk_occupancy : Hash(String, Array(Tuple(Int64, Bool))) = Hash(String, Array(Tuple(Int64, Bool))).new do |hash, key|
     hash[key] = Array(Tuple(Int64, Bool)).new(4)
   end
 
@@ -1065,7 +1067,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   @floor_lookup : Hash(String, FloorMapping) = {} of String => FloorMapping
 
   # Camera serial => [desk location]
-  @desk_mappings : Hash(String, Array(CameraZone)) = {} of String => Array(CameraZone)
+  getter desk_mappings : Hash(String, Array(CameraZone)) = {} of String => Array(CameraZone)
 
   def desk_locations(zone_id : String)
     serials = @zone_lookup[zone_id]?
