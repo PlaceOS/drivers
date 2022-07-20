@@ -10,17 +10,6 @@ module Cisco::Meraki
     getter building_id : String?
   end
 
-  class DeskLocation
-    include JSON::Serializable
-
-    getter id : String
-    getter x : Float64
-    getter y : Float64
-
-    @[JSON::Field(ignore: true)]
-    property distance : Float64 = 0.0
-  end
-
   class DetectedDesks
     include JSON::Serializable
 
