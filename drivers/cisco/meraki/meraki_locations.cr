@@ -1112,7 +1112,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     desk_mappings = Hash(String, Array(CameraZone)).new
     @floor_lookup.keys.each do |serial|
       begin
-        desk_mappings[serial] = Array(CameraZone).from_json(dashboard.get_zones(serial).get.to_json)
+        desk_mappings[serial] = Array(CameraZone).from_json(dashboard.get_zones(serial).get.to_json).reject!(&.id.==("0"))
       rescue error
         logger.warn(exception: error) { "fetching zones for camera: #{serial}" }
       end
