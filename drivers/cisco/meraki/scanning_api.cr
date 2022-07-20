@@ -305,6 +305,7 @@ module Cisco::Meraki
       getter y1 : String
     end
 
+    @[JSON::Field(key: "zoneId")]
     getter id : String
     getter type : String
     getter label : String

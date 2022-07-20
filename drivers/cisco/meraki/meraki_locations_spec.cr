@@ -37,7 +37,7 @@ class DashboardMock < DriverSpecs::MockDriver
   def get_zones(serial : String)
     logger.info { "ZONE REQ: request made for camera '#{serial}'" }
     [{
-      id:               "ignored",
+      zoneId:           "ignored",
       type:             "something",
       label:            "desk-1234",
       regionOfInterest: {
@@ -162,7 +162,6 @@ DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
     floor_plan = floors[wap_device.floor_plan_id]
     # do some unit testing
     loc = Cisco::Meraki::DeviceLocation.calculate_location(floor_plan, wap_device, Time.utc)
-    pp! loc
     loc.to_json
   end
 
