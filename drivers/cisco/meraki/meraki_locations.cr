@@ -247,7 +247,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   # Returns the list of users who can be located
   @[Security(PlaceOS::Driver::Level::Support)]
   def locateable
-    too_old = location_max_age = @max_location_age.ago
+    too_old = @max_location_age.ago
     @client_details.compact_map do |mac, client|
       location = @locations[mac]?
       client.user if location && ((location.time > too_old) || (client.time_added > too_old))
@@ -359,7 +359,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
     username = format_username(username.presence || email.presence.not_nil!)
-    if macs = user_mac_mappings { |s| s[username]? }
+    if macs = user_mac_mappings(&.[username]?)
       Array(String).from_json(macs)
     else
       [] of String
@@ -368,7 +368,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   def check_ownership_of(mac_address : String) : OwnershipMAC?
     lookup = format_mac(mac_address)
-    if user = user_mac_mappings { |s| s[lookup]? }
+    if user = user_mac_mappings(&.[lookup]?)
       {
         location:    "wireless",
         assigned_to: user,
@@ -382,7 +382,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   def locate_user(email : String? = nil, username : String? = nil)
     username = format_username(username.presence || email.presence.not_nil!)
 
-    if macs = user_mac_mappings { |s| s[username]? }
+    if macs = user_mac_mappings(&.[username]?)
       location_max_age = @max_location_age.ago
 
       Array(String).from_json(macs).compact_map { |mac|
@@ -472,7 +472,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       combind.concat(wireless_locs)
       combind.concat(desk_locs)
     else
-      return [] of String
+      [] of String
     end
   end
 
@@ -718,7 +718,6 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       ignore_older = @max_location_age.ago.in Time::Location::UTC
       drift_older = @drift_location_age.ago.in Time::Location::UTC
       current_time = Time.utc
-      current_time_unix = current_time.to_unix
 
       observations.each do |observation|
         client_mac = format_mac(observation.client_mac)
@@ -1031,7 +1030,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     # then for each desk id, we take the closest detected desk and use that
     # occupancy value
     results.each do |desk_id, distances|
-      distance, occupancy = distances.sort! { |a, b| a[0] <=> b[0] }.first
+      _distance, occupancy = distances.sort! { |a, b| a[0] <=> b[0] }.first
       desk_occupation = @desk_occupancy[desk_id]
       desk_occupation << {time, occupancy}
       cleanup_old_data(desk_occupation, past)
