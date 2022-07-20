@@ -2,109 +2,192 @@ require "xml"
 require "json"
 
 class Crestron::Fusion
-
-  class Response
+  class Action
     include JSON::Serializable
 
+    @[JSON::Field(key: "ActionDescription")]
+    property action_description : String?
+
+    # Max 50 characters
+    @[JSON::Field(key: "ActionID")]
+    property action_id : String?
+
+    # Max 128 characters
+    @[JSON::Field(key: "ActionName")]
+    property action_name : String?
+
+    @[JSON::Field(key: "IsOverride")]
+    property is_override : Bool?
+
+    @[JSON::Field(key: "LastModified")]
+    property last_modified : Time?
+
+    @[JSON::Field(key: "OffsetMinutes")]
+    property off_set_minutes : Int64?
+
+    @[JSON::Field(key: "OverriddenActionID")]
+    property overridden_action_id : String?
+
+    @[JSON::Field(key: "StepList")]
+    property step_list : Array(ActionStep)?
+
+    def self.from_xml(xml : String) : self
+      self.from_xml(XML.parse(xml))
+    end
+
+    def self.from_xml(node : XML::Node) : self
+      # TODO: create model from xml nodes
+    end
   end
 
+  class ActionStep
+    include JSON::Serializable
+
+    @[JSON::Field(key: "AnalogValue")]
+    property analog_value : Int64?
+
+    # Max 50 characters
+    @[JSON::Field(key: "AttributeID")]
+    property attribute_id : String?
+
+    @[JSON::Field(key: "AttributeType")]
+    property attribute_type : AttributeType? 
+
+    @[JSON::Field(key: "DigitalValue")]
+    property digital_value : Bool?
+
+    @[JSON::Field(key: "LastModified")]
+    property last_modified : Time?
+
+    @[JSON::Field(key: "OrderIndex")]
+    property order_index : Int64?
+
+    @[JSON::Field(key: "SerialValue")]
+    property serial_value : String?
+
+    def self.from_xml(xml : String) : self
+      self.from_xml(XML.parse(xml))
+    end
+
+    def self.from_xml(node : XML::Node) : self
+      # TODO: create model from xml nodes
+    end
+  end
+
+
+
+  enum AttributeType
+    Unknown = 0
+    AppStore = 1
+    Enterprise = 2
+    Mdm = 3
+    Other = 4
+  end
+
+  # TODO: API_Asset
+  # TODO: Appointment type
+  # TODO: Connection type
+  # TODO: API_RoomCustomField
+  # TODO: API_Location
+  # TODO: API_Person
+  # TODO: API_Processor
 
   class Room
     include JSON::Serializable
 
     @[JSON::Field(key: "Actions")]
-    getter actions : Array(Action)? # TODO: API_Action
+    property actions : Array(Action)?
 
     # Max 255 characters
     @[JSON::Field(key: "AdjacentToLocation")]
-    getter adjacent_to_location : String?
+    property adjacent_to_location : String?
 
     # Max 255 characters
     @[JSON::Field(key: "AirMediaInfo")]
-    getter air_media_info : String?
+    property air_media_info : String?
 
     # Max 255 characters
     @[JSON::Field(key: "Alias")]
-    getter room_alias : String?
+    property room_alias : String?
 
     @[JSON::Field(key: "Appointments")]
-    getter appointments : Array()? # TODO: ???? type
+    property appointments : Array(Appointment)?
 
     @[JSON::Field(key: "Assets")]
-    getter assets : Array(Asset)? # TODO: API_Asset
+    property assets : Array(Asset)?
 
     @[JSON::Field(key: "AssetTypes")]
-    getter asset_types : Array(String)?
+    property asset_types : Array(String)?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "AssociatedBLDIDs")]
-    getter associated_blue_tooth_ids : Array(String)?
+    property associated_blue_tooth_ids : Array(String)?
 
     @[JSON::Field(key: "Availability")]
-    getter availability : Bool?
+    property availability : Bool?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "Bookable")]
-    getter availability : Bool?
+    property availability : Bool?
 
     # Time span in minutes.
     # Unknown type, taking a guess
     @[JSON::Field(key: "BookedUntil")]
-    getter booked_until : Int32? # TODO: Time::Span converter for minutes
+    property booked_until : Int64?
 
     @[JSON::Field(key: "BookedUntilTime")]
-    getter booked_until_time : Time?
+    property booked_until_time : Time?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "BranchMajorID")]
-    getter branch_major_id : String?
+    property branch_major_id : String?
 
     @[JSON::Field(key: "BranchUUID")]
-    getter branch_uuid : String?
+    property branch_uuid : String?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "Capacity")]
-    getter capacity : Int32?
+    property capacity : Int64?
 
     @[JSON::Field(key: "Connections")]
-    getter connections : Array()? # TODO: ???? type
+    property connections : Array(Connection)?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "ConnectionSetID")]
-    getter connection_set_id : String?
+    property connection_set_id : String?
 
     @[JSON::Field(key: "CustomFields")]
-    getter custom_fields : Array()? # TODO: API_RoomCustomField
+    property custom_fields : Array(RoomCustomField)?
 
     @[JSON::Field(key: "Description")]
-    getter description : String?
+    property description : String?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "Distance")]
-    getter distance : String?
+    property distance : String?
 
     # Max 50 characters
     @[JSON::Field(key: "DistributionGroupID")]
-    getter distribution_group_id : String?
+    property distribution_group_id : String?
 
     # Max 255 characters
     @[JSON::Field(key: "EControlLink")]
-    getter e_control_link : String?
+    property e_control_link : String?
 
     # Max 255 characters
     @[JSON::Field(key: "EndPointType")]
-    getter end_point_type : String?
+    property end_point_type : String?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "FutureAvailability")]
-    getter future_availability : String?
+    property future_availability : String?
 
     @[JSON::Field(key: "FutureScheduledTime")]
-    getter future_scheduled_time : Time?
+    property future_scheduled_time : Time?
 
     # Max 350 characters
     @[JSON::Field(key: "GroupwarePassword")]
-    getter groupware_password : String?
+    property groupware_password : String?
 
     # Max 10 characters
     # Valid options:
@@ -118,90 +201,90 @@ class Crestron::Fusion
     # - External
     # - Google
     @[JSON::Field(key: "GroupwareProviderType")]
-    getter groupware_provider_type : String?
+    property groupware_provider_type : String?
 
     # Max 255 characters
     @[JSON::Field(key: "GroupwareURL")]
-    getter groupware_url : String?
+    property groupware_url : String?
 
     # Max 255 characters
     @[JSON::Field(key: "GroupwareUserDomain")]
-    getter groupware_user_domain : String?
+    property groupware_user_domain : String?
 
     # Max 128 characters
     @[JSON::Field(key: "GroupwareUsername")]
-    getter groupware_username : String?
+    property groupware_username : String?
 
     @[JSON::Field(key: "LastModified")]
-    getter last_modified : Time?
+    property last_modified : Time?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "Latitude")]
-    getter latitude : Float32?
+    property latitude : Float32?
 
     # Max 255 characters
     @[JSON::Field(key: "Location")]
-    getter location : String?
+    property location : String?
 
     @[JSON::Field(key: "LocationMap")]
-    getter location_map : Array()? # TODO: API_Location
+    property location_map : Array(Location)?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "Longitude")]
-    getter longitude : Float32?
+    property longitude : Float32?
 
     # Unknown type, taking a guess
     @[JSON::Field(key: "Nearby")]
-    getter nearby : Bool?
+    property nearby : Bool?
 
     # Max 50 characters
     @[JSON::Field(key: "ParentNodeID")]
-    getter parent_node_id : String?
+    property parent_node_id : String?
 
     @[JSON::Field(key: "Persons")]
-    getter persons : Array()? # TODO: API_Person
+    property persons : Array(Person)?
 
     @[JSON::Field(key: "Processors")]
-    getter processors : Array()? # TODO: API_Processor
+    property processors : Array(Processor)?
 
     @[JSON::Field(key: "Region")]
-    getter region : String?
+    property region : String?
 
     # Max 255 characters
     @[JSON::Field(key: "RoomCategory")]
-    getter room_category : String?
+    property room_category : String?
 
     # Max 50 characters
     @[JSON::Field(key: "RoomID")]
-    getter room_id : String?
+    property room_id : String?
 
     @[JSON::Field(key: "RoomImageURLs")]
-    getter room_image_urls : Array(String)?
+    property room_image_urls : Array(String)?
 
     # Max 128 characters
     @[JSON::Field(key: "RoomName")]
-    getter room_name : String?
+    property room_name : String?
 
     # Max 512 characters
     @[JSON::Field(key: "SMTPAddress")]
-    getter smtp_address : String?
+    property smtp_address : String?
 
     @[JSON::Field(key: "State")]
-    getter state : String?
+    property state : String?
 
     @[JSON::Field(key: "Status")]
-    getter status : String?
+    property status : String?
 
     @[JSON::Field(key: "Symbols")]
-    getter symbols : Array(String)?
+    property symbols : Array(String)?
 
     # Max 255 characters
     @[JSON::Field(key: "TimeZoneID")]
-    getter time_zone_id : String?
+    property time_zone_id : String?
 
     # Max 255 characters
     @[JSON::Field(key: "WebCamLink")]
-    getter web_cam_link : String?
+    property web_cam_link : String?
 
     def self.from_xml(xml : String) : self
       self.from_xml(XML.parse(xml))
