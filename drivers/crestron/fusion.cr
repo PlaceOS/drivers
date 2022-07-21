@@ -18,16 +18,16 @@ class Crestron::Fusion < PlaceOS::Driver
     # Security level: 0 (No Security), 1 (Clear Text), 2 (Encrypted)
     security_level: 1,
 
-    user_id:        "Fusion user id",
+    user_id:        "FUSION_USER_ID",
 
     # Should be the same as set in the Fusion configuration client
-    api_pass_code:  "",
+    api_pass_code:  "FUSION_API_PASS_CODE",
 
     # API Service URL, should be like http://FUSION_SERVER/RoomViewSE/APIService/
     service_url:    "http://FUSION_SERVER/RoomViewSE/APIService/",
 
     # xml or json
-    content_type:   "xml",
+    content_type:   "json",
   })
 
   @security_level : Int32 = 1
@@ -56,54 +56,33 @@ class Crestron::Fusion < PlaceOS::Driver
     params["node"] = node_id if node_id
     params["page"] = page if page
 
-    uri = URI.parse(@service_url)
-    uri.path = "#{uri.path}/Rooms"
-    uri.query_params = params
-
-    headers = HTTP::Headers.new
-    headers["Content-Type"] = @content_type
-    headers["Accept"] = @content_type
-
-    client = HTTP::Client.new(uri: uri)
-    response = client.get(uri, headers)
-    if response.status_code == 200
-      @content_type == "xml" ? Room.from_xml(response.body) : Room.from_json(response.body)
-    else
-      raise "Failed to get rooms from Fusion API. Status code: #{response.status_code}"
-    end
+    response = perform_request("GET", "/Rooms", params)
+    Array(Room).from_json(response.body)
   end
 
   def get_room(room_id : String)
-    uri = URI.parse(@service_url)
-    uri.path = "#{uri.path}/Rooms/#{room_id}"
+    response = perform_request("GET", "/Rooms/#{room_id}")
+    # @content_type == "xml" ? Room.from_xml(response_body) : Room.from_json(response_body)
+    Room.from_json(response.body)
+  end
+
+  private def perform_request(method : String, path : String, params : URI::Params = URI::Params.new, body : String? = nil)
+    if @security_level == 1
+      params["auth"] = "#{@api_pass_code}%20#{@user_id}"
+    end
+
+    uri = URI.parse("@service_url/#{path}")
+    uri.params = params
 
     headers = HTTP::Headers.new
     headers["Content-Type"] = @content_type
     headers["Accept"] = @content_type
 
-    client = HTTP::Client.new(uri: uri)
-    response = client.get(uri, headers)
+    response = HTTP::Client.exec(method, uri, headers, body)
     if response.status_code == 200
-      @content_type == "xml" ? Room.from_xml(response.body) : Room.from_json(response.body)
+      response
     else
-      raise "Failed to get room from Fusion API. Status code: #{response.status_code}"
+      raise "Fusion API request failed. Status code: #{response.status_code}"
     end
-  end
-
-  # private def perform_request(path : String, params : URI::Params? = nil)
-  #   uri = URI.parse(@service_url)
-  #   uri.path = "#{uri.path}/#{path}"
-
-  #   headers = HTTP::Headers.new
-  #   headers["Content-Type"] = @content_type
-  #   headers["Accept"] = @content_type
-
-  #   client = HTTP::Client.new(uri: uri)
-  #   response = client.get(uri, headers)
-  #   if response.status_code == 200
-  #     @content_type == "xml" ? Room.from_xml(response.body) : Room.from_json(response.body)
-  #   else
-  #     raise "Failed to get room from Fusion API. Status code: #{response.status_code}"
-  #   end
-  # end
+  end  
 end
