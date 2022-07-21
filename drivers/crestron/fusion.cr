@@ -66,6 +66,20 @@ class Crestron::Fusion < PlaceOS::Driver
     Room.from_json(response.body)
   end
 
+  def send_action(action_id : String?, room_id : String? = nil, node_id : String? = nil)
+    params = URI::Params.new
+    params["room"] = room_id if room_id
+    params["node"] = node_id if node_id
+
+    path = if (id = action_id) && !id.empty?
+      "/actions/#{id}"
+    else
+      "/actions"
+    end
+
+    response = perform_request("POST", path, params)
+  end
+
   private def perform_request(method : String, path : String, params : URI::Params = URI::Params.new, body : String? = nil)
     if @security_level == 1
       params["auth"] = "#{@api_pass_code}%20#{@user_id}"
