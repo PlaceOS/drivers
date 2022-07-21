@@ -22,7 +22,7 @@ DriverSpecs.mock_driver "Crestron::Fusion" do
       pp request
 
       response.status_code = 200
-      response << rooms_json_response
+      response << rooms.to_json
     end
 
     # resp.get
@@ -35,27 +35,23 @@ DriverSpecs.mock_driver "Crestron::Fusion" do
       pp request
 
       response.status_code = 200
-      response << room_json_response
+      response << room.to_json
     end
 
     # resp.get
   end
 end
 
-private def rooms_json_response
+private def rooms
   {
-    rooms: [
-      get_room,
+    "rooms" => [
+      room,
     ],
-  }.to_json
+  }
 end
 
-private def room_json_response
-  get_room.to_json
-end
-
-private def get_room
-  room = Room.new
-  room.room_name = "Meeting Room A"
-  room
+private def room
+  {
+    "RoomName" => "Meeting Room A",
+  }
 end
