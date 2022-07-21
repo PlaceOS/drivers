@@ -24,16 +24,16 @@ class RHBAccess::Axiomxa < PlaceOS::Driver
     @client = Client.new(base_url: host_name.to_s, username: setting(String, :username), password: setting(String, :password))
   end
 
-  def lock(id : String, permanent : String = "false")
+  def lock(id : String, permanent : Bool = false)
     @client.try(&.access_points.lock id, permanent)
 
-    self["access_point_#{id}"] = {"status" => "locked", "permanent" => permanent}
+    self["access_point_#{id}"] = {"status" => "locked", "permanent" => permanent.to_s}
   end
 
-  def unlock(id : String, permanent : String = "false")
+  def unlock(id : String, permanent : Bool = false)
     @client.try(&.access_points.unlock id, permanent)
 
-    self["access_point_#{id}"] = {"status" => "unlocked", "permanent" => permanent}
+    self["access_point_#{id}"] = {"status" => "unlocked", "permanent" => permanent.to_s}
   end
 
   def status?(id : String)
