@@ -5,8 +5,10 @@ require "uri"
 
 require "./fusion_models"
 
+# TODO: add handling of security level 2
+# TODO: parse returend results into models
+#
 # Documentation: https://sdkcon78221.crestron.com/sdk/Fusion_APIs/Content/Topics/Default.htm
-
 class Crestron::Fusion < PlaceOS::Driver
   descriptive_name "Crestron Fusion"
   generic_name :CrestronFusion
@@ -36,8 +38,6 @@ class Crestron::Fusion < PlaceOS::Driver
   @service_url : String = ""
   @content_type : String = ""
 
-  # TODO: add handling of security level 1 and 2
-
   def on_load
     on_update
   end
@@ -57,13 +57,12 @@ class Crestron::Fusion < PlaceOS::Driver
     params["page"] = page if page
 
     response = perform_request("GET", "/Rooms", params)
-    Array(Room).from_json(response.body)
+    @content_type == "xml" ? XML.parse(response_body) : JSON.parse(response_body)
   end
 
   def get_room(room_id : String)
     response = perform_request("GET", "/Rooms/#{room_id}")
-    # @content_type == "xml" ? Room.from_xml(response_body) : Room.from_json(response_body)
-    Room.from_json(response.body)
+    @content_type == "xml" ? XML.parse(response_body) : JSON.parse(response_body)
   end
 
   def send_action(action_id : String?, room_id : String? = nil, node_id : String? = nil)
@@ -78,6 +77,7 @@ class Crestron::Fusion < PlaceOS::Driver
     end
 
     response = perform_request("POST", path, params)
+    JSON.parse(response.body)
   end
 
   private def perform_request(method : String, path : String, params : URI::Params = URI::Params.new, body : String? = nil)
