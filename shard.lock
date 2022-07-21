@@ -17,6 +17,10 @@ shards:
     git: https://github.com/taylorfinnell/awscr-signer.git
     version: 0.8.2
 
+  axio:
+    git: https://github.com/place-technology/axio.git
+    version: 0.1.0+git.commit.f1a24abb703a420b6e568d8ba52c4fdf3daf9d47
+
   backtracer:
     git: https://github.com/sija/backtracer.cr.git
     version: 1.2.1
