@@ -50,18 +50,22 @@ class Crestron::Fusion < PlaceOS::Driver
     @content_type = setting(String, :content_type)
   end
 
-  def get_rooms(name : String?, node_id : String? = nil, page : Int32? = nil)
+  ###########
+  # Actions #
+  ###########
+
+  def get_actions(name : String?, room_id : String? = nil, page : Int32? = nil)
     params = URI::Params.new
     params["search"] = name if name
-    params["node"] = node_id if node_id
+    params["room"] = room_id if room_id
     params["page"] = page if page
 
-    response = perform_request("GET", "/Rooms", params)
+    response = perform_request("GET", "/actions", params)
     @content_type == "xml" ? XML.parse(response_body) : JSON.parse(response_body)
   end
 
-  def get_room(room_id : String)
-    response = perform_request("GET", "/Rooms/#{room_id}")
+  def get_action(action_id : String)
+    response = perform_request("GET", "/actions/#{action_id}")
     @content_type == "xml" ? XML.parse(response_body) : JSON.parse(response_body)
   end
 
@@ -79,6 +83,48 @@ class Crestron::Fusion < PlaceOS::Driver
     response = perform_request("POST", path, params)
     JSON.parse(response.body)
   end
+
+  ##########
+  # Alerts #
+  ##########
+
+  # Severity should be in the range 1-4
+  def get_alerts(node_ids : Array(String)? = nil, room_ids : Array(String)? = nil, start_time : Time? = nil, end_time : Time? = nil, severity : Int32? = nil, active_alerts : Bool = true)
+    params = URI::Params.new
+    params["nodes"] = node_ids.join(',') if node_ids
+    params["rooms"] = room_ids.join(',') if room_ids
+    params["start"] = start_time if start_time
+    params["end"] = end_time if end_time
+    params["severity"] = severity if severity
+    params["activeAlerts"] = active_alerts if active_alerts
+
+    response = perform_request("GET", "/rooms", params)
+    @content_type == "xml" ? XML.parse(response_body) : JSON.parse(response_body)
+  end
+
+  #########
+  # Rooms #
+  #########
+
+  def get_rooms(name : String?, node_id : String? = nil, page : Int32? = nil)
+    params = URI::Params.new
+    params["search"] = name if name
+    params["node"] = node_id if node_id
+    params["page"] = page if page
+
+    response = perform_request("GET", "/rooms", params)
+    @content_type == "xml" ? XML.parse(response_body) : JSON.parse(response_body)
+  end
+
+  def get_room(room_id : String)
+    response = perform_request("GET", "/rooms/#{room_id}")
+    @content_type == "xml" ? XML.parse(response_body) : JSON.parse(response_body)
+  end
+
+  
+  ###########
+  # Helpers #
+  ###########
 
   private def perform_request(method : String, path : String, params : URI::Params = URI::Params.new, body : String? = nil)
     if @security_level == 1
