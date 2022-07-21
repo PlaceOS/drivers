@@ -28,27 +28,32 @@ class Lutron::Quantum < PlaceOS::Driver
   end
 
   def level?(id : Int32)
-    status = @client.try(&.zone.get_status(id))
-    self["area#{id}_level"] = status.try(&.["Level"])
+    status = client.zone.get_status(id)
+    self["area#{id}_level"] = status["Level"]
   end
 
   def level(id : Int32, level : String)
-    @client.try(&.zone.set_status_level(id: id, level: level))
+    client.zone.set_status_level(id: id, level: level)
     self["area#{id}_level"] = level
   end
 
   def scene(id : Int32, scene : Int32)
-    @client.try(&.area.set_scene(id: id, scene: scene))
+    client.area.set_scene(id: id, scene: scene)
     self["area#{id}"] = scene
   end
 
   def scene?(id : Int32)
-    status = @client.try(&.area.get_status(id: id))
-    self["area#{id}"] = status.try(&.["CurrentScene"])
+    status = client.area.get_status(id: id)
+    self["area#{id}"] = status["CurrentScene"]
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def scenes(id : Int32)
-    @client.try(&.area.get_scenes(id: id))
+    client.area.get_scenes(id: id)
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def root
+    client.area.root
   end
 end
