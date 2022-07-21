@@ -1131,20 +1131,19 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   protected def is_occupied?(desk_id, expiry_time)
     desk_occupation = @desk_occupancy[desk_id]?
     return 0 unless desk_occupation
-    size = desk_occupation.size
-    return 0 if size == 0
-
-    desk_occupation.reject! do |(time, _occupancy)|
-      if time < expiry_time && size > 1
-        size -= 1
-        true
-      else
-        break
-      end
-    end
 
     occupied = 0
-    desk_occupation.each { |(_time, occupancy)| occupied += 1 if occupancy }
+    desk_occupation.reject! do |(time, occupancy)|
+      if time < expiry_time
+        next true
+      elsif occupancy
+        occupied += 1
+      end
+      false
+    end
+
+    size = desk_occupation.size
+    return 0 if size.zero?
 
     # We care if the desk basically had signs of life
     (occupied / size) > 0.3 ? 1 : 0
