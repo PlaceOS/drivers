@@ -245,6 +245,10 @@ shards:
     git: https://github.com/spider-gazelle/qr-code.git
     version: 1.0.2
 
+  quantum:
+    git: https://github.com/place-technology/quantum.git
+    version: 0.1.1
+
   rate_limiter:
     git: https://github.com/lbarasti/rate_limiter.git
     version: 1.0.1
