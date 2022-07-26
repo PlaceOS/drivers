@@ -66,8 +66,7 @@ class Ict::Wx < PlaceOS::Driver
     c = "%032d" % c.to_s.to_i(10).to_s(2)
     b = c.size
     d = ""
-    a ||= ""
-    a.chars.each do |l|
+    (a || "").chars.each do |l|
       f = l.ord
       b = 0 == b ? c.size - 8 : b - 8
       g = c[b..b+7].to_i(2).to_s(10)
