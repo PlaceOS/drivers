@@ -19,6 +19,7 @@ class Ict::Wx < PlaceOS::Driver
   @username : String = ""
   @password : String = ""
   @session_key : String = ""
+  @api_key : String = ""
 
   def on_load
     on_update
@@ -55,8 +56,9 @@ class Ict::Wx < PlaceOS::Driver
             "Password"  => g,
             "SessionID" => @session_id,
         }).body
-        Digest::SHA1.hexdigest(xor(@password_hash, password_response.body)).upcase[0..15]
+        password_response = Digest::SHA1.hexdigest(xor(@password_hash, password_response)).upcase[0..15]
     end
+    (password_response || "")
   end
 
   protected def xor(a,c)
@@ -64,6 +66,7 @@ class Ict::Wx < PlaceOS::Driver
     c = "%032d" % c.to_s.to_i(10).to_s(2)
     b = c.size
     d = ""
+    a ||= ""
     a.chars.each do |l|
       f = l.ord
       b = 0 == b ? c.size - 8 : b - 8
