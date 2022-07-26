@@ -37,6 +37,8 @@ class Ict::Wx < PlaceOS::Driver
     32.times{ |b| @session_id ||= ""; @session_id += (16  * rand).to_i.to_s(16).upcase }
     @password_hash = Digest::SHA1.hexdigest(@password)
     init_session_url = "#{@domain}/PRT_CTRL_DIN_ISAPI.dll?Command&Type=Session&SubType=InitSession&SessionID=#{@session_id}"
+    logger.info "SESSION URL IS:"
+    logger.info init_session_url
     get(init_session_url).body
   end
 
