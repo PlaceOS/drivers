@@ -104,3 +104,7 @@ dependencies:
   # Lutron Quantum protocol
   quantum:
     github: place-technology/quantum
+
+  # Stripe API wrapper
+  stripe:
+    github: confact/stripe.cr
