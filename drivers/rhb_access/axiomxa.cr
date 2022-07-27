@@ -36,6 +36,6 @@ class RHBAccess::Axiomxa < PlaceOS::Driver
 
   def status?(id : String)
     response = @client.try(&.access_points.status(id: id))
-    self["access_point_#{id}_status"] = JSON.parse(response.body)
+    self["access_point_#{id}_status"] = JSON.parse(response.not_nil!.body)
   end
 end
