@@ -42,7 +42,7 @@ class Infosilem::Campus < PlaceOS::Driver
 
     response = @booking.try(&.call(operation: "RoomBookingOccurrence_ExportAll", body: {
       "TransferID" => Sabo::Parameter.new(transfer_id.to_s),
-      "Options"    => Sabo::Parameter.from_hash(booking_options(room: room_id, start_date: start_date, end_date: end_date)),
+      "Options"    => Sabo::Parameter.from_hash(booking_options(room: room_id, start_date: start_date, end_date: end_date, start_time: start_date, end_time: end_date)),
     }
     ))
 
