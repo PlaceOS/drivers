@@ -1,7 +1,9 @@
+require "placeos-driver"
 require "json"
 require "s2_cells"
-require "placeos-driver"
+require "./mqtt_models"
 require "./scanning_api"
+require "../../place/area_polygon"
 require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/locatable"
 
@@ -58,6 +60,9 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     # Enable / Disable dashboard username lookup completely
     disable_username_lookup: false,
+
+    # Where desks have no occupancy
+    return_empty_spaces: true,
   })
 
   def on_load
@@ -86,12 +91,14 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   @s2_level : Int32 = 21
   @ignore_usernames : Array(String) = [] of String
+  @return_empty_spaces : Bool = true
 
   @debug_payload : Bool = false
   @debug_webhook : Bool = false
 
   def on_update
     @default_network = setting?(String, :default_network_id) || ""
+    @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
 
     @acceptable_confidence = setting?(Float64, :acceptable_confidence) || 5.0
     @maximum_uncertainty = setting?(Float64, :maximum_uncertainty) || 25.0
@@ -136,7 +143,46 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         parse_new_locations(new_value)
       end
     end
+
+    # Grab desk data from the MQTT connection
+    if system.exists? :MerakiMQTT
+      mqtt_module = system[:MerakiMQTT]
+      mqtt_module.subscribe(:floor_lookup) do |_sub, new_value|
+        next if new_value.nil? || new_value == "null"
+        @floor_lookup = Hash(String, FloorMapping).from_json(new_value)
+        update_desk_mappings unless @zone_lookup.empty?
+      end
+      mqtt_module.subscribe(:zone_lookup) do |_sub, new_value|
+        next if new_value.nil? || new_value == "null"
+        @zone_lookup = Hash(String, Array(String)).from_json(new_value)
+        update_desk_mappings unless @floor_lookup.empty?
+      end
+      schedule.every(10.minutes) { update_desk_mappings }
+      mqtt_module.subscribe(:camera_updated) do |_sub, new_value|
+        next if new_value.nil? || new_value == "null"
+        _time, camera_serial = Tuple(Int64, String).from_json(new_value)
+
+        if @desk_mappings.has_key? camera_serial
+          check_camera_status(mqtt_module, camera_serial)
+        end
+      end
+    end
   end
+
+  protected def check_camera_status(mqtt_module, camera_serial)
+    detected_desks = mqtt_module.status(DetectedDesks, "camera_#{camera_serial}_desks")
+    desk_details[camera_serial] = detected_desks
+    average_results(camera_serial, detected_desks)
+    if lux_level = mqtt_module.status?(Float64, "camera_#{camera_serial}_lux")
+      lux[camera_serial] = lux_level
+    end
+  end
+
+  # serial => desks detected
+  getter desk_details : Hash(String, DetectedDesks) = {} of String => DetectedDesks
+
+  # serial => lux
+  getter lux : Hash(String, Float64) = {} of String => Float64
 
   protected def user_mac_mappings
     @storage_lock.synchronize {
@@ -201,7 +247,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   # Returns the list of users who can be located
   @[Security(PlaceOS::Driver::Level::Support)]
   def locateable
-    too_old = location_max_age = @max_location_age.ago
+    too_old = @max_location_age.ago
     @client_details.compact_map do |mac, client|
       location = @locations[mac]?
       client.user if location && ((location.time > too_old) || (client.time_added > too_old))
@@ -313,7 +359,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
     username = format_username(username.presence || email.presence.not_nil!)
-    if macs = user_mac_mappings { |s| s[username]? }
+    if macs = user_mac_mappings(&.[username]?)
       Array(String).from_json(macs)
     else
       [] of String
@@ -322,7 +368,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   def check_ownership_of(mac_address : String) : OwnershipMAC?
     lookup = format_mac(mac_address)
-    if user = user_mac_mappings { |s| s[lookup]? }
+    if user = user_mac_mappings(&.[lookup]?)
       {
         location:    "wireless",
         assigned_to: user,
@@ -336,7 +382,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   def locate_user(email : String? = nil, username : String? = nil)
     username = format_username(username.presence || email.presence.not_nil!)
 
-    if macs = user_mac_mappings { |s| s[username]? }
+    if macs = user_mac_mappings(&.[username]?)
       location_max_age = @max_location_age.ago
 
       Array(String).from_json(macs).compact_map { |mac|
@@ -414,8 +460,23 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "looking up device locations in #{zone_id}" }
-    return [] of String if location.presence && location != "wireless"
+    case location.presence
+    when "wireless"
+      wireless_locations(zone_id)
+    when "desk"
+      desk_locations(zone_id)
+    when nil
+      wireless_locs = wireless_locations(zone_id)
+      desk_locs = desk_locations(zone_id)
+      combind = Array(typeof(wireless_locs[0]) | typeof(desk_locs[0])).new(wireless_locs.size + desk_locs.size)
+      combind.concat(wireless_locs)
+      combind.concat(desk_locs)
+    else
+      [] of String
+    end
+  end
 
+  def wireless_locations(zone_id : String)
     # Find the floors associated with the provided zone id
     floors = [] of String
     @floorplan_mappings.each do |floor_id, data|
@@ -657,7 +718,6 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
       ignore_older = @max_location_age.ago.in Time::Location::UTC
       drift_older = @drift_location_age.ago.in Time::Location::UTC
       current_time = Time.utc
-      current_time_unix = current_time.to_unix
 
       observations.each do |observation|
         client_mac = format_mac(observation.client_mac)
@@ -938,5 +998,154 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     return nil unless zone_count
 
     to_sensors(nil, filter, **cam_state).find { |sensor| sensor.id == id }
+  end
+
+  # ==========
+  # Desk data:
+  # ==========
+  # desk_id => [{time, occupied}]
+  getter desk_occupancy : Hash(String, Array(Tuple(Int64, Bool)))
+
+  @desk_occupancy : Hash(String, Array(Tuple(Int64, Bool))) = Hash(String, Array(Tuple(Int64, Bool))).new do |hash, key|
+    hash[key] = Array(Tuple(Int64, Bool)).new(4)
+  end
+
+  protected def average_results(serial, detected)
+    desks = @desk_mappings[serial]?
+    return unless desks
+
+    time = Time.utc.to_unix
+    past = desk_data_expiry_time
+
+    # id => Array({distance, occupied})
+    results = Hash(String, Array(Tuple(Float64, Bool))).new { |h, k| h[k] = [] of Tuple(Float64, Bool) }
+
+    # we store the closest desk point to the line,
+    # as this detected desk might be the occupancy we care about
+    detected.desks.each do |(lx, ly, cx, cy, rx, ry, occupancy)|
+      desks.each { |desk| desk.distance = calculate_distance(lx, ly, cx, cy, rx, ry, desk) }
+      if desk = desks.sort! { |a, b| a.distance <=> b.distance }.first?
+        results[desk.label] << {desk.distance, !occupancy.zero?}
+      end
+    end
+
+    # then for each desk id, we take the closest detected desk and use that
+    # occupancy value
+    results.each do |desk_id, distances|
+      _distance, occupancy = distances.sort! { |a, b| a[0] <=> b[0] }.first
+      desk_occupation = @desk_occupancy[desk_id]
+      desk_occupation << {time, occupancy}
+      cleanup_old_data(desk_occupation, past)
+    end
+  end
+
+  # We want to find the line closest to the offical desk point
+  protected def calculate_distance(lx, ly, cx, cy, rx, ry, desk)
+    desk = Point.new(desk.x, desk.y)
+    {
+      Point.new(lx, ly).distance_to(desk),
+      Point.new(rx, ry).distance_to(desk),
+      Point.new(cx, cy).distance_to(desk),
+    }.sum
+  end
+
+  protected def desk_data_expiry_time
+    90.seconds.ago.to_unix
+  end
+
+  protected def cleanup_old_data(desk_occupation, expiry_time)
+    desk_occupation.reject! { |(time, _occupancy)| time < expiry_time }
+  end
+
+  # ======================
+  # Desk location service:
+  # ======================
+  # zone_id => array of camera serials
+  @zone_lookup : Hash(String, Array(String)) = {} of String => Array(String)
+
+  # camera serial => level + building
+  @floor_lookup : Hash(String, FloorMapping) = {} of String => FloorMapping
+
+  # Camera serial => [desk location]
+  getter desk_mappings : Hash(String, Array(CameraZone)) = {} of String => Array(CameraZone)
+
+  def desk_locations(zone_id : String)
+    serials = @zone_lookup[zone_id]?
+    return [] of Nil if !serials || serials.empty?
+
+    return_empty_spaces = @return_empty_spaces
+    expiry_time = desk_data_expiry_time
+
+    serials.compact_map { |serial|
+      desks = @desk_mappings[serial]?
+      next unless desks
+
+      # does data exist for the desks?
+      next unless desk_details[serial]?
+
+      floor = @floor_lookup[serial]
+      illumination = lux[serial]?
+
+      desks.compact_map do |desk|
+        desk_id = desk.label
+        occupied = is_occupied?(desk_id, expiry_time)
+
+        # Do we want to return empty desks (depends on the frontend)
+        next if !return_empty_spaces && occupied == 0
+
+        {
+          location:    "desk",
+          at_location: occupied,
+          map_id:      desk_id,
+          level:       floor.level_id,
+          building:    floor.building_id,
+          capacity:    1,
+
+          area_lux: illumination,
+          merakimv: serial,
+        }
+      end
+    }.flatten
+  end
+
+  def update_desk_mappings
+    desk_mappings = Hash(String, Array(CameraZone)).new
+    @floor_lookup.keys.each do |serial|
+      begin
+        desk_mappings[serial] = Array(CameraZone).from_json(dashboard.get_zones(serial).get.to_json).reject!(&.id.==("0"))
+      rescue error
+        logger.warn(exception: error) { "fetching zones for camera: #{serial}" }
+      end
+    end
+
+    @desk_mappings = desk_mappings
+
+    mqtt_module = system[:MerakiMQTT]
+    desk_mappings.keys.each { |camera_serial| check_camera_status(mqtt_module, camera_serial) }
+  end
+
+  protected def desk_data_expiry_time
+    90.seconds.ago.to_unix
+  end
+
+  protected def is_occupied?(desk_id, expiry_time)
+    desk_occupation = @desk_occupancy[desk_id]?
+    return 0 unless desk_occupation
+
+    occupied = 0
+    desk_occupation.reject! do |(time, occupancy)|
+      if time < expiry_time
+        next true
+      elsif occupancy
+        occupied += 1
+      end
+      false
+    end
+
+    size = desk_occupation.size
+    return 0 if size.zero?
+
+    # We care if the desk basically had signs of life
+    (occupied / size) > 0.3 ? 1 : 0
   end
 end

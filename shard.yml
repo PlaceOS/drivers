@@ -104,3 +104,7 @@ dependencies:
   # SOAP client
   sabo:
     github: place-technology/sabo
+
+  # Lutron Quantum protocol
+  quantum:
+    github: place-technology/quantum
