@@ -36,44 +36,24 @@ class Infosilem::Campus < PlaceOS::Driver
     )
   end
 
-  def classes?(room_id : String, start_date : String, end_date : String)
+  def bookings?(room_id : String, start_date : String, end_date : String)
     response = @integration.try(&.call(operation: "StartTransfer", body: {"StartTransferOptions" => Sabo::Parameter.from_hash(start_transfer_options(username: setting(String, :username), password: setting(String, :password)))}))
     transfer_id = response.try(&.result)
 
     response = @booking.try(&.call(operation: "RoomBookingOccurrence_ExportAll", body: {
       "TransferID" => Sabo::Parameter.new(transfer_id.to_s),
-      "Options"    => Sabo::Parameter.from_hash(booking_options(room: room_id, start_date: start_date, end_date: end_date, start_time: start_date, end_time: end_date, use_time_filter: true)),
+      "Options"    => Sabo::Parameter.from_hash(booking_options(room: room_id, start_date: start_date, end_date: end_date)),
     }
     ))
 
     @integration.try(&.call(operation: "EndTransfer", body: end_transfer_body(transfer_id: transfer_id.to_s)))
 
-    self["room_#{room_id}_classes_#{start_date}_#{end_date}"] =
+    self["room_#{room_id}_bookings_#{start_date}_#{end_date}"] =
       response
         .try(&.result
           .["ObjectData"]
           .["ReservationOccurrences"]
-          .["ReservationOccurrence"]?)
-  end
-
-  def courses?(building_id : String)
-    response = @integration.try(&.call(operation: "StartTransfer", body: {"StartTransferOptions" => Sabo::Parameter.from_hash(start_transfer_options(username: setting(String, :username), password: setting(String, :password)))}))
-    transfer_id = response.try(&.result)
-
-    response = @booking.try(&.call(operation: "RoomBookingOccurrence_ExportAll", body: {
-      "TransferID" => Sabo::Parameter.new(transfer_id.to_s),
-      "Options"    => Sabo::Parameter.from_hash(booking_options(building: building_id)),
-    }
-    ))
-
-    @integration.try(&.call(operation: "EndTransfer", body: end_transfer_body(transfer_id: transfer_id.to_s)))
-
-    self["building_#{building_id}_courses"] =
-      response
-        .try(&.result
-          .["ObjectData"]
-          .["ReservationOccurrences"]
-          .["ReservationOccurrence"]?)
+          .["ReservationOccurrence"]?) || [] of Int32
   end
 
   private def start_transfer_options(
