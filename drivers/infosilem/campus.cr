@@ -21,7 +21,7 @@ class Infosilem::Campus < PlaceOS::Driver
   end
 
   def on_update
-    host_name = URI.parse(config.uri.not_nil!).host
+    host_name = config.uri.not_nil!.to_s
 
     @integration = Sabo::Client.new(
       document: Sabo::WSDL::Document.new([host_name, "/Integration/Integration.asmx?WSDL"].join),
