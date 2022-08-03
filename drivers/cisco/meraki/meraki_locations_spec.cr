@@ -33,11 +33,64 @@ class DashboardMock < DriverSpecs::MockDriver
   def fetch_all(location : String)
     [fetch(location)]
   end
+
+  def get_zones(serial : String)
+    logger.info { "ZONE REQ: request made for camera '#{serial}'" }
+    [{
+      zoneId:           "ignored",
+      type:             "something",
+      label:            "desk-1234",
+      regionOfInterest: {
+        x0: "0.44",
+        y0: "0.56",
+        x1: "0.44",
+        y1: "0.56",
+      },
+    }]
+  end
+end
+
+# :nodoc:
+class MQTTMock < DriverSpecs::MockDriver
+  def on_load
+    self["camera_camera_serial_desks"] = {
+      "_v"    => 2,
+      "time"  => "2022-01-20 02:14:00",
+      "desks" => [
+        [185, 282, 227, 211, 272, 158, 0],
+        [376, 197, 321, 268, 264, 365, 0],
+        [401, 450, 460, 355, 499, 273, 0],
+        [572, 348, 547, 414, 506, 483, 0],
+        [312, 571, 259, 546, 210, 515, 0],
+        [536, 492, 494, 529, 446, 560, 0],
+        [137, 542, 162, 573, 189, 597, 0],
+      ],
+    }
+
+    self["camera_updated"] = {0, "camera_serial"}
+
+    self["floor_lookup"] = {
+      "camera_serial" => {
+        camera_serials: ["camera_serial"],
+        level_id:       "zone-123",
+        building_id:    "zone-456",
+      },
+    }
+
+    self["zone_lookup"] = {
+      "zone-456" => {"camera_serial"},
+    }
+  end
+
+  def trigger_update
+    self["camera_updated"] = {1, "camera_serial"}
+  end
 end
 
 DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
   system({
-    Dashboard: {DashboardMock},
+    Dashboard:  {DashboardMock},
+    MerakiMQTT: {MQTTMock},
   })
 
   sleep 0.5
@@ -109,7 +162,6 @@ DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
     floor_plan = floors[wap_device.floor_plan_id]
     # do some unit testing
     loc = Cisco::Meraki::DeviceLocation.calculate_location(floor_plan, wap_device, Time.utc)
-    pp! loc
     loc.to_json
   end
 
@@ -121,4 +173,15 @@ DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
       "0"                  => {"person" => 0},
     },
   })
+
+  exec(:device_locations, "zone-456").get.should eq([{
+    "location"    => "desk",
+    "at_location" => 0,
+    "map_id"      => "desk-1234",
+    "level"       => "zone-123",
+    "building"    => "zone-456",
+    "capacity"    => 1,
+    "area_lux"    => nil,
+    "merakimv"    => "camera_serial",
+  }])
 end

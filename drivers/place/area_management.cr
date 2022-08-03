@@ -82,7 +82,6 @@ class Place::AreaManagement < PlaceOS::Driver
 
   @rate_limit : Channel(Nil) = Channel(Nil).new
   @update_lock : Mutex = Mutex.new
-  @terminated : Bool = false
   @include_sensors : Bool = false
   @sensor_discovery = {} of String => SensorMeta
 
@@ -98,7 +97,6 @@ class Place::AreaManagement < PlaceOS::Driver
   end
 
   def on_unload
-    @terminated = true
     @rate_limit.close
   end
 
@@ -583,7 +581,7 @@ class Place::AreaManagement < PlaceOS::Driver
     end
   rescue
     # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter } unless @terminated
+    spawn { rate_limiter } unless terminated?
   end
 
   @update_levels : Set(String) = Set.new([] of String)

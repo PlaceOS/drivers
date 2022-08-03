@@ -1,10 +1,15 @@
 require "placeos-driver"
+require "placeos-driver/interface/lighting"
 require "telnet"
 
 # Documentation: https://aca.im/driver_docs/Philips/DYN_CG_INT_EnvisionGateway_R05.pdf
 # See page 58
 
 class Philips::DyNetText < PlaceOS::Driver
+  include Interface::Lighting::Scene
+  include Interface::Lighting::Level
+  alias Area = Interface::Lighting::Area
+
   # Discovery Information
   descriptive_name "Philips DyNet Text Protocol"
   generic_name :Lighting
@@ -96,11 +101,12 @@ class Philips::DyNetText < PlaceOS::Driver
       area = parts["area"]?
       # return here if we are just getting the echo of our request
       return unless area
-      area = area.to_i
-      self["area#{area}"] = parts.first_value.to_i
+      join = get_join parts["join"]
+      area_key = Area.new(area.to_u32, join: join == 255_u32 ? nil : join)
+      self[area_key] = parts.first_value.to_i
     when "channel level channel"
-      area = parts["area"].to_i
-      self["area#{area}_level"] = parts["level"].to_i(strict: false)
+      area = parts["area"].to_u32
+      self[Area.new(area).append("level")] = parts["level"].to_i(strict: false)
     when .starts_with?("date")
       success = true if task_name == "date"
     when .starts_with?("time")
@@ -109,16 +115,18 @@ class Philips::DyNetText < PlaceOS::Driver
       case check_key
       when .ends_with?("current preset")
         preset = parts.first_value.to_i
-        area = parts["area"].to_i
+        area = parts["area"].to_u32
         join = get_join parts["join"]
-        area_key = join == 255 ? "area#{area}" : "area#{area}-#{join}"
+        area_key = Area.new(area, join: join == 255_u32 ? nil : join).to_s
+
         self[area_key] = preset
         task.not_nil!.success(preset) if task_name == "get_#{area_key}"
       when .ends_with?("level ch")
-        area = parts["area"].to_i
+        area = parts["area"].to_u32
         join = get_join parts["join"]
-        area_key = join == 255 ? "area#{area}_level" : "area#{area}-#{join}_level"
+        area_key = Area.new(area, join: join == 255_u32 ? nil : join).append("level").to_s
         level = parts["targlev"].to_i(strict: false)
+
         self[area_key] = level
         task.not_nil!.success(level) if task_name == "get_#{area_key}"
       end
@@ -139,7 +147,7 @@ class Philips::DyNetText < PlaceOS::Driver
   protected def get_join(value : String)
     value = value.rchop("hex")
     value = value.lchop("0x")
-    value.to_i(16)
+    value.to_u32(16)
   end
 
   def get_date
@@ -155,7 +163,7 @@ class Philips::DyNetText < PlaceOS::Driver
   end
 
   def get_current_preset(area : UInt16, join : UInt8 = 0xFF_u8)
-    do_send "RequestCurrentPreset #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}" : "get_area#{area}-#{join}")
+    do_send "RequestCurrentPreset #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}" : "get_area#{area}_#{join}")
   end
 
   def lighting(area : UInt16, state : Bool, join : UInt8 = 0xFF_u8, fade : UInt32 = 1000_u32)
@@ -170,10 +178,42 @@ class Philips::DyNetText < PlaceOS::Driver
 
   def get_light_level(area : UInt16, join : UInt8 = 0xFF_u8, channel : UInt16 = 1_u16)
     # can't request level of channel 0 (all channels) so we default to channel 1 which should always exist
-    do_send "RequestChannelLevel #{channel} #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}_level" : "get_area#{area}-#{join}_level")
+    do_send "RequestChannelLevel #{channel} #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}_level" : "get_area#{area}_#{join}_level")
   end
 
   def stop_fading(area : UInt16, join : UInt8 = 0xFF_u8, channel : UInt16 = 0_u16)
     do_send "StopFade #{channel} #{area} #{join}", name: "stopfade#{area}_#{join}_#{channel}"
+  end
+
+  # ==================
+  # Lighting Interface
+  # ==================
+  protected def check_arguments(area : Area?)
+    area_id = area.try(&.id)
+    area_join = area.try(&.join) || 0xFF_u32
+    raise ArgumentError.new("area.id required, area.join defaults to 0xFF") unless area_id
+    {area_id.to_u16, area_join.to_u8}
+  end
+
+  def set_lighting_scene(scene : UInt32, area : Area? = nil, fade_time : UInt32 = 1000_u32)
+    area_id, area_join = check_arguments area
+    trigger(area_id, scene.to_u16, area_join, fade_time)
+  end
+
+  def lighting_scene?(area : Area? = nil)
+    area_id, area_join = check_arguments area
+    get_current_preset(area_id, area_join)
+  end
+
+  def set_lighting_level(level : Float64, area : Area? = nil, fade_time : UInt32 = 1000_u32)
+    area_id, area_join = check_arguments area
+    area_channel = area.try(&.channel) || 0_u32
+    light_level(area_id, level, area_join, fade_time, area_channel.to_u16)
+  end
+
+  def lighting_level?(area : Area? = nil)
+    area_id, area_join = check_arguments area
+    area_channel = area.try(&.channel) || 1_u32
+    get_light_level(area_id, area_join, area_channel.to_u16)
   end
 end

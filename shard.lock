@@ -171,7 +171,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.1.5
+    version: 2.2.0
 
   opentelemetry-api:
     git: https://github.com/wyhaines/opentelemetry-api.cr.git
@@ -179,7 +179,11 @@ shards:
 
   opentelemetry-instrumentation:
     git: https://github.com/wyhaines/opentelemetry-instrumentation.cr.git
-    version: 0.3.5
+    version: 0.5.0+git.commit.7d83b9a53c9540fbc159f06eeed5d4bdad5c4377
+
+  opentelemetry-sdk:
+    git: https://github.com/wyhaines/opentelemetry-sdk.cr.git
+    version: 0.5.1
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
@@ -215,15 +219,15 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.3.11
+    version: 6.4.5
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
-    version: 0.10.6
+    version: 0.11.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 8.11.0
+    version: 8.11.2
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -233,9 +237,17 @@ shards:
     git: https://github.com/spider-gazelle/promise.git
     version: 3.0.0
 
+  protobuf:
+    git: https://github.com/jeromegn/protobuf.cr.git
+    version: 2.2.3
+
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
     version: 1.0.2
+
+  quantum:
+    git: https://github.com/place-technology/quantum.git
+    version: 0.1.1
 
   rate_limiter:
     git: https://github.com/lbarasti/rate_limiter.git
