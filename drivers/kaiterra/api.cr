@@ -76,7 +76,8 @@ class Kaiterra::API < PlaceOS::Driver
   class Response
     include JSON::Serializable
 
-    property data : Array(Data)
+    property data : Array(Data)?
+    property errors : Array(JSON::Any::Type)?
   end
 
   class Data
