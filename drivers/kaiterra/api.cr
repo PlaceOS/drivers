@@ -91,7 +91,10 @@ class Kaiterra::API < PlaceOS::Driver
   end
 
   def get_devices(id : String, params : Hash(String, String) = {} of String => String)
-    response = get_request("/devices/#{id}/top", params)
+    response = get(
+      generate_url("/devices/#{id}/top", params),
+      headers: generate_headers
+    )
     Response.from_json(response.body)
   end
 
@@ -112,26 +115,32 @@ class Kaiterra::API < PlaceOS::Driver
     property code : Int64
   end
 
-  def batch(body : Array(Request), params : Hash(String, String) = {} of String => String)
-    response = get_request("/batch",
-      params,
-      headers: {
+  def batch(body : Array(Request) | String, params : Hash(String, String) = {} of String => String)
+    response = post(
+      generate_url("/batch", params),
+      body: body.to_json,
+      headers: generate_headers({
         "Content-Type"     => "application/json",
         "Content-Encoding" => "UTF-8",
-      }
+      })
     )
     Array(BatchResponse).from_json(response.body)
   end
 
-  private def get_request(
+  private def generate_url(
     path : String,
-    params : Hash(String, String) = {} of String => String,
-    headers : Hash(String, String) = {} of String => String
+    params : Hash(String, String) = {} of String => String
   )
     params["key"] = @api_key
     encoded_params = URI::Params.encode(params)
+    "#{path}?#{encoded_params}"
+  end
+
+  private def generate_headers(
+    headers : Hash(String, String) = {} of String => String
+  )
     # Recommended to use this header in docs
     headers["Accept-Encoding"] = "gzip"
-    get("#{path}?#{encoded_params}", headers: headers)
+    headers
   end
 end

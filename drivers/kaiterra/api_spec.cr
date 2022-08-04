@@ -61,6 +61,7 @@ DriverSpecs.mock_driver "Kaiterra::API" do
   exec(:batch, body, params)
 
   expect_http_request do |request, response|
+    request.body.not_nil!.gets_to_end.should eq (body.to_json)
     request.query_params["include_headers"].should eq("true")
     response.status_code = 200
     response << %([
