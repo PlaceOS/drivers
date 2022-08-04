@@ -2,22 +2,12 @@ require "placeos-driver/spec"
 require "./api.cr"
 
 DriverSpecs.mock_driver "Kaiterra::API" do
-  device_ids = [
-    "00000000-0031-0101-0000-00007e57c0de",
-    "0000000000010101000000007e57c0de",
-  ]
-  api_key = "apikey"
+  exec(:get_devices, "00000000-0031-0101-0000-00007e57c0de")
 
-  settings({
-    api_key: api_key,
-  })
-
-  exec(:get_devices, device_ids[0])
-
-  expect_http_request do |request, response|
-    request.query_params["api-key"].should eq(api_key)
+  expect_http_request do |_, response|
     response.status_code = 200
     response << %({
+      "id": "00000000-0031-0101-0000-00007e57c0de",
       "data": [
         {
           "param": "rpm25c",
@@ -32,14 +22,25 @@ DriverSpecs.mock_driver "Kaiterra::API" do
           ]
         },
         {
-          "param": "rtemp",
+          "param": "rhumid",
           "units": "%",
           "span": 60,
           "points": [
             {
                 "ts": "2020-06-17T03:40:00Z",
-                "value": 62
+                "value": 83.58
             }
+          ]
+        },
+        {
+          "param": "rco2",
+          "units": "ppm",
+          "span": 60,
+          "points": [
+              {
+                  "ts": "2022-08-04T02:50:00Z",
+                  "value": 432.9
+              }
           ]
         }
       ]
@@ -60,6 +61,7 @@ DriverSpecs.mock_driver "Kaiterra::API" do
   exec(:batch, body, params)
 
   expect_http_request do |request, response|
+    request.body.not_nil!.gets_to_end.should eq(body.to_json)
     request.query_params["include_headers"].should eq("true")
     response.status_code = 200
     response << %([
