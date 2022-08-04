@@ -115,7 +115,7 @@ class Kaiterra::API < PlaceOS::Driver
     property code : Int64
   end
 
-  def batch(body : Array(Request) | String, params : Hash(String, String) = {} of String => String)
+  def batch(body : Array(Request), params : Hash(String, String) = {} of String => String)
     response = post(
       generate_url("/batch", params),
       body: body.to_json,
