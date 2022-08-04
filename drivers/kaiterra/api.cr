@@ -56,7 +56,7 @@ class Kaiterra::API < PlaceOS::Driver
     end
 
     def self.new(pull : JSON::PullParser)
-      self.parse(pull.read_string)
+      parse(pull.read_string)
     end
 
     def to_s
@@ -68,7 +68,7 @@ class Kaiterra::API < PlaceOS::Driver
       when Unit::Percentage
         "%"
       else
-        self.to_s
+        super
       end
     end
   end
@@ -92,8 +92,7 @@ class Kaiterra::API < PlaceOS::Driver
 
   def get_devices(id : String, params : Hash(String, String) = {} of String => String)
     response = get_request("/devices/#{id}/top", params)
-    JSON.parse(response.body)
-    # Response.from_json(response.body)
+    Response.from_json(response.body)
   end
 
   class Request
