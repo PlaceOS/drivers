@@ -128,9 +128,7 @@ class Kaiterra::API < PlaceOS::Driver
     params : Hash(String, String) = {} of String => String,
     headers : Hash(String, String) = {} of String => String
   )
-    # TODO: below line does not work for some reason when it should
-    # params["key"] = @api_key
-    params["key"] = setting(String, :api_key)
+    params["key"] = @api_key
     encoded_params = URI::Params.encode(params)
     # Recommended to use this header in docs
     headers["Accept-Encoding"] = "gzip"

@@ -2,20 +2,9 @@ require "placeos-driver/spec"
 require "./api.cr"
 
 DriverSpecs.mock_driver "Kaiterra::API" do
-  device_ids = [
-    "00000000-0031-0101-0000-00007e57c0de",
-    "0000000000010101000000007e57c0de",
-  ]
-  api_key = "apikey"
+  exec(:get_devices, "00000000-0031-0101-0000-00007e57c0de")
 
-  settings({
-    api_key: api_key,
-  })
-
-  exec(:get_devices, device_ids[0])
-
-  expect_http_request do |request, response|
-    request.query_params["key"].should eq(api_key)
+  expect_http_request do |_, response|
     response.status_code = 200
     response << %({
       "id": "00000000-0031-0101-0000-00007e57c0de",
