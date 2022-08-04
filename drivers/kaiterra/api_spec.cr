@@ -15,33 +15,82 @@ DriverSpecs.mock_driver "Kaiterra::API" do
   exec(:get_devices, device_ids[0])
 
   expect_http_request do |request, response|
-    request.query_params["api-key"].should eq(api_key)
+    request.query_params["key"].should eq(api_key)
     response.status_code = 200
     response << %({
+      "id": "00000000-0031-0101-0000-00007e57c0de",
       "data": [
-        {
-          "param": "rpm25c",
-          "units": "µg/m³",
-          "source": "km100",
-          "span": 60,
-          "points": [
-            {
-                "ts": "2020-06-17T03:40:00Z",
-                "value": 120
-            }
-          ]
-        },
-        {
-          "param": "rtemp",
-          "units": "%",
-          "span": 60,
-          "points": [
-            {
-                "ts": "2020-06-17T03:40:00Z",
-                "value": 62
-            }
-          ]
-        }
+          {
+              "param": "rco2",
+              "units": "ppm",
+              "span": 60,
+              "points": [
+                  {
+                      "ts": "2022-08-04T00:00:00Z",
+                      "value": 427.4
+                  }
+              ]
+          },
+          {
+              "param": "rhumid",
+              "source": "km102",
+              "units": "%",
+              "span": 60,
+              "points": [
+                  {
+                      "ts": "2022-08-04T00:00:00Z",
+                      "value": 83.39
+                  }
+              ]
+          },
+          {
+              "param": "rpm10c",
+              "source": "km100",
+              "units": "µg/m³",
+              "span": 60,
+              "points": [
+                  {
+                      "ts": "2022-08-04T00:00:00Z",
+                      "value": 0.95
+                  }
+              ]
+          },
+          {
+              "param": "rpm25c",
+              "source": "km100",
+              "units": "µg/m³",
+              "span": 60,
+              "points": [
+                  {
+                      "ts": "2022-08-04T00:00:00Z",
+                      "value": 0.95
+                  }
+              ]
+          },
+          {
+              "param": "rtemp",
+              "source": "km102",
+              "units": "C",
+              "span": 60,
+              "points": [
+                  {
+                      "ts": "2022-08-04T00:00:00Z",
+                      "value": 18.06
+                  }
+              ]
+          },
+          {
+              "param": "rtvoc",
+              "source": "km102",
+              "units": "ppb",
+              "span": 60,
+              "points": [
+                  {
+                      "ts": "2022-08-04T00:00:00Z",
+                      "value": 149.5
+                  }
+              ]
+          }
       ]
     })
   end
