@@ -18,78 +18,30 @@ DriverSpecs.mock_driver "Kaiterra::API" do
     request.query_params["key"].should eq(api_key)
     response.status_code = 200
     response << %({
-    	"id": "00000000-0031-0101-0000-00007e57c0de",
+      "id": "00000000-0031-0101-0000-00007e57c0de",
       "data": [
         {
-            "param": "rco2",
-            "units": "ppm",
-            "span": 60,
-            "points": [
-                {
-                    "ts": "2022-08-04T00:51:00Z",
-                    "value": 431.2
-                }
-            ]
+          "param": "rpm25c",
+          "units": "µg/m³",
+          "source": "km100",
+          "span": 60,
+          "points": [
+            {
+                "ts": "2020-06-17T03:40:00Z",
+                "value": 120
+            }
+          ]
         },
         {
-            "param": "rhumid",
-            "source": "km102",
-            "units": "%",
-            "span": 60,
-            "points": [
-                {
-                    "ts": "2022-08-04T00:51:00Z",
-                    "value": 83.58
-                }
-            ]
-        },
-        {
-            "param": "rpm10c",
-            "source": "km100",
-            "units": "µg/m³",
-            "span": 60,
-            "points": [
-                {
-                    "ts": "2022-08-04T00:51:00Z",
-                    "value": 0.95
-                }
-            ]
-        },
-        {
-            "param": "rpm25c",
-            "source": "km100",
-            "units": "µg/m³",
-            "span": 60,
-            "points": [
-                {
-                    "ts": "2022-08-04T00:51:00Z",
-                    "value": 0.95
-                }
-            ]
-        },
-        {
-            "param": "rtemp",
-            "source": "km102",
-            "units": "C",
-            "span": 60,
-            "points": [
-                {
-                    "ts": "2022-08-04T00:51:00Z",
-                    "value": 18.02
-                }
-            ]
-        },
-        {
-            "param": "rtvoc",
-            "source": "km102",
-            "units": "ppb",
-            "span": 60,
-            "points": [
-                {
-                    "ts": "2022-08-04T00:51:00Z",
-                    "value": 133.3
-                }
-            ]
+          "param": "rhumid",
+          "units": "%",
+          "span": 60,
+          "points": [
+            {
+                "ts": "2020-06-17T03:40:00Z",
+                "value": 83.58
+            }
+          ]
         }
       ]
     })
