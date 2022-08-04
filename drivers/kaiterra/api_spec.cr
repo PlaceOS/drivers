@@ -42,6 +42,17 @@ DriverSpecs.mock_driver "Kaiterra::API" do
                 "value": 83.58
             }
           ]
+        },
+        {
+          "param": "rco2",
+          "units": "ppm",
+          "span": 60,
+          "points": [
+              {
+                  "ts": "2022-08-04T02:50:00Z",
+                  "value": 432.9
+              }
+          ]
         }
       ]
     })
