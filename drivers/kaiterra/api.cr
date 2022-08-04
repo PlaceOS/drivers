@@ -51,7 +51,7 @@ class Kaiterra::API < PlaceOS::Driver
       when "%"
         Unit::Percentage
       else
-        self.parse(string)
+        super
       end
     end
 
