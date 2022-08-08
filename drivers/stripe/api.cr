@@ -23,7 +23,39 @@ class Stripe::API < PlaceOS::Driver
     @client = Stripetease::Client.new(base_url: host_name, api_key: api_key)
   end
 
-  def add_payment_method(type : String, billing_details : Hash(String, String)? = nil, metadata : Hash(String, String)? = nil, acss_debit : Hash(String, String)? = nil, affirm : Hash(String, String)? = nil, afterpay_clearpay : Hash(String, String)? = nil, alipay : Hash(String, String)? = nil, au_becs_debit : Hash(String, String)? = nil, bacs_debit : Hash(String, String)? = nil, bancontact : Hash(String, String)? = nil, blik : Hash(String, String)? = nil, boleto : Hash(String, String)? = nil, card : Hash(String, String)? = nil, customer_balance : Hash(String, String)? = nil, eps : Hash(String, String)? = nil, fpx : Hash(String, String)? = nil, giropay : Hash(String, String)? = nil, ideal : Hash(String, String)? = nil, interac_present : Hash(String, String)? = nil, klarna : Hash(String, String)? = nil, konbini : Hash(String, String)? = nil, link : Hash(String, String)? = nil, oxxo : Hash(String, String)? = nil, p24 : Hash(String, String)? = nil, paynow : Hash(String, String)? = nil, promptpay : Hash(String, String)? = nil, radar_options : Hash(String, String)? = nil, sepa_debit : Hash(String, String)? = nil, sofort : Hash(String, String)? = nil, us_bank_account : Hash(String, String)? = nil, wechat_pay : Hash(String, String)? = nil)
+  def add_payment_method(
+    type : String,
+    billing_details : Hash(String, String)? = nil,
+    metadata : Hash(String, String)? = nil,
+    acss_debit : Hash(String, String)? = nil,
+    affirm : Hash(String, String)? = nil,
+    afterpay_clearpay : Hash(String, String)? = nil,
+    alipay : Hash(String, String)? = nil,
+    au_becs_debit : Hash(String, String)? = nil,
+    bacs_debit : Hash(String, String)? = nil,
+    bancontact : Hash(String, String)? = nil,
+    blik : Hash(String, String)? = nil,
+    boleto : Hash(String, String)? = nil,
+    card : Hash(String, String)? = nil,
+    customer_balance : Hash(String, String)? = nil,
+    eps : Hash(String, String)? = nil,
+    fpx : Hash(String, String)? = nil,
+    giropay : Hash(String, String)? = nil,
+    ideal : Hash(String, String)? = nil,
+    interac_present : Hash(String, String)? = nil,
+    klarna : Hash(String, String)? = nil,
+    konbini : Hash(String, String)? = nil,
+    link : Hash(String, String)? = nil,
+    oxxo : Hash(String, String)? = nil,
+    p24 : Hash(String, String)? = nil,
+    paynow : Hash(String, String)? = nil,
+    promptpay : Hash(String, String)? = nil,
+    radar_options : Hash(String, String)? = nil,
+    sepa_debit : Hash(String, String)? = nil,
+    sofort : Hash(String, String)? = nil,
+    us_bank_account : Hash(String, String)? = nil,
+    wechat_pay : Hash(String, String)? = nil
+  )
     payment_method = @client.not_nil!.payment_methods.create(type, billing_details, metadata, acss_debit, affirm, afterpay_clearpay, alipay, au_becs_debit, bacs_debit, bancontact, blik, boleto, card, customer_balance, eps, fpx, giropay, ideal, interac_present, klarna, konbini, link, oxxo, p24, paynow, promptpay, radar_options, sepa_debit, sofort, us_bank_account, wechat_pay)
     self["payment_method"] = payment_method
   end
