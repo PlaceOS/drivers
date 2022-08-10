@@ -118,7 +118,8 @@ class Ict::Wx < PlaceOS::Driver
       res = @client.get(url)
       decrypt_aes(res.body, @api_key)
     rescue 
-      auth
+      @session_key = get_session_key
+      @api_key = get_api_key
       puts "RETYING!"
       api_key ||= @api_key
       session_id ||= @session_id
