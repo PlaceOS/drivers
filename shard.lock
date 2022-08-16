@@ -305,6 +305,10 @@ shards:
     git: https://github.com/spider-gazelle/stomp.git
     version: 1.0.1
 
+  stripetease:
+    git: https://github.com/grkek/stripetease.git
+    version: 0.1.0+git.commit.f7693cdda26bad4c58250419b62d1ac7662c8fa7
+
   stumpy_core:
     git: https://github.com/stumpycr/stumpy_core.git
     version: 1.9.1
