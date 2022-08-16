@@ -26,6 +26,7 @@ class Ict::Wx < PlaceOS::Driver
   @password_hash : String = ""
   @session_key : Int64 = 0
   @api_key : String = ""
+  @last_event : NamedTuple(time: Int64, user: String, door: String)
   @client : HTTP::Client = HTTP::Client.new(host:  "159.196.131.157", port: "88")
 
   def on_load
@@ -38,6 +39,12 @@ class Ict::Wx < PlaceOS::Driver
     @password = setting(String, :password)
     @session_key = get_session_key
     @api_key = get_api_key
+  end
+
+  def connected
+    schedule.every(1.second, true) do
+      check_events
+    end
   end
 
   def get_session_key
@@ -128,6 +135,21 @@ class Ict::Wx < PlaceOS::Driver
       res = @client.get(url)
       decrypt_aes(res.body, @api_key)
     end
+  end
+
+  def check_events
+    events = get_events("Update").split("&")
+    events.reject! {|e| e[0..9] == "EventCodes"}
+    events.each do |event|
+      if event =~ /User (.*) Entry Granted (.*) Using/
+        puts "#{$1} has accessed #{$2}"
+        @last_event = {
+          time: Time.utc.to_unix,
+          user: $1,
+          door: $2
+        }
+      end
+    end if events
   end
 
   def get_events(type : String = "Latest")
