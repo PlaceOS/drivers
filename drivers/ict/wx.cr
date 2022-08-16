@@ -26,6 +26,7 @@ class Ict::Wx < PlaceOS::Driver
   @password_hash : String = ""
   @session_key : Int64 = 0
   @api_key : String = ""
+  @last_event : NamedTuple(time: Int64, user: String, door: String) = { time: Time.utc.to_unix, user: "", door: "" }
   @client : HTTP::Client = HTTP::Client.new(host:  "159.196.131.157", port: "88")
 
   def on_load
@@ -38,7 +39,6 @@ class Ict::Wx < PlaceOS::Driver
     @password = setting(String, :password)
     @session_key = get_session_key
     @api_key = get_api_key
-    @last_event : NamedTuple(time: Int64, user: String, door: String)
   end
 
   def connected
