@@ -61,8 +61,6 @@ class Ict::Wx < PlaceOS::Driver
     b = Digest::SHA1.hexdigest(b).upcase
     a = xor(@password_hash, @session_key)
     g = Digest::SHA1.hexdigest(a).upcase
-    logger.debug{"URL IS:"}
-    logger.debug{"#{@domain}:88/PRT_CTRL_DIN_ISAPI.dll?Command&Type=Session&SubType=CheckPassword&Name=#{b}&Password=#{g}&SessionID=#{@session_id}"}
     password_response = @client.get("/PRT_CTRL_DIN_ISAPI.dll?Command&Type=Session&SubType=CheckPassword&Name=#{b}&Password=#{g}&SessionID=#{@session_id}").body
     password_response = password_response.to_i64
     Digest::SHA1.hexdigest(xor(@password_hash, password_response)).upcase[0..15]
