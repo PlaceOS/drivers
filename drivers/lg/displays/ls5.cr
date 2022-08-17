@@ -258,6 +258,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     case command
     when .power?
       self[:hard_power] = resp_value == 1
+      logger.debug { "Checking hard power" }
       self[:power] = false unless self["hard_power"].as_bool
     when .input?
       self[:input] = Input.from_value(resp_value)
