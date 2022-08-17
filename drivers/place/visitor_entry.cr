@@ -10,4 +10,8 @@ class VisitorEntry < PlaceOS::Driver
     def get_last_event
         logger.debug system[:Access_1][:last_event]
     end
+
+    def last_event_changed
+        logger.debug system[:Access_1][:last_event]
+    end
   end
