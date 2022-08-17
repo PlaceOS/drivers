@@ -258,7 +258,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
     case command
     when .power?
       self[:hard_power] = resp_value == 1
-      self[:power] = false unless self['hard_power'].as_bool
+      self[:power] = false unless self["hard_power"].as_bool
     when .input?
       self[:input] = Input.from_value(resp_value)
     when .aspect_ratio?
