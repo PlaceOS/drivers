@@ -39,7 +39,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     update_event_details(next_event)
 
     schedule.clear
-    schedule.cron(@cron_string) { fetch_and_expose_todays_events }
+    schedule.cron(@cron_string) { fetch_and_expose_todays_events.as(Array(Event)) }
     schedule.every(1.minutes) { update_event_countdown(next_event) }
     update_event_countdown(next_event)
     return todays_events
