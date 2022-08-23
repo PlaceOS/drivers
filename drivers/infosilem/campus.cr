@@ -48,14 +48,10 @@ class Infosilem::Campus < PlaceOS::Driver
 
     @integration.try(&.call(operation: "EndTransfer", body: end_transfer_body(transfer_id: transfer_id.to_s)))
 
-    
-    self["room_#{room_id}_bookings_#{start_date}_#{end_date}"] = bookings =
-      response
-        .try(&.result
+    response.try(&.result
           .["ObjectData"]
           .["ReservationOccurrences"]
           .["ReservationOccurrence"]?) || [] of Int32
-    bookings
   end
 
   private def start_transfer_options(
