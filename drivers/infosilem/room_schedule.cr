@@ -9,6 +9,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   default_settings({
     infosilem_room_id: "set Infosilem Room ID here",
     polling_cron:      "*/15 * * * *",
+    debug:             false
   })
 
   accessor infosilem : Campus_1
@@ -17,6 +18,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   @cron_string : String = "*/15 * * * *"
   @todays_upcoming_events : Array(Event) = [] of Event
   @minutes_til_next_event_starts : Int32 | Nil = nil
+  @debug : Bool = false
 
   def on_load
     on_update
@@ -24,6 +26,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   def on_update
     schedule.clear
+    @debug = setting(Bool, :debug) || false
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
     schedule.cron(@cron_string) { fetch_and_expose_todays_events }
@@ -47,7 +50,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   def fetch_events(startDate : String, endDate : String)
-    infosilem.bookings?(@room_id, startDate, endDate).get.to_s 
+    events = infosilem.bookings?(@room_id, startDate, endDate).get.to_s
+    logger.debug { "Infosilem Campus returned: #{events}" } if @debug
+    events
   end
 
   private def update_event_countdown(next_event : Event)
