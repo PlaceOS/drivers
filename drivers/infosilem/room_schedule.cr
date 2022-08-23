@@ -31,7 +31,8 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   def fetch_and_expose_todays_events
     today = Time.local.to_s("%Y-%m-%d")
-    todays_events = fetch_events(today, today).map { |e| Event.from_json(e) }
+    todays_events = Array(Event).from_json(fetch_events(today, today))
+    #todays_events = fetch_events(today, today).map { |e| Event.from_json(e) }
     @todays_upcoming_events = todays_events.select { |e| e.startTime > Time.local }
     self[:todays_upcoming_events] = @todays_upcoming_events
 
@@ -46,7 +47,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   def fetch_events(startDate : String, endDate : String)
-    infosilem.bookings?(@room_id, startDate, endDate).get.as(Array(JSON::Any)) 
+    infosilem.bookings?(@room_id, startDate, endDate).get.to_s 
   end
 
   private def update_event_countdown(next_event : Event)
