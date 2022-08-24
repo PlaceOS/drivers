@@ -40,7 +40,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     self[:todays_upcoming_events] = @todays_upcoming_events
 
     if @todays_upcoming_events.empty?
-      self[:minutes_til_next_event_starts] = nil
+      self[:minutes_til_next_event_starts] = "No upcoming event"
       return [] of Event 
     end
 
