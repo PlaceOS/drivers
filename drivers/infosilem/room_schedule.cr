@@ -57,9 +57,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   private def update_event_countdown(next_event : Event)
-    time_til_next_event = next_event.not_nil!.startTime - Time.local
+    time_til_next_event = next_event.startTime - Time.local
     self[:minutes_til_next_event_starts] = @minutes_til_next_event_starts = time_til_next_event.total_minutes.to_i
-    fetch_and_expose_todays_events if next_event.not_nil!.startTime < Time.local
+    fetch_and_expose_todays_events if next_event.startTime < Time.local
   end
 
   private def update_event_details(next_event : Event)
