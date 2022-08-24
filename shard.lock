@@ -121,6 +121,10 @@ shards:
     git: https://github.com/caspiano/json-merge-patch.git
     version: 0.1.1
 
+  json-schema:
+    git: https://github.com/spider-gazelle/json-schema.git
+    version: 1.1.1
+
   jwt:
     git: https://github.com/crystal-community/jwt.git
     version: 1.6.0
@@ -219,7 +223,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.4.6
+    version: 6.4.8
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
