@@ -45,7 +45,7 @@ class Lutron::Quantum < PlaceOS::Driver
   end
 
   def scene?(area_id : Int32)
-    status = client.area.get_status(area_id: area_id)
+    status = client.area.get_status(id: area_id)
     self["area#{area_id}"] = status["CurrentScene"]
   end
 
