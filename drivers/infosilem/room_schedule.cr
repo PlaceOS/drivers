@@ -9,7 +9,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   default_settings({
     infosilem_room_id: "set Infosilem Room ID here",
     polling_cron:      "*/15 * * * *",
-    debug:             false
+    debug:             false,
   })
 
   accessor infosilem : Campus_1
@@ -35,7 +35,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   def fetch_and_expose_todays_events
     today = Time.local.to_s("%Y-%m-%d")
     todays_events = Array(Event).from_json(fetch_events(today, today))
-    #todays_events = fetch_events(today, today).map { |e| Event.from_json(e) }
     @todays_upcoming_events = todays_events.select { |e| e.startTime > Time.local }
     self[:todays_upcoming_events] = @todays_upcoming_events
 
