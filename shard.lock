@@ -251,7 +251,7 @@ shards:
 
   quantum:
     git: https://github.com/place-technology/quantum.git
-    version: 0.1.1
+    version: 0.1.2
 
   rate_limiter:
     git: https://github.com/lbarasti/rate_limiter.git
