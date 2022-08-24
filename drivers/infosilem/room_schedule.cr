@@ -30,6 +30,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
     schedule.cron(@cron_string) { fetch_and_expose_todays_events }
+    fetch_and_expose_todays_events
   end
 
   def fetch_and_expose_todays_events
@@ -38,7 +39,10 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     @todays_upcoming_events = todays_events.select { |e| e.startTime > Time.local }
     self[:todays_upcoming_events] = @todays_upcoming_events
 
-    return [] of Event if @todays_upcoming_events.empty?
+    if @todays_upcoming_events.empty?
+      self[:minutes_til_next_event_starts] = nil
+      return [] of Event 
+    end
 
     next_event = @todays_upcoming_events.min_by { |e| e.startTime }
     update_event_details(next_event)
