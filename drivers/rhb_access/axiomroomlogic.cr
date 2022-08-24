@@ -11,14 +11,14 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
 
   accessor axiom : AxiomXa
 
-  @door_ids : Array(Int32) = [] of Int32
+  @door_ids = [] of String
   
   def on_load
     on_update
   end
 
   def on_update
-    @door_ids = setting(Array(Int32), :axiom_door_ids)
+    @door_ids = setting(Array(String), :axiom_door_ids)
   end
 
   def lock
