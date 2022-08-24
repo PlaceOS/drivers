@@ -6,7 +6,7 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
   description "Abstracts room access for Axiom"
 
   default_settings({
-    axiom_door_ids: [] of Int32
+    axiom_door_ids: [] of String
   })
 
   accessor axiom : AxiomXa
