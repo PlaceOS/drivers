@@ -65,7 +65,7 @@ class Stripe::API < PlaceOS::Driver
     self["payment_methods"] = payment_methods
   end
 
-  def get_product_price(active : Bool? = nil, currency : String? = nil, product : String? = nil, type : String? = nil, created : Hash(String, String)? = nil, ending_before : String? = nil, limit : Int32? = nil, lookup_keys : Array(String)? = nil, recurring : Hash(String, String)? = nil, starting_after : String? = nil)
+  def get_product_prices(active : Bool? = nil, currency : String? = nil, product : String? = nil, type : String? = nil, created : Hash(String, String)? = nil, ending_before : String? = nil, limit : Int32? = nil, lookup_keys : Array(String)? = nil, recurring : Hash(String, String)? = nil, starting_after : String? = nil)
     product_prices = @client.not_nil!.prices.list(active: active, currency: currency, product: product, type: type, created: created, ending_before: ending_before, limit: limit, lookup_keys: lookup_keys, recurring: recurring, starting_after: starting_after)
     self["product_prices"] = product_prices
   end
