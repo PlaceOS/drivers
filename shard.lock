@@ -311,7 +311,7 @@ shards:
 
   stripetease:
     git: https://github.com/grkek/stripetease.git
-    version: 0.1.0+git.commit.f7693cdda26bad4c58250419b62d1ac7662c8fa7
+    version: 0.1.0+git.commit.a30c7831aa7b0b14f54f4f841712c386b1528524
 
   stumpy_core:
     git: https://github.com/stumpycr/stumpy_core.git
