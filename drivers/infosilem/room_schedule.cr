@@ -51,7 +51,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   def fetch_events(startDate : String, endDate : String)
-    events = infosilem.bookings?(@room_id, startDate, endDate).get.to_s
+    events = infosilem.bookings?(@room_id, startDate, endDate).get.to_json
     logger.debug { "Infosilem Campus returned: #{events}" } if @debug
     events
   end
