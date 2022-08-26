@@ -16,8 +16,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   @room_id : String = "set Infosilem Room ID here"
   @cron_string : String = "*/15 * * * *"
-  @todays_upcoming_events : Array(Event) = [] of Event
-  @minutes_til_next_event_starts : Int32 | Nil = nil
   @debug : Bool = false
 
   def on_load
@@ -36,20 +34,19 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   def fetch_and_expose_todays_events
     today = Time.local.to_s("%Y-%m-%d")
     todays_events = Array(Event).from_json(fetch_events(today, today))
-    @todays_upcoming_events = todays_events.select { |e| e.startTime > Time.local }
-    self[:todays_upcoming_events] = @todays_upcoming_events
+    past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
+    self[:todays_upcoming_events] = future_events
 
-    if @todays_upcoming_events.empty?
-      self[:minutes_til_next_event_starts] = "No upcoming event"
-      return [] of Event 
-    end
+    next_event      = future_events.min_by? &.startTime
+    previous_event  = past_events.max_by? &.endTime
+    current_event   = past_events.find { |e| in_progress?(e)}
+    update_event_details(previous_event, current_event, next_event)
 
-    next_event = @todays_upcoming_events.min_by { |e| e.startTime }
-    update_event_details(next_event)
     schedule.clear
     schedule.cron(@cron_string) { fetch_and_expose_todays_events.as(Array(Event)) }
-    schedule.every(1.minutes) { update_event_countdown(next_event) }
-    update_event_countdown(next_event)
+    schedule.every(1.minutes) { advance_countdowns(previous_event, current_event, next_event) }
+    advance_countdowns(previous_event, current_event, next_event)
+    
     return todays_events
   end
 
@@ -59,15 +56,45 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     events
   end
 
-  private def update_event_countdown(next_event : Event)
-    time_til_next_event = next_event.startTime - Time.local
-    self[:minutes_til_next_event_starts] = @minutes_til_next_event_starts = time_til_next_event.total_minutes.to_i
-    fetch_and_expose_todays_events if next_event.startTime < Time.local
+  private def update_event_details(previous_event : Event | Nil = nil, current_event : Event | Nil = nil, next_event : Event | Nil = nil)
+    self[:previous_event_ends_at]   = previous_event.try &.endTime
+    self[:previous_event_id]        = previous_event.try &.id if @debug
+
+    self[:current_event_starts_at]  = current_event.try &.startTime
+    self[:current_event_end_at]     = current_event.try &.endTime
+    self[:current_event_id]         = current_event.try &.id if @debug
+
+    self[:next_event_starts_at]     = next_event.try &.startTime
+    self[:next_event_id]            = next_event.try &.id if @debug
   end
 
-  private def update_event_details(next_event : Event)
-    self[:next_event_starts_at] = next_event.startTime
-    self[:next_event_id] = next_event.id
-    self[:next_event_description] = next_event.description
+  private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event  : Event | Nil )
+    previous ? countup_previous_event(previous) : {self[:minutes_since_previous_event] = nil}
+    next_event ? countdown_next_event(next_event) : {self[:minutes_til_next_event] = nil}
+    current ? countdown_current_event(current) : {self[:minutes_since_current_event_started] = self[:minutes_til_current_event_ends] = nil}
+  end
+
+  private def countup_previous_event(previous : Event)
+    time_since_previous = Time.local - previous.endTime
+    self[:minutes_since_previous_event] = time_since_previous.total_minutes.to_i
+  end
+
+  private def countdown_next_event(next_event : Event)
+    time_til_next = next_event.startTime - Time.local
+    self[:minutes_til_next_event] = time_til_next.total_minutes.to_i
+    fetch_and_expose_todays_events if Time.local > next_event.startTime 
+  end
+
+  private def countdown_current_event(current : Event)
+    time_since_start = Time.local - current.startTime
+    time_til_end = current.endTime - Time.local
+    self[:minutes_since_current_event_started] = time_since_start.total_minutes.to_i
+    self[:minutes_til_current_event_ends]      = time_til_end.total_minutes.to_i
+    fetch_and_expose_todays_events if Time.local > current.endTime 
+  end
+
+  private def in_progress?(event : Event)
+    now = Time.local
+    now >= event.startTime && now <= event.endTime
   end
 end
