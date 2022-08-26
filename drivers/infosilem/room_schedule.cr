@@ -34,12 +34,17 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   def fetch_and_expose_todays_events
     today = Time.local.to_s("%Y-%m-%d")
     todays_events = Array(Event).from_json(fetch_events(today, today))
-    past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
-    self[:todays_upcoming_events] = future_events
-
+    current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
+    current_events, past_events = current_and_past_events.partition { |e| in_progress?(e)}
+    
+    if @debug
+      self[:todays_upcoming_events] = future_events
+      self[:todays_past_events] = past_events
+    end
+    
     next_event = future_events.min_by? &.startTime
+    current_event = current_events.first?
     previous_event = past_events.max_by? &.endTime
-    current_event = past_events.find { |e| in_progress?(e) }
     update_event_details(previous_event, current_event, next_event)
 
     schedule.clear
