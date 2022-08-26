@@ -37,16 +37,16 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
     self[:todays_upcoming_events] = future_events
 
-    next_event      = future_events.min_by? &.startTime
-    previous_event  = past_events.max_by? &.endTime
-    current_event   = past_events.find { |e| in_progress?(e)}
+    next_event = future_events.min_by? &.startTime
+    previous_event = past_events.max_by? &.endTime
+    current_event = past_events.find { |e| in_progress?(e) }
     update_event_details(previous_event, current_event, next_event)
 
     schedule.clear
     schedule.cron(@cron_string) { fetch_and_expose_todays_events.as(Array(Event)) }
     schedule.every(1.minutes) { advance_countdowns(previous_event, current_event, next_event) }
     advance_countdowns(previous_event, current_event, next_event)
-    
+
     return todays_events
   end
 
@@ -57,18 +57,18 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   private def update_event_details(previous_event : Event | Nil = nil, current_event : Event | Nil = nil, next_event : Event | Nil = nil)
-    self[:previous_event_ends_at]   = previous_event.try &.endTime
-    self[:previous_event_id]        = previous_event.try &.id if @debug
+    self[:previous_event_ends_at] = previous_event.try &.endTime
+    self[:previous_event_id] = previous_event.try &.id if @debug
 
-    self[:current_event_starts_at]  = current_event.try &.startTime
-    self[:current_event_end_at]     = current_event.try &.endTime
-    self[:current_event_id]         = current_event.try &.id if @debug
+    self[:current_event_starts_at] = current_event.try &.startTime
+    self[:current_event_end_at] = current_event.try &.endTime
+    self[:current_event_id] = current_event.try &.id if @debug
 
-    self[:next_event_starts_at]     = next_event.try &.startTime
-    self[:next_event_id]            = next_event.try &.id if @debug
+    self[:next_event_starts_at] = next_event.try &.startTime
+    self[:next_event_id] = next_event.try &.id if @debug
   end
 
-  private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event  : Event | Nil )
+  private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event : Event | Nil)
     previous ? countup_previous_event(previous) : {self[:minutes_since_previous_event] = nil}
     next_event ? countdown_next_event(next_event) : {self[:minutes_til_next_event] = nil}
     current ? countdown_current_event(current) : {self[:minutes_since_current_event_started] = self[:minutes_til_current_event_ends] = nil}
@@ -82,15 +82,15 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   private def countdown_next_event(next_event : Event)
     time_til_next = next_event.startTime - Time.local
     self[:minutes_til_next_event] = time_til_next.total_minutes.to_i
-    fetch_and_expose_todays_events if Time.local > next_event.startTime 
+    fetch_and_expose_todays_events if Time.local > next_event.startTime
   end
 
   private def countdown_current_event(current : Event)
     time_since_start = Time.local - current.startTime
     time_til_end = current.endTime - Time.local
     self[:minutes_since_current_event_started] = time_since_start.total_minutes.to_i
-    self[:minutes_til_current_event_ends]      = time_til_end.total_minutes.to_i
-    fetch_and_expose_todays_events if Time.local > current.endTime 
+    self[:minutes_til_current_event_ends] = time_til_end.total_minutes.to_i
+    fetch_and_expose_todays_events if Time.local > current.endTime
   end
 
   private def in_progress?(event : Event)
