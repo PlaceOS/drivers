@@ -72,7 +72,7 @@ DriverSpecs.mock_driver "Place::Meet" do
   })
 
   # Give the settings time to load
-  sleep 0.1
+  sleep 0.5
 
   status["inputs"].as_a.should contain("Foo")
   status["inputs"].as_a.should contain("Bar")
@@ -92,4 +92,6 @@ DriverSpecs.mock_driver "Place::Meet" do
   exec(:volume, 50, "Display_1").get
   system(:Display_1)["volume"].should eq(50)
   status["volume"]?.should eq(50)
+
+  puts "Spec completed successfully"
 end

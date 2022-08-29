@@ -49,7 +49,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   def on_unload
-    @terminated = true
     @channel.close
     @stream_active = false
     update_monitoring_status(running: false)
@@ -58,7 +57,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @activation_token : String = ""
   @api_key : String = ""
   @tenant_id : String = ""
-  @terminated : Bool = false
   @channel : Channel(String) = Channel(String).new
   @max_location_age : Time::Span = 10.minutes
   @s2_level : Int32 = 21
@@ -250,7 +248,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     SimpleRetry.try_to(
       base_interval: 10.milliseconds,
       max_interval: 5.seconds
-    ) { stream_events unless @terminated }
+    ) { stream_events unless terminated? }
   ensure
     @streaming = false
   end

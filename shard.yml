@@ -100,3 +100,11 @@ dependencies:
   # fake data for mocks
   faker:
     github: askn/faker
+
+  # Lutron Quantum protocol
+  quantum:
+    github: place-technology/quantum
+
+  # Stripe API wrapper
+  stripetease:
+    github: grkek/stripetease
