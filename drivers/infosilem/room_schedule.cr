@@ -75,8 +75,12 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     next_event_started = next_event ? countdown_next_event(next_event) : {self[:minutes_til_next_event] = nil}
     current_event_ended = current ? countdown_current_event(current) : {self[:minutes_since_current_event_started] = self[:minutes_til_current_event_ends] = nil}
 
-    return fetch_and_expose_todays_events if next_event_started || current_event_ended
-    schedule.in(1.minutes) { advance_countdowns(previous, current, next_event).as(Array(Event)) }
+    if next_event_started || current_event_ended
+      schedule.in(1.minutes) { fetch_and_expose_todays_events.as(Array(Event)) }
+    else
+      schedule.in(1.minutes) { advance_countdowns(previous, current, next_event).as(Bool) }
+    end
+    true
   end
 
   private def countup_previous_event(previous : Event)
