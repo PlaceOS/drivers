@@ -148,6 +148,8 @@ class Crestron::Fusion < PlaceOS::Driver
   private def perform_request(method : String, path : String, params : URI::Params = URI::Params.new, body : String? = nil)
     if @security_level == 1
       params["auth"] = "#{@api_pass_code}%20#{@user_id}"
+    elsif @security_level == 2
+      params["auth"] = encrypted_token
     end
 
     uri = URI.parse("@service_url/#{path}")
@@ -163,5 +165,10 @@ class Crestron::Fusion < PlaceOS::Driver
     else
       raise "Fusion API request failed. Status code: #{response.status_code}"
     end
+  end
+
+  private def encrypted_token
+    # TODO: encrypt this
+    "#{Time.utc.to_rfc3339} #{@user_id}"
   end
 end
