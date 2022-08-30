@@ -27,7 +27,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     @debug = setting(Bool, :debug) || false
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
-    schedule.cron(@cron_string) { fetch_and_expose_todays_events }
     fetch_and_expose_todays_events
   end
 
@@ -45,6 +44,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     next_event = future_events.min_by? &.startTime
     current_event = current_events.first?
     previous_event = past_events.max_by? &.endTime
+
+    schedule.clear
+    schedule.cron(@cron_string) { fetch_and_expose_todays_events.as(Array(Event)) }
 
     update_event_details(previous_event, current_event, next_event)
     advance_countdowns(previous_event, current_event, next_event)
