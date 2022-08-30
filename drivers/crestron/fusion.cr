@@ -23,8 +23,8 @@ class Crestron::Fusion < PlaceOS::Driver
     # Should be the same as set in the Fusion configuration client
     api_pass_code: "FUSION_API_PASS_CODE",
 
-    # API Service URL, should be like http://FUSION_SERVER/RoomViewSE/APIService/
-    service_url: "http://FUSION_SERVER/RoomViewSE/APIService/",
+    # API Service URL, should be like http://FUSION_SERVER/fusion/apiservice/
+    service_url: "http://FUSION_SERVER/fusion/apiservice/",
 
     # xml or json
     content_type: "json",
@@ -116,6 +116,28 @@ class Crestron::Fusion < PlaceOS::Driver
 
   def get_room(room_id : String)
     response = perform_request("GET", "/rooms/#{room_id}")
+    @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
+  end
+
+  #################
+  # Signal Values #
+  #################
+
+  def get_signal_values(symbol_id : String)
+    response = perform_request("GET", "/signalvalues/#{symbol_id}")
+    @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
+  end
+
+  def get_signal_value(symbol_id : String, attribute_id : String)
+    response = perform_request("GET", "/signalvalues/#{symbol_id}/#{attribute_id}")
+    @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
+  end
+
+  def put_signal_value(symbol_id : String, attribute_id : String, value : String)
+    params = URI::Params.new
+    params["value"] = value
+
+    response = perform_request("GET", "/signalvalues/#{symbol_id}/#{attribute_id}", params)
     @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
   end
 
