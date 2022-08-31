@@ -169,6 +169,7 @@ class Crestron::Fusion < PlaceOS::Driver
 
   private def encrypted_token
     # TODO: encrypt this
-    "#{Time.utc.to_rfc3339} #{@user_id}"
+    # "#{Time.utc.to_rfc3339} #{@user_id}"
+    raise "Fusion API security level 2 not supported"
   end
 end

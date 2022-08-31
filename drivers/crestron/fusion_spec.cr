@@ -70,6 +70,6 @@ end
 
 private def put_signal_value_response
   {
-    "Status": "Success",
+    "Status" => "Success",
   }
 end
