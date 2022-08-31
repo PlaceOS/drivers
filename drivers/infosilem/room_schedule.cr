@@ -73,9 +73,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event : Event | Nil)
-    previous ? countup_previous_event(previous) : {self[:minutes_since_previous_event] = nil}
-    next_event_started = next_event ? countdown_next_event(next_event) : {self[:minutes_til_next_event] = nil}
-    current_event_ended = current ? countdown_current_event(current) : {self[:minutes_since_current_event_started] = self[:minutes_til_current_event_ends] = nil}
+    previous ? countup_previous_event(previous) : (self[:minutes_since_previous_event] = nil)
+    next_event_started = next_event ? countdown_next_event(next_event) : (self[:minutes_til_next_event] = nil)
+    current_event_ended = current ? countdown_current_event(current) : (self[:minutes_since_current_event_started] = self[:minutes_til_current_event_ends] = nil)
 
     logger.debug { "Next event started? #{next_event_started}\nCurrent event ended? #{current_event_ended}" } if @debug
     if next_event_started || current_event_ended
