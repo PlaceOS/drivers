@@ -17,41 +17,53 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   @room_id : String = "set Infosilem Room ID here"
   @cron_string : String = "*/15 * * * *"
   @debug : Bool = false
-
+  @next_countdown : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+  @request_lock : Mutex = Mutex.new
+  @request_running : Bool = false
+  
   def on_load
     on_update
   end
 
   def on_update
-    schedule.clear
     @debug = setting(Bool, :debug) || false
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
-    fetch_and_expose_todays_events
+    schedule.clear
+    schedule.cron(@cron_string, immediate: true) { fetch_and_expose_todays_events }
   end
 
   def fetch_and_expose_todays_events
-    today = Time.local.to_s("%Y-%m-%d")
-    todays_events = Array(Event).from_json(fetch_events(today, today))
-    current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
-    current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
+    return if @request_running
 
-    if @debug
-      self[:todays_upcoming_events] = future_events
-      self[:todays_past_events] = past_events
+    @request_lock.synchronize do
+      begin
+        @request_running = true
+        @next_countdown.try &.cancel
+        @next_countdown = nil
+        today = Time.local.to_s("%Y-%m-%d")
+        todays_events = Array(Event).from_json(fetch_events(today, today))
+        current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
+        current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
+
+        if @debug
+          self[:todays_upcoming_events] = future_events
+          self[:todays_past_events] = past_events
+        end
+
+        next_event = future_events.min_by? &.startTime
+        current_event = current_events.first?
+        previous_event = past_events.max_by? &.endTime
+
+        logger.debug { "Schedule: #{schedule.inspect}" } if @debug
+
+        update_event_details(previous_event, current_event, next_event)
+        advance_countdowns(previous_event, current_event, next_event)
+        todays_events
+      ensure
+        @request_running = false
+      end
     end
-
-    next_event = future_events.min_by? &.startTime
-    current_event = current_events.first?
-    previous_event = past_events.max_by? &.endTime
-
-    schedule.clear
-    schedule.cron(@cron_string) { fetch_and_expose_todays_events.as(Array(Event)) }
-    logger.debug { "Schedule: #{schedule.inspect}" } if @debug
-
-    update_event_details(previous_event, current_event, next_event)
-    advance_countdowns(previous_event, current_event, next_event)
-    return todays_events
   end
 
   def fetch_events(startDate : String, endDate : String)
@@ -79,7 +91,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     current_event_ended = current ? countdown_current_event(current) : (self[:minutes_since_current_event_started] = self[:minutes_til_current_event_ends] = nil)
 
     logger.debug { "Next event started? #{next_event_started}\nCurrent event ended? #{current_event_ended}" } if @debug
-    if next_event_started || current_event_ended
+    @next_countdown = if next_event_started || current_event_ended
       schedule.in(1.minutes) { fetch_and_expose_todays_events.as(Array(Event)) }
     else
       schedule.in(1.minutes) { advance_countdowns(previous, current, next_event).as(Bool) }
