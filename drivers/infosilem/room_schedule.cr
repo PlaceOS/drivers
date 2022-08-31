@@ -47,6 +47,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
     schedule.clear
     schedule.cron(@cron_string) { fetch_and_expose_todays_events.as(Array(Event)) }
+    schedule.inspect if @debug
 
     update_event_details(previous_event, current_event, next_event)
     advance_countdowns(previous_event, current_event, next_event)
