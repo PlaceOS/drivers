@@ -44,7 +44,7 @@ class Crestron::Fusion < PlaceOS::Driver
     @security_level = setting(Int32, :security_level)
     @user_id = setting(String, :user_id)
     @api_pass_code = setting(String, :api_pass_code)
-    @service_url = setting(String, :api_pass_code)
+    @service_url = setting(String, :service_url)
     @content_type = setting(String, :content_type)
   end
 
@@ -152,7 +152,7 @@ class Crestron::Fusion < PlaceOS::Driver
       params["auth"] = encrypted_token
     end
 
-    uri = URI.parse("@service_url/#{path}")
+    uri = URI.parse("#{@service_url}/#{path}")
     uri.query_params = params
 
     headers = HTTP::Headers.new
