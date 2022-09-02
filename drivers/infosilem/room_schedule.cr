@@ -83,6 +83,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
     self[:next_event_starts_at] = next_event.try &.startTime
     self[:next_event_id] = next_event.try &.id if @debug
+    self[:no_upcoming_events] = next_event.nil?
   end
 
   private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event : Event | Nil)
