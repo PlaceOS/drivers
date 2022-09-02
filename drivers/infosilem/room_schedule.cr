@@ -14,6 +14,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   accessor infosilem : Campus_1
 
+  @building_id : String = "set Infosilem Building ID here"
   @room_id : String = "set Infosilem Room ID here"
   @cron_string : String = "*/15 * * * *"
   @debug : Bool = false
@@ -27,6 +28,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   def on_update
     @debug = setting(Bool, :debug) || false
+    @building_id = setting(String, :infosilem_building_id)
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
     schedule.clear
@@ -67,7 +69,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   def fetch_events(startDate : String, endDate : String)
-    events = infosilem.bookings?(@room_id, startDate, endDate).get.to_json
+    events = infosilem.bookings?(@building_id, @room_id, startDate, endDate).get.to_json
     logger.debug { "Infosilem Campus returned: #{events}" } if @debug
     events
   end
