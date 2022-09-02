@@ -14,6 +14,8 @@ class Crestron::Fusion < PlaceOS::Driver
     Crestron Fusion
   DESC
 
+  uri_base "https://fusion.myorg.com"
+
   default_settings({
     # Security level: 0 (No Security), 1 (Clear Text), 2 (Encrypted)
     security_level: 1,
@@ -23,8 +25,8 @@ class Crestron::Fusion < PlaceOS::Driver
     # Should be the same as set in the Fusion configuration client
     api_pass_code: "FUSION_API_PASS_CODE",
 
-    # API Service URL, should be like http://FUSION_SERVER/fusion/apiservice/
-    service_url: "http://FUSION_SERVER/fusion/apiservice/",
+    # API Service URL, should be like /fusion/apiservice/
+    service_url: "/fusion/apiservice/",
 
     # xml or json
     content_type: "json",
@@ -45,7 +47,7 @@ class Crestron::Fusion < PlaceOS::Driver
     @user_id = setting(String, :user_id)
     @api_pass_code = setting(String, :api_pass_code)
     @service_url = setting(String, :service_url)
-    @content_type = setting(String, :content_type)
+    @content_type = "application/" + setting(String, :content_type)
   end
 
   ###########
@@ -147,19 +149,16 @@ class Crestron::Fusion < PlaceOS::Driver
 
   private def perform_request(method : String, path : String, params : URI::Params = URI::Params.new, body : String? = nil)
     if @security_level == 1
-      params["auth"] = "#{@api_pass_code}%20#{@user_id}"
+      params["auth"] = "#{@api_pass_code} #{@user_id}"
     elsif @security_level == 2
       params["auth"] = encrypted_token
     end
-
-    uri = URI.parse("#{@service_url}/#{path}")
-    uri.query_params = params
 
     headers = HTTP::Headers.new
     headers["Content-Type"] = @content_type
     headers["Accept"] = @content_type
 
-    response = HTTP::Client.exec(method, uri, headers, body)
+    response = http(method, "#{@service_url}/#{path}", body, params, headers)
     if response.status_code == 200
       response
     else
