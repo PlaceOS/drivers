@@ -32,4 +32,9 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
     self["unlocked_at"] = Time.local
     self["doors_locked"] = false
   end
+
+  def status?
+    result = @door_ids.map { |id| { id, axiom.status?(id).get } }
+    result.map { |id,status| self[id] = status }
+  end
 end
