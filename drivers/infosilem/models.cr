@@ -6,7 +6,7 @@ module Infosilem
     property id : String
 
     @[JSON::Field(key: "EventDescription")]
-    property description : String
+    property description : String?
 
     @[JSON::Field(key: "StartTime", converter: Infosilem::DateTimeConvertor)]
     property startTime : Time
