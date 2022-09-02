@@ -28,24 +28,24 @@ class Siemens::Desigo < PlaceOS::Driver
 
     spawn do
       loop do
-        client.heartbeat.signal
+        @client.heartbeat.signal
         sleep 60
       end
     end
   end
 
   def property_values(id : String)
-    property_values = client.property_values.get(id: id)
+    property_values = @client.try(&.property_values.get(id: id))
     self["property_values#{id}"] = property_values
   end
 
   def values(id : String)
-    values = client.try(&.values.get(id: id))
+    values = @client.try(&.values.get(id: id))
     self["values#{id}"] = values
   end
 
   def commands(id : String)
-    commands = client.try(&.commands.get(id: id))
+    commands = @client.try(&.commands.get(id: id))
     self["commands#{id}"] = commands
   end
 
@@ -53,7 +53,7 @@ class Siemens::Desigo < PlaceOS::Driver
   # we can pass in the `command_inputs_for_execution` as a JSON string.
   # "[{\"Name\": \"Value\", \"DataType\": \"ExtendedEnum\", \"Value\": \"1\"}]"
   def execute(id : String, property_name : String, command_id : String, command_inputs_for_execution : String)
-    return_value = client.try(&.commands.execute(id: id, property_name: property_name, command_id: command_id, command_inputs_for_execution: JSON.parse(command_inputs_for_execution)))
+    return_value = @client.try(&.commands.execute(id: id, property_name: property_name, command_id: command_id, command_inputs_for_execution: JSON.parse(command_inputs_for_execution)))
     self["execute#{id}_property#{property_name}_command#{command_id}"] = return_value
   end
 end
