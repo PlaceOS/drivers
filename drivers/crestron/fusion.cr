@@ -137,7 +137,7 @@ class Crestron::Fusion < PlaceOS::Driver
     params = URI::Params.new
     params["value"] = value
 
-    response = perform_request("GET", "/signalvalues/#{symbol_id}/#{attribute_id}", params)
+    response = perform_request("PUT", "/signalvalues/#{symbol_id}/#{attribute_id}", params)
     @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
   end
 
