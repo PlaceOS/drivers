@@ -40,12 +40,12 @@ class Siemens::Desigo < PlaceOS::Driver
   end
 
   def values(id : String)
-    values = client.values.get(id: id)
+    values = client.try(&.values.get(id: id))
     self["values#{id}"] = values
   end
 
   def commands(id : String)
-    commands = client.commands.get(id: id)
+    commands = client.try(&.commands.get(id: id))
     self["commands#{id}"] = commands
   end
 
@@ -53,7 +53,7 @@ class Siemens::Desigo < PlaceOS::Driver
   # we can pass in the `command_inputs_for_execution` as a JSON string.
   # "[{\"Name\": \"Value\", \"DataType\": \"ExtendedEnum\", \"Value\": \"1\"}]"
   def execute(id : String, property_name : String, command_id : String, command_inputs_for_execution : String)
-    return_value = client.commands.execute(id: id, property_name: property_name, command_id: command_id, command_inputs_for_execution: JSON.parse(command_inputs_for_execution))
+    return_value = client.try(&.commands.execute(id: id, property_name: property_name, command_id: command_id, command_inputs_for_execution: JSON.parse(command_inputs_for_execution)))
     self["execute#{id}_property#{property_name}_command#{command_id}"] = return_value
   end
 end
