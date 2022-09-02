@@ -79,7 +79,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     self[:current_event_starts_at] = current_event.try &.startTime
     self[:current_event_end_at] = current_event.try &.endTime
     self[:current_event_id] = current_event.try &.id if @debug
-    self[:event_in_progress] = !current_event.nil?
+    self[:event_in_progress] = current_event ? in_progress?(current_event) : false
 
     self[:next_event_starts_at] = next_event.try &.startTime
     self[:next_event_id] = next_event.try &.id if @debug
