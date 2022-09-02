@@ -3,7 +3,7 @@ require "desigo"
 
 class Siemens::Desigo < PlaceOS::Driver
   descriptive_name "Siemens Desigo Gateway"
-  generic_name :Automation
+  generic_name :Desigo
   uri_base "https://127.0.0.1:8080/WebService/api/"
 
   alias Client = ::Desigo::Client
@@ -28,7 +28,7 @@ class Siemens::Desigo < PlaceOS::Driver
 
     spawn do
       loop do
-        @client.heartbeat.signal
+        @client.try(&.heartbeat.signal)
         sleep 60
       end
     end
