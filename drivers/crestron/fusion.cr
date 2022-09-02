@@ -14,7 +14,7 @@ class Crestron::Fusion < PlaceOS::Driver
     Crestron Fusion
   DESC
 
-  uri_base "https://fusion.myorg.com"
+  uri_base "https://fusion.myorg.com/fusion/apiservice/"
 
   default_settings({
     # Security level: 0 (No Security), 1 (Clear Text), 2 (Encrypted)
@@ -25,9 +25,6 @@ class Crestron::Fusion < PlaceOS::Driver
     # Should be the same as set in the Fusion configuration client
     api_pass_code: "FUSION_API_PASS_CODE",
 
-    # API Service URL, should be like /fusion/apiservice/
-    service_url: "/fusion/apiservice/",
-
     # xml or json
     content_type: "json",
   })
@@ -35,7 +32,6 @@ class Crestron::Fusion < PlaceOS::Driver
   @security_level : Int32 = 1
   @user_id : String = ""
   @api_pass_code : String = ""
-  @service_url : String = ""
   @content_type : String = ""
 
   def on_load
@@ -46,7 +42,6 @@ class Crestron::Fusion < PlaceOS::Driver
     @security_level = setting(Int32, :security_level)
     @user_id = setting(String, :user_id)
     @api_pass_code = setting(String, :api_pass_code)
-    @service_url = setting(String, :service_url)
     @content_type = "application/" + setting(String, :content_type)
   end
 
@@ -158,7 +153,7 @@ class Crestron::Fusion < PlaceOS::Driver
     headers["Content-Type"] = @content_type
     headers["Accept"] = @content_type
 
-    response = http(method, "#{@service_url}/#{path}", body, params, headers)
+    response = http(method, path, body, params, headers)
     if response.status_code == 200
       response
     else
