@@ -84,4 +84,14 @@ class Stripe::API < PlaceOS::Driver
     @client.not_nil!.payment_intents.cancel(id: id, cancellation_reason: cancellation_reason)
     self["payment_intent"] = nil
   end
+
+  def create_customer(account_balance : Int32? = nil, coupon : String? = nil, default_source : String? = nil, description : String? = nil, email : String? = nil, invoice_prefix : String? = nil, metadata : Hash(String, String)? = nil, shipping : Hash(String, String)? = nil, source : String? = nil, tax_info : Hash(String, String)? = nil)
+    customer = @client.not_nil!.customers.create(account_balance: account_balance, coupon: coupon, default_source: default_source, description: description, email: email, invoice_prefix: invoice_prefix, metadata: metadata, shipping: shipping, source: source, tax_info: tax_info)
+    self["customer"] = customer
+  end
+
+  def update_customer(id : String, customer : String? = nil, account_balance : Int32? = nil, coupon : String? = nil, default_source : String? = nil, description : String? = nil, email : String? = nil, invoice_prefix : String? = nil, metadata : Hash(String, String)? = nil, shipping : Hash(String, String)? = nil, source : String? = nil, tax_info : Hash(String, String)? = nil)
+    customer = @client.not_nil!.customers.update(id: id, customer: customer, account_balance: account_balance, coupon: coupon, default_source: default_source, description: description, email: email, invoice_prefix: invoice_prefix, metadata: metadata, shipping: shipping, source: source, tax_info: tax_info)
+    self["customer"] = customer
+  end
 end
