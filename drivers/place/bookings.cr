@@ -6,7 +6,7 @@ require "placeos-driver/interface/sensor"
 class Place::Bookings < PlaceOS::Driver
   include Interface::Locatable
 
-  descriptive_name "PlaceOS Bookings"
+  descriptive_name "PlaceOS Room Events"
   generic_name :Bookings
 
   default_settings({
