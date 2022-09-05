@@ -123,7 +123,7 @@ shards:
 
   json-schema:
     git: https://github.com/spider-gazelle/json-schema.git
-    version: 1.1.1
+    version: 1.2.1
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -223,7 +223,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.4.8
+    version: 6.4.11
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -251,7 +251,7 @@ shards:
 
   quantum:
     git: https://github.com/place-technology/quantum.git
-    version: 0.1.1
+    version: 0.1.2
 
   rate_limiter:
     git: https://github.com/lbarasti/rate_limiter.git

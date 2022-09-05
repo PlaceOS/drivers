@@ -8,6 +8,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
   accessor calendar_api : Calendar_1
 
+  # NOTE:: user_sys_admin, user_support sets the users persmissions flags
   default_settings({
     # ID => place_name
     group_mappings: {
@@ -18,6 +19,10 @@ class Place::UserGroupMappings < PlaceOS::Driver
       "group2_id" => {
         place_id:    "boss",
         description: "people that can access everything",
+      },
+      "ad_group3_id" => {
+        place_id:    "user_sys_admin",
+        description: "this is a special group that sets place users as sys_admins",
       },
     },
 
