@@ -27,6 +27,16 @@ class Lutron::Quantum < PlaceOS::Driver
     @client = Client.new(host_name: host_name.not_nil!, api_key: api_key, device_key: device_key)
   end
 
+  def request(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "webhook received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
+    logger.debug { body }
+
+    {HTTP::Status::OK.to_i, {} of String => String, ""}
+  rescue error
+    logger.warn(exception: error) { "processing webhook request" }
+    {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, error.message.to_s}
+  end
+
   def level?(id : Int32)
     status = client.zone.get_status(id)
     self["area#{id}_level"] = status["Level"]
