@@ -57,8 +57,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
         current_event = current_events.first?
         previous_event = past_events.max_by? &.endTime
 
-        logger.debug { "Schedule: #{schedule.inspect}" } if @debug
-
         update_event_details(previous_event, current_event, next_event)
         advance_countdowns(previous_event, current_event, next_event)
         todays_events
@@ -79,13 +77,11 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     self[:previous_event_id] = previous_event.try &.id if @debug
 
     self[:current_event_starts_at] = current_event.try &.startTime
-    self[:current_event_end_at] = current_event.try &.endTime
+    self[:current_event_ends_at] = current_event.try &.endTime
     self[:current_event_id] = current_event.try &.id if @debug
-    self[:event_in_progress] = current_event ? in_progress?(current_event) : false
 
     self[:next_event_starts_at] = next_event.try &.startTime
     self[:next_event_id] = next_event.try &.id if @debug
-    self[:no_upcoming_events] = next_event.nil?
   end
 
   private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event : Event | Nil)
@@ -99,7 +95,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     else
       schedule.in(1.minutes) { advance_countdowns(previous, current, next_event).as(Bool) }
     end
-    true
+
+    self[:event_in_progress] = current ? in_progress?(current) : false
+    self[:no_upcoming_events] = next_event.nil?
   end
 
   private def countup_previous_event(previous : Event)
