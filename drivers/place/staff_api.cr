@@ -270,6 +270,18 @@ class Place::StaffAPI < PlaceOS::Driver
     true
   end
 
+  def patch_event_metadata(system_id : String, event_id : String, metadata : JSON::Any)
+    response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}", headers: authentication, body: metadata.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON::Any.from_json(response.body)
+  end
+
+  def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any)
+    response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}", headers: authentication, body: metadata.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON::Any.from_json(response.body)
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
@@ -537,9 +549,13 @@ class Place::StaffAPI < PlaceOS::Driver
     params["rejected"] = rejected.to_s unless rejected.nil?
     params["checked_in"] = checked_in.to_s unless checked_in.nil?
 
+    logger.debug { "requesting staff/v1/bookings: #{params}" }
+
     # Get the existing bookings from the API to check if there is space
     response = get("/api/staff/v1/bookings", params, authentication)
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
+
+    logger.debug { "bookings response size: #{response.body.size}" }
 
     # Just parse it here instead of using the Bookings object
     # it will be parsed into an object on the far end

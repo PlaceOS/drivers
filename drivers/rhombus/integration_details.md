@@ -4,6 +4,10 @@ PlaceOS implements the following webhook methods for Rhombus initiated interacti
 
 A webhook will be create in backoffice on PlaceOS that is unique for each client that will look something like this: https://instance.placeos.com/api/engine/v2/webhook/trig-DHgkU1~p/notify?secret=kfwu5WYc3a1suZ&exec=true&mod=Rhombus&method=request
 
+or
+
+https://instance.placeos.com/api/engine/v2/webhook/trig-DHgkU1~p/notify/{secret}/{mod}/{index}/{request}
+
 ## Supported methods
 
 These indicate the desired action to be performed, where `Place Webhook` is the unique webhook generated for the client and defined in Rhombus
