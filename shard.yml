@@ -108,3 +108,6 @@ dependencies:
   # Stripe API wrapper
   stripetease:
     github: grkek/stripetease
+
+  desigo:
+    github: place-technology/desigo
