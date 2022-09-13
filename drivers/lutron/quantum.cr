@@ -47,6 +47,11 @@ class Lutron::Quantum < PlaceOS::Driver
     self["area#{id}"] = status["CurrentScene"]
   end
 
+  def occupancy_status?(id : Int32)
+    occupancy_status = client.area.get_occupancy_status(id: id)
+    self["area#{id}_occupancy"] = occupancy_status
+  end
+
   @[PlaceOS::Driver::Security(Level::Support)]
   def scenes(id : Int32)
     client.area.get_scenes(id: id)
