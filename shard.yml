@@ -101,6 +101,10 @@ dependencies:
   faker:
     github: askn/faker
 
+  # AxiomXa client
+  axio:
+    github: place-technology/axio
+
   # Lutron Quantum protocol
   quantum:
     github: place-technology/quantum
