@@ -36,13 +36,13 @@ class Infosilem::Campus < PlaceOS::Driver
     )
   end
 
-  def bookings?(room_id : String, start_date : String, end_date : String)
+  def bookings?(building_id : String, room_id : String, start_date : String, end_date : String)
     response = @integration.try(&.call(operation: "StartTransfer", body: {"StartTransferOptions" => Sabo::Parameter.from_hash(start_transfer_options(username: setting(String, :username), password: setting(String, :password)))}))
     transfer_id = response.try(&.result)
 
     response = @booking.try(&.call(operation: "RoomBookingOccurrence_ExportAll", body: {
       "TransferID" => Sabo::Parameter.new(transfer_id.to_s),
-      "Options"    => Sabo::Parameter.from_hash(booking_options(room: room_id, start_date: start_date, end_date: end_date, start_time: start_date, end_time: end_date)),
+      "Options"    => Sabo::Parameter.from_hash(booking_options(building: building_id, room: room_id, start_date: start_date, end_date: end_date, start_time: start_date, end_time: end_date)),
     }
     ))
 
