@@ -23,6 +23,7 @@ class Lutron::RoomLogic < PlaceOS::Driver
   def on_update
     @area_id = setting(Int32, :lutron_area_id)
     @cron_string = setting(String, :lutron_status_poll_cron)
+    schedule.clear
     schedule.cron(@cron_string) { get_state }
   end
 
