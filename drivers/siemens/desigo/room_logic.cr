@@ -2,7 +2,7 @@ require "placeos-driver"
 
 class Siemens::Desigo::RoomLogic < PlaceOS::Driver
   descriptive_name "Siemens Desigo single room status abstraction"
-  generic_name :RoomEnvironment
+  generic_name :RoomBMS
   description "Exposes Desigo values for a single room"
 
   default_settings({
@@ -26,7 +26,7 @@ class Siemens::Desigo::RoomLogic < PlaceOS::Driver
   end
 
   def do_queries
-    responses = @queries.map { |q| {q.name, desigo.get_devices(q.param).get} }
+    responses = @queries.map { |q| {q.name, desigo.values(q.param).get} }
     responses.each { |name, value| self[name] = value.as_a.first.as_h["Value"]["Value"] }
   end
 
