@@ -22,6 +22,7 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
   def on_update
     @door_ids = setting(Array(String), :axiom_door_ids)
     @cron_string = setting(String, :axiom_status_poll_cron)
+    schedule.clear
     schedule.cron(@cron_string) { status? }
   end
 
