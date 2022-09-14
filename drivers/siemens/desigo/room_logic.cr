@@ -22,6 +22,7 @@ class Siemens::Desigo::RoomLogic < PlaceOS::Driver
   def on_update
     @queries = setting(Array(Query), :desigo_queries)
     @cron_string = setting(String, :desigo_status_poll_cron)
+    schedule.clear
     schedule.cron(@cron_string) { do_queries }
   end
 
