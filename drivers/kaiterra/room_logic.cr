@@ -27,8 +27,11 @@ class Kaiterra::RoomLogic < PlaceOS::Driver
 
   def get_measurements
     response = kaiterra.get_devices(@room_id).get
-    return "No Data" unless response["data"]
-    results = response["data"].as_a.map { |i| { "#{i["param"]} (#{i["units"]})", i["points"]["value"] } }
-    results.map { |measurement, value| self[measurement] = value }
+    return "No Data" unless results = response.as_h["data"]
+    results.as_a.each do |i|
+      name = "#{i["param"]} (#{i["units"]})"
+      value = i["points"].as_a.first["value"]
+      self[name] = value
+    end
   end
 end
