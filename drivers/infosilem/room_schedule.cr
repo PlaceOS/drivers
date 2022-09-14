@@ -21,7 +21,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   @next_countdown : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
   @request_lock : Mutex = Mutex.new
   @request_running : Bool = false
-  
+
   def on_load
     on_update
   end
@@ -91,10 +91,10 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
     logger.debug { "Next event started? #{next_event_started}\nCurrent event ended? #{current_event_ended}" } if @debug
     @next_countdown = if next_event_started || current_event_ended
-      schedule.in(1.minutes) { fetch_and_expose_todays_events.as(Array(Event)) }
-    else
-      schedule.in(1.minutes) { advance_countdowns(previous, current, next_event).as(Bool) }
-    end
+                        schedule.in(1.minutes) { fetch_and_expose_todays_events.as(Array(Event)) }
+                      else
+                        schedule.in(1.minutes) { advance_countdowns(previous, current, next_event).as(Bool) }
+                      end
 
     self[:event_in_progress] = current ? in_progress?(current) : false
     self[:no_upcoming_events] = next_event.nil?
