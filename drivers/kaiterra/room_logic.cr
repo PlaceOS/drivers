@@ -22,6 +22,7 @@ class Kaiterra::RoomLogic < PlaceOS::Driver
   def on_update
     @room_id = setting(String, :kaiterra_room_id)
     @cron_string = setting(String, :kaiterra_status_poll_cron)
+    schedule.clear
     schedule.cron(@cron_string) { get_measurements }
   end
 
