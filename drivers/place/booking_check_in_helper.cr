@@ -12,8 +12,9 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
 
   default_settings({
     # how many minutes until we want to prompt the user
-    prompt_after: 10,
-    auto_cancel:  false,
+    prompt_after:    10,
+    auto_cancel:     false,
+    decline_message: "optionally use this instead of a custom email template",
 
     # how many minutes to wait before we enable auto-check-in
     present_from:       5,
@@ -87,9 +88,11 @@ STRING
   @domain : String = ""
 
   @jwt_private_key : String = ""
+  @decline_message : String? = nil
 
   def on_update
-    @jwt_private_key = setting(String, :jwt_private_key)
+    @jwt_private_key = setting(String?, :jwt_private_key) || ""
+    @decline_message = setting(String?, :decline_message)
 
     @ignore_longer_than = setting?(Int32, :ignore_longer_than).try &.minutes
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
@@ -224,12 +227,14 @@ STRING
       return
     end
 
-    logger.debug { "prompting user about meeting room booking #{meeting.id}" }
-    begin
-      params = generate_guest_jwt
-      mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
-    rescue error
-      logger.warn(exception: error) { "failed to notify user" }
+    unless @decline_message && @auto_cancel
+      logger.debug { "prompting user about meeting room booking #{meeting.id}" }
+      begin
+        params = generate_guest_jwt
+        mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
+      rescue error
+        logger.warn(exception: error) { "failed to notify user" }
+      end
     end
 
     @prompted = meeting.id.not_nil!
@@ -256,6 +261,9 @@ STRING
       if check_in
         bookings.start_meeting(meeting.event_start.to_unix)
         self[:checked_in] = true
+      elsif @decline_message
+        bookings.end_meeting(meeting.event_start.to_unix, notify: true, comment: @decline_message)
+        self[:no_show] = true
       else
         bookings.end_meeting(meeting.event_start.to_unix)
         self[:no_show] = true
