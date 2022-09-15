@@ -6,8 +6,8 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
   description "Abstracts room access for Axiom"
 
   default_settings({
-    axiom_door_ids: [] of String,
-    axiom_status_poll_cron:  "*/5 * * * *",
+    axiom_door_ids:         [] of String,
+    axiom_status_poll_cron: "*/5 * * * *",
   })
 
   accessor axiom : AxiomXa
@@ -29,7 +29,7 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
   def lock
     @door_ids.map { |d| axiom.lock(d).get }
   rescue
-    logger.error {"AxiomXa: ERROR while LOCKING #{@door_ids}"}
+    logger.error { "AxiomXa: ERROR while LOCKING #{@door_ids}" }
   else
     self["locked_by_placeos_at"] = Time.local
     status?
@@ -38,7 +38,7 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
   def unlock
     @door_ids.map { |d| axiom.unlock(d).get }
   rescue
-    logger.error {"AxiomXa: ERROR while UNLOCKING #{@door_ids}"}
+    logger.error { "AxiomXa: ERROR while UNLOCKING #{@door_ids}" }
   else
     self["unlocked_by_placeos_at"] = Time.local
     status?
@@ -47,7 +47,7 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
   def status?
     result = @door_ids.map { |id| {id, axiom.status?(id).get} }
   rescue
-    logger.error {"AxiomXa: ERROR requesting STATUS of #{@door_ids}"}
+    logger.error { "AxiomXa: ERROR requesting STATUS of #{@door_ids}" }
   else
     result.map { |id, status| self[id] = status["Status"] }
     self["doors_locked"] = result.count { |status| status.includes? "Locked" }
