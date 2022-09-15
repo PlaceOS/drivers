@@ -91,16 +91,16 @@ STRING
   @decline_message : String? = nil
 
   def on_update
-    @jwt_private_key = setting(String?, :jwt_private_key) || ""
-    @decline_message = setting(String?, :decline_message)
+    @jwt_private_key = setting?(String, :jwt_private_key) || ""
+    @decline_message = setting?(String, :decline_message)
 
     @ignore_longer_than = setting?(Int32, :ignore_longer_than).try &.minutes
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
     @present_from = (setting?(Int32, :present_from) || 5).minutes
     @auto_cancel = setting?(Bool, :auto_cancel) || false
 
-    @check_in_url = setting(String, :check_in_url)
-    @no_show_url = setting(String, :no_show_url)
+    @check_in_url = setting?(String, :check_in_url) || ""
+    @no_show_url = setting?(String, :no_show_url) || ""
     @domain = URI.parse(@check_in_url).host.not_nil!
 
     subscriptions.clear
