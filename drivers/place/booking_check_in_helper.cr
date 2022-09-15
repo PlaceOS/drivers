@@ -101,7 +101,9 @@ STRING
 
     @check_in_url = setting?(String, :check_in_url) || ""
     @no_show_url = setting?(String, :no_show_url) || ""
-    @domain = URI.parse(@check_in_url).host.not_nil!
+    if @check_in_url.presence
+      @domain = URI.parse(@check_in_url).host.not_nil!
+    end
 
     subscriptions.clear
     bookings.subscribe(:current_booking) do |_sub, pending|
