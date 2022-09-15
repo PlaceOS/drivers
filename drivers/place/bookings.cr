@@ -155,7 +155,7 @@ class Place::Bookings < PlaceOS::Driver
     result.get
 
     # Update the display
-    poll_events
+    schedule.in(2.seconds) { poll_events }
     check_current_booking
   end
 
@@ -180,7 +180,7 @@ class Place::Bookings < PlaceOS::Driver
       host_calendar
     )
     # Update booking info after creating event
-    poll_events
+    schedule.in(2.seconds) { poll_events }
     event
   end
 
