@@ -60,6 +60,8 @@ VjaMgjzVJqqYozNT/74pE/b9UjYyMzO/EhrjUmcwriMMan/vTbYoBMYWvGoy536r
 STRING
   })
 
+  @sensor_stale : Bool = false
+
   def on_load
     on_update
   end
@@ -111,6 +113,7 @@ STRING
       update_current event
     end
     bookings.subscribe(:current_pending) { |_sub, pending| update_pending(pending == "true") }
+    bookings.subscribe(:sensor_stale) { |_sub, sensor_stale| update_stale_state(sensor_stale == "true") }
     bookings.subscribe(:presence) { |_sub, presence| update_presence(presence == "true") }
 
     monitor("#{config.control_system.not_nil!.id}/guest/bookings/prompted") do |_sub, response|
@@ -162,6 +165,11 @@ STRING
     apply_state_changes
   end
 
+  protected def update_stale_state(stale : Bool)
+    @sensor_stale = stale
+    apply_state_changes
+  end
+
   protected def cleanup_state
     logger.debug { "cleaning up state, pending: #{@meeting_pending}, meeting: #{!!@current_meeting}" }
     schedule.clear
@@ -186,6 +194,16 @@ STRING
     start_time = meeting.event_start
     prompt_at = start_time + prompt_after
     check_presence_from = start_time + present_from
+
+    # Schedule an auto check-in check if the sensor is stale
+    if @sensor_stale
+      logger.debug { "stale sensor detected... Scheduling meeting start" }
+      schedule.at(check_presence_from) do
+        logger.debug { "starting meeting with stale sensor" }
+        bookings.start_meeting(start_time.to_unix)
+      end
+      return
+    end
 
     # Can we auto check-in?
     logger.debug { "people_present? #{people_present?}" }

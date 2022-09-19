@@ -20,6 +20,9 @@ class Place::Bookings < PlaceOS::Driver
     cache_polling_period:   5,
     cache_days:             30,
 
+    # consider sensor data older than this unreliable
+    sensor_stale_minutes: 8,
+
     # as graph API is eventually consistent we want to delay syncing for a moment
     change_event_sync_delay: 5,
 
@@ -49,9 +52,11 @@ class Place::Bookings < PlaceOS::Driver
   @cache_days : Time::Span = 30.days
   @include_cancelled_bookings : Bool = false
 
+  @current_meeting_id : String = ""
   @current_pending : Bool = false
   @next_pending : Bool = false
 
+  @sensor_stale_minutes : Time::Span = 8.minutes
   @perform_sensor_search : Bool = true
 
   def on_load
@@ -96,6 +101,8 @@ class Place::Bookings < PlaceOS::Driver
     @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
 
     @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
+
+    @sensor_stale_minutes = (setting?(Int32, :sensor_stale_minutes) || 8).minutes
 
     # ensure current booking is updated at the start of every minute
     schedule.cron("* * * * *") { check_current_booking }
@@ -263,6 +270,11 @@ class Place::Bookings < PlaceOS::Driver
       end
 
       self[:current_booking] = booking
+
+      previous_booking_id = @current_meeting_id
+      new_booking_id = booking["id"].as_s
+      schedule.in(1.second) { check_for_sensors } unless new_booking_id == previous_booking_id
+      @current_meeting_id = new_booking_id
     else
       self[:current_booking] = nil
     end
@@ -427,39 +439,67 @@ class Place::Bookings < PlaceOS::Driver
 
     # Prefer people count data in a space
     count_data = drivers.sensors("people_count").get.flat_map(&.as_a).first?
+
     if count_data && count_data["module_id"]?.try(&.raw.is_a?(String))
-      self[:sensor_name] = count_data["name"].as_s
-      @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
-        value = (Float64 | Nil).from_json payload
-        if value
-          self[:people_count] = value
-          self[:presence] = value > 0.0
-        else
-          self[:people_count] = self[:presence] = nil
+      if !is_stale?(count_data["last_seen"]?.try &.as_i64)
+        self[:sensor_name] = count_data["name"].as_s
+
+        @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
+          value = (Float64 | Nil).from_json payload
+          if value
+            self[:people_count] = value
+            self[:presence] = value > 0.0
+          else
+            self[:people_count] = self[:presence] = nil
+          end
         end
+        @perform_sensor_search = false
       end
-      @perform_sensor_search = false
-    else
+    end
+
+    # a people count sensor was stale or not found
+    if @perform_sensor_search
       self[:people_count] = nil
 
       # Fallback to checking for presence
       presence = drivers.sensors("presence").get.flat_map(&.as_a).first?
       if presence && presence["module_id"]?.try(&.raw.is_a?(String))
-        self[:sensor_name] = presence["name"].as_s
-        @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
-          value = (Float64 | Nil).from_json payload
-          self[:presence] = value ? value > 0.0 : nil
+        if !is_stale?(presence["last_seen"]?.try &.as_i64)
+          self[:sensor_name] = presence["name"].as_s
+
+          @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
+            value = (Float64 | Nil).from_json payload
+            self[:presence] = value ? value > 0.0 : nil
+          end
+          @perform_sensor_search = false
+        else
+          self[:sensor_name] = self[:presence] = nil
+          @perform_sensor_search = true
         end
-        @perform_sensor_search = false
-      else
-        self[:sensor_name] = self[:presence] = nil
-        @perform_sensor_search = true
       end
     end
   rescue error
+    @perform_sensor_search = true
+    logger.error(exception: error) { "checking for sensors" }
     self[:people_count] = nil
     self[:presence] = nil
     self[:sensor_name] = nil
-    logger.error(exception: error) { "checking for sensors" }
+    self[:sensor_stale] = true
+  end
+
+  def is_stale?(timestamp : Int64?) : Bool
+    if timestamp.nil?
+      return self[:sensor_stale] = false
+    end
+
+    sensor_time = Time.unix(timestamp)
+    stale_time = @sensor_stale_minutes.ago
+
+    if sensor_time > stale_time
+      self[:sensor_stale] = false
+    else
+      @perform_sensor_search = true
+      self[:sensor_stale] = true
+    end
   end
 end
