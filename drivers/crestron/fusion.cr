@@ -104,6 +104,11 @@ class Crestron::Fusion < PlaceOS::Driver
   # Rooms #
   #########
 
+  def post_room(room_xml_or_json : String)
+    response = perform_request("POST", "/rooms", body: room_xml_or_json)
+    @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
+  end
+
   def get_rooms(name : String?, node_id : String? = nil, page : Int32? = nil)
     params = URI::Params.new
     params["search"] = name if name
@@ -116,6 +121,16 @@ class Crestron::Fusion < PlaceOS::Driver
 
   def get_room(room_id : String)
     response = perform_request("GET", "/rooms/#{room_id}")
+    @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
+  end
+
+  def put_room(room_id : String, room_xml_or_json : String)
+    response = perform_request("PUT", "/rooms/#{room_id}", body: room_xml_or_json)
+    @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
+  end
+
+  def delete_room(room_id : String)
+    response = perform_request("DELETE", "/rooms/#{room_id}")
     @content_type == "xml" ? XML.parse(response.body) : JSON.parse(response.body)
   end
 
