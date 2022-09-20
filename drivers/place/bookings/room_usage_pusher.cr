@@ -2,8 +2,8 @@ require "placeos-driver"
 require "simple_retry"
 
 class Place::UsagePusher < PlaceOS::Driver
-  descriptive_name "PlaceOS Room Usage Pusher"
-  generic_name :UsagePusher
+  descriptive_name "PlaceOS Event Attendance Recorder"
+  generic_name :EventAttendanceRecorder
 
   default_settings({
     metadata_key: "people_count",
