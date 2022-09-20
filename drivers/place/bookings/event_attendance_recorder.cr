@@ -1,7 +1,7 @@
 require "placeos-driver"
 require "simple_retry"
 
-class Place::UsagePusher < PlaceOS::Driver
+class Place::EventAttendanceRecorder < PlaceOS::Driver
   descriptive_name "PlaceOS Event Attendance Recorder"
   generic_name :EventAttendanceRecorder
 

@@ -1,7 +1,7 @@
 require "placeos-driver/spec"
 require "uuid"
 
-DriverSpecs.mock_driver "Place::UsagePusher" do
+DriverSpecs.mock_driver "Place::EventAttendanceRecorder" do
   system({
     StaffAPI: {StaffAPIMock},
     Bookings: {BookingsMock},
