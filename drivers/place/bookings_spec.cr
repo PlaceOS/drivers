@@ -43,7 +43,7 @@ DriverSpecs.mock_driver "Place::Bookings" do
 
   # End a meeting
   exec(:end_meeting, current_start).get
-  sleep 200.milliseconds
+  sleep 2200.milliseconds # polls after 2 seconds
 
   bookings = status[:bookings].as_a
   bookings.size.should eq(3)
@@ -99,7 +99,7 @@ class CalendarMock < DriverSpecs::MockDriver
     self[:deleted_event] = nil
   end
 
-  def delete_event(calendar_id : String, event_id : String, user_id : String? = nil)
+  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     self[:deleted_event] = {calendar_id, event_id}
     @events = @events.reject { |event| event["id"] == event_id }
     nil
