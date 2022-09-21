@@ -310,7 +310,7 @@ shards:
     version: 1.0.1
 
   stripetease:
-    git: https://github.com/grkek/stripetease.git
+    git: https://github.com/place-technology/stripetease.git
     version: 0.1.0+git.commit.709a3e533b2273928688e4adfabe80cf9d1480ec
 
   stumpy_core:
