@@ -9,28 +9,28 @@ class Cisco::DNASpaces::Device
   @[JSON::Field(key: "userId")]
   getter user_id : String
 
-  getter tags : Array(String)
-  getter mobile : String
-  getter email : String
+  getter tags : Array(String) = [] of String
+  getter mobile : String?
+  getter email : String?
 
   def email
-    @email.downcase
+    @email.try &.downcase
   end
 
   def email_raw
     @email
   end
 
-  getter gender : String
+  getter gender : String?
 
   @[JSON::Field(key: "firstName")]
-  getter first_name : String
+  getter first_name : String?
 
   @[JSON::Field(key: "lastName")]
-  getter last_name : String
+  getter last_name : String?
 
   @[JSON::Field(key: "postalCode")]
-  getter postal_code : String
+  getter postal_code : String?
 
   # optIns
   # otherFields
@@ -39,10 +39,10 @@ class Cisco::DNASpaces::Device
   # We make this editable so we can store the formatted version here
   @[JSON::Field(key: "macAddress")]
   property mac_address : String
-  getter manufacturer : String
-  getter os : String
+  getter manufacturer : String?
+  getter os : String?
 
   @[JSON::Field(key: "osVersion")]
-  getter os_version : String
+  getter os_version : String?
   getter type : String
 end

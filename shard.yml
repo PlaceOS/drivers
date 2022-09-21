@@ -101,6 +101,14 @@ dependencies:
   faker:
     github: askn/faker
 
+  # SOAP client
+  sabo:
+    github: place-technology/sabo
+
+  # AxiomXa client
+  axio:
+    github: place-technology/axio
+
   # Lutron Quantum protocol
   quantum:
     github: place-technology/quantum
@@ -108,3 +116,6 @@ dependencies:
   # Stripe API wrapper
   stripetease:
     github: place-technology/stripetease
+
+  desigo:
+    github: place-technology/desigo
