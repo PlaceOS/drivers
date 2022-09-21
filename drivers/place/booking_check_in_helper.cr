@@ -12,8 +12,9 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
 
   default_settings({
     # how many minutes until we want to prompt the user
-    prompt_after: 10,
-    auto_cancel:  false,
+    prompt_after:    10,
+    auto_cancel:     false,
+    decline_message: "optionally use this instead of a custom email template",
 
     # how many minutes to wait before we enable auto-check-in
     present_from:       5,
@@ -59,6 +60,8 @@ VjaMgjzVJqqYozNT/74pE/b9UjYyMzO/EhrjUmcwriMMan/vTbYoBMYWvGoy536r
 STRING
   })
 
+  @sensor_stale : Bool = false
+
   def on_load
     on_update
   end
@@ -87,18 +90,22 @@ STRING
   @domain : String = ""
 
   @jwt_private_key : String = ""
+  @decline_message : String? = nil
 
   def on_update
-    @jwt_private_key = setting(String, :jwt_private_key)
+    @jwt_private_key = setting?(String, :jwt_private_key) || ""
+    @decline_message = setting?(String, :decline_message)
 
     @ignore_longer_than = setting?(Int32, :ignore_longer_than).try &.minutes
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
     @present_from = (setting?(Int32, :present_from) || 5).minutes
     @auto_cancel = setting?(Bool, :auto_cancel) || false
 
-    @check_in_url = setting(String, :check_in_url)
-    @no_show_url = setting(String, :no_show_url)
-    @domain = URI.parse(@check_in_url).host.not_nil!
+    @check_in_url = setting?(String, :check_in_url) || ""
+    @no_show_url = setting?(String, :no_show_url) || ""
+    if @check_in_url.presence
+      @domain = URI.parse(@check_in_url).host.not_nil!
+    end
 
     subscriptions.clear
     bookings.subscribe(:current_booking) do |_sub, pending|
@@ -106,6 +113,7 @@ STRING
       update_current event
     end
     bookings.subscribe(:current_pending) { |_sub, pending| update_pending(pending == "true") }
+    bookings.subscribe(:sensor_stale) { |_sub, sensor_stale| update_stale_state(sensor_stale == "true") }
     bookings.subscribe(:presence) { |_sub, presence| update_presence(presence == "true") }
 
     monitor("#{config.control_system.not_nil!.id}/guest/bookings/prompted") do |_sub, response|
@@ -157,6 +165,11 @@ STRING
     apply_state_changes
   end
 
+  protected def update_stale_state(stale : Bool)
+    @sensor_stale = stale
+    apply_state_changes
+  end
+
   protected def cleanup_state
     logger.debug { "cleaning up state, pending: #{@meeting_pending}, meeting: #{!!@current_meeting}" }
     schedule.clear
@@ -181,6 +194,16 @@ STRING
     start_time = meeting.event_start
     prompt_at = start_time + prompt_after
     check_presence_from = start_time + present_from
+
+    # Schedule an auto check-in check if the sensor is stale
+    if @sensor_stale
+      logger.debug { "stale sensor detected... Scheduling meeting start" }
+      schedule.at(check_presence_from) do
+        logger.debug { "starting meeting with stale sensor" }
+        bookings.start_meeting(start_time.to_unix)
+      end
+      return
+    end
 
     # Can we auto check-in?
     logger.debug { "people_present? #{people_present?}" }
@@ -224,12 +247,14 @@ STRING
       return
     end
 
-    logger.debug { "prompting user about meeting room booking #{meeting.id}" }
-    begin
-      params = generate_guest_jwt
-      mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
-    rescue error
-      logger.warn(exception: error) { "failed to notify user" }
+    unless @decline_message && @auto_cancel
+      logger.debug { "prompting user about meeting room booking #{meeting.id}" }
+      begin
+        params = generate_guest_jwt
+        mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
+      rescue error
+        logger.warn(exception: error) { "failed to notify user" }
+      end
     end
 
     @prompted = meeting.id.not_nil!
@@ -256,6 +281,9 @@ STRING
       if check_in
         bookings.start_meeting(meeting.event_start.to_unix)
         self[:checked_in] = true
+      elsif @decline_message
+        bookings.end_meeting(meeting.event_start.to_unix, notify: true, comment: @decline_message)
+        self[:no_show] = true
       else
         bookings.end_meeting(meeting.event_start.to_unix)
         self[:no_show] = true
