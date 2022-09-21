@@ -29,7 +29,7 @@ class Crestron::Fusion < PlaceOS::Driver
     content_type: "json",
 
     # uses old ciphers
-    https_insecure: true
+    https_insecure: true,
   })
 
   @security_level : Int32 = 1
