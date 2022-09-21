@@ -85,6 +85,18 @@ class Stripe::API < PlaceOS::Driver
     self["payment_intent"] = nil
   end
 
+  def get_customer(id : String)
+    self["customer"] = @client.not_nil!.customers.get(id)
+  end
+
+  def list_customers(email : String? = nil, created : Hash(String, String)? = nil, ending_before : String? = nil, limit : Int32? = nil, starting_after : String? = nil)
+    self["customers"] = @client.not_nil!.customers.list(email: email, created: created, ending_before: ending_before, limit: limit, starting_after: starting_after)
+  end
+
+  def search_customers(query : String, limit : Int32? = nil, page : Int32? = nil)
+    self["customers"] = @client.not_nil!.customers.search(query: query, limit: limit, page: page)
+  end
+
   def create_customer(account_balance : Int32? = nil, coupon : String? = nil, default_source : String? = nil, description : String? = nil, email : String? = nil, invoice_prefix : String? = nil, metadata : Hash(String, String)? = nil, shipping : Hash(String, String)? = nil, source : String? = nil, tax_info : Hash(String, String)? = nil)
     customer = @client.not_nil!.customers.create(account_balance: account_balance, coupon: coupon, default_source: default_source, description: description, email: email, invoice_prefix: invoice_prefix, metadata: metadata, shipping: shipping, source: source, tax_info: tax_info)
     self["customer"] = customer
