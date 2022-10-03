@@ -95,7 +95,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def activate
-    return if @activation_token.empty?
+    raise "missing activation token" if @activation_token.empty?
 
     response = get("/client/v1/partner/partnerPublicKey/")
     raise "failed to obtain partner public key, code #{response.status_code}" unless response.success?
