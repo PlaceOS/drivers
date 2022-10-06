@@ -7,10 +7,10 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   description %(Polls Infosilem Campus Module to expose bookings relevant for the selected System)
 
   default_settings({
-    infosilem_room_id: "set Infosilem Room ID here",
-    polling_cron:      "*/15 * * * *",
+    infosilem_room_id:       "set Infosilem Room ID here",
+    polling_cron:            "*/15 * * * *",
     ignore_container_events: true,
-    debug:             false,
+    debug:                   false,
   })
 
   accessor infosilem : Campus_1
