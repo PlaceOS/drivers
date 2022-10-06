@@ -9,6 +9,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   default_settings({
     infosilem_room_id: "set Infosilem Room ID here",
     polling_cron:      "*/15 * * * *",
+    ignore_container_events: true,
     debug:             false,
   })
 
@@ -28,6 +29,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   def on_update
     @debug = setting(Bool, :debug) || false
+    @ignore_container_events = setting(Bool, :ignore_container_events) || true
     @building_id = setting(String, :infosilem_building_id)
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
@@ -45,12 +47,26 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
         @next_countdown = nil
         today = Time.local.to_s("%Y-%m-%d")
         todays_events = Array(Event).from_json(fetch_events(today, today))
+
+        if @ignore_container_events
+          # Determine which events contain other events
+          container_events = [] of Event
+          todays_events = todays_events.sort_by { |e| e.duration }.reverse
+          todays_events.each_with_index do |e, i|
+            if todays_events.skip(i + 1).find { |f| contains?(e, f) }
+              container_events << e
+            end
+          end
+          todays_events = todays_events - container_events
+        end
+
         current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
         current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
 
         if @debug
           self[:todays_upcoming_events] = future_events
           self[:todays_past_events] = past_events
+          self[:ignored_events] = container_events
         end
 
         next_event = future_events.min_by? &.startTime
@@ -124,5 +140,14 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   private def in_progress?(event : Event)
     now = Time.local
     now >= event.startTime && now <= event.endTime
+  end
+
+  # Does a contain b?
+  private def contains?(a : Event, b : Event)
+    b.startTime >= a.startTime && b.endTime <= a.endTime
+  end
+
+  private def overlaps?(a : Event, b : Event)
+    b.startTime < a.endTime || b.endTime > a.startTime
   end
 end
