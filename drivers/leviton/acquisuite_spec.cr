@@ -2,15 +2,15 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Leviton::Acquisuite" do
 
-  settings({
-    debug_webhook: true,
-    manifest_list: [] of String,
-    device_list: [
-      "loggerconfig.ini",
-      "modbus/mb-001.ini"
-    ],
-    config_list: {} of String => Array(Hash(String, Float64 | String))
-  })
+  # settings({
+  #   debug_webhook: true,
+  #   manifest_list: [] of String,
+  #   device_list: [
+  #     "loggerconfig.ini",
+  #     "modbus/mb-001.ini"
+  #   ],
+  #   config_list: {} of String => Array(Hash(String, Float64 | String))
+  # })
 
   headers = {"Content-Type" => ["multipart/form-data; boundary=MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY"]}
 
@@ -232,7 +232,6 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   )
   body = body.gsub("\n", "\r\n")
   resp = exec(:request, "POST", headers, body).get
-  puts "RAN SPEC!"
 
 end
 
