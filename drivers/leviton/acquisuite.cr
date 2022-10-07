@@ -14,7 +14,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
     config_list: {} of String => Array(Hash(String, Float64 | String)),
     debug_webhook: false
   })
-
+# 
   @debug_webhook : Bool = false
   @device_list : Array(String) = [] of String
   @manifest_list : Array(String) = [] of String
@@ -73,7 +73,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
           while csv.next
             @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
               next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
-              csv_index = i + 3
+              csv_index = i + 4
               reading = {
                 time: Time.parse(csv[0].gsub("'","").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
                 data: csv[csv_index],
