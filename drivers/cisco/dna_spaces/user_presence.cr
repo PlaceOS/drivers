@@ -11,19 +11,19 @@ class Cisco::DNASpaces::UserPresence
 
     @[JSON::Field(key: "deviceIds")]
     getter device_ids : Array(String)
-    getter tags : Array(String)
-    getter mobile : String
-    getter email : String
-    getter gender : String
+    getter tags : Array(String) = [] of String
+    getter mobile : String?
+    getter email : String?
+    getter gender : String?
 
     @[JSON::Field(key: "firstName")]
-    getter first_name : String
+    getter first_name : String?
 
     @[JSON::Field(key: "lastName")]
-    getter last_name : String
+    getter last_name : String?
 
     @[JSON::Field(key: "postalCode")]
-    getter postal_code : String
+    getter postal_code : String?
 
     # otherFields
     # socialNetworkInfo
