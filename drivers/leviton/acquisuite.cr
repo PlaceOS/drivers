@@ -66,22 +66,24 @@ class Leviton::Acquisuite < PlaceOS::Driver
           log_file = log_contents.body.gets_to_end
 
           csv = CSV.new(log_file, headers: true)
-
-          data_line = [] of NamedTuple(time: Int64, data: Float64, name: String, units: String)
           # NOTE: This csv.next structure assumes that there will be a header row we don't need
           # if this is not the case we should add logic to check for a header 
           while csv.next
+            reading = {
+              time: Time.parse(csv[0].gsub("'","").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
+              data: [] of NamedTuple(reading: (String | Float64), name: String, units: String)
+            }.as(NamedTuple(time: Int64, data: Array(NamedTuple(reading: (String | Float64), name: String, units: String))))
             @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
               next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
+              # Disregard the first 4 columns of the csv
               csv_index = i + 4
-              reading = {
-                time: Time.parse(csv[0].gsub("'","").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
-                data: csv[csv_index],
-                name: @config_list[form_data["MODBUSDEVICE"]][i]["NAME"],
-                units: @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"]
-              }
-              self["mb-#{form_data["MODBUSDEVICE"]}"] = reading 
+              reading[:data].push({
+                reading: csv[csv_index],
+                name: @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String),
+                units: @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String)
+              })
             end
+            self["mb-#{form_data["MODBUSDEVICE"]}"] = reading.dup 
           end
       end
       
