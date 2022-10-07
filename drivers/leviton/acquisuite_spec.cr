@@ -174,11 +174,13 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
 
   
   # First we receive a CONFIGFILEMANIFEST webhook asking for the config files we want
-  body = create_config(
+  body = create_request(
+    "CONFIGFILEUPLOAD",
     "Temp Inputs / Branch Circuits",
-    "Obvius, A8332-8F2D, IO Module, 8-Flex, 2-DO",
+    "2",
     "9a6d278642b64db73c754271de733758",
     "2022-09-12 21:25:55",
+    "CONFIGFILE",
     "modbus/mb-001.ini",
     dev_config
   )
@@ -186,8 +188,6 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   body = body.gsub("\n", "\r\n")
   resp = exec(:request, "POST", headers, body).get
 
-  puts "DEVICE LIST"
-  puts setting(Array(String), :device_list)
 
   dev_log = <<-DEV_LOG
     time(utc),error,low alarm,high alarm,'ION6200 (KWh)','ION6200 demand (kW)','ION6200 rate (instantaneous) (kW)','ION6200 rate min (kW)','ION6200 rate max (kW)','ION6200Reactive (KVARh)','ION6200Reactive demand (kVAR)','ION6200Reactive rate (instantan (kVAR)','ION6200Reactive rate min (kVAR)','ION6200Reactive rate max (kVAR)','Apparent Power (demand) (KVA)','Apparent Power (instantaneous) (KVA)','Power Factor (demand)','Power Factor (instantaneous)','Water Meter (Gallons)','Water Meter rate (Gpm)','Water Meter rate (instantaneous (Gpm)','Water Meter rate min (Gpm)','Water Meter rate max (Gpm)','Gas Meter (CF)','Gas Meter rate (CFm)','Gas Meter rate (instantaneous) (CFm)','Gas Meter rate min (CFm)','Gas Meter rate max (CFm)','-','-','-','-'
@@ -217,24 +217,41 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
     '2004-05-12 21:30:00',0,0,0,142421,124,123.288,121.622,123.288,27980,24,24.161,24.129,24.194,126.301,125.633,0.982,0.981,0,0,,,,0,0,,,,,,,
     '2004-05-12 21:45:00',0,0,0,142451,120,123.288,122.449,123.288,27986,24,24.194,24.161,24.194,122.376,125.639,0.981,0.981,0,0,,,,0,0,,,,,,,
     '2004-05-12 22:00:00',0,0,0,142482,124,123.288,121.622,123.288,27992,24,24.161,24.129,24.194,126.301,125.633,0.982,0.981,0,0,,,,0,0,,,,,,,
-
   DEV_LOG
+
+  # Now, finally, send an actual log file 
+  body = create_request(
+    "LOGFILEUPLOAD",
+    "Temp Inputs / Branch Circuits",
+    "2",
+    "9a6d278642b64db73c754271de733758",
+    "2022-09-12 21:25:55",
+    "LOGFILE",
+    "tmp_name",
+    dev_log
+  )
+  body = body.gsub("\n", "\r\n")
+  resp = exec(:request, "POST", headers, body).get
+
 end
 
-def create_config(device_name : String, device_type : String, md5 : String, file_time : String, file_name : String, file : String)
+
+# Some of these fields may not be present in every request but
+# having them there doesn't hurt anything so why bother removing them
+def create_request(mode : String, device_name : String, modbus_device : String, md5 : String, file_time : String, file_descriptor : String, file_name : String, file : String)
   <<-BODY
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY
   Content-Disposition: form-data; name="MODE"
 
-  CONFIGFILEUPLOAD
+  #{mode}
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY
   Content-Disposition: form-data; name="MODBUSDEVICENAME"
 
   #{device_name}
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY
-  Content-Disposition: form-data; name="MODBUSDEVICETYPE"
+  Content-Disposition: form-data; name="MODBUSDEVICE"
 
-  #{device_type}
+  #{modbus_device}
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY
   Content-Disposition: form-data; name="MD5CHECKSUM"
 
@@ -244,7 +261,7 @@ def create_config(device_name : String, device_type : String, md5 : String, file
 
   #{file_time}
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY
-  Content-Disposition: form-data; name="CONFIGFILE"; filename="#{file_name}"
+  Content-Disposition: form-data; name="#{file_descriptor}"; filename="#{file_name}"
   Content-Type: application/octet-stream;
 
   #{file}
