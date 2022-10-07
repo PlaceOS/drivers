@@ -65,14 +65,8 @@ class Leviton::Acquisuite < PlaceOS::Driver
           log_contents = file["LOGFILE"][0]
           log_file = log_contents.body.gets_to_end
 
-          # logger.debug { "GOT LOGFILE" }
-          # logger.debug { @config_list[form_data["MODBUSDEVICE"]] }
           csv = CSV.new(log_file, headers: true)
 
-          logger.debug { "CSV RANDOM CHECK" }
-          logger.debug { @config_list[form_data["MODBUSDEVICE"]] }
-          logger.debug { @config_list[form_data["MODBUSDEVICE"]].size }
-          logger.debug { @config_list[form_data["MODBUSDEVICE"]].class }
           data_line = [] of NamedTuple(time: Int64, data: Float64, name: String, units: String)
           # NOTE: This csv.next structure assumes that there will be a header row we don't need
           # if this is not the case we should add logic to check for a header 

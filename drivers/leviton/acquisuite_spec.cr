@@ -232,6 +232,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   )
   body = body.gsub("\n", "\r\n")
   resp = exec(:request, "POST", headers, body).get
+  puts "RAN SPEC!"
 
 end
 
