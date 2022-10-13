@@ -39,6 +39,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   class StaffEventChange
     include JSON::Serializable
 
+    @[JSON::Field(key: "id")]
     property event_id : String
   end
 
