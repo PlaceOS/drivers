@@ -60,7 +60,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   private def status_changed(_subscription, new_value)
     logger.debug { "new room status: #{new_value}" }
-    new_status = (String?).from_json(new_value)
+    # new_status = (String?).from_json(new_value)
+    new_status = new_value.to_s
 
     logger.debug { "new_status: #{new_status}" }
     logger.debug { "this line in #status_changed was reached" }
