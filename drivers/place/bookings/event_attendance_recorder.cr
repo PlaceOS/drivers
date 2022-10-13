@@ -46,8 +46,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     logger.debug { "booking changed: #{new_value}" }
     event = (StaffEventChange?).from_json(new_value)
 
-    logger.debug { "event: #{event}" }
-    logger.debug { "this line in #current_booking_changed was reached" }
+    # logger.debug { "event: #{event}" }
+    # logger.debug { "this line in #current_booking_changed was reached" }
 
     apply_new_state(event.try(&.event_id), @status)
   end
@@ -62,9 +62,10 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     logger.debug { "new room status: #{new_value}" }
 
     logger.debug { "does this run?, in #status_changed" }
+    logger.debug { "trying new_value.to_s, in #status_changed" }
 
-    new_status = (String?).from_json(new_value)
-    # new_status = new_value.to_s
+    # new_status = (String?).from_json(new_value)
+    new_status = new_value.to_s
 
     logger.debug { "new_status: #{new_status}" }
     logger.debug { "this line in #status_changed was reached" }
