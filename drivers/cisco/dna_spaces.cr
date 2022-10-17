@@ -290,6 +290,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
             # ignore locations where we don't have enough details to put the device on a map
             if payload.map_id.presence
               @location_id_maps[payload.location.location_id] = payload.map_id
+            elsif (level_data = @floorplan_mappings[payload.location.location_id]?) && level_data["map_width"]? && level_data["map_height"]?
+              # we don't need the map ID as the x, y coordinates are defined by us
             else
               found = false
               payload.location_mappings.values.each do |loc_id|
