@@ -51,7 +51,7 @@ class BookingsMock < DriverSpecs::MockDriver
 
   def new_meeting : Nil
     self[:current_booking] = {
-      event_id: UUID.random.to_s,
+      id: UUID.random.to_s,
     }
     self[:status] = "pending"
   end
