@@ -47,8 +47,6 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     logger.debug { "booking changed: #{new_value}" }
     event = (StaffEventChange?).from_json(new_value)
 
-    logger.debug { "this line in #current_booking_changed was reached" }
-
     apply_new_state(event.try(&.event_id), @status)
   rescue e
     logger.warn(exception: e) { "failed to parse event" }
@@ -64,16 +62,12 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     logger.debug { "new room status: #{new_value}" }
     new_status = (String?).from_json(new_value) rescue new_value.to_s
 
-    logger.debug { "this line in #status_changed was reached" }
-
     apply_new_state(booking_id, new_status)
   end
 
   private def apply_new_state(new_booking_id : String?, new_status : String?)
-
     logger.debug { "#apply_new_state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
     logger.debug { "#apply_new_state current booking_id: #{booking_id}, status: #{status}" }
-    logger.debug { "#apply_new_state current @booking_id: #{@booking_id}, @status: #{@status}" }
 
     old_booking_id = @booking_id
     @booking_id = new_booking_id
@@ -83,12 +77,11 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
       save_booking_stats(old_booking_id, people_counts) if @should_save
       @people_counts = [] of Int32
     end
-    
+
     @should_save = true if @booking_id && @status == "busy"
   end
 
   private def save_booking_stats(event_id : String, counts : Array(Int32))
-
     logger.debug { "#save_booking_stats event_id: #{event_id}, counts: #{counts}" }
 
     return logger.warn { "ignoring booking as no counts found for event #{event_id}" } if counts.empty?
