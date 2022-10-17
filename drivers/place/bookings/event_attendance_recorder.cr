@@ -73,13 +73,15 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     logger.debug { "#apply_new_state current booking_id: #{booking_id}, status: #{status}" }
     logger.debug { "#apply_new_state current @booking_id: #{@booking_id}, @status: #{@status}" }
 
-    if new_booking_id != booking_id || new_status != status
-      save_booking_stats(booking_id.not_nil!, people_counts) if @should_save && booking_id
-      @people_counts = [] of Int32
-    end
-
+    old_booking_id = @booking_id
     @booking_id = new_booking_id
     @status = new_status || "free"
+
+    if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
+      save_booking_stats(old_booking_id, people_counts) if @should_save
+      @people_counts = [] of Int32
+    end
+    
     @should_save = true if @booking_id && @status == "busy"
   end
 
