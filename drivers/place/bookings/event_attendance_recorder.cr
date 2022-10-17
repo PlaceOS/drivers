@@ -45,7 +45,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   private def current_booking_changed(_subscription, new_value)
     logger.debug { "booking changed: #{new_value}" }
-    event = (StaffEventChange?).from_json(new_value)
+    event = (StaffEventChange?).from_json(new_value.dump)
 
     logger.debug { "this line in #current_booking_changed was reached" }
 
@@ -68,6 +68,9 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   end
 
   private def apply_new_state(new_booking_id : String?, new_status : String?)
+
+    logger.debug { "#apply new state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
+
     if new_booking_id != booking_id || new_status != status
       save_booking_stats(booking_id.not_nil!, people_counts) if @should_save
       @people_counts = [] of Int32
