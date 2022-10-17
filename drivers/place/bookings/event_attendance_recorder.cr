@@ -39,13 +39,17 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   class StaffEventChange
     include JSON::Serializable
 
+    @[JSON::Field(key: "id")]
     property event_id : String
   end
 
   private def current_booking_changed(_subscription, new_value)
     logger.debug { "booking changed: #{new_value}" }
     event = (StaffEventChange?).from_json(new_value)
+
     apply_new_state(event.try(&.event_id), @status)
+  rescue e
+    logger.warn(exception: e) { "failed to parse event" }
   end
 
   private def people_count_changed(_subscription, new_value)
@@ -56,22 +60,30 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   private def status_changed(_subscription, new_value)
     logger.debug { "new room status: #{new_value}" }
-    new_status = (String?).from_json(new_value)
+    new_status = (String?).from_json(new_value) rescue new_value.to_s
+
     apply_new_state(booking_id, new_status)
   end
 
   private def apply_new_state(new_booking_id : String?, new_status : String?)
-    if new_booking_id != booking_id || new_status != status
-      save_booking_stats(booking_id.not_nil!, people_counts) if @should_save
+    logger.debug { "#apply_new_state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
+    logger.debug { "#apply_new_state current booking_id: #{booking_id}, status: #{status}" }
+
+    old_booking_id = @booking_id
+    @booking_id = new_booking_id
+    @status = new_status || "free"
+
+    if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
+      save_booking_stats(old_booking_id, people_counts) if @should_save
       @people_counts = [] of Int32
     end
 
-    @booking_id = new_booking_id
-    @status = new_status || "free"
     @should_save = true if @booking_id && @status == "busy"
   end
 
   private def save_booking_stats(event_id : String, counts : Array(Int32))
+    logger.debug { "#save_booking_stats event_id: #{event_id}, counts: #{counts}" }
+
     return logger.warn { "ignoring booking as no counts found for event #{event_id}" } if counts.empty?
     min = counts.min
     max = counts.max
