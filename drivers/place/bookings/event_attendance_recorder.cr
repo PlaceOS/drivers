@@ -69,7 +69,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   private def apply_new_state(new_booking_id : String?, new_status : String?)
 
-    logger.debug { "#apply new state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
+    logger.debug { "#apply_new_state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
+    logger.debug { "apply_new_state current booking_id: #{booking_id}, status: #{status}" }
 
     if new_booking_id != booking_id || new_status != status
       save_booking_stats(booking_id.not_nil!, people_counts) if @should_save
