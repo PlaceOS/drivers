@@ -45,11 +45,13 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   private def current_booking_changed(_subscription, new_value)
     logger.debug { "booking changed: #{new_value}" }
-    event = (StaffEventChange?).from_json(new_value.dump)
+    event = (StaffEventChange?).from_json(new_value)
 
     logger.debug { "this line in #current_booking_changed was reached" }
 
     apply_new_state(event.try(&.event_id), @status)
+  rescue e
+    logger.warn(exception: e) { "failed to parse event" }
   end
 
   private def people_count_changed(_subscription, new_value)
