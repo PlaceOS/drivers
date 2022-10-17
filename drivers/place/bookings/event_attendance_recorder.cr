@@ -73,7 +73,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     logger.debug { "apply_new_state current booking_id: #{booking_id}, status: #{status}" }
 
     if new_booking_id != booking_id || new_status != status
-      save_booking_stats(booking_id.not_nil!, people_counts) if @should_save
+      save_booking_stats(booking_id.not_nil!, people_counts) if @should_save && booking_id
       @people_counts = [] of Int32
     end
 
