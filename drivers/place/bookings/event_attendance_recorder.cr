@@ -70,7 +70,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   private def apply_new_state(new_booking_id : String?, new_status : String?)
 
     logger.debug { "#apply_new_state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
-    logger.debug { "apply_new_state current booking_id: #{booking_id}, status: #{status}" }
+    logger.debug { "#apply_new_state current booking_id: #{booking_id}, status: #{status}" }
 
     if new_booking_id != booking_id || new_status != status
       save_booking_stats(booking_id.not_nil!, people_counts) if @should_save && booking_id
@@ -83,6 +83,9 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   end
 
   private def save_booking_stats(event_id : String, counts : Array(Int32))
+
+    logger.debug { "#save_booking_stats event_id: #{event_id}, counts: #{counts}" }
+
     return logger.warn { "ignoring booking as no counts found for event #{event_id}" } if counts.empty?
     min = counts.min
     max = counts.max
