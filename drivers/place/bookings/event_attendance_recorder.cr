@@ -78,20 +78,27 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
       @people_counts = [] of Int32
     end
 
-    @should_save = true if @booking_id && @status == "busy"
+    @should_save = true if @booking_id && @status != "free"
   end
 
   private def save_booking_stats(event_id : String, counts : Array(Int32))
     logger.debug { "#save_booking_stats event_id: #{event_id}, counts: #{counts}" }
 
-    return logger.warn { "ignoring booking as no counts found for event #{event_id}" } if counts.empty?
-    min = counts.min
-    max = counts.max
-    total = counts.reduce(0) { |acc, i| acc + i }
-    average = total / counts.size
-    counts.sort!
-    index = (counts.size / 2).round_away.to_i - 1
-    median = counts[index]
+    if counts.empty?
+      logger.warn { "no counts found for event #{event_id}" }
+      min = 0
+      max = 0
+      median = 0
+      average = 0
+    else
+      min = counts.min
+      max = counts.max
+      total = counts.reduce(0) { |acc, i| acc + i }
+      average = total / counts.size
+      counts.sort!
+      index = (counts.size / 2).round_away.to_i - 1
+      median = counts[index]
+    end
 
     @count += 1_u64
     @should_save = false
