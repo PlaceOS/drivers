@@ -30,9 +30,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     on_update
   end
 
-  @uri : URI? = nil
-  @host : String = ""
-  @origin : String = ""
   @time_zone : Time::Location = Time::Location.load("GMT")
 
   @users_checked_in : UInt64 = 0_u64
@@ -54,11 +51,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
 
-    uri = URI.parse(config.uri.not_nil!)
-    @host = uri.port ? "#{uri.host}:#{uri.port}" : uri.host.not_nil!
-    @origin = "#{uri.scheme}://#{@host}"
-    @uri = uri
-
     time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
 
@@ -77,6 +69,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         break
       end
     end
+    raise "no building zone found in System" unless @building_zone
   rescue error
     logger.warn(exception: error) { "error looking up building zone" }
     schedule.in(5.seconds) { find_building(zones) }
