@@ -75,7 +75,11 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
     if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
       save_booking_stats(old_booking_id, people_counts) if @should_save
-      @people_counts = [] of Int32
+      if (init_count = system[:Bookings][:people_count]?) && init_count.as_i > 0
+        @people_counts = [init_count.as_i]
+      else
+        @people_counts = [] of Int32
+      end
     end
 
     @should_save = true if @booking_id && @status != "free"
