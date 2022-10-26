@@ -115,11 +115,11 @@ class Place::VisitorMailer < PlaceOS::Driver
   class BookingGuest < GuestNotification
     include JSON::Serializable
 
-    property booking_id : String
+    property booking_id : Int64
     property resource_id : String
 
     def event_id
-      booking_id
+      booking_id.to_s
     end
   end
 
