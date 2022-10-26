@@ -55,7 +55,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   private def people_count_changed(_subscription, new_value)
     logger.debug { "new people count #{new_value}" }
     return if new_value == "null"
-    people_counts << Int32.from_json(new_value)
+    people_counts << (Int32 | Float64).from_json(new_value).to_i
   end
 
   private def status_changed(_subscription, new_value)
@@ -75,8 +75,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
     if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
       save_booking_stats(old_booking_id, people_counts) if @should_save
-      if (init_count = system[:Bookings][:people_count]?) && init_count.as_i > 0
-        @people_counts = [init_count.as_i]
+      if (init_count = system[:Bookings][:people_count]?) && init_count && (init_count.as_i? || init_count.as_f).to_i > 0
+        @people_counts = [(init_count.as_i? || init_count.as_f).to_i]
       else
         @people_counts = [] of Int32
       end
