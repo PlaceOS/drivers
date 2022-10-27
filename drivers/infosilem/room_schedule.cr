@@ -7,10 +7,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   description %(Polls Infosilem Campus Module to expose bookings relevant for the selected System)
 
   default_settings({
-    infosilem_room_id:       "set Infosilem Room ID here",
-    polling_cron:            "*/15 * * * *",
-    ignore_container_events: true,
-    debug:                   false,
+    infosilem_room_id: "set Infosilem Room ID here",
+    polling_cron:      "*/15 * * * *",
+    debug:             false,
   })
 
   accessor infosilem : Campus_1
@@ -29,7 +28,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   def on_update
     @debug = setting(Bool, :debug) || false
-    @ignore_container_events = setting(Bool, :ignore_container_events) || true
     @building_id = setting(String, :infosilem_building_id)
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
@@ -48,16 +46,14 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
         today = Time.local.to_s("%Y-%m-%d")
         todays_events = Array(Event).from_json(fetch_events(today, today))
 
-        if @ignore_container_events
-          # Determine which events contain other events
-          container_events = [] of Event
-          todays_events.sort_by(&.duration).reverse!
-          todays_events.each_with_index do |e, i|
-            if todays_events.skip(i + 1).find { |f| contains?(e, f) }
-              container_events << e
-            end
+        # Determine which events contain other events
+        todays_events.sort_by(&.duration).reverse!
+        todays_events.each_with_index do |e, i|
+          if todays_events.skip(i + 1).find { |f| contains?(e, f) }
+            e.container = true
+          else
+            e.container = false
           end
-          todays_events = todays_events - container_events
         end
 
         current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.start_time }
@@ -66,7 +62,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
         if @debug
           self[:todays_upcoming_events] = future_events
           self[:todays_past_events] = past_events
-          self[:ignored_events] = container_events
         end
 
         next_event = future_events.min_by? &.start_time
@@ -96,10 +91,12 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     self[:current_event_ends_at] = current_event.try &.end_time
     self[:current_event_attendees] = current_event.try &.number_of_attendees
     self[:current_event_conflicting] = current_event.try &.conflicting
+    self[:current_event_is_container] = current_event.try &.container
     self[:current_event_id] = current_event.try &.id if @debug
     self[:current_event_description] = current_event.try &.description if @debug
 
     self[:next_event_starts_at] = next_event.try &.start_time
+    self[:next_event_is_container] = next_event.try &.container
     self[:next_event_id] = next_event.try &.id if @debug
   end
 
