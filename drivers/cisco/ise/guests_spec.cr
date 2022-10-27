@@ -27,7 +27,8 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
 
   # POST to /guestuser/
   expect_http_request do |request, response|
-    guest_user = Cisco::Ise::Models::GuestUser.from_json(request.body.not_nil!)
+    parsed_body = JSON.parse(request.body.not_nil!)
+    guest_user = Cisco::Ise::Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
 
     guest_access_info = guest_user.guest_access_info
 
