@@ -94,7 +94,10 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
     self[:current_event_starts_at] = current_event.try &.startTime
     self[:current_event_ends_at] = current_event.try &.endTime
+    self[:current_event_attendees] = current_event.try &.numberOfAttendees
+    self[:current_event_conflicting] = current_event.try &.conflicting
     self[:current_event_id] = current_event.try &.id if @debug
+    self[:current_event_description] = current_event.try &.description if @debug
 
     self[:next_event_starts_at] = next_event.try &.startTime
     self[:next_event_id] = next_event.try &.id if @debug

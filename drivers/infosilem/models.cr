@@ -8,6 +8,12 @@ module Infosilem
     @[JSON::Field(key: "EventDescription")]
     property description : String?
 
+    @[JSON::Field(key: "NumberOfAttendees")]
+    property numberOfAttendees : Int32?
+
+    @[JSON::Field(key: "OccurrenceIsConflicting")]
+    property conflicting : Int32?
+
     @[JSON::Field(key: "StartTime", converter: Infosilem::DateTimeConvertor)]
     property startTime : Time
 
