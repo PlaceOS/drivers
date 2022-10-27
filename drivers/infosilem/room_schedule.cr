@@ -51,7 +51,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
         if @ignore_container_events
           # Determine which events contain other events
           container_events = [] of Event
-          todays_events = todays_events.sort_by { |e| e.duration }.reverse
+          todays_events.sort_by(&.duration).reverse!
           todays_events.each_with_index do |e, i|
             if todays_events.skip(i + 1).find { |f| contains?(e, f) }
               container_events << e
@@ -60,7 +60,7 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
           todays_events = todays_events - container_events
         end
 
-        current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
+        current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.start_time }
         current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
 
         if @debug
@@ -69,9 +69,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
           self[:ignored_events] = container_events
         end
 
-        next_event = future_events.min_by? &.startTime
+        next_event = future_events.min_by? &.start_time
         current_event = current_events.first?
-        previous_event = past_events.max_by? &.endTime
+        previous_event = past_events.max_by? &.end_time
 
         update_event_details(previous_event, current_event, next_event)
         advance_countdowns(previous_event, current_event, next_event)
@@ -82,24 +82,24 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     end
   end
 
-  def fetch_events(startDate : String, endDate : String)
-    events = infosilem.bookings?(@building_id, @room_id, startDate, endDate).get.to_json
+  def fetch_events(start_date : String, end_date : String)
+    events = infosilem.bookings?(@building_id, @room_id, start_date, end_date).get.to_json
     logger.debug { "Infosilem Campus returned: #{events}" } if @debug
     events
   end
 
   private def update_event_details(previous_event : Event | Nil = nil, current_event : Event | Nil = nil, next_event : Event | Nil = nil)
-    self[:previous_event_ends_at] = previous_event.try &.endTime
+    self[:previous_event_ends_at] = previous_event.try &.end_time
     self[:previous_event_id] = previous_event.try &.id if @debug
 
-    self[:current_event_starts_at] = current_event.try &.startTime
-    self[:current_event_ends_at] = current_event.try &.endTime
-    self[:current_event_attendees] = current_event.try &.numberOfAttendees
+    self[:current_event_starts_at] = current_event.try &.start_time
+    self[:current_event_ends_at] = current_event.try &.end_time
+    self[:current_event_attendees] = current_event.try &.number_of_attendees
     self[:current_event_conflicting] = current_event.try &.conflicting
     self[:current_event_id] = current_event.try &.id if @debug
     self[:current_event_description] = current_event.try &.description if @debug
 
-    self[:next_event_starts_at] = next_event.try &.startTime
+    self[:next_event_starts_at] = next_event.try &.start_time
     self[:next_event_id] = next_event.try &.id if @debug
   end
 
@@ -120,37 +120,37 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   end
 
   private def countup_previous_event(previous : Event)
-    time_since_previous = Time.local - previous.endTime
+    time_since_previous = Time.local - previous.end_time
     self[:minutes_since_previous_event] = time_since_previous.total_minutes.to_i
   end
 
   private def countdown_next_event(next_event : Event)
-    time_til_next = next_event.startTime - Time.local
+    time_til_next = next_event.start_time - Time.local
     self[:minutes_til_next_event] = time_til_next.total_minutes.to_i
     # return whether the next event has started
-    Time.local >= next_event.startTime
+    Time.local >= next_event.start_time
   end
 
   private def countdown_current_event(current : Event)
-    time_since_start = Time.local - current.startTime
-    time_til_end = current.endTime - Time.local
+    time_since_start = Time.local - current.start_time
+    time_til_end = current.end_time - Time.local
     self[:minutes_since_current_event_started] = time_since_start.total_minutes.to_i
     self[:minutes_til_current_event_ends] = time_til_end.total_minutes.to_i
     # return whether the current event has ended
-    Time.local > current.endTime
+    Time.local > current.end_time
   end
 
   private def in_progress?(event : Event)
     now = Time.local
-    now >= event.startTime && now <= event.endTime
+    now >= event.start_time && now <= event.end_time
   end
 
   # Does a contain b?
   private def contains?(a : Event, b : Event)
-    b.startTime >= a.startTime && b.endTime <= a.endTime
+    b.start_time >= a.start_time && b.end_time <= a.end_time
   end
 
   private def overlaps?(a : Event, b : Event)
-    b.startTime < a.endTime || b.endTime > a.startTime
+    b.start_time < a.end_time || b.end_time > a.start_time
   end
 end
