@@ -20,6 +20,8 @@ module Infosilem
     @[JSON::Field(key: "EndTime", converter: Infosilem::DateTimeConvertor)]
     property end_time : Time
 
+    property container : Bool?
+
     def duration
       end_time - start_time
     end
