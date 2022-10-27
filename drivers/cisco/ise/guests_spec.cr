@@ -1,6 +1,7 @@
 require "xml"
 require "placeos-driver"
 require "./guests"
+require "./models/guest_user"
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Cisco::Ise::Guests" do
@@ -26,33 +27,40 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
 
   # POST to /guestuser/
   expect_http_request do |request, response|
-    parsed_body = XML.parse(request.body.not_nil!)
-    guest_user = parsed_body.first_element_child.not_nil!
+    guest_user = Cisco::Ise::Models::GuestUser.from_json(request.body.not_nil!)
 
-    guest_access_info = guest_user.children.find { |c| c.name == "guestAccessInfo" }.not_nil!
-    from_date = guest_access_info.children.find { |c| c.name == "fromDate" }.not_nil!.content
+    guest_access_info = guest_user.guest_access_info
+
+    from_date = guest_access_info.from_date
     from_date.should eq start_date
-    to_date = guest_access_info.children.find { |c| c.name == "toDate" }.not_nil!.content
+
+    to_date = guest_access_info.to_date
     to_date.should eq end_date
 
-    guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
-    company = guest_info.children.find { |c| c.name == "company" }.not_nil!.content
+    guest_info = guest_user.guest_info
+
+    company = guest_info.company
     company.should eq company_name
-    email_address = guest_info.children.find { |c| c.name == "emailAddress" }.not_nil!.content
+
+    email_address = guest_info.email_address
     email_address.should eq attendee_email
-    first_name = guest_info.children.find { |c| c.name == "firstName" }.not_nil!.content
+
+    first_name = guest_info.first_name
     first_name.should eq "First"
-    last_name = guest_info.children.find { |c| c.name == "lastName" }.not_nil!.content
+
+    last_name = guest_info.last_name
     last_name.should eq "Last"
-    phone_number = guest_info.children.find { |c| c.name == "phoneNumber" }.not_nil!.content
+
+    phone_number = guest_info.phone_number
     phone_number.should eq phone
-    sms_service_provider = guest_info.children.find { |c| c.name == "smsServiceProvider" }.not_nil!.content
+
+    sms_service_provider = guest_info.sms_service_provider
     sms_service_provider.should eq sms
 
-    portal_id = guest_user.children.find { |c| c.name == "portalId" }.not_nil!.content
+    portal_id = guest_user.portal_id
     portal_id.should eq portal
 
-    guest_type = guest_user.children.find { |c| c.name == "guestType" }.not_nil!.content
+    guest_type = guest_user.guest_type
     guest_type.should eq "Daily"
 
     response.status_code = 201
