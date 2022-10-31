@@ -6,6 +6,13 @@ require "uri"
 # Documentation: https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Prerequisites-Assumptions.htm
 # inspecting request - response packets from the device webui is also useful
 
+# Interface for enumerating devices
+module Crestron::Transmitter
+end
+
+module Crestron::Receiver
+end
+
 # Parent module for Crestron DM NVX devices.
 abstract class Crestron::CresNext < PlaceOS::Driver
   @xsrf_token : String = ""

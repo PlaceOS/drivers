@@ -5,6 +5,7 @@ require "placeos-driver/interface/switchable"
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   alias Input = String | Int32?
   include PlaceOS::Driver::Interface::InputSelection(Input)
+  include Crestron::Receiver
 
   descriptive_name "Crestron NVX Receiver"
   generic_name :Decoder
