@@ -9,12 +9,15 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
     Input2
   end
   include PlaceOS::Driver::Interface::InputSelection(Input)
+  include Crestron::Transmitter
 
   descriptive_name "Crestron NVX Transmitter"
   generic_name :Encoder
   description <<-DESC
     Crestron NVX network media encoder.
   DESC
+
+  uri_base "wss://192.168.0.5/websockify"
 
   def connected
     # NVX hardware can be confiured a either a RX or TX unit - check this
