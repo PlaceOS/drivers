@@ -30,7 +30,7 @@ services:
       TZ: $TZ
 
   build:
-    image: placeos/build:${PLACE_BUILD_TAG:-nightly}
+    image: placeos/build:${PLACE_BUILD_TAG:-latest}
     restart: always
     hostname: build
     volumes:
