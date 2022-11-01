@@ -25,6 +25,7 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
       # "DeviceMode":"Transmitter|Receiver",
       next if mode == "Transmitter"
       logger.warn { "device configured as a #{mode}" }
+      self[:WARN] = "device configured as a #{mode}. Expecting Transmitter"
     end
 
     # Background poll to remain in sync with any external routing changes
