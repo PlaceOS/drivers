@@ -83,6 +83,12 @@ class Sony::Camera::CGI < PlaceOS::Driver
   @moving = false
   @zooming = false
   @max_speed = 1
+  @zoom_raw = 0
+  @pan = 0
+  @tilt = 0
+  @pan_range = 0..1
+  @tilt_range = 0..1
+  @zoom_range = 0..1
 
   def query_status(priority : Int32 = 0)
     # Response looks like:
@@ -97,7 +103,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
           parts = value.split(",")
           self[:pan] = @pan = twos_complement parts[0].to_i(16)
           self[:tilt] = @tilt = twos_complement parts[1].to_i(16)
-          self[:zoom] = @zoom = parts[2].to_i(16)
+          @zoom_raw = parts[2].to_i(16)
         when "PanMovementRange"
           # PanMovementRange=eac00,15400
           parts = value.split(",")
@@ -127,7 +133,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
           # when "AbsoluteZoom"
           #  # AbsoluteZoom=609
-          #  self[:zoom] = @zoom = value.to_i(16)
+          #  self[:zoom] = @zoom_raw = value.to_i(16)
 
           # NOTE:: These are not required as speeds are scaled
           #
@@ -140,6 +146,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
           @max_speed = value.to_i(16)
         end
       end
+
+      self[:zoom] = @zoom_raw.not_nil!.to_f * (100.0 / @zoom_range.end.to_f)
 
       response
     end
@@ -228,7 +236,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
       ) do
         self[:pan] = @pan = pan
         self[:tilt] = @tilt = tilt
-        self[:zoom] = @zoom = zoom.not_nil!
+        self[:zoom] = @zoom_raw = zoom.not_nil!
       end
     else
       action("/command/ptzf.cgi?AbsolutePanTilt=#{pan.to_s(16)},#{tilt.to_s(16)},#{@max_speed.to_s(16)}",
@@ -241,8 +249,11 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   # Implement Camera interface
-  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
+  def joystick(pan_speed : Float64, tilt_speed : Float64, index : Int32 | String = 0)
     index = index.to_i + 1
+    pan_speed = pan_speed.to_i
+    tilt_speed = tilt_speed.to_i
+
     range = -100..100
     in_range range, pan_speed
     in_range range, tilt_speed
@@ -258,13 +269,19 @@ class Sony::Camera::CGI < PlaceOS::Driver
     end
   end
 
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
+  def zoom_to(position : Float64, auto_focus : Bool = true, index : Int32 | String = 0)
     index = index.to_i + 1
 
-    in_range @zoom_range, position
-    action("/command/ptzf.cgi?AbsoluteZoom=#{position.to_s(16)}",
+    position = position.clamp(0.0, 100.0)
+    percentage = position / 100.0
+    zoom_value = (percentage * @zoom_range.end.to_f).to_i
+
+    action("/command/ptzf.cgi?AbsoluteZoom=#{zoom_value.to_s(16)}",
       name: "zooming"
-    ) { self[:zoom] = @zoom = position }
+    ) do
+      @zoom_raw = zoom_value
+      self[:zoom] = @zoom = position
+    end
   end
 
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
@@ -299,7 +316,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   def save_position(name : String, index : Int32 | String = 0)
     @presets[name] = {
-      pan: @pan, tilt: @tilt, zoom: @zoom,
+      pan: @pan, tilt: @tilt, zoom: @zoom_raw,
     }
     # TODO:: persist this to the database
     self[:presets] = @presets.keys

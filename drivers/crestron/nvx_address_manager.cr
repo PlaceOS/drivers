@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "./nvx_models"
 
 class Crestron::NvxAddressManager < PlaceOS::Driver
   descriptive_name "Crestron NVX Address Manager"
@@ -64,7 +65,7 @@ class Crestron::NvxAddressManager < PlaceOS::Driver
   end
 
   protected def encoders
-    system.all(:Encoder)
+    system.implementing(Crestron::Transmitter)
   end
 
   # returns an iterator of IPv4 addresses represented as 32bit numbers

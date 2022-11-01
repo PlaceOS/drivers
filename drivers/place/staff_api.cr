@@ -55,8 +55,8 @@ class Place::StaffAPI < PlaceOS::Driver
     @running_a_spec = setting?(Bool, :running_a_spec) || false
   end
 
-  def get_system(id : String)
-    response = get("/api/engine/v2/systems/#{id}", headers: authentication)
+  def get_system(id : String, complete : Bool = false)
+    response = get("/api/engine/v2/systems/#{id}?complete=#{complete}", headers: authentication)
     raise "unexpected response for system id #{id}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin

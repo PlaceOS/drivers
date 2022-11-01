@@ -7,10 +7,9 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   description %(Polls Infosilem Campus Module to expose bookings relevant for the selected System)
 
   default_settings({
-    infosilem_room_id:       "set Infosilem Room ID here",
-    polling_cron:            "*/15 * * * *",
-    ignore_container_events: true,
-    debug:                   false,
+    infosilem_room_id: "set Infosilem Room ID here",
+    polling_cron:      "*/15 * * * *",
+    debug:             false,
   })
 
   accessor infosilem : Campus_1
@@ -29,7 +28,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
 
   def on_update
     @debug = setting(Bool, :debug) || false
-    @ignore_container_events = setting(Bool, :ignore_container_events) || true
     @building_id = setting(String, :infosilem_building_id)
     @room_id = setting(String, :infosilem_room_id)
     @cron_string = setting(String, :polling_cron)
@@ -48,33 +46,31 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
         today = Time.local.to_s("%Y-%m-%d")
         todays_events = Array(Event).from_json(fetch_events(today, today))
 
-        if @ignore_container_events
-          # Determine which events contain other events
-          container_events = [] of Event
-          todays_events = todays_events.sort_by { |e| e.duration }.reverse
-          todays_events.each_with_index do |e, i|
-            if todays_events.skip(i + 1).find { |f| contains?(e, f) }
-              container_events << e
-            end
+        # Determine which events contain other events
+        todays_events.sort_by(&.duration).reverse!
+        todays_events.each_with_index do |e, i|
+          if todays_events.skip(i + 1).find { |f| contains?(e, f) }
+            e.container = true
+          else
+            e.container = false
           end
-          todays_events = todays_events - container_events
         end
 
-        current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.startTime }
+        current_and_past_events, future_events = todays_events.partition { |e| Time.local > e.start_time }
         current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
 
         if @debug
           self[:todays_upcoming_events] = future_events
           self[:todays_past_events] = past_events
-          self[:ignored_events] = container_events
         end
 
-        next_event = future_events.min_by? &.startTime
-        current_event = current_events.first?
-        previous_event = past_events.max_by? &.endTime
+        next_event = future_events.min_by? &.start_time
+        previous_event = past_events.max_by? &.end_time
+        current_event = current_events.find { |e| !e.container }
+        current_container_event = current_events.find(&.container)
 
         update_event_details(previous_event, current_event, next_event)
-        advance_countdowns(previous_event, current_event, next_event)
+        advance_countdowns(previous_event, current_event, next_event, current_container_event)
         todays_events
       ensure
         @request_running = false
@@ -82,25 +78,36 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     end
   end
 
-  def fetch_events(startDate : String, endDate : String)
-    events = infosilem.bookings?(@building_id, @room_id, startDate, endDate).get.to_json
+  def fetch_events(start_date : String, end_date : String)
+    events = infosilem.bookings?(@building_id, @room_id, start_date, end_date).get.to_json
     logger.debug { "Infosilem Campus returned: #{events}" } if @debug
     events
   end
 
   private def update_event_details(previous_event : Event | Nil = nil, current_event : Event | Nil = nil, next_event : Event | Nil = nil)
-    self[:previous_event_ends_at] = previous_event.try &.endTime
-    self[:previous_event_id] = previous_event.try &.id if @debug
+    if previous_event
+      self[:previous_event_ends_at] = previous_event.end_time
+      self[:previous_event_was_container] = previous_event.container
+      self[:previous_event_id] = previous_event.id if @debug
+    end
 
-    self[:current_event_starts_at] = current_event.try &.startTime
-    self[:current_event_ends_at] = current_event.try &.endTime
-    self[:current_event_id] = current_event.try &.id if @debug
+    if current_event
+      self[:current_event_starts_at] = current_event.start_time
+      self[:current_event_ends_at] = current_event.end_time
+      self[:current_event_attendees] = current_event.number_of_attendees
+      self[:current_event_conflicting] = current_event.conflicting
+      self[:current_event_id] = current_event.id if @debug
+      self[:current_event_description] = current_event.description if @debug
+    end
 
-    self[:next_event_starts_at] = next_event.try &.startTime
-    self[:next_event_id] = next_event.try &.id if @debug
+    if next_event
+      self[:next_event_starts_at] = next_event.start_time
+      self[:next_event_is_container] = next_event.container
+      self[:next_event_id] = next_event.id if @debug
+    end
   end
 
-  private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event : Event | Nil)
+  private def advance_countdowns(previous : Event | Nil, current : Event | Nil, next_event : Event | Nil, container : Event | Nil)
     previous ? countup_previous_event(previous) : (self[:minutes_since_previous_event] = nil)
     next_event_started = next_event ? countdown_next_event(next_event) : (self[:minutes_til_next_event] = nil)
     current_event_ended = current ? countdown_current_event(current) : (self[:minutes_since_current_event_started] = self[:minutes_til_current_event_ends] = nil)
@@ -109,45 +116,46 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
     @next_countdown = if next_event_started || current_event_ended
                         schedule.in(1.minutes) { fetch_and_expose_todays_events.as(Array(Event)) }
                       else
-                        schedule.in(1.minutes) { advance_countdowns(previous, current, next_event).as(Bool) }
+                        schedule.in(1.minutes) { advance_countdowns(previous, current, next_event, container).as(Bool) }
                       end
 
     self[:event_in_progress] = current ? in_progress?(current) : false
+    self[:container_event_in_progess] = container ? in_progress?(container) : false
     self[:no_upcoming_events] = next_event.nil?
   end
 
   private def countup_previous_event(previous : Event)
-    time_since_previous = Time.local - previous.endTime
+    time_since_previous = Time.local - previous.end_time
     self[:minutes_since_previous_event] = time_since_previous.total_minutes.to_i
   end
 
   private def countdown_next_event(next_event : Event)
-    time_til_next = next_event.startTime - Time.local
+    time_til_next = next_event.start_time - Time.local
     self[:minutes_til_next_event] = time_til_next.total_minutes.to_i
     # return whether the next event has started
-    Time.local >= next_event.startTime
+    Time.local >= next_event.start_time
   end
 
   private def countdown_current_event(current : Event)
-    time_since_start = Time.local - current.startTime
-    time_til_end = current.endTime - Time.local
+    time_since_start = Time.local - current.start_time
+    time_til_end = current.end_time - Time.local
     self[:minutes_since_current_event_started] = time_since_start.total_minutes.to_i
     self[:minutes_til_current_event_ends] = time_til_end.total_minutes.to_i
     # return whether the current event has ended
-    Time.local > current.endTime
+    Time.local > current.end_time
   end
 
   private def in_progress?(event : Event)
     now = Time.local
-    now >= event.startTime && now <= event.endTime
+    now >= event.start_time && now <= event.end_time
   end
 
   # Does a contain b?
   private def contains?(a : Event, b : Event)
-    b.startTime >= a.startTime && b.endTime <= a.endTime
+    b.start_time >= a.start_time && b.end_time <= a.end_time
   end
 
   private def overlaps?(a : Event, b : Event)
-    b.startTime < a.endTime || b.endTime > a.startTime
+    b.start_time < a.end_time || b.end_time > a.start_time
   end
 end

@@ -55,7 +55,7 @@ module Cisco::CollaborationEndpoint::Cameras
 
   def stop(index : Int32 | String = 0, emergency : Bool = false)
     cam = index.to_i
-    cam = 1 if index == 0
+    cam = 1 if cam.zero?
 
     camera_move(
       camera_id: cam,
@@ -67,21 +67,21 @@ module Cisco::CollaborationEndpoint::Cameras
 
   def move(position : MoveablePosition, index : Int32 | String = 0)
     cam = index.to_i
-    cam = 1 if index == 0
+    cam = 1 if cam.zero?
 
     case position
     in .open?, .close?
       # iris not supported
     in .down?, .up?
       joystick(
-        pan_speed: 0,
-        tilt_speed: position.down? ? -6 : 6,
+        pan_speed: 0.0,
+        tilt_speed: position.down? ? -50.0 : 50.0,
         index: cam
       )
     in .left?, .right?
       joystick(
-        pan_speed: position.left? ? -6 : 6,
-        tilt_speed: 0,
+        pan_speed: position.left? ? -50.0 : 50.0,
+        tilt_speed: 0.0,
         index: cam
       )
     in .in?, .out?
@@ -89,13 +89,13 @@ module Cisco::CollaborationEndpoint::Cameras
     end
   end
 
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
+  def zoom_to(position : Float64, auto_focus : Bool = true, index : Int32 | String = 0)
     raise "direct zoom unsupported on this camera"
   end
 
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
     cam = index.to_i
-    cam = 1 if index == 0
+    cam = 1 if cam.zero?
 
     camera_move(
       camera_id: cam,
@@ -104,40 +104,50 @@ module Cisco::CollaborationEndpoint::Cameras
     )
   end
 
-  # @pan_range = -15..15
-  # @tilt_range = -15..1
+  def joystick(pan_speed : Float64, tilt_speed : Float64, index : Int32 | String = 0)
+    pan_speed = pan_speed.clamp(-100.0, 100.0)
+    tilt_speed = tilt_speed.clamp(-100.0, 100.0)
 
-  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
-    pan = if pan_speed == 0
+    pan = if pan_speed.zero?
             pan_speed = nil
             PanDirection::Stop
           else
-            pan_speed < 0 ? PanDirection::Left : PanDirection::Right
+            pan_speed.negative? ? PanDirection::Left : PanDirection::Right
           end
 
-    tilt = if tilt_speed == 0
+    tilt = if tilt_speed.zero?
              tilt_speed = nil
              TiltDirection::Stop
            else
-             tilt_speed < 0 ? TiltDirection::Down : TiltDirection::Up
+             tilt_speed.negative? ? TiltDirection::Down : TiltDirection::Up
            end
 
     cam = index.to_i
-    cam = 1 if index == 0
+    cam = 1 if cam.zero?
+
+    if pan_speed
+      percentage = pan_speed.abs / 100.0
+      pan_speed_actual = (percentage * 15.0).round.to_i
+    end
+
+    if tilt_speed
+      percentage = tilt_speed.abs / 100.0
+      tilt_speed_actual = (percentage * 15.0).round.to_i
+    end
 
     camera_move(
       camera_id: cam,
       pan: pan,
-      pan_speed: pan_speed.try &.abs,
+      pan_speed: pan_speed_actual,
       tilt: tilt,
-      tilt_speed: tilt_speed.try &.abs,
+      tilt_speed: tilt_speed_actual,
       zoom: ZoomDirection::Stop
     )
   end
 
   def recall(position : String, index : Int32 | String = 0)
     cam = index.to_i
-    cam = 1 if index == 0
+    cam = 1 if cam.zero?
 
     presets = @presets[cam]? || {} of String => Int32
     preset = presets[position]?
@@ -148,7 +158,7 @@ module Cisco::CollaborationEndpoint::Cameras
 
   def save_position(name : String, index : Int32 | String = 0)
     cam = index.to_i
-    cam = 1 if index == 0
+    cam = 1 if cam.zero?
 
     presets = @presets[cam]? || {} of String => Int32
     in_use = @presets.values.flat_map(&.values)
@@ -168,7 +178,7 @@ module Cisco::CollaborationEndpoint::Cameras
 
   def remove_position(name : String, index : Int32 | String = 0)
     cam = index.to_i
-    cam = 1 if index == 0
+    cam = 1 if cam.zero?
 
     presets = @presets[cam]? || {} of String => Int32
     presets.delete(name)
