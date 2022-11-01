@@ -1,10 +1,10 @@
 require "./cres_next"
-require "./nvx_models"
 require "placeos-driver/interface/switchable"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   alias Input = String | Int32?
   include PlaceOS::Driver::Interface::InputSelection(Input)
+  include Crestron::Receiver
 
   descriptive_name "Crestron NVX Receiver"
   generic_name :Decoder
@@ -29,6 +29,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       # "DeviceMode":"Transmitter|Receiver",
       next if mode == "Receiver"
       logger.warn { "device configured as a #{mode}" }
+      self[:WARN] = "device configured as a #{mode}. Expecting Receiver"
     end
 
     # Get the registered subscriptions for index based switching.

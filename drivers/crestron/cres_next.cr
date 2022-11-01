@@ -2,6 +2,7 @@ require "placeos-driver"
 require "json"
 require "path"
 require "uri"
+require "./nvx_models"
 
 # Documentation: https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Prerequisites-Assumptions.htm
 # inspecting request - response packets from the device webui is also useful
@@ -15,7 +16,7 @@ abstract class Crestron::CresNext < PlaceOS::Driver
 
     headers = HTTP::Headers.new
     transport.cookies.add_request_headers(headers)
-    headers["CREST-XSRF-TOKEN"] = @xsrf_token
+    headers["CREST-XSRF-TOKEN"] = @xsrf_token unless @xsrf_token.empty?
     headers["User-Agent"] = "advanced-rest-client"
 
     # This is just to maintain our session at HTTP level
@@ -39,7 +40,7 @@ abstract class Crestron::CresNext < PlaceOS::Driver
     when 200, 302
       auth_cookies = %w(AuthByPasswd iv tag userid userstr)
       if (auth_cookies - response.cookies.to_h.keys).empty?
-        @xsrf_token = response.headers["CREST-XSRF-TOKEN"]
+        @xsrf_token = response.headers["CREST-XSRF-TOKEN"]? || ""
         logger.debug { "Authenticated" }
       else
         error = "Device did not return all auth information"

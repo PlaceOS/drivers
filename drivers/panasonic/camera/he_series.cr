@@ -27,7 +27,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   @pan : Int32 = 0
   @tilt : Int32 = 0
-  @zoom : Int32 = 0
+  @zoom_raw : Int32 = 0
 
   def on_load
     # delay between sending commands
@@ -71,11 +71,22 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   MOVEMENT_STOPPED = 50
 
-  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
+  protected def joyspeed(speed : Float64)
+    speed = speed.clamp(-100.0, 100.0)
+    negative = speed < 0.0
+    speed = speed.abs if negative
+
+    percentage = speed / 100.0
+    value = (percentage * 49.0).round.to_i
+    value = -value if negative
+    value
+  end
+
+  def joystick(pan_speed : Float64, tilt_speed : Float64, index : Int32 | String = 0)
     tilt_speed = -tilt_speed if @invert
 
-    pan = (MOVEMENT_STOPPED + pan_speed).to_s.rjust(2, '0')
-    tilt = (MOVEMENT_STOPPED + tilt_speed).to_s.rjust(2, '0')
+    pan = (MOVEMENT_STOPPED + joyspeed(pan_speed)).to_s.rjust(2, '0')
+    tilt = (MOVEMENT_STOPPED + joyspeed(tilt_speed)).to_s.rjust(2, '0')
 
     # check if we want to stop panning
     if pan_speed == "50" && tilt_speed == "50"
@@ -113,7 +124,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   def save_position(name : String, index : Int32 | String = 0)
     do_poll
-    @presets[name] = {pan: @pan, tilt: @tilt, zoom: @zoom}
+    @presets[name] = {pan: @pan, tilt: @tilt, zoom: @zoom_raw}
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
   end
@@ -149,8 +160,16 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   # ================
   # Zoomable interface
 
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
-    request("AXZ", position.to_s(16).upcase.rjust(3, '0')) do |resp|
+  ZOOM_MIN   = 0x555
+  ZOOM_MAX   = 0xFFF
+  ZOOM_RANGE = (ZOOM_MAX - ZOOM_MIN).to_f
+
+  def zoom_to(position : Float64, auto_focus : Bool = true, index : Int32 | String = 0)
+    position = position.clamp(0.0, 100.0)
+    percentage = position / 100.0
+    zoom_value = (percentage * ZOOM_RANGE).to_i + ZOOM_MIN # (zoom range is 0x555 => 0xFFF)
+
+    request("AXZ", zoom_value.to_s(16).upcase.rjust(3, '0')) do |resp|
       self[:zoom] = resp[3..-1].to_i(16)
     end
   end
@@ -162,7 +181,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
       logger.debug { message }
       message
     else
-      self[:zoom] = @zoom = resp[2..-1].to_i(16)
+      @zoom_raw = resp[2..-1].to_i(16)
+      self[:zoom] = (@zoom_raw - ZOOM_MIN).to_f * (100.0 / ZOOM_RANGE)
     end
   end
 
