@@ -1,5 +1,4 @@
 require "./cres_next"
-require "./nvx_models"
 require "placeos-driver/interface/switchable"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
