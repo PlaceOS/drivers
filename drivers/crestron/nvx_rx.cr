@@ -29,6 +29,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       # "DeviceMode":"Transmitter|Receiver",
       next if mode == "Receiver"
       logger.warn { "device configured as a #{mode}" }
+      self[:WARN] = "device configured as a #{mode}. Expecting Receiver"
     end
 
     # Get the registered subscriptions for index based switching.
