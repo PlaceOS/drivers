@@ -17,6 +17,10 @@ shards:
     git: https://github.com/taylorfinnell/awscr-signer.git
     version: 0.8.2
 
+  axio:
+    git: https://github.com/place-technology/axio.git
+    version: 0.1.0+git.commit.c3c23a73f45da075ad4ebc1e8be46a7348c68c46
+
   backtracer:
     git: https://github.com/sija/backtracer.cr.git
     version: 1.2.2
@@ -36,6 +40,10 @@ shards:
   crc16:
     git: https://github.com/maiha/crc16.cr.git
     version: 0.1.0
+
+  crest:
+    git: https://github.com/mamantoha/crest.git
+    version: 1.3.1
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -60,6 +68,10 @@ shards:
   defined:
     git: https://github.com/wyhaines/defined.cr.git
     version: 0.3.6
+
+  desigo:
+    git: https://github.com/place-technology/desigo.git
+    version: 0.1.0+git.commit.550870f8a93661b25cd081dd7056094f6551d21b
 
   dtls:
     git: https://github.com/spider-gazelle/crystal-dtls.git
@@ -105,9 +117,17 @@ shards:
     git: https://github.com/place-labs/hound-dog.git
     version: 2.9.0
 
+  http-client-digest_auth:
+    git: https://github.com/mamantoha/http-client-digest_auth.git
+    version: 0.6.0
+
   http-params-serializable:
     git: https://github.com/place-labs/http-params-serializable.git
     version: 0.5.0
+
+  http_proxy:
+    git: https://github.com/mamantoha/http_proxy.git
+    version: 0.9.0
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -123,7 +143,7 @@ shards:
 
   json-schema:
     git: https://github.com/spider-gazelle/json-schema.git
-    version: 1.2.1
+    version: 1.3.0
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -163,7 +183,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.18.0
+    version: 1.18.3
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -223,7 +243,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.4.9
+    version: 6.4.14
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -251,7 +271,7 @@ shards:
 
   quantum:
     git: https://github.com/place-technology/quantum.git
-    version: 0.1.2
+    version: 0.1.3
 
   rate_limiter:
     git: https://github.com/lbarasti/rate_limiter.git
@@ -292,6 +312,10 @@ shards:
   s2_cells:
     git: https://github.com/spider-gazelle/s2_cells.git
     version: 1.0.1
+
+  sabo:
+    git: https://github.com/place-technology/sabo.git
+    version: 0.1.0+git.commit.7886f23f60611c8bb820e5184110537811da5b6b
 
   simple_retry:
     git: https://github.com/spider-gazelle/simple_retry.git
@@ -344,4 +368,8 @@ shards:
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
+
+  xml_converter:
+    git: https://github.com/mamantoha/xml_converter.git
+    version: 0.4.0
 
