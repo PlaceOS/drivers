@@ -1,7 +1,6 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Leviton::Acquisuite" do
-
   headers = {"Content-Type" => ["multipart/form-data; boundary=MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY"]}
   test_devices = ["mb-001", "mb-002"]
 
@@ -19,10 +18,12 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
       dev_log
     )
     body = body.gsub("\n", "\r\n")
-    resp = exec(:request, "POST", headers, body).get
-    
+    resp = exec(:receive_webhook, "POST", headers, body).get
+
     res = exec(:device_list).get
-    res.as_a.any?{|device| device.as_s.includes?(device_name)}.should be_true if !res.nil?
+    res = res.not_nil!
+    res = Hash(String, Array(String)).from_json(res.to_json)
+    res.keys.any? { |device| device.includes?(device_name) }.should be_true if !res.nil?
   end
 
   # Next we receive a CONFIGFILEMANIFEST webhook asking for the config files we want
@@ -36,13 +37,17 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   BODY
 
   body = body.gsub("\n", "\r\n")
-  resp = exec(:request, "POST", headers, body).get
+  resp = exec(:receive_webhook, "POST", headers, body).get
 
   # We should expect the driver to respond with a manifest containing the list of devices
+  resp = resp.not_nil!
+  puts "MANIFEST RESPONSE:"
+  puts resp.inspect
+  puts resp[2].class
   # resp[2].to_s.split("\n").size.should eq device_list.size if !resp.nil?
 
   dev_config = File.read("/app/repositories/local/drivers/leviton/mb-001.ini")
-  
+
   # Then we receive a CONFIGFILEMANIFEST webhook asking for the config files we want
   body = create_request(
     "CONFIGFILEUPLOAD",
@@ -56,12 +61,11 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   )
 
   body = body.gsub("\n", "\r\n")
-  resp = exec(:request, "POST", headers, body).get
-
+  resp = exec(:receive_webhook, "POST", headers, body).get
 
   dev_log = File.read("/app/repositories/local/drivers/leviton/mb-001.log")
 
-  # Now, finally, send an actual log file 
+  # Now, finally, send an actual log file
   body = create_request(
     "LOGFILEUPLOAD",
     "Temp Inputs / Branch Circuits",
@@ -73,10 +77,8 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
     dev_log
   )
   body = body.gsub("\n", "\r\n")
-  resp = exec(:request, "POST", headers, body).get
-
+  resp = exec(:receive_webhook, "POST", headers, body).get
 end
-
 
 # Some of these fields may not be present in every request but
 # having them there doesn't hurt anything so why bother removing them
