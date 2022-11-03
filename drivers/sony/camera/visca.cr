@@ -1,11 +1,13 @@
 require "placeos-driver"
 require "placeos-driver/interface/camera"
+require "placeos-driver/interface/powerable"
 require "bindata"
 
 # Documentation: https://aca.im/driver_docs/Sony/sony_visca_over_ip.pdf
 # https://aca.im/driver_docs/Aver/tr530-320-control-codes.pdf
 
 class Sony::Camera::VISCA < PlaceOS::Driver
+  include Interface::Powerable
   include Interface::Camera
 
   # Discovery Information.
@@ -64,6 +66,17 @@ class Sony::Camera::VISCA < PlaceOS::Driver
   def connected
     reset_sequence_number
     send_cmd(Bytes[0x00, 0x01], name: :if_clear, priority: 98)
+  end
+
+  # ====== Powerable Interface ======
+
+  def power(state : Bool)
+    payload = state ? Bytes[0x04, 0x00, 0x02] : Bytes[0x04, 0x00, 0x03]
+    send_cmd(payload, name: :power)
+  end
+
+  def power?
+    send_inq(Bytes[0x04, 0x00], name: :power_query)
   end
 
   # ====== Camera Interface ======
@@ -241,7 +254,12 @@ class Sony::Camera::VISCA < PlaceOS::Driver
     bytes :payload, length: ->{ size }
   end
 
-  protected def send_cmd(bytes, **options)
+  @[Security(Level::Administrator)]
+  def send_cmd(bytes : String)
+    send_cmd(bytes.hexbytes)
+  end
+
+  protected def send_cmd(bytes : Bytes, **options)
     # VISCA message
     payload = IO::Memory.new
     payload.write Bytes[@camera_address, 0x01]
@@ -264,7 +282,12 @@ class Sony::Camera::VISCA < PlaceOS::Driver
     end
   end
 
-  protected def send_inq(bytes, **options)
+  @[Security(Level::Administrator)]
+  def send_inq(bytes : String)
+    send_inq(bytes.hexbytes)
+  end
+
+  protected def send_inq(bytes : Bytes, **options)
     # VISCA message
     payload = IO::Memory.new
     payload.write Bytes[@camera_address, 0x09]
@@ -292,10 +315,11 @@ class Sony::Camera::VISCA < PlaceOS::Driver
     @sequence = @sequence &+ 1_u32
   end
 
-  protected def reset_sequence_number(directly : Bool = false)
+  @[Security(Level::Administrator)]
+  def reset_sequence_number(directly : Bool = false)
     packet = Packet.new
     packet.type = :device_control
-    packet.sequence = @sequence = 0_u32
+    packet.sequence = @sequence = 1_u32
     packet.payload = Bytes[0x01_u8]
 
     return transport.send(packet) if directly
@@ -396,6 +420,8 @@ class Sony::Camera::VISCA < PlaceOS::Driver
       zoom?
     when "pantilt"
       pantilt?
+    when "power_query"
+      self[:power] = payload[-2] == 0x02_u8
     end
 
     task.try &.success
