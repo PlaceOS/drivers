@@ -1,13 +1,18 @@
-require "./cres_next"
+require "placeos-driver"
 require "placeos-driver/interface/sensor"
+require "./cres_next_auth"
 
-class Crestron::OccupancySensor < Crestron::CresNext # < PlaceOS::Driver
+# This device doesn't seem to support a websocket interface
+# and relies on long polling
+
+class Crestron::OccupancySensor < PlaceOS::Driver
+  include Crestron::CresNextAuth
   include Interface::Sensor
 
   descriptive_name "Crestron Occupancy Sensor"
   generic_name :Occupancy
 
-  uri_base "wss://192.168.0.5/websockify"
+  uri_base "https://192.168.0.5"
 
   default_settings({
     username: "admin",
@@ -19,43 +24,76 @@ class Crestron::OccupancySensor < Crestron::CresNext # < PlaceOS::Driver
   @occupied : Bool = false
   @connected : Bool = false
   getter last_update : Int64 = 0_i64
+  getter poll_counter : UInt64 = 0_u64
+
+  @long_polling = false
+
+  def on_load
+    schedule.every(10.minutes) { authenticate }
+    schedule.every(1.hour) { poll_device_state }
+  end
 
   def connected
     @connected = true
 
-    query("/OccupancySensor/IsRoomOccupied") do |occupied|
-      @last_update = Time.utc.to_unix
-      self[:occupied] = @occupied = occupied.as_bool
-    end
-
-    query("/DeviceInfo/MacAddress") do |mac|
-      self[:mac] = @mac = format_mac mac.as_s
-    end
-
-    query("/DeviceInfo/Name") do |name|
-      self[:name] = @name = name.as_s?
-    end
+    authenticate
+    poll_device_state
   end
 
   def disconnected
     @connected = false
   end
 
-  def format_mac(address : String)
+  def poll_device_state : Nil
+    response = get("/Device")
+    raise "unexpected response code: #{response.status_code}" unless response.success?
+    payload = JSON.parse(response.body)
+
+    @last_update = Time.utc.to_unix
+    self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
+    self[:mac] = @mac = format_mac payload.dig("Device", "DeviceInfo", "MacAddress").as_s
+    self[:name] = @name = payload.dig("Device", "DeviceInfo", "Name").as_s?
+
+    # Start long polling once we have state
+    @poll_counter += 1
+    long_poll unless @long_polling
+  end
+
+  protected def format_mac(address : String)
     address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
   end
 
-  def received(data, task)
-    raw_json = String.new data
-    logger.debug { "Crestron sent: #{raw_json}" }
+  # NOTE:: /Device/Longpoll
+  # 200 == check data
+  #  when nothing new: {"Device":"Response Timeout"}
+  #  when update: {"Device":{"SystemClock":{"CurrentTime":"2022-10-22T20:29:03Z","CurrentTimeWithOffset":"2022-10-22T20:29:03+09:30"}}}
+  # 301 == authentication required
+  #  could auth every so often to prevent hitting this too
+  protected def long_poll
+    @long_polling = true
+    response = get("/Device/Longpoll")
+
+    authenticate if response.status_code == 301
+    raise "unexpected response code: #{response.status_code}" unless response.success?
+
+    raw_json = response.body
+    logger.debug { "long poll sent: #{raw_json}" }
 
     return unless raw_json.includes? "IsRoomOccupied"
     payload = JSON.parse(raw_json)
 
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
-
-    task.try &.success
+  rescue timeout : IO::TimeoutError
+    logger.debug { "timeout waiting for long poll to complete" }
+  rescue error
+    logger.warn(exception: error) { "during long polling" }
+  ensure
+    if @connected
+      spawn(same_thread: true) { long_poll }
+    else
+      @long_polling = false
+    end
   end
 
   # ======================
