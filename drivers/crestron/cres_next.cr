@@ -29,8 +29,14 @@ abstract class Crestron::CresNext < PlaceOS::Driver
   def authenticate
     logger.debug { "Authenticating" }
 
+    # some devices require referer and origin to accept the login
+    uri = URI.parse config.uri.not_nil!
+    host = uri.host
+
     response = post("/userlogin.html", headers: {
       "Content-Type" => "application/x-www-form-urlencoded",
+      "Referer"      => "https://#{host}/userlogin.html",
+      "Origin"       => "https://#{host}",
     }, body: URI::Params.build { |form|
       form.add("login", setting(String, :username))
       form.add("passwd", setting(String, :password))
