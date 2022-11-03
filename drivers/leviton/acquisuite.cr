@@ -40,51 +40,20 @@ class Leviton::Acquisuite < PlaceOS::Driver
       files, form_data = ActionController::BodyParser.extract_form_data(request, "multipart/form-data", request.query_params)
       form_data = form_data.not_nil!
       case form_data["MODE"]
+
+        # This is the server asking for a list of devices which we need the config files
         when "CONFIGFILEMANIFEST"
-          if @manifest_list.empty?
-            # If the manifest list is empty then we need to create our own for first run
-            manifest = device_to_manifest
-          else
-            # Otherwise send our existing manifest list
-            manifest = @manifest_list
-          end
-          {HTTP::Status::OK.to_i, {} of String => String, manifest.join("\n")}
+          return config_file_manifest
+
+        # This is the server sending us an actual config file from the previously provided list
         when "CONFIGFILEUPLOAD"
-          file = files.not_nil!
-          config_contents = file["CONFIGFILE"][0]
-          config_file = config_contents.body.gets_to_end
+          files = files.not_nil!
+          config_file_upload(files, form_data)
 
-          # First update our manifest with the new config data
-          @manifest_list << "CONFIGFILE,#{config_contents.filename},#{form_data["MD5CHECKSUM"]},#{form_data["FILETIME"]}"
-          define_setting(:manifest_list, @manifest_list)
-
-          # Now update our config list with the new config
-          store_config(form_data["MODBUSDEVICE"], config_file)
+        # Finally, this is an actual log file from a device that we should already have the config file for
         when "LOGFILEUPLOAD"
-          file = files.not_nil!
-          log_contents = file["LOGFILE"][0]
-          log_file = log_contents.body.gets_to_end
-
-          csv = CSV.new(log_file, headers: true)
-          # NOTE: This csv.next structure assumes that there will be a header row we don't need
-          # if this is not the case we should add logic to check for a header 
-          while csv.next
-            reading = {
-              time: Time.parse(csv[0].gsub("'","").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
-              data: [] of NamedTuple(reading: (String | Float64), name: String, units: String)
-            }.as(NamedTuple(time: Int64, data: Array(NamedTuple(reading: (String | Float64), name: String, units: String))))
-            @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
-              next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
-              # Disregard the first 4 columns of the csv
-              csv_index = i + 4
-              reading[:data].push({
-                reading: csv[csv_index],
-                name: @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String),
-                units: @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String)
-              })
-            end
-            self["mb-#{form_data["MODBUSDEVICE"]}"] = reading.dup 
-          end
+          files = files.not_nil!
+          return log_file_upload(files, form_data)
       end
       
     end
@@ -93,7 +62,72 @@ class Leviton::Acquisuite < PlaceOS::Driver
     # {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, error.message.to_s}
   end
 
-  def store_config(modbusid : String, config : String)
+  protected def log_file_upload(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), form_data : URI::Params)
+    log_file, log_contents = get_file(files, "LOGFILE")
+    
+    # Check whether we have the config for this log file device type
+    if !@device_list.any?{|device| device.includes?("mb-%03d" % form_data["MODBUSDEVICE"].to_i)}
+      # Add this device to our device list
+      @device_list << "mb-%03d.ini" % form_data["MODBUSDEVICE"].to_i
+      return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
+    end
+
+    csv = CSV.new(log_file, headers: true)
+    # NOTE: This csv.next structure assumes that there will be a header row we don't need
+    # if this is not the case we should add logic to check for a header 
+    while csv.next
+      reading = {
+        time: Time.parse(csv[0].gsub("'","").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
+        data: [] of NamedTuple(reading: (String | Float64), name: String, units: String)
+      }.as(NamedTuple(time: Int64, data: Array(NamedTuple(reading: (String | Float64), name: String, units: String))))
+      @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
+        next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
+        # Disregard the first 4 columns of the csv
+        csv_index = i + 4
+        reading[:data].push({
+          reading: csv[csv_index],
+          name: @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String),
+          units: @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String)
+        })
+      end
+      self["mb-%03d" % form_data["MODBUSDEVICE"].to_i] = reading.dup 
+    end
+    return {HTTP::Status::OK.to_i, {} of String => String, ""}
+  end
+
+  protected def config_file_manifest
+    if @manifest_list.empty?
+      # If the manifest list is empty then we need to create our own for first run
+      manifest = device_to_manifest
+    else
+      # Otherwise send our existing manifest list
+      manifest = @manifest_list
+    end
+    {HTTP::Status::OK.to_i, {} of String => String, manifest.join("\n")}
+  end
+
+  protected def config_file_upload(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), form_data : URI::Params)
+    config_file, config_contents = get_file(files, "CONFIGFILE")
+
+    # First update our manifest with the new config data
+    @manifest_list << "CONFIGFILE,#{config_contents.filename},#{form_data["MD5CHECKSUM"]},#{form_data["FILETIME"]}"
+    define_setting(:manifest_list, @manifest_list)
+
+    # Now update our config list with the new config
+    store_config(form_data["MODBUSDEVICE"], config_file)
+  end
+
+  protected def get_file(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), name : String)
+    file = files.not_nil!
+    file_contents = file[name][0]
+    { file_contents.body.gets_to_end, file_contents }
+  end
+
+  def device_list
+    @device_list
+  end
+
+  protected def store_config(modbusid : String, config : String)
     index_max = config.split("\n").map{ |line|
       reg = /POINT(?<index>\d*)(?<name>.*)=(?<value>.*)/.match(line)
       reg[1].to_i if reg
@@ -121,8 +155,8 @@ class Leviton::Acquisuite < PlaceOS::Driver
   end
 
   # Converts the device list to the starting manifest format 
-  def device_to_manifest
-    @device_list.map{|d| "CONFIGFILE,#{d},X,0000-00-00 00:00:00"}
+  protected def device_to_manifest
+    @device_list.map{|d| "CONFIGFILE,modbus/#{d},X,0000-00-00 00:00:00"}
   end
 
 end
