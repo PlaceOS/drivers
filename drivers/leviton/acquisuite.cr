@@ -71,6 +71,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
     if !@device_list.any? { |device, config| device.includes?("mb-%03d" % modbus_index) && config[0] != "X" }
       # Add this device to our device list
       @device_list["mb-%03d.ini" % modbus_index] = {"X", "0000-00-00 00:00:00"}
+      define_setting(:device_list, @device_list)
       return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
     end
 
