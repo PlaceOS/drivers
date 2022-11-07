@@ -31,14 +31,12 @@ class Leviton::Acquisuite < PlaceOS::Driver
   end
 
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
-    if @debug_webhook
-      logger.debug do
-        "Received Webhook\n" +
-        "Method: #{method.inspect}\n" +
-        "Headers:\n#{headers.inspect}\n" +
-        "Body:\n#{body.inspect}"
-      end
-    end
+    logger.debug do
+      "Received Webhook\n" +
+      "Method: #{method.inspect}\n" +
+      "Headers:\n#{headers.inspect}\n" +
+      "Body:\n#{body.inspect}"
+    end if @debug_webhook
     case method.downcase
     when "post"
       new_headers = HTTP::Headers.new
