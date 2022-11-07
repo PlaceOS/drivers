@@ -83,14 +83,14 @@ class Leviton::Acquisuite < PlaceOS::Driver
         time: Time.parse(csv[0].gsub("'", "").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
         data: [] of NamedTuple(reading: (String | Float64), name: String, units: String),
       }.as(NamedTuple(time: Int64, data: Array(NamedTuple(reading: (String | Float64), name: String, units: String))))
-      @config_list[modbus_index].each_with_index do |conf, i|
-        next if @config_list[modbus_index][i]["NAME"] == "-\r"
+      @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
+        next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
         # Disregard the first 4 columns of the csv
         csv_index = i + 4
         reading[:data].push({
           reading: csv[csv_index],
-          name:    @config_list[modbus_index][i]["NAME"].as(String),
-          units:   @config_list[modbus_index][i]["UNITS"].as(String),
+          name:    @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String),
+          units:   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String),
         })
       end
       self["mb-%03d" % modbus_index] = reading.dup
