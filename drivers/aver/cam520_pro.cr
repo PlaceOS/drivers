@@ -27,6 +27,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
   def on_load
     queue.wait = false
     transport.before_request do |request|
+      logger.debug { "performing request: #{request.method} #{request.path}" }
       bearer = bearer_token.presence || authenticate unless request.path == "/login_name"
       request.headers["Authorization"] = "Bearer #{bearer}"
     end
