@@ -5,7 +5,7 @@ require "action-controller/body_parser"
 
 class Leviton::Acquisuite < PlaceOS::Driver
   descriptive_name "Leviton Acquisuite Webhook"
-  generic_name :LevitonAcquisuite
+  generic_name :Leviton
   description %(provide an endpoint for the Leviton webhook to send logfiles)
 
   default_settings({
@@ -51,7 +51,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
         # This is the server sending us an actual config file from the previously provided list
       when "CONFIGFILEUPLOAD"
         files = files.not_nil!
-        config_file_upload(files, form_data)
+        return config_file_upload(files, form_data)
         # Finally, this is an actual log file from a device that we should already have the config file for
       when "LOGFILEUPLOAD"
         files = files.not_nil!
@@ -67,9 +67,11 @@ class Leviton::Acquisuite < PlaceOS::Driver
     log_file, log_contents = get_file(files, "LOGFILE")
 
     # Check whether we have the config for this log file device type
-    if !@device_list.keys.any? { |device| device.includes?("mb-%03d" % form_data["MODBUSDEVICE"].to_i) }
+    modbus_index = form_data["MODBUSDEVICE"].to_i
+    if !@device_list.any? { |device, config| device.includes?("mb-%03d" % modbus_index) && config[0] != "X" }
       # Add this device to our device list
-      @device_list["mb-%03d.ini" % form_data["MODBUSDEVICE"].to_i] = {"X", "0000-00-00 00:00:00"}
+      @device_list["mb-%03d.ini" % modbus_index] = {"X", "0000-00-00 00:00:00"}
+      define_setting(:device_list, @device_list)
       return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
     end
 
@@ -91,7 +93,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
           units:   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String),
         })
       end
-      self["mb-%03d" % form_data["MODBUSDEVICE"].to_i] = reading.dup
+      self["mb-%03d" % modbus_index] = reading.dup
     end
     return {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
@@ -109,6 +111,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
     # Now update our config list with the new config
     store_config(form_data["MODBUSDEVICE"], config_file)
+    return {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
 
   protected def get_file(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), name : String)
