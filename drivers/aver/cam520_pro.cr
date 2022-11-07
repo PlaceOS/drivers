@@ -22,14 +22,20 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   protected getter bearer_token : String = ""
   @zoom_max : Int32 = 28448
+  @invert : Bool = false
 
   def on_load
     queue.wait = false
+    transport.before_request do |request|
+      bearer = bearer_token.presence || authenticate unless request.path == "/login_name"
+      request.headers["Authorization"] = "Bearer #{bearer}"
+    end
     on_update
   end
 
   def on_update
     @zoom_max = setting(Int32, :zoom_max)
+    self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
   end
 
   def connected
@@ -50,8 +56,8 @@ class Aver::Cam520Pro < PlaceOS::Driver
   protected def check_success(response) : Bool
     logger.debug { "http response #{response.status_code}: #{response.body}" }
     return true if response.success?
-    details = HttpResponse(Nil?).from_json(response.body.not_nil!)
     @bearer_token = "" if response.status_code == 401
+    details = HttpResponse(Nil?).from_json(response.body.not_nil!)
     raise "unexpected response #{details.code} - #{details.msg}"
   end
 
@@ -106,6 +112,8 @@ class Aver::Cam520Pro < PlaceOS::Driver
   # ====== Camera Interface ======
 
   def joystick(pan_speed : Float64, tilt_speed : Float64, index : Int32 | String = 0)
+    tilt_speed = -tilt_speed if @invert
+
     if pan_speed >= tilt_speed
       axis = AxisSelect::Pan
       stop = AxisSelect::Tilt
