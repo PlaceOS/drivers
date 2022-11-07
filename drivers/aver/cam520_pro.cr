@@ -13,7 +13,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
   uri_base "ws://10.110.144.40:9187/ws"
 
   default_settings({
-    username: "admin",
+    username: "spec",
     password: "Aver",
 
     zoom_max:        28448,
@@ -21,6 +21,8 @@ class Aver::Cam520Pro < PlaceOS::Driver
   })
 
   protected getter bearer_token : String = ""
+  @device_host : String = ""
+  @username : String = ""
   @zoom_max : Int32 = 28448
   @invert : Bool = false
 
@@ -28,14 +30,19 @@ class Aver::Cam520Pro < PlaceOS::Driver
     queue.wait = false
     transport.before_request do |request|
       logger.debug { "performing request: #{request.method} #{request.path}" }
-      bearer = bearer_token.presence || authenticate unless request.path == "/login_name"
-      request.headers["Authorization"] = "Bearer #{bearer}"
+      request.headers["Host"] = @device_host unless @username == "spec" # don't update when running a spec
+      if request.path != "/login_name"
+        bearer = bearer_token.presence || authenticate
+        request.headers["Authorization"] = "Bearer #{bearer}"
+      end
     end
     on_update
   end
 
   def on_update
+    @username = setting(String, :username)
     @zoom_max = setting(Int32, :zoom_max)
+    @device_host = URI.parse(config.uri.not_nil!).host.not_nil!
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
   end
 
