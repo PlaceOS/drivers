@@ -226,7 +226,7 @@ class Infosilem::MockCampus < PlaceOS::Driver
     @response = setting?(String, :response) || "Error: No mock response configured in Settings"
   end
 
-  def bookings?
+  def bookings?(building_id : String, room_id : String, start_date : String, end_date : String)
     @response
   end
 end
