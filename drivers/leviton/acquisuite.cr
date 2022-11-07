@@ -67,9 +67,10 @@ class Leviton::Acquisuite < PlaceOS::Driver
     log_file, log_contents = get_file(files, "LOGFILE")
 
     # Check whether we have the config for this log file device type
-    if !@device_list.keys.any? { |device| device.includes?("mb-%03d" % form_data["MODBUSDEVICE"].to_i) }
+    modbus_index = form_data["MODBUSDEVICE"].to_i
+    if !@device_list.keys.any? { |device| device.includes?("mb-%03d" % modbus_index) }
       # Add this device to our device list
-      @device_list["mb-%03d.ini" % form_data["MODBUSDEVICE"].to_i] = {"X", "0000-00-00 00:00:00"}
+      @device_list["mb-%03d.ini" % modbus_index] = {"X", "0000-00-00 00:00:00"}
       return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
     end
 
@@ -81,17 +82,17 @@ class Leviton::Acquisuite < PlaceOS::Driver
         time: Time.parse(csv[0].gsub("'", "").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
         data: [] of NamedTuple(reading: (String | Float64), name: String, units: String),
       }.as(NamedTuple(time: Int64, data: Array(NamedTuple(reading: (String | Float64), name: String, units: String))))
-      @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
-        next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
+      @config_list[modbus_index].each_with_index do |conf, i|
+        next if @config_list[modbus_index][i]["NAME"] == "-\r"
         # Disregard the first 4 columns of the csv
         csv_index = i + 4
         reading[:data].push({
           reading: csv[csv_index],
-          name:    @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String),
-          units:   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String),
+          name:    @config_list[modbus_index][i]["NAME"].as(String),
+          units:   @config_list[modbus_index][i]["UNITS"].as(String),
         })
       end
-      self["mb-%03d" % form_data["MODBUSDEVICE"].to_i] = reading.dup
+      self["mb-%03d" % modbus_index] = reading.dup
     end
     return {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
