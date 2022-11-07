@@ -144,7 +144,7 @@ class Sony::Camera::VISCA < PlaceOS::Driver
     if pos = @presets[position]?
       pan_pos, tilt_pos, zoom_pos = pos
       pantilt(pan_pos, tilt_pos, @max_pan_tilt_speed)
-      zoom_to(@zoom_pos)
+      zoom_to(zoom_pos)
     else
       raise "unknown preset #{position}"
     end
