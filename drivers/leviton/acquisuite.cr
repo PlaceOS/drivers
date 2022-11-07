@@ -51,7 +51,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
         # This is the server sending us an actual config file from the previously provided list
       when "CONFIGFILEUPLOAD"
         files = files.not_nil!
-        config_file_upload(files, form_data)
+        return config_file_upload(files, form_data)
         # Finally, this is an actual log file from a device that we should already have the config file for
       when "LOGFILEUPLOAD"
         files = files.not_nil!
@@ -111,6 +111,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
     # Now update our config list with the new config
     store_config(form_data["MODBUSDEVICE"], config_file)
+    return {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
 
   protected def get_file(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), name : String)
