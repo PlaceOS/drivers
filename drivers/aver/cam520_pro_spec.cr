@@ -11,7 +11,7 @@ DriverSpecs.mock_driver "Aver::Cam520Pro" do
     if io
       data = io.gets_to_end
       request = JSON.parse(data)
-      if request["name"] == "admin" && request["password"] == "Aver"
+      if request["name"] == "spec" && request["password"] == "Aver"
         response.status_code = 200
         response << {
           code: 200,
