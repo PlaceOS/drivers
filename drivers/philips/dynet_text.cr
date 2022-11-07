@@ -75,7 +75,6 @@ class Philips::DyNetText < PlaceOS::Driver
     end
   end
 
-  # ameba:disable Metrics/CyclomaticComplexity
   protected def process_response(message : String, parts : Hash(String, String), task)
     task_name = task.try(&.name)
     success = task_name.nil?

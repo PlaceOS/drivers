@@ -11,6 +11,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
     running_a_spec: true,
   })
 
+  sleep 1
   resp = exec(:query_bookings, "desk")
 
   expect_http_request do |request, response|

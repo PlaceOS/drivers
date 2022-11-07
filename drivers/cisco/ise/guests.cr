@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "xml"
+require "./models/guest_user"
 
 # Tested with Cisco ISE API v2.2
 # https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
@@ -30,7 +31,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @location : String? = nil
   @custom_data = {} of String => JSON::Any::Type
 
-  TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
+  TYPE_HEADER = "application/json"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
 
   def on_load
@@ -80,45 +81,24 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
     company_name ||= attendee_email.split('@')[1].split('.')[0].capitalize
 
-    # Now generate our XML body
-    xml_string = %(<?xml version="1.0" encoding="UTF-8"?>
-      <ns2:guestuser xmlns:ns2="identity.ers.ise.cisco.com">)
+    guest_user = Models::GuestUser.from_json(%({}))
 
-    # customFields is required for ISE API v2.2
-    # since location is also required for 2.2, we can check if location is present
-    xml_string += %(
-        <customFields></customFields>) if @location
+    guest_user.guest_access_info.from_date = from_date
+    guest_user.guest_access_info.location = @location
+    guest_user.guest_access_info.to_date = to_date
+    guest_user.guest_access_info.valid_days = 1
+    guest_user.guest_info.company = company_name
+    guest_user.guest_info.email_address = attendee_email
+    guest_user.guest_info.first_name = first_name
+    guest_user.guest_info.last_name = last_name
+    guest_user.guest_info.notification_language = "English"
+    guest_user.guest_info.phone_number = phone_number
+    guest_user.guest_info.sms_service_provider = sms_service_provider
+    guest_user.guest_info.user_name = username
+    guest_user.guest_type = guest_type
+    guest_user.portal_id = portal_id
 
-    xml_string += %(
-        <guestAccessInfo>
-          <fromDate>#{from_date}</fromDate>)
-
-    xml_string += %(
-          <location>#{@location}</location>) if @location
-
-    xml_string += %(
-          <toDate>#{to_date}</toDate>
-          <validDays>1</validDays>
-        </guestAccessInfo>
-        <guestInfo>
-          <company>#{company_name}</company>
-          <emailAddress>#{attendee_email}</emailAddress>
-          <firstName>#{first_name}</firstName>
-          <lastName>#{last_name}</lastName>
-          <notificationLanguage>English</notificationLanguage>
-          <phoneNumber>#{phone_number}</phoneNumber>)
-
-    xml_string += %(
-          <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>) if sms_service_provider
-
-    xml_string += %(
-          <userName>#{username}</userName>
-        </guestInfo>
-        <guestType>#{guest_type}</guestType>
-        <portalId>#{portal_id}</portalId>
-      </ns2:guestuser>)
-
-    response = post("/guestuser/", body: xml_string, headers: {
+    response = post("/guestuser/", body: {"GuestUser" => guest_user}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
@@ -142,12 +122,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
     })
-    parsed_body = XML.parse(response.body)
-    guest_user = parsed_body.first_element_child.not_nil!
-    guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
+    parsed_body = JSON.parse(response.body)
+    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
+
     {
-      "username" => guest_info.children.find { |c| c.name == "userName" }.not_nil!.content,
-      "password" => guest_info.children.find { |c| c.name == "password" }.not_nil!.content,
+      "username" => guest_user.guest_info.user_name.to_s,
+      "password" => guest_user.guest_info.password.to_s,
     }
   end
 end
