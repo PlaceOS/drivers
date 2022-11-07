@@ -260,12 +260,11 @@ class Place::Router < PlaceOS::Driver
 
       # are there any additional switching actions to perform (combined outputs)
       if follow_additional_routes
+        routes = {} of String => Tuple(String, String, Int32?, Bool, Bool)
+
         if following_outputs = dst_node["followers"]?.try(&.as_a)
           logger.debug { "routing #{following_outputs.size} additional followers" }
-
-          spawn(same_thread: true) {
-            following_outputs.each { |output_follow| route_signal(input, output_follow.as_s, max_dist, simulate, false) }
-          }
+          following_outputs.each { |output_follow| routes[output_follow.as_s] = {input, output_follow.as_s, max_dist, simulate, false} }
         end
 
         ignore_source_routes = dst_node["ignore_source_routes"]?.try(&.as_bool) || false
@@ -273,11 +272,12 @@ class Place::Router < PlaceOS::Driver
         # perform_routes: {output: input}
         if !ignore_source_routes && (additional_routes = src_node["perform_routes"]?.try(&.as_h))
           logger.debug { "perfoming #{additional_routes.size} additional routes" }
-
-          spawn(same_thread: true) {
-            additional_routes.each { |ad_output, ad_input| route_signal(ad_input.as_s, ad_output, max_dist, simulate, false) }
-          }
+          additional_routes.each { |ad_output, ad_input| routes[ad_output] = {ad_input.as_s, ad_output, max_dist, simulate, false} }
         end
+
+        spawn(same_thread: true) {
+          routes.each_value { |route| route_signal(*route) }
+        }
       end
 
       logger.debug { "awaiting responses" }

@@ -19,7 +19,7 @@ class Kaiterra::API < PlaceOS::Driver
   end
 
   def on_update
-    @api_key = setting?(String, :api_key) || ""
+    @api_key = setting(String, :api_key)
   end
 
   enum Param
@@ -51,12 +51,12 @@ class Kaiterra::API < PlaceOS::Driver
       when "%"
         Unit::Percentage
       else
-        self.parse(string)
+        super
       end
     end
 
     def self.new(pull : JSON::PullParser)
-      self.parse(pull.read_string)
+      parse(pull.read_string)
     end
 
     def to_s
@@ -68,7 +68,7 @@ class Kaiterra::API < PlaceOS::Driver
       when Unit::Percentage
         "%"
       else
-        self.to_s
+        super
       end
     end
   end
@@ -76,7 +76,8 @@ class Kaiterra::API < PlaceOS::Driver
   class Response
     include JSON::Serializable
 
-    property data : Array(Data)
+    property data : Array(Data)?
+    property errors : Array(JSON::Any::Type)?
   end
 
   class Data
@@ -90,7 +91,10 @@ class Kaiterra::API < PlaceOS::Driver
   end
 
   def get_devices(id : String, params : Hash(String, String) = {} of String => String)
-    response = get_request("/devices/#{id}/top", params)
+    response = get(
+      generate_url("/devices/#{id}/top", params),
+      headers: generate_headers
+    )
     Response.from_json(response.body)
   end
 
@@ -112,25 +116,31 @@ class Kaiterra::API < PlaceOS::Driver
   end
 
   def batch(body : Array(Request), params : Hash(String, String) = {} of String => String)
-    response = get_request("/batch",
-      params,
-      headers: {
+    response = post(
+      generate_url("/batch", params),
+      body: body.to_json,
+      headers: generate_headers({
         "Content-Type"     => "application/json",
         "Content-Encoding" => "UTF-8",
-      }
+      })
     )
     Array(BatchResponse).from_json(response.body)
   end
 
-  private def get_request(
+  private def generate_url(
     path : String,
-    params : Hash(String, String) = {} of String => String,
+    params : Hash(String, String) = {} of String => String
+  )
+    params["key"] = @api_key
+    encoded_params = URI::Params.encode(params)
+    "#{path}?#{encoded_params}"
+  end
+
+  private def generate_headers(
     headers : Hash(String, String) = {} of String => String
   )
-    params["api-key"] = @api_key
-    encoded_params = URI::Params.encode(params)
     # Recommended to use this header in docs
     headers["Accept-Encoding"] = "gzip"
-    get("#{path}?#{encoded_params}", headers: headers)
+    headers
   end
 end
