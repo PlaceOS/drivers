@@ -48,6 +48,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
   end
 
   protected def check_success(response) : Bool
+    logger.debug { "http response #{response.status_code}: #{response.body}" }
     return true if response.success?
     details = HttpResponse(Nil?).from_json(response.body.not_nil!)
     @bearer_token = "" if response.status_code == 401
