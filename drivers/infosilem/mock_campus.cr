@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "./models"
 
 class Infosilem::MockCampus < PlaceOS::Driver
   # Discovery Information
@@ -216,14 +217,14 @@ class Infosilem::MockCampus < PlaceOS::Driver
     STRING
   })
 
-  @response : String = "Error: No mock response configured in Settings"
+  @response = [] of JSON::Any
 
   def on_load
     on_update
   end
 
   def on_update
-    @response = setting?(String, :response) || "Error: No mock response configured in Settings"
+    @response = setting?(Array(JSON::Any), :response) || [] of JSON::Any
   end
 
   def bookings?(building_id : String, room_id : String, start_date : String, end_date : String)
