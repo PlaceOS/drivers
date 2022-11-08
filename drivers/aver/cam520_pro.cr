@@ -21,7 +21,6 @@ class Aver::Cam520Pro < PlaceOS::Driver
   })
 
   protected getter bearer_token : String = ""
-  @device_host : String = ""
   @username : String = ""
   @zoom_max : Int32 = 28448
   @invert : Bool = false
@@ -30,7 +29,6 @@ class Aver::Cam520Pro < PlaceOS::Driver
     queue.wait = false
     transport.before_request do |request|
       logger.debug { "performing request: #{request.method} #{request.path}" }
-      request.headers["Host"] = @device_host unless @username == "spec" # don't update when running a spec
       if request.path != "/login_name"
         bearer = bearer_token.presence || authenticate
         request.headers["Authorization"] = "Bearer #{bearer}"
@@ -41,8 +39,13 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   def on_update
     @username = setting(String, :username)
+    if @username != "spec"
+      device_host = URI.parse(config.uri.not_nil!)
+      device_host.port = nil
+      transport.http_uri_override = device_host
+    end
+
     @zoom_max = setting(Int32, :zoom_max)
-    @device_host = URI.parse(config.uri.not_nil!).host.not_nil!
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
   end
 
