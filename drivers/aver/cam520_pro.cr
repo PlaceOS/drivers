@@ -138,19 +138,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
       cmd = tilt_speed.zero? ? 2 : 1
     end
 
-    # stop any previous move
-    spawn(same_thread: true) do
-      post("/camera_move", body: {
-        method: "SetPtzf",
-        axis:   stop.to_i,
-        dir:    dir,
-        cmd:    2,
-      }.to_json)
-    end
-
-    Fiber.yield
-
-    # start moving in the desired direction
+    # start moving in the desired direction, overwrites and previous PTZ action
     response = post("/camera_move", body: {
       method: "SetPtzf",
       axis:   axis.to_i,
@@ -305,29 +293,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
   # ====== Stoppable Interface ======
 
   def stop(index : Int32 | String = 0, emergency : Bool = false)
-    # tilt
-    spawn(same_thread: true) do
-      post("/camera_move", body: {
-        method: "SetPtzf",
-        axis:   AxisSelect::Tilt.to_i,
-        dir:    0,
-        cmd:    2,
-      }.to_json)
-    end
-
-    # pan
-    spawn(same_thread: true) do
-      post("/camera_move", body: {
-        method: "SetPtzf",
-        axis:   AxisSelect::Pan.to_i,
-        dir:    0,
-        cmd:    2,
-      }.to_json)
-    end
-
-    Fiber.yield
-
-    # zoom
+    # any stop command will stop all movement
     response = post("/camera_move", body: {
       method: "SetPtzf",
       axis:   AxisSelect::Zoom.to_i,
