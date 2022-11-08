@@ -139,21 +139,6 @@ DriverSpecs.mock_driver "Aver::Cam520Pro" do
   # check camera interface
   # ======================
   resp = exec(:joystick, 80.0, 10.0)
-  # Stop tilt
-  expect_http_request do |request, response|
-    data = request.body.not_nil!.gets_to_end
-    request = JSON.parse(data)
-    if request["axis"] == 1 && request["cmd"] == 2
-      response.status_code = 200
-      response << {
-        code: 200,
-        msg:  "ok",
-        data: nil,
-      }.to_json
-    else
-      raise "stop move failed in joystick request"
-    end
-  end
   # Move pan
   expect_http_request do |request, response|
     data = request.body.not_nil!.gets_to_end
