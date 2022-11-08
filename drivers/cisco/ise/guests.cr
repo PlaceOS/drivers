@@ -21,6 +21,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_type:  "Required, ask cisco ISE admins for valid subset of values",                              # e.g. Contractor
     location:    "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
     custom_data: {} of String => JSON::Any::Type,
+    debug:       false,
   })
 
   @basic_auth : String = ""
@@ -39,7 +40,13 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def on_update
-    @basic_auth = "Basic #{Base64.strict_encode("#{setting?(String, :username)}:#{setting?(String, :password)}")}"
+    username = setting?(String, :username)
+    password = setting?(String, :password)
+
+    @basic_auth = ["Basic", Base64.strict_encode([username, password].join(":"))].join(" ")
+
+    @debug = setting?(Bool, :debug) || false
+
     @portal_id = setting?(String, :portal_id) || "portal101"
     @guest_type = setting?(String, :guest_type) || "default_guest_type"
     @location = setting?(String, :location)
@@ -48,6 +55,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
     @custom_data = setting?(Hash(String, JSON::Any::Type), :custom_data) || {} of String => JSON::Any::Type
+
+    logger.debug { "Basic auth details: #{@basic_auth}" } if @debug
   end
 
   def create_guest(
@@ -98,11 +107,15 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_user.guest_type = guest_type
     guest_user.portal_id = portal_id
 
+    logger.debug { "Guest user: #{guest_user.to_json}" } if @debug
+
     response = post("/guestuser/", body: {"GuestUser" => guest_user}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
     })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
 
@@ -122,6 +135,11 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
     })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get guest credentials, code #{response.status_code}\n#{response.body}" unless response.success?
+
     parsed_body = JSON.parse(response.body)
     guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
 
