@@ -46,6 +46,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
     end
 
     @zoom_max = setting(Int32, :zoom_max)
+    @presets = setting?(Presets, :camera_presets) || @presets
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
   end
 
@@ -269,7 +270,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
     parse(response, Nil) || position
   end
 
-  def zoom? : Nil
+  def zoom?
     response = post("/get_option", body: {
       method: "Get",
       option: "ptz_z_s",
