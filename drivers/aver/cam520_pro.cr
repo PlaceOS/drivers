@@ -126,7 +126,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
   def joystick(pan_speed : Float64, tilt_speed : Float64, index : Int32 | String = 0)
     tilt_speed = -tilt_speed if @invert
 
-    if pan_speed >= tilt_speed
+    if pan_speed.abs >= tilt_speed.abs
       axis = AxisSelect::Pan
       stop = AxisSelect::Tilt
       dir = pan_speed >= 0.0 ? 0 : 1
