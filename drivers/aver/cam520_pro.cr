@@ -49,7 +49,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
     @zoom_max = setting(Int32, :zoom_max)
     @presets = setting?(Presets, :camera_presets) || @presets
-    self[:camera_presets] = @presets.keys
+    self[:presets] = @presets.keys
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
   end
 
@@ -190,7 +190,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   protected def save_presets
     define_setting(:camera_presets, @presets)
-    self[:camera_presets] = @presets.keys
+    self[:presets] = @presets.keys
   end
 
   def pan_direct(position : Int32)
