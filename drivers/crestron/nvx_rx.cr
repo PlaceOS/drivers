@@ -95,6 +95,12 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     )
   end
 
+  protected def query_device_name
+    query("/Localization/Name", name: "device_name") do |name|
+      self["device_name"] = name
+    end
+  end
+
   protected def switch_stream(stream_reference : String | Int32)
     uuid = uuid_for stream_reference
 
@@ -229,5 +235,6 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   protected def update_source_info
     query_source_name_for(:video)
     query_source_name_for(:audio)
+    query_device_name
   end
 end
