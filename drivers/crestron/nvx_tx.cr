@@ -73,8 +73,22 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
     end
   end
 
+  protected def query_multicast_address
+    query("/StreamTransmit/Streams", name: "streams") do |streams|
+      self["multicast_address"] = streams.dig(0, "MulticastAddress")
+    end
+  end
+
+  protected def query_stream_name
+    query("/Localization/Name", name: "stream_name") do |name|
+      self["stream_name"] = name
+    end
+  end
+
   # Query the device for the current source state and update status vars.
   protected def update_source_info
+    query_stream_name
+    query_multicast_address
     query_source_name_for(:video)
     query_source_name_for(:audio)
   end
