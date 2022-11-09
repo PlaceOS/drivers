@@ -29,6 +29,9 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
     }
   }}}})
 
+  should_send "/Device/Localization/Name"
+  responds %({"Device": {"Localization": {"Name": "projector"}}})
+
   should_send "/Device/DeviceSpecific/ActiveVideoSource"
   responds %({"Device": {"DeviceSpecific": {"ActiveVideoSource": "Stream"}}})
 
@@ -49,6 +52,7 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
 
   status[:video_source].should eq("Stream-00000000-0000-4002-0054-018a0089fd1c")
   status[:audio_source].should eq("Input1")
+  status[:device_name].should eq("projector")
 
   # we call this manually as the driver isn't loaded in websocket mode
   exec :authenticate

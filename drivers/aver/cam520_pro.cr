@@ -1,8 +1,10 @@
 require "placeos-driver"
 require "placeos-driver/interface/camera"
+require "placeos-driver/interface/powerable"
 require "./cam520_pro_models"
 
 class Aver::Cam520Pro < PlaceOS::Driver
+  include Interface::Powerable
   include Interface::Camera
 
   # Discovery Information.
@@ -47,6 +49,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
     @zoom_max = setting(Int32, :zoom_max)
     @presets = setting?(Presets, :camera_presets) || @presets
+    self[:camera_presets] = @presets.keys
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
   end
 
@@ -336,5 +339,12 @@ class Aver::Cam520Pro < PlaceOS::Driver
     }.to_json)
 
     parse(response, Nil)
+  end
+
+  # ====== Powerable Interface ======
+
+  # dummy interface as no power command, camera is always on
+  def power(state : Bool)
+    state
   end
 end
