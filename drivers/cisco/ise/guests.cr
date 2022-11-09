@@ -1,6 +1,7 @@
 require "placeos-driver"
 require "xml"
 require "./models/guest_user"
+require "./models/internal_user"
 
 # Tested with Cisco ISE API v2.2
 # https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
@@ -123,10 +124,88 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_crendentials(guest_id).merge(@custom_data)
   end
 
-  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
-  # when it will increase to 10
-  private def genererate_username(firstname, lastname)
-    "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
+  def create_internal
+    internal_user = Models::InternalUser.from_json(%({}))
+
+    logger.debug { "Internal user: #{internal_user.to_json}" } if @debug
+
+    response = post("/internaluser/", body: {"InternalUser" => internal_user}.to_json, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to internal user, code #{response.status_code}\n#{response.body}" unless response.success?
+  end
+
+  def get_internal_user_by_id(id : String)
+    response = get("/internaluser/#{id}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get internal user by id, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    internal_user = Models::InternalUser.from_json(parsed_body["InternalUser"].to_json)
+
+    internal_user
+  end
+
+  def get_internal_user_by_name(name : String)
+    response = get("/internaluser/name/#{name}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get internal user by name, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    internal_user = Models::InternalUser.from_json(parsed_body["InternalUser"].to_json)
+
+    internal_user
+  end
+
+  def get_guest_user_by_id(id : String)
+    response = get("/guestuser/#{id}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get guest user by id, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
+
+    guest_user
+  end
+
+  def get_guest_user_by_name(name : String)
+    response = get("/guestuser/name/#{name}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get guest user by name, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
+
+    guest_user
   end
 
   def guest_crendentials(id : String)
@@ -147,5 +226,11 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "username" => guest_user.guest_info.user_name.to_s,
       "password" => guest_user.guest_info.password.to_s,
     }
+  end
+
+  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
+  # when it will increase to 10
+  private def genererate_username(firstname, lastname)
+    "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
   end
 end
