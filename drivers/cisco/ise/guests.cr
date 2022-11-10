@@ -1,12 +1,7 @@
 require "placeos-driver"
-require "xml"
+require "halite"
 require "./models/guest_user"
 require "./models/internal_user"
-
-# Tested with Cisco ISE API v2.2
-# https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
-# However, should work and conform to v1.4 requirements
-# https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_guest.html#79039
 
 class Cisco::Ise::Guests < PlaceOS::Driver
   # Discovery Information
@@ -110,10 +105,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     logger.debug { "Guest user: #{guest_user.to_json}" } if @debug
 
-    response = post("/guestuser/", body: {"GuestUser" => guest_user}.to_json, headers: {
+    response = Halite.post([config.uri.not_nil!.to_s, "guestuser"].join("/"), raw: {"GuestUser" => JSON.parse(guest_user.to_json)}.to_json, headers: {
+      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -129,10 +124,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     logger.debug { "Internal user: #{internal_user.to_json}" } if @debug
 
-    response = post("/internaluser/", body: {"InternalUser" => internal_user}.to_json, headers: {
-      "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
+    response = Halite.post([config.uri.not_nil!.to_s, "internaluser"].join("/"), raw: {"InternalUser" => JSON.parse(internal_user.to_json)}.to_json, headers: {
       "Authorization" => @basic_auth,
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -141,10 +136,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_internal_user_by_id(id : String)
-    response = get("/internaluser/#{id}", headers: {
+    response = Halite.get([config.uri.not_nil!.to_s, "internaluser", id].join("/"), headers: {
+      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -158,10 +153,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_internal_user_by_name(name : String)
-    response = get("/internaluser/name/#{name}", headers: {
+    response = Halite.get([config.uri.not_nil!.to_s, "internaluser", "name", name].join("/"), headers: {
+      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -175,10 +170,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_guest_user_by_id(id : String)
-    response = get("/guestuser/#{id}", headers: {
+    response = Halite.get([config.uri.not_nil!.to_s, "guestuser", id].join("/"), headers: {
+      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -192,10 +187,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_guest_user_by_name(name : String)
-    response = get("/guestuser/name/#{name}", headers: {
+    response = Halite.get([config.uri.not_nil!.to_s, "guestuser", "name", name].join("/"), headers: {
+      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -209,10 +204,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def guest_crendentials(id : String)
-    response = get("/guestuser/#{id}", headers: {
+    response = Halite.get([config.uri.not_nil!.to_s, "guestuser", id].join("/"), headers: {
+      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
