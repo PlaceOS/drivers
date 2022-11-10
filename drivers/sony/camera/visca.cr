@@ -59,6 +59,7 @@ class Sony::Camera::VISCA < PlaceOS::Driver
     @zoom_speed = setting?(UInt8, :zoom_speed) || 0x03_u8
     @zoom_max = setting?(UInt16, :zoom_max) || 0x4000_u16
     @camera_address = 0x80_u8 | (setting?(UInt8, :camera_no) || 1_u8)
+    self[:presets] = @presets.keys
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
   end
 
@@ -162,7 +163,7 @@ class Sony::Camera::VISCA < PlaceOS::Driver
 
   protected def save_presets
     define_setting(:camera_presets, @presets)
-    self[:camera_presets] = @presets.keys
+    self[:presets] = @presets.keys
   end
 
   # ====== Moveable Interface ======
