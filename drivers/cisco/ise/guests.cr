@@ -106,11 +106,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_user.portal_id = portal_id
 
     logger.debug { "Guest user: #{guest_user.to_json}" } if @debug
+    logger.debug { [config.uri.not_nil!.to_s, "guestuser"].join("/") } if @debug
 
     response = Halite.post([config.uri.not_nil!.to_s, "guestuser"].join("/"), raw: {"GuestUser" => JSON.parse(guest_user.to_json)}.to_json, headers: {
-      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
     }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -125,11 +126,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     internal_user = Models::InternalUser.from_json(%({}))
 
     logger.debug { "Internal user: #{internal_user.to_json}" } if @debug
+    logger.debug { [config.uri.not_nil!.to_s, "internaluser"].join("/") } if @debug
 
     response = Halite.post([config.uri.not_nil!.to_s, "internaluser"].join("/"), raw: {"InternalUser" => JSON.parse(internal_user.to_json)}.to_json, headers: {
-      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
     }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -138,10 +140,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_internal_user_by_id(id : String)
+    logger.debug { [config.uri.not_nil!.to_s, "internaluser", id].join("/") } if @debug
+
     response = Halite.get([config.uri.not_nil!.to_s, "internaluser", id].join("/"), headers: {
-      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
     }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -155,10 +159,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_internal_user_by_name(name : String)
+    logger.debug { [config.uri.not_nil!.to_s, "internaluser", "name", name].join("/") } if @debug
+
     response = Halite.get([config.uri.not_nil!.to_s, "internaluser", "name", name].join("/"), headers: {
-      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
     }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -172,10 +178,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_guest_user_by_id(id : String)
+    logger.debug { [config.uri.not_nil!.to_s, "guestuser", id].join("/") } if @debug
+
     response = Halite.get([config.uri.not_nil!.to_s, "guestuser", id].join("/"), headers: {
-      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
     }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -189,10 +197,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def get_guest_user_by_name(name : String)
+    logger.debug { [config.uri.not_nil!.to_s, "guestuser", "name", name].join("/") } if @debug
+
     response = Halite.get([config.uri.not_nil!.to_s, "guestuser", "name", name].join("/"), headers: {
-      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
     }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -206,10 +216,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def guest_crendentials(id : String)
+    logger.debug { [config.uri.not_nil!.to_s, "guestuser", id].join("/") } if @debug
+
     response = Halite.get([config.uri.not_nil!.to_s, "guestuser", id].join("/"), headers: {
-      "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
     }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
