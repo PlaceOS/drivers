@@ -27,11 +27,13 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @location : String? = nil
   @custom_data = {} of String => JSON::Any::Type
+  @tls = OpenSSL::SSL::Context::Client.new
 
   TYPE_HEADER = "application/json"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
 
   def on_load
+    @tls.verify_mode = OpenSSL::SSL::VerifyMode::NONE
     on_update
   end
 
@@ -109,7 +111,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-    })
+    }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
@@ -128,7 +130,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-    })
+    }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
@@ -140,7 +142,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-    })
+    }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
@@ -157,7 +159,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-    })
+    }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
@@ -174,7 +176,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-    })
+    }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
@@ -191,7 +193,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-    })
+    }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
@@ -208,7 +210,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
-    })
+    }, tls: @tls)
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
