@@ -318,13 +318,13 @@ class Sony::Camera::CGI < PlaceOS::Driver
     @presets[name] = {
       pan: @pan, tilt: @tilt, zoom: @zoom_raw,
     }
-    # TODO:: persist this to the database
+    define_setting(:presets, @presets)
     self[:presets] = @presets.keys
   end
 
   def delete_position(name : String, index : Int32 | String = 0)
     @presets.delete name
-    # TODO:: persist this to the database
+    define_setting(:presets, @presets)
     self[:presets] = @presets.keys
   end
 end
