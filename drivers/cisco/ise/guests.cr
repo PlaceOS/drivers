@@ -37,6 +37,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   TIME_FORMAT = "%m/%d/%Y %H:%M"
 
   def on_load
+    transport.before_request do |request|
+      logger.debug { "performing request: #{request.method} #{request.path}\n#{String.new(request.body.as(IO::Memory).to_slice)}" }
+    end
+
     on_update
   end
 
@@ -112,8 +116,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     response = post("/guestuser/", body: {"GuestUser" => guest_user}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -131,8 +135,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     response = post("/internaluser/", body: {"InternalUser" => internal_user}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -143,8 +147,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   def get_internal_user_by_id(id : String)
     response = get("/internaluser/#{id}", headers: {
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -160,8 +164,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   def get_internal_user_by_name(name : String)
     response = get("/internaluser/name/#{name}", headers: {
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -177,8 +181,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   def get_guest_user_by_id(id : String)
     response = get("/guestuser/#{id}", headers: {
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -194,8 +198,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   def get_guest_user_by_name(name : String)
     response = get("/guestuser/name/#{name}", headers: {
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
@@ -211,8 +215,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   def guest_crendentials(id : String)
     response = get("/guestuser/#{id}", headers: {
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
