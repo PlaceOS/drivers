@@ -127,7 +127,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     response = Halite.post([config.uri.not_nil!.to_s, "internaluser"].join("/"), raw: {"InternalUser" => JSON.parse(internal_user.to_json)}.to_json, headers: {
       "Authorization" => @basic_auth,
       "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER
+      "Content-Type"  => TYPE_HEADER,
     })
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
