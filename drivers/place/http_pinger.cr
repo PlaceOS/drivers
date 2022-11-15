@@ -29,6 +29,10 @@ class Place::HTTPPinger < PlaceOS::Driver
   alias HeaderJSON = Hash(String, Array(String) | String)
 
   def on_load
+    transport.before_request do |request|
+      logger.debug { "using proxy #{!!transport.proxy_in_use} #{transport.proxy_in_use.inspect}\nconnecting to host: #{config.uri}\nperforming request: #{request.method} #{request.path}\nheaders: #{request.headers}\n#{!request.body.nil? ? String.new(request.body.as(IO::Memory).to_slice) : nil}" }
+    end
+
     on_update
   end
 
@@ -68,5 +72,16 @@ class Place::HTTPPinger < PlaceOS::Driver
     self[:response_failure_count] = @response_failure_count
     self[:last_error] = error.message
     false
+  end
+
+  DUMMY_CALLBACK = Proc(Task, Nil).new { nil }
+
+  @[Security(Level::Administrator)]
+  def curl(verb : String, path : String, headers : Hash(String, String) = {} of String => String, body : String? = nil)
+    response = http(verb, path, body, headers: headers)
+    logger.debug { "response #{response.status}: #{response.status_message}\nheaders: #{response.headers}\n#{response.body}" }
+
+    task = PlaceOS::Driver::Task.new(queue, DUMMY_CALLBACK, 0, 0.seconds, 0, false, nil, nil)
+    task.success response.body, response.status_code
   end
 end
