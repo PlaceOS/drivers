@@ -23,6 +23,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   getter should_save : Bool = false
   getter people_counts : Array(Int32) = [] of Int32
 
+  @update_mutex = Mutex.new
+
   def on_load
     @system_id = config.control_system.not_nil!.id
     on_update
@@ -66,23 +68,25 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   end
 
   private def apply_new_state(new_booking_id : String?, new_status : String?)
-    logger.debug { "#apply_new_state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
-    logger.debug { "#apply_new_state current booking_id: #{booking_id}, status: #{status}" }
+    @update_mutex.synchronize do
+      logger.debug { "#apply_new_state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
+      logger.debug { "#apply_new_state current booking_id: #{booking_id}, status: #{status}" }
 
-    old_booking_id = @booking_id
-    @booking_id = new_booking_id
-    @status = new_status || "free"
+      old_booking_id = @booking_id
+      @booking_id = new_booking_id
+      @status = new_status || "free"
 
-    if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
-      save_booking_stats(old_booking_id, people_counts) if @should_save
-      if (init_count = system[:Bookings][:people_count]?) && init_count && (init_count.as_i? || init_count.as_f).to_i > 0
-        @people_counts = [(init_count.as_i? || init_count.as_f).to_i]
-      else
-        @people_counts = [] of Int32
+      if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
+        save_booking_stats(old_booking_id, people_counts) if @should_save
+        if (init_count = system[:Bookings][:people_count]?) && init_count && (init_count.as_i? || init_count.as_f).to_i > 0
+          @people_counts = [(init_count.as_i? || init_count.as_f).to_i]
+        else
+          @people_counts = [] of Int32
+        end
       end
-    end
 
-    @should_save = true if @booking_id && @status != "free"
+      @should_save = true if @booking_id && @status != "free"
+    end
   end
 
   private def save_booking_stats(event_id : String, counts : Array(Int32))
