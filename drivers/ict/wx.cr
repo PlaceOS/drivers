@@ -155,7 +155,9 @@ class Ict::Wx < PlaceOS::Driver
   end
 
   def get_doors
-    encrypted_request("Request&Type=List&SubType=GXT_DOORS_TBL&Sequence=").split("&").map{ |r| r.split("=")[1] }
+    door_list = encrypted_request("Request&Type=List&SubType=GXT_DOORS_TBL&Sequence=").split("&").map{ |r| r.split("=")[1] }
+    self["doors"] = door_list
+    door_list
   end
 
   def open_door(door_id : String)
