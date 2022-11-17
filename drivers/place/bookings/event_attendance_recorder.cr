@@ -70,7 +70,6 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   private def apply_new_state(new_booking_id : String?, new_status : String?)
     @update_mutex.synchronize do
       logger.debug { "#apply_new_state called with new_booking_id: #{new_booking_id}, new_status: #{new_status}" }
-      logger.debug { "#apply_new_state current booking_id: #{booking_id}, status: #{status}" }
 
       old_booking_id = @booking_id
       @booking_id = new_booking_id
