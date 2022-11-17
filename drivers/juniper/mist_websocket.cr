@@ -8,7 +8,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   descriptive_name "Juniper Mist Websocket"
   description "Juniper Mist location data using websockets"
 
-  uri_base "wss://api.mist.com/api-ws/v1/stream"
+  uri_base "wss://api-ws.mist.com/api-ws/v1/stream"
   default_settings({
     api_token:        "token",
     site_id:          "site_id",
