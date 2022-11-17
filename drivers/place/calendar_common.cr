@@ -341,6 +341,6 @@ module Place::CalendarCommon
     end
   rescue
     # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter } unless terminated? || in_flight.closed?
+    spawn { rate_limiter } unless terminated? || @in_flight.closed?
   end
 end
