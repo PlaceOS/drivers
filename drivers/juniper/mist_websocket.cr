@@ -40,6 +40,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     @user_mac_mappings = PlaceOS::Driver::RedisStorage.new(module_id, "user_macs")
 
     # debug HTTP requests
+    transport.http_uri_override = URI.parse("https://api.mist.com")
     transport.before_request do |request|
       logger.debug { "using proxy #{!!transport.proxy_in_use} #{transport.proxy_in_use.inspect}\nconnecting to host: #{config.uri}\nperforming request: #{request.method} #{request.path}\nheaders: #{request.headers}\n#{!request.body.nil? ? String.new(request.body.as(IO::Memory).to_slice) : nil}" }
     end
