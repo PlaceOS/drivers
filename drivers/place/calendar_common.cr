@@ -323,14 +323,16 @@ module Place::CalendarCommon
   end
 
   protected def rate_limiter
+    in_flight = @in_flight
+    channel = @channel
     loop do
       begin
         # ensure there is an available slot before allowing more requests
-        @in_flight.send(nil)
-        @in_flight.receive
+        in_flight.send(nil)
+        in_flight.receive
 
         # allow more requests through
-        @channel.send(nil)
+        channel.send(nil)
       rescue error
         logger.error(exception: error) { "issue with rate limiter" }
       ensure
@@ -339,6 +341,6 @@ module Place::CalendarCommon
     end
   rescue
     # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter } unless terminated?
+    spawn { rate_limiter } unless terminated? || in_flight.closed?
   end
 end
