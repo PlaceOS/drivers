@@ -8,7 +8,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   descriptive_name "Juniper Mist Websocket"
   description "Juniper Mist location data using websockets"
 
-  uri_base "wss://api.mist.com/api-ws/v1/stream"
+  uri_base "wss://api-ws.mist.com/api-ws/v1/stream"
   default_settings({
     api_token:        "token",
     site_id:          "site_id",
@@ -38,6 +38,13 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   def on_load
     # We want to store our user => mac_address mappings in redis
     @user_mac_mappings = PlaceOS::Driver::RedisStorage.new(module_id, "user_macs")
+
+    # debug HTTP requests
+    transport.http_uri_override = URI.parse("https://api.mist.com")
+    transport.before_request do |request|
+      logger.debug { "using proxy #{!!transport.proxy_in_use} #{transport.proxy_in_use.inspect}\nconnecting to host: #{config.uri}\nperforming request: #{request.method} #{request.path}\nheaders: #{request.headers}\n#{!request.body.nil? ? String.new(request.body.as(IO::Memory).to_slice) : nil}" }
+    end
+
     on_update
   end
 
