@@ -248,5 +248,10 @@ module Gallagher
     include JSON::Serializable
 
     getter events : Array(Event)
+    getter updates : NamedTuple(href: String)
+
+    def update_url
+      updates[:href]
+    end
   end
 end
