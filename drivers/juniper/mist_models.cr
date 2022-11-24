@@ -32,18 +32,24 @@ module Juniper
     property url : String
     property thumbnail_url : String
 
+    property site_id : String?
+    property org_id : String?
+
     @[JSON::Field(key: "ppm")]
     property pixels_per_meter : Float32
     property width : Int32
     property height : Int32
 
+    property width_m : Float64?
+    property height_m : Float64?
+
     # the user-annotated x origin, pixels
-    property origin_x : Int32
+    property origin_x : Int32?
 
     # the user-annotated y origin, pixels
-    property origin_y : Int32
-    property orientation : Int32
-    property locaked : Bool
+    property origin_y : Int32?
+    property orientation : Int32?
+    property locked : Bool?
   end
 
   class MapGoogle < Map
