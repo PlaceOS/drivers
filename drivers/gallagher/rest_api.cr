@@ -37,19 +37,19 @@ class Gallagher::RestAPI < PlaceOS::Driver
     # obtain the list of these at: /api/events/groups/
     event_mappings: [
       {
-        group: 1,
-        action: "tamper"
+        group:  1,
+        action: "tamper",
       },
       {
-        group: 18,
-        action: "denied"
+        group:  18,
+        action: "denied",
       },
       {
-        group: 23,
-        types: [15800, 15816, 20001, 20002, 20003, 20006, 20047, 41500, 41501, 41520, 41521, 42102, 42415],
-        action: "granted"
-      }
-    ]
+        group:  23,
+        types:  [15800, 15816, 20001, 20002, 20003, 20006, 20047, 41500, 41501, 41520, 41521, 42102, 42415],
+        action: "granted",
+      },
+    ],
   })
 
   record EventMap, group : Int32, types : Array(Int32)?, action : Action do
@@ -80,7 +80,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   def on_update
     api_key = setting(String, :api_key)
     @api_key = "GGL-API-KEY #{api_key}"
-    
+
     new_map = {} of Int32 => EventMap
     (setting?(Array(EventMap), :event_mappings) || [] of EventMap).each do |event|
       new_map[event.group] = event
