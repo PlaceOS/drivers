@@ -452,7 +452,8 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
   protected def event_monitor
     uri = URI.parse(config.uri.not_nil!)
-    last_event = Time.utc
+    uri.path = @events_endpoint
+    uri.query = "after=#{Time.utc.to_rfc3339}"
 
     sleep 2
 
@@ -460,19 +461,20 @@ class Gallagher::RestAPI < PlaceOS::Driver
       break unless @poll_events
 
       begin
-        uri.path = @events_endpoint
-        uri.query = "after=#{last_event.to_rfc3339}"
-
-        logger.debug { "checking for events #{uri.query}" }
+        logger.debug { "checking for events #{uri.request_target}" }
 
         response = get(uri.request_target, headers: @headers, concurrent: true)
         if response.success?
           logger.debug { "new event: #{response.body}" }
-          events = Events.from_json(response.body).events
+          events_resp = Events.from_json(response.body)
 
+          update_url = URI.parse(events_resp.update_url)
+          uri.path = update_url.path
+          uri.query = update_url.query
+
+          events = events_resp.events
+          next if events.empty?
           events.each do |event|
-            last_event = event.time if event.time > last_event
-
             if mapped = @event_map[event.group.id]?
               if event.matching_type? mapped.types
                 publish("security/event/door", DoorEvent.new(
