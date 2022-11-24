@@ -152,7 +152,8 @@ class Gallagher::RestAPI < PlaceOS::Driver
     end
 
     # There should only be one result
-    @fixed_pdf_id = JSON.parse(response.body)["results"][0]["id"].as_s
+    results = JSON.parse(response.body)["results"].as_a
+    @fixed_pdf_id = results.first["id"].as_s unless results.empty?
   end
 
   protected def get_path(uri : String) : String
