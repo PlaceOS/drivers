@@ -52,7 +52,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     ]
   })
 
-  record EventMap, group : Int32, types : Array(Int32), action : Action do
+  record EventMap, group : Int32, types : Array(Int32)?, action : Action do
     include JSON::Serializable
   end
 
@@ -75,12 +75,17 @@ class Gallagher::RestAPI < PlaceOS::Driver
   @unique_pdf_name : String = "email"
   @headers : Hash(String, String) = {} of String => String
   @disabled_card_value : String = "Disabled (manually)"
-  @event_map : Array(EventMap) = [] of EventMap
+  @event_map : Hash(Int32, EventMap) = {} of Int32 => EventMap
 
   def on_update
     api_key = setting(String, :api_key)
     @api_key = "GGL-API-KEY #{api_key}"
-    @event_map = setting?(Array(EventMap), :event_mappings) || [] of EventMap
+    
+    new_map = {} of Int32 => EventMap
+    (setting?(Array(EventMap), :event_mappings) || [] of EventMap).each do |event|
+      new_map[event.group] = event
+    end
+    @event_map = new_map
 
     @unique_pdf_name = setting(String, :unique_pdf_name)
 
@@ -449,7 +454,11 @@ class Gallagher::RestAPI < PlaceOS::Driver
     uri = URI.parse(config.uri.not_nil!)
     last_event = Time.utc
 
+    sleep 2
+
     loop do
+      break unless @poll_events
+
       begin
         uri.path = @events_endpoint
         uri.query = "after=#{last_event.to_rfc3339}"
@@ -458,7 +467,26 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
         response = get(uri.request_target, headers: @headers, concurrent: true)
         if response.success?
+          logger.debug { "new event: #{response.body}" }
+          events = Events.from_json(response.body).events
 
+          events.each do |event|
+            last_event = event.time if event.time > last_event
+
+            if mapped = @event_map[event.group.id]?
+              if event.matching_type? mapped.types
+                publish("security/event/door", DoorEvent.new(
+                  module_id: module_id,
+                  security_system: "Gallagher",
+                  door_id: event.source.id,
+                  action: mapped.action,
+                  card_id: event.card.try &.number,
+                  user_name: event.cardholder.try &.name,
+                  user_email: nil
+                ).to_json)
+              end
+            end
+          end
         else
           # we don't want to thrash the server
           logger.warn { "event polling failed with\nStatus #{response.status_code}\n#{response.body}" }
@@ -476,6 +504,4 @@ class Gallagher::RestAPI < PlaceOS::Driver
       end
     end
   end
-
-
 end
