@@ -50,12 +50,6 @@ class Gallagher::RestAPI < PlaceOS::Driver
         types:  [15800, 15816, 20001, 20002, 20003, 20006, 20047, 41500, 41501, 41520, 41521, 42102, 42415],
         action: "granted",
       },
-      {
-        # operator granted access
-        group:  101,
-        action: "granted",
-        types:  [15200],
-      },
     ],
   })
 
@@ -383,6 +377,19 @@ class Gallagher::RestAPI < PlaceOS::Driver
     response = get(@divisions_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
     raise "divisions request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(JSON::Any, response.body)
+  end
+
+  @[Security(Level::Support)]
+  def get_events
+    response = get(@events_endpoint, headers: @headers)
+    raise "events request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def get_event_groups
+    response = get("#{@events_endpoint}/groups", headers: @headers)
+    raise "event groups request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
   end
 
   macro get_results(klass, response)
