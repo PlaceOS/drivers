@@ -40,7 +40,6 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     @user_mac_mappings = PlaceOS::Driver::RedisStorage.new(module_id, "user_macs")
 
     # debug HTTP requests
-    transport.http_uri_override = URI.parse("https://api.mist.com")
     transport.before_request do |request|
       logger.debug { "using proxy #{!!transport.proxy_in_use} #{transport.proxy_in_use.inspect}\nconnecting to host: #{config.uri}\nperforming request: #{request.method} #{request.path}\nheaders: #{request.headers}\n#{!request.body.nil? ? String.new(request.body.as(IO::Memory).to_slice) : nil}" }
     end
@@ -52,8 +51,11 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     token = setting String, :api_token
     @api_token = "Token #{token}"
     @site_id = setting String, :site_id
-    @ignore_usernames = setting?(Array(String), :ignore_usernames) || [] of String
 
+    # http override unless we're in a spec
+    transport.http_uri_override = URI.parse("https://api.mist.com") unless @site_id == "site_id"
+
+    @ignore_usernames = setting?(Array(String), :ignore_usernames) || [] of String
     connected if @connected
   end
 
@@ -92,8 +94,13 @@ class Juniper::MistWebsocket < PlaceOS::Driver
 
     response = yield headers
 
-    raise "request failed with status: #{response.status_code}\n#{response.body}" unless response.success?
-    klass.from_json(response.body)
+    begin
+      raise "request failed with status: #{response.status_code}\n#{response.body}" unless response.success?
+      klass.from_json(response.body)
+    rescue error : JSON::SerializableError
+      logger.error { "parsing response body:\n#{response.body}" }
+      raise error
+    end
   end
 
   protected def update_location(client_data, location_data, client) : Nil
