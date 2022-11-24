@@ -32,6 +32,17 @@ module Gallagher
     property description : String? = nil
   end
 
+  class DoorDetails
+    include JSON::Serializable
+
+    def initialize(@id, @name, @href)
+    end
+
+    property id : String
+    property name : String
+    property href : String
+  end
+
   class Cardholder
     include JSON::Serializable
     include JSON::Serializable::Unmapped
@@ -115,7 +126,7 @@ module Gallagher
     property href : String?
   end
 
-  class Card
+  struct Card
     include JSON::Serializable
     include JSON::Serializable::Unmapped
 
@@ -126,6 +137,9 @@ module Gallagher
     property type : NamedTuple(href: String, name: String?)? = nil
     property number : String? = nil
     property status : NamedTuple(value: String, type: String?)? = nil
+
+    @[JSON::Field(key: "facilityCode")]
+    property facility_code : String? = nil
 
     @[JSON::Field(key: "cardSerialNumber")]
     property card_serial_number : String? = nil
@@ -201,5 +215,33 @@ module Gallagher
     )
     property from : Time?
     property until : Time?
+  end
+
+  struct IdName
+    include JSON::Serializable
+
+    getter id : String
+    getter name : String
+  end
+
+  struct Event
+    include JSON::Serializable
+
+    getter group : IdName
+    getter type : IdName
+    getter source : IdName
+
+    getter id : String
+    getter time : Time
+    getter message : String?
+
+    getter card : Card?
+    getter cardholder : IdName?
+  end
+
+  struct Events
+    include JSON::Serializable
+
+    getter events : Array(Event)
   end
 end
