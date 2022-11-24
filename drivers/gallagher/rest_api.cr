@@ -45,9 +45,16 @@ class Gallagher::RestAPI < PlaceOS::Driver
         action: "denied",
       },
       {
+        # card swipe events for various door / lift types
         group:  23,
         types:  [15800, 15816, 20001, 20002, 20003, 20006, 20047, 41500, 41501, 41520, 41521, 42102, 42415],
         action: "granted",
+      },
+      {
+        # operator granted access
+        group:  101,
+        action: "granted",
+        types:  [15200],
       },
     ],
   })
@@ -75,15 +82,15 @@ class Gallagher::RestAPI < PlaceOS::Driver
   @unique_pdf_name : String = "email"
   @headers : Hash(String, String) = {} of String => String
   @disabled_card_value : String = "Disabled (manually)"
-  @event_map : Hash(Int32, EventMap) = {} of Int32 => EventMap
+  @event_map : Hash(String, EventMap) = {} of String => EventMap
 
   def on_update
     api_key = setting(String, :api_key)
     @api_key = "GGL-API-KEY #{api_key}"
 
-    new_map = {} of Int32 => EventMap
+    new_map = {} of String => EventMap
     (setting?(Array(EventMap), :event_mappings) || [] of EventMap).each do |event|
-      new_map[event.group] = event
+      new_map[event.group.to_s] = event
     end
     @event_map = new_map
 

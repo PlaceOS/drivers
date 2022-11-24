@@ -240,7 +240,7 @@ module Gallagher
 
     def matching_type?(types : Array(Int32)?)
       return true unless types
-      types.includes?(type.id)
+      types.map(&.to_s).includes?(type.id)
     end
   end
 
