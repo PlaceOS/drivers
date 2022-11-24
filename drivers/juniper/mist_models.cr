@@ -92,18 +92,25 @@ module Juniper
     property ap_id : String
     property ssid : String
     property wlan_id : String
-    property psk_id : String
+    property psk_id : String?
 
     property map_id : String
     # pixels
     property x : Float64
     property y : Float64
+    property x_m : Float64?
+    property y_m : Float64?
     property num_locating_aps : Int32
 
     # meters
-    property accuracy : Int32
+    @[JSON::Field(key: "accuracy")]
+    property raw_accuracy : Int32?
 
-    property is_guest : Bool
+    def accuracy
+      (raw_accuracy || 15) // num_locating_aps
+    end
+
+    property is_guest : Bool?
     property guest : Guest?
   end
 
