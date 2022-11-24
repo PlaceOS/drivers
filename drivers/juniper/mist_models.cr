@@ -107,7 +107,8 @@ module Juniper
     property raw_accuracy : Int32?
 
     def accuracy
-      (raw_accuracy || 15) // num_locating_aps
+      return raw_accuracy if raw_accuracy
+      15 // num_locating_aps
     end
 
     property is_guest : Bool?
