@@ -34,6 +34,9 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
     disabled_card_value: "Disabled (manually)",
 
+    # changes the channel when you want to isolate signals
+    door_event_channel: "event",
+
     # obtain the list of these at: /api/events/groups/
     event_mappings: [
       {
@@ -74,6 +77,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   @poll_events : Bool = true
   @api_key : String = ""
   @unique_pdf_name : String = "email"
+  @door_event_channel : String = "event"
   @headers : Hash(String, String) = {} of String => String
   @disabled_card_value : String = "Disabled (manually)"
   @event_map : Hash(String, EventMap) = {} of String => EventMap
@@ -81,6 +85,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   def on_update
     api_key = setting(String, :api_key)
     @api_key = "GGL-API-KEY #{api_key}"
+    @door_event_channel = setting?(String, :door_event_channel) || "event"
 
     new_map = {} of String => EventMap
     (setting?(Array(EventMap), :event_mappings) || [] of EventMap).each do |event|
@@ -90,10 +95,10 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
     @unique_pdf_name = setting(String, :unique_pdf_name)
 
-    @default_division = setting(String?, :default_division_href)
-    @default_facility_code = setting(String?, :default_facility_code)
-    @default_card_type = setting(String?, :default_card_type_href)
-    @default_access_group = setting(String?, :default_access_group_href)
+    @default_division = setting?(String, :default_division_href)
+    @default_facility_code = setting?(String, :default_facility_code)
+    @default_card_type = setting?(String, :default_card_type_href)
+    @default_access_group = setting?(String, :default_access_group_href)
     @disabled_card_value = setting(String?, :disabled_card_value) || "Disabled (manually)"
 
     @headers = {
@@ -492,7 +497,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
           events.each do |event|
             if mapped = @event_map[event.group.id]?
               if event.matching_type? mapped.types
-                publish("security/event/door", DoorEvent.new(
+                publish("security/#{@door_event_channel}/door", DoorEvent.new(
                   module_id: module_id,
                   security_system: "Gallagher",
                   door_id: event.source.id,

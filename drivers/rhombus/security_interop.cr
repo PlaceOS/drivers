@@ -8,7 +8,8 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
   description %(provides an interface for rhombus and local security platforms)
 
   default_settings({
-    debug_webhook: false,
+    debug_webhook:   false,
+    organization_id: "event",
   })
 
   @debug_webhook : Bool = false
@@ -16,11 +17,13 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
   @event_count : UInt64 = 0_u64
 
   def on_load
-    monitor("security/event/door") { |_subscription, payload| door_event(payload) }
     on_update
   end
 
   def on_update
+    subscriptions.clear
+    org_id = setting?(String, :organization_id) || "event"
+    monitor("security/#{org_id}/door") { |_subscription, payload| door_event(payload) }
     @subscriptions = setting?(Array(Subscription), :subscriptions) || [] of Subscription
     @debug_webhook = setting?(Bool, :debug_webhook) || false
   end
