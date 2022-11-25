@@ -28,10 +28,10 @@ class Cisco::RoomKit < PlaceOS::Driver
     },
     peripheral_id: "uuid",
     configuration: {
-      "Audio Microphones Mute"              => {"Enabled" => "False"},
-      "Audio Input Line 1 VideoAssociation" => {
-        "MuteOnInactiveVideo" => "On",
-        "VideoInputSource"    => 2,
+      "RoomAnalytics": => {
+          "PeopleCountOutOfCall": "On",
+          "PeoplePresenceDetector": "On",
+          "WakeupOnMotionDetection": "On"
       },
     },
     presets: {
