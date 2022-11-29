@@ -8,18 +8,22 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
   description %(provides an interface for rhombus and local security platforms)
 
   default_settings({
-    debug_webhook: false,
+    debug_webhook:   false,
+    organization_id: "event",
   })
 
   @debug_webhook : Bool = false
   @subscriptions : Array(Subscription) = [] of Subscription
+  @event_count : UInt64 = 0_u64
 
   def on_load
-    monitor("security/event/door") { |_subscription, payload| door_event(payload) }
     on_update
   end
 
   def on_update
+    subscriptions.clear
+    org_id = setting?(String, :organization_id) || "event"
+    monitor("security/#{org_id}/door") { |_subscription, payload| door_event(payload) }
     @subscriptions = setting?(Array(Subscription), :subscriptions) || [] of Subscription
     @debug_webhook = setting?(Bool, :debug_webhook) || false
   end
@@ -74,7 +78,9 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
 
   @[Security(Level::Administrator)]
   def door_event(json : String)
+    logger.debug { "new door event detected: #{json}" }
     webhook = Webhook.new Interface::DoorSecurity::DoorEvent.from_json(json)
+    @event_count += 1_u64
 
     @subscriptions.each do |sub|
       begin
@@ -90,5 +96,7 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
         logger.error(exception: error) { "failed to notify subscription: #{sub.webhook}" }
       end
     end
+
+    self[:event_count] = @event_count
   end
 end
