@@ -137,6 +137,10 @@ shards:
     git: https://github.com/sija/ipaddress.cr.git
     version: 0.2.1
 
+  ise:
+    git: https://github.com/place-technology/ise.git
+    version: 0.1.0+git.commit.889ec8a007bd302a699bda5f7de08b0a8a715d4f
+
   json-merge-patch:
     git: https://github.com/caspiano/json-merge-patch.git
     version: 0.1.1

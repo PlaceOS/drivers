@@ -119,3 +119,6 @@ dependencies:
 
   desigo:
     github: place-technology/desigo
+
+  ise:
+    github: place-technology/ise
