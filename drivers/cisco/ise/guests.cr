@@ -92,6 +92,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     internal_user = Models::InternalUser.from_json(%({}))
 
+    # These custom attributes and any custom attribute needs to be predefined
+    # in the ISE GUI.
     custom_attributes = {
       "fromDate"           => from_date,
       "toDate"             => to_date,
