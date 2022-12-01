@@ -19,7 +19,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     timezone:    "Australia/Sydney",
     guest_type:  "Required, ask cisco ISE admins for valid subset of values",                              # e.g. Contractor
     location:    "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
-    custom_data: {} of String => JSON::Any::Type,
+    custom_data: {} of String => String,
     debug:       false,
   })
 
@@ -29,7 +29,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @guest_type : String = "default_guest_type"
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @location : String? = nil
-  @custom_data = {} of String => JSON::Any::Type
+  @custom_data = {} of String => String
 
   TYPE_HEADER = "application/json"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
@@ -53,7 +53,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
-    @custom_data = setting?(Hash(String, JSON::Any::Type), :custom_data) || {} of String => JSON::Any::Type
+    @custom_data = setting?(Hash(String, String), :custom_data) || {} of String => String
 
     logger.debug { "Basic auth details: #{@basic_auth}" } if @debug
   end
@@ -98,10 +98,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "location"           => @location.to_s,
       "companyName"        => company_name,
       "phoneNumber"        => phone_number,
-      "smsServiceProvider" => sms_service_provider,
+      "smsServiceProvider" => sms_service_provider.to_s,
       "guestType"          => guest_type,
       "portalId"           => portal_id,
-    } of String => JSON::Any::Type
+    } of String => String
 
     custom_attributes.merge!(@custom_data)
 
@@ -110,6 +110,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     internal_user.first_name = first_name
     internal_user.last_name = last_name
     internal_user.email = attendee_email
+
     internal_user.custom_attributes = custom_attributes
 
     logger.debug { "Internal user: #{internal_user.to_json}" } if @debug

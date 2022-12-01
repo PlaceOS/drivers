@@ -31,7 +31,7 @@ class Cisco::Ise::Models::InternalUser
   property enabled : Bool = true
 
   @[JSON::Field(key: "customAttributes")]
-  property custom_attributes : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type
+  property custom_attributes : Hash(String, String) = {} of String => String
 
   @[JSON::Field(key: "firstName")]
   property first_name : String?
