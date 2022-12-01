@@ -319,7 +319,7 @@ class Place::StaffAPI < PlaceOS::Driver
       q: q,
       limit: limit,
       offset: offset,
-      parent: parent,
+      parent_id: parent,
       tags: tags
     )
   end
