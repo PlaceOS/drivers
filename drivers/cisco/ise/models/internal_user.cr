@@ -13,7 +13,7 @@ class Cisco::Ise::Models::InternalUser
   property description : String?
 
   @[JSON::Field(key: "changePassword")]
-  property change_password : Bool = true
+  property change_password : Bool = false
 
   @[JSON::Field(key: "email")]
   property email : String?
@@ -31,7 +31,7 @@ class Cisco::Ise::Models::InternalUser
   property enabled : Bool = true
 
   @[JSON::Field(key: "customAttributes")]
-  property custom_attributes : Hash(String, String) = {} of String => String
+  property custom_attributes : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type
 
   @[JSON::Field(key: "firstName")]
   property first_name : String?

@@ -1,6 +1,4 @@
 require "placeos-driver"
-require "xml"
-require "./models/guest_user"
 require "./models/internal_user"
 
 # Tested with Cisco ISE API v2.2
@@ -60,7 +58,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     logger.debug { "Basic auth details: #{@basic_auth}" } if @debug
   end
 
-  def create_guest(
+  def create_internal(
     event_start : Int64,
     attendee_email : String,
     attendee_name : String,
@@ -76,6 +74,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     first_name = guest_names[0..first_name_index_end].join(' ')
     last_name = guest_names[-1]
     username = genererate_username(first_name, last_name)
+    password = genererate_password(first_name, last_name)
 
     return {"username" => username, "password" => UUID.random.to_s[0..3]}.merge(@custom_data) if setting?(Bool, :test)
 
@@ -91,41 +90,27 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
     company_name ||= attendee_email.split('@')[1].split('.')[0].capitalize
 
-    guest_user = Models::GuestUser.from_json(%({}))
-
-    guest_user.guest_access_info.from_date = from_date
-    guest_user.guest_access_info.location = @location
-    guest_user.guest_access_info.to_date = to_date
-    guest_user.guest_access_info.valid_days = 1
-    guest_user.guest_info.company = company_name
-    guest_user.guest_info.email_address = attendee_email
-    guest_user.guest_info.first_name = first_name
-    guest_user.guest_info.last_name = last_name
-    guest_user.guest_info.notification_language = "English"
-    guest_user.guest_info.phone_number = phone_number
-    guest_user.guest_info.sms_service_provider = sms_service_provider
-    guest_user.guest_info.user_name = username
-    guest_user.guest_type = guest_type
-    guest_user.portal_id = portal_id
-
-    logger.debug { "Guest user: #{guest_user.to_json}" } if @debug
-
-    response = post("/guestuser/", body: {"GuestUser" => guest_user}.to_json, headers: {
-      "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
-    })
-
-    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
-
-    raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
-
-    guest_id = response.headers["Location"].split('/').last
-    guest_crendentials(guest_id).merge(@custom_data)
-  end
-
-  def create_internal
     internal_user = Models::InternalUser.from_json(%({}))
+
+    custom_attributes = {
+      "fromDate"           => from_date,
+      "toDate"             => to_date,
+      "location"           => @location.to_s,
+      "companyName"        => company_name,
+      "phoneNumber"        => phone_number,
+      "smsServiceProvider" => sms_service_provider,
+      "guestType"          => guest_type,
+      "portalId"           => portal_id,
+    } of String => JSON::Any::Type
+
+    custom_attributes.merge!(@custom_data)
+
+    internal_user.name = username
+    internal_user.password = password
+    internal_user.first_name = first_name
+    internal_user.last_name = last_name
+    internal_user.email = attendee_email
+    internal_user.custom_attributes = custom_attributes
 
     logger.debug { "Internal user: #{internal_user.to_json}" } if @debug
 
@@ -137,7 +122,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
-    raise "failed to internal user, code #{response.status_code}\n#{response.body}" unless response.success?
+    raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    user = get_internal_user_by_name(username)
+    user.password = password
+
+    user
   end
 
   def get_internal_user_by_id(id : String)
@@ -174,63 +164,15 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     internal_user
   end
 
-  def get_guest_user_by_id(id : String)
-    response = get("/guestuser/#{id}", headers: {
-      "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
-    })
-
-    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
-
-    raise "failed to get guest user by id, code #{response.status_code}\n#{response.body}" unless response.success?
-
-    parsed_body = JSON.parse(response.body)
-    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
-
-    guest_user
-  end
-
-  def get_guest_user_by_name(name : String)
-    response = get("/guestuser/name/#{name}", headers: {
-      "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
-    })
-
-    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
-
-    raise "failed to get guest user by name, code #{response.status_code}\n#{response.body}" unless response.success?
-
-    parsed_body = JSON.parse(response.body)
-    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
-
-    guest_user
-  end
-
-  def guest_crendentials(id : String)
-    response = get("/guestuser/#{id}", headers: {
-      "Accept"        => TYPE_HEADER,
-      "Content-Type"  => TYPE_HEADER,
-      "Authorization" => @basic_auth,
-    })
-
-    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
-
-    raise "failed to get guest credentials, code #{response.status_code}\n#{response.body}" unless response.success?
-
-    parsed_body = JSON.parse(response.body)
-    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
-
-    {
-      "username" => guest_user.guest_info.user_name.to_s,
-      "password" => guest_user.guest_info.password.to_s,
-    }
-  end
-
   # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
   # when it will increase to 10
   private def genererate_username(firstname, lastname)
     "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
+  end
+
+  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
+  # when it will increase to 10
+  private def genererate_password(firstname, lastname)
+    "P!#{lastname[0].downcase}#{firstname[0].downcase}#{Time.utc.to_unix_ms.to_s(31)}"
   end
 end
