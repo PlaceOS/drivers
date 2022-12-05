@@ -103,7 +103,7 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     # Ignore when a bookings state is updated
     return if {"process_state", "metadata_changed"}.includes?(booking_details.action)
-    return unless booking_details.action.nil?
+    return if booking_details.action.nil?
 
     # Ignore the same event in a short period of time
     previous = @debounce[booking_details.id]?

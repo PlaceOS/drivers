@@ -33,7 +33,7 @@ dependencies:
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 6.2
+    version: ~> 6.3
 
   # The PlaceOS API client
   placeos:
@@ -52,7 +52,7 @@ dependencies:
     github: spider-gazelle/telnet.cr
 
   pars:
-    github: place-labs/pars
+    github: spider-gazelle/pars
 
   # For lat lon location indexing
   s2_cells:
@@ -100,3 +100,22 @@ dependencies:
   # fake data for mocks
   faker:
     github: askn/faker
+
+  # SOAP client
+  sabo:
+    github: place-technology/sabo
+
+  # AxiomXa client
+  axio:
+    github: place-technology/axio
+
+  # Lutron Quantum protocol
+  quantum:
+    github: place-technology/quantum
+
+  # Stripe API wrapper
+  stripetease:
+    github: grkek/stripetease
+
+  desigo:
+    github: place-technology/desigo

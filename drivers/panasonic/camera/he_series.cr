@@ -27,7 +27,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   @pan : Int32 = 0
   @tilt : Int32 = 0
-  @zoom : Int32 = 0
+  @zoom_raw : Int32 = 0
 
   def on_load
     # delay between sending commands
@@ -61,8 +61,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   protected def parse_power(response : String)
     case response
-    when "p0"      ; self[:power] = false
-    when "p1", "p3"; self[:power] = true
+    when "p0"       then self[:power] = false
+    when "p1", "p3" then self[:power] = true
     end
   end
 
@@ -71,11 +71,22 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   MOVEMENT_STOPPED = 50
 
-  def joystick(pan_speed : Int32, tilt_speed : Int32, index : Int32 | String = 0)
+  protected def joyspeed(speed : Float64)
+    speed = speed.clamp(-100.0, 100.0)
+    negative = speed < 0.0
+    speed = speed.abs if negative
+
+    percentage = speed / 100.0
+    value = (percentage * 49.0).round.to_i
+    value = -value if negative
+    value
+  end
+
+  def joystick(pan_speed : Float64, tilt_speed : Float64, index : Int32 | String = 0)
     tilt_speed = -tilt_speed if @invert
 
-    pan = (MOVEMENT_STOPPED + pan_speed).to_s.rjust(2, '0')
-    tilt = (MOVEMENT_STOPPED + tilt_speed).to_s.rjust(2, '0')
+    pan = (MOVEMENT_STOPPED + joyspeed(pan_speed)).to_s.rjust(2, '0')
+    tilt = (MOVEMENT_STOPPED + joyspeed(tilt_speed)).to_s.rjust(2, '0')
 
     # check if we want to stop panning
     if pan_speed == "50" && tilt_speed == "50"
@@ -95,7 +106,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     end
 
     request("PTS", "#{pan}#{tilt}", **options) do |resp|
-      pan, tilt = resp[3..-1].scan(/.{2}/).map(&.to_a).flatten
+      pan, tilt = resp[3..-1].scan(/.{2}/).flat_map(&.to_a)
       self[:pan_speed] = pan.not_nil!.to_i - MOVEMENT_STOPPED
       self[:tilt_speed] = tilt.not_nil!.to_i - MOVEMENT_STOPPED
     end
@@ -113,7 +124,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   def save_position(name : String, index : Int32 | String = 0)
     do_poll
-    @presets[name] = {pan: @pan, tilt: @tilt, zoom: @zoom}
+    @presets[name] = {pan: @pan, tilt: @tilt, zoom: @zoom_raw}
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
   end
@@ -149,8 +160,16 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   # ================
   # Zoomable interface
 
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
-    request("AXZ", position.to_s(16).upcase.rjust(3, '0')) do |resp|
+  ZOOM_MIN   = 0x555
+  ZOOM_MAX   = 0xFFF
+  ZOOM_RANGE = (ZOOM_MAX - ZOOM_MIN).to_f
+
+  def zoom_to(position : Float64, auto_focus : Bool = true, index : Int32 | String = 0)
+    position = position.clamp(0.0, 100.0)
+    percentage = position / 100.0
+    zoom_value = (percentage * ZOOM_RANGE).to_i + ZOOM_MIN # (zoom range is 0x555 => 0xFFF)
+
+    request("AXZ", zoom_value.to_s(16).upcase.rjust(3, '0')) do |resp|
       self[:zoom] = resp[3..-1].to_i(16)
     end
   end
@@ -162,7 +181,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
       logger.debug { message }
       message
     else
-      self[:zoom] = @zoom = resp[2..-1].to_i(16)
+      @zoom_raw = resp[2..-1].to_i(16)
+      self[:zoom] = (@zoom_raw - ZOOM_MIN).to_f * (100.0 / ZOOM_RANGE)
     end
   end
 
@@ -210,8 +230,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   protected def parse_installation(response : String)
     case response
-    when "ins0"; self[:installation] = Installation::Desk
-    when "ins1"; self[:installation] = Installation::Ceiling
+    when "ins0" then self[:installation] = Installation::Desk
+    when "ins1" then self[:installation] = Installation::Ceiling
     end
   end
 
@@ -226,7 +246,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   end
 
   protected def parse_pantilt(response : String)
-    pan, tilt = response[3..-1].scan(/.{4}/).map(&.to_a).flatten.compact_map(&.try &.to_i(16))
+    pan, tilt = response[3..-1].scan(/.{4}/).flat_map(&.to_a).compact_map(&.try &.to_i(16))
     self[:pan] = @pan = pan
     self[:tilt] = @tilt = tilt
   end
@@ -249,9 +269,9 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
         body = response.body.downcase
         if body.starts_with?("er")
           case body[2]
-          when '1'; task.abort("unsupported command #{cmd}: #{body}")
-          when '2'; task.retry("camera busy, requested #{cmd}: #{body}")
-          when '3'; task.abort("query outside acceptable range, requested #{cmd}: #{body}")
+          when '1' then task.abort("unsupported command #{cmd}: #{body}")
+          when '2' then task.retry("camera busy, requested #{cmd}: #{body}")
+          when '3' then task.abort("query outside acceptable range, requested #{cmd}: #{body}")
           end
         else
           begin
@@ -277,9 +297,9 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     body = response.body.downcase
     if body.starts_with?("er")
       case body[2]
-      when '1'; raise "unsupported command #{cmd}: #{body}"
-      when '2'; raise "camera busy, requested #{cmd}: #{body}"
-      when '3'; raise "query outside acceptable range, requested #{cmd}: #{body}"
+      when '1' then raise "unsupported command #{cmd}: #{body}"
+      when '2' then raise "camera busy, requested #{cmd}: #{body}"
+      when '3' then raise "query outside acceptable range, requested #{cmd}: #{body}"
       end
     end
     body

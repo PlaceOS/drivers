@@ -1,9 +1,8 @@
-require "./mqtt_models"
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/locatable"
 require "../../place/mqtt_transport_adaptor"
-require "../../place/area_polygon"
+require "./mqtt_models"
 
 # documentation: https://developer.cisco.com/meraki/mv-sense/#!mqtt
 # Use https://www.desmos.com/calculator for plotting points (sample code for copy and paste)
@@ -13,7 +12,6 @@ require "../../place/area_polygon"
 # end
 
 class Cisco::Meraki::MQTT < PlaceOS::Driver
-  include Interface::Locatable
   include Interface::Sensor
 
   descriptive_name "Meraki MQTT"
@@ -35,16 +33,6 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
         building_id:    "zone-456",
       },
     ],
-
-    desk_mappings: {
-      camera_serial: [{
-        id: "desk-1234",
-        x:  0.44,
-        y:  0.56,
-      }],
-    },
-
-    return_empty_spaces: true,
   })
 
   SUBS = {
@@ -65,12 +53,13 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   @username : String? = nil
   @password : String? = nil
   @client_id : String = "placeos"
-  @return_empty_spaces : Bool = true
 
   @mqtt : ::MQTT::V3::Client? = nil
   @subs : Array(String) = [] of String
   @transport : Place::TransportAdaptor? = nil
   @sub_proc : Proc(String, Bytes, Nil) = Proc(String, Bytes, Nil).new { |_key, _payload| nil }
+
+  @floor_lookup : Hash(String, FloorMapping) = {} of String => FloorMapping
 
   def on_load
     @sub_proc = Proc(String, Bytes, Nil).new { |key, payload| on_message(key, payload) }
@@ -81,7 +70,6 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   end
 
   def on_update
-    @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @username = setting?(String, :username)
     @password = setting?(String, :password)
     @keep_alive = setting?(Int32, :keep_alive) || 60
@@ -99,15 +87,11 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
         floor_lookup[serial] = mapping
       end
     end
-    @floor_lookup = floor_lookup
-    @zone_lookup = zone_lookup
-
-    @desk_mappings = setting?(Hash(String, Array(DeskLocation)), :desk_mappings) || {} of String => Array(DeskLocation)
+    self[:floor_lookup] = @floor_lookup = floor_lookup
+    self[:zone_lookup] = zone_lookup
 
     existing = @subs
     @subs = SUBS.to_a
-
-    # TODO:: obtain MV Sense zone data here from API and add zones to subs
 
     schedule.clear
     schedule.every((@keep_alive // 3).seconds) { ping }
@@ -172,8 +156,6 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
 
   getter lux : Hash(String, Tuple(Float64, Int64)) = {} of String => Tuple(Float64, Int64)
 
-  getter desk_details : Hash(String, DetectedDesks) = {} of String => DetectedDesks
-
   # this is where we do all of the MQTT message processing
   protected def on_message(key : String, playload : Bytes) : Nil
     json_message = String.new(playload)
@@ -186,9 +168,8 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     when "net.meraki.detector"
       # we assume version 3 of the API here for sanity reasons
       detected_desks = DetectedDesks.from_json(json_message)
-      desk_details[serial_no] = detected_desks
-      average_results(serial_no, detected_desks)
       self["camera_#{serial_no}_desks"] = detected_desks
+      self["camera_updated"] = {Time.utc.to_unix, serial_no}
     when "light"
       light = LuxLevel.from_json(json_message)
       lux[serial_no] = {light.lux, light.timestamp}
@@ -206,78 +187,6 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       end
       self["camera_#{serial_no}_zone#{status}_#{entry.count_type.to_s.downcase}"] = entry.count
     end
-  end
-
-  @desk_occupancy = Hash(String, Array(Tuple(Int64, Bool))).new do |hash, key|
-    hash[key] = Array(Tuple(Int64, Bool)).new(4)
-  end
-
-  protected def average_results(serial, detected)
-    desks = @desk_mappings[serial]?
-    return unless desks
-
-    time = Time.utc.to_unix
-    past = desk_data_expiry_time
-
-    # id => Array({distance, occupied})
-    results = Hash(String, Array(Tuple(Float64, Bool))).new { |h, k| h[k] = [] of Tuple(Float64, Bool) }
-
-    # we store the closest desk point to the line,
-    # as this detected desk might be the occupancy we care about
-    detected.desks.each do |(lx, ly, cx, cy, rx, ry, occupancy)|
-      desks.each { |desk| desk.distance = calculate_distance(lx, ly, cx, cy, rx, ry, desk) }
-      if desk = desks.sort! { |a, b| a.distance <=> b.distance }.first?
-        results[desk.id] << {desk.distance, !occupancy.zero?}
-      end
-    end
-
-    # then for each desk id, we take the closest detected desk and use that
-    # occupancy value
-    results.each do |desk_id, distances|
-      distance, occupancy = distances.sort! { |a, b| a[0] <=> b[0] }.first
-      desk_occupation = @desk_occupancy[desk_id]
-      desk_occupation << {time, occupancy}
-      cleanup_old_data(desk_occupation, past)
-    end
-  end
-
-  # We want to find the line closest to the offical desk point
-  protected def calculate_distance(lx, ly, cx, cy, rx, ry, desk)
-    desk = Point.new(desk.x, desk.y)
-    {
-      Point.new(lx, ly).distance_to(desk),
-      Point.new(rx, ry).distance_to(desk),
-      Point.new(cx, cy).distance_to(desk),
-    }.sum
-  end
-
-  protected def desk_data_expiry_time
-    90.seconds.ago.to_unix
-  end
-
-  protected def cleanup_old_data(desk_occupation, expiry_time)
-    desk_occupation.reject! { |(time, _occupancy)| time < expiry_time }
-  end
-
-  protected def is_occupied?(desk_id, expiry_time)
-    desk_occupation = @desk_occupancy[desk_id]
-    size = desk_occupation.size
-    return 0 if size == 0
-
-    desk_occupation.reject! do |(time, _occupancy)|
-      if time < expiry_time && size > 1
-        size -= 1
-        true
-      else
-        break
-      end
-    end
-
-    occupied = 0
-    desk_occupation.each { |(_time, occupancy)| occupied += 1 if occupancy }
-
-    # We care if the desk basically had signs of life
-    (occupied / size) > 0.3 ? 1 : 0
   end
 
   # ----------------
@@ -409,70 +318,5 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       binding: "camera_#{serial}_#{id}",
       unit: sensor_type.illuminance? ? "lx" : nil
     )
-  end
-
-  # -------------------
-  # Locatable Interface
-  # -------------------
-  @zone_lookup : Hash(String, Array(String)) = {} of String => Array(String)
-  @floor_lookup : Hash(String, FloorMapping) = {} of String => FloorMapping
-  @desk_mappings : Hash(String, Array(DeskLocation)) = {} of String => Array(DeskLocation)
-
-  def locate_user(email : String? = nil, username : String? = nil)
-    logger.debug { "sensor incapable of locating #{email} or #{username}" }
-    [] of Nil
-  end
-
-  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
-    logger.debug { "sensor incapable of tracking #{email} or #{username}" }
-    [] of String
-  end
-
-  def check_ownership_of(mac_address : String) : OwnershipMAC?
-    logger.debug { "sensor incapable of tracking #{mac_address}" }
-    nil
-  end
-
-  def device_locations(zone_id : String, location : String? = nil)
-    logger.debug { "searching locatable in zone #{zone_id}" }
-
-    return [] of Nil if location.presence && location != "desk"
-
-    serials = @zone_lookup[zone_id]?
-    return [] of Nil unless serials && !serials.empty?
-
-    return_empty_spaces = @return_empty_spaces
-    expiry_time = desk_data_expiry_time
-
-    serials.compact_map { |serial|
-      desks = @desk_mappings[serial]?
-      next unless desks
-
-      # does data exist for the desks?
-      next unless desk_details[serial]?
-
-      floor = @floor_lookup[serial]
-      illumination = lux[serial]?
-
-      desks.compact_map do |desk|
-        desk_id = desk.id
-        occupied = is_occupied?(desk_id, expiry_time)
-
-        # Do we want to return empty desks (depends on the frontend)
-        next if !return_empty_spaces && occupied == 0
-
-        {
-          location:    "desk",
-          at_location: occupied,
-          map_id:      desk_id,
-          level:       floor.level_id,
-          building:    floor.building_id,
-          capacity:    1,
-
-          area_lux: illumination,
-          merakimv: serial,
-        }
-      end
-    }.flatten
   end
 end

@@ -1,10 +1,10 @@
 require "./cres_next"
-require "./nvx_models"
 require "placeos-driver/interface/switchable"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   alias Input = String | Int32?
   include PlaceOS::Driver::Interface::InputSelection(Input)
+  include Crestron::Receiver
 
   descriptive_name "Crestron NVX Receiver"
   generic_name :Decoder
@@ -29,6 +29,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       # "DeviceMode":"Transmitter|Receiver",
       next if mode == "Receiver"
       logger.warn { "device configured as a #{mode}" }
+      self[:WARN] = "device configured as a #{mode}. Expecting Receiver"
     end
 
     # Get the registered subscriptions for index based switching.
@@ -92,6 +93,12 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       }],
       name: :aspect_ratio
     )
+  end
+
+  protected def query_device_name
+    query("/Localization/Name", name: "device_name") do |name|
+      self["device_name"] = name
+    end
   end
 
   protected def switch_stream(stream_reference : String | Int32)
@@ -228,5 +235,6 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   protected def update_source_info
     query_source_name_for(:video)
     query_source_name_for(:audio)
+    query_device_name
   end
 end

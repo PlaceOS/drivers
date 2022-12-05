@@ -7,15 +7,23 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 4.7.0
+    version: 4.10.1
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
-    version: 4.0.0
+    version: 4.2.3
 
   awscr-signer:
     git: https://github.com/taylorfinnell/awscr-signer.git
     version: 0.8.2
+
+  axio:
+    git: https://github.com/place-technology/axio.git
+    version: 0.1.0+git.commit.c3c23a73f45da075ad4ebc1e8be46a7348c68c46
+
+  backtracer:
+    git: https://github.com/sija/backtracer.cr.git
+    version: 1.2.2
 
   bacnet:
     git: https://github.com/spider-gazelle/crystal-bacnet.git
@@ -23,15 +31,19 @@ shards:
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
-    version: 1.10.0
+    version: 1.11.1
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
-    version: 1.4.1
+    version: 2.0.0
 
   crc16:
     git: https://github.com/maiha/crc16.cr.git
     version: 0.1.0
+
+  crest:
+    git: https://github.com/mamantoha/crest.git
+    version: 1.3.6
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -39,7 +51,11 @@ shards:
 
   crunits:
     git: https://github.com/spider-gazelle/crunits.git
-    version: 1.1.0
+    version: 1.1.1
+
+  csuuid:
+    git: https://github.com/wyhaines/csuuid.cr.git
+    version: 1.0.0+git.commit.812ee5e1252b27ee2895ec7897094cde3e4a5dc2
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
@@ -47,7 +63,15 @@ shards:
 
   debug:
     git: https://github.com/sija/debug.cr.git
-    version: 2.0.1
+    version: 2.0.2
+
+  defined:
+    git: https://github.com/wyhaines/defined.cr.git
+    version: 0.3.6
+
+  desigo:
+    git: https://github.com/place-technology/desigo.git
+    version: 0.1.0+git.commit.550870f8a93661b25cd081dd7056094f6551d21b
 
   dtls:
     git: https://github.com/spider-gazelle/crystal-dtls.git
@@ -61,13 +85,17 @@ shards:
     git: https://github.com/place-labs/crystal-etcd.git
     version: 1.2.5
 
+  exception_page:
+    git: https://github.com/crystal-loot/exception_page.git
+    version: 0.3.0
+
   exec_from:
     git: https://github.com/place-labs/exec_from.git
     version: 2.0.0
 
   faker:
     git: https://github.com/askn/faker.git
-    version: 0.7.0
+    version: 0.8.0
 
   future:
     git: https://github.com/crystal-community/future.cr.git
@@ -75,7 +103,7 @@ shards:
 
   google:
     git: https://github.com/placeos/google.git
-    version: 3.1.4
+    version: 3.4.0
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -89,9 +117,17 @@ shards:
     git: https://github.com/place-labs/hound-dog.git
     version: 2.9.0
 
+  http-client-digest_auth:
+    git: https://github.com/mamantoha/http-client-digest_auth.git
+    version: 0.6.0
+
   http-params-serializable:
     git: https://github.com/place-labs/http-params-serializable.git
     version: 0.5.0
+
+  http_proxy:
+    git: https://github.com/mamantoha/http_proxy.git
+    version: 0.9.0
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -100,6 +136,14 @@ shards:
   ipaddress:
     git: https://github.com/sija/ipaddress.cr.git
     version: 0.2.1
+
+  json-merge-patch:
+    git: https://github.com/caspiano/json-merge-patch.git
+    version: 0.1.1
+
+  json-schema:
+    git: https://github.com/spider-gazelle/json-schema.git
+    version: 1.3.0
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -125,9 +169,13 @@ shards:
     git: https://github.com/aca-labs/murmur3.git
     version: 0.1.1+git.commit.7cbe25c0ca8d052c9d98c377c824dcb0e038c790
 
+  nbchannel:
+    git: https://github.com/wyhaines/nbchannel.cr.git
+    version: 0.1.0+git.commit.ea6517a837270361695244d14c4b03d84660f113
+
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.11.0
+    version: 1.12.2
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -135,7 +183,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.14.2
+    version: 1.18.3
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -147,15 +195,31 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.1.5
+    version: 2.2.0
+
+  opentelemetry-api:
+    git: https://github.com/wyhaines/opentelemetry-api.cr.git
+    version: 0.5.0
+
+  opentelemetry-instrumentation:
+    git: https://github.com/wyhaines/opentelemetry-instrumentation.cr.git
+    version: 0.5.1+git.commit.30000cdca2d17db6f42db2eafc49f109f57a5afc
+
+  opentelemetry-sdk:
+    git: https://github.com/wyhaines/opentelemetry-sdk.cr.git
+    version: 0.5.1
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
-    version: 1.3.2
+    version: 1.3.4
 
-  pars:
-    git: https://github.com/place-labs/pars.git
+  pars: # Overridden
+    git: https://github.com/spider-gazelle/pars.git
     version: 1.1.0
+
+  parse_date:
+    git: https://github.com/wyhaines/parsedate.cr.git
+    version: 0.1.2
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -163,31 +227,31 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.12.1
+    version: 4.15.4
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.6.0
+    version: 2.7.3
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
-    version: 4.9.0
+    version: 4.9.2
 
   placeos-core-client:
     git: https://github.com/placeos/core-client.git
-    version: 0.5.1
+    version: 0.5.2
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.3.2
+    version: 6.6.2
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
-    version: 0.6.0
+    version: 0.11.0
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 7.6.7
+    version: 8.12.2
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -197,9 +261,17 @@ shards:
     git: https://github.com/spider-gazelle/promise.git
     version: 3.0.0
 
+  protobuf:
+    git: https://github.com/jeromegn/protobuf.cr.git
+    version: 2.3.0
+
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
     version: 1.0.2
+
+  quantum:
+    git: https://github.com/place-technology/quantum.git
+    version: 0.1.3
 
   rate_limiter:
     git: https://github.com/lbarasti/rate_limiter.git
@@ -227,9 +299,9 @@ shards:
 
   rethinkdb-orm:
     git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 6.0.2
+    version: 6.0.4
 
-  retriable: # Overridden
+  retriable:
     git: https://github.com/sija/retriable.cr.git
     version: 0.2.4
 
@@ -241,9 +313,17 @@ shards:
     git: https://github.com/spider-gazelle/s2_cells.git
     version: 1.0.1
 
+  sabo:
+    git: https://github.com/place-technology/sabo.git
+    version: 0.1.0+git.commit.7886f23f60611c8bb820e5184110537811da5b6b
+
   simple_retry:
     git: https://github.com/spider-gazelle/simple_retry.git
     version: 1.1.1
+
+  splay_tree_map:
+    git: https://github.com/wyhaines/splay_tree_map.cr.git
+    version: 0.2.2
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
@@ -252,6 +332,10 @@ shards:
   stomp:
     git: https://github.com/spider-gazelle/stomp.git
     version: 1.0.1
+
+  stripetease:
+    git: https://github.com/grkek/stripetease.git
+    version: 0.1.0+git.commit.709a3e533b2273928688e4adfabe80cf9d1480ec
 
   stumpy_core:
     git: https://github.com/stumpycr/stumpy_core.git
@@ -263,17 +347,29 @@ shards:
 
   tasker:
     git: https://github.com/spider-gazelle/tasker.git
-    version: 2.0.5
+    version: 2.0.7
 
   telnet:
     git: https://github.com/spider-gazelle/telnet.cr.git
     version: 1.0.2
 
+  time-ext:
+    git: https://github.com/wyhaines/time-ext.cr.git
+    version: 0.1.0+git.commit.175f658235fb6cdc9c804cb96da510fec27f4cd6
+
   tokenizer:
     git: https://github.com/spider-gazelle/tokenizer.git
     version: 1.1.1
 
+  tracer:
+    git: https://github.com/wyhaines/tracer.cr.git
+    version: 0.3.1
+
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
+
+  xml_converter:
+    git: https://github.com/mamantoha/xml_converter.git
+    version: 0.4.0
 

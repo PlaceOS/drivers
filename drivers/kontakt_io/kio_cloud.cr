@@ -9,6 +9,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
 
   default_settings({
     kio_api_key: "Sign in to Kio Cloud > select Users > select Security > copy the Server API Key",
+    poll_every:  2,
   })
 
   def on_load
@@ -19,6 +20,10 @@ class KontaktIO::KioCloud < PlaceOS::Driver
 
   def on_update
     @api_key = setting(String, :kio_api_key)
+
+    poll_every = (setting?(Int32, :poll_every) || 2).seconds
+    schedule.clear
+    schedule.every(poll_every) { cache_occupancy_counts }
   end
 
   # Note:: there is a limit of 40 requests a second, however we are unlikely to hit this
@@ -113,6 +118,41 @@ class KontaktIO::KioCloud < PlaceOS::Driver
       resp.page
     end
     campuses
+  end
+
+  def rooms : Array(Room)
+    rooms = [] of Room
+    make_request("GET", "/v2/locations/rooms") do |data|
+      resp = Response(Room).from_json(data)
+      rooms.concat resp.content
+      resp.page
+    end
+    rooms
+  end
+
+  def room_occupancy : Array(RoomOccupancy)
+    room_occupancy = [] of RoomOccupancy
+    make_request("GET", "/v3/occupancy/rooms") do |data|
+      resp = Response(RoomOccupancy).from_json(data)
+      room_occupancy.concat resp.content
+      resp.page
+    end
+    room_occupancy
+  end
+
+  # ===================================
+  # Caching sensor data
+  # ===================================
+  getter occupancy_cache : Hash(Int64, RoomOccupancy) = {} of Int64 => RoomOccupancy
+
+  protected def cache_occupancy_counts
+    occupancy = room_occupancy
+    cache = Hash(Int64, RoomOccupancy).new(occupancy.size) do |_hash, key|
+      raise KeyError.new(%(Missing hash key: "#{key}"))
+    end
+    occupancy.each { |room| self["room-#{room.room_id}"] = cache[room.room_id] = room }
+    @occupancy_cache = cache
+    self[:occupancy_cached_at] = Time.utc.to_unix
   end
 
   def format_mac(address : String)
