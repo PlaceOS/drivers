@@ -1,5 +1,3 @@
-# encoding: ASCII-8BIT
-# frozen_string_literal: true
 require "placeos-driver/interface/powerable"
 require "placeos-driver"
 
