@@ -45,7 +45,7 @@ class Place::Router::Digraph(N, E)
 
   # Retrieves the label attached to node *id*. Yields if it does not exist.
   def fetch(id, &) : N
-    node = node(id) { |id| return yield id }
+    node = node(id) { return yield id }
     node.attr
   end
 

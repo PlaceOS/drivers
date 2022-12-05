@@ -145,7 +145,7 @@ class Lutron::ViveLeap < PlaceOS::Driver
     request = Request.from_json(data)
 
     url = request["Url"]?
-    status = request["StatusCode"]? || "200 OK"
+    http_status = request["StatusCode"]? || "200 OK"
     message_type = request["MessageBodyType"]?
 
     # process the message based on its type by preference
@@ -174,7 +174,7 @@ class Lutron::ViveLeap < PlaceOS::Driver
       set_zone(OneZoneStatus.from_json(request.body).status)
     when "ExceptionDetail"
       # get status code
-      code, status = status.split(" ", 2)
+      code, status = http_status.split(" ", 2)
       details = ExceptionDetail.from_json request.body
       error_message = "operation #{url} failed with #{code}: #{status}, #{details.message} [#{details.error_code}]"
       logger.warn { error_message }

@@ -292,4 +292,44 @@ module Cisco::Meraki
 
     property data : Data
   end
+
+  struct CameraZone
+    include JSON::Serializable
+
+    struct Region
+      include JSON::Serializable
+
+      getter x0 : String
+      getter y0 : String
+      getter x1 : String
+      getter y1 : String
+    end
+
+    @[JSON::Field(key: "zoneId")]
+    getter id : String
+    getter type : String
+    getter label : String
+
+    @[JSON::Field(key: "regionOfInterest")]
+    getter region : Region
+
+    @[JSON::Field(ignore: true)]
+    property distance : Float64 = 0.0
+
+    def mid_point
+      mid_x = (region.x0.to_f64 + region.x1.to_f64) / 2.0
+      mid_y = (region.y0.to_f64 + region.y1.to_f64) / 2.0
+      {mid_x, mid_y}
+    end
+
+    getter x : Float64 do
+      xpos, @y = mid_point
+      xpos
+    end
+
+    getter y : Float64 do
+      @x, ypos = mid_point
+      ypos
+    end
+  end
 end

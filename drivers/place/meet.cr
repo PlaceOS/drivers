@@ -1,6 +1,7 @@
 require "placeos-driver"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/lighting"
 require "./meet/qsc_phone_dialing"
 
 class Place::Meet < PlaceOS::Driver
@@ -41,6 +42,34 @@ class Place::Meet < PlaceOS::Driver
     screens: {
       "Projector_1" => "Screen_1",
     },
+
+    # change to false if there is a joining flag
+    lighting_independent: true,
+    lighting_area:        {
+      # see interface/lighting for options
+      id:   34,
+      join: 0x01,
+    },
+    lighting_scenes: [
+      {
+        name:    "Full",
+        id:      1,
+        icon:    "lightbulb",
+        opacity: 1.0,
+      },
+      {
+        name:    "Medium",
+        id:      2,
+        icon:    "lightbulb",
+        opacity: 0.5,
+      },
+      {
+        name:    "Off",
+        id:      3,
+        icon:    "lightbulb_outline",
+        opacity: 0.8,
+      },
+    ],
   })
 
   EXT_INIT  = [] of Symbol
@@ -132,15 +161,19 @@ class Place::Meet < PlaceOS::Driver
     @shutdown_devices = setting?(Array(String), :shutdown_devices)
     @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
 
-    subscriptions.clear
+    @join_lock.synchronize do
+      subscriptions.clear
 
-    reset_remote_cache
-    init_signal_routing
-    init_projector_screens
-    init_master_audio
-    init_microphones
-    init_vidconf
-    init_joining
+      reset_remote_cache
+      init_signal_routing
+      init_projector_screens
+      init_master_audio
+      init_microphones
+      init_accessories
+      init_lighting
+      init_vidconf
+      init_joining
+    end
 
     # initialize all the extentsions
     {% for func in EXT_INIT %}
@@ -567,6 +600,117 @@ class Place::Meet < PlaceOS::Driver
     set_master_mute(mixer, audio, state)
   end
 
+  # =================
+  # Lighting Controls
+  # =================
+
+  alias LightingArea = Interface::Lighting::Area
+  alias LightingScene = NamedTuple(name: String, id: UInt32, icon: String, opacity: Float64)
+
+  DEFAULT_LIGHT_MOD = "Lighting_1"
+
+  getter local_lighting_area : LightingArea? = nil
+  getter lighting_independent : Bool = false
+  @light_area : LightingArea? = nil
+  @light_scenes : Hash(String, UInt32) = {} of String => UInt32
+  @light_module : String = DEFAULT_LIGHT_MOD
+
+  @light_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
+
+  protected def init_lighting
+    @lighting_independent = setting?(Bool, :lighting_independent) || true
+    @light_area = @local_lighting_area = setting?(LightingArea, :lighting_area)
+    light_scenes = setting?(Array(LightingScene), :lighting_scenes)
+    @light_module = setting?(String, :lighting_module) || DEFAULT_LIGHT_MOD
+
+    local_scenes = {} of String => UInt32
+
+    light_scenes.try(&.each { |scene| local_scenes[scene[:name].downcase] = scene[:id] })
+    @light_scenes = local_scenes
+    self[:lighting_scenes] = light_scenes
+
+    @light_subscription = nil
+    update_available_lighting
+  end
+
+  protected def update_available_lighting
+    if sub = @light_subscription
+      subscriptions.unsubscribe sub
+      @light_subscription = nil
+    end
+
+    return if @light_scenes.empty?
+
+    # Check current join state
+    if light_area = @local_lighting_area
+      unless lighting_independent
+        # merge in joined room mics
+        remote_rooms.each do |room|
+          begin
+            remote_area = LightingArea.from_json(room.local_lighting_area.get.to_json)
+            light_area = light_area.join_with(remote_area)
+          rescue error
+            logger.warn(exception: error) { "ignoring lighting config in room #{room.name} (#{room.id})" }
+          end
+        end
+      end
+
+      @light_area = light_area
+    end
+
+    @light_subscription = system.subscribe(@light_module, @light_area.to_s) do |_sub, scene|
+      self[:lighting_scene] = scene.to_i if scene && scene != "null"
+    end
+  end
+
+  def select_lighting_scene(scene : String, push_to_remotes : Bool = true)
+    scene_id = @light_scenes[scene.downcase]?
+    raise ArgumentError.new("invalid scene '#{scene}', valid scenes are: #{@light_scenes.keys}") unless scene_id
+
+    system[@light_module].set_lighting_scene(scene_id, @light_area)
+
+    # We are not using a join mode, so we need to set the lighting scene in joined rooms
+    if push_to_remotes && lighting_independent
+      remote_rooms.each { |room| room.select_lighting_scene(scene, false) }
+    end
+  end
+
+  # ================
+  # Room Accessories
+  # ================
+
+  struct Accessory
+    include JSON::Serializable
+
+    struct Control
+      include JSON::Serializable
+
+      getter name : String
+      getter icon : String
+      getter function_name : String
+      getter arguments : Array(JSON::Any)
+    end
+
+    getter name : String
+    getter module : String
+    getter controls : Array(Control)
+  end
+
+  getter local_accessories : Array(Accessory) = [] of Accessory
+
+  protected def init_accessories
+    @local_accessories = setting?(Array(Accessory), :room_accessories) || [] of Accessory
+    update_available_accessories
+  end
+
+  protected def update_available_accessories
+    accessories = @local_accessories.dup
+    remote_rooms.each do |room|
+      accessories.concat Array(Accessory).from_json(room.local_accessories.get.to_json)
+    end
+    self[:room_accessories] = accessories
+  end
+
   # ===================
   # Microphone Controls
   # ===================
@@ -596,10 +740,13 @@ class Place::Meet < PlaceOS::Driver
     self[:microphones] = @available_mics.map do |mic|
       level_id = mic.level_id
       mute_id = mic.mute_id
+      level_array = level_id.is_a?(Array) ? level_id : [level_id]
+      mute_array = mute_id.is_a?(Array) ? mute_id : [mute_id]
+
       {
         name:           mic.name,
-        level_id:       level_id.is_a?(Array) ? level_id : [level_id],
-        mute_id:        mute_id.is_a?(Array) ? mute_id : [mute_id],
+        level_id:       level_array.compact,
+        mute_id:        mute_array.compact,
         level_index:    mic.level_index,
         mute_index:     mic.mute_index,
         level_feedback: mic.level_feedback,
@@ -878,6 +1025,8 @@ class Place::Meet < PlaceOS::Driver
     update_available_tabs
     update_available_outputs
     update_available_mics
+    update_available_lighting
+    update_available_accessories
   rescue error
     logger.error(exception: error) { "ui state failed to be applied in room join" }
   end

@@ -400,7 +400,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     in Hash(String, String | Hash(String, Array(String)))
       mod, command = action.first
       method, args = command.as(Hash(String, Array(String))).first
-      ->(value : JSON::Any) {
+      ->(_value : JSON::Any) {
         logger.debug { "proxying event to #{mod}.#{method}" }
         system[mod].__send__ method, args
         nil

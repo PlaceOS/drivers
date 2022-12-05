@@ -20,6 +20,7 @@ DriverSpecs.mock_driver "Vergesense::LocationService" do
       "area_humidity"         => nil,
       "area_temperature"      => nil,
       "area_air_quality"      => nil,
+      "signs_of_life"         => nil,
     },
     {
       "location"              => "desk",
@@ -33,6 +34,7 @@ DriverSpecs.mock_driver "Vergesense::LocationService" do
       "area_humidity"         => nil,
       "area_temperature"      => nil,
       "area_air_quality"      => nil,
+      "signs_of_life"         => nil,
     },
   ])
 end

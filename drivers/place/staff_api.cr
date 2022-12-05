@@ -2,6 +2,7 @@ require "json"
 require "oauth2"
 require "placeos"
 require "placeos-driver"
+require "place_calendar"
 
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
@@ -54,8 +55,8 @@ class Place::StaffAPI < PlaceOS::Driver
     @running_a_spec = setting?(Bool, :running_a_spec) || false
   end
 
-  def get_system(id : String)
-    response = get("/api/engine/v2/systems/#{id}", headers: authentication)
+  def get_system(id : String, complete : Bool = false)
+    response = get("/api/engine/v2/systems/#{id}?complete=#{complete}", headers: authentication)
     raise "unexpected response for system id #{id}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -119,12 +120,33 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def create_user(body_json : String)
+    response = post("/api/engine/v2/users", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+    raise "failed to create user: #{response.status_code}" unless response.success?
+    PlaceOS::Client::API::Models::User.from_json response.body
+  end
+
+  @[Security(Level::Support)]
   def update_user(id : String, body_json : String) : Nil
     response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: authentication(HTTP::Headers{
       "Content-Type" => "application/json",
     }))
 
-    raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
+    raise "failed to update user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def delete_user(id : String, force_removal : Bool = false) : Nil
+    response = delete("/api/engine/v2/users/#{id}?force_removal=#{force_removal}", headers: authentication)
+    raise "failed to delete user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def revive_user(id : String) : Nil
+    response = post("/api/engine/v2/users/#{id}/revive", headers: authentication)
+    raise "failed to revive user #{id}: #{response.status_code}" unless response.success?
   end
 
   @[Security(Level::Support)]
@@ -145,9 +167,10 @@ class Place::StaffAPI < PlaceOS::Driver
     q : String? = nil,
     limit : Int32 = 20,
     offset : Int32 = 0,
-    authority_id : String? = nil
-  ) : Nil
-    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id)
+    authority_id : String? = nil,
+    include_deleted : Bool = false
+  )
+    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
 
   # ===================================
@@ -231,6 +254,34 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  # NOTE:: https://docs.google.com/document/d/1OaZljpjLVueFitmFWx8xy8BT8rA2lITyPsIvSYyNNW8/edit#
+  # The service account making this request needs delegated access and hence you can only edit
+  # events associated with a resource calendar
+  def update_event(system_id : String, event : PlaceCalendar::Event)
+    response = patch("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    PlaceCalendar::Event.from_json(response.body)
+  end
+
+  def delete_event(system_id : String, event_id : String)
+    response = delete("/api/staff/v1/events/#{event_id}?system_id=#{system_id}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success? || response.status_code == 404
+    true
+  end
+
+  def patch_event_metadata(system_id : String, event_id : String, metadata : JSON::Any)
+    response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}", headers: authentication, body: metadata.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON::Any.from_json(response.body)
+  end
+
+  def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any)
+    response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}", headers: authentication, body: metadata.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON::Any.from_json(response.body)
+  end
+
   # ===================================
   # ZONE METADATA
   # ===================================
@@ -245,6 +296,11 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def write_metadata(id : String, key : String, payload : JSON::Any, description : String = "")
     placeos_client.metadata.update(id, key, payload, description)
+  end
+
+  @[Security(Level::Support)]
+  def merge_metadata(id : String, key : String, payload : JSON::Any, description : String = "")
+    placeos_client.metadata.merge(id, key, payload, description)
   end
 
   # ===================================
@@ -263,7 +319,7 @@ class Place::StaffAPI < PlaceOS::Driver
       q: q,
       limit: limit,
       offset: offset,
-      parent: parent,
+      parent_id: parent,
       tags: tags
     )
   end
@@ -493,9 +549,13 @@ class Place::StaffAPI < PlaceOS::Driver
     params["rejected"] = rejected.to_s unless rejected.nil?
     params["checked_in"] = checked_in.to_s unless checked_in.nil?
 
+    logger.debug { "requesting staff/v1/bookings: #{params}" }
+
     # Get the existing bookings from the API to check if there is space
     response = get("/api/staff/v1/bookings", params, authentication)
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
+
+    logger.debug { "bookings response size: #{response.body.size}" }
 
     # Just parse it here instead of using the Bookings object
     # it will be parsed into an object on the far end
@@ -507,6 +567,11 @@ class Place::StaffAPI < PlaceOS::Driver
     response = get("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
     raise "issue getting booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
+  end
+
+  @[Security(Level::Support)]
+  def signal(channel : String, payload : JSON::Any? = nil)
+    placeos_client.root.signal(channel, payload)
   end
 
   # For accessing PlaceOS APIs

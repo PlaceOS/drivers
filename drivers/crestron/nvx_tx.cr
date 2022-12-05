@@ -1,5 +1,4 @@
 require "./cres_next"
-require "./nvx_models"
 require "placeos-driver/interface/switchable"
 
 class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
@@ -9,12 +8,15 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
     Input2
   end
   include PlaceOS::Driver::Interface::InputSelection(Input)
+  include Crestron::Transmitter
 
   descriptive_name "Crestron NVX Transmitter"
   generic_name :Encoder
   description <<-DESC
     Crestron NVX network media encoder.
   DESC
+
+  uri_base "wss://192.168.0.5/websockify"
 
   def connected
     # NVX hardware can be confiured a either a RX or TX unit - check this
@@ -23,6 +25,7 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
       # "DeviceMode":"Transmitter|Receiver",
       next if mode == "Transmitter"
       logger.warn { "device configured as a #{mode}" }
+      self[:WARN] = "device configured as a #{mode}. Expecting Transmitter"
     end
 
     # Background poll to remain in sync with any external routing changes
@@ -70,8 +73,22 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
     end
   end
 
+  protected def query_multicast_address
+    query("/StreamTransmit/Streams", name: "streams") do |streams|
+      self["multicast_address"] = streams.dig(0, "MulticastAddress")
+    end
+  end
+
+  protected def query_stream_name
+    query("/Localization/Name", name: "stream_name") do |name|
+      self["stream_name"] = name
+    end
+  end
+
   # Query the device for the current source state and update status vars.
   protected def update_source_info
+    query_stream_name
+    query_multicast_address
     query_source_name_for(:video)
     query_source_name_for(:audio)
   end

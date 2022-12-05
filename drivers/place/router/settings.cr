@@ -134,20 +134,20 @@ module Place::Router::Core::Settings
           # Iterate source arrays as 1-based input id's
           inputs = inputs.each.with_index(1).map &.reverse if inputs.is_a? Array
 
-          inputs.each do |input, source|
+          inputs.each do |input, input_source|
             inode = SignalGraph::Input.new sys, sink.mod, sink.idx, input
             nodes << inode
 
-            if source.is_a? Alias
-              make_alias.call source.name, inode
+            if input_source.is_a? Alias
+              make_alias.call input_source.name, inode
               next
             end
 
-            onode = case source
+            onode = case input_source
                     in Device
-                      SignalGraph::Device.new sys, source.mod, source.idx
+                      SignalGraph::Device.new sys, input_source.mod, input_source.idx
                     in DeviceOutput
-                      SignalGraph::Output.new sys, source.mod, source.idx, source.output, source.layer
+                      SignalGraph::Output.new sys, input_source.mod, input_source.idx, input_source.output, input_source.layer
                     end
             nodes << onode
 

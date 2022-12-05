@@ -1,5 +1,7 @@
 require "placeos-driver"
 require "xml"
+require "./models/guest_user"
+require "./models/internal_user"
 
 # Tested with Cisco ISE API v2.2
 # https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
@@ -20,6 +22,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_type:  "Required, ask cisco ISE admins for valid subset of values",                              # e.g. Contractor
     location:    "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
     custom_data: {} of String => JSON::Any::Type,
+    debug:       false,
   })
 
   @basic_auth : String = ""
@@ -30,7 +33,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   @location : String? = nil
   @custom_data = {} of String => JSON::Any::Type
 
-  TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
+  TYPE_HEADER = "application/json"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
 
   def on_load
@@ -38,7 +41,13 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def on_update
-    @basic_auth = "Basic #{Base64.strict_encode("#{setting?(String, :username)}:#{setting?(String, :password)}")}"
+    username = setting?(String, :username)
+    password = setting?(String, :password)
+
+    @basic_auth = ["Basic", Base64.strict_encode([username, password].join(":"))].join(" ")
+
+    @debug = setting?(Bool, :debug) || false
+
     @portal_id = setting?(String, :portal_id) || "portal101"
     @guest_type = setting?(String, :guest_type) || "default_guest_type"
     @location = setting?(String, :location)
@@ -47,6 +56,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
     @custom_data = setting?(Hash(String, JSON::Any::Type), :custom_data) || {} of String => JSON::Any::Type
+
+    logger.debug { "Basic auth details: #{@basic_auth}" } if @debug
   end
 
   def create_guest(
@@ -80,49 +91,32 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
     company_name ||= attendee_email.split('@')[1].split('.')[0].capitalize
 
-    # Now generate our XML body
-    xml_string = %(<?xml version="1.0" encoding="UTF-8"?>
-      <ns2:guestuser xmlns:ns2="identity.ers.ise.cisco.com">)
+    guest_user = Models::GuestUser.from_json(%({}))
 
-    # customFields is required for ISE API v2.2
-    # since location is also required for 2.2, we can check if location is present
-    xml_string += %(
-        <customFields></customFields>) if @location
+    guest_user.guest_access_info.from_date = from_date
+    guest_user.guest_access_info.location = @location
+    guest_user.guest_access_info.to_date = to_date
+    guest_user.guest_access_info.valid_days = 1
+    guest_user.guest_info.company = company_name
+    guest_user.guest_info.email_address = attendee_email
+    guest_user.guest_info.first_name = first_name
+    guest_user.guest_info.last_name = last_name
+    guest_user.guest_info.notification_language = "English"
+    guest_user.guest_info.phone_number = phone_number
+    guest_user.guest_info.sms_service_provider = sms_service_provider
+    guest_user.guest_info.user_name = username
+    guest_user.guest_type = guest_type
+    guest_user.portal_id = portal_id
 
-    xml_string += %(
-        <guestAccessInfo>
-          <fromDate>#{from_date}</fromDate>)
+    logger.debug { "Guest user: #{guest_user.to_json}" } if @debug
 
-    xml_string += %(
-          <location>#{@location}</location>) if @location
-
-    xml_string += %(
-          <toDate>#{to_date}</toDate>
-          <validDays>1</validDays>
-        </guestAccessInfo>
-        <guestInfo>
-          <company>#{company_name}</company>
-          <emailAddress>#{attendee_email}</emailAddress>
-          <firstName>#{first_name}</firstName>
-          <lastName>#{last_name}</lastName>
-          <notificationLanguage>English</notificationLanguage>
-          <phoneNumber>#{phone_number}</phoneNumber>)
-
-    xml_string += %(
-          <smsServiceProvider>#{sms_service_provider}</smsServiceProvider>) if sms_service_provider
-
-    xml_string += %(
-          <userName>#{username}</userName>
-        </guestInfo>
-        <guestType>#{guest_type}</guestType>
-        <portalId>#{portal_id}</portalId>
-      </ns2:guestuser>)
-
-    response = post("/guestuser/", body: xml_string, headers: {
+    response = post("/guestuser/", body: {"GuestUser" => guest_user}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
     })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
     raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
 
@@ -130,10 +124,88 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     guest_crendentials(guest_id).merge(@custom_data)
   end
 
-  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
-  # when it will increase to 10
-  private def genererate_username(firstname, lastname)
-    "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
+  def create_internal
+    internal_user = Models::InternalUser.from_json(%({}))
+
+    logger.debug { "Internal user: #{internal_user.to_json}" } if @debug
+
+    response = post("/internaluser/", body: {"InternalUser" => internal_user}.to_json, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to internal user, code #{response.status_code}\n#{response.body}" unless response.success?
+  end
+
+  def get_internal_user_by_id(id : String)
+    response = get("/internaluser/#{id}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get internal user by id, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    internal_user = Models::InternalUser.from_json(parsed_body["InternalUser"].to_json)
+
+    internal_user
+  end
+
+  def get_internal_user_by_name(name : String)
+    response = get("/internaluser/name/#{name}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get internal user by name, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    internal_user = Models::InternalUser.from_json(parsed_body["InternalUser"].to_json)
+
+    internal_user
+  end
+
+  def get_guest_user_by_id(id : String)
+    response = get("/guestuser/#{id}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get guest user by id, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
+
+    guest_user
+  end
+
+  def get_guest_user_by_name(name : String)
+    response = get("/guestuser/name/#{name}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get guest user by name, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
+
+    guest_user
   end
 
   def guest_crendentials(id : String)
@@ -142,12 +214,23 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
     })
-    parsed_body = XML.parse(response.body)
-    guest_user = parsed_body.first_element_child.not_nil!
-    guest_info = guest_user.children.find { |c| c.name == "guestInfo" }.not_nil!
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get guest credentials, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+    guest_user = Models::GuestUser.from_json(parsed_body["GuestUser"].to_json)
+
     {
-      "username" => guest_info.children.find { |c| c.name == "userName" }.not_nil!.content,
-      "password" => guest_info.children.find { |c| c.name == "password" }.not_nil!.content,
+      "username" => guest_user.guest_info.user_name.to_s,
+      "password" => guest_user.guest_info.password.to_s,
     }
+  end
+
+  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
+  # when it will increase to 10
+  private def genererate_username(firstname, lastname)
+    "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
   end
 end

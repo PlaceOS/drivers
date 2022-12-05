@@ -1,7 +1,7 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Floorsense::DesksWebsocket" do
-  should_send %(POST /auth\r\n{"username":"srvc_acct","password":"password!"}\r\n)
+  should_send %(POST /auth\r\n{"user":"kiosk"}\r\n)
   resp = {
     type:    "response",
     result:  true,
