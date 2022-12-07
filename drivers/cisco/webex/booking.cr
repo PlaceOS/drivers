@@ -21,6 +21,9 @@ module Cisco
         message = Interface::ChatBot::Message.from_json(message)
 
         keyword = message.text.split.first.downcase
+
+        # An example message text would look something like this:
+        # {% keyword %} a room for 30 minutes
         text = message
           .text
           .sub(keyword, "")
