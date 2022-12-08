@@ -168,7 +168,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
 
     getter event : String
     getter channel : String
-    getter data : Client
+    getter data : Client?
   end
 
   def received(data, task)
@@ -176,7 +176,9 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     logger.debug { "websocket sent: #{string}" }
     event = WebsocketEvent.from_json(string)
 
-    update_location(client_data, location_data, event.data)
+    if event_data = event.data
+      update_location(client_data, location_data, event_data)
+    end
 
     task.try &.success
   end
