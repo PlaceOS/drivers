@@ -167,6 +167,46 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     internal_user
   end
 
+  def get_internal_user_by_email(email : String)
+    response = get("/internaluser/?filter=email.CONTAINS.#{email}", headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
+
+    raise "failed to get internal user by email, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    parsed_body = JSON.parse(response.body)
+
+    resources = parsed_body["SearchResult"].as_h.["resources"].as_a
+
+    raise "returned body has no resources" if resources.empty?
+
+    get_internal_user_by_id(resources.first.as_h.["id"].to_s)
+  end
+
+  def update_internal_user_password_by_id(id : String, password : String)
+    internal_user = get_internal_user_by_id(id)
+
+    response = put("/internaluser/#{internal_user.id}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    raise "failed to get internal user by email, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    JSON.parse(response.body)
+  end
+
+  def update_internal_user_password_by_email(email : String, password : String)
+    internal_user = get_internal_user_by_email(email)
+
+    update_internal_user_password_by_id(internal_user.id.to_s, password)
+  end
+
   # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
   # when it will increase to 10
   private def genererate_username(firstname, lastname)
