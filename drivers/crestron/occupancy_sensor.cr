@@ -51,6 +51,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
+    self[:presence] = @occupied ? 1.0 : 0.0
     self[:mac] = @mac = format_mac payload.dig("Device", "DeviceInfo", "MacAddress").as_s
     self[:name] = @name = payload.dig("Device", "DeviceInfo", "Name").as_s?
 
@@ -84,6 +85,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
+    self[:presence] = @occupied ? 1.0 : 0.0
   rescue timeout : IO::TimeoutError
     logger.debug { "timeout waiting for long poll to complete" }
   rescue error
@@ -130,7 +132,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
       id: nil,
       name: @name,
       module_id: module_id,
-      binding: "occupied",
+      binding: "presence",
       status: @connected ? Status::Normal : Status::Fault,
     )
   end
