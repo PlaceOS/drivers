@@ -232,7 +232,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     guests = staff_api.query_guests(
       period_start: now,
       period_end: later,
-      zones: {@building_zone.id}
+      zones: { @building_zone?.try &.id }
     ).get.as_a
 
     guests.uniq! { |g| g["email"].as_s.downcase }
