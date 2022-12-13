@@ -1,14 +1,12 @@
 require "placeos-driver"
 require "./models/internal_user"
 
-# Tested with Cisco ISE API v2.2
-# https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
-# However, should work and conform to v1.4 requirements
-# https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_guest.html#79039
+# Tested with Cisco ISE API v3.1
+# https://developer.cisco.com/docs/identity-services-engine/v1/#!internaluser
 
 class Cisco::Ise::Guests < PlaceOS::Driver
   # Discovery Information
-  descriptive_name "Cisco ISE Guest Control"
+  descriptive_name "Cisco ISE REST API"
   generic_name :Guests
   uri_base "https://ise-pan:9060/ers/config"
 
@@ -16,7 +14,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     username:    "user",
     password:    "pass",
     portal_id:   "Required, ask cisco ISE admins",
-    timezone:    "Australia/Sydney",
+    timezone:    "UTC",
     guest_type:  "Required, ask cisco ISE admins for valid subset of values",                              # e.g. Contractor
     location:    "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
     custom_data: {} of String => String,
@@ -125,7 +123,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
-    raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
+    raise "failed to create internal user, code #{response.status_code}\n#{response.body}" unless response.success?
 
     user = get_internal_user_by_name(username)
     user.password = password
