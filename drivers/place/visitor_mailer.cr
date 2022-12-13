@@ -140,7 +140,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # ensure the event is for this building
     if zones = guest_details.zones
-      return unless zones.includes?(building_zone.id)
+      return unless zones.includes?(@building_zone.id)
     end
 
     if guest_details.action == "checkin"
