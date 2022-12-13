@@ -140,7 +140,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # ensure the event is for this building
     if zones = guest_details.zones
-      return unless zones.includes?(@building_zone.id)
+      return unless zones.includes?(building_zone.id)
     end
 
     if guest_details.action == "checkin"
@@ -232,7 +232,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     guests = staff_api.query_guests(
       period_start: now,
       period_end: later,
-      zones: { @building_zone?.try &.id }
+      zones: { building_zone.id }
     ).get.as_a
 
     guests.uniq! { |g| g["email"].as_s.downcase }
