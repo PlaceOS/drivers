@@ -56,6 +56,7 @@ class Place::SurveyMailer < PlaceOS::Driver
             email: invite.email,
             token: invite.token,
           })
+        update_survey_invite(sent: true)
       rescue error
         logger.warn(exception: error) { "failed to send survey email to #{invite.email}" }
       end

@@ -584,6 +584,21 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def update_survey_invite(
+    token : String,
+    email : String? = nil,
+    sent : Bool? = nil
+  )
+    logger.debug { "updating survey invite #{token}" }
+    response = patch("/api/staff/v1/surveys/invitations/#{token}", headers: authentication, body: {
+      "email" => email,
+      "sent"  => sent,
+    }.compact.to_json)
+    raise "issue updating survey invite #{token}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  @[Security(Level::Support)]
   def signal(channel : String, payload : JSON::Any? = nil)
     placeos_client.root.signal(channel, payload)
   end
