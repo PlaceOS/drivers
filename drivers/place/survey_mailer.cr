@@ -7,9 +7,9 @@ class Place::SurveyMailer < PlaceOS::Driver
   description %(emails survey invites)
 
   default_settings({
-    timezone:            "GMT",
-    send_survey_invites: "*/3 * * * *",
-    email_template:      "survey",
+    timezone:       "GMT",
+    send_invites:   "*/3 * * * *",
+    email_template: "survey",
   })
 
   accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
@@ -25,18 +25,18 @@ class Place::SurveyMailer < PlaceOS::Driver
   @visitor_email_errors : UInt64 = 0_u64
 
   @email_template : String = "survey"
-  @schedule : String? = nil
+  @send_invites : String? = nil
 
   def on_update
-    @send_survey_invites = setting?(String, :send_survey_invites).presence
+    @send_invites = setting?(String, :send_invites).presence
     @email_template = setting?(String, :email_template) || "survey"
 
     time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
 
     schedule.clear
-    if survey_invites = @send_survey_invites
-      schedule.cron(survey_invites, @time_zone) { send_survey_emails }
+    if invites = @send_invites
+      schedule.cron(invites, @time_zone) { send_survey_emails }
     end
   end
 
