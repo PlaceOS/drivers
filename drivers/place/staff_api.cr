@@ -569,6 +569,20 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
+  # ===================================
+  # SURVEYS
+  # ===================================
+
+  def get_survey_invites(survey_id : Int64?, sent : Bool?)
+    logger.debug { "getting survey_invites (survey #{survey_id}, sent #{sent})" }
+    params = URI::Params.new
+    params["survey_id"] = survey_id if survey_id
+    params["sent"] = sent if sent
+    response = get("/api/staff/v1/surveys/invitations", headers: authentication, query: params)
+    raise "issue getting survey invitations (survey #{survey_id}, sent #{sent}): #{response.status_code}" unless response.success?
+    JSON.parse(response.body)
+  end
+
   @[Security(Level::Support)]
   def signal(channel : String, payload : JSON::Any? = nil)
     placeos_client.root.signal(channel, payload)
