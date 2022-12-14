@@ -206,7 +206,7 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "zone_ids", zones.join(",")
     end
 
-    response = patch("/api/staff/v1/guests?#{params}", headers: authentication)
+    response = get("/api/staff/v1/guests?#{params}", headers: authentication)
 
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
@@ -319,7 +319,7 @@ class Place::StaffAPI < PlaceOS::Driver
       q: q,
       limit: limit,
       offset: offset,
-      parent: parent,
+      parent_id: parent,
       tags: tags
     )
   end

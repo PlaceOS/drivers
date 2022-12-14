@@ -227,12 +227,12 @@ class Place::VisitorMailer < PlaceOS::Driver
   @[Security(Level::Support)]
   def send_reminder_emails
     now = 1.hour.ago.to_unix
-    later = 12.hours.from_now
+    later = 12.hours.from_now.to_unix
 
     guests = staff_api.query_guests(
       period_start: now,
       period_end: later,
-      zones: {@building_zone}
+      zones: { building_zone.id }
     ).get.as_a
 
     guests.uniq! { |g| g["email"].as_s.downcase }
