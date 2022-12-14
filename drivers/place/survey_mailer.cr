@@ -48,12 +48,12 @@ class Place::SurveyMailer < PlaceOS::Driver
       begin
         mailer.send_template(
           to: invite.email,
-          template: {email_template, "invite"},
+          template: {@email_template, "invite"},
           args: {
             email: invite.email,
             token: invite.token,
           })
-        update_survey_invite(sent: true)
+        staff_api.update_survey_invite(sent: true)
       rescue error
         logger.warn(exception: error) { "failed to send survey email to #{invite.email}" }
       end
