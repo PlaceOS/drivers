@@ -1,9 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 
-require "uuid"
-require "oauth2"
-
 class Place::SurveyMailer < PlaceOS::Driver
   descriptive_name "PlaceOS Survey Mailer"
   generic_name :SurveyMailer
