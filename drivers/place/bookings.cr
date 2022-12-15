@@ -40,7 +40,7 @@ class Place::Bookings < PlaceOS::Driver
 
   accessor calendar : Calendar_1
 
-  @calendar_id : String = ""
+  getter calendar_id : String = ""
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
   @default_title : String = "Ad Hoc booking"
   @disable_book_now : Bool = false
