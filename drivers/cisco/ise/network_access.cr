@@ -4,10 +4,10 @@ require "./models/internal_user"
 # Tested with Cisco ISE API v3.1
 # https://developer.cisco.com/docs/identity-services-engine/v1/#!internaluser
 
-class Cisco::Ise::Guests < PlaceOS::Driver
+class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco ISE REST API"
-  generic_name :Guests
+  generic_name :NetworkAccess
   uri_base "https://ise-pan:9060/ers/config"
 
   default_settings({
@@ -57,14 +57,14 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   end
 
   def create_internal(
-    event_start : Int64,
     attendee_email : String,
     attendee_name : String,
     company_name : String? = nil,         # Mandatory but driver will extract from email if not passed
     phone_number : String = "0123456789", # Mandatory, use a fake value as default
     sms_service_provider : String? = nil, # Use this param to override the setting
     guest_type : String? = nil,           # Mandatory but use this param to override the setting
-    portal_id : String? = nil             # Mandatory but use this param to override the setting
+    portal_id : String? = nil,             # Mandatory but use this param to override the setting
+    event_start : Int64? = nil
   )
     # Determine the name of the attendee for ISE
     guest_names = attendee_name.split

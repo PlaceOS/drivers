@@ -16,6 +16,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     date_time_format: "%c",
     time_format:      "%l:%M%p",
     date_format:      "%A, %-d %B",
+    debug:            false,
 
     booking_type:        "desk",
     disable_attachments: true,
@@ -26,6 +27,7 @@ class Place::BookingNotifier < PlaceOS::Driver
         email:                ["concierge@place.com"],
         notify_manager:       true,
         notify_booking_owner: true,
+        include_network_credentials:   false
       },
       zone_id2: {
         name:                 "Melb Building",
@@ -36,6 +38,7 @@ class Place::BookingNotifier < PlaceOS::Driver
   })
 
   accessor staff_api : StaffAPI_1
+  accessor network_provider : NetworkAccess_1  # Written for Cisco ISE Driver, but ideally compatible with others
 
   # We want to use the first driver in the system that is a mailer
   def mailer
@@ -57,6 +60,7 @@ class Place::BookingNotifier < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
+  @debug : Bool = false
 
   @booking_type : String = "desk"
   @bookings_checked : UInt64 = 0_u64
@@ -75,6 +79,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     getter attachments : Hash(String, String) { {} of String => String }
     getter notify_manager : Bool?
     getter notify_booking_owner : Bool?
+    getter include_network_credentials : Bool?
   end
 
   def on_update
@@ -85,6 +90,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+    @debug = setting?(Bool, :debug) || false
 
     @notify_lookup = setting(Hash(String, SiteDetails), :notify)
     attach = setting?(Bool, :disable_attachments)
@@ -128,6 +134,11 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     attach = attachments.first?
 
+    network_username = network_password = nil
+    if notify_details.include_network_credentials
+      network_username, network_password = fetch_network_user(booking_details.user_email, booking_details.user_name)
+    end
+
     args = {
       booking_id:     booking_details.id,
       start_time:     starting.to_s(@time_format),
@@ -156,6 +167,9 @@ class Place::BookingNotifier < PlaceOS::Driver
 
       attachment_name: attach.try &.[](:file_name),
       attachment_url:  attach.try &.[](:uri),
+
+      network_username: network_username,
+      network_password: network_password
     }
 
     attachments.clear if @disable_attachments
@@ -356,5 +370,17 @@ class Place::BookingNotifier < PlaceOS::Driver
   rescue error
     logger.warn { "failed to email manager of #{staff_email}\n#{error.inspect_with_backtrace}" }
     nil
+  end
+
+  private def fetch_network_user(user_email : String, user_name : String)
+    # Check if they already exist
+    response = JSON.parse(network_provider.get_internal_user_by_email(user_email).get.as_s)
+    logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n #{response} } "} if @debug
+    return { response["name"], response["password"] } unless response["error"]
+
+    # Create them if they don't
+    response = JSON.parse(network_provider.create_internal(user_email, user_name).get.as_s)
+    logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response} } "} if @debug
+    { response["name"], response["password"] }
   end
 end
