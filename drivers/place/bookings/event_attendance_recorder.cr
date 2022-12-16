@@ -57,7 +57,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   private def people_count_changed(_subscription, new_value)
     logger.debug { "new people count #{new_value}" }
     return if new_value == "null"
-    people_counts << (Int32 | Float64).from_json(new_value).to_i
+    value = (Int32 | Float64).from_json(new_value).to_i
+    people_counts << (value < 0 ? 0 : value)
   end
 
   private def status_changed(_subscription, new_value)
