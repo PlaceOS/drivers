@@ -109,8 +109,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     booking_details = Booking.from_json payload
 
     # Ignore when a bookings state is updated
-    return if {"process_state", "metadata_changed"}.includes?(booking_details.action)
-    return if booking_details.action.nil?
+    return unless {"approved", "cancelled"}.includes?(booking_details.action)
 
     # Ignore the same event in a short period of time
     previous = @debounce[booking_details.id]?
@@ -184,12 +183,21 @@ class Place::BookingNotifier < PlaceOS::Driver
       send_to << email if email
     end
 
-    mailer.send_template(
-      to: send_to,
-      template: {"bookings", third_party ? "booked_by_notify" : "booking_notify"},
-      args: args,
-      attachments: attachments
-    )
+    if booking_details.action == "approved"
+      mailer.send_template(
+        to: send_to,
+        template: {"bookings", third_party ? "booked_by_notify" : "booking_notify"},
+        args: args,
+        attachments: attachments
+      )
+    else
+      mailer.send_template(
+        to: send_to,
+        template: {"bookings", "cancelled"},
+        args: args,
+        attachments: attachments
+      )
+    end
     staff_api.booking_state(booking_details.id, "notified").get
 
     @bookings_checked += 1
