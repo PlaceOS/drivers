@@ -131,6 +131,21 @@ class Lenel::OpenAccess::Client
     ))[:item_list]
   end
 
+  def raw_lookup(
+    type_name : String,
+    filter : String? = nil,
+    page_number : Int32? = nil,
+    page_size : Int32? = 100,
+    order_by : String? = nil
+  )
+    params = HTTP::Params.new
+    args.each do |key, val|
+      params.add key.to_s, val.to_s unless val.nil?
+    end
+    response = transport.get(path: "/instances?version=1.0&#{params}")
+    response.body
+  end
+
   # Counts the number of instances of *entity*.
   #
   # *filter* may optionally be used to specify a subset of these.
@@ -169,22 +184,22 @@ class Lenel::OpenAccess::Client
   def get_logged_events(
     filter : String? = nil,
     page_number : Int32? = nil,
-    page_size : Int32? = nil,
+    page_size : Int32? = 100,
     order_by : String? = nil
-  ) : Array(Event)
+  )
     params = HTTP::Params.new
     args.each do |key, val|
-      params.add key.to_s, val unless val.nil?
+      params.add key.to_s, val.to_s unless val.nil?
     end
-    (~transport.get(
-      path: "/logged_events?version=1.0&#{params}",
-    ) >> NamedTuple(
-      page_number: Int32?,
-      page_size: Int32?,
-      total_pages: Int32,
-      total_items: Int32,
-      count: Int32,
-      item_list: Array(Event),
-    ))[:item_list]
+    response = transport.get(path: "/logged_events?version=1.0&#{params}")
+    response.body
+    # >> NamedTuple(
+    #   page_number: Int32?,
+    #   page_size: Int32?,1
+    #   total_pages: Int32,
+    #   total_items: Int32,
+    #   count: Int32,
+    #   item_list: Array(Event),
+    # ))[:item_list]
   end
 end

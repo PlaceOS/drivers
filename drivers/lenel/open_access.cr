@@ -275,12 +275,19 @@ class Lenel::OpenAccess < PlaceOS::Driver
     client.delete Cardholder, **args
   end
 
-  # List Logged Events
+  # List card readers matching a given filter
   @[Security(Level::Support)]
-  def list_events(filter : String)
-    client.get_logged_events filter
+  def search_readers(filter : String)
+    client.lookup Reader, filter
   end
 
+  # List Logged Events
+  @[Security(Level::Support)]
+  def list_events(filter : String, page_number : Int32? = nil)
+    client.get_logged_events(filter, page_number)
+  end
+
+  @[Security(Level::Support)]
   # List events that occured during a given time window. Default to past 24h.
   def list_events_in_range(
     filter : String,
@@ -289,7 +296,12 @@ class Lenel::OpenAccess < PlaceOS::Driver
   )
     til ||= Time.local
     from ||= til - 1.day
-    client.get_logged_events(filter + %( AND timestamp >= #{from} AND timestamp <= #{til}))
+    client.get_logged_events(filter + %( AND timestamp >= "#{from.to_s}" AND timestamp <= "#{til.to_s}"))
+  end
+
+  @[Security(Level::Support)]
+  def search(type_name : String, filter : String? = nil)
+    client.raw_lookup type_name, filter
   end
 end
 
