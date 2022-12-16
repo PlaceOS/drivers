@@ -23,11 +23,11 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     notify: {
       zone_id1: {
-        name:                 "Sydney Building 1",
-        email:                ["concierge@place.com"],
-        notify_manager:       true,
-        notify_booking_owner: true,
-        include_network_credentials:   false
+        name:                        "Sydney Building 1",
+        email:                       ["concierge@place.com"],
+        notify_manager:              true,
+        notify_booking_owner:        true,
+        include_network_credentials: false,
       },
       zone_id2: {
         name:                 "Melb Building",
@@ -38,9 +38,10 @@ class Place::BookingNotifier < PlaceOS::Driver
   })
 
   accessor staff_api : StaffAPI_1
-  accessor network_provider : NetworkAccess_1  # Written for Cisco ISE Driver, but ideally compatible with others
+  accessor network_provider : NetworkAccess_1 # Written for Cisco ISE Driver, but ideally compatible with others
 
   # We want to use the first driver in the system that is a mailer
+
   def mailer
     system.implementing(Interface::Mailer)[0]
   end
@@ -169,7 +170,7 @@ class Place::BookingNotifier < PlaceOS::Driver
       attachment_url:  attach.try &.[](:uri),
 
       network_username: network_username,
-      network_password: network_password
+      network_password: network_password,
     }
 
     attachments.clear if @disable_attachments
@@ -375,12 +376,12 @@ class Place::BookingNotifier < PlaceOS::Driver
   private def fetch_network_user(user_email : String, user_name : String)
     # Check if they already exist
     response = JSON.parse(network_provider.get_internal_user_by_email(user_email).get.as_s)
-    logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n #{response} } "} if @debug
-    return { response["name"], response["password"] } unless response["error"]
+    logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n #{response} } " } if @debug
+    return {response["name"], response["password"]} unless response["error"]
 
     # Create them if they don't
     response = JSON.parse(network_provider.create_internal(user_email, user_name).get.as_s)
-    logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response} } "} if @debug
-    { response["name"], response["password"] }
+    logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response} } " } if @debug
+    {response["name"], response["password"]}
   end
 end
