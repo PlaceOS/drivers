@@ -102,6 +102,8 @@ class Place::BookingNotifier < PlaceOS::Driver
     booking_details = Booking.from_json payload
 
     # Ignore when a bookings state is updated
+    return unless booking_details.approved
+    return if booking_details.process_state == "notified"
     return if {"process_state", "metadata_changed"}.includes?(booking_details.action)
     return if booking_details.action.nil?
 
