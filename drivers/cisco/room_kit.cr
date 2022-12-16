@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "placeos-driver/interface/sensor"
 require "promise"
 require "uuid"
 
@@ -9,6 +10,8 @@ require "./collaboration_endpoint/powerable"
 require "./collaboration_endpoint/cameras"
 
 class Cisco::RoomKit < PlaceOS::Driver
+  include Interface::Sensor
+
   # Discovery Information
   descriptive_name "Cisco Room Kit"
   generic_name :VidConf
@@ -307,5 +310,76 @@ class Cisco::RoomKit < PlaceOS::Driver
       @presentation_mode = PresentationMode::None
       presentation_stop
     end
+  end
+
+  # ======================
+  # Sensor interface
+  # ======================
+
+  SENSOR_TYPES = {SensorType::PeopleCount, SensorType::Presence}
+  NO_MATCH     = [] of Interface::Sensor::Detail
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
+
+    return NO_MATCH if mac && mac != config.ip
+    if type
+      sensor_type = SensorType.parse(type)
+      return NO_MATCH unless SENSOR_TYPES.includes?(sensor_type)
+    end
+
+    if sensor_type
+      sensor = build_sensor_details(sensor_type)
+      return NO_MATCH unless sensor
+      [sensor]
+    else
+      space_sensors
+    end
+  end
+
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
+    return nil unless id
+    return nil unless mac == config.ip
+
+    case id
+    when "people"
+      build_sensor_details(:people_count)
+    when "presence"
+      build_sensor_details(:presence)
+    end
+  end
+
+  protected def build_sensor_details(sensor : SensorType) : Detail?
+    id = "people_count"
+
+    value = case sensor
+            when .people_count?
+              self[:people_count].as_i.to_f64
+            when .presence?
+              id = "presence_detected"
+              self[:presence_detected] == "No" ? 0.0 : 1.0
+            else
+              raise "sensor type unavailable: #{sensor}"
+            end
+    return nil unless value
+
+    Detail.new(
+      type: sensor,
+      value: value,
+      last_seen: Time.utc.to_unix,
+      mac: config.ip.as(String),
+      id: id,
+      name: "Cisco Room Kit (#{config.ip})",
+      module_id: module_id,
+      binding: id
+    )
+  end
+
+  protected def space_sensors
+    [
+      build_sensor_details(:people_count),
+      build_sensor_details(:presence),
+    ].compact
   end
 end
