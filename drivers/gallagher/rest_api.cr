@@ -1,12 +1,16 @@
-require "uri"
 require "placeos-driver"
+require "placeos-driver/interface/door_security"
+require "uri"
 require "semantic_version"
 require "./rest_api_models"
 require "base64"
 
 # Documentation: https://aca.im/driver_docs/Gallagher/Gallagher_CC_REST_API_Docs%208.10.1113.zip
+# https://gallaghersecurity.github.io/
 
 class Gallagher::RestAPI < PlaceOS::Driver
+  include Interface::DoorSecurity
+
   # Discovery Information
   generic_name :Gallagher
   descriptive_name "Gallagher Security System"
@@ -29,31 +33,72 @@ class Gallagher::RestAPI < PlaceOS::Driver
     default_facility_code: "",
 
     disabled_card_value: "Disabled (manually)",
+
+    # changes the channel when you want to isolate signals
+    door_event_channel: "event",
+
+    # obtain the list of these at: /api/events/groups/
+    event_mappings: [
+      {
+        group:  1,
+        action: "tamper",
+      },
+      {
+        group:  18,
+        action: "denied",
+      },
+      {
+        # card swipe events for various door / lift types
+        group:  23,
+        types:  [15800, 15816, 20001, 20002, 20003, 20006, 20047, 41500, 41501, 41520, 41521, 42102, 42415],
+        action: "granted",
+      },
+    ],
   })
+
+  record EventMap, group : Int32, types : Array(Int32)?, action : Action do
+    include JSON::Serializable
+  end
 
   def on_load
     on_update
 
+    spawn { event_monitor }
     schedule.every(1.minutes) { query_endpoints }
     transport.before_request do |req|
       logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
     end
   end
 
+  def on_unload
+    @poll_events = false
+  end
+
+  @poll_events : Bool = true
   @api_key : String = ""
   @unique_pdf_name : String = "email"
+  @door_event_channel : String = "event"
   @headers : Hash(String, String) = {} of String => String
   @disabled_card_value : String = "Disabled (manually)"
+  @event_map : Hash(String, EventMap) = {} of String => EventMap
 
   def on_update
     api_key = setting(String, :api_key)
     @api_key = "GGL-API-KEY #{api_key}"
+    @door_event_channel = setting?(String, :door_event_channel) || "event"
+
+    new_map = {} of String => EventMap
+    (setting?(Array(EventMap), :event_mappings) || [] of EventMap).each do |event|
+      new_map[event.group.to_s] = event
+    end
+    @event_map = new_map
+
     @unique_pdf_name = setting(String, :unique_pdf_name)
 
-    @default_division = setting(String?, :default_division_href)
-    @default_facility_code = setting(String?, :default_facility_code)
-    @default_card_type = setting(String?, :default_card_type_href)
-    @default_access_group = setting(String?, :default_access_group_href)
+    @default_division = setting?(String, :default_division_href)
+    @default_facility_code = setting?(String, :default_facility_code)
+    @default_card_type = setting?(String, :default_card_type_href)
+    @default_access_group = setting?(String, :default_access_group_href)
     @disabled_card_value = setting(String?, :disabled_card_value) || "Disabled (manually)"
 
     @headers = {
@@ -72,6 +117,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   @card_types_endpoint : String = "/api/card_types"
   @events_endpoint : String = "/api/events"
   @pdfs_endpoint : String = "/api/personal_data_fields"
+  @doors_endpoint : String = "/api/doors"
   @fixed_pdf_id : String = ""
   @default_division : String? = nil
   @default_facility_code : String? = nil
@@ -90,6 +136,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     @divisions_endpoint = @cardholders_endpoint.sub("cardholders", "divisions")
     @access_groups_endpoint = get_path payload["features"]["accessGroups"]["accessGroups"]["href"].as_s
     @events_endpoint = get_path payload["features"]["events"]["events"]["href"].as_s
+    @doors_endpoint = get_path payload["features"]["doors"]["doors"]["href"].as_s
 
     if api_version >= SemanticVersion.parse("8.10.0")
       @card_types_endpoint = get_path payload["features"]["cardTypes"]["assign"]["href"].as_s
@@ -104,10 +151,15 @@ class Gallagher::RestAPI < PlaceOS::Driver
       }, @headers)
     end
 
-    raise "PDFS request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    if response.success?
+      logger.debug { "PDFS request returned:\n#{response.body}" }
+    else
+      raise "PDFS request failed with #{response.status_code}\n#{response.body}"
+    end
 
     # There should only be one result
-    @fixed_pdf_id = JSON.parse(response.body)["results"][0]["id"].as_s
+    results = JSON.parse(response.body)["results"].as_a
+    @fixed_pdf_id = results.first["id"].as_s unless results.empty?
   end
 
   protected def get_path(uri : String) : String
@@ -332,6 +384,19 @@ class Gallagher::RestAPI < PlaceOS::Driver
     get_results(JSON::Any, response.body)
   end
 
+  @[Security(Level::Support)]
+  def get_events
+    response = get(@events_endpoint, headers: @headers)
+    raise "events request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def get_event_groups
+    response = get("#{@events_endpoint}/groups", headers: @headers)
+    raise "event groups request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
   macro get_results(klass, response)
     %results = Results({{klass}}).from_json {{response}}
     %result_array = %results.results
@@ -385,4 +450,80 @@ class Gallagher::RestAPI < PlaceOS::Driver
   class NotFound < Exception; end
 
   class BadRequest < Exception; end
+
+  def doors
+    response = get(@doors_endpoint, headers: @headers)
+    raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    NamedTuple(results: Array(DoorDetails)).from_json(response.body)[:results]
+  end
+
+  # =======================
+  # Door Security Interface
+  # =======================
+
+  def door_list : Array(Door)
+    doors.map { |d| Door.new(d.id, d.name) }
+  end
+
+  def unlock(door_id : String) : Bool?
+    response = post("#{@doors_endpoint}/#{door_id}/open", headers: @headers)
+    response.success?
+  end
+
+  protected def event_monitor
+    uri = URI.parse(config.uri.not_nil!)
+    uri.path = @events_endpoint
+    uri.query = "after=#{Time.utc.to_rfc3339}"
+
+    sleep 2
+
+    loop do
+      break unless @poll_events
+
+      begin
+        logger.debug { "checking for events #{uri.request_target}" }
+
+        response = get(uri.request_target, headers: @headers, concurrent: true)
+        if response.success?
+          logger.debug { "new event: #{response.body}" }
+          events_resp = Events.from_json(response.body)
+
+          update_url = URI.parse(events_resp.update_url)
+          uri.path = update_url.path
+          uri.query = update_url.query
+
+          events = events_resp.events
+          next if events.empty?
+          events.each do |event|
+            if mapped = @event_map[event.group.id]?
+              if event.matching_type? mapped.types
+                publish("security/#{@door_event_channel}/door", DoorEvent.new(
+                  module_id: module_id,
+                  security_system: "Gallagher",
+                  door_id: event.source.id,
+                  action: mapped.action,
+                  card_id: event.card.try &.number,
+                  user_name: event.cardholder.try &.name,
+                  user_email: nil
+                ).to_json)
+              end
+            end
+          end
+        else
+          # we don't want to thrash the server
+          logger.warn { "event polling failed with\nStatus #{response.status_code}\n#{response.body}" }
+          sleep 2
+        end
+      rescue timeout : IO::TimeoutError
+        # if no events came in for 2min (default timeout), 10 seconds to account for server clock drift
+        last_event = 10.second.ago
+        logger.debug { "no events detected" }
+      rescue error
+        logger.warn(exception: error) { "monitoring for events" }
+        # jump over anything that potentially caused the error
+        sleep 1
+        last_event = 1.second.from_now
+      end
+    end
+  end
 end
