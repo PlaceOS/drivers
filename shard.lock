@@ -231,7 +231,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.7.2
+    version: 2.7.3
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -263,7 +263,7 @@ shards:
 
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
-    version: 2.2.3
+    version: 2.3.0
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git

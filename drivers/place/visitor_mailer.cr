@@ -15,6 +15,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     time_format:        "%l:%M%p",
     date_format:        "%A, %-d %B",
     booking_space_name: "Client Floor",
+
+    send_reminders:    "0 7 * * *",
+    reminder_template: "visitor",
   })
 
   accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
@@ -46,10 +49,15 @@ class Place::VisitorMailer < PlaceOS::Driver
   getter! building_zone : ZoneDetails
   @booking_space_name : String = "Client Floor"
 
+  @reminder_template : String = "visitor"
+  @send_reminders : String? = nil
+
   def on_update
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+    @send_reminders = setting?(String, :send_reminders).presence
+    @reminder_template = setting?(String, :reminder_template) || "visitor"
 
     time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -58,6 +66,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     zones = config.control_system.not_nil!.zones
     schedule.clear
+    if reminders = @send_reminders
+      schedule.cron(reminders, @time_zone) { send_reminder_emails }
+    end
     spawn(same_thread: true) { find_building(zones) }
   end
 
@@ -90,7 +101,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     property checkin : Bool?
     property event_summary : String
     property event_starting : Int64
-    property attendee_name : String
+    property attendee_name : String?
     property attendee_email : String
     property host : String
 
@@ -151,6 +162,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
 
       send_visitor_qr_email(
+        "visitor",
         guest_details.attendee_email,
         guest_details.attendee_name,
         guest_details.host,
@@ -173,10 +185,11 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def send_visitor_qr_email(
+    template : String,
     visitor_email : String,
-    visitor_name : String,
-    host_email : String,
-    event_title : String,
+    visitor_name : String?,
+    host_email : String?,
+    event_title : String?,
     event_start : Int64,
 
     resource_id : String,
@@ -209,6 +222,51 @@ class Place::VisitorMailer < PlaceOS::Driver
         },
       ]
     )
+  end
+
+  @[Security(Level::Support)]
+  def send_reminder_emails
+    now = 1.hour.ago.to_unix
+    later = 12.hours.from_now.to_unix
+
+    guests = staff_api.query_guests(
+      period_start: now,
+      period_end: later,
+      zones: {building_zone.id}
+    ).get.as_a
+
+    guests.uniq! { |g| g["email"].as_s.downcase }
+    guests.each do |guest|
+      begin
+        if event = guest["event"]?
+          send_visitor_qr_email(
+            @reminder_template,
+            guest["email"].as_s,
+            guest["name"].as_s?,
+            event["host"].as_s,
+            event["title"].as_s,
+            event["event_start"].as_i64,
+            event.dig("system", "id").as_s,
+            event["id"].as_s,
+            (event.dig?("system", "display_name") || event.dig("system", "name")).as_s
+          )
+        elsif booking = guest["booking"]?
+          send_visitor_qr_email(
+            @reminder_template,
+            guest["email"].as_s,
+            guest["name"].as_s?,
+            booking["user_email"].as_s,
+            booking["title"].as_s?,
+            booking["booking_start"].as_i64,
+            booking["asset_id"].as_s,
+            booking["id"].as_i64.to_s,
+            @booking_space_name
+          )
+        end
+      rescue error
+        logger.warn(exception: error) { "failed to send reminder email to #{guest["email"]}" }
+      end
+    end
   end
 
   # ===================================
