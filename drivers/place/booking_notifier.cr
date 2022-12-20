@@ -317,6 +317,12 @@ class Place::BookingNotifier < PlaceOS::Driver
 
       attach = attachments.first?
 
+      notify_details = @notify_lookup[building_zone]
+      network_username = network_password = nil
+      if notify_details.include_network_credentials
+        network_username, network_password = fetch_network_user(booking_details.user_email, booking_details.user_name)
+      end
+
       args = {
         booking_id:     booking_details.id,
         start_time:     starting.to_s(@time_format),
@@ -342,6 +348,9 @@ class Place::BookingNotifier < PlaceOS::Driver
 
         attachment_name: attach.try &.[](:file_name),
         attachment_url:  attach.try &.[](:uri),
+        
+        network_username: network_username,
+        network_password: network_password,
       }
 
       attachments.clear if @disable_attachments
