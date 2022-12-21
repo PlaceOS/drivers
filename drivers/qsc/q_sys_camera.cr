@@ -37,35 +37,35 @@ class Qsc::QSysCamera < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    camera.mute(@ids[:power], state)
+    camera.mute(@ids["power"], state)
   end
 
   def adjust_tilt(direction : String)
     case direction
     when "down"
-      camera.mute(@ids[:tilt_down], true)
+      camera.mute(@ids["tilt_down"], true)
     when "up"
-      camera.mute(@ids[:tilt_up], true)
+      camera.mute(@ids["tilt_up"], true)
     else # stop
-      camera.mute(@ids[:tilt_up], false)
-      camera.mute(@ids[:tilt_down], false)
+      camera.mute(@ids["tilt_up"], false)
+      camera.mute(@ids["tilt_down"], false)
     end
   end
 
   def adjust_pan(direction : String)
     case direction
     when "right"
-      camera.mute(@ids[:pan_right], true)
+      camera.mute(@ids["pan_right"], true)
     when "left"
-      camera.mute(@ids[:pan_left], true)
+      camera.mute(@ids["pan_left"], true)
     else # stop
-      camera.mute(@ids[:pan_right], false)
-      camera.mute(@ids[:pan_left], false)
+      camera.mute(@ids["pan_right"], false)
+      camera.mute(@ids["pan_left"], false)
     end
   end
 
   def home
-    camera.trigger(@ids[:preset_home_load])
+    camera.trigger(@ids["preset_home_load"])
   end
 
   def preset(presetName : String)
@@ -75,12 +75,12 @@ class Qsc::QSysCamera < PlaceOS::Driver
   def zoom(direction : String)
     case direction
     when "in"
-      camera.mute(@ids[:zoom_in], true)
+      camera.mute(@ids["zoom_in"], true)
     when "out"
-      camera.mute(@ids[:zoom_out], true)
+      camera.mute(@ids["zoom_out"], true)
     else # stop
-      camera.mute(@ids[:zoom_in], false)
-      camera.mute(@ids[:zoom_out], false)
+      camera.mute(@ids["zoom_in"], false)
+      camera.mute(@ids["zoom_out"], false)
     end
   end
 
