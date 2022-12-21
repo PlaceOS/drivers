@@ -71,7 +71,7 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     first_name_index_end = guest_names.size > 1 ? -2 : -1
     first_name = guest_names[0..first_name_index_end].join(' ')
     last_name = guest_names[-1]
-    username = genererate_username(first_name, last_name)
+    username = attendee_email
     password = genererate_password(first_name, last_name)
 
     return {"username" => username, "password" => UUID.random.to_s[0..3]}.merge(@custom_data) if setting?(Bool, :test)
@@ -203,12 +203,6 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     internal_user = get_internal_user_by_email(email)
 
     update_internal_user_password_by_id(internal_user.id.to_s, password)
-  end
-
-  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
-  # when it will increase to 10
-  private def genererate_username(firstname, lastname)
-    "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
   end
 
   # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
