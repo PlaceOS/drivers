@@ -3,6 +3,7 @@ require "placeos-driver/interface/mailer"
 require "digest/md5"
 require "placeos"
 require "file"
+require "uuid"
 
 require "./booking_model"
 
@@ -28,6 +29,7 @@ class Place::BookingNotifier < PlaceOS::Driver
         notify_manager:              true,
         notify_booking_owner:        true,
         include_network_credentials: false,
+        network_password_length: 6
       },
       zone_id2: {
         name:                 "Melb Building",
@@ -81,6 +83,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     getter notify_manager : Bool?
     getter notify_booking_owner : Bool?
     getter include_network_credentials : Bool?
+    getter network_password_length : Int32?
   end
 
   def on_update
@@ -136,7 +139,7 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     network_username = network_password = nil
     if notify_details.include_network_credentials
-      network_username, network_password = fetch_network_user(booking_details.user_email, booking_details.user_name)
+      network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length))
     end
 
     args = {
@@ -320,7 +323,7 @@ class Place::BookingNotifier < PlaceOS::Driver
       notify_details = @notify_lookup[building_zone]
       network_username = network_password = nil
       if notify_details.include_network_credentials
-        network_username, network_password = fetch_network_user(booking_details.user_email, booking_details.user_name)
+        network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length))
       end
 
       args = {
@@ -348,7 +351,7 @@ class Place::BookingNotifier < PlaceOS::Driver
 
         attachment_name: attach.try &.[](:file_name),
         attachment_url:  attach.try &.[](:uri),
-        
+
         network_username: network_username,
         network_password: network_password,
       }
@@ -390,15 +393,29 @@ class Place::BookingNotifier < PlaceOS::Driver
     nil
   end
 
-  private def fetch_network_user(user_email : String, user_name : String)
+  def update_network_user_password(user_email : String, password : String)
     # Check if they already exist
-    response = JSON.parse(network_provider.get_internal_user_by_email(user_email).get.as_s)
-    logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n #{response} } " } if @debug
-    return {response["name"], response["password"]} unless response["error"]
+    response = network_provider.update_internal_user_password_by_email(user_email, password).get
+    logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}\n\nDetails:\n#{response.inspect}" } if @debug
+  rescue error
+    # Create them if they don't already exist
+    create_network_user(user_email, password)
+  else
+    network_user = JSON.parse(response.to_s)
+    logger.debug { "Existing user for #{user_email} is:\n#{network_user}" } if @debug
+    {network_user["name"], password}
+  end
 
-    # Create them if they don't
-    response = JSON.parse(network_provider.create_internal(user_email, user_name).get.as_s)
-    logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response} } " } if @debug
-    {response["name"], response["password"]}
+  def create_network_user(user_email : String, password : String)
+    # Remove event_start param after ISE driver is updated
+    response = JSON.parse(network_provider.create_internal(attendee_email: user_email, attendee_name: user_email, event_start: Time.utc.to_unix).get.as_s)
+    logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
+    {response["name"], password}
+  end
+
+  # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
+  def random_password(length : Int32?)
+    length ||= 6
+    UUID.random.to_s[0..length]
   end
 end
