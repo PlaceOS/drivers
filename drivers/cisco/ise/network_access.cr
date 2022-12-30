@@ -74,7 +74,7 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     # return {"username" => username, "password" => generate_password}.merge(@custom_data) if @test_mode
 
     # Is there a one line way of doing this?
-    internal_user = Models::InternalUser.from_json(%({"{"name":"#{name}"}"}))
+    internal_user = Models::InternalUser.from_json({name: name}.to_json)
     internal_user.email = email
     internal_user.password = password
     internal_user.first_name = first_name
