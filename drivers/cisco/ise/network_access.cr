@@ -29,7 +29,6 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   @guest_type : String = "default_guest_type"
   @password_length : Int32 = 6
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
-  @location : String? = nil
   @custom_data = {} of String => String
 
   TYPE_HEADER = "application/json"
@@ -60,13 +59,13 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     logger.debug { "Basic auth details: #{@basic_auth}" } if @debug
   end
 
-  def create_internal(
+  def create_internal_user(
       email : String,
-      name : String?,
-      first_name : String?,
-      last_name : String?,
-      description : String?,
-      password : String?
+      name : String? = nil,
+      first_name : String? = nil,
+      last_name : String? = nil,
+      description : String? = nil,
+      password : String? = nil
     )
     name ||= email
     password ||= generate_password
@@ -155,7 +154,8 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     get_internal_user_by_id(resources.first.as_h.["id"].to_s)
   end
 
-  def update_internal_user_password_by_id(id : String, password : String)
+  def update_internal_user_password_by_id(id : String, password : String? = nil)
+    password ||= generate_password
     internal_user = get_internal_user_by_id(id)
 
     response = put("/internaluser/#{internal_user.id}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
@@ -169,7 +169,8 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
-  def update_internal_user_password_by_email(email : String, password : String)
+  def update_internal_user_password_by_email(email : String, password : String? = nil)
+    password ||= generate_password
     internal_user = get_internal_user_by_email(email)
 
     update_internal_user_password_by_id(internal_user.id.to_s, password)

@@ -405,8 +405,7 @@ class Place::BookingNotifier < PlaceOS::Driver
   end
 
   def create_network_user(user_email : String, password : String)
-    # Remove event_start param after ISE driver is updated
-    response = network_provider.create_internal(attendee_email: user_email, attendee_name: user_email, event_start: Time.utc.to_unix).get
+    response = network_provider.create_internal_user(email: user_email, name: user_email).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
   end
