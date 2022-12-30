@@ -4,7 +4,7 @@ class Cisco::Ise::Models::InternalUser
   include JSON::Serializable
 
   @[JSON::Field(key: "name")]
-  property name : String = ["internalUser", UUID.random.to_s.split("-").last].join("-")
+  property name : String
 
   @[JSON::Field(key: "id")]
   property id : String?
