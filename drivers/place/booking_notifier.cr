@@ -397,13 +397,13 @@ class Place::BookingNotifier < PlaceOS::Driver
     # Check if they already exist
     response = network_provider.update_internal_user_password_by_email(user_email, password).get
     logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}\n\nDetails:\n#{response.inspect}" } if @debug
-  rescue error
+  rescue
     # Create them if they don't already exist
     create_network_user(user_email, password)
   else
     network_user = JSON.parse(response.to_s)
     logger.debug { "Existing user for #{user_email} is:\n#{network_user}" } if @debug
-    {network_user["name"], password}
+    {user_email, password}  
   end
 
   def create_network_user(user_email : String, password : String)
