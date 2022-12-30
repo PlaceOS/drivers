@@ -12,15 +12,15 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   uri_base "https://ise-pan:9060/ers/config"
 
   default_settings({
-    username:    "user",
-    password:    "pass",
-    portal_id:   "Required for Guest Users, ask cisco ISE admins",
-    timezone:    "UTC",
-    guest_type:  "Required for Guest Users, ask cisco ISE admins for valid subset of values", # e.g. Contractor
-    custom_data: {} of String => String,
+    username:        "user",
+    password:        "pass",
+    portal_id:       "Required for Guest Users, ask cisco ISE admins",
+    timezone:        "UTC",
+    guest_type:      "Required for Guest Users, ask cisco ISE admins for valid subset of values", # e.g. Contractor
+    custom_data:     {} of String => String,
     password_length: 6,
-    debug:       false,
-    test_mode:   false
+    debug:           false,
+    test_mode:       false,
   })
 
   @basic_auth : String = ""
@@ -60,23 +60,22 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   end
 
   def create_internal_user(
-      email : String,
-      name : String? = nil,
-      first_name : String? = nil,
-      last_name : String? = nil,
-      description : String? = nil,
-      password : String? = nil
-    )
+    email : String,
+    name : String? = nil,
+    first_name : String? = nil,
+    last_name : String? = nil,
+    description : String? = nil,
+    password : String? = nil
+  )
     name ||= email
     password ||= generate_password
 
     # Not sure if this response is still accurate for ISEv3, todo: check it and align with ISEv3's response
     # return {"username" => username, "password" => generate_password}.merge(@custom_data) if @test_mode
 
-    # Isn't there a one line way of doing this?
-    internal_user = Models::InternalUser.from_json(%({}))
+    # Is there a one line way of doing this?
+    internal_user = Models::InternalUser.from_json(%({"{"name":"#{name}"}"}))
     internal_user.email = email
-    internal_user.name = name
     internal_user.password = password
     internal_user.first_name = first_name
     internal_user.last_name = last_name
@@ -175,7 +174,7 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
 
     update_internal_user_password_by_id(internal_user.id.to_s, password)
   end
-  
+
   # Todo, when ISE doesn't return 401 for Guest related api calls
   # def create_guest (...)
   #   # sms_service_provider ||= @sms_service_provider

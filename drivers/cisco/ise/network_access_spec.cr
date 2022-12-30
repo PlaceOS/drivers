@@ -17,11 +17,10 @@ DriverSpecs.mock_driver "Cisco::Ise::NetworkAccess" do
   # start_time = Time.local(Time::Location.load("Australia/Sydney"))
   # start_date = start_time.at_beginning_of_day.to_s(Cisco::Ise::NetworkAccess::TIME_FORMAT)
   # end_date = start_time.at_end_of_day.to_s(Cisco::Ise::NetworkAccess::TIME_FORMAT)
-  
 
   # Test INTERNAL User creation
   attendee_email = "attendee@test.com"
-  exec(:create_internal, email: attendee_email, name: attendee_email)   # The attendee name must be unique, and in most real-world use cases, the clients prefer that to be the email address
+  exec(:create_internal, email: attendee_email, name: attendee_email) # The attendee name must be unique, and in most real-world use cases, the clients prefer that to be the email address
   # POST to /internaluser/
   expect_http_request do |request, response|
     parsed_body = JSON.parse(request.body.not_nil!)

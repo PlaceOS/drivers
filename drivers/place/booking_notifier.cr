@@ -29,7 +29,7 @@ class Place::BookingNotifier < PlaceOS::Driver
         notify_manager:              true,
         notify_booking_owner:        true,
         include_network_credentials: false,
-        network_password_length: 6
+        network_password_length:     6,
       },
       zone_id2: {
         name:                 "Melb Building",
@@ -397,11 +397,11 @@ class Place::BookingNotifier < PlaceOS::Driver
     # Check if they already exist
     response = network_provider.update_internal_user_password_by_email(user_email, password).get
     logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}" } if @debug
-  rescue  # todo: catch the specific error where the user already exists, instead of any error. Catch other errors in seperate rescue
+  rescue # todo: catch the specific error where the user already exists, instead of any error. Catch other errors in seperate rescue
     # Create them if they don't already exist
     create_network_user(user_email, password)
   else
-    {user_email, password}  
+    {user_email, password}
   end
 
   def create_network_user(user_email : String, password : String)
