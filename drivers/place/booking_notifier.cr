@@ -401,14 +401,12 @@ class Place::BookingNotifier < PlaceOS::Driver
     # Create them if they don't already exist
     create_network_user(user_email, password)
   else
-    network_user = response
-    logger.debug { "Existing user for #{user_email} is:\n#{network_user}" } if @debug
     {user_email, password}  
   end
 
   def create_network_user(user_email : String, password : String)
     # Remove event_start param after ISE driver is updated
-    response = JSON.parse(network_provider.create_internal(attendee_email: user_email, attendee_name: user_email, event_start: Time.utc.to_unix).get.as_s)
+    response = network_provider.create_internal(attendee_email: user_email, attendee_name: user_email, event_start: Time.utc.to_unix).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
   end
