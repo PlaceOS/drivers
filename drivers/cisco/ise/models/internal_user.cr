@@ -4,7 +4,7 @@ class Cisco::Ise::Models::InternalUser
   include JSON::Serializable
 
   @[JSON::Field(key: "name")]
-  property name : String
+  property name : String?
 
   @[JSON::Field(key: "id")]
   property id : String?
