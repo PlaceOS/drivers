@@ -60,6 +60,8 @@ class Place::EventMailer < PlaceOS::Driver
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
     @debug = setting?(Bool, :debug) || false
 
+    self[:events] = @events.clear
+
     subscribe_to_all_modules
   end
 
@@ -87,15 +89,15 @@ class Place::EventMailer < PlaceOS::Driver
   end
 
   private def process_updated_events(system_id : String, events : Array(PlaceCalendar::Event))
-    logger.debug {"Detected #{events.size} new Events"} if @debug
+    logger.debug { "Detected #{events.size} new Events in #{system_id}" } if @debug
     selected_events = apply_filter(events)
-    logger.debug {"Filtered to #{selected_events.size} events with filter #{@event_filter}"} if @debug
-    new_events = if @events[system_id]
-                   @events[system_id] - selected_events
-                 else
-                   selected_events
-                 end
-    @events[system_id] = new_events # Store the updated list of events
+    logger.debug { "Filtered to #{selected_events.size} events with filter #{@event_filter}" } if @debug
+
+    new_events = selected_events - @events[system_id] # Don't process events we've already seen in the past
+    @events[system_id] = new_events                   # Store the updated list of events
+    self[:events] = @events
+
+    logger.debug { "Sending emails for #{new_events.size} events in #{system_id}" }
     new_events.each { |event| send_event_email(event, system_id) }
   end
 
@@ -121,7 +123,7 @@ class Place::EventMailer < PlaceOS::Driver
       network_password: network_password,
     }
     begin
-      logger.debug {"SENDING welcome email: #{email_data}"}
+      logger.debug { "SENDING welcome email: #{email_data}" }
       mailer.send_template(
         to: [organizer_email],
         template: {@email_template_group, @email_template},
@@ -148,7 +150,7 @@ class Place::EventMailer < PlaceOS::Driver
 
   private def select_todays_events(events : Array(PlaceCalendar::Event))
     events.select do |event|
-      logger.debug {"Processing event #{event.inspect}"} if @debug
+      logger.debug { "Processing event #{event.inspect}" } if @debug
       timezone = event.timezone ? Time::Location.load(event.timezone.not_nil!) : Time::Location.local
       now = Time.local(location: timezone)
       event.event_start >= now.at_beginning_of_day && event.event_start <= now.at_end_of_day
