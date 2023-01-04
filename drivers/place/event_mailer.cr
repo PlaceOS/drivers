@@ -129,7 +129,7 @@ class Place::EventMailer < PlaceOS::Driver
         to: [organizer_email],
         template: {@email_template_group, @email_template},
         args: email_data
-      )
+      ).get
     rescue
       logger.error { "ERROR when attempting to send welcome email" }
     else
