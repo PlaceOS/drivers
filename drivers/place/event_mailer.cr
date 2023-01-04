@@ -3,7 +3,7 @@ require "place_calendar"
 
 class Place::EventMailer < PlaceOS::Driver
   descriptive_name "PlaceOS Event Mailer"
-  generic_name :EventMonitor
+  generic_name :EventMailer
   description %(Subscribe to Events and send emails to attendees)
 
   default_settings({
