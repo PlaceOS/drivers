@@ -131,7 +131,7 @@ class Place::EventMailer < PlaceOS::Driver
   private def apply_filter(events : Array(PlaceCalendar::Event))
     # Additional event filters can be added in the future
     case @event_filter
-    when :occurs_today
+    when "occurs_today"
       logger.debug { "Event filter: occurs today" } if @debug
       select_todays_events(events)
     else
@@ -142,6 +142,7 @@ class Place::EventMailer < PlaceOS::Driver
 
   private def select_todays_events(events : Array(PlaceCalendar::Event))
     events.select do |event|
+      logger.debug {"Processing event #{event}"} if @debug
       timezone = event.timezone ? Time::Location.load(event.timezone.not_nil!) : Time::Location.local
       now = Time.local(location: timezone)
       event.event_start >= now.at_beginning_of_day && event.event_start <= now.at_end_of_day
