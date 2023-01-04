@@ -93,9 +93,10 @@ class Place::EventMailer < PlaceOS::Driver
     selected_events = apply_filter(events)
     logger.debug { "Filtered to #{selected_events.size} events with filter #{@event_filter}" } if @debug
 
-    new_events = selected_events - @events[system_id] # Don't process events we've already seen in the past
-    @events[system_id] = new_events                   # Store the updated list of events
-    self[:events] = @events
+    new_events = selected_events
+    # new_events = selected_events - @events[system_id] # Don't process events we've already seen in the past
+    # @events[system_id] = new_events                   # Store the updated list of events
+    # self[:events] = @events
 
     logger.debug { "Sending emails for #{new_events.size} events in #{system_id}" }
     new_events.each { |event| send_event_email(event, system_id) }
