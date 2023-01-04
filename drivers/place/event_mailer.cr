@@ -116,13 +116,14 @@ class Place::EventMailer < PlaceOS::Driver
       network_password: network_password,
     }
     begin
+      logger.debug {"SENDING welcome email: #{email_data}"}
       mailer.send_template(
         to: [organizer_email],
         template: {@email_template_group, @email_template},
         args: email_data
       )
     rescue
-      logger.error { "ERROR when attempting to send email to: #{organizer_email} with details:\n#{email_data}" }
+      logger.error { "ERROR when attempting to send welcome email" }
     else
       staff_api.patch_event_metadata(system_id, event.id, {"event_mailer_email_sent_at": Time.local}.to_json).get
     end
@@ -142,7 +143,7 @@ class Place::EventMailer < PlaceOS::Driver
 
   private def select_todays_events(events : Array(PlaceCalendar::Event))
     events.select do |event|
-      logger.debug {"Processing event #{event}"} if @debug
+      logger.debug {"Processing event #{event.inspect}"} if @debug
       timezone = event.timezone ? Time::Location.load(event.timezone.not_nil!) : Time::Location.local
       now = Time.local(location: timezone)
       event.event_start >= now.at_beginning_of_day && event.event_start <= now.at_end_of_day
