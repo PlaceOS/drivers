@@ -60,7 +60,6 @@ class Place::EventMailer < PlaceOS::Driver
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
     @debug = setting?(Bool, :debug) || false
 
-    self[:events] = @events.clear
     subscribe_to_all_modules
   end
 
@@ -83,14 +82,20 @@ class Place::EventMailer < PlaceOS::Driver
     staff_api.systems(zone_id: zone_id).get.as_a
   end
 
+  def inspect_event_store
+    @events
+  end
+
   private def process_updated_events(system_id : String, events : Array(PlaceCalendar::Event))
+    logger.debug {"Detected #{events.length} new Events"} if @debug
     selected_events = apply_filter(events)
+    logger.debug {"Filtered to #{selected_events.length} events with filter #{event_filter}"} if @debug
     new_events = if @events[system_id]
                    @events[system_id] - selected_events
                  else
                    selected_events
                  end
-    @events[system_id] = selected_events # Store the updated list of events
+    @events[system_id] = new_events # Store the updated list of events
     new_events.each { |event| send_event_email(event, system_id) }
   end
 
