@@ -208,6 +208,6 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   # Will be lowercase letters and numbers
   private def generate_password(length : Int32 = @password_length)
     length ||= @password_length
-    UUID.random.to_s[0..length]
+    Random::Secure.base64(length)
   end
 end

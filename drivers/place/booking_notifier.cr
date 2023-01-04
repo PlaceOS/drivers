@@ -412,6 +412,7 @@ class Place::BookingNotifier < PlaceOS::Driver
 
   # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
   def random_password(length : Int32? = 6)
-    UUID.random.to_s[0..length]
+    length ||= 6
+    Random::Secure.base64(length)
   end
 end
