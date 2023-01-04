@@ -87,9 +87,9 @@ class Place::EventMailer < PlaceOS::Driver
   end
 
   private def process_updated_events(system_id : String, events : Array(PlaceCalendar::Event))
-    logger.debug {"Detected #{events.length} new Events"} if @debug
+    logger.debug {"Detected #{events.size} new Events"} if @debug
     selected_events = apply_filter(events)
-    logger.debug {"Filtered to #{selected_events.length} events with filter #{event_filter}"} if @debug
+    logger.debug {"Filtered to #{selected_events.size} events with filter #{@event_filter}"} if @debug
     new_events = if @events[system_id]
                    @events[system_id] - selected_events
                  else
