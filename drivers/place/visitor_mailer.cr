@@ -18,6 +18,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     send_reminders:    "0 7 * * *",
     reminder_template: "visitor",
+    disable_qr_code:   false,
   })
 
   accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
@@ -40,6 +41,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   @visitor_emails_sent : UInt64 = 0_u64
   @visitor_email_errors : UInt64 = 0_u64
+  @disable_qr_code : Bool = false
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
   @date_time_format : String = "%c"
@@ -58,6 +60,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
     @send_reminders = setting?(String, :send_reminders).presence
     @reminder_template = setting?(String, :reminder_template) || "visitor"
+    @disable_qr_code = setting?(Bool, :disable_qr_code) || false
 
     time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -198,7 +201,18 @@ class Place::VisitorMailer < PlaceOS::Driver
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
-    qr_png = mailer.generate_png_qrcode(text: "VISIT:#{visitor_email},#{resource_id},#{event_id},#{host_email}", size: 256).get.as_s
+    attach = if @disable_qr_code
+               [] of NamedTuple(file_name: String, content: String, content_id: String)
+             else
+               qr_png = mailer.generate_png_qrcode(text: "VISIT:#{visitor_email},#{resource_id},#{event_id},#{host_email}", size: 256).get.as_s
+               [
+                 {
+                   file_name:  "qr.png",
+                   content:    qr_png,
+                   content_id: visitor_email,
+                 },
+               ]
+             end
 
     mailer.send_template(
       visitor_email,
@@ -214,13 +228,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_start:   local_start_time.to_s(@time_format),
       event_date:    local_start_time.to_s(@date_format),
     },
-      [
-        {
-          file_name:  "qr.png",
-          content:    qr_png,
-          content_id: visitor_email,
-        },
-      ]
+      attach
     )
   end
 
