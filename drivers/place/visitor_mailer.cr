@@ -21,7 +21,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     disable_qr_code:          false,
     send_network_credentials: false,
     network_password_length:  6,
-    debug: false
+    debug:                    false,
   })
 
   accessor staff_api : StaffAPI_1
@@ -39,7 +39,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   @time_zone : Time::Location = Time::Location.load("GMT")
-  
+
   @debug : Bool = false
   @users_checked_in : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
@@ -62,7 +62,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @network_password_length = 6
 
   def on_update
-    @debug  = setting?(Bool, :debug) || true
+    @debug = setting?(Bool, :debug) || true
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"

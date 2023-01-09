@@ -72,13 +72,12 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
 
     internal_user = Models::InternalUser.from_json(
       {
-        name: name,
-        email: email,
-        password: password,
-        first_name: first_name,
-        last_name: last_name,
-        description: description
-        # custom_attributes: custom_attributes
+        name:        name,
+        email:       email,
+        password:    password,
+        first_name:  first_name,
+        last_name:   last_name,
+        description: description # custom_attributes: custom_attributes
       }.to_json)
 
     logger.debug { "Creating Internal User: #{internal_user.to_json}" } if @debug
