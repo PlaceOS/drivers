@@ -70,17 +70,16 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     name ||= email
     password ||= generate_password
 
-    # Not sure if this response is still accurate for ISEv3, todo: check it and align with ISEv3's response
-    # return {"username" => username, "password" => generate_password}.merge(@custom_data) if @test_mode
-
-    # Is there a one line way of doing this?
-    internal_user = Models::InternalUser.from_json({name: name}.to_json)
-    internal_user.email = email
-    internal_user.password = password
-    internal_user.first_name = first_name
-    internal_user.last_name = last_name
-    internal_user.description = description
-    # internal_user.custom_attributes = custom_attributes
+    internal_user = Models::InternalUser.from_json(
+      {
+        name: name,
+        email: email,
+        password: password,
+        first_name: first_name,
+        last_name: last_name,
+        description: description
+        # custom_attributes: custom_attributes
+      }.to_json)
 
     logger.debug { "Creating Internal User: #{internal_user.to_json}" } if @debug
 
