@@ -31,11 +31,11 @@ class Leviton::Acquisuite < PlaceOS::Driver
   end
 
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
-    logger.debug do
+    logger.info do
       "Received Webhook\n" +
-        "Method: #{method.inspect}\n" +
-        "Headers:\n#{headers.inspect}\n" +
-        "Body:\n#{body.inspect}"
+      "Method: #{method.inspect}\n" +
+      "Headers:\n#{headers.inspect}\n" +
+      "Body:\n#{body.inspect}"
     end if @debug_webhook
     case method.downcase
     when "post"
@@ -56,10 +56,12 @@ class Leviton::Acquisuite < PlaceOS::Driver
       when "LOGFILEUPLOAD"
         files = files.not_nil!
         return log_file_upload(files, form_data)
+      else
+        {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "Invalid mode passed. Either CONFIGFILEMANIFEST, CONFIGFILEUPLOAD or LOGFILEUPLOAD required. Got #{form_data["MODE"]}"}
       end
     end
   rescue error
-    logger.warn(exception: error) { "processing webhook request" }
+    logger.warn(exception: error) { "processing webhook request: #{body.inspect}" }
     {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, error.message.to_s}
   end
 
