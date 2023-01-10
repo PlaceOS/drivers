@@ -33,9 +33,9 @@ class Leviton::Acquisuite < PlaceOS::Driver
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
     logger.info do
       "Received Webhook\n" +
-      "Method: #{method.inspect}\n" +
-      "Headers:\n#{headers.inspect}\n" +
-      "Body:\n#{body.inspect}"
+        "Method: #{method.inspect}\n" +
+        "Headers:\n#{headers.inspect}\n" +
+        "Body:\n#{body.inspect}"
     end if @debug_webhook
     case method.downcase
     when "post"
@@ -97,7 +97,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
       end
       self["mb-%03d" % modbus_index] = reading.dup
     end
-    return {HTTP::Status::OK.to_i, {} of String => String, ""}
+    {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
 
   protected def config_file_upload(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), form_data : URI::Params)
@@ -113,7 +113,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
     # Now update our config list with the new config
     store_config(form_data["MODBUSDEVICE"], config_file)
-    return {HTTP::Status::OK.to_i, {} of String => String, ""}
+    {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
 
   protected def get_file(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), name : String)
