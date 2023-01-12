@@ -1,12 +1,14 @@
+require "placeos-driver"
 require "set"
 require "jwt"
 require "s2_cells"
 require "simple_retry"
-require "placeos-driver"
+require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/locatable"
 
 class Cisco::DNASpaces < PlaceOS::Driver
   include Interface::Locatable
+  include Interface::Sensor
 
   # Discovery Information
   descriptive_name "Cisco DNA Spaces"
@@ -279,7 +281,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
             if !payload.has_position?
               iot_payload = payload.as(IotTelemetry)
               # process other IoT telemetry such as presense or temperature etc
-              self[iot_payload.device.mac_address] = payload
+              self[format_mac(iot_payload.device.mac_address)] = payload
               next
             end
 
@@ -635,3 +637,4 @@ class Cisco::DNASpaces < PlaceOS::Driver
 end
 
 require "./dna_spaces/events"
+require "./dna_spaces/sensor_interface"
