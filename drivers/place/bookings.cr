@@ -36,6 +36,7 @@ class Place::Bookings < PlaceOS::Driver
 
     # This image is displayed along with the capacity when the room is not bookable
     room_image: "https://domain.com/room_image.svg",
+    sensor_mac: "device-mac",
   })
 
   accessor calendar : Calendar_1
@@ -58,6 +59,7 @@ class Place::Bookings < PlaceOS::Driver
 
   @sensor_stale_minutes : Time::Span = 8.minutes
   @perform_sensor_search : Bool = true
+  @sensor_mac : String? = nil
 
   def on_load
     monitor("staff/event/changed") { |_subscription, payload| check_change(payload) }
@@ -125,6 +127,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:custom_qr_color] = setting?(String, :custom_qr_color)
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
+
+    self[:sensor_mac] = @sensor_mac = setting?(String, :sensor_mac)
   end
 
   # This is how we check the rooms status
@@ -438,14 +442,22 @@ class Place::Bookings < PlaceOS::Driver
     end
 
     # Prefer people count data in a space
-    count_data = drivers.sensors("people_count").get.flat_map(&.as_a).first?
+    count_data = drivers.sensors("people_count", @sensor_mac).get.flat_map(&.as_a).first?
 
     if count_data && count_data["module_id"]?.try(&.raw.is_a?(String))
       if !is_stale?(count_data["last_seen"]?.try &.as_i64)
         self[:sensor_name] = count_data["name"].as_s
 
-        @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, count_data["binding"].as_s) do |_sub, payload|
-          value = (Float64 | Nil).from_json payload
+        # the binding might be multiple layers deep
+        binding_keys = count_data["binding"].as_s.split("->")
+        binding = binding_keys.shift
+        @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, binding) do |_sub, payload|
+          data = JSON.parse payload
+          binding_keys.each do |key|
+            data = data.dig? key
+            break unless data
+          end
+          value = data ? data.as_f : nil
           if value
             self[:people_count] = value
             self[:presence] = value > 0.0
@@ -462,13 +474,21 @@ class Place::Bookings < PlaceOS::Driver
       self[:people_count] = nil
 
       # Fallback to checking for presence
-      presence = drivers.sensors("presence").get.flat_map(&.as_a).first?
+      presence = drivers.sensors("presence", @sensor_mac).get.flat_map(&.as_a).first?
       if presence && presence["module_id"]?.try(&.raw.is_a?(String))
         if !is_stale?(presence["last_seen"]?.try &.as_i64)
           self[:sensor_name] = presence["name"].as_s
 
-          @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, presence["binding"].as_s) do |_sub, payload|
-            value = (Float64 | Nil).from_json payload
+          # the binding might be multiple layers deep
+          binding_keys = presence["binding"].as_s.split("->")
+          binding = binding_keys.shift
+          @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, binding) do |_sub, payload|
+            data = JSON.parse payload
+            binding_keys.each do |key|
+              data = data.dig? key
+              break unless data
+            end
+            value = data ? data.as_f : nil
             self[:presence] = value ? value > 0.0 : nil
           end
           @perform_sensor_search = false
