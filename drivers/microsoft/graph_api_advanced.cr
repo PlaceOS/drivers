@@ -31,7 +31,7 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     @client = Office365::Client.new(**credentials)
   end
 
-  private def get(path : String, query_params : URI::Params? = nil)
+  def get(path : String, query_params : URI::Params? = nil)
     @client.not_nil!.graph_request(
       @client.not_nil!.graph_http_request(
         request_method: "GET",
@@ -41,7 +41,7 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     )
   end
 
-  private def post(path : String, query_params : URI::Params? = nil, body : String? = nil)
+  def post(path : String, query_params : URI::Params? = nil, body : String? = nil)
     @client.not_nil!.graph_request(
       @client.not_nil!.graph_http_request(
         request_method: "POST",
@@ -52,7 +52,7 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     )
   end
 
-  private def put(path : String, query_params : URI::Params? = nil, body : String? = nil)
+  def put(path : String, query_params : URI::Params? = nil, body : String? = nil)
     @client.not_nil!.graph_request(
       @client.not_nil!.graph_http_request(
         request_method: "PUT",
