@@ -73,7 +73,8 @@ class Cisco::DNASpaces
         id: type.to_s,
         name: "#{device_name} #{device.device.type} (#{type})",
         module_id: module_id,
-        binding: binding
+        binding: binding,
+        unit: unit
       )
 
       sensor.building = building
