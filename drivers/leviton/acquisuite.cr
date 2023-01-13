@@ -2,6 +2,8 @@ require "http"
 require "placeos-driver"
 require "csv"
 require "action-controller/body_parser"
+require "compress/gzip"
+require "base64"
 
 class Leviton::Acquisuite < PlaceOS::Driver
   descriptive_name "Leviton Acquisuite Webhook"
@@ -45,6 +47,9 @@ class Leviton::Acquisuite < PlaceOS::Driver
       files, form_data = ActionController::BodyParser.extract_form_data(request, "multipart/form-data", request.query_params)
       form_data = form_data.not_nil!
       case form_data["MODE"]
+      # This is the server checking the status of our webhook so just 200 back
+      when "STATUS"
+        return {HTTP::Status::OK.to_i, {} of String => String, ""}
       # This is the server asking for a list of devices which we need the config files
       when "CONFIGFILEMANIFEST"
         return {HTTP::Status::OK.to_i, {} of String => String, device_to_manifest.join("\n")}
@@ -118,8 +123,25 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
   protected def get_file(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), name : String)
     file = files.not_nil!
-    file_contents = file[name][0]
-    {file_contents.body.gets_to_end, file_contents}
+    file_object = file[name][0]
+    file_contents = file_object.body.gets_to_end
+    puts "GOT TO HERE, CONTENTS:"
+    puts file_contents.inspect
+    puts "------"
+    # If the file is gzipped then unzip it
+    file_name = file_object.filename 
+    if file_name && file_name[-3..-1] == ".gz"
+      puts "GOT TO HERE 2"      
+      Compress::Gzip::Reader.open(Base64.decode_string(IO::Memory.new(file_contents))) do |gzip|
+        puts "GOT TO HERE 3"
+        gzip.gets_to_end
+      end
+      puts "UNZIPPED:"
+      puts file_contents.inspect
+      puts "------"
+    end
+    
+    {file_contents, file_contents}
   end
 
   def device_list
@@ -128,14 +150,14 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
   protected def store_config(modbusid : String, config : String)
     index_max = config.split("\n").map { |line|
-      reg = /POINT(?<index>\d*)(?<name>.*)=(?<value>.*)/.match(line)
+      reg = /POINT(?<index>\d+)(?<name>.*)=(?<value>.*)/.match(line)
       reg[1].to_i if reg
     }.compact.sort.pop
 
     configs = Array.new(index_max + 1, {} of String => (Float64 | String))
 
     config.split("\n").each do |line|
-      reg = /POINT(?<index>\d*)(?<name>.*)=(?<value>.*)/.match(line)
+      reg = /POINT(?<index>\d+)(?<name>.*)=(?<value>.*)/.match(line)
       if reg
         config_index = reg[1].to_i
         column_header = reg[2]
