@@ -42,6 +42,10 @@ class Place::AreaManagement < PlaceOS::Driver
     # If another systems has different desk IDs configured you can add them to
     # desk metadata and then specify the alternative field names here
     # desk_id_mappings: ["floorsensedeskid", "vergesensedeskid"]
+
+    units: {
+      "Temperature" => "Cel",
+    },
   })
 
   alias AreaSetting = NamedTuple(
@@ -89,6 +93,8 @@ class Place::AreaManagement < PlaceOS::Driver
 
   @rounding_precision : UInt32 = 2
 
+  @units = {} of SensorType => String
+
   def on_load
     spawn { rate_limiter }
     spawn(same_thread: true) { update_scheduler }
@@ -133,6 +139,9 @@ class Place::AreaManagement < PlaceOS::Driver
         schedule.every(2.hours + rand(300).seconds, immediate: true) { write_sensor_discovery }
       end
     end
+
+    units = setting?(Hash(String, String), :units) || {} of String => String
+    @units = units.transform_keys { |key| SensorType.parse(key) }
   end
 
   # The location services provider
@@ -214,6 +223,15 @@ class Place::AreaManagement < PlaceOS::Driver
       if sensor.x && (level_id ? sensor.level == level_id : sensor.level)
         # TODO:: calulate the lat, lon and s2 cell id
 
+        # transform different sensor units to a common unit
+        if (curr_unit = sensor.unit) && (desired_unit = @units[sensor.type]?) && curr_unit != desired_unit
+          begin
+            sensor.value = Units::Measurement.new(sensor.value, curr_unit).convert_to(desired_unit).to_f
+            sensor.unit = desired_unit
+          rescue error
+            logger.warn(exception: error) { "failed to convert #{sensor.value} #{curr_unit} => #{desired_unit}" }
+          end
+        end
         levels[sensor.level] << sensor
       end
     end
@@ -523,7 +541,7 @@ class Place::AreaManagement < PlaceOS::Driver
     self[:overview] = @level_counts.transform_values { |details| build_level_stats(**details) }
   end
 
-  def is_inside?(x : Float64, y : Float64, area_id : String)
+  def is_inside?(x : Float64, y : Float64, area_id : String) : Bool
     area = @areas[area_id]
     area.polygon.contains(x, y)
   end
