@@ -6,7 +6,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
 
   # First, we need to receive some failed LOGFILEUPLOAD requests to work out our list of devices
   test_devices.each do |device_name|
-    dev_log = File.read("/app/repositories/local/drivers/leviton/#{device_name}.log")
+    dev_log = File.read("/app/repositories/local/drivers/leviton/#{device_name}.63BD5AFD_2.log.gz")
     body = create_request(
       "LOGFILEUPLOAD",
       "Temp Inputs / Branch Circuits",
@@ -14,7 +14,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
       "9a6d278642b64db73c754271de733758",
       "2022-09-12 21:25:55",
       "LOGFILE",
-      "modbus/#{device_name}.log",
+      "modbus/#{device_name}.63BD5AFD_2.log",
       dev_log
     )
     body = body.gsub("\n", "\r\n")
@@ -63,7 +63,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   body = body.gsub("\n", "\r\n")
   resp = exec(:receive_webhook, "POST", headers, body).get
 
-  dev_log = File.read("/app/repositories/local/drivers/leviton/mb-001.log")
+  dev_log = File.read("/app/repositories/local/drivers/leviton/mb-002.63BD5AFD_2.log.gz")
 
   # Now, finally, send an actual log file
   body = create_request(
@@ -73,7 +73,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
     "9a6d278642b64db73c754271de733758",
     "2022-09-12 21:25:55",
     "LOGFILE",
-    "tmp_name",
+    "mb-002.63BD5AFD_2.log.gz",
     dev_log
   )
   body = body.gsub("\n", "\r\n")
