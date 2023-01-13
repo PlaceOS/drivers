@@ -91,7 +91,8 @@ class Cisco::DNASpaces
     return NO_MATCH if filter && !filter.in?(IOT_SENSORS)
 
     if mac
-      device = @locations[format_mac(mac)]?
+      mac = format_mac(mac)
+      device = devices { |dev| dev[mac]? }
       return NO_MATCH unless device
       return case device
       in IotTelemetry
@@ -101,7 +102,8 @@ class Cisco::DNASpaces
       end
     end
 
-    @locations.values.flat_map do |device|
+    device_values = devices &.values
+    device_values.flat_map do |device|
       case device
       in IotTelemetry
         to_sensors(zone_id, filter, device)
@@ -115,7 +117,8 @@ class Cisco::DNASpaces
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
 
     return nil unless id
-    device = @locations[format_mac(mac)]?
+    mac = format_mac(mac)
+    device = devices { |dev| dev[mac]? }
     return nil unless device
 
     filter = SensorType.parse(id)
