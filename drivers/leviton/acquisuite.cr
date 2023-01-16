@@ -3,7 +3,6 @@ require "placeos-driver"
 require "csv"
 require "action-controller/body_parser"
 require "compress/gzip"
-require "base64"
 
 class Leviton::Acquisuite < PlaceOS::Driver
   descriptive_name "Leviton Acquisuite Webhook"
@@ -62,7 +61,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
         files = files.not_nil!
         return log_file_upload(files, form_data)
       else
-        {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "Invalid mode passed. Either CONFIGFILEMANIFEST, CONFIGFILEUPLOAD or LOGFILEUPLOAD required. Got #{form_data["MODE"]}"}
+        {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "Invalid mode passed. Either STATUS, CONFIGFILEMANIFEST, CONFIGFILEUPLOAD or LOGFILEUPLOAD required. Got #{form_data["MODE"]}"}
       end
     end
   rescue error
@@ -72,7 +71,6 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
   protected def log_file_upload(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), form_data : URI::Params)
     log_file, log_contents = get_file(files, "LOGFILE")
-
     # Check whether we have the config for this log file device type
     modbus_index = form_data["MODBUSDEVICE"].to_i
     if !@device_list.any? { |device, config| device.includes?("mb-%03d" % modbus_index) && config[0] != "X" }
@@ -81,7 +79,6 @@ class Leviton::Acquisuite < PlaceOS::Driver
       define_setting(:device_list, @device_list)
       return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
     end
-
     csv = CSV.new(log_file, headers: true)
     # NOTE: This csv.next structure assumes that there will be a header row we don't need
     # if this is not the case we should add logic to check for a header
@@ -125,20 +122,12 @@ class Leviton::Acquisuite < PlaceOS::Driver
     file = files.not_nil!
     file_object = file[name][0]
     file_contents = file_object.body.gets_to_end
-    puts "GOT TO HERE, CONTENTS:"
-    puts file_contents.inspect
-    puts "------"
     # If the file is gzipped then unzip it
     file_name = file_object.filename 
     if file_name && file_name[-3..-1] == ".gz"
-      puts "GOT TO HERE 2"      
-      Compress::Gzip::Reader.open(Base64.decode_string(IO::Memory.new(file_contents))) do |gzip|
-        puts "GOT TO HERE 3"
+      Compress::Gzip::Reader.open(IO::Memory.new(file_contents)) do |gzip|
         gzip.gets_to_end
       end
-      puts "UNZIPPED:"
-      puts file_contents.inspect
-      puts "------"
     end
     
     {file_contents, file_contents}
