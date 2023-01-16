@@ -32,6 +32,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
   end
 
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
+    body = Base64.decode_string(body)
     logger.info do
       "Received Webhook\n" +
         "Method: #{method.inspect}\n" +
