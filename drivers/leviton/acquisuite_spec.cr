@@ -19,13 +19,11 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
     )
     body = body.gsub("\n", "\r\n")
     body = body.gsub("fileplaceholder", dev_log)
-    resp = exec(:receive_webhook, "POST", headers, body).get
+    resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 
     res = exec(:device_list).get
     res = res.not_nil!
     res = Hash(String, Array(String)).from_json(res.to_json)
-    puts "RES IS:"
-    puts res.inspect
     res.keys.any? { |device| device.includes?(device_name) }.should be_true if !res.nil?
   end
 
@@ -40,7 +38,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   BODY
 
   body = body.gsub("\n", "\r\n")
-  resp = exec(:receive_webhook, "POST", headers, body).get
+  resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 
   # We should expect the driver to respond with a manifest containing the list of devices
   resp = resp.not_nil!
@@ -61,7 +59,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   )
 
   body = body.gsub("\n", "\r\n")
-  resp = exec(:receive_webhook, "POST", headers, body).get
+  resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 
   dev_log = File.read("/app/repositories/local/drivers/leviton/mb-001.63BD5AFD_2.log.gz")
 
@@ -78,7 +76,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   )
   body = body.gsub("\n", "\r\n")
   body = body.gsub("fileplaceholder", dev_log)
-  resp = exec(:receive_webhook, "POST", headers, body).get
+  resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 end
 
 # Some of these fields may not be present in every request but
