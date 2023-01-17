@@ -332,4 +332,67 @@ module Cisco::Meraki
       ypos
     end
   end
+
+  struct DeskMappings
+    include JSON::Serializable
+
+    getter serial : String
+    getter level_id : String
+
+    # port_id => desk_id
+    getter ports : Hash(Int32, String)
+  end
+
+  struct ZoneDetails
+    include JSON::Serializable
+
+    property id : String
+    property name : String
+    property tags : Array(String)
+  end
+
+  struct PortStatus
+    include JSON::Serializable
+
+    property mac : String?
+    property desk_id : String
+
+    def initialize(@desk_id, @mac = nil)
+    end
+  end
+
+  enum AlertType
+    PortConnected
+    PortDisconnected
+  end
+
+  struct WebhookAlert
+    include JSON::Serializable
+
+    struct PortData
+      include JSON::Serializable
+
+      @[JSON::Field(key: "portNum")]
+      getter port_num : Int32
+    end
+
+    @[JSON::Field(key: "networkId")]
+    getter network_id : String
+
+    @[JSON::Field(key: "alertTypeId")]
+    getter alert_type : AlertType
+
+    @[JSON::Field(key: "alertData")]
+    getter alert_data : PortData
+
+    @[JSON::Field(key: "deviceSerial")]
+    getter device_serial : String
+
+    @[JSON::Field(key: "sharedSecret")]
+    getter shared_secret : String
+
+    def port_num : Int32
+      alert_data.port_num
+    end
+  end
 end
