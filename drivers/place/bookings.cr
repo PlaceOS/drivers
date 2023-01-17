@@ -457,7 +457,7 @@ class Place::Bookings < PlaceOS::Driver
             data = data.dig? key
             break unless data
           end
-          value = data ? data.as_f : nil
+          value = data ? (data.as_f? || data.as_i).to_f : nil
           if value
             self[:people_count] = value
             self[:presence] = value > 0.0
@@ -488,7 +488,7 @@ class Place::Bookings < PlaceOS::Driver
               data = data.dig? key
               break unless data
             end
-            value = data ? data.as_f : nil
+            value = data ? (data.as_f? || data.as_i).to_f : nil
             self[:presence] = value ? value > 0.0 : nil
           end
           @perform_sensor_search = false
