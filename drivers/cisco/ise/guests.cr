@@ -92,18 +92,18 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     # These custom attributes and any custom attribute needs to be predefined
     # in the ISE GUI.
-    custom_attributes = {
-      "fromDate"           => from_date,
-      "toDate"             => to_date,
-      "location"           => @location.to_s,
-      "companyName"        => company_name,
-      "phoneNumber"        => phone_number,
-      "smsServiceProvider" => sms_service_provider.to_s,
-      "guestType"          => guest_type,
-      "portalId"           => portal_id,
-    } of String => String
+    # custom_attributes = {
+    #   "fromDate"           => from_date,
+    #   "toDate"             => to_date,
+    #   "location"           => @location.to_s,
+    #   "companyName"        => company_name,
+    #   "phoneNumber"        => phone_number,
+    #   "smsServiceProvider" => sms_service_provider.to_s,
+    #   "guestType"          => guest_type,
+    #   "portalId"           => portal_id,
+    # } of String => String
 
-    custom_attributes.merge!(@custom_data)
+    # custom_attributes.merge!(@custom_data)
 
     internal_user.name = username
     internal_user.password = password
@@ -111,7 +111,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     internal_user.last_name = last_name
     internal_user.email = attendee_email
 
-    internal_user.custom_attributes = custom_attributes
+    # internal_user.custom_attributes = custom_attributes
 
     logger.debug { "Internal user: #{internal_user.to_json}" } if @debug
 
