@@ -200,6 +200,16 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     SUCCESS_RESPONSE
   end
 
+  # a webhook for obtaining changes in port status
+  def port_status(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "Webhook Alert received: #{method},\nheaders #{headers},\nbody #{body}" }
+
+    self[:port_update] = WebhookAlert.from_json(body)
+
+    # Return a 200 response
+    SUCCESS_RESPONSE
+  end
+
   protected def rate_limiter
     loop do
       break if @channel.closed?
