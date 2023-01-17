@@ -71,4 +71,11 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     )
     response.body["value"]
   end
+
+  def list_users_managed_devices(user_id : String)
+    response = get(
+      "/v1.0/users/#{user_id}/managedDevices"
+    )
+    response.body["value"]
+  end
 end
