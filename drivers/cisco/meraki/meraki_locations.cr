@@ -140,15 +140,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     disable_username_lookup = setting?(Bool, :disable_username_lookup) || false
 
     # Wired desk data
-    wired_desks = setting?(Array(DeskMappings), :wired_desks) || [] of DeskMappings
-    level_serials = Hash(String, Array(String)).new { |h, k| h[k] = [] of String }
-    desk_mappings = {} of String => DeskMappings
-    wired_desks.each do |switch|
-      level_serials[switch.level_id] << switch.serial
-      desk_mappings[switch.serial] = switch
-    end
-    @wired_desks = desk_mappings
-    @level_serials = level_serials
+    init_wired_port_mappings
 
     schedule.clear
     if @default_network.presence
@@ -300,9 +292,14 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
-  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
+  def poll_clients(
+    network_id : String? = nil,
+    timespan : UInt32 = 900_u32,
+    connection : ConnectionType? = nil,
+    device_serial : String? = nil
+  )
     network_id = network_id.presence || @default_network
-    Array(Client).from_json dashboard.poll_clients(network_id, timespan).get.to_json
+    Array(Client).from_json dashboard.poll_clients(network_id, timespan, connection, device_serial).get.to_json
   end
 
   @client_details : Hash(String, Client) = {} of String => Client
@@ -976,10 +973,26 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   @level_serials : Hash(String, Array(String)) = {} of String => Array(String)
 
   # serial => port => status + mac address?
-  @port_status : Hash(String, Hash(Int32, PortStatus)) = {} of String => Hash(Int32, PortStatus)
+  @port_status : Hash(String, Hash(Int32, PortStatusResponse)) = {} of String => Hash(Int32, PortStatusResponse)
 
   # User lookup helpers using device hostnames
   getter mac_hostnames : Hash(String, String) = {} of String => String
+
+  protected def init_wired_port_mappings
+    @port_status = Hash(String, Hash(Int32, PortStatusResponse)).new { |h, k| h[k] = {} of Int32 => PortStatusResponse }
+
+    wired_desks = setting?(Array(DeskMappings), :wired_desks) || [] of DeskMappings
+    level_serials = Hash(String, Array(String)).new { |h, k| h[k] = [] of String }
+    desk_mappings = {} of String => DeskMappings
+    wired_desks.each do |switch|
+      level_serials[switch.level_id] << switch.serial
+      desk_mappings[switch.serial] = switch
+    end
+    @wired_desks = desk_mappings
+    @level_serials = level_serials
+
+    spawn(same_thread: true) { get_port_status(@wired_desks.keys) }
+  end
 
   def hostname_ownership(hostname : String, username : String?) : Nil
     macs = @mac_hostnames.compact_map { |(mac, host)| host == hostname ? mac : nil }
@@ -992,32 +1005,70 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     end
   end
 
+  # grab all the client data we have (applies to all ports)
+  # grab the port information
+  # check we have a desk mapping for the port
+  # see if we can find the client information for the port
+  protected def get_port_status(devices : Iterable(String))
+    all_clients = poll_clients(@default_network, connection: :wired)
+    devices.each do |serial|
+      begin
+        ports = @port_status[serial]
+
+        Array(PortStatusResponse).from_json(dashboard.ports_statuses(serial).get.to_json).each do |port|
+          # ensure the port has a desk mapping
+          mappings = @wired_desks[serial]
+          desk_id = mappings.ports[port.port]?
+          next unless desk_id
+
+          port.desk_id = desk_id
+          port.switch_serial = serial
+
+          if port.status.connected? && (client = all_clients.find { |c| c.recent_device_serial == serial && c.switch_port == port.port })
+            port.mac = client.mac
+          end
+
+          ports[port.port] = port
+        end
+      rescue error
+        logger.warn(exception: error) { "error querying port statuses for #{serial}" }
+      end
+    end
+  end
+
   private def port_updated(_subscription, new_value)
     details = WebhookAlert.from_json(new_value)
     logger.debug { "switch #{details.device_serial}, port #{details.port_num} = #{details.alert_type}" }
 
-    # TODO:: query the switch for the port status
-
+    # query the switch for the port status
+    get_port_status({details.device_serial})
   rescue error
     logger.warn(exception: error) { "failed to parse port update\n#{new_value.inspect}" }
   end
 
   # grabs the wired desk data for a level
   def wired_desk_locations(zone_id : String)
+    return_empty_spaces = @return_empty_spaces
+
     serials = @level_serials[zone_id]? || [] of String
     serials.compact_map { |serial|
       ports = @port_status[serial]?
       next unless ports
 
-      ports.map do |(port_num, status)|
+      ports.map do |(port_num, port)|
+        occupied = port.status.connected? ? 1 : 0
+
+        # Do we want to return empty desks (depends on the frontend)
+        next if !return_empty_spaces && occupied == 0
+
         {
           location:    "desk",
-          at_location: 1,
-          map_id:      status.desk_id,
+          at_location: occupied,
+          map_id:      port.desk_id,
           level:       zone_id,
           building:    @building_zone,
           capacity:    1,
-          mac:         status.mac,
+          mac:         port.mac,
           port:        port_num,
         }
       end
