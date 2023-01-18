@@ -599,6 +599,8 @@ class Place::StaffAPI < PlaceOS::Driver
     true
   end
 
+  # ===================================
+
   @[Security(Level::Support)]
   def signal(channel : String, payload : JSON::Any? = nil)
     placeos_client.root.signal(channel, payload)
