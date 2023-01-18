@@ -3,6 +3,7 @@ require "placeos-driver/interface/mailer"
 require "digest/md5"
 require "placeos"
 require "file"
+require "uuid"
 
 require "./booking_model"
 
@@ -16,16 +17,19 @@ class Place::BookingNotifier < PlaceOS::Driver
     date_time_format: "%c",
     time_format:      "%l:%M%p",
     date_format:      "%A, %-d %B",
+    debug:            false,
 
     booking_type:        "desk",
     disable_attachments: true,
 
     notify: {
       zone_id1: {
-        name:                 "Sydney Building 1",
-        email:                ["concierge@place.com"],
-        notify_manager:       true,
-        notify_booking_owner: true,
+        name:                        "Sydney Building 1",
+        email:                       ["concierge@place.com"],
+        notify_manager:              true,
+        notify_booking_owner:        true,
+        include_network_credentials: false,
+        network_password_length:     6,
       },
       zone_id2: {
         name:                 "Melb Building",
@@ -36,8 +40,10 @@ class Place::BookingNotifier < PlaceOS::Driver
   })
 
   accessor staff_api : StaffAPI_1
+  accessor network_provider : NetworkAccess_1 # Written for Cisco ISE Driver, but ideally compatible with others
 
   # We want to use the first driver in the system that is a mailer
+
   def mailer
     system.implementing(Interface::Mailer)[0]
   end
@@ -57,6 +63,7 @@ class Place::BookingNotifier < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
+  @debug : Bool = false
 
   @booking_type : String = "desk"
   @bookings_checked : UInt64 = 0_u64
@@ -75,6 +82,8 @@ class Place::BookingNotifier < PlaceOS::Driver
     getter attachments : Hash(String, String) { {} of String => String }
     getter notify_manager : Bool?
     getter notify_booking_owner : Bool?
+    getter include_network_credentials : Bool?
+    getter network_password_length : Int32?
   end
 
   def on_update
@@ -85,6 +94,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+    @debug = setting?(Bool, :debug) || false
 
     @notify_lookup = setting(Hash(String, SiteDetails), :notify)
     attach = setting?(Bool, :disable_attachments)
@@ -127,6 +137,11 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     attach = attachments.first?
 
+    network_username = network_password = nil
+    if notify_details.include_network_credentials
+      network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length))
+    end
+
     args = {
       booking_id:     booking_details.id,
       start_time:     starting.to_s(@time_format),
@@ -155,6 +170,9 @@ class Place::BookingNotifier < PlaceOS::Driver
 
       attachment_name: attach.try &.[](:file_name),
       attachment_url:  attach.try &.[](:uri),
+
+      network_username: network_username,
+      network_password: network_password,
     }
 
     attachments.clear if @disable_attachments
@@ -302,6 +320,12 @@ class Place::BookingNotifier < PlaceOS::Driver
 
       attach = attachments.first?
 
+      notify_details = @notify_lookup[building_zone]
+      network_username = network_password = nil
+      if notify_details.include_network_credentials
+        network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length))
+      end
+
       args = {
         booking_id:     booking_details.id,
         start_time:     starting.to_s(@time_format),
@@ -327,6 +351,9 @@ class Place::BookingNotifier < PlaceOS::Driver
 
         attachment_name: attach.try &.[](:file_name),
         attachment_url:  attach.try &.[](:uri),
+
+        network_username: network_username,
+        network_password: network_password,
       }
 
       attachments.clear if @disable_attachments
@@ -364,5 +391,28 @@ class Place::BookingNotifier < PlaceOS::Driver
   rescue error
     logger.warn { "failed to email manager of #{staff_email}\n#{error.inspect_with_backtrace}" }
     nil
+  end
+
+  def update_network_user_password(user_email : String, password : String)
+    # Check if they already exist
+    response = network_provider.update_internal_user_password_by_email(user_email, password).get
+    logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}" } if @debug
+  rescue # todo: catch the specific error where the user already exists, instead of any error. Catch other errors in seperate rescue
+    # Create them if they don't already exist
+    create_network_user(user_email, password)
+  else
+    {user_email, password}
+  end
+
+  def create_network_user(user_email : String, password : String)
+    response = network_provider.create_internal_user(email: user_email, name: user_email).get
+    logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
+    {response["name"], password}
+  end
+
+  # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
+  def random_password(length : Int32? = 6)
+    length ||= 6
+    Random::Secure.base64(length)
   end
 end
