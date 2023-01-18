@@ -148,12 +148,36 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
-  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
+  def poll_clients(
+    network_id : String? = nil,
+    timespan : UInt32 = 900_u32,
+    connection : ConnectionType? = nil,
+    device_serial : String? = nil,
+    statuses : String = "Online"
+  )
+    params = URI::Params.build do |form|
+      form.add "perPage", "1000"
+      form.add "timespan", timespan.to_s
+      form.add "statuses[]", statuses
+      form.add "recentDeviceConnections[]", connection.to_s if connection
+    end
+
     clients = [] of Client
-    req_all_pages "/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=#{timespan}" do |response|
+    req_all_pages "/api/v1/networks/#{network_id}/clients?#{params}" do |response|
       clients.concat Array(Client).from_json(response.body)
     end
-    clients
+
+    if device_serial
+      clients.select! { |client| client.recent_device_serial == device_serial }.sort! { |a, b| b.last_seen <=> a.last_seen }
+    else
+      clients.sort! { |a, b| b.last_seen <=> a.last_seen }
+    end
+  end
+
+  def ports_statuses(device_serial : String)
+    req("/api/v1/devices/#{device_serial}/switch/ports/statuses") do |response|
+      Array(PortStatusResponse).from_json(response.body)
+    end
   end
 
   def get_zones(camera_serial : String)
