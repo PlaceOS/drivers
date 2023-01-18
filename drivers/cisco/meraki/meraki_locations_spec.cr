@@ -87,10 +87,22 @@ class MQTTMock < DriverSpecs::MockDriver
   end
 end
 
+# :nodoc:
+class StaffAPIMock < DriverSpecs::MockDriver
+  def zone(id : String)
+    {
+      id:   "zone-building",
+      tags: ["building"],
+      name: "building zone",
+    }
+  end
+end
+
 DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
   system({
     Dashboard:  {DashboardMock},
     MerakiMQTT: {MQTTMock},
+    StaffAPI:   {StaffAPIMock},
   })
 
   sleep 0.5
