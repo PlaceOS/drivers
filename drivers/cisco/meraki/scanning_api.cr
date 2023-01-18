@@ -128,10 +128,13 @@ module Cisco::Meraki
     property first_seen : String
 
     @[JSON::Field(key: "lastSeen")]
-    property last_seen : String
+    property last_seen : Time
 
     property manufacturer : String?
     property os : String?
+
+    @[JSON::Field(key: "recentDeviceSerial")]
+    property recent_device_serial : String?
 
     @[JSON::Field(key: "recentDeviceMac")]
     property recent_device_mac : String?
@@ -143,6 +146,9 @@ module Cisco::Meraki
 
     @[JSON::Field(ignore: true)]
     property! time_added : Time
+
+    @[JSON::Field(ignore: true)]
+    getter switch_port : Int32 { @switchport.as(String).to_i }
   end
 
   class RSSI
@@ -331,5 +337,96 @@ module Cisco::Meraki
       @x, ypos = mid_point
       ypos
     end
+  end
+
+  struct DeskMappings
+    include JSON::Serializable
+
+    getter serial : String
+    getter level_id : String
+
+    # port_id => desk_id
+    getter ports : Hash(Int32, String)
+  end
+
+  struct ZoneDetails
+    include JSON::Serializable
+
+    property id : String
+    property name : String
+    property tags : Array(String)
+  end
+
+  enum ConnectionType
+    Wired
+    Wireless
+  end
+
+  enum AlertType
+    PortConnected
+    PortDisconnected
+  end
+
+  struct WebhookAlert
+    include JSON::Serializable
+
+    struct PortData
+      include JSON::Serializable
+
+      @[JSON::Field(key: "portNum")]
+      getter port_num : Int32
+    end
+
+    @[JSON::Field(key: "networkId")]
+    getter network_id : String
+
+    @[JSON::Field(key: "alertTypeId")]
+    getter alert_type : AlertType
+
+    @[JSON::Field(key: "alertData")]
+    getter alert_data : PortData
+
+    @[JSON::Field(key: "deviceSerial")]
+    getter device_serial : String
+
+    @[JSON::Field(key: "sharedSecret")]
+    getter shared_secret : String
+
+    def port_num : Int32
+      alert_data.port_num
+    end
+  end
+
+  enum PortState
+    Connected
+    Disconnected
+  end
+
+  class PortStatusResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "portId")]
+    getter port_id : String
+
+    @[JSON::Field(ignore: true)]
+    getter port : Int32 { port_id.to_i }
+
+    getter? enabled : Bool
+    getter status : PortState
+
+    @[JSON::Field(key: "isUplink")]
+    getter? is_uplink : Bool
+
+    @[JSON::Field(ignore: true)]
+    property! switch_serial : String
+
+    @[JSON::Field(ignore: true)]
+    property! mac : String
+
+    @[JSON::Field(ignore: true)]
+    property! desk_id : String
+
+    @[JSON::Field(ignore: true)]
+    property! level_id : String
   end
 end

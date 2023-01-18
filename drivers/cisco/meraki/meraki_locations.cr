@@ -18,6 +18,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   description %(requires meraki dashboard driver for API calls)
 
   accessor dashboard : Dashboard_1
+  accessor staff_api : StaffAPI_1
 
   default_settings({
     # We will always accept a reading with a confidence lower than this
@@ -63,7 +64,21 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
     # Where desks have no occupancy
     return_empty_spaces: true,
+
+    # wired desks mappings
+    wired_desks: [
+      {
+        serial:   "switch-serial-number",
+        level_id: "zone-1234",
+        ports:    {
+          11 => "desk-1234",
+          12 => "desk-5678",
+        },
+      },
+    ],
   })
+
+  alias WiredDesks = Hash(String, Hash(Int32, String))
 
   def on_load
     # We want to store our user => mac_address mappings in redis
@@ -75,6 +90,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   @maximum_uncertainty : Float64 = 25.0
   @override_min_variance : Float64 = 0.0
   @regex_filter_device_os : String? = nil
+  getter building_zone : String = "searching..."
 
   @time_multiplier : Float64 = 0.0
   @confidence_multiplier : Float64 = 0.0
@@ -123,6 +139,9 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     @ignore_usernames = setting?(Array(String), :ignore_usernames) || [] of String
     disable_username_lookup = setting?(Bool, :disable_username_lookup) || false
 
+    # Wired desk data
+    init_wired_port_mappings
+
     schedule.clear
     if @default_network.presence
       schedule.every(59.seconds) { update_sensor_cache }
@@ -143,6 +162,9 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         parse_new_locations(new_value)
       end
     end
+
+    zones = config.control_system.not_nil!.zones
+    spawn(same_thread: true) { find_building(zones) }
 
     # Grab desk data from the MQTT connection
     if system.exists? :MerakiMQTT
@@ -167,6 +189,21 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         end
       end
     end
+  end
+
+  # grab building zone from the current system
+  protected def find_building(zones : Array(String)) : Nil
+    zones.each do |zone_id|
+      zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+      if zone.tags.includes?("building")
+        @building_zone = zone.id
+        break
+      end
+    end
+    raise "no building zone found in System" unless @building_zone
+  rescue error
+    logger.warn(exception: error) { "error looking up building zone" }
+    schedule.in(5.seconds) { find_building(zones) }
   end
 
   protected def check_camera_status(mqtt_module, camera_serial)
@@ -255,9 +292,14 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   end
 
   @[Security(PlaceOS::Driver::Level::Support)]
-  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
+  def poll_clients(
+    network_id : String? = nil,
+    timespan : UInt32 = 900_u32,
+    connection : ConnectionType? = nil,
+    device_serial : String? = nil
+  )
     network_id = network_id.presence || @default_network
-    Array(Client).from_json dashboard.poll_clients(network_id, timespan).get.to_json
+    Array(Client).from_json dashboard.poll_clients(network_id, timespan, connection, device_serial).get.to_json
   end
 
   @client_details : Hash(String, Client) = {} of String => Client
@@ -280,6 +322,11 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         # So we can merge additional details into device location responses
         user_mac = format_mac(client.mac)
         client.time_added = now
+
+        # Store the mac to hostname lookups to help with learning
+        if hostname = client.description
+          @mac_hostnames[user_mac] = hostname
+        end
 
         user_id = client.user
 
@@ -464,13 +511,19 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     when "wireless"
       wireless_locations(zone_id)
     when "desk"
-      desk_locations(zone_id)
+      desk_locs = wired_desk_locations(zone_id)
+      cam_locs = desk_locations(zone_id)
+      combind = Array(typeof(cam_locs[0]) | typeof(desk_locs[0])).new(cam_locs.size + desk_locs.size)
+      combind.concat(desk_locs)
+      combind.concat(cam_locs)
     when nil
       wireless_locs = wireless_locations(zone_id)
-      desk_locs = desk_locations(zone_id)
-      combind = Array(typeof(wireless_locs[0]) | typeof(desk_locs[0])).new(wireless_locs.size + desk_locs.size)
+      desk_locs = wired_desk_locations(zone_id)
+      cam_locs = desk_locations(zone_id)
+      combind = Array(typeof(wireless_locs[0]) | typeof(cam_locs[0]) | typeof(desk_locs[0])).new(wireless_locs.size + cam_locs.size + desk_locs.size)
       combind.concat(wireless_locs)
       combind.concat(desk_locs)
+      combind.concat(cam_locs)
     else
       [] of String
     end
@@ -907,6 +960,121 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     end
   end
 
+  # ==========================
+  # Wired Port Sensing / desks
+  # ==========================
+
+  bind Dashboard_1, :port_update, :port_updated
+
+  # Serial => level + port mappings
+  @wired_desks : Hash(String, DeskMappings) = {} of String => DeskMappings
+
+  # level_id => [switch serial numbers]
+  @level_serials : Hash(String, Array(String)) = {} of String => Array(String)
+
+  # serial => port => status + mac address?
+  @port_status : Hash(String, Hash(Int32, PortStatusResponse)) = {} of String => Hash(Int32, PortStatusResponse)
+
+  # User lookup helpers using device hostnames
+  getter mac_hostnames : Hash(String, String) = {} of String => String
+
+  protected def init_wired_port_mappings
+    @port_status = Hash(String, Hash(Int32, PortStatusResponse)).new { |h, k| h[k] = {} of Int32 => PortStatusResponse }
+
+    wired_desks = setting?(Array(DeskMappings), :wired_desks) || [] of DeskMappings
+    level_serials = Hash(String, Array(String)).new { |h, k| h[k] = [] of String }
+    desk_mappings = {} of String => DeskMappings
+    wired_desks.each do |switch|
+      level_serials[switch.level_id] << switch.serial
+      desk_mappings[switch.serial] = switch
+    end
+    @wired_desks = desk_mappings
+    @level_serials = level_serials
+
+    spawn(same_thread: true) { get_port_status(@wired_desks.keys) }
+  end
+
+  def hostname_ownership(hostname : String, username : String?) : Nil
+    macs = @mac_hostnames.compact_map { |(mac, host)| host == hostname ? mac : nil }
+
+    if username && username.presence
+      user_mac_mappings { |storage| macs.each { |mac| map_user_mac(mac, username, storage) } }
+    else
+      # just in case the client doesn't show up again, we don't need to perform lookups
+      macs.each { |mac| @mac_hostnames.delete mac }
+    end
+  end
+
+  # grab all the client data we have (applies to all ports)
+  # grab the port information
+  # check we have a desk mapping for the port
+  # see if we can find the client information for the port
+  protected def get_port_status(devices : Iterable(String))
+    all_clients = poll_clients(@default_network, connection: :wired)
+    devices.each do |serial|
+      begin
+        ports = @port_status[serial]
+
+        Array(PortStatusResponse).from_json(dashboard.ports_statuses(serial).get.to_json).each do |port|
+          # ensure the port has a desk mapping
+          mappings = @wired_desks[serial]
+          desk_id = mappings.ports[port.port]?
+          next unless desk_id
+
+          port.desk_id = desk_id
+          port.switch_serial = serial
+
+          if port.status.connected? && (client = all_clients.find { |c| c.recent_device_serial == serial && c.switch_port == port.port })
+            port.mac = client.mac
+          end
+
+          ports[port.port] = port
+        end
+      rescue error
+        logger.warn(exception: error) { "error querying port statuses for #{serial}" }
+      end
+    end
+  end
+
+  private def port_updated(_subscription, new_value)
+    details = WebhookAlert.from_json(new_value)
+    logger.debug { "switch #{details.device_serial}, port #{details.port_num} = #{details.alert_type}" }
+
+    # query the switch for the port status
+    get_port_status({details.device_serial})
+  rescue error
+    logger.warn(exception: error) { "failed to parse port update\n#{new_value.inspect}" }
+  end
+
+  # grabs the wired desk data for a level
+  def wired_desk_locations(zone_id : String)
+    return_empty_spaces = @return_empty_spaces
+
+    serials = @level_serials[zone_id]? || [] of String
+    serials.compact_map { |serial|
+      ports = @port_status[serial]?
+      next unless ports
+
+      ports.map do |(port_num, port)|
+        occupied = port.status.connected? ? 1 : 0
+
+        # Do we want to return empty desks (depends on the frontend)
+        next if !return_empty_spaces && occupied == 0
+
+        {
+          location:    "desk",
+          at_location: occupied,
+          map_id:      port.desk_id,
+          level:       zone_id,
+          building:    @building_zone,
+          capacity:    1,
+          mac:         port.mac,
+          port:        port_num,
+        }
+      end
+    }.flatten
+  end
+
   # ======================
   # Sensor interface:
   # ======================
@@ -1000,9 +1168,9 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     to_sensors(nil, filter, **cam_state).find { |sensor| sensor.id == id }
   end
 
-  # ==========
-  # Desk data:
-  # ==========
+  # =================
+  # Camera Desk data:
+  # =================
   # desk_id => [{time, occupied}]
   getter desk_occupancy : Hash(String, Array(Tuple(Int64, Bool)))
 
@@ -1057,9 +1225,9 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     desk_occupation.reject! { |(time, _occupancy)| time < expiry_time }
   end
 
-  # ======================
-  # Desk location service:
-  # ======================
+  # =============================
+  # Camera Desk location service:
+  # =============================
   # zone_id => array of camera serials
   @zone_lookup : Hash(String, Array(String)) = {} of String => Array(String)
 
@@ -1070,9 +1238,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   getter desk_mappings : Hash(String, Array(CameraZone)) = {} of String => Array(CameraZone)
 
   def desk_locations(zone_id : String)
-    serials = @zone_lookup[zone_id]?
-    return [] of Nil if !serials || serials.empty?
-
+    serials = @zone_lookup[zone_id]? || [] of String
     return_empty_spaces = @return_empty_spaces
     expiry_time = desk_data_expiry_time
 
