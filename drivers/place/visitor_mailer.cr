@@ -16,13 +16,17 @@ class Place::VisitorMailer < PlaceOS::Driver
     date_format:        "%A, %-d %B",
     booking_space_name: "Client Floor",
 
-    send_reminders:    "0 7 * * *",
-    reminder_template: "visitor",
-    disable_qr_code:   false,
+    send_reminders:           "0 7 * * *",
+    reminder_template:        "visitor",
+    disable_qr_code:          false,
+    send_network_credentials: false,
+    network_password_length:  6,
+    debug:                    false,
   })
 
-  accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
   accessor staff_api : StaffAPI_1
+  accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
+  accessor network_provider : NetworkAccess_1 # Written for Cisco ISE Driver, but ideally compatible with others
 
   def on_load
     # Guest has been marked as attending a meeting in person
@@ -36,6 +40,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   @time_zone : Time::Location = Time::Location.load("GMT")
 
+  @debug : Bool = false
   @users_checked_in : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
@@ -53,14 +58,19 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   @reminder_template : String = "visitor"
   @send_reminders : String? = nil
+  @send_network_credentials = false
+  @network_password_length = 6
 
   def on_update
+    @debug = setting?(Bool, :debug) || true
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
     @send_reminders = setting?(String, :send_reminders).presence
     @reminder_template = setting?(String, :reminder_template) || "visitor"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
+    @send_network_credentials = setting?(Bool, :send_network_credentials) || false
+    @network_password_length = setting?(Int32, :network_password_length) || 6
 
     time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -214,19 +224,24 @@ class Place::VisitorMailer < PlaceOS::Driver
                ]
              end
 
+    network_username = network_password = ""
+    network_username, network_password = update_network_user_password(visitor_email, random_password) if @send_network_credentials
+
     mailer.send_template(
       visitor_email,
       {"visitor_invited", "visitor"}, # Template selection: "visitor_invited" action, "visitor" email
       {
-      visitor_email: visitor_email,
-      visitor_name:  visitor_name,
-      host_name:     get_host_name(host_email),
-      host_email:    host_email,
-      room_name:     area_name,
-      building_name: building_zone.display_name.presence || building_zone.name,
-      event_title:   event_title,
-      event_start:   local_start_time.to_s(@time_format),
-      event_date:    local_start_time.to_s(@date_format),
+      visitor_email:    visitor_email,
+      visitor_name:     visitor_name,
+      host_name:        get_host_name(host_email),
+      host_email:       host_email,
+      room_name:        area_name,
+      building_name:    building_zone.display_name.presence || building_zone.name,
+      event_title:      event_title,
+      event_start:      local_start_time.to_s(@time_format),
+      event_date:       local_start_time.to_s(@date_format),
+      network_username: network_username,
+      network_password: network_password,
     },
       attach
     )
@@ -317,5 +332,30 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
     sleep 1
     get_host_name(host_email, retries + 1)
+  end
+
+  # For Cisco ISE network credentials
+
+  def update_network_user_password(user_email : String, password : String)
+    # Check if they already exist
+    response = network_provider.update_internal_user_password_by_email(user_email, password).get
+    logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}" } if @debug
+  rescue # todo: catch the specific error where the user already exists, instead of any error. Catch other errors in seperate rescue
+    # Create them if they don't already exist
+    create_network_user(user_email, password)
+  else
+    {user_email, password}
+  end
+
+  def create_network_user(user_email : String, password : String)
+    response = network_provider.create_internal_user(email: user_email, name: user_email).get
+    logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
+    {response["name"], password}
+  end
+
+  # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
+  def random_password(length : Int32? = 6)
+    length ||= @network_password_length
+    Random::Secure.base64(length)
   end
 end

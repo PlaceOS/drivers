@@ -1,32 +1,34 @@
 require "placeos-driver"
 require "./models/internal_user"
+require "uuid"
 
 # Tested with Cisco ISE API v3.1
 # https://developer.cisco.com/docs/identity-services-engine/v1/#!internaluser
 
-class Cisco::Ise::Guests < PlaceOS::Driver
+class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Cisco ISE REST API"
-  generic_name :Guests
+  generic_name :NetworkAccess
   uri_base "https://ise-pan:9060/ers/config"
 
   default_settings({
-    username:    "user",
-    password:    "pass",
-    portal_id:   "Required, ask cisco ISE admins",
-    timezone:    "UTC",
-    guest_type:  "Required, ask cisco ISE admins for valid subset of values",                              # e.g. Contractor
-    location:    "Required for ISE v2.2, ask cisco ISE admins for valid value. Else, remove for ISE v1.4", # e.g. New York
-    custom_data: {} of String => String,
-    debug:       false,
+    username:        "user",
+    password:        "pass",
+    portal_id:       "Required for Guest Users, ask cisco ISE admins",
+    timezone:        "UTC",
+    guest_type:      "Required for Guest Users, ask cisco ISE admins for valid subset of values", # e.g. Contractor
+    custom_data:     {} of String => String,
+    password_length: 6,
+    debug:           false,
+    test_mode:       false,
   })
 
   @basic_auth : String = ""
   @portal_id : String = ""
   @sms_service_provider : String? = nil
   @guest_type : String = "default_guest_type"
+  @password_length : Int32 = 6
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
-  @location : String? = nil
   @custom_data = {} of String => String
 
   TYPE_HEADER = "application/json"
@@ -43,11 +45,12 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     @basic_auth = ["Basic", Base64.strict_encode([username, password].join(":"))].join(" ")
 
     @debug = setting?(Bool, :debug) || false
+    @test_mode = setting?(Bool, :test) || false
 
     @portal_id = setting?(String, :portal_id) || "portal101"
     @guest_type = setting?(String, :guest_type) || "default_guest_type"
-    @location = setting?(String, :location)
     @sms_service_provider = setting?(String, :sms_service_provider)
+    @password_length = setting?(Int32, :password_length) || 6
 
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
@@ -56,64 +59,28 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     logger.debug { "Basic auth details: #{@basic_auth}" } if @debug
   end
 
-  def create_internal(
-    event_start : Int64,
-    attendee_email : String,
-    attendee_name : String,
-    company_name : String? = nil,         # Mandatory but driver will extract from email if not passed
-    phone_number : String = "0123456789", # Mandatory, use a fake value as default
-    sms_service_provider : String? = nil, # Use this param to override the setting
-    guest_type : String? = nil,           # Mandatory but use this param to override the setting
-    portal_id : String? = nil             # Mandatory but use this param to override the setting
+  def create_internal_user(
+    email : String,
+    name : String? = nil,
+    first_name : String? = nil,
+    last_name : String? = nil,
+    description : String? = nil,
+    password : String? = nil
   )
-    # Determine the name of the attendee for ISE
-    guest_names = attendee_name.split
-    first_name_index_end = guest_names.size > 1 ? -2 : -1
-    first_name = guest_names[0..first_name_index_end].join(' ')
-    last_name = guest_names[-1]
-    username = genererate_username(first_name, last_name)
-    password = genererate_password(first_name, last_name)
+    name ||= email
+    password ||= generate_password
 
-    return {"username" => username, "password" => UUID.random.to_s[0..3]}.merge(@custom_data) if setting?(Bool, :test)
+    internal_user = Models::InternalUser.from_json(
+      {
+        name:        name,
+        email:       email,
+        password:    password,
+        first_name:  first_name,
+        last_name:   last_name,
+        description: description, # custom_attributes: custom_attributes
+      }.to_json)
 
-    sms_service_provider ||= @sms_service_provider
-    guest_type ||= @guest_type
-    portal_id ||= @portal_id
-
-    time_object = Time.unix(event_start).in(@timezone)
-    from_date = time_object.at_beginning_of_day.to_s(TIME_FORMAT)
-    to_date = time_object.at_end_of_day.to_s(TIME_FORMAT)
-
-    # If company_name isn't passed
-    # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
-    company_name ||= attendee_email.split('@')[1].split('.')[0].capitalize
-
-    internal_user = Models::InternalUser.from_json(%({}))
-
-    # These custom attributes and any custom attribute needs to be predefined
-    # in the ISE GUI.
-    # custom_attributes = {
-    #   "fromDate"           => from_date,
-    #   "toDate"             => to_date,
-    #   "location"           => @location.to_s,
-    #   "companyName"        => company_name,
-    #   "phoneNumber"        => phone_number,
-    #   "smsServiceProvider" => sms_service_provider.to_s,
-    #   "guestType"          => guest_type,
-    #   "portalId"           => portal_id,
-    # } of String => String
-
-    # custom_attributes.merge!(@custom_data)
-
-    internal_user.name = username
-    internal_user.password = password
-    internal_user.first_name = first_name
-    internal_user.last_name = last_name
-    internal_user.email = attendee_email
-
-    # internal_user.custom_attributes = custom_attributes
-
-    logger.debug { "Internal user: #{internal_user.to_json}" } if @debug
+    logger.debug { "Creating Internal User: #{internal_user.to_json}" } if @debug
 
     response = post("/internaluser/", body: {"InternalUser" => internal_user}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
@@ -123,11 +90,10 @@ class Cisco::Ise::Guests < PlaceOS::Driver
 
     logger.debug { "Response: #{response.status_code}, #{response.body}" } if @debug
 
-    raise "failed to create internal user, code #{response.status_code}\n#{response.body}" unless response.success?
+    raise "Failed to create internal user, code #{response.status_code}\n#{response.body}" unless response.success?
 
-    user = get_internal_user_by_name(username)
+    user = get_internal_user_by_email(email)
     user.password = password
-
     user
   end
 
@@ -185,7 +151,8 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     get_internal_user_by_id(resources.first.as_h.["id"].to_s)
   end
 
-  def update_internal_user_password_by_id(id : String, password : String)
+  def update_internal_user_password_by_id(id : String, password : String? = nil)
+    password ||= generate_password
     internal_user = get_internal_user_by_id(id)
 
     response = put("/internaluser/#{internal_user.id}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
@@ -199,21 +166,46 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
-  def update_internal_user_password_by_email(email : String, password : String)
+  def update_internal_user_password_by_email(email : String, password : String? = nil)
+    password ||= generate_password
     internal_user = get_internal_user_by_email(email)
 
     update_internal_user_password_by_id(internal_user.id.to_s, password)
   end
 
-  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
-  # when it will increase to 10
-  private def genererate_username(firstname, lastname)
-    "#{firstname[0].downcase}#{lastname[0].downcase}#{Time.utc.to_unix_ms.to_s(62)}"
-  end
+  # Todo, when ISE doesn't return 401 for Guest related api calls
+  # def create_guest (...)
+  #   # sms_service_provider ||= @sms_service_provider
+  #   # guest_type ||= @guest_type
+  #   # portal_id ||= @portal_id
 
-  # Will be 9 characters in length until 2081-08-05 10:16:46.208000000 UTC
-  # when it will increase to 10
-  private def genererate_password(firstname, lastname)
-    "P!#{lastname[0].downcase}#{firstname[0].downcase}#{Time.utc.to_unix_ms.to_s(31)}"
+  #   # time_object = Time.unix(event_start).in(@timezone)
+  #   # from_date = time_object.at_beginning_of_day.to_s(TIME_FORMAT)
+  #   # to_date = time_object.at_end_of_day.to_s(TIME_FORMAT)
+
+  #   # If company_name isn't passed
+  #   # Hackily grab a company name from the attendee's email (we may be able to grab this from the signal if possible)
+  #   # company_name ||= attendee_email.split('@')[1].split('.')[0].capitalize
+
+  # These custom attributes and any custom attribute needs to be predefined
+  # in the ISE GUI.
+  # custom_attributes = {
+  #   "fromDate"           => from_date,
+  #   "toDate"             => to_date,
+  #   "location"           => @location.to_s,
+  #   "companyName"        => company_name,
+  #   "phoneNumber"        => phone_number,
+  #   "smsServiceProvider" => sms_service_provider.to_s,
+  #   "guestType"          => guest_type,
+  #   "portalId"           => portal_id,
+  # } of String => String
+
+  # custom_attributes.merge!(@custom_data)
+  # end
+
+  # Will be lowercase letters and numbers
+  private def generate_password(length : Int32 = @password_length)
+    length ||= @password_length
+    Random::Secure.base64(length)
   end
 end
