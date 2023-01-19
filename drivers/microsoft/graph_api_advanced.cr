@@ -31,7 +31,7 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     @client = Office365::Client.new(**credentials)
   end
 
-  def get(path : String, query_params : URI::Params? = nil)
+  private def get(path : String, query_params : URI::Params? = nil)
     @client.not_nil!.graph_request(
       @client.not_nil!.graph_http_request(
         request_method: "GET",
@@ -41,7 +41,12 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     )
   end
 
-  def post(path : String, query_params : URI::Params? = nil, body : String? = nil)
+  @[Security(Level::Support)]
+  def get_request(path : String)
+    get(path)
+  end
+
+  private def post(path : String, query_params : URI::Params? = nil, body : String? = nil)
     @client.not_nil!.graph_request(
       @client.not_nil!.graph_http_request(
         request_method: "POST",
@@ -52,7 +57,12 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     )
   end
 
-  def put(path : String, query_params : URI::Params? = nil, body : String? = nil)
+  @[Security(Level::Support)]
+  def post_request(path : String)
+    post(path)
+  end
+
+  private def put(path : String, query_params : URI::Params? = nil, body : String? = nil)
     @client.not_nil!.graph_request(
       @client.not_nil!.graph_http_request(
         request_method: "PUT",
@@ -61,6 +71,11 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
         query: query_params
       )
     )
+  end
+
+  @[Security(Level::Support)]
+  def put_request(path : String)
+    put(path)
   end
 
   def list_managed_devices(filter_device_name : String? = nil)
