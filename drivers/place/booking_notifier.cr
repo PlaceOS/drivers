@@ -21,8 +21,8 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     booking_type:        "desk",
     disable_attachments: true,
-    poll_bookings: false,
-    poll_every_minutes: 5,
+    poll_bookings:       false,
+    poll_every_minutes:  5,
 
     notify: {
       zone_id1: {
@@ -362,7 +362,6 @@ class Place::BookingNotifier < PlaceOS::Driver
         network_username: network_username,
         network_password: network_password,
       }
-      
 
       send_to = emails.dup
       send_to << booking_details.user_email if notify_owner
@@ -374,7 +373,7 @@ class Place::BookingNotifier < PlaceOS::Driver
         end
 
         third_party = booking_details.user_email != booking_details.booked_by_email
-        
+
         mailer.send_template(
           to: send_to,
           template: {"bookings", third_party ? "booked_by_notify" : "booking_notify"},
