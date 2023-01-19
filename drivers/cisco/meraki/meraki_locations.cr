@@ -19,6 +19,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
 
   accessor dashboard : Dashboard_1
   accessor staff_api : StaffAPI_1
+  accessor area_manager : AreaManagement_1
 
   default_settings({
     # We will always accept a reading with a confidence lower than this
@@ -1049,8 +1050,12 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     details = WebhookAlert.from_json(new_value)
     logger.debug { "switch #{details.device_serial}, port #{details.port_num} = #{details.alert_type}" }
 
-    # query the switch for the port status
-    get_port_status({details.device_serial})
+    serial = details.device_serial
+    if mappings = @wired_desks[serial]?
+      # query the switch for the port status
+      get_port_status({serial})
+      area_manager.update_available({mappings.level_id})
+    end
   rescue error
     logger.warn(exception: error) { "failed to parse port update\n#{new_value.inspect}" }
   end
