@@ -1058,7 +1058,12 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   def wired_desk_locations(zone_id : String)
     return_empty_spaces = @return_empty_spaces
 
-    serials = @level_serials[zone_id]? || [] of String
+    serials = if zone_id == @building_zone
+                @level_serials.values.flatten
+              else
+                @level_serials[zone_id]? || [] of String
+              end
+
     serials.compact_map { |serial|
       ports = @port_status[serial]?
       next unless ports
@@ -1073,11 +1078,12 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
           location:    "desk",
           at_location: occupied,
           map_id:      port.desk_id,
-          level:       zone_id,
+          level:       port.level_id,
           building:    @building_zone,
           capacity:    1,
           mac:         port.mac,
           port:        port_num,
+          switch:      port.switch_serial,
         }
       end
     }.flatten
