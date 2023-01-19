@@ -7,6 +7,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   default_settings({
     metadata_key: "people_count",
+    debounce_seconds: 0
   })
 
   accessor staff_api : StaffAPI_1
@@ -24,6 +25,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   getter people_counts : Array(Int32) = [] of Int32
 
   @update_mutex = Mutex.new
+  @debounce_seconds : Int32 = 0
 
   def on_load
     @system_id = config.control_system.not_nil!.id
@@ -32,6 +34,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   def on_update
     @metadata_key = setting?(String, :metadata_key).presence || "people_count"
+    @debounce_seconds = setting?(Int32, :debounce_seconds) || 0
   end
 
   bind Bookings_1, :current_booking, :current_booking_changed
@@ -54,11 +57,18 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     logger.warn(exception: e) { "failed to parse event" }
   end
 
-  private def people_count_changed(_subscription, new_value)
+  private def people_count_changed(_subscription, new_value) : Nil
     logger.debug { "new people count #{new_value}" }
     return if new_value == "null"
     value = (Int32 | Float64).from_json(new_value).to_i
-    people_counts << (value < 0 ? 0 : value)
+    value = value < 0 ? 0 : value
+
+    if @debounce_seconds > 0
+      schedule.clear
+      schedule.in(@debounce_seconds.seconds) { people_counts << value }
+    else
+      people_counts << value
+    end
   end
 
   private def status_changed(_subscription, new_value)
