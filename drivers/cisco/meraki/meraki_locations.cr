@@ -1022,14 +1022,15 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     devices.each do |serial|
       begin
         ports = @port_status[serial]
+        mappings = @wired_desks[serial]
 
         Array(PortStatusResponse).from_json(dashboard.ports_statuses(serial).get.to_json).each do |port|
           # ensure the port has a desk mapping
-          mappings = @wired_desks[serial]
           desk_id = mappings.ports[port.port]?
           next unless desk_id
 
           port.desk_id = desk_id
+          port.level_id = mappings.level_id
           port.switch_serial = serial
 
           if port.status.connected? && (client = all_clients.find { |c| c.recent_device_serial == serial && c.switch_port == port.port })
