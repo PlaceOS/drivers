@@ -50,8 +50,8 @@ class Place::SurveyMailer < PlaceOS::Driver
           to: invite.email,
           template: {@email_template, "invite"},
           args: {
-            email: invite.email,
-            token: invite.token,
+            email:     invite.email,
+            token:     invite.token,
             survey_id: invite.survey_id,
           })
         staff_api.update_survey_invite(sent: true)

@@ -6,8 +6,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   generic_name :EventAttendanceRecorder
 
   default_settings({
-    metadata_key: "people_count",
-    debounce_seconds: 0
+    metadata_key:     "people_count",
+    debounce_seconds: 0,
   })
 
   accessor staff_api : StaffAPI_1
