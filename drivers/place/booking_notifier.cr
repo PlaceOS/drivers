@@ -21,6 +21,8 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     booking_type:        "desk",
     disable_attachments: true,
+    poll_bookings: false,
+    poll_every_minutes: 5,
 
     notify: {
       zone_id1: {
@@ -70,6 +72,8 @@ class Place::BookingNotifier < PlaceOS::Driver
   @error_count : UInt64 = 0_u64
 
   @disable_attachments : Bool = true
+  @poll_bookings : Bool = false
+  @poll_every_minutes : Int32 = 5
 
   # Zone_id => notify settings
   @notify_lookup : Hash(String, SiteDetails) = {} of String => SiteDetails
@@ -99,9 +103,11 @@ class Place::BookingNotifier < PlaceOS::Driver
     @notify_lookup = setting(Hash(String, SiteDetails), :notify)
     attach = setting?(Bool, :disable_attachments)
     @disable_attachments = attach.nil? ? true : !!attach
+    @poll_bookings = setting(Bool, :poll_bookings)
+    @poll_every_minutes = setting(Int32, :poll_every_minutes)
 
     schedule.clear
-    schedule.every(5.minutes) { check_bookings }
+    schedule.every(@poll_every_minutes.minutes) { check_bookings } if @poll_bookings
   end
 
   # Booking id => event, timestamp
@@ -312,13 +318,14 @@ class Place::BookingNotifier < PlaceOS::Driver
     bookings = Array(Booking).from_json(bookings.to_json)
     logger.debug { "checking #{bookings.size} requested bookings in #{building_name}" }
     bookings.each do |booking_details|
+      next unless booking_details.process_state.nil?
       timezone = booking_details.timezone.presence || @time_zone.name
       location = Time::Location.load(timezone)
-
       starting = Time.unix(booking_details.booking_start).in(location)
       ending = Time.unix(booking_details.booking_end).in(location)
 
       attach = attachments.first?
+      attachments.clear if @disable_attachments
 
       notify_details = @notify_lookup[building_zone]
       network_username = network_password = nil
@@ -355,29 +362,26 @@ class Place::BookingNotifier < PlaceOS::Driver
         network_username: network_username,
         network_password: network_password,
       }
+      
 
-      attachments.clear if @disable_attachments
+      send_to = emails.dup
+      send_to << booking_details.user_email if notify_owner
 
       begin
-        if booking_details.process_state.nil?
-          third_party = booking_details.user_email != booking_details.booked_by_email
-
-          send_to = emails.dup
-          send_to << booking_details.user_email if notify_owner
-
-          if notify_manager
-            email = get_manager(booking_details.user_email)
-            send_to << email if email
-          end
-
-          mailer.send_template(
-            to: send_to,
-            template: {"bookings", third_party ? "booked_by_notify" : "booking_notify"},
-            args: args,
-            attachments: attachments
-          )
-          staff_api.booking_state(booking_details.id, "notified").get
+        if notify_manager
+          email = get_manager(booking_details.user_email)
+          send_to << email if email
         end
+
+        third_party = booking_details.user_email != booking_details.booked_by_email
+        
+        mailer.send_template(
+          to: send_to,
+          template: {"bookings", third_party ? "booked_by_notify" : "booking_notify"},
+          args: args,
+          attachments: attachments
+        )
+        staff_api.booking_state(booking_details.id, "notified").get
       rescue error
         logger.error(exception: error) { "while processing booking id #{booking_details.id}" }
       end
