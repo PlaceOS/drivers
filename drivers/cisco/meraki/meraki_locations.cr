@@ -139,10 +139,11 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     @ignore_usernames = setting?(Array(String), :ignore_usernames) || [] of String
     disable_username_lookup = setting?(Bool, :disable_username_lookup) || false
 
+    schedule.clear
+
     # Wired desk data
     init_wired_port_mappings
 
-    schedule.clear
     if @default_network.presence
       schedule.every(59.seconds) { update_sensor_cache }
       schedule.every(2.minutes) { map_users_to_macs } unless disable_username_lookup
@@ -992,6 +993,13 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     @level_serials = level_serials
 
     spawn(same_thread: true) { get_port_status(@wired_desks.keys) }
+
+    if (serials = @wired_desks.keys) && !serials.empty?
+      schedule.in(5.seconds) { get_port_status(serials) }
+      schedule.every(5.minutes) { get_port_status(serials) }
+    end
+  rescue error
+    logger.warn(exception: error) { "error initializing wired port mappings" }
   end
 
   def hostname_ownership(hostname : String, username : String?) : Nil

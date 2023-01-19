@@ -421,7 +421,7 @@ module Cisco::Meraki
     property! switch_serial : String
 
     @[JSON::Field(ignore: true)]
-    property! mac : String
+    property mac : String? = nil
 
     @[JSON::Field(ignore: true)]
     property! desk_id : String
