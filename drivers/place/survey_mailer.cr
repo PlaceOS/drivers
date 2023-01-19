@@ -52,6 +52,7 @@ class Place::SurveyMailer < PlaceOS::Driver
           args: {
             email: invite.email,
             token: invite.token,
+            survey_id: invite.survey_id,
           })
         staff_api.update_survey_invite(sent: true)
       rescue error
@@ -64,10 +65,9 @@ class Place::SurveyMailer < PlaceOS::Driver
     include JSON::Serializable
 
     property id : Int64
+    property survey_id : Int64
     property token : String
     property email : String
     property sent : Bool
-    property created_at : Time
-    property updated_at : Time
   end
 end
