@@ -94,7 +94,7 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
 
     raise "Failed to create internal user, code #{response.status_code}\n#{response.body}" unless response.success?
 
-    user = get_internal_user_by_email(email)
+    user = get_internal_user_by_name(name)
     user.password = password
     user
   end
@@ -155,15 +155,28 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
 
   def update_internal_user_password_by_id(id : String, password : String? = nil)
     password ||= generate_password
-    internal_user = get_internal_user_by_id(id)
 
-    response = put("/internaluser/#{internal_user.id}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
+    response = put("/internaluser/#{id}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
       "Content-Type"  => TYPE_HEADER,
       "Authorization" => @basic_auth,
     })
 
-    raise "failed to get internal user by email, code #{response.status_code}\n#{response.body}" unless response.success?
+    raise "failed: #{response.status_code}: #{response.body}" unless response.success?
+
+    JSON.parse(response.body)
+  end
+
+  def update_internal_user_password_by_name(name : String, password : String? = nil)
+    password ||= generate_password
+
+    response = put("/internaluser/name/#{name}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    raise "failed: #{response.status_code}: #{response.body}" unless response.success?
 
     JSON.parse(response.body)
   end
