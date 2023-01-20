@@ -9,6 +9,9 @@ class Cisco::Ise::Models::InternalUser
   @[JSON::Field(key: "id")]
   property id : String?
 
+  @[JSON::Field(key: "identityGroups")]
+  property identity_groups : String?
+
   @[JSON::Field(key: "description")]
   property description : String?
 

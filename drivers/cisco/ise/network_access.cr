@@ -65,19 +65,21 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     first_name : String? = nil,
     last_name : String? = nil,
     description : String? = nil,
-    password : String? = nil
+    password : String? = nil,
+    identity_groups : Array(String) = [] of String
   )
     name ||= email
     password ||= generate_password
 
     internal_user = Models::InternalUser.from_json(
       {
-        name:        name,
-        email:       email,
-        password:    password,
-        first_name:  first_name,
-        last_name:   last_name,
-        description: description, # custom_attributes: custom_attributes
+        name:           name,
+        email:          email,
+        password:       password,
+        firstName:      first_name,
+        lastName:       last_name,
+        description:    description, # custom_attributes: custom_attributes
+        identityGroups: identity_groups.join(","),
       }.to_json)
 
     logger.debug { "Creating Internal User: #{internal_user.to_json}" } if @debug
@@ -184,6 +186,38 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     internal_user = get_internal_user_by_email(email)
 
     update_internal_user_password_by_id(internal_user.id.to_s, password)
+  end
+
+  def update_internal_user_identity_groups_by_id(id : String, identity_groups : Array(String))
+    internal_user = get_internal_user_by_id(id)
+
+    response = put("/internaluser/#{internal_user.id}", body: {"InternalUser" => {"identityGroups" => identity_groups.join(",")}}.to_json, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    raise "failed to get internal user by email, code #{response.status_code}\n#{response.body}" unless response.success?
+
+    JSON.parse(response.body)
+  end
+
+  def update_internal_user_identity_groups_by_name(name : String, identity_groups : Array(String))
+    response = put("/internaluser/name/#{name}", body: {"InternalUser" => {"identityGroups" => identity_groups.join(",")}}.to_json, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+
+    raise "failed: #{response.status_code}: #{response.body}" unless response.success?
+
+    JSON.parse(response.body)
+  end
+
+  def update_internal_user_identity_groups_by_email(email : String, identity_groups : Array(String))
+    internal_user = get_internal_user_by_email(email)
+
+    update_internal_user_identity_groups_by_id(internal_user.id.to_s, identity_groups)
   end
 
   # Todo, when ISE doesn't return 401 for Guest related api calls
