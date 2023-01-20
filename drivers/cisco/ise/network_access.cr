@@ -189,6 +189,12 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
+  def update_internal_user_identity_groups_by_name(name : String, identity_groups : Array(String))
+    internal_user = get_internal_user_by_name(name)
+
+    update_internal_user_identity_groups_by_id(internal_user.id.to_s, identity_groups)
+  end
+
   def update_internal_user_identity_groups_by_email(email : String, identity_groups : Array(String))
     internal_user = get_internal_user_by_email(email)
 
