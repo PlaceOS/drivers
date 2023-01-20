@@ -203,9 +203,15 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   end
 
   def update_internal_user_identity_groups_by_name(name : String, identity_groups : Array(String))
-    internal_user = get_internal_user_by_name(name)
+    response = put("/internaluser/name/#{name}", body: {"InternalUser" => {"identityGroups" => identity_groups.join(",")}}.to_json, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
 
-    update_internal_user_identity_groups_by_id(internal_user.id.to_s, identity_groups)
+    raise "failed: #{response.status_code}: #{response.body}" unless response.success?
+
+    JSON.parse(response.body)
   end
 
   def update_internal_user_identity_groups_by_email(email : String, identity_groups : Array(String))
