@@ -21,6 +21,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     disable_qr_code:          false,
     send_network_credentials: false,
     network_password_length:  6,
+    network_group_ids:        [] of String,
     debug:                    false,
   })
 
@@ -60,6 +61,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @send_reminders : String? = nil
   @send_network_credentials = false
   @network_password_length = 6
+  @network_group_ids = [] of String
 
   def on_update
     @debug = setting?(Bool, :debug) || true
@@ -71,6 +73,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
     @network_password_length = setting?(Int32, :network_password_length) || 6
+    @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
 
     time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -225,7 +228,7 @@ class Place::VisitorMailer < PlaceOS::Driver
              end
 
     network_username = network_password = ""
-    network_username, network_password = update_network_user_password(visitor_email, random_password) if @send_network_credentials
+    network_username, network_password = update_network_user_password(visitor_email, random_password, @network_group_ids) if @send_network_credentials
 
     mailer.send_template(
       visitor_email,
@@ -336,19 +339,19 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # For Cisco ISE network credentials
 
-  def update_network_user_password(user_email : String, password : String)
+  def update_network_user_password(user_email : String, password : String, network_group_ids : Array(String) = [] of String)
     # Check if they already exist
     response = network_provider.update_internal_user_password_by_name(user_email, password).get
     logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}" } if @debug
   rescue # todo: catch the specific error where the user already exists, instead of any error. Catch other errors in seperate rescue
     # Create them if they don't already exist
-    create_network_user(user_email, password)
+    create_network_user(user_email, password, network_group_ids)
   else
     {user_email, password}
   end
 
-  def create_network_user(user_email : String, password : String)
-    response = network_provider.create_internal_user(email: user_email, name: user_email).get
+  def create_network_user(user_email : String, password : String, group_ids : Array(String) = [] of String)
+    response = network_provider.create_internal_user(email: user_email, name: user_email, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
   end

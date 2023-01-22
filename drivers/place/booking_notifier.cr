@@ -32,6 +32,7 @@ class Place::BookingNotifier < PlaceOS::Driver
         notify_booking_owner:        true,
         include_network_credentials: false,
         network_password_length:     6,
+        network_group_ids:           [] of String,
       },
       zone_id2: {
         name:                 "Melb Building",
@@ -88,6 +89,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     getter notify_booking_owner : Bool?
     getter include_network_credentials : Bool?
     getter network_password_length : Int32?
+    getter network_group_ids : Array(String) { [] of String }
   end
 
   def on_update
@@ -145,7 +147,7 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     network_username = network_password = nil
     if notify_details.include_network_credentials
-      network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length))
+      network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length), notify_details.network_group_ids)
     end
 
     args = {
@@ -396,19 +398,19 @@ class Place::BookingNotifier < PlaceOS::Driver
     nil
   end
 
-  def update_network_user_password(user_email : String, password : String)
+  def update_network_user_password(user_email : String, password : String, network_group_ids : Array(String) = [] of String)
     # Check if they already exist
     response = network_provider.update_internal_user_password_by_name(user_email, password).get
     logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}" } if @debug
   rescue # todo: catch the specific error where the user already exists, instead of any error. Catch other errors in seperate rescue
     # Create them if they don't already exist
-    create_network_user(user_email, password)
+    create_network_user(user_email, password, network_group_ids)
   else
     {user_email, password}
   end
 
-  def create_network_user(user_email : String, password : String)
-    response = network_provider.create_internal_user(email: user_email, name: user_email).get
+  def create_network_user(user_email : String, password : String, group_ids : Array(String) = [] of String)
+    response = network_provider.create_internal_user(email: user_email, name: user_email, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
   end

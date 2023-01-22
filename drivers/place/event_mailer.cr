@@ -15,6 +15,7 @@ class Place::EventMailer < PlaceOS::Driver
     email_template:           "welcome",
     send_network_credentials: false,
     network_password_length:  6,
+    network_group_ids:        [] of String,
     date_time_format:         "%c",
     time_format:              "%l:%M%p",
     date_format:              "%A, %-d %B",
@@ -33,6 +34,7 @@ class Place::EventMailer < PlaceOS::Driver
   @email_template = "welcome"
   @send_network_credentials = false
   @network_password_length = 6
+  @network_group_ids = [] of String
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
   @date_time_format : String = "%c"
@@ -53,8 +55,11 @@ class Place::EventMailer < PlaceOS::Driver
     @event_filter = setting?(String, :event_filter) || ""
     @email_template_group = setting?(String, :email_template_group) || "events"
     @email_template = setting?(String, :email_template) || "welcome"
+
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
     @network_password_length = setting?(Int32, :network_password_length) || 6
+    @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
+
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
@@ -111,7 +116,7 @@ class Place::EventMailer < PlaceOS::Driver
     organizer_email = event.host
     organizer_name = event.attendees.find { |a| a.email == organizer_email }.try &.name || "Name Unknown"
     network_username = network_password = ""
-    network_username, network_password = update_network_user_password(organizer_email.not_nil!, random_password) if @send_network_credentials
+    network_username, network_password = update_network_user_password(organizer_email.not_nil!, random_password, @network_group_ids) if @send_network_credentials
 
     email_data = {
       host_name:        organizer_name,
@@ -160,19 +165,19 @@ class Place::EventMailer < PlaceOS::Driver
 
   # # For Cisco ISE network credentials
 
-  def update_network_user_password(user_email : String, password : String)
+  def update_network_user_password(user_email : String, password : String, network_group_ids : Array(String) = [] of String)
     # Check if they already exist
     response = network_provider.update_internal_user_password_by_name(user_email, password).get
     logger.debug { "Response from Network Identity provider for lookup of #{user_email} was:\n#{response}" } if @debug
   rescue # todo: catch the specific error where the user already exists, instead of any error. Catch other errors in seperate rescue
     # Create them if they don't already exist
-    create_network_user(user_email, password)
+    create_network_user(user_email, password, network_group_ids)
   else
     {user_email, password}
   end
 
-  def create_network_user(user_email : String, password : String)
-    response = network_provider.create_internal_user(email: user_email, name: user_email).get
+  def create_network_user(user_email : String, password : String, group_ids : Array(String) = [] of String)
+    response = network_provider.create_internal_user(email: user_email, name: user_email, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
   end
