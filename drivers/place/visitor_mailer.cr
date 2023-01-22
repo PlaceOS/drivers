@@ -75,7 +75,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @network_password_length = setting?(Int32, :network_password_length) || 6
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
 
-    time_zone = setting?(String, :calendar_time_zone).presence || "GMT"
+    time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
 
     @booking_space_name = setting?(String, :booking_space_name).presence || "Client Floor"
