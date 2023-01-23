@@ -79,6 +79,13 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
     end
   end
 
+  # this is the audio AES67 address
+  protected def query_nax_address
+    query("/NaxAudio/NaxTx/NaxTxStreams/Stream01/SessionNameStatus", name: "audio_name") do |stream|
+      self["nax_address"] = stream
+    end
+  end
+
   protected def query_stream_name
     query("/Localization/Name", name: "stream_name") do |name|
       self["stream_name"] = name
@@ -88,6 +95,7 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
   # Query the device for the current source state and update status vars.
   protected def update_source_info
     query_stream_name
+    query_nax_address
     query_multicast_address
     query_source_name_for(:video)
     query_source_name_for(:audio)
