@@ -80,6 +80,7 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
   end
 
   # this is the audio AES67 address
+  # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/NaxAudio.htm
   protected def query_nax_address
     query("/NaxAudio/NaxTx/NaxTxStreams/Stream01/SessionNameStatus", name: "audio_name") do |stream|
       self["nax_address"] = stream
