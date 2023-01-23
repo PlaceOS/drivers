@@ -12,6 +12,42 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
 
   include Interface::Switchable(String, Int32 | String)
 
+  default_settings({
+    audio_sink: {
+      module_id:     "Mixer_1",
+      function_name: "set_string",
+      arguments:     ["aes67_control_id"],
+      named_args:    {} of String => JSON::Any,
+    },
+  })
+
+  class AudioSink
+    include JSON::Serializable
+
+    getter module_id : String
+    getter function_name : String
+    getter arguments : Array(JSON::Any) { [] of JSON::Any }
+    getter named_args : Hash(String, JSON::Any) { {} of String => JSON::Any }
+  end
+
+  @audio : AudioSink? = nil
+
+  def on_load
+    on_update
+  end
+
+  def on_update
+    @audio = setting?(AudioSink, :audio_sink)
+  end
+
+  protected def switch_audio_to(address : JSON::Any?)
+    return unless address
+    if sink = @audio
+      args = sink.arguments + [address]
+      system[sink.module_id].__send__(sink.function_name, args, sink.named_args)
+    end
+  end
+
   def transmitters
     system.implementing(Crestron::Transmitter)
   end
@@ -20,9 +56,31 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
     system.implementing(Crestron::Receiver)
   end
 
+  protected def get_streams(input : Input)
+    if int_input = input.to_i?
+      if int_input == 0
+        {0, JSON::Any.new("")} # disconnected
+      else
+        # Subtract one as Encoder_1 on the system would be encoder[0] here
+        if tx = transmitters[int_input - 1]?
+          {tx[:stream_name], tx[:nax_address]?}
+        else
+          logger.warn { "could not find Encoder_#{input}" }
+          nil
+        end
+      end
+    else
+      {input, nil}
+    end
+  end
+
   def switch_to(input : Input)
-    # todo need to lookup the input stream
-    receivers.switch_to(input)
+    # lookup the input stream
+    stream = get_streams(input)
+    return unless stream
+
+    switch_audio_to stream[1]
+    receivers.switch_to(stream[0])
   end
 
   def available_inputs
@@ -52,32 +110,25 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
   end
 
   def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
-    # TODO:: allow layered switching
     layer ||= SwitchLayer::All
-    return unless layer.all? || layer.video?
 
-    connect(map) do |mod, stream|
-      mod.switch_to(stream)
+    return unless layer.all? || layer.video? || layer.audio?
+
+    connect(map) do |mod, (video, audio)|
+      if layer.all? || layer.audio?
+        switch_audio_to audio
+      end
+
+      if layer.all? || layer.video?
+        mod.switch_to(video)
+      end
     end
   end
 
   private def connect(inouts : Hash(Input, Array(Output)), &)
     inouts.each do |input, outputs|
-      if int_input = input.to_i?
-        if int_input == 0
-          stream = 0 # disconnected
-        else
-          # Subtract one as Encoder_1 on the system would be encoder[0] here
-          if tx = transmitters[int_input - 1]?
-            stream = tx[:stream_name]
-          else
-            logger.warn { "could not find Encoder_#{input}" }
-            next
-          end
-        end
-      else
-        stream = input
-      end
+      stream = get_streams(input)
+      next unless stream
 
       outputs = outputs.is_a?(Array) ? outputs : [outputs]
       decoders = receivers
