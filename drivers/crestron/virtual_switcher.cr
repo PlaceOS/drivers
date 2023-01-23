@@ -56,7 +56,7 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
     system.implementing(Crestron::Receiver)
   end
 
-  protected def get_streams(input : Input)
+  protected def get_streams(input : Input, layer : SwitchLayer = SwitchLayer::All)
     if int_input = input.to_i?
       if int_input == 0
         {0, JSON::Any.new("")} # disconnected
@@ -70,7 +70,12 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
         end
       end
     else
-      {input, nil}
+      return {input, nil} if layer.video?
+      if tx = transmitters.find { |sender| sender[:stream_name] == input }
+        {input, tx[:nax_address]?}
+      else
+        {input, nil}
+      end
     end
   end
 
@@ -114,7 +119,7 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
 
     return unless layer.all? || layer.video? || layer.audio?
 
-    connect(map) do |mod, (video, audio)|
+    connect(map, layer) do |mod, (video, audio)|
       if layer.all? || layer.audio?
         switch_audio_to audio
       end
@@ -125,9 +130,9 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
     end
   end
 
-  private def connect(inouts : Hash(Input, Array(Output)), &)
+  private def connect(inouts : Hash(Input, Array(Output)), layer : SwitchLayer, &)
     inouts.each do |input, outputs|
-      stream = get_streams(input)
+      stream = get_streams(input, layer)
       next unless stream
 
       outputs = outputs.is_a?(Array) ? outputs : [outputs]
