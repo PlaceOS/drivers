@@ -18,6 +18,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     send_reminders:           "0 7 * * *",
     reminder_template:        "visitor",
+    event_template:           "event",
+    booking_template:         "booking",
     disable_qr_code:          false,
     send_network_credentials: false,
     network_password_length:  6,
@@ -59,6 +61,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   @reminder_template : String = "visitor"
   @send_reminders : String? = nil
+  @event_template : String = "event"
+  @booking_template : String = "booking"
   @send_network_credentials = false
   @network_password_length = 6
   @network_group_ids = [] of String
@@ -70,6 +74,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
     @send_reminders = setting?(String, :send_reminders).presence
     @reminder_template = setting?(String, :reminder_template) || "visitor"
+    @event_template = setting?(String, :event_template) || "event"
+    @booking_template = setting?(String, :booking_template) || "booking"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
     @network_password_length = setting?(Int32, :network_password_length) || 6
@@ -170,15 +176,17 @@ class Place::VisitorMailer < PlaceOS::Driver
       in EventGuest
         room = get_room_details(guest_details.system_id)
         area_name = room.display_name.presence || room.name
+        template = @event_template
       in BookingGuest
         area_name = @booking_space_name
+        template = @booking_template
       in GuestNotification
         # should never get here
         return
       end
 
       send_visitor_qr_email(
-        "visitor",
+        template,
         guest_details.attendee_email,
         guest_details.attendee_name,
         guest_details.host,
@@ -232,7 +240,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     mailer.send_template(
       visitor_email,
-      {"visitor_invited", "visitor"}, # Template selection: "visitor_invited" action, "visitor" email
+      {"visitor_invited", template}, # Template selection: "visitor_invited" action, "visitor" email
       {
       visitor_email:    visitor_email,
       visitor_name:     visitor_name,
