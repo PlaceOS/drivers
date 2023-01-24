@@ -1,18 +1,20 @@
 require "placeos-driver"
 
-class Webex::InstantConnect < PlaceOS::Driver
+class Cisco::Webex::InstantConnect < PlaceOS::Driver
   # Discovery Information
   generic_name :InstantConnect
   descriptive_name "Webex InstantConnect"
-  uri_base "https://mtg-broker-a.wbx2.com"
+  uri_base "https://instant.webex.com"
 
   default_settings({
     bot_access_token: "token",
     jwt_audience:     "a4d886b0-979f-4e2c-a958-3e8c14605e51",
+    _broker:          "https://mtg-broker-a.wbx2.com",
   })
 
   @jwt_audience : String = "a4d886b0-979f-4e2c-a958-3e8c14605e51"
   @bot_access_token : String = ""
+  @broker : String = ""
 
   def on_load
     on_update
@@ -21,6 +23,7 @@ class Webex::InstantConnect < PlaceOS::Driver
   def on_update
     @audience_setting = setting?(String, :jwt_audience) || "a4d886b0-979f-4e2c-a958-3e8c14605e51"
     @bot_access_token = setting(String, :bot_access_token)
+    @broker = setting?(String, :broker) || config.uri.not_nil!
   end
 
   def create_meeting(room_id : String)
@@ -37,11 +40,11 @@ class Webex::InstantConnect < PlaceOS::Driver
   end
 
   protected def get_meeting_details(meeting_keys)
-    response = get("api/v1/space/?int=jose&data=#{meeting_keys[:host]}")
+    response = get("/gen/v1/login/?int=jose&data=#{meeting_keys[:host]}")
     raise "host token request failed with #{response.status_code}" if response_failed?(response)
     meeting_config = Hash(String, String | Bool).from_json(response.body)
 
-    response = get("api/v1/space/?int=jose&data=#{meeting_keys[:guest]}")
+    response = get("/gen/v1/talk/?int=jose&data=#{meeting_keys[:guest]}")
     raise "guest token request failed with #{response.status_code}" if response_failed?(response)
     guest_token = String.from_json(response.body, root: "token")
 
@@ -54,7 +57,7 @@ class Webex::InstantConnect < PlaceOS::Driver
   end
 
   protected def get_hash(request : String)
-    response = post("/api/v1/joseencrypt", body: request, headers: {
+    response = HTTP::Client.post(File.join(@broker, "/api/v1/joseencrypt"), body: request, headers: HTTP::Headers{
       "Content-Type"  => "application/json",
       "Authorization" => "Bearer #{@bot_access_token}",
     })

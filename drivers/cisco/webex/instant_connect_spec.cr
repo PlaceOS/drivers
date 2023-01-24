@@ -1,6 +1,6 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "Webex::InstantConnect" do
+DriverSpecs.mock_driver "Cisco::Webex::InstantConnect" do
   # Send the request
   retval = exec(:create_meeting,
     room_id: "1"
@@ -27,7 +27,7 @@ DriverSpecs.mock_driver "Webex::InstantConnect" do
   # HTTP request to get token/spaceId using host JWT
   expect_http_request do |request, response|
     headers = request.headers
-    if request.resource.includes?("api/v1/space/?int=jose&data=")
+    if request.resource.includes?("gen/v1/login/?int=jose&data=")
       response.status_code = 200
       response << RAW_HOST_RESPONSE
     else
@@ -38,7 +38,7 @@ DriverSpecs.mock_driver "Webex::InstantConnect" do
   # HTTP request to get token using guest JWT
   expect_http_request do |request, response|
     headers = request.headers
-    if request.resource.includes?("api/v1/space/?int=jose&data=")
+    if request.resource.includes?("gen/v1/talk/?int=jose&data=")
       response.status_code = 200
       response << RAW_GUEST_RESPONSE
     else
@@ -83,7 +83,7 @@ RAW_HASH_RESPONSE = %({
 })
 
 RETVAL = %({
-  "token":"NmFmZGQwODYtZmIzNi00OTlmLWE3N2QtNzUyNzk2MDk4NDU5MjZlNmM2YmQtNjY2_PF84_e2d06a2e-ac4e-464f-968d-a5f8a5ac6303",
-  "spaceId":"Y2lzY29zcGFyazovL3VzL1JPT00vODhhZGM1ODAtOThmMi0xMWVjLThiYjQtZjM2MmNkNDBlZDQ1",
+  "space_id":"Y2lzY29zcGFyazovL3VzL1JPT00vODhhZGM1ODAtOThmMi0xMWVjLThiYjQtZjM2MmNkNDBlZDQ1",
+  "host_token":"NmFmZGQwODYtZmIzNi00OTlmLWE3N2QtNzUyNzk2MDk4NDU5MjZlNmM2YmQtNjY2_PF84_e2d06a2e-ac4e-464f-968d-a5f8a5ac6303",
   "guest_token":"NmFmZGQwODYtZmIzNi05OTlmLWE3N2QtMzUyNzk2MDk4NDU5MeZlNmM2YmQtNjY2_PF84_e2d06a2e-ac4e-464f-968d-a5f8a5ac6303"
 })
