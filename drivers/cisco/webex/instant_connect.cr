@@ -40,7 +40,7 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
     response = get("/api/v1/space/?int=jose&data=#{meeting_keys[:host]}")
     logger.debug { "host config returned:\n#{response.body}" }
     raise "host token request failed with #{response.status_code}" if response_failed?(response)
-    meeting_config = Hash(String, String | Bool).from_json(response.body)
+    meeting_config = Hash(String, JSON::Any).from_json(response.body)
 
     response = get("/api/v1/space/?int=jose&data=#{meeting_keys[:guest]}")
     logger.debug { "guest config returned:\n#{response.body}" }
@@ -49,8 +49,8 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
 
     {
       # space_id seems to be an internal id for the meeting room
-      space_id:    meeting_config["spaceId"],
-      host_token:  meeting_config["token"],
+      space_id:    meeting_config["spaceId"].as_s,
+      host_token:  meeting_config["token"].as_s,
       guest_token: guest_token,
     }
   end
