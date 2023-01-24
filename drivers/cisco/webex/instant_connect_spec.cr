@@ -27,7 +27,7 @@ DriverSpecs.mock_driver "Cisco::Webex::InstantConnect" do
   # HTTP request to get token/spaceId using host JWT
   expect_http_request do |request, response|
     headers = request.headers
-    if request.resource.includes?("gen/v1/login/?int=jose&data=")
+    if request.resource.includes?("api/v1/space/?int=jose&data=")
       response.status_code = 200
       response << RAW_HOST_RESPONSE
     else
@@ -38,7 +38,7 @@ DriverSpecs.mock_driver "Cisco::Webex::InstantConnect" do
   # HTTP request to get token using guest JWT
   expect_http_request do |request, response|
     headers = request.headers
-    if request.resource.includes?("gen/v1/talk/?int=jose&data=")
+    if request.resource.includes?("api/v1/space/?int=jose&data=")
       response.status_code = 200
       response << RAW_GUEST_RESPONSE
     else
