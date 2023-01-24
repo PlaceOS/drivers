@@ -177,7 +177,7 @@ class Place::EventMailer < PlaceOS::Driver
   end
 
   def create_network_user(user_email : String, password : String, group_ids : Array(String) = [] of String)
-    response = network_provider.create_internal_user(email: user_email, name: user_email, identity_groups: group_ids).get
+    response = network_provider.create_internal_user(email: user_email, name: user_email, password: password, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
   end
