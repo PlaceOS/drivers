@@ -23,6 +23,8 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
   getter should_save : Bool = false
   getter people_counts : Array(Int32) = [] of Int32
+  getter last_saved_count : Int32 = 0
+  getter last_known_count : Int32 = 0
 
   @update_mutex = Mutex.new
   @debounce_seconds : Int32 = 0
@@ -63,11 +65,20 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
     value = (Int32 | Float64).from_json(new_value).to_i
     value = value < 0 ? 0 : value
 
+    @last_known_count = value
+
     if @debounce_seconds > 0
       schedule.clear
-      schedule.in(@debounce_seconds.seconds) { people_counts << value }
+      schedule.in(@debounce_seconds.seconds) { record_new_people value }
     else
-      people_counts << value
+      record_new_people value
+    end
+  end
+
+  private def record_new_people(count : Int32)
+    @last_saved_count = count
+    if people_counts.last? != count
+      people_counts << count
     end
   end
 
@@ -88,10 +99,12 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
       if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
         save_booking_stats(old_booking_id, people_counts) if @should_save
-        if (init_count = system[:Bookings][:people_count]?) && init_count && (init_count.as_i? || init_count.as_f).to_i > 0
-          @people_counts = [(init_count.as_i? || init_count.as_f).to_i]
+        @people_counts = [] of Int32
+        if @debounce_seconds > 0
+          schedule.clear
+          schedule.in(@debounce_seconds.seconds) { record_new_people last_known_count }
         else
-          @people_counts = [] of Int32
+          record_new_people last_known_count
         end
       end
 
