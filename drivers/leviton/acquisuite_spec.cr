@@ -2,11 +2,11 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Leviton::Acquisuite" do
   headers = {"Content-Type" => ["multipart/form-data; boundary=MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY"]}
-  test_devices = ["mb-001", "mb-002"]
+  test_devices = ["mb-001"]
 
   # First, we need to receive some failed LOGFILEUPLOAD requests to work out our list of devices
   test_devices.each do |device_name|
-    dev_log = File.read("/app/repositories/local/drivers/leviton/#{device_name}.log")
+    dev_log = File.read("/app/repositories/local/drivers/leviton/#{device_name}.63BD5AFD_2.log.gz")
     body = create_request(
       "LOGFILEUPLOAD",
       "Temp Inputs / Branch Circuits",
@@ -14,11 +14,12 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
       "9a6d278642b64db73c754271de733758",
       "2022-09-12 21:25:55",
       "LOGFILE",
-      "modbus/#{device_name}.log",
-      dev_log
+      "modbus/#{device_name}.63BD5AFD_2.log.gz",
+      nil
     )
     body = body.gsub("\n", "\r\n")
-    resp = exec(:receive_webhook, "POST", headers, body).get
+    body = body.gsub("fileplaceholder", dev_log)
+    resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 
     res = exec(:device_list).get
     res = res.not_nil!
@@ -37,13 +38,10 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   BODY
 
   body = body.gsub("\n", "\r\n")
-  resp = exec(:receive_webhook, "POST", headers, body).get
+  resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 
   # We should expect the driver to respond with a manifest containing the list of devices
   resp = resp.not_nil!
-  puts "MANIFEST RESPONSE:"
-  puts resp.inspect
-  puts resp[2].class
   # resp[2].to_s.split("\n").size.should eq device_list.size if !resp.nil?
 
   dev_config = File.read("/app/repositories/local/drivers/leviton/mb-001.ini")
@@ -52,7 +50,7 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   body = create_request(
     "CONFIGFILEUPLOAD",
     "Temp Inputs / Branch Circuits",
-    "2",
+    "1",
     "9a6d278642b64db73c754271de733758",
     "2022-09-12 21:25:55",
     "CONFIGFILE",
@@ -61,28 +59,30 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   )
 
   body = body.gsub("\n", "\r\n")
-  resp = exec(:receive_webhook, "POST", headers, body).get
+  resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 
-  dev_log = File.read("/app/repositories/local/drivers/leviton/mb-001.log")
+  dev_log = File.read("/app/repositories/local/drivers/leviton/mb-001.63BD5AFD_2.log.gz")
 
   # Now, finally, send an actual log file
   body = create_request(
     "LOGFILEUPLOAD",
     "Temp Inputs / Branch Circuits",
-    "2",
+    "1",
     "9a6d278642b64db73c754271de733758",
     "2022-09-12 21:25:55",
     "LOGFILE",
-    "tmp_name",
-    dev_log
+    "mb-001.63BD5AFD_2.log.gz",
+    nil
   )
   body = body.gsub("\n", "\r\n")
-  resp = exec(:receive_webhook, "POST", headers, body).get
+  body = body.gsub("fileplaceholder", dev_log)
+  resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
 end
 
 # Some of these fields may not be present in every request but
 # having them there doesn't hurt anything so why bother removing them
-def create_request(mode : String, device_name : String, modbus_device : String, md5 : String, file_time : String, file_descriptor : String, file_name : String, file : String)
+def create_request(mode : String, device_name : String, modbus_device : String, md5 : String, file_time : String, file_descriptor : String, file_name : String, file : String?)
+  file = "fileplaceholder" if file.nil?
   <<-BODY
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY
   Content-Disposition: form-data; name="MODE"
@@ -109,7 +109,7 @@ def create_request(mode : String, device_name : String, modbus_device : String, 
   Content-Type: application/octet-stream;
 
   #{file}
-  
   --MIME_BOUNDRY_MIME_BOUNDRY_MIME_BOUNDRY--
+
   BODY
 end
