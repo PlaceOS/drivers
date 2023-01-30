@@ -2,6 +2,7 @@ require "http"
 require "placeos-driver"
 require "csv"
 require "action-controller/body_parser"
+require "compress/gzip"
 
 class Leviton::Acquisuite < PlaceOS::Driver
   descriptive_name "Leviton Acquisuite Webhook"
@@ -31,6 +32,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
   end
 
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
+    body = Base64.decode_string(body)
     logger.info do
       "Received Webhook\n" +
         "Method: #{method.inspect}\n" +
@@ -45,7 +47,10 @@ class Leviton::Acquisuite < PlaceOS::Driver
       files, form_data = ActionController::BodyParser.extract_form_data(request, "multipart/form-data", request.query_params)
       form_data = form_data.not_nil!
       case form_data["MODE"]
-      # This is the server asking for a list of devices which we need the config files
+      # This is the server checking the status of our webhook so just 200 back
+      when "STATUS"
+        return {HTTP::Status::OK.to_i, {} of String => String, ""}
+        # This is the server asking for a list of devices which we need the config files
       when "CONFIGFILEMANIFEST"
         return {HTTP::Status::OK.to_i, {} of String => String, device_to_manifest.join("\n")}
         # This is the server sending us an actual config file from the previously provided list
@@ -57,7 +62,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
         files = files.not_nil!
         return log_file_upload(files, form_data)
       else
-        {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "Invalid mode passed. Either CONFIGFILEMANIFEST, CONFIGFILEUPLOAD or LOGFILEUPLOAD required. Got #{form_data["MODE"]}"}
+        {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "Invalid mode passed. Either STATUS, CONFIGFILEMANIFEST, CONFIGFILEUPLOAD or LOGFILEUPLOAD required. Got #{form_data["MODE"]}"}
       end
     end
   rescue error
@@ -67,7 +72,6 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
   protected def log_file_upload(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), form_data : URI::Params)
     log_file, log_contents = get_file(files, "LOGFILE")
-
     # Check whether we have the config for this log file device type
     modbus_index = form_data["MODBUSDEVICE"].to_i
     if !@device_list.any? { |device, config| device.includes?("mb-%03d" % modbus_index) && config[0] != "X" }
@@ -76,7 +80,6 @@ class Leviton::Acquisuite < PlaceOS::Driver
       define_setting(:device_list, @device_list)
       return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
     end
-
     csv = CSV.new(log_file, headers: true)
     # NOTE: This csv.next structure assumes that there will be a header row we don't need
     # if this is not the case we should add logic to check for a header
@@ -118,8 +121,17 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
   protected def get_file(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), name : String)
     file = files.not_nil!
-    file_contents = file[name][0]
-    {file_contents.body.gets_to_end, file_contents}
+    file_object = file[name][0]
+    file_contents = file_object.body.gets_to_end
+    # If the file is gzipped then unzip it
+    file_name = file_object.filename
+    if file_name && file_name[-3..-1] == ".gz"
+      Compress::Gzip::Reader.open(IO::Memory.new(file_contents)) do |gzip|
+        gzip.gets_to_end
+      end
+    end
+
+    {file_contents, file_contents}
   end
 
   def device_list
@@ -128,14 +140,14 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
   protected def store_config(modbusid : String, config : String)
     index_max = config.split("\n").map { |line|
-      reg = /POINT(?<index>\d*)(?<name>.*)=(?<value>.*)/.match(line)
+      reg = /POINT(?<index>\d+)(?<name>.*)=(?<value>.*)/.match(line)
       reg[1].to_i if reg
     }.compact.sort.pop
 
     configs = Array.new(index_max + 1, {} of String => (Float64 | String))
 
     config.split("\n").each do |line|
-      reg = /POINT(?<index>\d*)(?<name>.*)=(?<value>.*)/.match(line)
+      reg = /POINT(?<index>\d+)(?<name>.*)=(?<value>.*)/.match(line)
       if reg
         config_index = reg[1].to_i
         column_header = reg[2]
