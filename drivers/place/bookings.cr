@@ -37,6 +37,9 @@ class Place::Bookings < PlaceOS::Driver
     # This image is displayed along with the capacity when the room is not bookable
     room_image: "https://domain.com/room_image.svg",
     sensor_mac: "device-mac",
+
+    hide_meeting_details: false,
+    hide_meeting_title:   false,
   })
 
   accessor calendar : Calendar_1
@@ -120,6 +123,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
     self[:room_image] = setting?(String, :room_image)
+    self[:hide_meeting_details] = setting?(Bool, :hide_meeting_details) || false
+    self[:hide_meeting_title] = setting?(Bool, :hide_meeting_title) || false
 
     self[:offline_color] = setting?(String, :offline_color)
     self[:offline_image] = setting?(String, :offline_image)
