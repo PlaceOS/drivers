@@ -50,7 +50,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
       # This is the server checking the status of our webhook so just 200 back
       when "STATUS"
         return {HTTP::Status::OK.to_i, {} of String => String, ""}
-      # This is the server asking for a list of devices which we need the config files
+        # This is the server asking for a list of devices which we need the config files
       when "CONFIGFILEMANIFEST"
         return {HTTP::Status::OK.to_i, {} of String => String, device_to_manifest.join("\n")}
         # This is the server sending us an actual config file from the previously provided list
@@ -124,13 +124,13 @@ class Leviton::Acquisuite < PlaceOS::Driver
     file_object = file[name][0]
     file_contents = file_object.body.gets_to_end
     # If the file is gzipped then unzip it
-    file_name = file_object.filename 
+    file_name = file_object.filename
     if file_name && file_name[-3..-1] == ".gz"
       Compress::Gzip::Reader.open(IO::Memory.new(file_contents)) do |gzip|
         gzip.gets_to_end
       end
     end
-    
+
     {file_contents, file_contents}
   end
 
