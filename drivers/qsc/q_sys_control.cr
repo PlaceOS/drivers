@@ -28,7 +28,7 @@ class Qsc::QSysControl < PlaceOS::Driver
   @change_group_id : Int32 = 30
   @em_id : String? = nil
   @emergency_subscribe : PlaceOS::Driver::Subscriptions::Subscription? = nil
-  @history = {} of String => Symbol
+  getter history : Hash(String, Symbol) = {} of String => Symbol
 
   @static_change_groups = {} of String => Group
   @dynamic_change_groups = {} of String => Group
