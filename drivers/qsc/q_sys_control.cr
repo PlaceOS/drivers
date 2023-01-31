@@ -45,8 +45,10 @@ class Qsc::QSysControl < PlaceOS::Driver
 
     @static_change_groups = setting?(Hash(String, Group), :change_groups) || {} of String => Group
 
-    login if @username && @connected
-    recreate_change_groups
+    if @connected
+      login if @username
+      recreate_change_groups
+    end
   end
 
   def connected
@@ -67,8 +69,8 @@ class Qsc::QSysControl < PlaceOS::Driver
   protected def recreate_change_groups
     return unless @connected
     change_groups = @static_change_groups.merge @dynamic_change_groups
-    change_groups.each do |_, group|
-      logger.debug { "change groups" }
+    change_groups.each do |name, group|
+      logger.debug { "configuring change group #{name}" }
       group_id = group[:id]
       controls = group[:controls]
 
@@ -167,7 +169,13 @@ class Qsc::QSysControl < PlaceOS::Driver
     level_actual = percentage * (range.size - 1).to_f
     level_actual = (level_actual + range.begin.to_f).round(1)
 
-    ensure_array(fader_ids).each { |f_id| set_value(f_id, level_actual, name: "fader#{f_id}", fader_type: :fader) }
+    ensure_array(fader_ids).each do |f_id|
+      if @history[f_id]? == :percentage_fader
+        set_value(f_id, level, name: "fader#{f_id}")
+      else
+        set_value(f_id, level_actual, name: "fader#{f_id}", fader_type: :fader)
+      end
+    end
   end
 
   def faders(fader_ids : Ids, level : Val)
@@ -202,11 +210,11 @@ class Qsc::QSysControl < PlaceOS::Driver
   # For inter-module compatibility
   def query_fader(fader_ids : Ids)
     fad = ensure_array(fader_ids)[0]
-    get_status(fad, fader_type: :fader)
+    get_status(fad, fader_type: (@history[fad]? || :fader))
   end
 
   def query_faders(fader_ids : Ids)
-    ensure_array(fader_ids).each { |f_id| get_status(f_id, fader_type: :fader) }
+    ensure_array(fader_ids).each { |f_id| get_status(f_id, fader_type: (@history[f_id]? || :fader)) }
   end
 
   def query_mute(fader_ids : Ids)
@@ -276,22 +284,21 @@ class Qsc::QSysControl < PlaceOS::Driver
     case resp[0]
     when "cv"
       control_id = resp[1]
-      # string rep = resp[2]
+      string_rep = resp[2]
       value = resp[-2]
       position = resp[-1].to_f
 
       self["pos_#{control_id}"] = position
-
-      puts "PROCESSING #{control_id} = #{position}"
+      @history[control_id] = :percentage_fader if string_rep.ends_with?('%')
 
       if type = @history[control_id]?
-        puts "WE HAVE A TYPE! #{type}"
-
         case type
         when :fader
           range = -100..20
           vol_percent = ((value.to_f - range.begin.to_f) / (range.size - 1).to_f) * 100.0
           self["fader#{control_id}"] = vol_percent.round(2)
+        when :percentage_fader
+          self["fader#{control_id}"] = value.to_f
         when :mute
           self["fader#{control_id}_mute"] = value.to_i == 1
         end

@@ -1,6 +1,8 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Qsc::QSysControl" do
+  sleep 1
+
   settings({
     username:  "user",
     password:  "pass",
@@ -61,4 +63,17 @@ DriverSpecs.mock_driver "Qsc::QSysControl" do
   should_send("css \"1\" \"0123456789\"\n")
   responds("cv \"1\" \"0123456789\" 9 8\r\n")
   status[:"1"].should eq("0123456789")
+
+  # Test percentage faders
+  exec(:query_fader, ["3"])
+  should_send %(cg 3\n)
+  responds %(cv 3 "0%" 0 0\r\n)
+  status[:pos_3].should eq(0.0)
+  status[:fader3].should eq(0.0)
+
+  exec(:query_fader, ["2"])
+  should_send %(cg 2\n)
+  responds %(cv 2 "20%" 20 20\r\n)
+  status[:pos_2].should eq(20.0)
+  status[:fader2].should eq(20.0)
 end
