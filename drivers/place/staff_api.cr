@@ -573,7 +573,7 @@ class Place::StaffAPI < PlaceOS::Driver
   # SURVEYS
   # ===================================
 
-  def get_survey_invites(survey_id : Int64?, sent : Bool?)
+  def get_survey_invites(survey_id : Int64? = nil, sent : Bool? = nil)
     logger.debug { "getting survey_invites (survey #{survey_id}, sent #{sent})" }
     params = URI::Params.new
     params["survey_id"] = survey_id.to_s if survey_id
