@@ -259,6 +259,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_title:      event_title,
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),
+      event_time:       event_time,
       network_username: network_username,
       network_password: network_password,
     },
