@@ -60,7 +60,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   end
 
   private def people_count_changed(_subscription, new_value) : Nil
-    logger.debug { "new people count #{new_value}" }
+    logger.debug { "new people count received #{new_value}" }
     return if new_value == "null"
     value = (Int32 | Float64).from_json(new_value).to_i
     value = value < 0 ? 0 : value
@@ -78,6 +78,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
   private def record_new_people(count : Int32)
     @last_saved_count = count
     if people_counts.last? != count
+      logger.debug { "recording new people count: #{count}" }
       people_counts << count
     end
   end
@@ -95,10 +96,12 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
 
       old_booking_id = @booking_id
       @booking_id = new_booking_id
+      old_status = @status
       @status = new_status || "free"
 
-      if old_booking_id && (new_booking_id != old_booking_id || new_status != status)
+      if old_booking_id && (new_booking_id != old_booking_id || new_status != old_status)
         save_booking_stats(old_booking_id, people_counts) if @should_save
+        logger.debug { "#apply_new_state event_id: #{new_booking_id}, resetting people counts" }
         @people_counts = [] of Int32
         if @debounce_seconds > 0
           schedule.clear
@@ -108,7 +111,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
         end
       end
 
-      @should_save = true if @booking_id && @status != "free"
+      @should_save = true if @booking_id && @status == "busy"
     end
   end
 
@@ -148,5 +151,7 @@ class Place::EventAttendanceRecorder < PlaceOS::Driver
         },
       }).get
     end
+  rescue error
+    logger.warn(exception: error) { "failed to save event metadata" }
   end
 end
