@@ -123,7 +123,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     property checkin : Bool?
     property event_summary : String
     property event_starting : Int64
-    property event_ending : Int64
     property attendee_name : String?
     property attendee_email : String
     property host : String
