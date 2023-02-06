@@ -123,6 +123,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     property checkin : Bool?
     property event_summary : String
     property event_starting : Int64
+    property event_ending : Int64
     property attendee_name : String?
     property attendee_email : String
     property host : String
@@ -218,7 +219,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     resource_id : String,
     event_id : String,
-    area_name : String
+    area_name : String,
+
+    event_end : Int64? = nil
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -237,6 +240,12 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     network_username = network_password = ""
     network_username, network_password = update_network_user_password(visitor_email, random_password, @network_group_ids) if @send_network_credentials
+
+    event_time = if (end_timestamp = event_end) && (Time.unix(end_timestamp) - Time.unix(event_start)) == 24.hours
+                   "all day"
+                 else
+                   local_start_time.to_s(@time_format)
+                 end
 
     mailer.send_template(
       visitor_email,
@@ -282,7 +291,8 @@ class Place::VisitorMailer < PlaceOS::Driver
             event["event_start"].as_i64,
             event.dig("system", "id").as_s,
             event["id"].as_s,
-            (event.dig?("system", "display_name") || event.dig("system", "name")).as_s
+            (event.dig?("system", "display_name") || event.dig("system", "name")).as_s,
+            event_end: event["event_end"].as_i64
           )
         elsif booking = guest["booking"]?
           send_visitor_qr_email(
@@ -294,7 +304,8 @@ class Place::VisitorMailer < PlaceOS::Driver
             booking["booking_start"].as_i64,
             booking["asset_id"].as_s,
             booking["id"].as_i64.to_s,
-            @booking_space_name
+            @booking_space_name,
+            event_end: booking["booking_end"].as_i64
           )
         end
       rescue error
