@@ -21,7 +21,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
     tenant_id:                 "sfdsfsdgg",
 
     # Time before a user location is considered probably too old (in minutes)
-    max_location_age: 10,
+    # we have a large time here as DNA spaces only updates when a user moves
+    # device exit is used to signal when a device has left the building
+    max_location_age: 300,
 
     floorplan_mappings: {
       location_a4cb0: {
@@ -60,7 +62,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @api_key : String = ""
   @tenant_id : String = ""
   @channel : Channel(String) = Channel(String).new
-  @max_location_age : Time::Span = 10.minutes
+  @max_location_age : Time::Span = 300.minutes
   @s2_level : Int32 = 21
   @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @debug_stream : Bool = false
