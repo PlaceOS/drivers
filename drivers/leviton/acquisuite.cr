@@ -80,7 +80,8 @@ class Leviton::Acquisuite < PlaceOS::Driver
       define_setting(:device_list, @device_list)
       return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
     end
-    csv = CSV.new(log_file, headers: true)
+    return if log_contents.nil?
+    csv = CSV.new(log_contents, headers: true)
     # NOTE: This csv.next structure assumes that there will be a header row we don't need
     # if this is not the case we should add logic to check for a header
     while csv.next
@@ -115,7 +116,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
     define_setting(:device_list, @device_list)
 
     # Now update our config list with the new config
-    store_config(form_data["MODBUSDEVICE"], config_file)
+    store_config(form_data["MODBUSDEVICE"], config_contents) unless config_contents.nil?
     {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
 
@@ -126,12 +127,13 @@ class Leviton::Acquisuite < PlaceOS::Driver
     # If the file is gzipped then unzip it
     file_name = file_object.filename
     if file_name && file_name[-3..-1] == ".gz"
-      Compress::Gzip::Reader.open(IO::Memory.new(file_contents)) do |gzip|
+      file_unzipped = Compress::Gzip::Reader.open(IO::Memory.new(file_contents)) do |gzip|
         gzip.gets_to_end
       end
+    else
+      file_unzipped = file_contents
     end
-
-    {file_contents, file_contents}
+    {file_object, file_unzipped}
   end
 
   def device_list

@@ -77,6 +77,9 @@ DriverSpecs.mock_driver "Leviton::Acquisuite" do
   body = body.gsub("\n", "\r\n")
   body = body.gsub("fileplaceholder", dev_log)
   resp = exec(:receive_webhook, "POST", headers, Base64.encode(body)).get
+  # TODO:: Should really parse the JSON and make sure it is the below
+  # status[test_devices[0]].should be_a(Hash(String, Array(Hash(String, String)) | Int32))
+  status[test_devices[0]].should be_a(JSON::Any)
 end
 
 # Some of these fields may not be present in every request but
