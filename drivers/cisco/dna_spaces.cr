@@ -309,6 +309,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
               if level_id && (level_data = @floorplan_mappings[level_id]) && level_data["map_width"]? && level_data["map_height"]?
                 # we don't need the map ID as the x, y coordinates are defined by us
+                # we do need the map_id for grouping results, so we assign it the level id
+                payload.map_id = level_id
               else
                 found = false
                 payload.location_mappings.values.each do |loc_id|
