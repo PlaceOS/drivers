@@ -24,7 +24,7 @@ class GoBright::BookingAPI < PlaceOS::Driver
   end
 
   def bookings?(start_date : String, end_date : String, location_ids : Array(String) = [] of String, space_ids : Array(String) = [] of String, included_submodels : String? = nil, paging_skip : Int32 = 10, paging_take : Int32 = 10)
-    self["bookings_#{start_date}_#{end_date}"] =  client.bookings.get(start_date, end_date, location_ids, space_ids, included_submodels, paging_skip, paging_take)
+    self["bookings_#{start_date}_#{end_date}"] = client.bookings.get(start_date, end_date, location_ids, space_ids, included_submodels, paging_skip, paging_take)
   end
 
   def booking_occurrences?(start_date : String, end_date : String, location_ids : Array(String) = [] of String, space_ids : Array(String) = [] of String, included_submodels : String? = nil, paging_skip : Int32 = 10, paging_take : Int32 = 10, continuation_token : String? = nil)
