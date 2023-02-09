@@ -485,10 +485,14 @@ class Place::AreaManagement < PlaceOS::Driver
           sensor_summary["people_count_sum"] = people_counts.sum(&.value)
         end
 
+        if capacity = area.capacity
+          sensor_summary["capacity"] = capacity
+        end
+
         area_counts << {
-          "area_id" => area.id,
-          "name"    => area.name,
-          "count"   => (count * @duplication_factor).to_i,
+          "area_id"  => area.id,
+          "name"     => area.name,
+          "count"    => (count * @duplication_factor).to_i,
         }.merge(sensor_summary)
       end
     end

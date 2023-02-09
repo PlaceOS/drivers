@@ -16,11 +16,12 @@ module Place
   class AreaConfig
     include JSON::Serializable
 
-    def initialize(@id, name, coordinates, building_id = nil, @area_type = "Feature", @feature_type = "section")
+    def initialize(@id, name, coordinates, building_id = nil, @area_type = "Feature", @feature_type = "section", capacity = nil)
       @geometry = Geometry.new(coordinates)
       @properties = Hash(String, JSON::Any::Type | Hash(String, JSON::Any)).new
       @properties["name"] = name
       @properties["building_id"] = building_id if building_id
+      @properties["capacity"] = capacity if capacity
     end
 
     @[JSON::Field(ignore: true)]
@@ -43,9 +44,11 @@ module Place
     end
 
     def building : String?
-      if id = self.properties["building_id"]?
-        id.as(String)
-      end
+      self.properties["building_id"]?.as?(String)
+    end
+
+    def capacity : Int32?
+      self.properties["capacity"]?.as?(Int64 | Float64).try &.to_i
     end
 
     def coordinates
