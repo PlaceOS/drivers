@@ -85,7 +85,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
     # NOTE: This csv.next structure assumes that there will be a header row we don't need
     # if this is not the case we should add logic to check for a header
     while csv.next
-      data = [] of NamedTuple(time: Int32, reading: String, name: String, units: String)
+      data = [] of NamedTuple(time: Int64, reading: String, name: String, units: String)
       @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
         next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
         # Disregard the first 4 columns of the csv
