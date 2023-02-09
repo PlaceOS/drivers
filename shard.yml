@@ -117,5 +117,10 @@ dependencies:
   stripetease:
     github: grkek/stripetease
 
+  # Siemens Desigo API wrapper
   desigo:
     github: place-technology/desigo
+
+  # GoBright API wrapper
+  bright:
+    github: place-technology/bright
