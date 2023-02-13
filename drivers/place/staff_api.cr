@@ -577,9 +577,8 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "getting survey_invites (survey #{survey_id}, sent #{sent})" }
     params = URI::Params.new
     params["survey_id"] = survey_id.to_s if survey_id
-    params["sent"] = sent.to_s if !sent.nil?
-    params = params.empty? ? "" : "?#{params}"
-    response = get("/api/staff/v1/surveys/invitations#{params}", headers: authentication)
+    params["sent"] = sent.to_s unless sent.nil?
+    response = get("/api/staff/v1/surveys/invitations", params, headers: authentication)
     raise "issue getting survey invitations (survey #{survey_id}, sent #{sent}): #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
