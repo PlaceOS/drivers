@@ -54,7 +54,6 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "approved": false
     }])))
 
-
   sleep 1
   invites_resp = exec(:get_survey_invites, sent: false)
 
@@ -68,18 +67,18 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       sent = params["sent"]?
 
       sent_invite = {
-        id: 123,
+        id:        123,
         survey_id: survey_id,
-        token: "QWERTY",
-        email: "user@spec.test",
-        sent: true,
+        token:     "QWERTY",
+        email:     "user@spec.test",
+        sent:      true,
       }
       unsent_invite = {
-        id: 123,
+        id:        123,
         survey_id: survey_id,
-        token: "QWERTY",
-        email: "user@spec.test",
-        sent: false,
+        token:     "QWERTY",
+        email:     "user@spec.test",
+        sent:      false,
       }
 
       if sent == "true"
