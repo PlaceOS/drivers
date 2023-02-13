@@ -174,6 +174,19 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # WebRTC Helper functions
+  # ===================================
+
+  @[Security(Level::Support)]
+  def transfer_user(user_id : String, session_id : String, payload : JSON::Any)
+    response = post("/api/engine/v2/webrtc/transfer/#{user_id}/#{session_id}", headers: authentication, body: payload.to_json)
+    # 200 == success
+    # 428 == client is not connected to received the message, should be retried
+    # TODO:: retry a few times before failing
+    response.status_code
+  end
+
+  # ===================================
   # Guest details
   # ===================================
   @[Security(Level::Support)]

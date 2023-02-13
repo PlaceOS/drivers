@@ -490,9 +490,9 @@ class Place::AreaManagement < PlaceOS::Driver
         end
 
         area_counts << {
-          "area_id"  => area.id,
-          "name"     => area.name,
-          "count"    => (count * @duplication_factor).to_i,
+          "area_id" => area.id,
+          "name"    => area.name,
+          "count"   => (count * @duplication_factor).to_i,
         }.merge(sensor_summary)
       end
     end
