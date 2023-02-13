@@ -55,6 +55,8 @@ module Place::Chat
     getter session_id : String
     property system_id : String
 
+    getter created_by_user_id : String
+
     @[JSON::Field(converter: Time::EpochConverter)]
     getter created_at : Time
 
@@ -69,6 +71,7 @@ module Place::Chat
       raise "no session id provided for participant" unless session_id
       @session_id = session_id
       @created_at = @updated_at = Time.utc
+      @created_by_user_id = participant.user_id
       @participants = {
         participant.user_id => participant,
       }
@@ -76,13 +79,15 @@ module Place::Chat
 
     def initialize(@system_id, @session_id, @conference, participant : Participant)
       @created_at = @updated_at = Time.utc
+      @created_by_user_id = participant.user_id
       @participants = {
         participant.user_id => participant,
       }
     end
 
     def add(participant : Participant) : Participant
-      @participants << participant
+      @participants[participant.user_id] = participant
+      @participants[@created_by_user_id]?.try(&.contacted=(true))
       @updated_at = Time.utc
       participant
     end

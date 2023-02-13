@@ -3,7 +3,7 @@ require "./health_rooms_models.cr"
 
 class Place::Chat::HealthRooms < PlaceOS::Driver
   descriptive_name "Health Chat Rooms"
-  generic_name :ChatRooms
+  generic_name :ChatRoom
 
   default_settings({
     is_spec:   true,
@@ -162,7 +162,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
       # create a new meeting if required
       meeting = if meet = @meetings[session_id]?
                   system_id = meet.system_id
-                  meet.participants[rtc_user_id] = participant
+                  meet.add participant
                   meet
                 else
                   # most likely won't have to checkout a conference here
@@ -203,7 +203,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     new_meeting = nil
     @meeting_mutex.synchronize do
       if (meeting = @meetings[session_id]?) && (new_meeting = @meetings[new_session_id]?)
-        if participant = meeting.participants.delete(rtc_user_id)
+        if participant = meeting.remove(rtc_user_id)
           system_id = meeting.system_id
           new_meeting.participants[rtc_user_id] = participant
 
