@@ -145,6 +145,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
         level:       level,
         ends_at:     booking.booking_end,
         started_at:  booking.booking_start,
+        duration:    booking.booking_end - booking.booking_start,
         mac:         booking.user_id,
         staff_email: booking.user_email,
         staff_name:  booking.user_name,
