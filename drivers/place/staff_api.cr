@@ -1,6 +1,7 @@
 require "json"
 require "oauth2"
 require "placeos"
+require "simple_retry"
 require "placeos-driver"
 require "place_calendar"
 
@@ -179,10 +180,25 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def transfer_user(user_id : String, session_id : String, payload : JSON::Any)
-    response = post("/api/engine/v2/webrtc/transfer/#{user_id}/#{session_id}", headers: authentication, body: payload.to_json)
-    # 200 == success
-    # 428 == client is not connected to received the message, should be retried
-    # TODO:: retry a few times before failing
+    status = 200
+    payload_str = payload.to_json
+    SimpleRetry.try_to(
+      max_attempts: 5,
+      base_interval: 1.second,
+      max_interval: 10.seconds,
+    ) do
+      response = post("/api/engine/v2/webrtc/transfer/#{user_id}/#{session_id}", headers: authentication, body: payload_str)
+      # 200 == success
+      # 428 == client is not connected to received the message, should be retried
+      status = response.status_code
+      raise "client not yet connected" unless response.success?
+    end
+    status
+  end
+
+  @[Security(Level::Support)]
+  def kick_user(user_id : String, session_id : String)
+    response = post("/api/engine/v2/webrtc/kick/#{user_id}/#{session_id}", headers: authentication)
     response.status_code
   end
 

@@ -45,7 +45,7 @@ module Place::Chat
     property staff_user_id : String? = nil
 
     # as we don't care about this field anymore and don't want it saved in unmapped
-    @[JSON::Field(ignore_deserialize: true)]
+    @[JSON::Field(ignore: true)]
     property captcha : String? = nil
 
     def initialize(@user_id, @name, @email = nil, @phone = nil, @type = nil, @staff_user_id = nil)
