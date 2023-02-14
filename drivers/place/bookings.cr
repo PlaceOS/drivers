@@ -281,7 +281,7 @@ class Place::Bookings < PlaceOS::Driver
       self[:current_booking] = booking
       self[:host_email] = booking["host"]?
       self[:started_at] = start_time
-      self[:all_day_event] = !!booking["event_end"]?
+      self[:all_day_event] = !booking["event_end"]?
       self[:event_id] = booking["id"]?
 
       previous_booking_id = @current_meeting_id
