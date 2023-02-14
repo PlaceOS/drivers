@@ -25,8 +25,11 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     schedule.every(5.minutes) { pool_cleanup }
     schedule.in(1.second) { pool_cleanup } unless is_spec
 
+    monitoring = "#{domain}/guest/entry"
+    self[:monitoring] = monitoring
+
     subscriptions.clear
-    monitor("placeos/#{domain}/guest/entry") { |_subscription, payload| new_guest(payload) }
+    monitor(monitoring) { |_subscription, payload| new_guest(payload) }
   end
 
   protected def update_meeting_state(session_id, system_id = nil, old_system_id = nil) : Nil
@@ -46,13 +49,13 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   protected def new_guest(payload : String)
-    logger.debug { "new guest arrived: #{payload}" }
+    logger.debug { "[signal] new guest arrived: #{payload}" }
     room_guest = Hash(String, Participant).from_json payload
     room_guest.each do |system_id, guest|
-      logger.info { "new guest has entered chat: #{guest.name}" }
       conference = pool_checkout_conference
       meeting = Meeting.new(system_id, conference, guest)
       session_id = meeting.session_id
+      logger.info { "[meet] new guest has entered chat: #{guest.name}, user_id: #{guest.user_id}, session: #{session_id}" }
 
       # update the session hash
       @meeting_mutex.synchronize { @meetings[session_id] = meeting }
@@ -125,6 +128,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
       end
     end
 
+    logger.debug { "[meet] moving session: #{session_id} to system #{system_id} from #{old_system_id}" }
+
     # update the system state
     update_meeting_state(session_id, system_id, old_system_id) if moved
     moved
@@ -156,6 +161,14 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     end
 
     raise "must provide a system id if there is not an existing session" unless system_id
+
+    logger.debug do
+      if meeting
+        "[meet] joining existing meeting: staff #{placeos_user_id}, session: #{session_id} in #{system_id}"
+      else
+        "[meet] creating new meeting: staff #{placeos_user_id}, session: #{session_id} in #{system_id}"
+      end
+    end
     conference = pool_checkout_conference unless meeting
 
     @meeting_mutex.synchronize do
@@ -194,6 +207,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         end
       end
     end
+    logger.debug { "[meet] marking guest #{rtc_user_id} as contacted: #{contacted} in session #{session_id}" }
     update_meeting_state(session_id) if found
     found
   end
@@ -201,11 +215,13 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   def guest_move_session(rtc_user_id : String, session_id : String, new_session_id : String) : Bool
     system_id = nil
     new_meeting = nil
+
+    # move the meeting
     @meeting_mutex.synchronize do
       if (meeting = @meetings[session_id]?) && (new_meeting = @meetings[new_session_id]?)
         if participant = meeting.remove(rtc_user_id)
           system_id = meeting.system_id
-          new_meeting.participants[rtc_user_id] = participant
+          new_meeting.add participant
 
           if meeting.empty?
             @meetings.delete session_id
@@ -214,7 +230,10 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         end
       end
     end
+
+    # update state if the meeting was moved
     if system_id && new_meeting
+      logger.debug { "[meet] moving guest #{rtc_user_id} into #{new_session_id} from #{session_id}" }
       update_meeting_state(session_id, system_id)
       update_meeting_state(new_session_id)
 
@@ -224,6 +243,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         space_id:  conference.space_id,
         guest_pin: conference.guest_pin,
       })
+    else
+      logger.warn { "[meet] failed to move guest #{rtc_user_id} as could not find session" }
     end
     !!system_id
   end
@@ -246,12 +267,14 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   # if a new user joins and they don't have meeting details then we can
   # create them on the fly and not update the pool
   protected def new_conference
+    logger.debug { "[pool] Creating new conference..." }
     room_id = UUID.random.to_s
     details = video_conference.create_meeting(room_id).get
     ConferenceDetails.new room_id, details["space_id"].as_s, details["host_token"].as_s, details["guest_token"].as_s
   end
 
   protected def pool_cleanup
+    logger.debug { "[pool] Checking for expired meetings..." }
     expired = 12.hours.ago
     @pool_lock.synchronize do
       @pool_meet = @pool_meet.reject do |meeting|
@@ -260,6 +283,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         # could be running pool_ensure_size at the same time
         if rejected
           @pool_size -= 1
+          new_size = @pool_size
+          logger.debug { "[pool] --> Cleaning up expired meeting, pool size #{new_size}" }
         end
         rejected
       end
@@ -275,6 +300,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
       @pool_size = @pool_target_size
     end
 
+    logger.debug { "[pool] Maintaining meeting pool size, #{required} new meetings required" }
     return if required <= 0
 
     required.times do
@@ -291,12 +317,15 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
       end
     end
 
+    logger.debug { "[pool] Checking out meeting, available in pool? #{!meeting.nil?}" }
     spawn { pool_ensure_size }
 
     meeting || new_conference
   end
 
   def pool_clear_conferences : Nil
+    logger.debug { "[pool] Clearing #{@pool_size} meetings from pool" }
+
     @pool_lock.synchronize do
       @pool_size = 0
       @pool_meet = [] of ConferenceDetails
