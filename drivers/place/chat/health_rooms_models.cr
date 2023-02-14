@@ -19,6 +19,7 @@ module Place::Chat
 
   class Participant
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     property name : String
     property email : String?
@@ -42,6 +43,10 @@ module Place::Chat
 
     @[JSON::Field(ignore_deserialize: true)]
     property staff_user_id : String? = nil
+
+    # as we don't care about this field anymore and don't want it saved in unmapped
+    @[JSON::Field(ignore_deserialize: true)]
+    property captcha : String? = nil
 
     def initialize(@user_id, @name, @email = nil, @phone = nil, @type = nil, @staff_user_id = nil)
     end
