@@ -16,6 +16,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   end
 
   def on_update
+    logger.debug { "[admin] updating settings..." }
     is_spec = setting?(Bool, :is_spec) || false
 
     domain = setting(String, :domain)
@@ -30,6 +31,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     subscriptions.clear
     monitor(monitoring) { |_subscription, payload| new_guest(payload) }
+    logger.debug { "[admin] settings update success!" }
   end
 
   protected def update_meeting_state(session_id, system_id = nil, old_system_id = nil) : Nil
