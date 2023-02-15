@@ -99,7 +99,11 @@ class Leviton::Acquisuite < PlaceOS::Driver
         }
         data << reading
       end
-      self["mb-%03d" % modbus_index] = { value: data }
+      self["mb-%03d" % modbus_index] = {
+        value: data,
+        ts_hint: "complex",
+        ts_timestamp: "time",
+      }
     end
     {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
