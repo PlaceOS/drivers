@@ -84,6 +84,11 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   end
 
   # ================================================
+  # NOTIFICATIONS
+  # ================================================
+
+
+  # ================================================
   # MEETING MANAGEMENT
   # ================================================
 
@@ -319,7 +324,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     # update state if the meeting was moved
     if system_id && new_meeting
-      logger.debug { "[meet] moving guest #{rtc_user_id} into #{new_session_id} from #{session_id}" }
+      logger.debug { "[meet] moving user #{rtc_user_id} into #{new_session_id} from #{session_id}" }
       update_meeting_state(session_id, system_id)
       update_meeting_state(new_session_id)
 
@@ -354,7 +359,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   # create them on the fly and not update the pool
   protected def new_conference
     logger.debug { "[pool] Creating new conference..." }
-    room_id = UUID.random.to_s
+    room_id = "room-1" # UUID.random.to_s
     details = video_conference.create_meeting(room_id).get
     ConferenceDetails.new room_id, details["space_id"].as_s, details["host_token"].as_s, details["guest_token"].as_s
   end
