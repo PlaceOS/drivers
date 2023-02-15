@@ -199,6 +199,90 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     conference.as(ConferenceDetails)
   end
 
+  protected def meeting_remove_user(rtc_user_id : String, session_id : String, placeos_user_id : String? = nil)
+    system_id = nil
+
+    @meeting_mutex.synchronize do
+      # grab the meeting details
+      meeting = @meetings[session_id]?
+      raise "meeting not found" unless meeting
+      system_id = meeting.system_id
+
+      # ensure the current place user is the rtc_user_id
+      if placeos_user_id
+        participant = meeting.participants[rtc_user_id]
+        owner_user_id = participant.staff_user_id
+        raise "user #{placeos_user_id} attempting to leave on behalf of #{owner_user_id}" unless owner_user_id == placeos_user_id
+      end
+
+      # remove the participant
+      meeting.remove rtc_user_id
+      if meeting.empty?
+        @meetings.delete session_id
+        @room_mutex.synchronize do
+          if sessions = @rooms[system_id]?
+            sessions.delete(session_id)
+            @rooms.delete(system_id) if sessions.empty?
+          end
+        end
+      end
+    end
+
+    # update status
+    update_meeting_state(session_id, system_id.as(String))
+  end
+
+  # the user is planning of leaving the meeting or has left
+  def meeting_leave(rtc_user_id : String, session_id : String) : Nil
+    placeos_user_id = invoked_by_user_id
+    logger.debug { "[meet] user leaving #{rtc_user_id} (#{placeos_user_id}) session #{session_id}" }
+
+    meeting_remove_user(rtc_user_id, session_id, placeos_user_id)
+  end
+
+  # kicks an individual from a meeting
+  def meeting_kick(rtc_user_id : String, session_id : String)
+    placeos_user_id = invoked_by_user_id
+    logger.warn { "[meet] kicking user #{rtc_user_id} from session #{session_id}, kicked by: #{placeos_user_id}" }
+
+    # remove the user at from the chat
+    staff_api.kick_user(rtc_user_id, session_id)
+
+    # remove the user from the UI
+    meeting_remove_user(rtc_user_id, session_id)
+  end
+
+  # removes the meeting from the list and kicks anyone left in the meeting
+  def meeting_end(session_id : String)
+    placeos_user_id = invoked_by_user_id
+    system_id = nil
+    meeting = nil
+    logger.debug { "[meet] ending meeting #{session_id} ended by #{placeos_user_id}" }
+
+    # remove the meeting
+    @meeting_mutex.synchronize do
+      # grab the meeting details
+      meeting = @meetings.delete session_id
+      raise "meeting not found" unless meeting
+      system_id = meeting.system_id
+
+      @room_mutex.synchronize do
+        if sessions = @rooms[system_id]?
+          sessions.delete(session_id)
+          @rooms.delete(system_id) if sessions.empty?
+        end
+      end
+    end
+
+    # kick the users to notify them that the meeting has ended
+    meeting.not_nil!.participants.keys.each do |rtc_user_id|
+      staff_api.kick_user(rtc_user_id, session_id)
+    end
+
+    # update status
+    update_meeting_state(session_id, system_id.as(String))
+  end
+
   def guest_mark_as_contacted(rtc_user_id : String, session_id : String, contacted : Bool = true) : Bool
     found = false
     @meeting_mutex.synchronize do
