@@ -43,17 +43,24 @@ class Place::SurveyMailer < PlaceOS::Driver
   @[Security(Level::Support)]
   def send_survey_emails
     invites = Array(SurveyInvite).from_json staff_api.get_survey_invites(sent: false).get.to_json
+    sent_invites : Hash(String, Array(Int64)) = {} of String => Array(Int64)
 
     invites.each do |invite|
       begin
-        mailer.send_template(
-          to: invite.email,
-          template: {@email_template, "invite"},
-          args: {
-            email:     invite.email,
-            token:     invite.token,
-            survey_id: invite.survey_id,
-          })
+        if !(sent_surveys = sent_invites[invite.email]?) || !sent_surveys.includes?(invite.survey_id)
+          sent_invites[invite.email] ||= [] of Int64
+          sent_invites[invite.email] << invite.survey_id
+
+          mailer.send_template(
+            to: invite.email,
+            template: {@email_template, "invite"},
+            args: {
+              email:     invite.email,
+              token:     invite.token,
+              survey_id: invite.survey_id,
+            })
+        end
+
         staff_api.update_survey_invite(invite.token, sent: true)
       rescue error
         logger.warn(exception: error) { "failed to send survey email to #{invite.email}" }
