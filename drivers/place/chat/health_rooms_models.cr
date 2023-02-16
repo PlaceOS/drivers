@@ -8,6 +8,7 @@ module Place::Chat
     getter space_id : String
     getter host_pin : String
     getter guest_pin : String
+    property webex_guest_jwt : String = ""
 
     @[JSON::Field(ignore: true)]
     getter created_at : Time
