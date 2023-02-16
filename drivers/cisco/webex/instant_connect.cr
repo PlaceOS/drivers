@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "base64"
 require "jwt"
 
 class Cisco::Webex::InstantConnect < PlaceOS::Driver
@@ -32,13 +33,14 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   end
 
   def create_guest_bearer(user_id : String, display_name : String, expiry : Int64? = nil)
-    expires_at = expiry ? Time.unix(expiry) : 12.hours.from_now
+    expires_at = expiry ? expiry : 12.hours.from_now.to_unix
     JWT.encode({
       "sub":  user_id,
       "name": display_name,
       "iss":  @webex_guest_issuer,
+      "iat":  3.minutes.ago.to_unix,
       "exp":  expires_at,
-    }, @webex_guest_secret, :hs256)
+    }, Base64.decode_string(@webex_guest_secret), :hs256)
   end
 
   def create_meeting(room_id : String)
