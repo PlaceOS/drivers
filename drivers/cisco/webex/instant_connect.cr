@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "jwt"
 
 class Cisco::Webex::InstantConnect < PlaceOS::Driver
   # Discovery Information
@@ -7,20 +8,37 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   uri_base "https://mtg-broker-a.wbx2.com"
 
   default_settings({
-    bot_access_token: "token",
-    jwt_audience:     "a4d886b0-979f-4e2c-a958-3e8c14605e51",
+    bot_access_token:   "token",
+    jwt_audience:       "a4d886b0-979f-4e2c-a958-3e8c14605e51",
+    webex_guest_issuer: "a4d886b0",
+    webex_guest_secret: "a958-3e8c14605e51",
   })
 
   @jwt_audience : String = "a4d886b0-979f-4e2c-a958-3e8c14605e51"
   @bot_access_token : String = ""
+  @webex_guest_issuer : String = ""
+  @webex_guest_secret : String = ""
 
   def on_load
     on_update
   end
 
   def on_update
+    @webex_guest_issuer = setting?(String, :webex_guest_issuer) || ""
+    @webex_guest_secret = setting?(String, :webex_guest_secret) || ""
+
     @audience_setting = setting?(String, :jwt_audience) || "a4d886b0-979f-4e2c-a958-3e8c14605e51"
     @bot_access_token = setting(String, :bot_access_token)
+  end
+
+  def create_guest_bearer(user_id : String, display_name : String, expiry : Int64? = nil)
+    expires_at = expiry || 12.hours.from_now.to_unix
+    JWT.encode({
+      "sub":  user_id,
+      "name": display_name,
+      "iss":  @webex_guest_issuer,
+      "exp":  expiry.to_s, # why this is a string?
+    }, @webex_guest_secret, :hs256)
   end
 
   def create_meeting(room_id : String)
