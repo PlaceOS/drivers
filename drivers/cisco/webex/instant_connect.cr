@@ -96,6 +96,7 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   end
 
   protected def response_failed?(response)
+    logger.warn { "instant connect response failure\ncode: #{response.status_code}, status: #{response.status}\nbody:\n#{response.body.inspect}" } unless response.success?
     response.status_code != 200 || response.body.nil?
   end
 end
