@@ -28,6 +28,10 @@ services:
       CRYSTAL_PATH: lib:/lib/local-shards:/usr/share/crystal/src
       REDIS_URL: redis://redis:6379
       TZ: $TZ
+    cap_add:
+      - "SYS_PTRACE"
+    security_opt:
+      - "seccomp:unconfined"
 
   build:
     image: placeos/build:${PLACE_BUILD_TAG:-latest}
@@ -48,7 +52,7 @@ services:
       TZ: $TZ
 
   redis:
-    image: eqalpha/keydb:alpine
+    image: eqalpha/keydb
     restart: always
     hostname: redis
     environment:
@@ -56,10 +60,11 @@ services:
 
   # Ensures shards are installed.
   install-shards:
-    image: crystallang/crystal:${CRYSTAL_VERSION:-latest}-alpine
+    image: placeos/crystal:${CRYSTAL_VERSION:-latest}
     restart: "no"
     working_dir: /wd
-    command: ash -c 'shards check -q || shards install'
+    entrypoint: ''
+    command: sh -c 'shards check -q || shards install'
     environment:
       SHARDS_OPTS: "--ignore-crystal-version"
     volumes:
