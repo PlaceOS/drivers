@@ -57,36 +57,54 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     logger.debug { "[signal] new guest arrived: #{payload}" }
     room_guest = Hash(String, Participant).from_json payload
     room_guest.each do |system_id, guest|
-      conference = pool_checkout_conference
-      webex_guest_jwt = video_conference.create_guest_bearer(guest.user_id, guest.name).get.as_s
+      begin
+        conference = pool_checkout_conference
+        webex_guest_jwt = video_conference.create_guest_bearer(guest.user_id, guest.name).get.as_s
 
-      meeting = Meeting.new(system_id, conference, guest)
-      session_id = meeting.session_id
-      logger.info { "[meet] new guest has entered chat: #{guest.name}, user_id: #{guest.user_id}, session: #{session_id}" }
-
-      # update the session hash
-      @meeting_mutex.synchronize { @meetings[session_id] = meeting }
-
-      # update the room
-      sessions = [] of SessionId
-      @room_mutex.synchronize do
-        sessions = @rooms[system_id]? || sessions
-        sessions << meeting.session_id
-        @rooms[system_id] = sessions
+        register_new_guest(system_id, guest, conference, webex_guest_jwt)
+      rescue error
+        logger.error(exception: error) { "[meet] failed to obtain meeting details, kicking guest #{guest.name} (#{guest.user_id})" }
+        staff_api.kick_user(guest.user_id, guest.session_id)
       end
-
-      # send the meeting details to the user
-      schedule.in(2.seconds) do
-        staff_api.transfer_user(guest.user_id, session_id, {
-          space_id:        conference.space_id,
-          guest_pin:       conference.guest_pin,
-          webex_guest_jwt: webex_guest_jwt,
-        })
-      end
-
-      # update status
-      update_meeting_state(session_id, system_id)
     end
+  end
+
+  protected def register_new_guest(system_id, guest, conference, webex_guest_jwt)
+    meeting = Meeting.new(system_id, conference, guest)
+    session_id = meeting.session_id
+    logger.info { "[meet] new guest has entered chat: #{guest.name}, user_id: #{guest.user_id}, session: #{session_id}" }
+
+    # update the session hash
+    @meeting_mutex.synchronize { @meetings[session_id] = meeting }
+
+    # update the room
+    sessions = [] of SessionId
+    @room_mutex.synchronize do
+      sessions = @rooms[system_id]? || sessions
+      sessions << meeting.session_id
+      @rooms[system_id] = sessions
+    end
+
+    # send the meeting details to the user
+    schedule.in(2.seconds) do
+      staff_api.transfer_user(guest.user_id, session_id, {
+        space_id:        conference.space_id,
+        guest_pin:       conference.guest_pin,
+        webex_guest_jwt: webex_guest_jwt,
+      })
+    end
+
+    # update status
+    update_meeting_state(session_id, system_id)
+  rescue error
+    logger.fatal(exception: error) { "[meet] failure to setup guest conference" }
+
+    # remove the user at from the chat
+    session_id = guest.session_id.not_nil!
+    staff_api.kick_user(guest.user_id, session_id)
+
+    # remove the user from the UI
+    meeting_remove_user(guest.user_id, session_id)
   end
 
   # ================================================
@@ -394,6 +412,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   end
 
   def pool_ensure_size : Nil
+    # calculate the number of meetings required
     required = 0
     @pool_lock.synchronize do
       required = @pool_target_size - @pool_size
@@ -403,9 +422,22 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     logger.debug { "[pool] Maintaining meeting pool size, #{required} new meetings required" }
     return if required <= 0
 
-    required.times do
-      meeting = new_conference
-      @pool_lock.synchronize { @pool_meet << meeting }
+    # create the desired number of meetings
+    created = 0
+    begin
+      required.times do
+        meeting = new_conference
+        @pool_lock.synchronize { @pool_meet << meeting }
+        created += 1
+      end
+    rescue error
+      logger.error(exception: error) { "[pool] error creating pool meetings" }
+
+      # adjust size if pool update failed
+      if created != required
+        diff = required - created
+        @pool_lock.synchronize { @pool_size = @pool_size - diff }
+      end
     end
   end
 
