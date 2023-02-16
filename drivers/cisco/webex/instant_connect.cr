@@ -32,12 +32,12 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   end
 
   def create_guest_bearer(user_id : String, display_name : String, expiry : Int64? = nil)
-    expires_at = expiry || 12.hours.from_now.to_unix
+    expires_at = expiry ? Time.unix(expiry) : 12.hours.from_now
     JWT.encode({
       "sub":  user_id,
       "name": display_name,
       "iss":  @webex_guest_issuer,
-      "exp":  expiry.to_s, # why this is a string?
+      "exp":  expires_at,
     }, @webex_guest_secret, :hs256)
   end
 
