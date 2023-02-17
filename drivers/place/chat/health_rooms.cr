@@ -7,7 +7,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
   default_settings({
     is_spec:   true,
-    domain:    "domain",
+    domain_id: "domain",
     pool_size: 10,
   })
 
@@ -19,7 +19,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     logger.debug { "[admin] updating settings..." }
     is_spec = setting?(Bool, :is_spec) || false
 
-    domain = setting(String, :domain)
+    domain = setting(String, :domain_id)
     @pool_target_size = setting?(Int32, :pool_size) || 10
     system_id = config.control_system.not_nil!.id
 
@@ -32,6 +32,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     subscriptions.clear
     monitor(monitoring) { |_subscription, payload| new_guest(payload) }
+    monitor("#{domain}/chat/user/joined") { |_subscription, payload| user_joined(payload) }
+    monitor("#{domain}/chat/user/left") { |_subscription, payload| user_left(payload) }
     logger.debug { "[admin] settings update success!" }
   end
 
@@ -54,17 +56,16 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   protected def new_guest(payload : String)
     logger.debug { "[signal] new guest arrived: #{payload}" }
     room_guest = Hash(String, Participant).from_json payload
-    room_guest.each do |system_id, guest|
-      begin
-        conference = pool_checkout_conference
-        # guest JWT's are not needed
-        # webex_guest_jwt = video_conference.create_guest_bearer(guest.user_id, guest.name).get.as_s
+    system_id, guest = room_guest.first
+    begin
+      conference = pool_checkout_conference
+      # guest JWT's are not needed
+      # webex_guest_jwt = video_conference.create_guest_bearer(guest.user_id, guest.name).get.as_s
 
-        register_new_guest(system_id, guest, conference)
-      rescue error
-        logger.error(exception: error) { "[meet] failed to obtain meeting details, kicking guest #{guest.name} (#{guest.user_id})" }
-        staff_api.kick_user(guest.user_id, guest.session_id, "failed to allocate meeting")
-      end
+      register_new_guest(system_id, guest, conference)
+    rescue error
+      logger.error(exception: error) { "[meet] failed to obtain meeting details, kicking guest #{guest.name} (#{guest.user_id})" }
+      staff_api.kick_user(guest.user_id, guest.session_id, "failed to allocate meeting")
     end
   end
 
@@ -103,6 +104,26 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     # remove the user from the UI
     meeting_remove_user(guest.user_id, session_id)
+  end
+
+  protected def user_joined(payload : String)
+    logger.debug { "[signal] user joined: #{payload}" }
+    session_user = Hash(String, String).from_json payload
+    session_id, user_id = session_user.first
+
+    # TODO:: check if we have seen this user and re-instate the call
+  end
+
+  protected def user_left(payload : String)
+    logger.debug { "[signal] user left: #{payload}" }
+    session_user = Hash(String, String).from_json payload
+    session_id, user_id = session_user.first
+
+    # TODO:: mark the user as disconnected and clean up
+    # we'll timeout users in a cache and remove them completely after 5min
+    #
+    # we should also persist user info and session => user lists
+    # so we can recover these if the users return
   end
 
   # ================================================
