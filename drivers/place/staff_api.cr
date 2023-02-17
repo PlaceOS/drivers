@@ -199,7 +199,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def kick_user(user_id : String, session_id : String, reason : String)
     response = post("/api/engine/v2/webrtc/kick/#{user_id}/#{session_id}", headers: authentication, body: {
-      reason: reason
+      reason: reason,
     }.to_json)
     response.status_code
   end
