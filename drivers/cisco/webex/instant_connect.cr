@@ -49,10 +49,12 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   def create_meeting(room_id : String)
     expiry = 24.hours.from_now.to_unix
     request = {
-      "aud": @jwt_audience,
-      "jwt": {
-        "sub": room_id,
-        "exp": expiry,
+      aud: @jwt_audience,
+      provideShortUrls: true,
+      jwt: {
+        # the encounter id, should be unique for each patient encounter
+        sub: room_id,
+        exp: expiry,
       },
     }.to_json
 
@@ -60,12 +62,15 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   end
 
   protected def get_meeting_details(meeting_keys)
-    response = get("/api/v1/space/?int=jose&data=#{meeting_keys[:host]}")
+    host_details = meeting_keys.host.first
+    guest_details = meeting_keys.guest.first
+
+    response = get("/api/v1/space/?int=jose&data=#{host_details.cipher}")
     logger.debug { "host config returned:\n#{response.body}" }
     raise "host token request failed with #{response.status_code}" if response_failed?(response)
     meeting_config = Hash(String, JSON::Any).from_json(response.body)
 
-    response = get("/api/v1/space/?int=jose&data=#{meeting_keys[:guest]}")
+    response = get("/api/v1/space/?int=jose&data=#{guest_details.cipher}")
     logger.debug { "guest config returned:\n#{response.body}" }
     raise "guest token request failed with #{response.status_code}" if response_failed?(response)
     guest_token = String.from_json(response.body, root: "token")
@@ -75,11 +80,30 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
       space_id:    meeting_config["spaceId"].as_s,
       host_token:  meeting_config["token"].as_s,
       guest_token: guest_token,
+      host_url:    "#{meeting_keys.base_url}#{host_details.short}",
+      guest_url:   "#{meeting_keys.base_url}#{guest_details.short}",
     }
   end
 
+  struct JoseEncryptResponse
+    include JSON::Serializable
+
+    getter host : Array(MeetingDetails)
+    getter guest : Array(MeetingDetails)
+
+    @[JSON::Field(key: "baseUrl")]
+    getter base_url : String
+  end
+
+  struct MeetingDetails
+    include JSON::Serializable
+
+    getter cipher : String
+    getter short : String
+  end
+
   protected def get_hash(request : String)
-    response = post("/api/v1/joseencrypt", body: request, headers: HTTP::Headers{
+    response = post("/api/v2/joseencrypt", body: request, headers: HTTP::Headers{
       "Accept"        => "application/json",
       "Content-Type"  => "application/json",
       "Authorization" => "Bearer #{@bot_access_token}",
@@ -88,11 +112,7 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
     logger.debug { "get_hash returned:\n#{response.body}" }
     raise "request failed with #{response.status_code}" if response_failed?(response)
 
-    response = NamedTuple(host: Tuple(String), guest: Tuple(String)).from_json(response.body)
-    {
-      host:  response[:host][0],
-      guest: response[:guest][0],
-    }
+    JoseEncryptResponse.from_json(response.body)
   end
 
   protected def response_failed?(response)
