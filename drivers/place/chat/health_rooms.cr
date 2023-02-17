@@ -15,21 +15,19 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     on_update
   end
 
-  @webex_room_name : String = ""
-
   def on_update
     logger.debug { "[admin] updating settings..." }
     is_spec = setting?(Bool, :is_spec) || false
 
     domain = setting(String, :domain)
     @pool_target_size = setting?(Int32, :pool_size) || 10
-    @webex_room_name = setting?(String, :webex_room_name) || config.control_system.not_nil!.id
+    system_id = config.control_system.not_nil!.id
 
     schedule.clear
     schedule.every(5.minutes) { pool_cleanup }
     schedule.in(1.second) { pool_cleanup } unless is_spec
 
-    monitoring = "#{domain}/guest/entry"
+    monitoring = "#{domain}/chat/#{system_id}/guest/entry"
     self[:monitoring] = monitoring
 
     subscriptions.clear
@@ -59,9 +57,10 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     room_guest.each do |system_id, guest|
       begin
         conference = pool_checkout_conference
-        webex_guest_jwt = video_conference.create_guest_bearer(guest.user_id, guest.name).get.as_s
+        # guest JWT's are not needed
+        # webex_guest_jwt = video_conference.create_guest_bearer(guest.user_id, guest.name).get.as_s
 
-        register_new_guest(system_id, guest, conference, webex_guest_jwt)
+        register_new_guest(system_id, guest, conference)
       rescue error
         logger.error(exception: error) { "[meet] failed to obtain meeting details, kicking guest #{guest.name} (#{guest.user_id})" }
         staff_api.kick_user(guest.user_id, guest.session_id)
@@ -69,7 +68,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     end
   end
 
-  protected def register_new_guest(system_id, guest, conference, webex_guest_jwt)
+  protected def register_new_guest(system_id, guest, conference)
     meeting = Meeting.new(system_id, conference, guest)
     session_id = meeting.session_id
     logger.info { "[meet] new guest has entered chat: #{guest.name}, user_id: #{guest.user_id}, session: #{session_id}" }
@@ -88,9 +87,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     # send the meeting details to the user
     schedule.in(2.seconds) do
       staff_api.transfer_user(guest.user_id, session_id, {
-        space_id:        conference.space_id,
-        guest_pin:       conference.guest_pin,
-        webex_guest_jwt: webex_guest_jwt,
+        space_id:  conference.space_id,
+        guest_pin: conference.guest_pin,
       })
     end
 
@@ -200,7 +198,9 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         "[meet] creating new meeting: staff #{placeos_user_id}, session: #{session_id} in #{system_id}"
       end
     end
-    webex_guest_jwt = video_conference.create_guest_bearer(placeos_user_id, user_name).get.as_s
+
+    # guest JWT's are not needed
+    # webex_guest_jwt = video_conference.create_guest_bearer(placeos_user_id, user_name).get.as_s
     conference = pool_checkout_conference unless meeting
 
     @meeting_mutex.synchronize do
@@ -226,9 +226,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     # update status
     update_meeting_state(session_id, system_id.as(String))
-    conf = conference.as(ConferenceDetails).dup
-    conf.webex_guest_jwt = webex_guest_jwt
-    conf
+    conference.as(ConferenceDetails)
   end
 
   protected def meeting_remove_user(rtc_user_id : String, session_id : String, placeos_user_id : String? = nil)
@@ -386,7 +384,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   # create them on the fly and not update the pool
   protected def new_conference
     logger.debug { "[pool] Creating new conference..." }
-    room_id = @webex_room_name
+    room_id = UUID.random.to_s
     details = video_conference.create_meeting(room_id).get
     ConferenceDetails.new room_id, details["space_id"].as_s, details["host_token"].as_s, details["guest_token"].as_s
   end
