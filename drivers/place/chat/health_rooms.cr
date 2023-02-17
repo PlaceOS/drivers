@@ -63,7 +63,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         register_new_guest(system_id, guest, conference)
       rescue error
         logger.error(exception: error) { "[meet] failed to obtain meeting details, kicking guest #{guest.name} (#{guest.user_id})" }
-        staff_api.kick_user(guest.user_id, guest.session_id)
+        staff_api.kick_user(guest.user_id, guest.session_id, "failed to allocate meeting")
       end
     end
   end
@@ -99,7 +99,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     # remove the user at from the chat
     session_id = guest.session_id.not_nil!
-    staff_api.kick_user(guest.user_id, session_id)
+    staff_api.kick_user(guest.user_id, session_id, "failed to allocate meeting")
 
     # remove the user from the UI
     meeting_remove_user(guest.user_id, session_id)
@@ -276,7 +276,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     logger.warn { "[meet] kicking user #{rtc_user_id} from session #{session_id}, kicked by: #{placeos_user_id}" }
 
     # remove the user at from the chat
-    staff_api.kick_user(rtc_user_id, session_id)
+    staff_api.kick_user(rtc_user_id, session_id, "kicked by host")
 
     # remove the user from the UI
     meeting_remove_user(rtc_user_id, session_id)
@@ -306,7 +306,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     # kick the users to notify them that the meeting has ended
     meeting.not_nil!.participants.keys.each do |rtc_user_id|
-      staff_api.kick_user(rtc_user_id, session_id)
+      staff_api.kick_user(rtc_user_id, session_id, "meeting ended")
     end
 
     # update status
