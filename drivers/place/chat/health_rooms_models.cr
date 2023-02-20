@@ -48,6 +48,8 @@ module Place::Chat
     @[JSON::Field(ignore: true)]
     property captcha : String? = nil
 
+    property connected : Bool = true
+
     def initialize(@user_id, @name, @email = nil, @phone = nil, @type = nil, @staff_user_id = nil)
     end
   end
@@ -101,6 +103,18 @@ module Place::Chat
       if participant = @participants.delete(webrtc_user_id)
         @updated_at = Time.utc
         participant
+      end
+    end
+
+    def has_participant?(webrtc_user_id : String) : Participant?
+      @participants[webrtc_user_id]?
+    end
+
+    def mark_participant_connected(webrtc_user_id : String, state : Bool) : String?
+      if participant = has_participant?(webrtc_user_id)
+        old_state = participant.connected
+        participant.connected = state
+        return system_id unless old_state == state
       end
     end
 

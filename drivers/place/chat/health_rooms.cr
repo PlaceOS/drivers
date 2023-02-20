@@ -9,11 +9,15 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     is_spec:   true,
     domain_id: "domain",
     pool_size: 10,
+    # disconnect time in minutes
+    disconnect_timeout: 6,
   })
 
   def on_load
     on_update
   end
+
+  @disconnect_timeout : Time::Span = 6.minutes
 
   def on_update
     logger.debug { "[admin] updating settings..." }
@@ -23,7 +27,10 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     @pool_target_size = setting?(Int32, :pool_size) || 10
     system_id = config.control_system.not_nil!.id
 
+    @disconnect_timeout = (setting?(Int32, :disconnect_timeout) || 6).minutes
+
     schedule.clear
+    schedule.every(@disconnect_timeout / 3) { cleanup_disconnected }
     schedule.every(5.minutes) { pool_cleanup }
     schedule.in(1.second) { pool_cleanup } unless is_spec
 
@@ -106,24 +113,167 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     meeting_remove_user(guest.user_id, session_id)
   end
 
-  protected def user_joined(payload : String)
+  # chat user id unique => disconnect time
+  @recent_lock = Mutex.new
+  @concurrent_flag = false
+  @recently_disconnected = {} of String => Int64
+
+  # if we missed a signal we want to check twice, to avoid race conditions
+  # user => session_id
+  @missed_connections = {} of String => String
+
+  # in case we missed any signals from the backend (i.e. service crash)
+  # and the users have not re-connected
+  protected def check_disconnected
+    # grab the current state of meetings
+    connected = {} of String => Array(String)
+    disconnected = {} of String => Array(String)
+
+    @meeting_mutex.synchronize do
+      @meetings.transform_values(&.participants.keys)
+      @meetings.each do |system_id, meeting|
+        conn = [] of String
+        disc = [] of String
+        meeting.participants.values.each do |par|
+          if par.connected
+            conn << par.user_id
+          else
+            disc << par.user_id
+          end
+        end
+        connected[system_id] = conn
+        disconnected[system_id] = disc
+      end
+    end
+
+    # ensure we haven't missed any signals, compare API to our state
+    old_missed = @missed_connections
+    new_missed = {} of String => String
+  
+    connected.each do |session_id, connected_users|
+      disconnected_users = disconnected[session_id]
+
+      begin
+        actual_users = staff_api.chat_members(session_id).get.as_a.map(&.as_s)
+
+        # reject any users that have actually just moved
+        connected_not_found = (connected_users - actual_users).reject! { |user_id| disconnected_users.includes?(user_id) || new_missed.delete(user_id) }
+        disconnected_found = (disconnected_users & actual_users)
+
+        # build a new not found list
+        @recent_lock.synchronize do
+          connected_not_found.each do |user_id|
+            new_missed[user_id] = session_id unless old_missed[user_id]? || @recently_disconnected[user_id]
+          end
+        end
+
+        disconnected_found.each { |user_id| mark_user_as_connected(session_id, user_id) }
+      rescue error
+        logger.warn(exception: error) { "[cleanup] failed to obtain member list for #{session_id}" }
+      end
+    end
+
+    # mark as disconnected users that are not connected
+    disconneced = new_missed.keys & old_missed.keys
+    disconneced.each do |user_id|
+      new_missed.delete(user_id)
+
+      begin
+        session_id = old_missed[user_id]
+        mark_user_as_disconnected(session_id, user_id)
+      rescue
+      end
+    end
+
+    logger.debug { "[cleanup] complete, found #{disconneced.size} missed disconnections" }
+
+    # update missed connections
+    @missed_connections = new_missed
+  end
+
+  protected def cleanup_disconnected : Nil
+    logger.debug { "[cleanup] removing disconnected clients from meetings..." }
+
+    # prevent concurrent running of this function
+    @recent_lock.synchronize do
+      return if @concurrent_flag
+      @concurrent_flag = true
+    end
+
+    # find disconnected users who have timed out
+    remove = [] of String
+    expired = @disconnect_timeout.ago.to_unix
+    @recent_lock.synchronize do
+      @recently_disconnected.each do |user_id, disconnected|
+        remove << user_id if disconnected <= expired
+      end
+      remove.each do |user_id|
+        @recently_disconnected.delete user_id
+      end
+    end
+
+    # find the sessions the users who are to be removed
+    sessions = [] of Tuple(String, String)
+    remove.each do |user_id|
+      @meeting_mutex.synchronize do
+        @meetings.each do |session_id, meeting|
+          if meeting.has_participant? user_id
+            sessions << {user_id, session_id}
+            break
+          end
+        end
+      end
+    end
+
+    # remove the timed out users from the meetings
+    sessions.each { |user_details| meeting_remove_user(*user_details) }
+    logger.debug { "[cleanup] removed #{sessions.size} users who have timed out" }
+    check_disconnected
+  ensure
+    @recent_lock.synchronize { @concurrent_flag = false }
+  end
+
+  protected def user_joined(payload : String) : Nil
     logger.debug { "[signal] user joined: #{payload}" }
     session_user = Hash(String, String).from_json payload
-    session_id, user_id = session_user.first
+    mark_user_as_connected *session_user.first
+  end
 
-    # TODO:: check if we have seen this user and re-instate the call
+  protected def mark_user_as_connected(session_id, user_id)
+    # check if we have seen this user and re-instate the user
+    @recent_lock.synchronize do
+      @missed_connections.delete(user_id)
+      @recently_disconnected.delete(user_id)
+    end
+
+    system_id = @meeting_mutex.synchronize do
+      @meetings[session_id]?.try &.mark_participant_connected(user_id, true)
+    end
+
+    # update the state
+    if system_id
+      update_meeting_state(session_id, system_id)
+    end
   end
 
   protected def user_left(payload : String)
     logger.debug { "[signal] user left: #{payload}" }
     session_user = Hash(String, String).from_json payload
-    session_id, user_id = session_user.first
+    mark_user_as_disconnected *session_user.first
+  end
 
-    # TODO:: mark the user as disconnected and clean up
-    # we'll timeout users in a cache and remove them completely after 5min
-    #
-    # we should also persist user info and session => user lists
-    # so we can recover these if the users return
+  protected def mark_user_as_disconnected(session_id, user_id)
+    # check if the user is related to this system
+    system_id = @meeting_mutex.synchronize do
+      @meetings[session_id]?.try &.mark_participant_connected(user_id, false)
+    end
+
+    # update the state
+    if system_id
+      now = Time.utc.to_unix
+      @recent_lock.synchronize { @recently_disconnected[user_id] = now }
+      update_meeting_state(session_id, system_id)
+    end
   end
 
   # ================================================
@@ -200,6 +350,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     )
 
     # TODO:: ensure the user has left any other room they might be in
+    @recent_lock.synchronize { @recently_disconnected.delete(rtc_user_id) }
 
     # check we have the information we need
     meeting = nil
@@ -253,6 +404,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   protected def meeting_remove_user(rtc_user_id : String, session_id : String, placeos_user_id : String? = nil)
     system_id = nil
 
+    @recent_lock.synchronize { @recently_disconnected.delete(rtc_user_id) }
     @meeting_mutex.synchronize do
       # grab the meeting details
       meeting = @meetings[session_id]?
@@ -352,6 +504,11 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   def guest_move_session(rtc_user_id : String, session_id : String, new_session_id : String) : Bool
     system_id = nil
     new_meeting = nil
+
+    if @recent_lock.synchronize { @recently_disconnected[rtc_user_id]? }
+      logger.warn { "[meet] failed to move guest #{rtc_user_id} as disconnected" }
+      raise "can't move disconnected users, please wait for reconnection or kick"
+    end
 
     # move the meeting
     @meeting_mutex.synchronize do

@@ -205,9 +205,15 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def chat_members(session_id : String) : Array(String)
-    response = get("/api/engine/v2/webrtc/members/#{session_id}", headers: authentication)
-    raise "webrtc service possibly unavailable" unless response.success?
-    Array(String).from_json(response.body)
+    SimpleRetry.try_to(
+      max_attempts: 3,
+      base_interval: 1.second,
+      max_interval: 5.seconds,
+    ) do
+      response = get("/api/engine/v2/webrtc/members/#{session_id}", headers: authentication)
+      raise "webrtc service possibly unavailable" unless response.success?
+      Array(String).from_json(response.not_nil!.body)
+    end
   end
 
   # ===================================
