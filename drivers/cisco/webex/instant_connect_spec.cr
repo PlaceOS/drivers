@@ -74,16 +74,21 @@ RAW_GUEST_RESPONSE = %({
 })
 
 RAW_HASH_RESPONSE = %({
-  "host": [
-      "eyJwMnMiOiJCWXpoYmV4W"
-  ],
-  "guest": [
-      "eyJwMnMiOiJaVVJsejNsb1"
-  ]
+  "host": [{
+    "cipher": "eyJwMnMiOiJCWXpoYmV4W",
+    "short": "abc1234"
+  }],
+  "guest": [{
+    "cipher": "eyJwMnMiOiJaVVJsejNsb1",
+    "short": "def1234"
+  }],
+  "baseUrl": "https://somedomain.com/chat/"
 })
 
 RETVAL = %({
   "space_id":"Y2lzY29zcGFyazovL3VzL1JPT00vODhhZGM1ODAtOThmMi0xMWVjLThiYjQtZjM2MmNkNDBlZDQ1",
   "host_token":"NmFmZGQwODYtZmIzNi00OTlmLWE3N2QtNzUyNzk2MDk4NDU5MjZlNmM2YmQtNjY2_PF84_e2d06a2e-ac4e-464f-968d-a5f8a5ac6303",
-  "guest_token":"NmFmZGQwODYtZmIzNi05OTlmLWE3N2QtMzUyNzk2MDk4NDU5MeZlNmM2YmQtNjY2_PF84_e2d06a2e-ac4e-464f-968d-a5f8a5ac6303"
+  "guest_token":"NmFmZGQwODYtZmIzNi05OTlmLWE3N2QtMzUyNzk2MDk4NDU5MeZlNmM2YmQtNjY2_PF84_e2d06a2e-ac4e-464f-968d-a5f8a5ac6303",
+  "host_url": "https://somedomain.com/chat/abc1234",
+  "guest_url": "https://somedomain.com/chat/def1234"
 })
