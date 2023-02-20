@@ -36,7 +36,7 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   # * Guest JWT: https://developer.webex.com/docs/guest-issuer
   # * Testing site: https://webexsamples.github.io/browser-sdk-samples/browser-auth-jwt/
   def create_guest_bearer(user_id : String, display_name : String, expiry : Int64? = nil)
-    expires_at = expiry ? expiry : 12.hours.from_now.to_unix
+    expires_at = expiry || 12.hours.from_now.to_unix
     JWT.encode({
       "sub":  user_id,
       "name": display_name,

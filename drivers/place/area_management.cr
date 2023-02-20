@@ -62,6 +62,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
   alias RawLevelDetails = NamedTuple(
     wireless_devices: Int32,
+    desk_bookings: Int32,
     desk_usage: Int32,
     capacity: LevelCapacity,
     sensors: Hash(String, Float64),
@@ -381,6 +382,7 @@ class Place::AreaManagement < PlaceOS::Driver
     # Grab the x,y locations
     wireless_count = 0
     desk_count = 0
+    desk_bookings = 0
     xy_locs = locations.select do |loc|
       case loc["location"].as_s
       when "wireless"
@@ -390,6 +392,9 @@ class Place::AreaManagement < PlaceOS::Driver
         !loc["x"].raw.nil?
       when "desk"
         desk_count += 1 if (loc["at_location"]?.try(&.as_i?) || 0) > 0
+        false
+      when "booking"
+        desk_bookings += 1 if loc["type"].as_s == "desk"
         false
       else
         false
@@ -411,6 +416,7 @@ class Place::AreaManagement < PlaceOS::Driver
     # build the level overview
     level_counts[level_id] = {
       wireless_devices: wireless_count,
+      desk_bookings:    desk_bookings,
       desk_usage:       desk_count,
       capacity:         details,
       sensors:          sensor_summary,
@@ -550,7 +556,7 @@ class Place::AreaManagement < PlaceOS::Driver
     area.polygon.contains(x, y)
   end
 
-  protected def build_level_stats(wireless_devices, desk_usage, capacity, sensors)
+  protected def build_level_stats(wireless_devices, desk_bookings, desk_usage, capacity, sensors)
     # raw data
     total_desks = capacity[:total_desks]
     total_capacity = capacity[:total_capacity]
@@ -571,7 +577,8 @@ class Place::AreaManagement < PlaceOS::Driver
     {
       "measurement"      => "level_summary",
       "desk_count"       => total_desks,
-      "desk_usage"       => desk_usage,
+      "desk_bookings"    => desk_bookings, # booked desks
+      "desk_usage"       => desk_usage,    # sensor detected someone at a desk
       "device_capacity"  => total_capacity,
       "device_count"     => wireless_devices,
       "estimated_people" => adjusted_devices.to_i,

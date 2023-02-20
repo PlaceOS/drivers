@@ -53,4 +53,51 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "rejected": false,
       "approved": false
     }])))
+
+  sleep 1
+  invites_resp = exec(:get_survey_invites, sent: false)
+
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["Authorization"]? == "Bearer spec-test"
+      response.status_code = 200
+
+      params = request.query_params
+      survey_id = params["survey_id"]? || 1234
+      sent = params["sent"]?
+
+      sent_invite = {
+        id:        123,
+        survey_id: survey_id,
+        token:     "QWERTY",
+        email:     "user@spec.test",
+        sent:      true,
+      }
+      unsent_invite = {
+        id:        123,
+        survey_id: survey_id,
+        token:     "QWERTY",
+        email:     "user@spec.test",
+        sent:      false,
+      }
+
+      if sent == "true"
+        response << [sent_invite].to_json
+      elsif sent == "false"
+        response << [unsent_invite].to_json
+      else
+        response << [sent_invite, unsent_invite].to_json
+      end
+    else
+      response.status_code = 401
+    end
+  end
+
+  invites_resp.get.should eq(JSON.parse(%([{
+      "id": 123,
+      "survey_id": 1234,
+      "token": "QWERTY",
+      "email": "user@spec.test",
+      "sent": false
+    }])))
 end
