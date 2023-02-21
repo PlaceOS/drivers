@@ -163,7 +163,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         # build a new not found list
         @recent_lock.synchronize do
           connected_not_found.each do |user_id|
-            new_missed[user_id] = session_id unless old_missed[user_id]? || @recently_disconnected[user_id]
+            new_missed[user_id] = session_id unless old_missed[user_id]? || @recently_disconnected[user_id]?
           end
         end
 
