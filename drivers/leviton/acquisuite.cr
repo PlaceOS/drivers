@@ -32,13 +32,13 @@ class Leviton::Acquisuite < PlaceOS::Driver
   end
 
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
-    body = Base64.decode_string(body)
-    logger.info do
+    logger.warn do
       "Received Webhook\n" +
         "Method: #{method.inspect}\n" +
         "Headers:\n#{headers.inspect}\n" +
         "Body:\n#{body.inspect}"
     end if @debug_webhook
+    body = Base64.decode_string(body)
     case method.downcase
     when "post"
       new_headers = HTTP::Headers.new
@@ -80,25 +80,30 @@ class Leviton::Acquisuite < PlaceOS::Driver
       define_setting(:device_list, @device_list)
       return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
     end
-    csv = CSV.new(log_file, headers: true)
+    return if log_contents.nil?
+    csv = CSV.new(log_contents, headers: true)
     # NOTE: This csv.next structure assumes that there will be a header row we don't need
     # if this is not the case we should add logic to check for a header
     while csv.next
-      reading = {
-        time: Time.parse(csv[0].gsub("'", "").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix,
-        data: [] of NamedTuple(reading: (String | Float64), name: String, units: String),
-      }.as(NamedTuple(time: Int64, data: Array(NamedTuple(reading: (String | Float64), name: String, units: String))))
+      data = [] of NamedTuple(time: Int64, reading: String, name: String, units: String)
       @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
         next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
         # Disregard the first 4 columns of the csv
         csv_index = i + 4
-        reading[:data].push({
-          reading: csv[csv_index],
-          name:    @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String),
-          units:   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String),
-        })
+        time = Time.parse(csv[0].gsub("'", "").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix
+        reading = {
+          "time": time,
+          "reading": csv[csv_index].rstrip,
+          "name":    @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String).rstrip,
+          "units":   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String).rstrip,
+        }
+        data << reading
       end
-      self["mb-%03d" % modbus_index] = reading.dup
+      self["mb-%03d" % modbus_index] = {
+        value: data,
+        ts_hint: "complex",
+        ts_timestamp: "time",
+      }
     end
     {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
@@ -115,7 +120,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
     define_setting(:device_list, @device_list)
 
     # Now update our config list with the new config
-    store_config(form_data["MODBUSDEVICE"], config_file)
+    store_config(form_data["MODBUSDEVICE"], config_contents) unless config_contents.nil?
     {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
 
@@ -126,12 +131,13 @@ class Leviton::Acquisuite < PlaceOS::Driver
     # If the file is gzipped then unzip it
     file_name = file_object.filename
     if file_name && file_name[-3..-1] == ".gz"
-      Compress::Gzip::Reader.open(IO::Memory.new(file_contents)) do |gzip|
+      file_unzipped = Compress::Gzip::Reader.open(IO::Memory.new(file_contents)) do |gzip|
         gzip.gets_to_end
       end
+    else
+      file_unzipped = file_contents
     end
-
-    {file_contents, file_contents}
+    {file_object, file_unzipped}
   end
 
   def device_list

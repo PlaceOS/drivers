@@ -1,6 +1,7 @@
 require "json"
 require "oauth2"
 require "placeos"
+require "simple_retry"
 require "placeos-driver"
 require "place_calendar"
 
@@ -171,6 +172,48 @@ class Place::StaffAPI < PlaceOS::Driver
     include_deleted : Bool = false
   )
     placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
+  end
+
+  # ===================================
+  # WebRTC Helper functions
+  # ===================================
+
+  @[Security(Level::Support)]
+  def transfer_user(user_id : String, session_id : String, payload : JSON::Any)
+    status = 200
+    payload_str = payload.to_json
+    SimpleRetry.try_to(
+      max_attempts: 5,
+      base_interval: 1.second,
+      max_interval: 10.seconds,
+    ) do
+      response = post("/api/engine/v2/webrtc/transfer/#{user_id}/#{session_id}", headers: authentication, body: payload_str)
+      # 200 == success
+      # 428 == client is not connected to received the message, should be retried
+      status = response.status_code
+      raise "client not yet connected" unless response.success?
+    end
+    status
+  end
+
+  @[Security(Level::Support)]
+  def kick_user(user_id : String, session_id : String, reason : String)
+    response = post("/api/engine/v2/webrtc/kick/#{user_id}/#{session_id}", headers: authentication, body: {
+      reason: reason,
+    }.to_json)
+    response.status_code
+  end
+
+  def chat_members(session_id : String) : Array(String)
+    SimpleRetry.try_to(
+      max_attempts: 3,
+      base_interval: 1.second,
+      max_interval: 5.seconds,
+    ) do
+      response = get("/api/engine/v2/webrtc/members/#{session_id}", headers: authentication)
+      raise "webrtc service possibly unavailable" unless response.success?
+      Array(String).from_json(response.not_nil!.body)
+    end
   end
 
   # ===================================
@@ -577,9 +620,8 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "getting survey_invites (survey #{survey_id}, sent #{sent})" }
     params = URI::Params.new
     params["survey_id"] = survey_id.to_s if survey_id
-    params["sent"] = sent.to_s if !sent.nil?
-    params = params.empty? ? "" : "?#{params}"
-    response = get("/api/staff/v1/surveys/invitations#{params}", headers: authentication)
+    params["sent"] = sent.to_s unless sent.nil?
+    response = get("/api/staff/v1/surveys/invitations", params, headers: authentication)
     raise "issue getting survey invitations (survey #{survey_id}, sent #{sent}): #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end

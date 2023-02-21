@@ -279,6 +279,10 @@ class Place::Bookings < PlaceOS::Driver
       end
 
       self[:current_booking] = booking
+      self[:host_email] = booking["host"]?
+      self[:started_at] = start_time
+      self[:all_day_event] = !booking["event_end"]?
+      self[:event_id] = booking["id"]?
 
       previous_booking_id = @current_meeting_id
       new_booking_id = booking["id"].as_s
@@ -286,6 +290,10 @@ class Place::Bookings < PlaceOS::Driver
       @current_meeting_id = new_booking_id
     else
       self[:current_booking] = nil
+      self[:host_email] = nil
+      self[:started_at] = nil
+      self[:all_day_event] = nil
+      self[:event_id] = nil
     end
 
     self[:booked] = booked
