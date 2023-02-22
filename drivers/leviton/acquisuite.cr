@@ -38,12 +38,12 @@ class Leviton::Acquisuite < PlaceOS::Driver
         "Headers:\n#{headers.inspect}\n" +
         "Body:\n#{body.inspect}"
     end if @debug_webhook
-    body = Base64.decode_string(body)
+    decoded = Base64.decode_string(body)
     case method.downcase
     when "post"
       new_headers = HTTP::Headers.new
       headers.each { |k, v| new_headers[k] = v }
-      request = HTTP::Request.new("POST", "/request", new_headers, body)
+      request = HTTP::Request.new("POST", "/request", new_headers, decoded)
       files, form_data = ActionController::BodyParser.extract_form_data(request, "multipart/form-data", request.query_params)
       form_data = form_data.not_nil!
       case form_data["MODE"]
@@ -67,6 +67,8 @@ class Leviton::Acquisuite < PlaceOS::Driver
     end
   rescue error
     logger.warn(exception: error) { "processing webhook request: #{body.inspect}" }
+    self[:last_error] = error.inspect_with_backtrace
+    self[:error_payload] = body
     {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, error.message.to_s}
   end
 
@@ -92,7 +94,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
         csv_index = i + 4
         time = Time.parse(csv[0].gsub("'", "").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix
         reading = {
-          "time": time,
+          "time":    time,
           "reading": csv[csv_index].rstrip,
           "name":    @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String).rstrip,
           "units":   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String).rstrip,
@@ -100,9 +102,10 @@ class Leviton::Acquisuite < PlaceOS::Driver
         data << reading
       end
       self["mb-%03d" % modbus_index] = {
-        value: data,
-        ts_hint: "complex",
+        value:        data,
+        ts_hint:      "complex",
         ts_timestamp: "time",
+        measurement:  "acquisuite",
       }
     end
     {HTTP::Status::OK.to_i, {} of String => String, ""}
