@@ -5,10 +5,11 @@ DEFAULT_PASSWORD_MINIMUM_LOWERCASE = 1
 DEFAULT_PASSWORD_MINIMUM_UPPERCASE = 0
 DEFAULT_PASSWORD_MINIMUM_NUMBERS   = 1
 DEFAULT_PASSWORD_MINIMUM_SYMBOLS   = 0
-PASSWORD_LOWERCASE_CHARACTERS      = ('a'..'z').to_a
-PASSWORD_UPPERCASE_CHARACTERS      = ('A'..'Z').to_a
-PASSWORD_NUMBER_CHARACTERS         = ('0'..'9').to_a
-PASSWORD_SYMBOL_CHARACTERS         = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '`', '~']
+
+PASSWORD_LOWERCASE_CHARACTERS = ('a'..'z').to_a
+PASSWORD_UPPERCASE_CHARACTERS = ('A'..'Z').to_a
+PASSWORD_NUMBER_CHARACTERS    = ('0'..'9').to_a
+PASSWORD_SYMBOL_CHARACTERS    = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '`', '~']
 
 def generate_password(
   length : Int32? = DEFAULT_PASSWORD_LENGTH,
