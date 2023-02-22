@@ -10,7 +10,6 @@ PASSWORD_UPPERCASE_CHARACTERS      = ('A'..'Z').to_a
 PASSWORD_NUMBER_CHARACTERS         = ('0'..'9').to_a
 PASSWORD_SYMBOL_CHARACTERS         = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '`', '~']
 
-# It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
 def generate_password(
   length : Int32? = DEFAULT_PASSWORD_LENGTH,
   exclude : String? = DEFAULT_PASSWORD_EXCLUDE,
