@@ -92,14 +92,14 @@ class Place::EventMailer < PlaceOS::Driver
     subscriptions.clear
     list_target_systems.map do |sys|
       sys_id = sys["id"].to_s
-      system(sys_id).subscribe(@target_module, @target_status) do |subscription, new_value|
+      system(sys_id).subscribe(@target_module, @target_status) do |_subscription, new_value|
         process_updated_events(sys_id, Array(PlaceCalendar::Event).from_json(new_value))
       end
     end
   end
 
   def list_target_systems
-    @target_zones.map { |zone_id| list_systems_in_zone(zone_id) }.flatten
+    @target_zones.flat_map { |zone_id| list_systems_in_zone(zone_id) }
   end
 
   def list_systems_in_zone(zone_id : String)
