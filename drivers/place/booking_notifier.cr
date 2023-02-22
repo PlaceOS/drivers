@@ -6,6 +6,7 @@ require "file"
 require "uuid"
 
 require "./booking_model"
+require "./password_generator_helper"
 
 class Place::BookingNotifier < PlaceOS::Driver
   descriptive_name "Booking Notifier"
@@ -159,7 +160,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     if notify_details.include_network_credentials
       network_username, network_password = update_network_user_password(
         booking_details.user_email,
-        random_password(
+        generate_password(
           length: notify_details.network_password_length,
           exclude: notify_details.network_password_exclude,
           minimum_lowercase: notify_details.network_password_minimum_lowercase,
@@ -355,7 +356,7 @@ class Place::BookingNotifier < PlaceOS::Driver
       if notify_details.include_network_credentials
         network_username, network_password = update_network_user_password(
           booking_details.user_email,
-          random_password(
+          generate_password(
             length: notify_details.network_password_length,
             exclude: notify_details.network_password_exclude,
             minimum_lowercase: notify_details.network_password_minimum_lowercase,
@@ -444,71 +445,5 @@ class Place::BookingNotifier < PlaceOS::Driver
     response = network_provider.create_internal_user(email: user_email, name: user_email, password: password, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
-  end
-
-  # Password defaults
-  DEFAULT_PASSWORD_LENGTH            = 6
-  DEFAULT_PASSWORD_EXCLUDE           = "0Oo1Il`'\\/"
-  DEFAULT_PASSWORD_MINIMUM_LOWERCASE = 1
-  DEFAULT_PASSWORD_MINIMUM_UPPERCASE = 0
-  DEFAULT_PASSWORD_MINIMUM_NUMBERS   = 1
-  DEFAULT_PASSWORD_MINIMUM_SYMBOLS   = 0
-  PASSWORD_LOWERCASE_CHARACTERS      = ('a'..'z').to_a
-  PASSWORD_UPPERCASE_CHARACTERS      = ('A'..'Z').to_a
-  PASSWORD_NUMBER_CHARACTERS         = ('0'..'9').to_a
-  PASSWORD_SYMBOL_CHARACTERS         = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '`', '~']
-
-  # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
-  def random_password(
-    length : Int32? = DEFAULT_PASSWORD_LENGTH,
-    exclude : String? = DEFAULT_PASSWORD_EXCLUDE,
-    minimum_lowercase : Int32? = DEFAULT_PASSWORD_MINIMUM_LOWERCASE,
-    minimum_uppercase : Int32? = DEFAULT_PASSWORD_MINIMUM_UPPERCASE,
-    minimum_numbers : Int32? = DEFAULT_PASSWORD_MINIMUM_NUMBERS,
-    minimum_symbols : Int32? = DEFAULT_PASSWORD_MINIMUM_SYMBOLS
-  ) : String
-    length ||= DEFAULT_PASSWORD_LENGTH
-    exclude ||= DEFAULT_PASSWORD_EXCLUDE
-    minimum_lowercase ||= DEFAULT_PASSWORD_MINIMUM_LOWERCASE
-    minimum_uppercase ||= DEFAULT_PASSWORD_MINIMUM_UPPERCASE
-    minimum_numbers ||= DEFAULT_PASSWORD_MINIMUM_NUMBERS
-    minimum_symbols ||= DEFAULT_PASSWORD_MINIMUM_SYMBOLS
-
-    # Make sure the lenght is at least the minimums
-    minimums = minimum_lowercase + minimum_uppercase + minimum_numbers + minimum_symbols
-    length = minimums if length < minimums
-
-    characters = [] of Char
-    characters = PASSWORD_LOWERCASE_CHARACTERS if minimum_lowercase > 0
-    characters += PASSWORD_UPPERCASE_CHARACTERS if minimum_uppercase > 0
-    characters += PASSWORD_NUMBER_CHARACTERS if minimum_numbers > 0
-    characters += PASSWORD_SYMBOL_CHARACTERS if minimum_symbols > 0
-    characters = characters - exclude.chars
-
-    # make sure we have some characters to work with
-    if characters.empty?
-      characters = (PASSWORD_LOWERCASE_CHARACTERS + PASSWORD_NUMBER_CHARACTERS) - DEFAULT_PASSWORD_EXCLUDE.chars
-    end
-
-    password = ""
-    length.times do
-      if ((length - password.size) - minimums) > 0
-        password += characters.sample(random: Random::Secure)
-      else
-        # Make sure we meet the complexity requirements
-        if password.count { |c| PASSWORD_LOWERCASE_CHARACTERS.includes? c } < minimum_lowercase
-          password += (PASSWORD_LOWERCASE_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-        elsif password.count { |c| PASSWORD_UPPERCASE_CHARACTERS.includes? c } < minimum_uppercase
-          password += (PASSWORD_UPPERCASE_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-        elsif password.count { |c| PASSWORD_NUMBER_CHARACTERS.includes? c } < minimum_numbers
-          password += (PASSWORD_NUMBER_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-        elsif password.count { |c| PASSWORD_SYMBOL_CHARACTERS.includes? c } < minimum_symbols
-          password += (PASSWORD_SYMBOL_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-        else
-          password += characters.sample(random: Random::Secure)
-        end
-      end
-    end
-    password
   end
 end
