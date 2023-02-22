@@ -136,12 +136,12 @@ class Place::EventMailer < PlaceOS::Driver
     network_username, network_password = update_network_user_password(
       organizer_email.not_nil!,
       generate_password(
-        length: @password_length,
-        exclude: @password_exclude,
-        minimum_lowercase: @password_minimum_lowercase,
-        minimum_uppercase: @password_minimum_uppercase,
-        minimum_numbers: @password_minimum_numbers,
-        minimum_symbols: @password_minimum_symbols
+        length: @network_password_length,
+        exclude: @network_password_exclude,
+        minimum_lowercase: @network_password_minimum_lowercase,
+        minimum_uppercase: @network_password_minimum_uppercase,
+        minimum_numbers: @network_password_minimum_numbers,
+        minimum_symbols: @network_password_minimum_symbols
       ),
       @network_group_ids
     ) if @send_network_credentials
