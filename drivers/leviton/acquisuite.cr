@@ -92,7 +92,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
         csv_index = i + 4
         time = Time.parse(csv[0].gsub("'", "").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix
         reading = {
-          "time": time,
+          "time":    time,
           "reading": csv[csv_index].rstrip,
           "name":    @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String).rstrip,
           "units":   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String).rstrip,
@@ -100,8 +100,8 @@ class Leviton::Acquisuite < PlaceOS::Driver
         data << reading
       end
       self["mb-%03d" % modbus_index] = {
-        value: data,
-        ts_hint: "complex",
+        value:        data,
+        ts_hint:      "complex",
         ts_timestamp: "time",
       }
     end
