@@ -50,8 +50,8 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   end
 
   def switch_to(input : Input)
-    input = input.downcase if input.is_a?(String)
-    do_switch = case input
+    input_downcase = input.downcase if input.is_a?(String)
+    do_switch = case input_downcase
                 when "none", "break", "clear", "blank", "black", nil, 0
                   blank
                 when "input1", "hdmi", "hdmi1"
@@ -171,7 +171,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       uuid = reference
     else
       {"MulticastAddress", "SessionName"}.each do |prop|
-        if result = subscriptions.find { |_, x| x.as_h[prop] == reference }
+        if result = subscriptions.find { |_, x| x.as_h[prop]? == reference }
           uuid = result[0]
         end
         break if uuid
@@ -187,7 +187,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     subscriptions = @subscriptions
 
     # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/XioSubscription.htm?Highlight=XioSubscription
-    if result = subscriptions.find { |_, x| x.as_h["Position"] == reference }
+    if result = subscriptions.find { |_, x| x.as_h["Position"]? == reference }
       uuid = result[0]
     end
 
