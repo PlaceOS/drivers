@@ -59,7 +59,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
                 when "input2", "hdmi2"
                   switch_local "Input2"
                 else
-                  switch_stream input
+                  switch_stream input.as(String | Int32)
                 end
 
     do_switch.get
