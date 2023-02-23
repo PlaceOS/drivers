@@ -1,6 +1,8 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 
+require "./password_generator_helper"
+
 require "uuid"
 require "oauth2"
 
