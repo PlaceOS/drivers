@@ -9,7 +9,7 @@ DEFAULT_PASSWORD_MINIMUM_SYMBOLS   = 0
 PASSWORD_LOWERCASE_CHARACTERS = ('a'..'z').to_a
 PASSWORD_UPPERCASE_CHARACTERS = ('A'..'Z').to_a
 PASSWORD_NUMBER_CHARACTERS    = ('0'..'9').to_a
-PASSWORD_SYMBOL_CHARACTERS    = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '`', '~']
+PASSWORD_SYMBOL_CHARACTERS    = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '-', '=', '{', '}', '[', ']', '|', '\\', ':', ';', '"', '\'', '<', '>', ',', '.', '?', '/', '`', '~']
 
 def generate_password(
   length : Int32? = DEFAULT_PASSWORD_LENGTH,
@@ -42,24 +42,17 @@ def generate_password(
     characters = (PASSWORD_LOWERCASE_CHARACTERS + PASSWORD_NUMBER_CHARACTERS) - DEFAULT_PASSWORD_EXCLUDE.chars
   end
 
-  password = ""
-  length.times do
-    if ((length - password.size) - minimums) > 0
-      password += characters.sample(random: Random::Secure)
-    else
-      # Make sure we meet the complexity requirements
-      if password.count { |c| PASSWORD_LOWERCASE_CHARACTERS.includes? c } < minimum_lowercase
-        password += (PASSWORD_LOWERCASE_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-      elsif password.count { |c| PASSWORD_UPPERCASE_CHARACTERS.includes? c } < minimum_uppercase
-        password += (PASSWORD_UPPERCASE_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-      elsif password.count { |c| PASSWORD_NUMBER_CHARACTERS.includes? c } < minimum_numbers
-        password += (PASSWORD_NUMBER_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-      elsif password.count { |c| PASSWORD_SYMBOL_CHARACTERS.includes? c } < minimum_symbols
-        password += (PASSWORD_SYMBOL_CHARACTERS - exclude.chars).sample(random: Random::Secure)
-      else
-        password += characters.sample(random: Random::Secure)
-      end
-    end
-  end
-  password
+  password = [] of Char
+
+  # Add the minimums
+  minimum_lowercase.times { password << (PASSWORD_LOWERCASE_CHARACTERS - exclude.chars).sample(random: Random::Secure) }
+  minimum_uppercase.times { password << (PASSWORD_UPPERCASE_CHARACTERS - exclude.chars).sample(random: Random::Secure) }
+  minimum_numbers.times { password << (PASSWORD_NUMBER_CHARACTERS - exclude.chars).sample(random: Random::Secure) }
+  minimum_symbols.times { password << (PASSWORD_SYMBOL_CHARACTERS - exclude.chars).sample(random: Random::Secure) }
+
+  # Add the rest
+  (length - minimums).times { password << characters.sample(random: Random::Secure) }
+
+  # Shuffle the password
+  password.shuffle(random: Random::Secure).join
 end
