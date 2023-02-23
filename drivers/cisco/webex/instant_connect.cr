@@ -49,9 +49,9 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   def create_meeting(room_id : String)
     expiry = 24.hours.from_now.to_unix
     request = {
-      aud: @jwt_audience,
+      aud:              @jwt_audience,
       provideShortUrls: true,
-      jwt: {
+      jwt:              {
         # the encounter id, should be unique for each patient encounter
         sub: room_id,
         exp: expiry,

@@ -6,6 +6,7 @@ require "file"
 require "uuid"
 
 require "./booking_model"
+require "./password_generator_helper"
 
 class Place::BookingNotifier < PlaceOS::Driver
   descriptive_name "Booking Notifier"
@@ -26,13 +27,18 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     notify: {
       zone_id1: {
-        name:                        "Sydney Building 1",
-        email:                       ["concierge@place.com"],
-        notify_manager:              true,
-        notify_booking_owner:        true,
-        include_network_credentials: false,
-        network_password_length:     6,
-        network_group_ids:           [] of String,
+        name:                               "Sydney Building 1",
+        email:                              ["concierge@place.com"],
+        notify_manager:                     true,
+        notify_booking_owner:               true,
+        include_network_credentials:        false,
+        network_password_length:            DEFAULT_PASSWORD_LENGTH,
+        network_password_exclude:           DEFAULT_PASSWORD_EXCLUDE,
+        network_password_minimum_lowercase: DEFAULT_PASSWORD_MINIMUM_LOWERCASE,
+        network_password_minimum_uppercase: DEFAULT_PASSWORD_MINIMUM_UPPERCASE,
+        network_password_minimum_numbers:   DEFAULT_PASSWORD_MINIMUM_NUMBERS,
+        network_password_minimum_symbols:   DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
+        network_group_ids:                  [] of String,
       },
       zone_id2: {
         name:                 "Melb Building",
@@ -89,6 +95,11 @@ class Place::BookingNotifier < PlaceOS::Driver
     getter notify_booking_owner : Bool?
     getter include_network_credentials : Bool?
     getter network_password_length : Int32?
+    getter network_password_exclude : String?
+    getter network_password_minimum_lowercase : Int32?
+    getter network_password_minimum_uppercase : Int32?
+    getter network_password_minimum_numbers : Int32?
+    getter network_password_minimum_symbols : Int32?
     getter network_group_ids : Array(String) { [] of String }
   end
 
@@ -147,7 +158,18 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     network_username = network_password = nil
     if notify_details.include_network_credentials
-      network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length), notify_details.network_group_ids)
+      network_username, network_password = update_network_user_password(
+        booking_details.user_email,
+        generate_password(
+          length: notify_details.network_password_length,
+          exclude: notify_details.network_password_exclude,
+          minimum_lowercase: notify_details.network_password_minimum_lowercase,
+          minimum_uppercase: notify_details.network_password_minimum_uppercase,
+          minimum_numbers: notify_details.network_password_minimum_numbers,
+          minimum_symbols: notify_details.network_password_minimum_symbols
+        ),
+        notify_details.network_group_ids
+      )
     end
 
     args = {
@@ -332,7 +354,17 @@ class Place::BookingNotifier < PlaceOS::Driver
       notify_details = @notify_lookup[building_zone]
       network_username = network_password = nil
       if notify_details.include_network_credentials
-        network_username, network_password = update_network_user_password(booking_details.user_email, random_password(notify_details.network_password_length))
+        network_username, network_password = update_network_user_password(
+          booking_details.user_email,
+          generate_password(
+            length: notify_details.network_password_length,
+            exclude: notify_details.network_password_exclude,
+            minimum_lowercase: notify_details.network_password_minimum_lowercase,
+            minimum_uppercase: notify_details.network_password_minimum_uppercase,
+            minimum_numbers: notify_details.network_password_minimum_numbers,
+            minimum_symbols: notify_details.network_password_minimum_symbols
+          )
+        )
       end
 
       args = {
@@ -413,11 +445,5 @@ class Place::BookingNotifier < PlaceOS::Driver
     response = network_provider.create_internal_user(email: user_email, name: user_email, password: password, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
-  end
-
-  # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
-  def random_password(length : Int32? = 6)
-    length ||= 6
-    Random::Secure.base64(length)
   end
 end

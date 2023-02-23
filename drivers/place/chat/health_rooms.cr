@@ -149,7 +149,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     # ensure we haven't missed any signals, compare API to our state
     old_missed = @missed_connections
     new_missed = {} of String => String
-  
+
     connected.each do |session_id, connected_users|
       disconnected_users = disconnected[session_id]
 
