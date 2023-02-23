@@ -2,6 +2,8 @@ require "placeos-driver"
 require "./models/internal_user"
 require "uuid"
 
+require "../../place/password_generator_helper"
+
 # Tested with Cisco ISE API v3.1
 # https://developer.cisco.com/docs/identity-services-engine/v1/#!internaluser
 
@@ -12,22 +14,32 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   uri_base "https://ise-pan:9060/ers/config"
 
   default_settings({
-    username:        "user",
-    password:        "pass",
-    portal_id:       "Required for Guest Users, ask cisco ISE admins",
-    timezone:        "UTC",
-    guest_type:      "Required for Guest Users, ask cisco ISE admins for valid subset of values", # e.g. Contractor
-    custom_data:     {} of String => String,
-    password_length: 6,
-    debug:           false,
-    test_mode:       false,
+    username:                   "user",
+    password:                   "pass",
+    portal_id:                  "Required for Guest Users, ask cisco ISE admins",
+    timezone:                   "UTC",
+    guest_type:                 "Required for Guest Users, ask cisco ISE admins for valid subset of values", # e.g. Contractor
+    custom_data:                {} of String => String,
+    password_length:            DEFAULT_PASSWORD_LENGTH,
+    password_exclude:           DEFAULT_PASSWORD_EXCLUDE,
+    password_minimum_lowercase: DEFAULT_PASSWORD_MINIMUM_LOWERCASE,
+    password_minimum_uppercase: DEFAULT_PASSWORD_MINIMUM_UPPERCASE,
+    password_minimum_numbers:   DEFAULT_PASSWORD_MINIMUM_NUMBERS,
+    password_minimum_symbols:   DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
+    debug:                      false,
+    test_mode:                  false,
   })
 
   @basic_auth : String = ""
   @portal_id : String = ""
   @sms_service_provider : String? = nil
   @guest_type : String = "default_guest_type"
-  @password_length : Int32 = 6
+  @password_length : Int32 = DEFAULT_PASSWORD_LENGTH
+  @password_exclude : String = DEFAULT_PASSWORD_EXCLUDE
+  @password_minimum_lowercase : Int32 = DEFAULT_PASSWORD_MINIMUM_LOWERCASE
+  @password_minimum_uppercase : Int32 = DEFAULT_PASSWORD_MINIMUM_UPPERCASE
+  @password_minimum_numbers : Int32 = DEFAULT_PASSWORD_MINIMUM_NUMBERS
+  @password_minimum_symbols : Int32 = DEFAULT_PASSWORD_MINIMUM_SYMBOLS
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @custom_data = {} of String => String
 
@@ -50,7 +62,12 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     @portal_id = setting?(String, :portal_id) || "portal101"
     @guest_type = setting?(String, :guest_type) || "default_guest_type"
     @sms_service_provider = setting?(String, :sms_service_provider)
-    @password_length = setting?(Int32, :password_length) || 6
+    @password_length = setting?(Int32, :password_length) || DEFAULT_PASSWORD_LENGTH
+    @password_exclude = setting?(String, :password_exclude) || DEFAULT_PASSWORD_EXCLUDE
+    @password_minimum_lowercase = setting?(Int32, :password_minimum_lowercase) || DEFAULT_PASSWORD_MINIMUM_LOWERCASE
+    @password_minimum_uppercase = setting?(Int32, :password_minimum_uppercase) || DEFAULT_PASSWORD_MINIMUM_UPPERCASE
+    @password_minimum_numbers = setting?(Int32, :password_minimum_numbers) || DEFAULT_PASSWORD_MINIMUM_NUMBERS
+    @password_minimum_symbols = setting?(Int32, :password_minimum_symbols) || DEFAULT_PASSWORD_MINIMUM_SYMBOLS
 
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
@@ -69,7 +86,14 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     identity_groups : Array(String) = [] of String
   )
     name ||= email
-    password ||= generate_password
+    password ||= generate_password(
+      length: @password_length,
+      exclude: @password_exclude,
+      minimum_lowercase: @password_minimum_lowercase,
+      minimum_uppercase: @password_minimum_uppercase,
+      minimum_numbers: @password_minimum_numbers,
+      minimum_symbols: @password_minimum_symbols
+    )
 
     internal_user = Models::InternalUser.from_json(
       {
@@ -154,7 +178,14 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   end
 
   def update_internal_user_password_by_id(id : String, password : String? = nil)
-    password ||= generate_password
+    password ||= generate_password(
+      length: @password_length,
+      exclude: @password_exclude,
+      minimum_lowercase: @password_minimum_lowercase,
+      minimum_uppercase: @password_minimum_uppercase,
+      minimum_numbers: @password_minimum_numbers,
+      minimum_symbols: @password_minimum_symbols
+    )
 
     response = put("/internaluser/#{id}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
@@ -168,7 +199,14 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   end
 
   def update_internal_user_password_by_name(name : String, password : String? = nil)
-    password ||= generate_password
+    password ||= generate_password(
+      length: @password_length,
+      exclude: @password_exclude,
+      minimum_lowercase: @password_minimum_lowercase,
+      minimum_uppercase: @password_minimum_uppercase,
+      minimum_numbers: @password_minimum_numbers,
+      minimum_symbols: @password_minimum_symbols
+    )
 
     response = put("/internaluser/name/#{name}", body: {"InternalUser" => {"password" => password}}.to_json, headers: {
       "Accept"        => TYPE_HEADER,
@@ -182,7 +220,14 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   end
 
   def update_internal_user_password_by_email(email : String, password : String? = nil)
-    password ||= generate_password
+    password ||= generate_password(
+      length: @password_length,
+      exclude: @password_exclude,
+      minimum_lowercase: @password_minimum_lowercase,
+      minimum_uppercase: @password_minimum_uppercase,
+      minimum_numbers: @password_minimum_numbers,
+      minimum_symbols: @password_minimum_symbols
+    )
     internal_user = get_internal_user_by_email(email)
 
     update_internal_user_password_by_id(internal_user.id.to_s, password)
@@ -249,10 +294,4 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
 
   # custom_attributes.merge!(@custom_data)
   # end
-
-  # Will be lowercase letters and numbers
-  private def generate_password(length : Int32 = @password_length)
-    length ||= @password_length
-    Random::Secure.base64(length)
-  end
 end

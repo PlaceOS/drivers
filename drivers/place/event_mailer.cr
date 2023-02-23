@@ -1,25 +1,32 @@
 require "placeos-driver"
 require "place_calendar"
 
+require "./password_generator_helper"
+
 class Place::EventMailer < PlaceOS::Driver
   descriptive_name "PlaceOS Event Mailer"
   generic_name :EventMailer
   description %(Subscribe to Events and send emails to attendees)
 
   default_settings({
-    zone_ids_to_target:       ["zone-id-here"],
-    module_to_target:         "Bookings_1",
-    module_status_to_scrape:  "bookings",
-    event_filter:             "occurs_today",
-    email_template_group:     "events",
-    email_template:           "welcome",
-    send_network_credentials: false,
-    network_password_length:  6,
-    network_group_ids:        [] of String,
-    date_time_format:         "%c",
-    time_format:              "%l:%M%p",
-    date_format:              "%A, %-d %B",
-    debug:                    false,
+    zone_ids_to_target:                 ["zone-id-here"],
+    module_to_target:                   "Bookings_1",
+    module_status_to_scrape:            "bookings",
+    event_filter:                       "occurs_today",
+    email_template_group:               "events",
+    email_template:                     "welcome",
+    send_network_credentials:           false,
+    network_password_length:            DEFAULT_PASSWORD_LENGTH,
+    network_password_exclude:           DEFAULT_PASSWORD_EXCLUDE,
+    network_password_minimum_lowercase: DEFAULT_PASSWORD_MINIMUM_LOWERCASE,
+    network_password_minimum_uppercase: DEFAULT_PASSWORD_MINIMUM_UPPERCASE,
+    network_password_minimum_numbers:   DEFAULT_PASSWORD_MINIMUM_NUMBERS,
+    network_password_minimum_symbols:   DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
+    network_group_ids:                  [] of String,
+    date_time_format:                   "%c",
+    time_format:                        "%l:%M%p",
+    date_format:                        "%A, %-d %B",
+    debug:                              false,
   })
 
   accessor staff_api : StaffAPI_1
@@ -33,7 +40,12 @@ class Place::EventMailer < PlaceOS::Driver
   @email_template_group = "events"
   @email_template = "welcome"
   @send_network_credentials = false
-  @network_password_length = 6
+  @network_password_length : Int32 = DEFAULT_PASSWORD_LENGTH
+  @network_password_exclude : String = DEFAULT_PASSWORD_EXCLUDE
+  @network_password_minimum_lowercase : Int32 = DEFAULT_PASSWORD_MINIMUM_LOWERCASE
+  @network_password_minimum_uppercase : Int32 = DEFAULT_PASSWORD_MINIMUM_UPPERCASE
+  @network_password_minimum_numbers : Int32 = DEFAULT_PASSWORD_MINIMUM_NUMBERS
+  @network_password_minimum_symbols : Int32 = DEFAULT_PASSWORD_MINIMUM_SYMBOLS
   @network_group_ids = [] of String
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
@@ -57,7 +69,12 @@ class Place::EventMailer < PlaceOS::Driver
     @email_template = setting?(String, :email_template) || "welcome"
 
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
-    @network_password_length = setting?(Int32, :network_password_length) || 6
+    @network_password_length = setting?(Int32, :password_length) || DEFAULT_PASSWORD_LENGTH
+    @network_password_exclude = setting?(String, :password_exclude) || DEFAULT_PASSWORD_EXCLUDE
+    @network_password_minimum_lowercase = setting?(Int32, :password_minimum_lowercase) || DEFAULT_PASSWORD_MINIMUM_LOWERCASE
+    @network_password_minimum_uppercase = setting?(Int32, :password_minimum_uppercase) || DEFAULT_PASSWORD_MINIMUM_UPPERCASE
+    @network_password_minimum_numbers = setting?(Int32, :password_minimum_numbers) || DEFAULT_PASSWORD_MINIMUM_NUMBERS
+    @network_password_minimum_symbols = setting?(Int32, :password_minimum_symbols) || DEFAULT_PASSWORD_MINIMUM_SYMBOLS
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
 
     @date_time_format = setting?(String, :date_time_format) || "%c"
@@ -75,14 +92,14 @@ class Place::EventMailer < PlaceOS::Driver
     subscriptions.clear
     list_target_systems.map do |sys|
       sys_id = sys["id"].to_s
-      system(sys_id).subscribe(@target_module, @target_status) do |subscription, new_value|
+      system(sys_id).subscribe(@target_module, @target_status) do |_subscription, new_value|
         process_updated_events(sys_id, Array(PlaceCalendar::Event).from_json(new_value))
       end
     end
   end
 
   def list_target_systems
-    @target_zones.map { |zone_id| list_systems_in_zone(zone_id) }.flatten
+    @target_zones.flat_map { |zone_id| list_systems_in_zone(zone_id) }
   end
 
   def list_systems_in_zone(zone_id : String)
@@ -116,7 +133,18 @@ class Place::EventMailer < PlaceOS::Driver
     organizer_email = event.host
     organizer_name = event.attendees.find { |a| a.email == organizer_email }.try &.name || "Name Unknown"
     network_username = network_password = ""
-    network_username, network_password = update_network_user_password(organizer_email.not_nil!, random_password, @network_group_ids) if @send_network_credentials
+    network_username, network_password = update_network_user_password(
+      organizer_email.not_nil!,
+      generate_password(
+        length: @network_password_length,
+        exclude: @network_password_exclude,
+        minimum_lowercase: @network_password_minimum_lowercase,
+        minimum_uppercase: @network_password_minimum_uppercase,
+        minimum_numbers: @network_password_minimum_numbers,
+        minimum_symbols: @network_password_minimum_symbols
+      ),
+      @network_group_ids
+    ) if @send_network_credentials
 
     email_data = {
       host_name:        organizer_name,
@@ -180,11 +208,5 @@ class Place::EventMailer < PlaceOS::Driver
     response = network_provider.create_internal_user(email: user_email, name: user_email, password: password, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
-  end
-
-  # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
-  def random_password(length : Int32? = 6)
-    length ||= @network_password_length
-    Random::Secure.base64(length)
   end
 end
