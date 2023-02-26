@@ -75,7 +75,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
             if num_participants == 1 && initiator && !initiator.contacted
               waiting += 1
               waiting_time = call_details.updated_at.to_unix
-              longest_wait = waiting_time if waiting_time < longest_wait
+              longest_wait = waiting_time if longest_wait == 0_i64 || waiting_time < longest_wait
             end
           end
 
