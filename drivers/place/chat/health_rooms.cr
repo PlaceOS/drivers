@@ -52,6 +52,44 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     if system_id
       self[system_id] = @room_mutex.synchronize { @rooms[system_id]?.try(&.dup) }
     end
+
+    # update the overview of all the meetings
+    # NOTE:: locks must be obtained in the same order as other places
+    # in code to prevent deadlocks / invalid state
+    summary = Array(MeetingSummary).new(@rooms.size)
+    @meeting_mutex.synchronize do
+      @room_mutex.synchronize do
+        time_now = Time.utc.to_unix
+
+        @rooms.each do |sys_id, sessions|
+          total_participants = 0
+          waiting = 0
+          longest_wait = 0_i64
+          number_calls = sessions.size
+
+          sessions.each do |sesh_id|
+            call_details = @meetings[sesh_id]
+            num_participants = call_details.participants.size
+            total_participants += num_participants
+            initiator = call_details.participants[call_details.created_by_user_id]?
+            if num_participants == 1 && initiator && !initiator.contacted
+              waiting += 1
+              waiting_time = time_now - call_details.updated_at.to_unix
+              longest_wait = waiting_time if waiting_time > longest_wait
+            end
+          end
+
+          summary << MeetingSummary.new(sys_id, number_calls, total_participants, waiting, longest_wait)
+        end
+      end
+    end
+
+    self[:chat_summary] = {
+      value:       summary,
+      ts_hint:     "complex",
+      ts_tag_keys: {"pos_system"},
+      measurement: "chat_summary",
+    }
   end
 
   # ================================================
