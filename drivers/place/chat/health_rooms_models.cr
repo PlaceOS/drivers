@@ -54,6 +54,19 @@ module Place::Chat
     end
   end
 
+  struct MeetingSummary
+    include JSON::Serializable
+
+    getter pos_system : String
+    getter call_count : Int32
+    getter waiting_count : Int32
+    getter participant_count : Int32
+    getter longest_wait_time : Int64
+
+    def initialize(@pos_system, @call_count, @participant_count, @waiting_count, @longest_wait_time)
+    end
+  end
+
   class Meeting
     include JSON::Serializable
 
