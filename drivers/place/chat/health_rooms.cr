@@ -374,7 +374,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
   # this is how staff members create a meeting room
   # or join an existing meeting
-  def meeting_join(rtc_user_id : String, session_id : String, type : String? = nil, system_id : String? = nil) : ConferenceDetails
+  def meeting_join(rtc_user_id : String, session_id : String, type : String? = nil, system_id : String? = nil, text_chat_only : Bool? = nil) : ConferenceDetails
     placeos_user_id = invoked_by_user_id
     user_details = staff_api.user(placeos_user_id).get
     user_name = user_details["name"].as_s
@@ -384,7 +384,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
       name: user_name,
       email: user_details["email"].as_s,
       type: type,
-      staff_user_id: placeos_user_id
+      staff_user_id: placeos_user_id,
+      text_chat_only: text_chat_only
     )
 
     # TODO:: ensure the user has left any other room they might be in
