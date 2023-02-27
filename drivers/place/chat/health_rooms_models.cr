@@ -27,6 +27,7 @@ module Place::Chat
 
     # the type of guest (additional information)
     property type : String?
+    property text_chat_only : Bool? = false
 
     # the placeos user id we would like to notify if we have the user details
     property chat_to_user_id : String?
@@ -50,7 +51,7 @@ module Place::Chat
 
     property connected : Bool = true
 
-    def initialize(@user_id, @name, @email = nil, @phone = nil, @type = nil, @staff_user_id = nil)
+    def initialize(@user_id, @name, @email = nil, @phone = nil, @type = nil, @staff_user_id = nil, @text_chat_only = nil)
     end
   end
 
