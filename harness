@@ -26,7 +26,11 @@ trap "trap_ctrlc" 2
 
 up() {
   echo '░░░ PlaceOS Driver Harness'
-  echo '░░░ Starting environment...'
+  echo '░░░ -> Pulling latest code...'
+  git pull
+  echo '░░░ -> Pulling latest images...'
+  docker-compose pull
+  echo '░░░ -> Starting environment...'
   docker-compose up -d
   printf "░░░ The harness can be found at http://localhost:8085\n"
   echo '░░░ Stop the harness with `harness down`'
