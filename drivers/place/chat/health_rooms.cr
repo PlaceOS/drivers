@@ -40,6 +40,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     subscriptions.clear
     monitor(monitoring) { |_subscription, payload| new_guest(payload) }
     monitor("#{domain}/chat/user/joined") { |_subscription, payload| user_joined(payload) }
+    monitor("#{domain}/chat/user/exited") { |_subscription, payload| user_exited(payload) }
     monitor("#{domain}/chat/user/left") { |_subscription, payload| user_left(payload) }
     logger.debug { "[admin] settings update success!" }
   end
@@ -298,6 +299,13 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     logger.debug { "[signal] user left: #{payload}" }
     session_user = Hash(String, String).from_json payload
     mark_user_as_disconnected *session_user.first
+  end
+
+  protected def user_exited(payload : String)
+    logger.debug { "[signal] user exited: #{payload}" }
+    session_user = Hash(String, String).from_json payload
+    session_id, user_id = session_user.first
+    meeting_remove_user(user_id, session_id)
   end
 
   protected def mark_user_as_disconnected(session_id, user_id)
