@@ -57,6 +57,7 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
   @blank : Input?
   @previous_volume : Int32 = 50
   @input_target : Input? = nil
+  @whiteboard_clear_input : Input? = nil
   @power_target : Bool? = nil
 
   def on_load
@@ -76,6 +77,11 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
   def on_update
     @id = setting(UInt8, :display_id)
     @rs232 = setting(Bool, :rs232_control)
+    if clear_input = setting?(String, :whiteboard_clear_input)
+      @whiteboard_clear_input = Input.parse(clear_input)
+    else
+      @whiteboard_clear_input = nil
+    end
   end
 
   def connected
@@ -131,9 +137,21 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
     do_send(Command::Input, input.value, **options)
   end
 
+  # if the user has been using the display as a whiteboard
+  # then the display needs to switch input
+  def clear_whiteboard
+    target_input = @input_target
+    clear_input = @whiteboard_clear_input
+    if target_input && clear_input
+      switch_to(clear_input).get
+      switch_to target_input
+    end
+  end
+
   def do_poll
     if power?
-      do_send(Command::Input, Bytes.empty, priority: 0)
+      # not even the input query is supported
+      # do_send(Command::Input, Bytes.empty, priority: 0)
       do_send(Command::Volume, Bytes.empty, priority: 0)
     end
   end
