@@ -40,7 +40,11 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     subscriptions.clear
     monitor(monitoring) { |_subscription, payload| new_guest(payload) }
     monitor("#{domain}/chat/user/joined") { |_subscription, payload| user_joined(payload) }
-    monitor("#{domain}/chat/user/exited") { |_subscription, payload| user_exited(payload) }
+    monitor("#{domain}/chat/user/exited") do |_subscription, payload|
+      logger.debug { "[signal] user exited: #{payload}" }
+      user_id = NamedTuple(user_id: String).from_json(payload)[:user_id]
+      user_exited(user_id)
+    end
     monitor("#{domain}/chat/user/left") { |_subscription, payload| user_left(payload) }
     logger.debug { "[admin] settings update success!" }
   end
@@ -252,24 +256,22 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     end
 
     # find the sessions the users who are to be removed
-    sessions = [] of Tuple(String, String)
-    remove.each do |user_id|
-      @meeting_mutex.synchronize do
-        @meetings.each do |session_id, meeting|
-          if meeting.has_participant? user_id
-            sessions << {user_id, session_id}
-            break
-          end
-        end
-      end
-    end
-
-    # remove the timed out users from the meetings
-    sessions.each { |user_details| meeting_remove_user(*user_details) }
-    logger.debug { "[cleanup] removed #{sessions.size} users who have timed out" }
+    remove.each { |user_id| user_exited(user_id) }
+    logger.debug { "[cleanup] removed #{remove.size} users who have timed out" }
     check_disconnected
   ensure
     @recent_lock.synchronize { @concurrent_flag = false }
+  end
+
+  # finds all the session_ids that includes the specified user_id
+  def sessions_with_user(user_id : String) : Array(String)
+    sessions = [] of String
+    @meeting_mutex.synchronize do
+      @meetings.each do |session_id, meeting|
+        sessions << session_id if meeting.participants.has_key? user_id
+      end
+    end
+    sessions
   end
 
   protected def user_joined(payload : String) : Nil
@@ -301,11 +303,19 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     mark_user_as_disconnected *session_user.first
   end
 
-  protected def user_exited(payload : String)
-    logger.debug { "[signal] user exited: #{payload}" }
-    session_user = Hash(String, String).from_json payload
-    session_id, user_id = session_user.first
-    meeting_remove_user(user_id, session_id)
+  protected def user_exited(user_id : String)
+    @recent_lock.synchronize do
+      @missed_connections.delete(user_id)
+      @recently_disconnected.delete(user_id)
+    end
+
+    sessions_with_user(user_id).each do |session_id|
+      begin
+        meeting_remove_user(user_id, session_id)
+      rescue error
+        logger.warn(exception: error) { "failed to remove user #{user_id} from #{session_id}" }
+      end
+    end
   end
 
   protected def mark_user_as_disconnected(session_id, user_id)
@@ -499,7 +509,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     staff_api.kick_user(rtc_user_id, session_id, "kicked by host")
 
     # remove the user from the UI
-    meeting_remove_user(rtc_user_id, session_id)
+    user_exited(rtc_user_id)
   end
 
   # removes the meeting from the list and kicks anyone left in the meeting
