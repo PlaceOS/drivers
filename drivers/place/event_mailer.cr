@@ -166,7 +166,7 @@ class Place::EventMailer < PlaceOS::Driver
     rescue
       logger.error { "ERROR when attempting to send welcome email" }
     else
-      staff_api.patch_event_metadata(system_id, event.id, {"event_mailer_email_sent_at": Time.local}.to_json).get
+      staff_api.patch_event_metadata(system_id, event.id, {"event_mailer_email_sent_at": Time.local}).get
     end
   end
 
