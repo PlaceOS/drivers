@@ -29,7 +29,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
     @debug_webhook = setting?(Bool, :debug_webhook) || false
     @device_list = setting(Hash(String, Tuple(String, String)), :device_list)
     @manifest_list = setting(Array(String), :manifest_list)
-    @config_list = setting(Array(String), :config_list)
+    @config_list = setting(Hash(String, Array(Hash(String, Float64 | String))), :config_list)
   end
 
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
