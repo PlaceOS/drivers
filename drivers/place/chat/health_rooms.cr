@@ -52,10 +52,10 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   protected def update_meeting_state(session_id, system_id = nil, old_system_id = nil) : Nil
     self[session_id] = @meeting_mutex.synchronize { @meetings[session_id]?.try(&.dup) }
     if old_system_id
-      self[old_system_id] = @room_mutex.synchronize { @rooms[old_system_id]?.try(&.dup) }
+      self[old_system_id] = @room_mutex.synchronize { @rooms[old_system_id]?.try(&.dup) } || [] of String
     end
     if system_id
-      self[system_id] = @room_mutex.synchronize { @rooms[system_id]?.try(&.dup) }
+      self[system_id] = @room_mutex.synchronize { @rooms[system_id]?.try(&.dup) } || [] of String
     end
 
     # update the overview of all the meetings
