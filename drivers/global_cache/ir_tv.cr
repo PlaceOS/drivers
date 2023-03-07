@@ -1,4 +1,3 @@
-
 require "placeos-driver"
 
 class GlobalCache::IRTV < PlaceOS::Driver
@@ -6,34 +5,34 @@ class GlobalCache::IRTV < PlaceOS::Driver
   generic_name :IPTV
 
   default_settings({
-    channel_details: [
+    default_ir_set:     "foxtel_iq2",
+    default_ir_index:   1,
+    globalcache_module: "DigtialIO_1",
+    channel_details:    [
       {
-        name:    "ABC News",
-        icon:    "https://url-to-svg-or-png",
-        channel: "abc_news",                            # Any Unique ID
-        ir_set: "foxtel_iq2",                            # 
-        ir_commands: ["DIGIT 0","DIGIT 2","DIGIT 4"]    # comma seperated IR commands from ir_set to transmit
+        name:        "ABC News",
+        icon:        "https://url-to-svg-or-png",
+        id:          "abc_news",                        # A Unique ID
+        ir_commands: ["DIGIT 0", "DIGIT 2", "DIGIT 4"], # comma seperated IR commands from ir_set to transmit
       },
       {
-        name:    "Channel Down",
-        icon:    "https://url-to-svg-or-png",
-        channel: "down",
-        ir_set: "foxtel_iq2",
-        ir_commands: ["CHANNEL_DOWN"]
+        name:        "Channel Down",
+        icon:        "https://url-to-svg-or-png",
+        id:          "down",
+        ir_commands: ["CHANNEL_DOWN"],
       },
       {
-        name:    "Channel Up",
-        icon:    "https://url-to-svg-or-png",
-        channel: "up",
-        ir_set: "foxtel_iq2",
-        ir_commands: ["CHANNEL_UP"]
-      }
+        name:        "Channel Up",
+        icon:        "https://url-to-svg-or-png",
+        id:          "up",
+        ir_commands: ["CHANNEL_UP"],
+      },
     ],
-    ir_sets: {
-        # Globalcache IR Database entries downloaded from https://irdb.globalcache.com/Home/Database are in the format
-        # function, code1, hexcode1, code2, hexcode2
-        # we are interested in function and code 1 only
-        "foxtel_iq2": <<-PASTE_FROM_GLOBALCACHE_IR_DATABASE
+    globalcache_ir_sets: {
+      # Globalcache IR Database entries downloaded from https://irdb.globalcache.com/Home/Database are in the format
+      # function, code1, hexcode1, code2, hexcode2
+      # we are interested in function and code 1 only
+      "foxtel_iq2": <<-PASTE_FROM_GLOBALCACHE_IR_DATABASE
 "ACTIVE","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,10,6,22,6,16,6,22,6,28,6,28,6,28,6,22,6,3176","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 000A 0006 0016 0006 0010 0006 0016 0006 001C 0006 001C 0006 001C 0006 0016 0006 0C68","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,22,6,22,6,16,6,22,6,28,6,28,6,28,6,22,6,3164","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 0016 0006 0016 0006 0010 0006 0016 0006 001C 0006 001C 0006 001C 0006 0016 0006 0C5C"
 "AV MODE","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,10,6,22,6,16,6,22,6,10,6,28,6,22,6,10,6,3212","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 000A 0006 0016 0006 0010 0006 0016 0006 000A 0006 001C 0006 0016 0006 000A 0006 0C8C","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,22,6,22,6,16,6,22,6,10,6,28,6,22,6,10,6,3200","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 0016 0006 0016 0006 0010 0006 0016 0006 000A 0006 001C 0006 0016 0006 000A 0006 0C80"
 "BACK","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,10,6,22,6,16,6,22,6,22,6,10,6,10,6,28,6,3212","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 000A 0006 0016 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 001C 0006 0C8C","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,22,6,22,6,16,6,22,6,22,6,10,6,10,6,28,6,3200","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 0016 0006 0016 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 001C 0006 0C80"
@@ -77,37 +76,110 @@ class GlobalCache::IRTV < PlaceOS::Driver
 "VOLUME DOWN","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,10,6,22,6,16,6,22,6,10,6,16,6,10,6,16,6,3231","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 000A 0006 0016 0006 0010 0006 0016 0006 000A 0006 0010 0006 000A 0006 0010 0006 0C9F","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,22,6,22,6,16,6,22,6,10,6,16,6,10,6,16,6,3219","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 0016 0006 0016 0006 0010 0006 0016 0006 000A 0006 0010 0006 000A 0006 0010 0006 0C93"
 "VOLUME UP","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,10,6,22,6,16,6,22,6,10,6,16,6,10,6,10,6,3237","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 000A 0006 0016 0006 0010 0006 0016 0006 000A 0006 0010 0006 000A 0006 000A 0006 0CA5","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,22,6,22,6,16,6,22,6,10,6,16,6,10,6,10,6,3225","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 0016 0006 0016 0006 0010 0006 0016 0006 000A 0006 0010 0006 000A 0006 000A 0006 0C99""
 PASTE_FROM_GLOBALCACHE_IR_DATABASE
-    }
+    },
   })
 
-  class ChannelDetail
+  class Channel
     include JSON::Serializable
 
     getter name : String
     getter icon : String?
-    getter channel : String
-    getter ir_set : String
+    getter id : String
     getter ir_commands : Array(String)
   end
 
-  # This needs to move to a setting to allow which globalcache (it won't always be the first one)
-  accessor globalcache : DigitalIO_1
+  @default_ir_set : String = "foxtel_iq2"
+  @default_ir_index : Int32 = 1
+  @globalcache : String = "DigitalIO_1"
+  @channels : Array(Channel) = [] of Channel
+  @channel_lookup : Hash(String, Channel) = {} of String => Channel
+  # e.g.
+  # {
+  #   "abc_news": {
+  #     name:    "ABC News",
+  #     icon:    "https://url-to-svg-or-png",
+  #     id: "abc_news",
+  #     ir_commands: ["DIGIT 0","DIGIT 2","DIGIT 4"]
+  #   },
+  #   ...
+  # }
 
-  @channel_lookup : Hash(String, ChannelDetail) = {} of String => ChannelDetail
+  @ir_commands : Hash(String, Hash(String, String)) = {} of String => Hash(String, String)
+
+  # e.g.
+  # {
+  #   "foxtel_iq2": {
+  #     "ACTIVE": "sendir,1:1,1,36000,1,1,15,10...",
+  #     "AV MODE": "sendir,1:1,1,36000,1,1,15,10...",
+  #     ...
+  #   },
+  #   ...
+  # }
 
   def on_load
     on_update
   end
 
   def on_update
-    # Parse ir_sets
-    # expose channel_details and current_channel
+    @globalcache = setting(String, :globalcache_module)
+    @default_ir_set = setting(String, :default_ir_set)
+    @default_ir_index = setting(Int32, :default_ir_index)
+    @channels = setting(Array(Channel), :channel_details)
+
+    # Parse channels
+    updated_channel_lookup = {} of String => Channel
+    @channels.each do |channel|
+      updated_channel_lookup[channel.id] = channel
+    end
+    @channel_lookup = updated_channel_lookup
+
+    # Parse globalcache ir commands
+    globalcache_ir_sets = setting(Hash(String, String), :globalcache_ir_sets)
+    updated_ir_commands = {} of String => Hash(String, String)
+    globalcache_ir_sets.each do |device, all_commands|
+      updated_ir_commands[device] = parse_all_commands(all_commands)
+    end
+    @ir_commands = updated_ir_commands
+
+    # expose channel_details
+    self[:channel_details] = @channels
   end
 
-  def channel
-    # send the IR command to the globalcache
-    # update current_channel
+  # Actually send the IR commands, via the globalcache
+  def channel(id : String, ir_set : String = "", ir_index : Int32 = 0)
+    # Workaround for "Error: @instance_vars are not yet allowed in metaclasses"
+    ir_set = @default_ir_set unless ir_set.presence
+    ir_index = @default_ir_index unless ir_index
+
+    # Determine which IR Commands need to be sent, look up their code and then transmit them in sequence
+    result = @channel_lookup[id].ir_commands.map do |ir_command_name|
+      system[@globalcache].ir(ir_index, @ir_commands[ir_set][ir_command_name]).get
+    end
+
+    # update current_channel if successful
+    self[:current_channel] = id
   end
 
+  ###
+  # ## Functions to parse raw globalcache data into a Hash
+  ###
+  private def parse_all_commands(all_commands : String)
+    result = {} of String => String
+    all_commands.each_line do |line|
+      name_code = extract_name_and_ir_code_from_1_line(line)
+      result[name_code[0]] = name_code[1]
+    end
+    result
+  end
 
+  # Sample input String (including the quotes):
+  # "PAUSE","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,10,6,22,6,16,6,22,6,10,6,28,6,10,6,10,6,3225","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 000A 0006 0016 0006 0010 0006 0016 0006 000A 0006 001C 0006 000A 0006 000A 0006 0C99","sendir,1:1,1,36000,1,1,15,10,6,10,6,22,6,10,6,16,6,22,6,22,6,10,6,10,6,22,6,22,6,16,6,22,6,10,6,28,6,10,6,10,6,3212","0000 0073 0000 0012 000F 000A 0006 000A 0006 0016 0006 000A 0006 0010 0006 0016 0006 0016 0006 000A 0006 000A 0006 0016 0006 0016 0006 0010 0006 0016 0006 000A 0006 001C 0006 000A 0006 000A 0006 0C8C"
+  # function, code1, hexcode1, code2, hexcode2
+  # we are interested in function name and code 1 only
+  private def extract_name_and_ir_code_from_1_line(name_and_all_codes : String)
+    function_code1_hex1_code2_hex2 = name_and_all_codes.split(%(","))
+    function_name = function_code1_hex1_code2_hex2[0].lchop('"')
+    code1 = function_code1_hex1_code2_hex2[1].lchop("sendir,1:1,")
+    [function_name, code1]
+  end
 end
