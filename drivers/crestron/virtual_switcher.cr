@@ -59,7 +59,7 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
   protected def get_streams(input : Input, layer : SwitchLayer = SwitchLayer::All)
     if int_input = input.to_i?
       if int_input == 0
-        {0, JSON::Any.new("")} # disconnected
+        {"none", JSON::Any.new("")} # disconnected
       else
         # Subtract one as Encoder_1 on the system would be encoder[0] here
         if tx = transmitters[int_input - 1]?
