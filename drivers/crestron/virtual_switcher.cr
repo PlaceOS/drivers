@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/switchable"
+require "placeos-driver/interface/muteable"
 require "./nvx_models"
 
 class Crestron::VirtualSwitcher < PlaceOS::Driver
@@ -11,6 +12,7 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
   DESC
 
   include Interface::Switchable(String, Int32 | String)
+  include Interface::Muteable
 
   default_settings({
     audio_sink: {
@@ -77,6 +79,21 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
         {input, nil}
       end
     end
+  end
+
+  # only support muting the outputs, no unmuting
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo
+  )
+    return unless state
+    switch_layer = case layer
+                   in MuteLayer::Audio      then SwitchLayer::Audio
+                   in MuteLayer::Video      then SwitchLayer::Video
+                   in MuteLayer::AudioVideo then SwitchLayer::All
+                   end
+    switch({"none" => [index]}, switch_layer)
   end
 
   def switch_to(input : Input)
