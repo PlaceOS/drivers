@@ -1,7 +1,11 @@
 require "placeos-driver/spec"
 
 class DigitalIO < DriverSpecs::MockDriver
+  @called : Int32 = 0
+
   def ir(index : Int32, command : String)
+    @called += 1
+    self[:call_count] = @called
     nil
   end
 end
@@ -11,8 +15,10 @@ DriverSpecs.mock_driver "GlobalCache::IRTV" do
     DigitalIO: {DigitalIO},
   })
 
-  exec(:channel, "abc_news")
+  exec(:channel, "abc_news").get
   status[:current_channel].should eq("abc_news")
+
+  system(:DigitalIO_1)[:call_count].should eq 3
 
   status[:channel_details].should eq(
     [
