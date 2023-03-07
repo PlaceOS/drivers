@@ -149,7 +149,7 @@ PASTE_FROM_GLOBALCACHE_IR_DATABASE
   def channel(id : String, ir_set : String = "", ir_index : Int32 = 0)
     # Workaround for "Error: @instance_vars are not yet allowed in metaclasses"
     ir_set = @default_ir_set unless ir_set.presence
-    ir_index = @default_ir_index unless ir_index
+    ir_index = @default_ir_index if ir_index == 0
 
     # Determine which IR Commands need to be sent, look up their code and then transmit them in sequence
     result = @channel_lookup[id].ir_commands.map do |ir_command_name|
