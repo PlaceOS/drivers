@@ -57,6 +57,13 @@ abstract class Crestron::CresNext < PlaceOS::Driver
     end
   end
 
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def manual_send(payload : JSON::Any)
+    data = payload.to_json
+    logger.debug { "Sending: #{data}" }
+    send data
+  end
+
   def received(data, task)
     raw_json = String.new data
     logger.debug { "Crestron sent: #{raw_json}" }
