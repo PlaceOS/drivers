@@ -7,25 +7,25 @@ class GlobalCache::IRTV < PlaceOS::Driver
   default_settings({
     default_ir_set:     "foxtel_iq2",
     default_ir_index:   1,
-    globalcache_module: "DigtialIO_1",
+    globalcache_module: "DigitalIO_1",
     channel_details:    [
       {
         name:        "ABC News",
-        icon:        "https://url-to-svg-or-png",
-        id:          "abc_news",                        # A Unique ID
+        icon:        "https://os.place.tech/placeos.pwc.com.au/tv_icons/ABC_News_AU.svg",
+        channel:     "abc_news",                        # A Unique ID that PlaceOS tabbed UI frontend expects under this key.
         ir_commands: ["DIGIT 0", "DIGIT 2", "DIGIT 4"], # comma seperated IR commands from ir_set to transmit
       },
       {
         name:        "Channel Down",
-        icon:        "https://url-to-svg-or-png",
-        id:          "down",
-        ir_commands: ["CHANNEL_DOWN"],
+        icon:        "https://static.thenounproject.com/png/1129950-200.png",
+        channel:     "down",
+        ir_commands: ["CHANNEL DOWN"],
       },
       {
         name:        "Channel Up",
-        icon:        "https://url-to-svg-or-png",
-        id:          "up",
-        ir_commands: ["CHANNEL_UP"],
+        icon:        "https://static.thenounproject.com/png/1129949-200.png",
+        channel:     "up",
+        ir_commands: ["CHANNEL UP"],
       },
     ],
     globalcache_ir_sets: {
@@ -84,7 +84,7 @@ PASTE_FROM_GLOBALCACHE_IR_DATABASE
 
     getter name : String
     getter icon : String?
-    getter id : String
+    getter channel : String
     getter ir_commands : Array(String)
   end
 
@@ -97,7 +97,7 @@ PASTE_FROM_GLOBALCACHE_IR_DATABASE
   # {
   #   "abc_news": {
   #     name:    "ABC News",
-  #     icon:    "https://url-to-svg-or-png",
+  #     channel:    "https://url-to-svg-or-png",
   #     id: "abc_news",
   #     ir_commands: ["DIGIT 0","DIGIT 2","DIGIT 4"]
   #   },
@@ -129,7 +129,7 @@ PASTE_FROM_GLOBALCACHE_IR_DATABASE
     # Parse channels
     updated_channel_lookup = {} of String => Channel
     @channels.each do |channel|
-      updated_channel_lookup[channel.id] = channel
+      updated_channel_lookup[channel.channel] = channel # the channel's ".channel" property is more like a ".id" (unique string). We are stuck calling it .channel because a frontend expects this naming as it was stipulated by the first IPTV driver (Exterity)
     end
     @channel_lookup = updated_channel_lookup
 
