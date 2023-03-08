@@ -12,14 +12,14 @@ class Leviton::Acquisuite < PlaceOS::Driver
   default_settings({
     device_list:   {"loggerconfig.ini" => {"X", "0000-00-00 00:00:00"}},
     manifest_list: [] of String,
-    config_list:   {} of String => Array(Hash(String, Float64 | String)),
+    config_list:   {} of String => Array(Hash(String, Float64 | String | Nil)),
     debug_webhook: false,
   })
   #
   @debug_webhook : Bool = false
   @device_list : Hash(String, Tuple(String, String)) = {} of String => Tuple(String, String)
   @manifest_list : Array(String) = [] of String
-  @config_list : Hash(String, Array(Hash(String, Float64 | String))) = {} of String => Array(Hash(String, Float64 | String))
+  @config_list : Hash(String, Array(Hash(String, Float64 | String | Nil))) = {} of String => Array(Hash(String, Float64 | String | Nil))
 
   def on_load
     on_update
@@ -29,7 +29,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
     @debug_webhook = setting?(Bool, :debug_webhook) || false
     @device_list = setting(Hash(String, Tuple(String, String)), :device_list)
     @manifest_list = setting(Array(String), :manifest_list)
-    @config_list = setting(Hash(String, Array(Hash(String, Float64 | String))), :config_list)
+    @config_list = setting(Hash(String, Array(Hash(String, Float64 | String | Nil))), :config_list)
   end
 
   def receive_webhook(method : String, headers : Hash(String, Array(String)), body : String)
@@ -154,7 +154,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
       reg[1].to_i if reg
     }.compact.sort.pop
 
-    configs = Array.new(index_max + 1, {} of String => (Float64 | String))
+    configs = Array.new(index_max + 1, {} of String => (Float64 | String | Nil))
 
     config.split("\n").each do |line|
       reg = /POINT(?<index>\d+)(?<name>.*)=(?<value>.*)/.match(line)
