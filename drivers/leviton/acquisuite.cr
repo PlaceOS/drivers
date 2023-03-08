@@ -88,18 +88,23 @@ class Leviton::Acquisuite < PlaceOS::Driver
     # NOTE: This csv.next structure assumes that there will be a header row we don't need
     # if this is not the case we should add logic to check for a header
     while csv.next
-      data = [] of NamedTuple(time: Int64, reading: String, name: String, units: String)
+      data = [] of Hash(String, (String | Int64 | Float64))
       @config_list[form_data["MODBUSDEVICE"]].each_with_index do |conf, i|
         next if @config_list[form_data["MODBUSDEVICE"]][i]["NAME"] == "-\r"
         # Disregard the first 4 columns of the csv
         csv_index = i + 4
+        next if csv[csv_index].rstrip == ""
         time = Time.parse(csv[0].gsub("'", "").strip, "%Y-%m-%d %H:%M:%S", Time::Location::UTC).to_unix
         reading = {
-          "time":    time,
-          "reading": csv[csv_index].rstrip,
-          "name":    @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String).rstrip,
-          "units":   @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String).rstrip,
-        }
+          "time"  => time,
+          "name"  => @config_list[form_data["MODBUSDEVICE"]][i]["NAME"].as(String).rstrip,
+          "units" => @config_list[form_data["MODBUSDEVICE"]][i]["UNITS"].as(String).rstrip,
+        } of String => (String | Int64 | Float64)
+        begin
+          reading["value"] = csv[csv_index].rstrip.to_f
+        rescue ex : ArgumentError
+          reading["reading"] = csv[csv_index].rstrip
+        end
         data << reading
       end
       self["mb-%03d" % modbus_index] = {
