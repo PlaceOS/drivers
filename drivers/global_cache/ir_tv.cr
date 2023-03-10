@@ -154,6 +154,7 @@ PASTE_FROM_GLOBALCACHE_IR_DATABASE
     # Determine which IR Commands need to be sent, look up their code and then transmit them in sequence
     result = @channel_lookup[id].ir_commands.map do |ir_command_name|
       system[@globalcache].ir(ir_index, @ir_commands[ir_set][ir_command_name]).get
+      sleep 500.milliseconds
     end
 
     # update current_channel if successful
