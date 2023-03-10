@@ -141,8 +141,9 @@ PASTE_FROM_GLOBALCACHE_IR_DATABASE
     end
     @ir_commands = updated_ir_commands
 
-    # expose channel_details
+    # expose channels and IR commands
     self[:channel_details] = @channels
+    self[:ir_commands] = @ir_commands
   end
 
   # Actually send the IR commands, via the globalcache
