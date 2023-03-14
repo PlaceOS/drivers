@@ -369,6 +369,10 @@ shards:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
 
+  vecos:
+    git: https://github.com/place-technology/vecos.git
+    version: 0.1.0+git.commit.ecef0420becbdd160e6cbda11cc564b798d560c4
+
   xml_converter:
     git: https://github.com/mamantoha/xml_converter.git
     version: 0.4.0
