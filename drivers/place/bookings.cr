@@ -280,7 +280,7 @@ class Place::Bookings < PlaceOS::Driver
       end
 
       self[:current_booking] = booking
-      self[:host_email] = booking["host"]?
+      self[:host_email] = booking["extension_data"]?.try(&.[]?("host_override")) || booking["host"]?
       self[:started_at] = start_time
       self[:ending_at] = ending_at ? ending_at.as_i64 : (start_time + 24.hours.to_i)
       self[:all_day_event] = !ending_at
