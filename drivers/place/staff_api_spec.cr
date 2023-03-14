@@ -1,22 +1,11 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Place::StaffAPI" do
-  settings({
-    # PlaceOS API creds, so we can query the zone metadata
-    username:     "",
-    password:     "",
-    client_id:    "",
-    redirect_uri: "",
-
-    running_a_spec: true,
-  })
-
-  sleep 1
   resp = exec(:query_bookings, "desk")
 
   expect_http_request do |request, response|
     headers = request.headers
-    if headers["Authorization"]? == "Bearer spec-test"
+    if headers["X-API-Key"]? == "spec-test"
       response.status_code = 200
       response << %([{
         "id": 1234,
@@ -59,7 +48,7 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
 
   expect_http_request do |request, response|
     headers = request.headers
-    if headers["Authorization"]? == "Bearer spec-test"
+    if headers["X-API-Key"]? == "spec-test"
       response.status_code = 200
 
       params = request.query_params

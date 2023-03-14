@@ -16,24 +16,11 @@ class Place::StaffAPI < PlaceOS::Driver
   default_settings({
     # PlaceOS X-API-key, for simpler authentication
     api_key: "",
-
-    # PlaceOS API creds, so we can query the zone metadata
-    username:     "",
-    password:     "",
-    client_id:    "",
-    redirect_uri: "",
   })
 
   @place_domain : URI = URI.parse("https://staff.app.api.com")
   @host_header : String = ""
-
   @api_key : String = ""
-  @username : String = ""
-  @password : String = ""
-  @client_id : String = ""
-  @redirect_uri : String = ""
-
-  @running_a_spec : Bool = false
 
   def on_load
     on_update
@@ -41,19 +28,11 @@ class Place::StaffAPI < PlaceOS::Driver
 
   def on_update
     # x-api-key is the preferred method for API access
-    @api_key = setting?(String, :api_key) || ""
+    @api_key = setting(String, :api_key) || ""
     @access_expires = 30.years.from_now if @api_key.presence
-
-    # deprecated: we use the Place Client to query the desk booking data
-    @username = setting?(String, :username) || ""
-    @password = setting?(String, :password) || ""
-    @client_id = setting?(String, :client_id) || ""
-    @redirect_uri = setting?(String, :redirect_uri) || ""
 
     @place_domain = URI.parse(config.uri.not_nil!)
     @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
-
-    @running_a_spec = setting?(Bool, :running_a_spec) || false
   end
 
   def get_system(id : String, complete : Bool = false)
@@ -323,6 +302,36 @@ class Place::StaffAPI < PlaceOS::Driver
     response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}", headers: authentication, body: metadata.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
     JSON::Any.from_json(response.body)
+  end
+
+  # search for metadata that exists on events to obtain the event information
+  # for response details see `EventMetadata__Assigner` in the OpenAPI docs
+  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/PlaceOS/staff-api/master/OPENAPI_DOC.yml
+  def query_metadata(
+    period_start : Int64? = nil,
+    period_end : Int64? = nil,
+    field_name : String? = nil,
+    value : String? = nil,
+    system_id : String? = nil,
+    event_ref : Array(String)? = nil
+  )
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s if period_start
+      form.add "period_end", period_end.to_s if period_end
+      form.add "field_name", field_name if field_name.presence
+      form.add "value", value if value.presence
+      form.add "event_ref", event_ref.join(",") if event_ref && !event_ref.empty?
+    end
+
+    response = get("/api/staff/v1/events/extension_metadata/#{system_id}?#{params}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
   end
 
   # ===================================
@@ -650,71 +659,20 @@ class Place::StaffAPI < PlaceOS::Driver
 
   # For accessing PlaceOS APIs
   protected def placeos_client : PlaceOS::Client
-    if @api_key.presence
-      PlaceOS::Client.new(
-        @place_domain,
-        host_header: @host_header,
-        x_api_key: @api_key
-      )
-    else
-      PlaceOS::Client.new(
-        @place_domain,
-        token: OAuth2::AccessToken::Bearer.new(token, nil),
-        host_header: @host_header
-      )
-    end
+    PlaceOS::Client.new(
+      @place_domain,
+      host_header: @host_header,
+      x_api_key: @api_key
+    )
   end
 
   # ===================================
   # PLACEOS AUTHENTICATION:
   # ===================================
-  @access_token : String = ""
-  @access_expires : Time = Time.unix(0)
-
-  protected def authenticate : String
-    uri = @place_domain
-    host = uri.port ? "#{uri.host}:#{uri.port}" : uri.host.not_nil!
-    origin = "#{uri.scheme}://#{host}"
-
-    # Create oauth client, optionally pass custom URIs if needed,
-    # if the authorize or token URIs are not the standard ones
-    # (they can also be absolute URLs)
-    oauth2_client = OAuth2::Client.new(host, @client_id, "",
-      redirect_uri: @redirect_uri,
-      authorize_uri: "#{origin}/auth/oauth/authorize",
-      token_uri: "#{origin}/auth/oauth/token")
-
-    oauth2_client.headers_cb { |headers| headers.add("Host", @host_header) }
-
-    access_token = oauth2_client.get_access_token_using_resource_owner_credentials(
-      @username,
-      @password,
-      "public"
-    ).as(OAuth2::AccessToken::Bearer)
-
-    @access_expires = (access_token.expires_in.not_nil! - 300).seconds.from_now
-    @access_token = access_token.access_token
-  end
-
   protected def authentication(headers : HTTP::Headers = HTTP::Headers.new) : HTTP::Headers
     headers["Accept"] = "application/json"
-    if @api_key.presence
-      headers["X-API-Key"] = @api_key
-    else
-      headers["Authorization"] = "Bearer #{token}"
-    end
+    headers["X-API-Key"] = @api_key.presence || "spec-test"
     headers
-  end
-
-  protected def token : String
-    # Don't perform OAuth if we are testing the driver
-    return "spec-test" if @running_a_spec
-    return @access_token if valid_token?
-    authenticate
-  end
-
-  protected def valid_token?
-    Time.utc < @access_expires
   end
 end
 
@@ -723,43 +681,5 @@ class OpenSSL::SSL::Context::Client
   def initialize(method : LibSSL::SSLMethod = Context.default_method)
     super(method)
     self.verify_mode = OpenSSL::SSL::VerifyMode::NONE
-  end
-end
-
-# Allow for header modification
-class OAuth2::Client
-  def headers_cb(&@headers_cb : HTTP::Headers -> Nil)
-  end
-
-  private def get_access_token : AccessToken
-    headers = HTTP::Headers{
-      "Accept"       => "application/json",
-      "Content-Type" => "application/x-www-form-urlencoded",
-    }
-
-    body = URI::Params.build do |form|
-      case @auth_scheme
-      when .request_body?
-        form.add("client_id", @client_id)
-        form.add("client_secret", @client_secret)
-      when .http_basic?
-        headers.add(
-          "Authorization",
-          "Basic #{Base64.strict_encode("#{@client_id}:#{@client_secret}")}"
-        )
-      end
-      yield form
-    end
-
-    cb = @headers_cb
-    cb.call(headers) if cb
-
-    response = HTTP::Client.post token_uri, form: body, headers: headers
-    case response.status
-    when .ok?, .created?
-      OAuth2::AccessToken.from_json(response.body)
-    else
-      raise OAuth2::Error.new(response.body)
-    end
   end
 end
