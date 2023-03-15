@@ -276,6 +276,30 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  # gets an event from either the `system_id` or `calendar` if only one is provided
+  # if both are provided, it gets the event from `calendar` and the metadata from `system_id`
+  # NOTE:: the use of `calendar` will typically not work from a driver unless the X-API-Key
+  #        has read access to it. From a driver perspective you should probably use a
+  #        dedicated Calendar driver with application access and the query_metadata function
+  #        below if metadata is required: `query_metadata(system_id: "sys", event_ref: ["id", "uuid"])`
+  def get_event(event_id : String, system_id : String? = nil, calendar : String? = nil)
+    raise ArgumentError.new("requires system_id or calendar param") unless calendar.presence || system_id.presence
+    params = URI::Params.build do |form|
+      form.add "calendar", calendar.to_s if calendar.presence
+      form.add "system_id", system_id.to_s if system_id.presence
+    end
+
+    response = get("/api/staff/v1/events/#{event_id}?#{params}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
   # NOTE:: https://docs.google.com/document/d/1OaZljpjLVueFitmFWx8xy8BT8rA2lITyPsIvSYyNNW8/edit#
   # The service account making this request needs delegated access and hence you can only edit
   # events associated with a resource calendar
