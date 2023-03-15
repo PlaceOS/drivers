@@ -1,3 +1,5 @@
+require "./events/**"
+
 module Cisco
   module Webex
     module Models

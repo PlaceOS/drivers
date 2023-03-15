@@ -15,7 +15,7 @@ module Cisco
           property display_name : String
 
           @[JSON::Field(key: "orgId")]
-          property organisation_id : String
+          property organization_id : String
 
           @[JSON::Field(key: "emailAddress")]
           property email : String
