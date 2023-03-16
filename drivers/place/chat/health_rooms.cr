@@ -626,7 +626,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
   protected def pool_cleanup
     logger.debug { "[pool] Checking for expired meetings..." }
-    expired = 12.hours.ago
+    expired = 4.hours.ago
     @pool_lock.synchronize do
       @pool_meet = @pool_meet.reject do |meeting|
         rejected = meeting.created_at < expired
