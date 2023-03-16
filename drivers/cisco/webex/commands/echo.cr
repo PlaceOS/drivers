@@ -10,7 +10,7 @@ module Cisco
           "This command simply replies your message!"
         end
 
-        def execute(_event, _keyword, message)
+        def execute(event, keyword, message)
           {"id" => message.room_id, "text" => message.text}
         end
       end

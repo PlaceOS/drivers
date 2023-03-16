@@ -322,7 +322,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:presets] = @presets.keys
   end
 
-  def delete_position(name : String, index : Int32 | String = 0)
+  def remove_position(name : String, index : Int32 | String = 0)
     @presets.delete name
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys

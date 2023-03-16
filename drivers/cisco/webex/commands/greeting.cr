@@ -10,7 +10,7 @@ module Cisco
           "This command simply responds to hello, hi, how are you, etc."
         end
 
-        def execute(_event, _keyword, message)
+        def execute(event, keyword, message)
           {"id" => message.room_id, "text" => "👋"}
         end
       end

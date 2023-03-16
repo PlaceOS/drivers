@@ -52,7 +52,7 @@ class RouterSwitcher < DriverSpecs::MockDriver
   end
 end
 
-DriverSpecs.mock_driver "Place::Router" do
+DriverSpecs.mock_driver "Place::RouterTest" do
   system({
     Display:  {RouterDisplay},
     Switcher: {RouterSwitcher},
