@@ -16,7 +16,6 @@ class Microsoft::GraphAPI < PlaceOS::Driver
       client_secret:   "",
       conference_type: nil, # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
     },
-    rate_limit: 5,
 
     # defaults to calendar_service_account if not configured
     mailer_from:     "email_or_office_userPrincipalName",

@@ -17,6 +17,8 @@ class Place::WorkspaceAPI < PlaceOS::Driver
       issuer:      "placeos@organisation.iam.gserviceaccount.com",
       signing_key: "PEM encoded private key",
     },
+
+    # google can handle about 10 requests a second
     rate_limit: 9,
 
     # defaults to calendar_service_account if not configured
