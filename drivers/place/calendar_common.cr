@@ -43,7 +43,6 @@ module Place::CalendarCommon
   end
 
   def on_load
-    spawn { rate_limiter }
     on_update
   end
 
@@ -66,10 +65,19 @@ module Place::CalendarCommon
     @mailer_from = setting?(String, :mailer_from).presence || @service_account
     @templates = setting?(Templates, :email_templates) || Templates.new
 
+    @in_flight.close
+    @channel.close
+
     # Work around crystal limitation of splatting a union
     @client = begin
       config = setting(GoogleParams, :calendar_config)
-      PlaceCalendar::Client.new(**config)
+      cli = PlaceCalendar::Client.new(**config)
+
+      # only google uses the rate limiter
+      @channel = Channel(Nil).new(9)
+      @in_flight = Channel(Nil).new(10)
+      spawn { rate_limiter }
+      cli
     rescue
       config = setting(OfficeParams, :calendar_config)
       PlaceCalendar::Client.new(**config)
@@ -316,22 +324,25 @@ module Place::CalendarCommon
   protected def rate_limiter
     in_flight = @in_flight
     channel = @channel
-    loop do
-      begin
-        # ensure there is an available slot before allowing more requests
-        in_flight.send(nil)
-        in_flight.receive
+    begin
+      loop do
+        break if channel.closed? || in_flight.closed?
+        begin
+          # ensure there is an available slot before allowing more requests
+          in_flight.send(nil)
+          in_flight.receive
 
-        # allow more requests through
-        channel.send(nil)
-      rescue error
-        logger.error(exception: error) { "issue with rate limiter" }
-      ensure
-        sleep @wait_time
+          # allow more requests through
+          channel.send(nil)
+        rescue error
+          logger.error(exception: error) { "issue with rate limiter" }
+        ensure
+          sleep @wait_time
+        end
       end
+    rescue
+      # Possible error with logging exception, restart rate limiter silently
+      spawn { rate_limiter } unless terminated? || channel.closed? || in_flight.closed?
     end
-  rescue
-    # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter } unless terminated? || @in_flight.closed?
   end
 end
