@@ -1,6 +1,10 @@
 require "placeos-driver"
 
-class Place::Router < PlaceOS::Driver
+# this driver only exists to test router functionality
+# please use the meet driver
+
+# :nodoc:
+class Place::RouterTest < PlaceOS::Driver
   generic_name :Switcher
   descriptive_name "Signal router"
   description <<-DESC
@@ -36,6 +40,7 @@ end
 
 require "./router/core"
 
-class Place::Router < PlaceOS::Driver
-  include Core
+# :nodoc:
+class Place::RouterTest < PlaceOS::Driver
+  include Router::Core
 end

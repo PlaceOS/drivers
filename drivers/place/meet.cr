@@ -544,7 +544,8 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # Sets the mute state on a signal node within the system.
-  def mute(state : Bool = true, input_or_output : Int32 | String = 0, layer : MuteLayer = MuteLayer::AudioVideo)
+  def mute(state : Bool = true, index : Int32 | String = 0, layer : MuteLayer = MuteLayer::AudioVideo)
+    input_or_output = index
     audio = @master_audio
     if audio
       logger.debug { "setting master mute to #{state}" }
