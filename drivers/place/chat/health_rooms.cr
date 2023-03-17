@@ -10,14 +10,14 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     domain_id: "domain",
     pool_size: 10,
     # disconnect time in minutes
-    disconnect_timeout: 6,
+    disconnect_timeout: 3,
   })
 
   def on_load
     on_update
   end
 
-  @disconnect_timeout : Time::Span = 6.minutes
+  @disconnect_timeout : Time::Span = 3.minutes
 
   def on_update
     logger.debug { "[admin] updating settings..." }
@@ -27,7 +27,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     @pool_target_size = setting?(Int32, :pool_size) || 10
     system_id = config.control_system.not_nil!.id
 
-    @disconnect_timeout = (setting?(Int32, :disconnect_timeout) || 6).minutes
+    @disconnect_timeout = (setting?(Int32, :disconnect_timeout) || 3).minutes
 
     schedule.clear
     schedule.every(@disconnect_timeout / 3) { cleanup_disconnected }
@@ -48,6 +48,17 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     monitor("#{domain}/chat/user/left") { |_subscription, payload| user_left(payload) }
     logger.debug { "[admin] settings update success!" }
   end
+
+  # ================================================
+  # Save and restore meeting details
+  # ================================================
+
+  # Query current meeting members (list of connected user IDs)
+  # check_disconnected
+
+  # ================================================
+  # Expose meeting details via bindings
+  # ================================================
 
   protected def update_meeting_state(session_id, system_id = nil, old_system_id = nil) : Nil
     self[session_id] = @meeting_mutex.synchronize { @meetings[session_id]?.try(&.dup) }
@@ -173,8 +184,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     disconnected = {} of String => Array(String)
 
     @meeting_mutex.synchronize do
-      @meetings.transform_values(&.participants.keys)
-      @meetings.each do |system_id, meeting|
+      @meetings.each do |session_id, meeting|
         conn = [] of String
         disc = [] of String
         meeting.participants.values.each do |par|
@@ -184,14 +194,14 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
             disc << par.user_id
           end
         end
-        connected[system_id] = conn
-        disconnected[system_id] = disc
+        connected[session_id] = conn
+        disconnected[session_id] = disc
       end
     end
 
     # ensure we haven't missed any signals, compare API to our state
-    old_missed = @missed_connections
     new_missed = {} of String => String
+    old_missed = @missed_connections.dup
 
     connected.each do |session_id, connected_users|
       disconnected_users = disconnected[session_id]
@@ -200,35 +210,39 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         actual_users = staff_api.chat_members(session_id).get.as_a.map(&.as_s)
 
         # reject any users that have actually just moved
-        connected_not_found = (connected_users - actual_users).reject! { |user_id| disconnected_users.includes?(user_id) || new_missed.delete(user_id) }
-        disconnected_found = (disconnected_users & actual_users)
+        connected_not_found = connected_users - actual_users
+        disconnected_found = disconnected_users & actual_users
 
         # build a new not found list
         @recent_lock.synchronize do
           connected_not_found.each do |user_id|
-            new_missed[user_id] = session_id unless old_missed[user_id]? || @recently_disconnected[user_id]?
+            new_missed[user_id] = session_id
           end
         end
 
-        disconnected_found.each { |user_id| mark_user_as_connected(session_id, user_id) }
+        disconnected_found.each do |user_id|
+          old_missed.delete(user_id)
+          mark_user_as_connected(session_id, user_id)
+        end
       rescue error
         logger.warn(exception: error) { "[cleanup] failed to obtain member list for #{session_id}" }
       end
     end
 
     # mark as disconnected users that are not connected
-    disconneced = new_missed.keys & old_missed.keys
-    disconneced.each do |user_id|
-      new_missed.delete(user_id)
+    disconnected = new_missed.keys & old_missed.keys
+    disconnected.each do |user_id|
+      # remove from new missed as it was found missing a second time
+      new_missed.delete user_id
 
+      # mark the user as deleted
       begin
-        session_id = old_missed[user_id]
-        mark_user_as_disconnected(session_id, user_id)
+        mark_user_as_disconnected(old_missed[user_id], user_id)
       rescue
       end
     end
 
-    logger.debug { "[cleanup] complete, found #{disconneced.size} missed disconnections" }
+    logger.debug { "[cleanup] complete, found #{disconnected.size} missed disconnections" }
 
     # update missed connections
     @missed_connections = new_missed
