@@ -14,12 +14,21 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   })
 
   def on_load
+    spawn { meeting_state_perform_save }
     on_update
   end
 
   @disconnect_timeout : Time::Span = 3.minutes
 
   def on_update
+    @update_mutex.synchronize do
+      if @update_expected > 0
+        @update_expected -= 1
+        logger.debug { "[admin] updating settings..." }
+        return
+      end
+    end
+
     logger.debug { "[admin] updating settings..." }
     is_spec = setting?(Bool, :is_spec) || false
 
@@ -38,6 +47,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     self[:monitoring] = monitoring
 
     subscriptions.clear
+    meeting_state_restore
     monitor(monitoring) { |_subscription, payload| new_guest(payload) }
     monitor("#{domain}/chat/user/joined") { |_subscription, payload| user_joined(payload) }
     monitor("#{domain}/chat/user/exited") do |_subscription, payload|
@@ -53,8 +63,94 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   # Save and restore meeting details
   # ================================================
 
-  # Query current meeting members (list of connected user IDs)
-  # check_disconnected
+  # logic to ensure we trigger saving as few times as possible
+  @save_requested : Channel(Nil) = Channel(Nil).new(10)
+  @state_save_mutex : Mutex = Mutex.new
+  @state_save_requested : Int32 = 0
+
+  # use this to trigger a save
+  def meeting_state_request_save
+    @save_requested.send nil
+  end
+
+  # ensures only a single save is ever queued
+  protected def meeting_state_perform_save
+    loop do
+      begin
+        @save_requested.receive
+        @state_save_mutex.synchronize do
+          if @state_save_requested >= 2
+            next
+          else
+            @state_save_requested += 1
+          end
+        end
+        spawn { meeting_state_save }
+      rescue error
+        logger.warn(exception: error) { "[state] performing save" }
+      end
+      break if terminated?
+    end
+  end
+
+  # ensures we ignore updates due to state save
+  @update_mutex : Mutex = Mutex.new
+  @update_expected : Int32 = 0
+
+  # ensures only one state save occurs at any one time
+  @meeting_state_save_mutex : Mutex = Mutex.new
+
+  protected def meeting_state_save
+    @meeting_state_save_mutex.synchronize do
+      begin
+        rooms = uninitialized Hash(SystemId, Array(SessionId))
+        meetings = uninitialized Hash(SessionId, Meeting)
+
+        # grab the data
+        @meeting_mutex.synchronize do
+          @room_mutex.synchronize do
+            rooms = @rooms.dup
+            meetings = @meetings.dup
+          end
+        end
+
+        logger.debug { "[state] performing state save" }
+
+        # save the state
+        @update_mutex.synchronize { @update_expected += 1 }
+        define_setting(:last_known_rooms, rooms)
+        @update_mutex.synchronize { @update_expected += 1 }
+        define_setting(:last_known_meetings, meetings)
+      ensure
+        @state_save_mutex.synchronize { @state_save_requested -= 1 }
+      end
+    end
+  end
+
+  protected def meeting_state_restore
+    restored = false
+    sessions = [] of String
+    @meeting_mutex.synchronize do
+      @room_mutex.synchronize do
+        return unless @meetings.empty?
+
+        if rooms = setting?(Hash(SystemId, Array(SessionId)), :last_known_rooms)
+          if meetings = setting?(Hash(SessionId, Meeting), :last_known_meetings)
+            @rooms = rooms
+            @meetings = meetings
+            sessions = meetings.keys
+            restored = true
+          end
+        end
+      end
+    end
+
+    return unless restored
+
+    logger.warn { "[state] last known meeting state restored" }
+    sessions.each { |session_id| update_meeting_state(session_id) }
+    cleanup_disconnected
+  end
 
   # ================================================
   # Expose meeting details via bindings
@@ -99,6 +195,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         end
       end
     end
+
+    meeting_state_request_save
 
     self[:chat_summary] = {
       value:       summary,
@@ -242,7 +340,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
       end
     end
 
-    logger.debug { "[cleanup] complete, found #{disconnected.size} missed disconnections" }
+    logger.debug { "[cleanup] complete, #{disconnected.size} disconnections, #{new_missed.size} pending disconnect" }
 
     # update missed connections
     @missed_connections = new_missed
