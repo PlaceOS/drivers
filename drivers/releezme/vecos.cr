@@ -30,18 +30,18 @@ class Releezme::Vecos < PlaceOS::Driver
   end
 
   def get_allocatable_locker_groups_in_locker_bank(section_id : String, external_user_id : String, page_number : Int32 = 0, page_size : Int32 = 10)
-    self["allocatable_locker_groups_in_locker_bank#{section_id}_external_user_id_#{external_user_id}"] = client.sections.list_allocatable_locker_bank_locker_groups(section_id, external_user_id, page_number, page_size)
+    client.sections.list_allocatable_locker_bank_locker_groups(section_id, external_user_id, page_number, page_size)
   end
 
   def get_locker_bank_status(locker_bank_id : String)
-    self["locker_bank_status#{locker_bank_id}"] = client.locker_banks.get_status(locker_bank_id)
+    client.locker_banks.get_status(locker_bank_id)
   end
 
   def get_allocated_lockers(external_user_id : String, page_number : Int32 = 0, page_size : Int32 = 10)
-    self["allocated_lockers_#{external_user_id}"] = client.lockers.allocated(external_user_id, page_number, page_size)
+    client.lockers.allocated(external_user_id, page_number, page_size)
   end
 
   def share_locker(locker_id : String, external_user_id : String, shared_user_id : String)
-    self["share_locker_#{locker_id}_#{external_user_id}_#{shared_user_id}"] = client.lockers.share_by_path(locker_id, external_user_id, shared_user_id)
+    client.lockers.share_by_path(locker_id, external_user_id, shared_user_id)
   end
 end
