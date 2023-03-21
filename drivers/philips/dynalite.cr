@@ -131,7 +131,7 @@ class Philips::Dynalite < PlaceOS::Driver
   end
 
   def link_area(area : UInt8, join : UInt8)
-    do_send(Bytes[0x1c, area, 0x00, join, 0x00, 0x00, 0xFF])
+    do_send(Bytes[0x1c, area, join, 0x14, 0x00, 0x00, 0xFF])
   end
 
   def received(data, task)
