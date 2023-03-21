@@ -576,7 +576,8 @@ class Place::Meet < PlaceOS::Driver
   @light_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
 
   protected def init_lighting
-    @lighting_independent = setting?(Bool, :lighting_independent) || true
+    lights_independent = setting?(Bool, :lighting_independent)
+    @lighting_independent = lights_independent.nil? ? true : lights_independent
     @light_area = @local_lighting_area = setting?(LightingArea, :lighting_area)
     light_scenes = setting?(Array(LightingScene), :lighting_scenes)
     @light_module = setting?(String, :lighting_module) || DEFAULT_LIGHT_MOD
@@ -927,13 +928,19 @@ class Place::Meet < PlaceOS::Driver
         end
       end
     ensure
+      update_available_ui
+
       # perform the custom actions
       mode.join_actions.each do |action|
         if master || !action.master_only?
           system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
         end
       end
-      update_available_ui
+
+      # recall the first lighting preset
+      if !@light_scenes.empty? && master
+        select_lighting_scene(@light_scenes.keys.first)
+      end
     end
   end
 
