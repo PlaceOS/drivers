@@ -615,7 +615,16 @@ class Place::Meet < PlaceOS::Driver
         end
       end
 
+      # perform lighting linking if it's available
       @light_area = light_area
+      lighting = system[@light_module]
+      if lighting.implements? "link_area"
+        if remote_rooms.empty?
+          lighting.unlink_area light_area.id
+        else
+          lighting.link_area light_area.id, light_area.join
+        end
+      end
     end
 
     @light_subscription = system.subscribe(@light_module, @light_area.to_s) do |_sub, scene|
