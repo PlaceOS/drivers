@@ -318,8 +318,8 @@ class Place::Bookings < PlaceOS::Driver
 
       self[:in_use] = booked && !current_pending
     else
-      self[:current_pending] = @current_pending = false
-      self[:next_pending] = @next_pending = false
+      self[:current_pending] = @current_pending = current_pending = false
+      self[:next_pending] = @next_pending = next_pending = false
       self[:pending] = false
 
       self[:in_use] = booked
