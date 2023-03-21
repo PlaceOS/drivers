@@ -35,7 +35,7 @@ shards:
 
   bright:
     git: https://github.com/place-technology/bright.git
-    version: 0.1.0+git.commit.41e24bf0d51b87385e1712eaa10e69bbebf6fb83
+    version: 0.1.0+git.commit.09e2f25719c4543dd9053a158dbcd076f44b0b74
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
