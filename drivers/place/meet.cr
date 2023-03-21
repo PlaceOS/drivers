@@ -576,6 +576,7 @@ class Place::Meet < PlaceOS::Driver
   @light_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
 
   protected def init_lighting
+    # deal with `false`
     lights_independent = setting?(Bool, :lighting_independent)
     @lighting_independent = lights_independent.nil? ? true : lights_independent
     @light_area = @local_lighting_area = setting?(LightingArea, :lighting_area)
