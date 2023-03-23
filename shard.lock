@@ -33,6 +33,10 @@ shards:
     git: https://github.com/spider-gazelle/bindata.git
     version: 1.11.1
 
+  bright:
+    git: https://github.com/place-technology/bright.git
+    version: 0.1.0+git.commit.09e2f25719c4543dd9053a158dbcd076f44b0b74
+
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
     version: 2.0.0
