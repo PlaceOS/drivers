@@ -56,15 +56,15 @@ class Philips::Dynalite < PlaceOS::Driver
     do_send(command, name: "preset_#{area}_#{scene}")
   end
 
-  def get_current_preset(area : Int32)
-    command = Bytes[0x1c, area & 0xFF, 0, 0x63, 0, 0, 0xFF]
+  def get_current_preset(area : UInt8)
+    command = Bytes[0x1c, area, 0, 0x63, 0, 0, 0xFF]
     do_send(command, wait: true)
   end
 
   @[Security(Level::Administrator)]
-  def save_preset(area : Int32, scene : Int32)
+  def save_preset(area : UInt8, scene : UInt8)
     num = (scene - 1) & 0xFF
-    command = Bytes[0x1c, area & 0xFF, num, 0x09, 0, 0, 0xFF]
+    command = Bytes[0x1c, area, num, 0x09, 0, 0, 0xFF]
     do_send(command)
   end
 
@@ -103,13 +103,13 @@ class Philips::Dynalite < PlaceOS::Driver
     do_send(command, name: "level_#{area}_#{channel}")
   end
 
-  def stop_fading(area : Int32, channel : Int32 = 0xFF)
-    command = Bytes[0x1c, area & 0xFF, channel & 0xFF, 0x76, 0, 0, 0xFF]
+  def stop_fading(area : UInt8, channel : UInt8 = 0xFF_u8)
+    command = Bytes[0x1c, area, channel, 0x76, 0, 0, 0xFF]
     do_send(command, name: "level_#{area}_#{channel}")
   end
 
-  def stop_all_fading(area : Int32)
-    command = Bytes[0x1c, area & 0xFF, 0, 0x7A, 0, 0, 0xFF]
+  def stop_all_fading(area : UInt8)
+    command = Bytes[0x1c, area, 0, 0x7A, 0, 0, 0xFF]
     do_send(command)
   end
 
@@ -117,17 +117,22 @@ class Philips::Dynalite < PlaceOS::Driver
     do_send(Bytes[0x1c, area & 0xFF, channel & 0xFF, 0x61, 0, 0, 0xFF], wait: true)
   end
 
-  def increment_area_level(area : Int32)
-    do_send(Bytes[0x1c, area & 0xFF, 0x64, 6, 0, 0, 0xFF])
+  def increment_area_level(area : UInt8)
+    do_send(Bytes[0x1c, area, 0x64, 6, 0, 0, 0xFF])
   end
 
-  def decrement_area_level(area : Int32)
-    do_send(Bytes[0x1c, area & 0xFF, 0x64, 5, 0, 0, 0xFF])
+  def decrement_area_level(area : UInt8)
+    do_send(Bytes[0x1c, area, 0x64, 5, 0, 0, 0xFF])
   end
 
-  def unlink_area(area : Int32)
+  def unlink_area(area : UInt8)
     #             0x1c, area, unlink_bitmap, 0x21, unlink_bitmap, unlink_bitmap, join (0xFF)
-    do_send(Bytes[0x1c, area & 0xFF, 0xFF, 0x21, 0xFF, 0xFF, 0xFF])
+    # do_send(Bytes[0x1c, area & 0xFF, 0xFF, 0x21, 0xFF, 0xFF, 0xFF])
+    link_area area, 0_u8
+  end
+
+  def link_area(area : UInt8, join : UInt8)
+    do_send(Bytes[0x1c, area, join, 0x14, 0x00, 0x00, 0xFF])
   end
 
   def received(data, task)
@@ -198,7 +203,7 @@ class Philips::Dynalite < PlaceOS::Driver
 
   def lighting_scene?(area : Area? = nil)
     area_id = check_arguments area
-    get_current_preset(area_id.to_i)
+    get_current_preset(area_id.to_u8)
   end
 
   def set_lighting_level(level : Float64, area : Area? = nil, fade_time : UInt32 = 1000_u32)

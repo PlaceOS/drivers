@@ -13,8 +13,6 @@ class Place::AreaManagement < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   default_settings({
-    building: "zone-12345",
-
     # time in seconds
     poll_rate: 60,
 
@@ -62,6 +60,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
   alias RawLevelDetails = NamedTuple(
     wireless_devices: Int32,
+    desk_bookings: Int32,
     desk_usage: Int32,
     capacity: LevelCapacity,
     sensors: Hash(String, Float64),
@@ -79,7 +78,7 @@ class Place::AreaManagement < PlaceOS::Driver
   @level_details : Hash(String, LevelCapacity) = {} of String => LevelCapacity
 
   # PlaceOS client config
-  @building_id : String = ""
+  getter building_id : String { get_building_id.not_nil! }
 
   @poll_rate : Time::Span = 60.seconds
   @location_service : String = "LocationServices"
@@ -107,7 +106,6 @@ class Place::AreaManagement < PlaceOS::Driver
   end
 
   def on_update
-    @building_id = setting(String, :building)
     @include_sensors = setting?(Bool, :include_sensors) || false
     @desk_id_mappings = setting?(Array(String), :desk_id_mappings) || [] of String
 
@@ -149,6 +147,15 @@ class Place::AreaManagement < PlaceOS::Driver
     system[@location_service]
   end
 
+  # Finds the building ID for the current location services object
+  def get_building_id
+    zone_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine building zone id" }
+    nil
+  end
+
   # ===============================
   # SENSOR DETAILS
   # ===============================
@@ -170,7 +177,7 @@ class Place::AreaManagement < PlaceOS::Driver
   end
 
   def write_sensor_discovery
-    staff_api.write_metadata(@building_id, "sensor-discovered", @sensor_discovery)
+    staff_api.write_metadata(building_id, "sensor-discovered", @sensor_discovery)
   end
 
   # returns the sensor location data that has been configured
@@ -195,7 +202,7 @@ class Place::AreaManagement < PlaceOS::Driver
     return levels if sensors.empty?
     details = Array(SensorDetail).from_json(sensors.to_json)
 
-    building_id = @building_id
+    building_id_local = building_id
     locs = sensor_locations(level_id)
 
     details.each do |sensor|
@@ -217,7 +224,7 @@ class Place::AreaManagement < PlaceOS::Driver
         sensor.x = location.x
         sensor.y = location.y
         sensor.level = location.level
-        sensor.building = building_id
+        sensor.building = building_id_local
       end
 
       if sensor.x && (level_id ? sensor.level == level_id : sensor.level)
@@ -246,7 +253,7 @@ class Place::AreaManagement < PlaceOS::Driver
         },
         ts_tag_keys: {"s2_cell_id"},
         ts_tags:     {
-          pos_building: building_id,
+          pos_building: building_id_local,
           pos_level:    level,
         },
       }
@@ -324,7 +331,7 @@ class Place::AreaManagement < PlaceOS::Driver
   # Grabs all the level zones in the building and syncs the metadata
   protected def sync_level_details
     # Attempt to obtain the latest version of the metadata
-    response = ChildMetadata.from_json(staff_api.metadata_children(@building_id).get.to_json)
+    response = ChildMetadata.from_json(staff_api.metadata_children(building_id).get.to_json)
 
     level_details = {} of String => LevelCapacity
     response.each do |meta|
@@ -373,7 +380,7 @@ class Place::AreaManagement < PlaceOS::Driver
       },
       ts_tag_keys: {"s2_cell_id"},
       ts_tags:     {
-        pos_building: @building_id,
+        pos_building: building_id,
         pos_level:    level_id,
       },
     }
@@ -381,6 +388,7 @@ class Place::AreaManagement < PlaceOS::Driver
     # Grab the x,y locations
     wireless_count = 0
     desk_count = 0
+    desk_bookings = 0
     xy_locs = locations.select do |loc|
       case loc["location"].as_s
       when "wireless"
@@ -390,6 +398,9 @@ class Place::AreaManagement < PlaceOS::Driver
         !loc["x"].raw.nil?
       when "desk"
         desk_count += 1 if (loc["at_location"]?.try(&.as_i?) || 0) > 0
+        false
+      when "booking"
+        desk_bookings += 1 if loc["type"].as_s == "desk"
         false
       else
         false
@@ -411,6 +422,7 @@ class Place::AreaManagement < PlaceOS::Driver
     # build the level overview
     level_counts[level_id] = {
       wireless_devices: wireless_count,
+      desk_bookings:    desk_bookings,
       desk_usage:       desk_count,
       capacity:         details,
       sensors:          sensor_summary,
@@ -485,6 +497,10 @@ class Place::AreaManagement < PlaceOS::Driver
           sensor_summary["people_count_sum"] = people_counts.sum(&.value)
         end
 
+        if capacity = area.capacity
+          sensor_summary["capacity"] = capacity
+        end
+
         area_counts << {
           "area_id" => area.id,
           "name"    => area.name,
@@ -499,7 +515,7 @@ class Place::AreaManagement < PlaceOS::Driver
       measurement: "area_summary",
       ts_hint:     "complex",
       ts_tags:     {
-        pos_building: @building_id,
+        pos_building: building_id,
         pos_level:    level_id,
       },
     }
@@ -546,7 +562,7 @@ class Place::AreaManagement < PlaceOS::Driver
     area.polygon.contains(x, y)
   end
 
-  protected def build_level_stats(wireless_devices, desk_usage, capacity, sensors)
+  protected def build_level_stats(wireless_devices, desk_bookings, desk_usage, capacity, sensors)
     # raw data
     total_desks = capacity[:total_desks]
     total_capacity = capacity[:total_capacity]
@@ -567,7 +583,8 @@ class Place::AreaManagement < PlaceOS::Driver
     {
       "measurement"      => "level_summary",
       "desk_count"       => total_desks,
-      "desk_usage"       => desk_usage,
+      "desk_bookings"    => desk_bookings, # booked desks
+      "desk_usage"       => desk_usage,    # sensor detected someone at a desk
       "device_capacity"  => total_capacity,
       "device_count"     => wireless_devices,
       "estimated_people" => adjusted_devices.to_i,

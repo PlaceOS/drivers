@@ -2,8 +2,10 @@ require "./cres_next"
 require "placeos-driver/interface/switchable"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
-  alias Input = String | Int32?
-  include PlaceOS::Driver::Interface::InputSelection(Input)
+  alias Input = String
+  alias Output = Int32
+  include Interface::Switchable(Input, Output)
+  include Interface::InputSelection(Input)
   include Crestron::Receiver
 
   descriptive_name "Crestron NVX Receiver"
@@ -20,8 +22,12 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   })
 
   @subscriptions : Hash(String, JSON::Any) = {} of String => JSON::Any
+  @audio_follows_video : Bool = true
 
   def connected
+    audio_follows_video = setting?(Bool, :audio_follows_video)
+    @audio_follows_video = audio_follows_video.nil? ? true : audio_follows_video
+
     # NVX hardware can be confiured a either a RX or TX unit - check this
     # device is in the correct mode.
     # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/DeviceSpecific.htm?Highlight=DeviceMode
@@ -50,26 +56,35 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   end
 
   def switch_to(input : Input)
-    input = input.downcase if input.is_a?(String)
-    do_switch = case input
-                when "none", "break", "clear", "blank", "black", nil, 0
-                  blank
+    switch_layer input
+  end
+
+  protected def switch_layer(input : Input, layer : SwitchLayer? = nil)
+    layer ||= SwitchLayer::All
+
+    do_switch = case input.downcase
+                when "none", "break", "clear", "blank", "black"
+                  blank layer
                 when "input1", "hdmi", "hdmi1"
-                  switch_local "Input1"
+                  switch_local "Input1", layer
                 when "input2", "hdmi2"
-                  switch_local "Input2"
+                  switch_local "Input2", layer
                 else
-                  switch_stream input
+                  switch_stream input, layer
                 end
 
-    do_switch.get
+    do_switch.try &.get
     update_source_info
+  end
+
+  def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
+    switch_layer map.keys.first, layer
   end
 
   def output(state : Bool)
     logger.debug { "#{state ? "enabling" : "disabling"} output sync" }
 
-    update(
+    ws_update(
       "/AudioVideoInputOutput/Outputs",
       [{
         Ports: [{
@@ -84,7 +99,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   def aspect_ratio(mode : AspectRatio)
     logger.debug { "setting output aspect ratio mode: #{mode}" }
 
-    update(
+    ws_update(
       "/AudioVideoInputOutput/Outputs",
       [{
         Ports: [{
@@ -101,51 +116,64 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     end
   end
 
-  protected def switch_stream(stream_reference : String | Int32)
+  protected def switch_stream(stream_reference : String | Int32, layer : SwitchLayer)
     uuid = uuid_for stream_reference
 
     logger.debug do
       subscription = @subscriptions[uuid].as_h
       id, name = subscription.values_at "Position", "SessionName"
-      "switching to Stream#{id} (#{name})"
+      "switching to Stream#{id} (#{name}) on layer #{layer}"
     end
 
-    payload = {
-      AvRouting: {
-        Routes: [{VideoSource: uuid, AudioSource: uuid}],
-      },
-      DeviceSpecific: {
-        VideoSource: "Stream",
-        AudioSource: "AudioFollowsVideo",
-      },
-    }
+    if layer.all? || layer.video?
+      ws_update "/DeviceSpecific/VideoSource", "Stream", name: :input_video
+      resp = ws_update "/AvRouting/Routes", { {VideoSource: uuid} }, name: :switch_video
+    end
 
-    update "/", payload, name: :switch
+    if @audio_follows_video
+      ws_update "/DeviceSpecific/AudioSource", "AudioFollowsVideo", name: :input_audio
+      resp = ws_update "/AvRouting/Routes", { {AudioSource: uuid} }, name: :switch_audio
+    elsif layer.all? || layer.audio?
+      ws_update "/DeviceSpecific/AudioSource", "Stream", name: :input_audio
+      resp = ws_update "/AvRouting/Routes", { {AudioSource: uuid} }, name: :switch_audio
+    end
+
+    resp
   end
 
-  protected def switch_local(input)
+  protected def switch_local(input, layer : SwitchLayer)
     logger.debug { "switching to #{input}" }
-    update(
-      "/DeviceSpecific",
-      {VideoSource: input, AudioSource: "AudioFollowsVideo"},
-      name: :switch
-    )
+
+    if layer.all? || layer.video?
+      resp = ws_update "/DeviceSpecific/VideoSource", input, name: :input_video
+    end
+
+    if @audio_follows_video
+      resp = ws_update "/DeviceSpecific/AudioSource", "AudioFollowsVideo", name: :input_audio
+    elsif layer.all? || layer.audio?
+      resp = ws_update "/DeviceSpecific/AudioSource", input, name: :input_audio
+    end
+
+    resp
   end
 
-  protected def blank
+  protected def blank(layer : SwitchLayer)
     logger.debug { "blanking output" }
 
-    payload = {
-      AvRouting: {
-        Routes: [{VideoSource: "", AudioSource: ""}],
-      },
-      DeviceSpecific: {
-        VideoSource: "None",
-        AudioSource: "AudioFollowsVideo",
-      },
-    }
+    if layer.all? || layer.video?
+      ws_update "/DeviceSpecific/VideoSource", "None", name: :input_video
+      resp = ws_update "/AvRouting/Routes", { {VideoSource: ""} }, name: :switch_video
+    end
 
-    update("/", payload, name: :switch)
+    if @audio_follows_video
+      ws_update "/DeviceSpecific/AudioSource", "AudioFollowsVideo", name: :input_audio
+      resp = ws_update "/AvRouting/Routes", { {AudioSource: ""} }, name: :switch_audio
+    elsif layer.all? || layer.audio?
+      ws_update "/DeviceSpecific/AudioSource", "None", name: :input_audio
+      resp = ws_update "/AvRouting/Routes", { {AudioSource: ""} }, name: :switch_audio
+    end
+
+    resp
   end
 
   # Decoders must first subscribe to encoders they need to receive signals
@@ -171,7 +199,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       uuid = reference
     else
       {"MulticastAddress", "SessionName"}.each do |prop|
-        if result = subscriptions.find { |_, x| x.as_h[prop] == reference }
+        if result = subscriptions.find { |_, x| x.as_h[prop]? == reference }
           uuid = result[0]
         end
         break if uuid
@@ -187,7 +215,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     subscriptions = @subscriptions
 
     # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/XioSubscription.htm?Highlight=XioSubscription
-    if result = subscriptions.find { |_, x| x.as_h["Position"] == reference }
+    if result = subscriptions.find { |_, x| x.as_h["Position"]? == reference }
       uuid = result[0]
     end
 

@@ -57,6 +57,31 @@ abstract class Crestron::CresNext < PlaceOS::Driver
     end
   end
 
+  protected def ws_update(path : String, value, **options)
+    request_path = Path["/Device"].join(path).to_s
+
+    # expands into object that we need to post
+    components = tokenize(request_path).map { |part| %({"#{part}") }
+    payload = %(#{components.join(':')}:#{value.to_json}#{"}" * components.size})
+
+    send(payload, **options) do |data, task|
+      raw_json = String.new(data)
+      logger.debug { "Crestron sent: #{raw_json}" }
+
+      if raw_json.includes? %("Results":)
+        json = JSON.parse(raw_json)
+        task.success json
+      end
+    end
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def manual_send(payload : JSON::Any)
+    data = payload.to_json
+    logger.debug { "Sending: #{data}" }
+    send data, wait: false
+  end
+
   def received(data, task)
     raw_json = String.new data
     logger.debug { "Crestron sent: #{raw_json}" }

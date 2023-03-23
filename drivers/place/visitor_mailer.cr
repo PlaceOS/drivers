@@ -1,6 +1,8 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 
+require "./password_generator_helper"
+
 require "uuid"
 require "oauth2"
 
@@ -16,15 +18,20 @@ class Place::VisitorMailer < PlaceOS::Driver
     date_format:        "%A, %-d %B",
     booking_space_name: "Client Floor",
 
-    send_reminders:           "0 7 * * *",
-    reminder_template:        "visitor",
-    event_template:           "event",
-    booking_template:         "booking",
-    disable_qr_code:          false,
-    send_network_credentials: false,
-    network_password_length:  6,
-    network_group_ids:        [] of String,
-    debug:                    false,
+    send_reminders:                     "0 7 * * *",
+    reminder_template:                  "visitor",
+    event_template:                     "event",
+    booking_template:                   "booking",
+    disable_qr_code:                    false,
+    send_network_credentials:           false,
+    network_password_length:            DEFAULT_PASSWORD_LENGTH,
+    network_password_exclude:           DEFAULT_PASSWORD_EXCLUDE,
+    network_password_minimum_lowercase: DEFAULT_PASSWORD_MINIMUM_LOWERCASE,
+    network_password_minimum_uppercase: DEFAULT_PASSWORD_MINIMUM_UPPERCASE,
+    network_password_minimum_numbers:   DEFAULT_PASSWORD_MINIMUM_NUMBERS,
+    network_password_minimum_symbols:   DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
+    network_group_ids:                  [] of String,
+    debug:                              false,
   })
 
   accessor staff_api : StaffAPI_1
@@ -64,7 +71,12 @@ class Place::VisitorMailer < PlaceOS::Driver
   @event_template : String = "event"
   @booking_template : String = "booking"
   @send_network_credentials = false
-  @network_password_length = 6
+  @network_password_length : Int32 = DEFAULT_PASSWORD_LENGTH
+  @network_password_exclude : String = DEFAULT_PASSWORD_EXCLUDE
+  @network_password_minimum_lowercase : Int32 = DEFAULT_PASSWORD_MINIMUM_LOWERCASE
+  @network_password_minimum_uppercase : Int32 = DEFAULT_PASSWORD_MINIMUM_UPPERCASE
+  @network_password_minimum_numbers : Int32 = DEFAULT_PASSWORD_MINIMUM_NUMBERS
+  @network_password_minimum_symbols : Int32 = DEFAULT_PASSWORD_MINIMUM_SYMBOLS
   @network_group_ids = [] of String
 
   def on_update
@@ -78,7 +90,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     @booking_template = setting?(String, :booking_template) || "booking"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
-    @network_password_length = setting?(Int32, :network_password_length) || 6
+    @network_password_length = setting?(Int32, :password_length) || DEFAULT_PASSWORD_LENGTH
+    @network_password_exclude = setting?(String, :password_exclude) || DEFAULT_PASSWORD_EXCLUDE
+    @network_password_minimum_lowercase = setting?(Int32, :password_minimum_lowercase) || DEFAULT_PASSWORD_MINIMUM_LOWERCASE
+    @network_password_minimum_uppercase = setting?(Int32, :password_minimum_uppercase) || DEFAULT_PASSWORD_MINIMUM_UPPERCASE
+    @network_password_minimum_numbers = setting?(Int32, :password_minimum_numbers) || DEFAULT_PASSWORD_MINIMUM_NUMBERS
+    @network_password_minimum_symbols = setting?(Int32, :password_minimum_symbols) || DEFAULT_PASSWORD_MINIMUM_SYMBOLS
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
 
     time_zone = setting?(String, :timezone).presence || "GMT"
@@ -218,7 +235,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     resource_id : String,
     event_id : String,
-    area_name : String
+    area_name : String,
+
+    event_end : Int64? = nil
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -236,7 +255,24 @@ class Place::VisitorMailer < PlaceOS::Driver
              end
 
     network_username = network_password = ""
-    network_username, network_password = update_network_user_password(visitor_email, random_password, @network_group_ids) if @send_network_credentials
+    network_username, network_password = update_network_user_password(
+      visitor_email,
+      generate_password(
+        length: @network_password_length,
+        exclude: @network_password_exclude,
+        minimum_lowercase: @network_password_minimum_lowercase,
+        minimum_uppercase: @network_password_minimum_uppercase,
+        minimum_numbers: @network_password_minimum_numbers,
+        minimum_symbols: @network_password_minimum_symbols
+      ),
+      @network_group_ids
+    ) if @send_network_credentials
+
+    event_time = if (end_timestamp = event_end) && (Time.unix(end_timestamp) - Time.unix(event_start)) == 24.hours
+                   "all day"
+                 else
+                   local_start_time.to_s(@time_format)
+                 end
 
     mailer.send_template(
       visitor_email,
@@ -251,6 +287,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_title:      event_title,
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),
+      event_time:       event_time,
       network_username: network_username,
       network_password: network_password,
     },
@@ -282,7 +319,8 @@ class Place::VisitorMailer < PlaceOS::Driver
             event["event_start"].as_i64,
             event.dig("system", "id").as_s,
             event["id"].as_s,
-            (event.dig?("system", "display_name") || event.dig("system", "name")).as_s
+            (event.dig?("system", "display_name") || event.dig("system", "name")).as_s,
+            event_end: event["event_end"].as_i64
           )
         elsif booking = guest["booking"]?
           send_visitor_qr_email(
@@ -294,7 +332,8 @@ class Place::VisitorMailer < PlaceOS::Driver
             booking["booking_start"].as_i64,
             booking["asset_id"].as_s,
             booking["id"].as_i64.to_s,
-            @booking_space_name
+            @booking_space_name,
+            event_end: booking["booking_end"].as_i64
           )
         end
       rescue error
@@ -362,11 +401,5 @@ class Place::VisitorMailer < PlaceOS::Driver
     response = network_provider.create_internal_user(email: user_email, name: user_email, password: password, identity_groups: group_ids).get
     logger.debug { "Response from Network Identity provider for creating user #{user_email} was:\n #{response}\n\nDetails:\n#{response.inspect}" } if @debug
     {response["name"], password}
-  end
-
-  # It's a temporary password that changes each booking, so 6 chars (lowercase and numbers) is fine. We want it to be easy to briefly remember and type
-  def random_password(length : Int32? = 6)
-    length ||= @network_password_length
-    Random::Secure.base64(length)
   end
 end

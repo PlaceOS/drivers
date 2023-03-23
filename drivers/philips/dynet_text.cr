@@ -161,6 +161,11 @@ class Philips::DyNetText < PlaceOS::Driver
     do_send "Preset #{scene} #{area} #{fade} #{join}", name: "preset#{area}_#{join}"
   end
 
+  @[Security(Level::Support)]
+  def send_custom(data : String)
+    do_send data
+  end
+
   def get_current_preset(area : UInt16, join : UInt8 = 0xFF_u8)
     do_send "RequestCurrentPreset #{area} #{join}", name: (join == 255_u8 ? "get_area#{area}" : "get_area#{area}_#{join}")
   end

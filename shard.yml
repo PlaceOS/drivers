@@ -124,3 +124,7 @@ dependencies:
   # GoBright API wrapper
   bright:
     github: place-technology/bright
+
+  # Releezme Vecos wrapper
+  vecos:
+    github: place-technology/vecos

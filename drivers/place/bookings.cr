@@ -268,6 +268,7 @@ class Place::Bookings < PlaceOS::Driver
     if current_booking
       booking = @bookings[current_booking]
       start_time = booking["event_start"].as_i64
+      ending_at = booking["event_end"]?
       booked = true
 
       # Up to the frontend to delete pending bookings that have past their start time
@@ -279,6 +280,11 @@ class Place::Bookings < PlaceOS::Driver
       end
 
       self[:current_booking] = booking
+      self[:host_email] = booking["extension_data"]?.try(&.[]?("host_override")) || booking["host"]?
+      self[:started_at] = start_time
+      self[:ending_at] = ending_at ? ending_at.as_i64 : (start_time + 24.hours.to_i)
+      self[:all_day_event] = !ending_at
+      self[:event_id] = booking["id"]?
 
       previous_booking_id = @current_meeting_id
       new_booking_id = booking["id"].as_s
@@ -286,6 +292,11 @@ class Place::Bookings < PlaceOS::Driver
       @current_meeting_id = new_booking_id
     else
       self[:current_booking] = nil
+      self[:host_email] = nil
+      self[:started_at] = nil
+      self[:ending_at] = nil
+      self[:all_day_event] = nil
+      self[:event_id] = nil
     end
 
     self[:booked] = booked
@@ -307,8 +318,8 @@ class Place::Bookings < PlaceOS::Driver
 
       self[:in_use] = booked && !current_pending
     else
-      self[:current_pending] = @current_pending = false
-      self[:next_pending] = @next_pending = false
+      self[:current_pending] = @current_pending = current_pending = false
+      self[:next_pending] = @next_pending = next_pending = false
       self[:pending] = false
 
       self[:in_use] = booked

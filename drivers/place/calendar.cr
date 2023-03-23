@@ -24,6 +24,8 @@ class Place::Calendar < PlaceOS::Driver
       client_secret:   "",
       conference_type: nil, # This can be set to "teamsForBusiness" to add a Teams link to EVERY created Event
     },
+
+    # only applies to google
     rate_limit: 5,
 
     # defaults to calendar_service_account if not configured

@@ -129,7 +129,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   end
 
   EMPTY_HEADERS    = {} of String => String
-  SUCCESS_RESPONSE = {HTTP::Status::OK, EMPTY_HEADERS, nil}
+  SUCCESS_RESPONSE = {HTTP::Status::OK.to_i, EMPTY_HEADERS, nil}
 
   @[Security(PlaceOS::Driver::Level::Support)]
   def organizations
