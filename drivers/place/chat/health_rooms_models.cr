@@ -71,6 +71,7 @@ module Place::Chat
     getter participants : Hash(String, Participant)
     getter session_id : String
     property system_id : String
+    property! timezone : String
 
     getter created_by_user_id : String
 

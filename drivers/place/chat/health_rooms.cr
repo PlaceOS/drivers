@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "./health_rooms_models.cr"
+require "./health_notification_models.cr"
 
 class Place::Chat::HealthRooms < PlaceOS::Driver
   descriptive_name "Health Chat Rooms"
@@ -37,6 +38,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     system_id = config.control_system.not_nil!.id
 
     @disconnect_timeout = (setting?(Int32, :disconnect_timeout) || 3).minutes
+    @timezone_default = nil
 
     schedule.clear
     schedule.every(@disconnect_timeout / 3) { cleanup_disconnected }
@@ -149,7 +151,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     logger.warn { "[state] last known meeting state restored" }
     sessions.each { |session_id| update_meeting_state(session_id) }
-    cleanup_disconnected
+    check_disconnected
   end
 
   # ================================================
@@ -230,6 +232,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
   protected def register_new_guest(system_id, guest, conference)
     meeting = Meeting.new(system_id, conference, guest)
+    meeting.timezone = timezone_system(system_id)
     session_id = meeting.session_id
     logger.info { "[meet] new guest has entered chat: #{guest.name}, user_id: #{guest.user_id}, session: #{session_id}" }
 
@@ -251,6 +254,9 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         guest_pin: conference.guest_pin,
       })
     end
+
+    # notify that the user has joined
+    spawn { notify_entry(meeting) }
 
     # update status
     update_meeting_state(session_id, system_id)
@@ -448,6 +454,33 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   # NOTIFICATIONS
   # ================================================
 
+  getter timezone_default : String { system.timezone.presence || "UTC" }
+
+  def timezone_system(system_id : String)
+    staff_api.get_system(system_id).get["timezone"]?.try(&.as_s.presence) || timezone_default
+  rescue error
+    logger.error(exception: error) { "failed to obtain timezone information for #{system_id}" }
+    timezone_default
+  end
+
+  # TODO:: cache metadata for a period of time
+
+  def notify_config(system_id : String)
+    # system metadata settings => notifications
+    raw_settings = staff_api.metadata(system_id, "settings").get["settings"]?.try(&.to_json)
+    settings = raw_settings ? RoomSettings.from_json(raw_settings) : RoomSettings.new
+    default_notifications = settings.notifications
+
+    # Grab the user notification settings
+    # need to run through the list of members for the room
+  end
+
+  protected def notify_entry(meeting)
+    timezone = Time::Location.load meeting.timezone
+  rescue error
+    logger.error(exception: error) { "[notify] error notifying entry" }
+  end
+
   # ================================================
   # MEETING MANAGEMENT
   # ================================================
@@ -531,6 +564,8 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     end
 
     raise "must provide a system id if there is not an existing session" unless system_id
+    system_id = system_id.as(String)
+    timezone = meeting.try(&.timezone) || timezone_system(system_id)
 
     logger.debug do
       if meeting
@@ -553,7 +588,9 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
                 else
                   # most likely won't have to checkout a conference here
                   conference = conference || pool_checkout_conference
-                  Meeting.new(system_id.as(String), session_id, conference, participant)
+                  meet = Meeting.new(system_id.as(String), session_id, conference, participant)
+                  meet.timezone = timezone
+                  meet
                 end
       @meetings[session_id] = meeting
       conference = meeting.conference
