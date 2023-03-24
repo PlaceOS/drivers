@@ -9,7 +9,7 @@ module Place::Chat
     getter host_pin : String
     getter guest_pin : String
 
-    @[JSON::Field(ignore: true)]
+    @[JSON::Field(converter: Time::EpochConverter)]
     getter created_at : Time
 
     def initialize(@place_id, @space_id, @host_pin, @guest_pin)
@@ -38,11 +38,7 @@ module Place::Chat
 
     # the chat session id the user is planning to use, the initial chat room
     property session_id : String? = nil
-
-    @[JSON::Field(ignore_deserialize: true)]
     property contacted : Bool = false
-
-    @[JSON::Field(ignore_deserialize: true)]
     property staff_user_id : String? = nil
 
     # as we don't care about this field anymore and don't want it saved in unmapped
@@ -79,12 +75,11 @@ module Place::Chat
     getter created_by_user_id : String
 
     @[JSON::Field(converter: Time::EpochConverter)]
-    getter created_at : Time
+    getter created_at : Time = Time.utc
 
     @[JSON::Field(converter: Time::EpochConverter)]
     getter updated_at : Time
 
-    @[JSON::Field(ignore: true)]
     property conference : ConferenceDetails
 
     def initialize(@system_id, @conference, participant : Participant)

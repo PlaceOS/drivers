@@ -11,7 +11,7 @@ shards:
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
-    version: 4.2.3
+    version: 4.3.0
 
   awscr-signer:
     git: https://github.com/taylorfinnell/awscr-signer.git
@@ -32,6 +32,10 @@ shards:
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
     version: 1.11.1
+
+  bright:
+    git: https://github.com/place-technology/bright.git
+    version: 0.1.0+git.commit.09e2f25719c4543dd9053a158dbcd076f44b0b74
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
@@ -84,6 +88,10 @@ shards:
   etcd:
     git: https://github.com/place-labs/crystal-etcd.git
     version: 1.2.5
+
+  eventbus:
+    git: https://github.com/spider-gazelle/eventbus.git
+    version: 0.9.9+git.commit.086b2ba92475b88e8481b0387eb56c735cbfd7bd
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
@@ -159,7 +167,7 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.5.1
+    version: 0.5.2
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
@@ -183,7 +191,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.18.3
+    version: 1.18.5
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -195,7 +203,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.2.1
+    version: 2.3.0
 
   opentelemetry-api:
     git: https://github.com/wyhaines/opentelemetry-api.cr.git
@@ -221,13 +229,21 @@ shards:
     git: https://github.com/wyhaines/parsedate.cr.git
     version: 0.1.2
 
+  pg:
+    git: https://github.com/will/crystal-pg.git
+    version: 0.26.0
+
+  pg-orm:
+    git: https://github.com/spider-gazelle/pg-orm.git
+    version: 1.0.0+git.commit.2bbafec9579f175880281279d33168360176540c
+
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
     version: 1.1.2
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.15.4
+    version: 4.15.7
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -243,7 +259,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.7.3
+    version: 6.7.5
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -251,11 +267,11 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 8.13.2
+    version: 9.0.2
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
-    version: 0.2.4
+    version: 0.3.0
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
@@ -279,7 +295,7 @@ shards:
 
   redis:
     git: https://github.com/stefanwille/crystal-redis.git
-    version: 2.8.3
+    version: 2.9.0
 
   redis-cluster:
     git: https://github.com/caspiano/redis-cluster.cr.git
@@ -292,14 +308,6 @@ shards:
   responsible:
     git: https://github.com/place-labs/responsible.git
     version: 1.2.3
-
-  rethinkdb:
-    git: https://github.com/kingsleyh/crystal-rethinkdb.git
-    version: 0.3.1
-
-  rethinkdb-orm:
-    git: https://github.com/spider-gazelle/rethinkdb-orm.git
-    version: 6.0.4
 
   retriable:
     git: https://github.com/sija/retriable.cr.git
@@ -368,6 +376,10 @@ shards:
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
+
+  vecos:
+    git: https://github.com/place-technology/vecos.git
+    version: 0.1.0+git.commit.479c11c94500dfa3ae477c59dec42161927d16ac
 
   xml_converter:
     git: https://github.com/mamantoha/xml_converter.git

@@ -316,14 +316,14 @@ class Place::StaffAPI < PlaceOS::Driver
     true
   end
 
-  def patch_event_metadata(system_id : String, event_id : String, metadata : JSON::Any)
-    response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}", headers: authentication, body: metadata.to_json)
+  def patch_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil)
+    response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?ical_uid=#{ical_uid}", headers: authentication, body: metadata.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
     JSON::Any.from_json(response.body)
   end
 
-  def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any)
-    response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}", headers: authentication, body: metadata.to_json)
+  def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil)
+    response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?ical_uid=#{ical_uid}", headers: authentication, body: metadata.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
     JSON::Any.from_json(response.body)
   end
