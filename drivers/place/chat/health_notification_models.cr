@@ -1,4 +1,5 @@
 require "json"
+require "./health_rooms_models"
 
 module Place::Chat
   # room defaults are at: settings -> notifications
@@ -51,6 +52,21 @@ module Place::Chat
     getter name : String
     getter phone : String?
     getter roles : Array(String)
+
+    @[JSON::Field(ignore: true)]
+    property! notifications : NotificationSettings
+
+    def coordinator?
+      roles.includes? "coordinator"
+    end
+
+    def clinician?
+      roles.includes? "clinician"
+    end
+
+    def admin?
+      roles.includes? "admin"
+    end
   end
 
   struct OpeningHours
@@ -91,6 +107,11 @@ module Place::Chat
     getter notifications : NotificationSettings do
       NotificationSettings.new
     end
+
+    property members : Array(RoomMember) = [] of RoomMember
+
+    @[JSON::Field(ignore: true)]
+    property! timezone : Time::Location
 
     # 0 index == Monday
     #   open time, close time, enabled

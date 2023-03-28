@@ -1,4 +1,6 @@
 require "placeos-driver"
+require "placeos-driver/interface/sms"
+require "placeos-driver/interface/mailer"
 require "./health_rooms_models.cr"
 require "./health_notification_models.cr"
 
@@ -6,12 +8,18 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   descriptive_name "Health Chat Rooms"
   generic_name :ChatRoom
 
+  EXAMPLE_SMS_TEMPLATE = "patient %{patient_name} is waiting in %{room_name} for an appointment at %{appointment_time}"
+
   default_settings({
     is_spec:   true,
     domain_id: "domain",
     pool_size: 10,
     # disconnect time in minutes
     disconnect_timeout: 3,
+
+    sms_source:     "Health",
+    sms_template:   EXAMPLE_SMS_TEMPLATE,
+    notify_no_time: "no time specified",
   })
 
   def on_load
@@ -20,6 +28,9 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   end
 
   @disconnect_timeout : Time::Span = 3.minutes
+  @sms_source : String? = nil
+  @sms_template : String = ""
+  @notify_no_time : String = "no time specified"
 
   def on_update
     @update_mutex.synchronize do
@@ -34,6 +45,9 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     is_spec = setting?(Bool, :is_spec) || false
 
     domain = setting(String, :domain_id)
+    @sms_source = setting?(String, :sms_source)
+    @sms_template = setting?(String, :sms_template) || EXAMPLE_SMS_TEMPLATE
+    @notify_no_time = setting?(String, :notify_no_time) || "no time specified"
     @pool_target_size = setting?(Int32, :pool_size) || 10
     system_id = config.control_system.not_nil!.id
 
@@ -463,20 +477,96 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     timezone_default
   end
 
-  # TODO:: cache metadata for a period of time
+  def notify_config(system_id : String, timezone : String)
+    timezone = Time::Location.load timezone
 
-  def notify_config(system_id : String)
     # system metadata settings => notifications
     raw_settings = staff_api.metadata(system_id, "settings").get["settings"]?.try(&.to_json)
     settings = raw_settings ? RoomSettings.from_json(raw_settings) : RoomSettings.new
     default_notifications = settings.notifications
 
     # Grab the user notification settings
-    # need to run through the list of members for the room
+    room_users = settings.members.compact_map do |member|
+      next unless member.available?
+      begin
+        notify_settings = if user_settings = staff_api.metadata(member.id, "settings").get["settings"]?.try(&.[]?("notifications")).try(&.to_json)
+                            begin
+                              NotificationSettings.from_json(user_settings)
+                            rescue parse_error
+                              logger.warn(exception: parse_error) { "failed to parse user #{member.id} notification settings" }
+                              # defaults if there is an error parsing settings
+                              default_notifications
+                            end
+                          else
+                            # defaults if the user hasn't explicitily configured any
+                            default_notifications
+                          end
+        next unless notify_settings.enabled?
+
+        # notify_settings.member = member
+        member.notifications = notify_settings
+        member
+      rescue error
+        logger.error(exception: error) { "failed to obtain user #{member.id} metadata" }
+        nil
+      end
+    end
+
+    settings.members = room_users
+    settings.timezone = timezone
+    settings
   end
 
-  protected def notify_entry(meeting)
-    timezone = Time::Location.load meeting.timezone
+  protected def notify_load_notifications(meeting)
+    system_info = meeting.system || PlaceOS::Driver::DriverModel::ControlSystem.from_json(staff_api.get_system(meeting.system_id).get.to_json)
+    room_settings = meeting.room_settings || notify_config(meeting.system_id, meeting.timezone)
+    meeting.room_settings = room_settings
+    meeting.system = system_info
+    {system_info, room_settings}
+  end
+
+  protected def notify_entry(meeting, delay = true)
+    system_info, room_settings = notify_load_notifications(meeting)
+    contact_members = meeting.notify_members_on_entry
+    participant = meeting.created_by_participant
+
+    sys = system
+    sms = sys.implementing(PlaceOS::Driver::Interface::SMS).first?
+    mailer = sys.implementing(PlaceOS::Driver::Interface::SMS).first?
+
+    contact_members.each do |member|
+      notify = member.notifications.on_enter
+      args = {
+        member_name:       member.name,
+        member_email:      member.email,
+        member_phone:      member.phone,
+        member_id:         member.id,
+        patient_name:      participant.name,
+        patient_email:     participant.email,
+        patient_phone:     participant.phone,
+        patient_chat_only: participant.text_chat_only,
+        room_name:         system_info.display_name,
+        room_code:         system_info.code,
+        room_id:           system_info.id,
+        appointment_time:  participant.appointment_time.presence || @notify_no_time,
+      }
+
+      # sms
+      if sms && (phone = member.phone.presence) && notify.sms?
+        string = @sms_template
+        args.each { |key, value| string = string.gsub("%{#{key}}", value) }
+        sms.send_sms(phone, string, source: @sms_source)
+      end
+
+      # email
+      if mailer && (email = member.email.presence) && notify.email?
+        mailer.send_template(
+          to: {member.email},
+          template: {"chat_rooms", "notify_entry"},
+          args: args
+        )
+      end
+    end
   rescue error
     logger.error(exception: error) { "[notify] error notifying entry" }
   end
