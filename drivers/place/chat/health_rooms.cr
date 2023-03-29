@@ -489,6 +489,10 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     room_users = settings.members.compact_map do |member|
       next unless member.available?
       begin
+        user_data = staff_api.user(member.id).get.as_h
+        member.name = (user_data["nickname"]? || user_data["name"]).as_s
+        member.email = user_data["email"].as_s
+        member.phone = user_data["phone"]?.try &.as_s
         notify_settings = if user_settings = staff_api.metadata(member.id, "settings").get["settings"]?.try(&.[]?("notifications")).try(&.to_json)
                             begin
                               NotificationSettings.from_json(user_settings)
@@ -529,6 +533,10 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     system_info, room_settings = notify_load_notifications(meeting)
     contact_members = meeting.notify_members_on_entry
     participant = meeting.created_by_participant
+
+    @meeting_mutex.synchronize do
+      return if meeting.creator_contacted?
+    end
 
     sys = system
     sms = sys.implementing(PlaceOS::Driver::Interface::SMS).first?

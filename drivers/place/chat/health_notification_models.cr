@@ -43,14 +43,14 @@ module Place::Chat
     getter on_escalate : NotifyEventSettings = NotifyEventSettings.new
   end
 
-  struct RoomMember
+  class RoomMember
     include JSON::Serializable
 
     getter? available : Bool
-    getter email : String
+    property email : String
     getter id : String
-    getter name : String
-    getter phone : String?
+    property name : String
+    property phone : String?
     getter roles : Array(String)
 
     @[JSON::Field(ignore: true)]
@@ -96,7 +96,7 @@ module Place::Chat
   end
 
   # Room metadata => settings key
-  struct RoomSettings
+  class RoomSettings
     include JSON::Serializable
 
     def initialize

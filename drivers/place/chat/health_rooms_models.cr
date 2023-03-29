@@ -162,6 +162,10 @@ module Place::Chat
       @participants[created_by_user_id]
     end
 
+    def creator_contacted?
+      @participants[created_by_user_id]?.try &.contacted
+    end
+
     def has_participant?(webrtc_user_id : String) : Participant?
       @participants[webrtc_user_id]?
     end
