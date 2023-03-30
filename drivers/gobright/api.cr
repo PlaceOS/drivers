@@ -76,7 +76,7 @@ class GoBright::API < PlaceOS::Driver
       end
     end
 
-    Array(Occupancy).from_json fetch("/api/v2.0/spaces?#{params}")
+    Array(Space).from_json fetch("/api/v2.0/spaces?#{params}")
   end
 
   # the occupancy status of the spaces
