@@ -38,6 +38,8 @@ class GoBright::API < PlaceOS::Driver
           "User-Agent"    => @user_agent,
           "Content-Type"  => "application/json",
         })
+
+        @expires = 1.minute.ago if response.status_code == 401
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
         # extract the response data
