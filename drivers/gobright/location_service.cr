@@ -100,19 +100,30 @@ class GoBright::LocationService < PlaceOS::Driver
     end
     return [] of Nil unless @zone_filter.includes?(zone_id)
 
-    desk_types = @desk_space_types
+    # grab all the spaces for the current zone_id
     gobright_location_id = @floor_mappings[zone_id]
-    spaces = space_details
-    occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id).get.to_json)
+    spaces = {} of String => Space
+    space_details.each_value do |space|
+      next unless space.location_id == gobright_location_id
+      spaces[space.id] = space.dup
+    end
 
-    occupancy.compact_map do |details|
+    # mark if the space is occupied
+    desk_types = @desk_space_types
+    occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id).get.to_json)
+    occupancy.each do |details|
       space = spaces[details.id]?
       next unless space
 
+      space.occupied = details.occupied? || false
+    end
+
+    # build the response
+    spaces.values.compact_map do |space|
       loc_type = space.type.in?(desk_types) ? "desk" : "area"
       next if location.presence && location != loc_type
 
-      if (occupied = details.occupied?) || @return_empty_spaces
+      if (occupied = space.occupied?) || @return_empty_spaces
         {
           location:    loc_type,
           at_location: occupied ? 1 : 0,

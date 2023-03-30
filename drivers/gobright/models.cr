@@ -146,7 +146,7 @@ module GoBright
     Parking      = 3
   end
 
-  struct Space
+  class Space
     include JSON::Serializable
 
     getter id : String
@@ -168,6 +168,9 @@ module GoBright
 
     @[JSON::Field(key: "isBookable")]
     getter is_bookable : Bool?
+
+    @[JSON::Field(ignore: true)]
+    property? occupied : Bool = false
   end
 
   struct Occupancy
