@@ -1,104 +1,104 @@
 require "placeos-driver"
-require "bright"
+require "./models"
+
+# documentation: https://t1b.gobright.cloud/swagger/index.html?url=/swagger/v1/swagger.json#/
 
 class GoBright::API < PlaceOS::Driver
   descriptive_name "GoBright API Gateway"
-  generic_name :Occupancy
+  generic_name :GoBright
   uri_base "https://example.gobright.cloud"
 
-  alias Client = ::Bright::Client
-
-  default_settings({api_key: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"})
-
-  protected getter! client : Client
+  default_settings({
+    api_key:    "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    user_agent: "PlaceOS",
+  })
 
   def on_load
     on_update
   end
 
+  @api_key : String = ""
+  @user_agent : String = "PlaceOS"
+
   def on_update
-    base_url = config.uri.not_nil!.to_s
-    api_key = setting(String, :api_key)
-
-    @client = Client.new(base_url: base_url, api_key: api_key)
+    @api_key = setting(String, :api_key)
+    @user_agent = setting?(String, :user_agent) || "PlaceOS"
   end
 
-  def bookings?(start_date : String, end_date : String, location_ids : Array(String) = [] of String, space_ids : Array(String) = [] of String, included_submodels : String? = nil, paging_skip : Int32 = 10, paging_take : Int32 = 10)
-    client.bookings.get(start_date, end_date, location_ids, space_ids, included_submodels, paging_skip, paging_take)
+  @[Security(Level::Support)]
+  def fetch(location : String) : String
+    next_page = location
+    append = location.includes?('?') ? '&' : '?'
+
+    String.build do |str|
+      str << "["
+      loop do
+        response = get(next_page, headers: HTTP::Headers{
+          "Authorization" => get_token,
+          "User-Agent"    => @user_agent,
+          "Content-Type"  => "application/json",
+        })
+        raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+        # extract the response data
+        payload = Response.from_json response.body
+        str << payload.data.strip[1..-2]
+
+        # perform pagination
+        continuation = payload.paging.try &.token
+        break unless continuation
+
+        str << ","
+        next_page = "#{location}#{append}continuationToken=#{continuation}"
+      end
+      str << "]"
+    end
   end
 
-  def booking_occurrences?(start_date : String, end_date : String, location_ids : Array(String) = [] of String, space_ids : Array(String) = [] of String, included_submodels : String? = nil, paging_skip : Int32 = 10, paging_take : Int32 = 10, continuation_token : String? = nil)
-    client.bookings.get_occurrences(start_date, end_date, location_ids, space_ids, included_submodels, paging_skip, paging_take, continuation_token)
+  # the list of buildings, levels, areas etc
+  def locations
+    Array(Location).from_json fetch("/api/v2.0/locations?pagingTake=100")
   end
 
-  def create_booking(subject : String, start_date : String, end_date : String, time_zone : String, space_ids : Array(String))
-    booking = Bright::Models::Booking.from_json <<-JSON
-      {
-        "bookingType": 2,
-        "spaceIds": [],
-        "start": "string",
-        "startIanaTimeZone": "string",
-        "end": "string",
-        "endIanaTimeZone": "string",
-        "periodStartIanaTimeZone": "string",
-        "periodEndIanaTimeZone": "string",
-        "subject": "string"
-      }
-    JSON
+  # a list of spaces in the locations. rooms, desks and parking
+  def spaces(location : String? = nil, type : SpaceType? = SpaceType::Desk)
+    params = URI::Params.build do |form|
+      form.add "pagingTake", "100"
+      form.add "filterLocationId", location.to_s unless location.presence.nil?
+      form.add "filterSpaceType", type.value.to_s if type
+    end
 
-    booking.subject = subject
-    booking.start_date = start_date
-    booking.end_date = end_date
-    booking.start_iana_time_zone = time_zone
-    booking.end_iana_time_zone = time_zone
-    booking.period_start_iana_time_zone = time_zone
-    booking.period_end_iana_time_zone = time_zone
-    booking.space_ids = space_ids
-
-    client.bookings.create(booking)
+    Array(Occupancy).from_json fetch("/api/v2.0/occupancy/space/live?#{params}")
   end
 
-  def update_booking(composed_id : String, subject : String, start_date : String, end_date : String, time_zone : String, space_ids : Array(String))
-    booking = Bright::Models::Booking.from_json <<-JSON
-      {
-        "bookingType": 2,
-        "spaceIds": [],
-        "start": "string",
-        "startIanaTimeZone": "string",
-        "end": "string",
-        "endIanaTimeZone": "string",
-        "periodStartIanaTimeZone": "string",
-        "periodEndIanaTimeZone": "string",
-        "subject": "string"
-      }
-    JSON
+  # the occupancy status of the spaces
+  def live_occupancy(location : String? = nil, type : SpaceType? = SpaceType::Desk)
+    params = URI::Params.build do |form|
+      form.add "pagingTake", "100"
+      form.add "filterLocationId", location.to_s unless location.presence.nil?
+      form.add "filterSpaceType", type.value.to_s if type
+    end
 
-    booking.composed_id = composed_id
-    booking.subject = subject
-    booking.start_date = start_date
-    booking.end_date = end_date
-    booking.start_iana_time_zone = time_zone
-    booking.end_iana_time_zone = time_zone
-    booking.period_start_iana_time_zone = time_zone
-    booking.period_end_iana_time_zone = time_zone
-    booking.space_ids = space_ids
-
-    client.bookings.update(booking)
+    Array(Occupancy).from_json fetch("/api/v2.0/occupancy/space/live?#{params}")
   end
 
-  def delete_booking(booking_id : String)
-    client.bookings.delete(booking_id)
-  end
+  @expires : Time = Time.utc
+  @token : String = ""
 
-  def locations?(paging_skip : Int32 = 10, paging_take : Int32 = 10)
-    client.locations.get(paging_skip, paging_take)
-  end
+  protected def get_token
+    return @token if 1.minute.from_now < @expires
 
-  def occupancy?(filter_location_id : String, filter_space_type : Int32? = nil, paging_skip : Int32 = 10, paging_take : Int32 = 10)
-    client.occupancy.get(filter_location_id, filter_space_type, paging_skip, paging_take)
-  end
+    response = post("/token",
+      headers: {
+        "Content-Type" => "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=apikey&apikey=#{@api_key}"
+    )
 
-  def spaces?(space_types : Int32 = 0, location_id : String? = nil, included_submodels : String? = nil, paging_skip : Int32 = 10, paging_take : Int32 = 10)
-    client.spaces.get(space_types, location_id, included_submodels, paging_skip, paging_take)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    token = AccessToken.from_json response.body
+    @expires = token.expires_at
+    @token = "Bearer #{token.access_token}"
   end
 end
