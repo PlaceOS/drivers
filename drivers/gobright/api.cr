@@ -63,14 +63,21 @@ class GoBright::API < PlaceOS::Driver
   end
 
   # a list of spaces in the locations. rooms, desks and parking
-  def spaces(location : String? = nil, type : SpaceType? = SpaceType::Desk)
+  def spaces(location : String? = nil, types : SpaceType | Array(SpaceType) = SpaceType::Desk)
+    types = types.is_a?(Array) ? types : [types]
+
     params = URI::Params.build do |form|
       form.add "pagingTake", "100"
-      form.add "filterLocationId", location.to_s unless location.presence.nil?
-      form.add "filterSpaceType", type.value.to_s if type
+      form.add "LocationId", location.to_s unless location.presence.nil?
+      if types
+        types.each do |type|
+          form.add "SpaceTypes", type.value.to_s
+          form.add "SpaceTypes", type.value.to_s
+        end
+      end
     end
 
-    Array(Occupancy).from_json fetch("/api/v2.0/occupancy/space/live?#{params}")
+    Array(Occupancy).from_json fetch("/api/v2.0/spaces?#{params}")
   end
 
   # the occupancy status of the spaces
