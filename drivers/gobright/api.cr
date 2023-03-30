@@ -80,10 +80,10 @@ class GoBright::API < PlaceOS::Driver
   end
 
   # the occupancy status of the spaces
-  def live_occupancy(location : String? = nil, type : SpaceType? = nil)
+  def live_occupancy(location : String, type : SpaceType? = nil)
     params = URI::Params.build do |form|
       form.add "pagingTake", "100"
-      form.add "filterLocationId", location.to_s unless location.presence.nil?
+      form.add "filterLocationId", location
       form.add "filterSpaceType", type.value.to_s if type
     end
 
