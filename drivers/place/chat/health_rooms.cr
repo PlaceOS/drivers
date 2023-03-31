@@ -491,7 +491,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
     # system metadata settings => notifications
     raw_settings = staff_api.metadata(system_id, "settings").get["settings"]?.try(&.to_json)
-    settings = raw_settings ? RoomSettings.from_json(raw_settings) : RoomSettings.new
+    settings = raw_settings ? RoomSettings.from_json(raw_settings, root: "details") : RoomSettings.new
     default_notifications = settings.notifications
 
     # Grab the user notification settings
@@ -502,9 +502,9 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         member.name = (user_data["nickname"]? || user_data["name"]).as_s
         member.email = user_data["email"].as_s
         member.phone = user_data["phone"]?.try &.as_s
-        notify_settings = if user_settings = staff_api.metadata(member.id, "settings").get["settings"]?.try(&.[]?("notifications")).try(&.to_json)
+        notify_settings = if user_settings = staff_api.metadata(member.id, "settings").get["settings"]?.try(&.[]?("details")).try(&.to_json)
                             begin
-                              NotificationSettings.from_json(user_settings)
+                              NotificationSettings.from_json(user_settings, root: "notifications")
                             rescue parse_error
                               logger.warn(exception: parse_error) { "failed to parse user #{member.id} notification settings" }
                               # defaults if there is an error parsing settings
