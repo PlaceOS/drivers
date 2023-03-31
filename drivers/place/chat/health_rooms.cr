@@ -473,7 +473,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   def timezone_system(system_id : String)
     staff_api.get_system(system_id).get["timezone"]?.try(&.as_s.presence) || timezone_default
   rescue error
-    logger.error(exception: error) { "failed to obtain timezone information for #{system_id}" }
+    logger.error(exception: error) { "[notify] failed to obtain timezone information for #{system_id}" }
     timezone_default
   end
 
@@ -511,7 +511,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
         member.notifications = notify_settings
         member
       rescue error
-        logger.error(exception: error) { "failed to obtain user #{member.id} metadata" }
+        logger.error(exception: error) { "[notify] failed to obtain user #{member.id} metadata" }
         nil
       end
     end
@@ -534,13 +534,17 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     contact_members = meeting.notify_members_on_entry
     participant = meeting.created_by_participant
 
-    @meeting_mutex.synchronize do
-      return if meeting.creator_contacted?
+    contacted = @meeting_mutex.synchronize { meeting.creator_contacted? }
+    if contacted
+      logger.debug { "[notify] ignoring entry event as user has been contacted" }
+      return
     end
 
     sys = system
     sms = sys.implementing(PlaceOS::Driver::Interface::SMS).first?
     mailer = sys.implementing(PlaceOS::Driver::Interface::SMS).first?
+
+    logger.debug { "[notify] entry event found #{contact_members.size} members to contact. SMS #{!!sms}, email #{!!mailer}" }
 
     contact_members.each do |member|
       notify = member.notifications.on_enter
