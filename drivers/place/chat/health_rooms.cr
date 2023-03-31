@@ -477,6 +477,11 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
     timezone_default
   end
 
+  @[Security(Level::Support)]
+  def notify_inspect_meeting(session_id : String)
+    @meeting_mutex.synchronize { @meetings[session_id]?.try &.dup }
+  end
+
   def notify_config(system_id : String, timezone : String)
     timezone = Time::Location.load timezone
 
