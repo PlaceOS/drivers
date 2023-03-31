@@ -1,4 +1,5 @@
 require "json"
+require "./health_notification_models"
 
 module Place::Chat
   struct ConferenceDetails
@@ -26,11 +27,14 @@ module Place::Chat
     property phone : String?
 
     # the type of guest (additional information)
+    @[JSON::Field(key: "role")]
     property type : String?
     property text_chat_only : Bool? = false
 
     # the placeos user id we would like to notify if we have the user details
+    @[JSON::Field(key: "staff_id")]
     property chat_to_user_id : String?
+    getter appointment_time : String? = nil
 
     # the users chat id. This purely generated on the frontend
     # not a placeos user_id, we use it to track browser instances
@@ -71,7 +75,9 @@ module Place::Chat
     getter participants : Hash(String, Participant)
     getter session_id : String
     property system_id : String
+    property! timezone : String
 
+    # webrtc_user_id that created the meeting
     getter created_by_user_id : String
 
     @[JSON::Field(converter: Time::EpochConverter)]
@@ -81,6 +87,43 @@ module Place::Chat
     getter updated_at : Time
 
     property conference : ConferenceDetails
+
+    @[JSON::Field(ignore: true)]
+    property room_settings : RoomSettings? = nil
+
+    @[JSON::Field(ignore: true)]
+    property system : PlaceOS::Driver::DriverModel::ControlSystem? = nil
+
+    protected def filter_members(clinician_selected : String?)
+      room_settings.not_nil!.members.compact_map do |member|
+        begin
+          next unless (member.clinician? || member.coordinator?) && member.notifications.enabled?
+          next if clinician_selected && member.notifications.chosen_provider? && member.id != clinician_selected
+          member
+        rescue error
+          # logger.warn(exception: error) { "checking user #{member.id} notification settings" }
+          member
+        end
+      end
+    end
+
+    def notify_members_on_entry : Array(RoomMember)
+      settings = room_settings
+      return [] of RoomMember unless settings
+
+      patient = participants[created_by_user_id]
+
+      # check for clinicians with on_enter notifications
+      clinician_selected = patient.chat_to_user_id.presence
+      contact = filter_members(clinician_selected)
+
+      # the clinician might not be in today
+      contact = filter_members(nil) if contact.empty? && clinician_selected
+
+      # contact the admin if there are no clinicians or coordinators
+      contact = settings.members if contact.empty?
+      contact
+    end
 
     def initialize(@system_id, @conference, participant : Participant)
       session_id = participant.session_id
@@ -113,6 +156,14 @@ module Place::Chat
         @updated_at = Time.utc
         participant
       end
+    end
+
+    def created_by_participant
+      @participants[created_by_user_id]
+    end
+
+    def creator_contacted?
+      @participants[created_by_user_id]?.try &.contacted
     end
 
     def has_participant?(webrtc_user_id : String) : Participant?
