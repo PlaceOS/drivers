@@ -479,11 +479,13 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def notify_inspect_meeting(session_id : String)
-    settings = @meeting_mutex.synchronize { @meetings[session_id]?.try &.room_settings }
-    members = settings.try &.members.map do |member|
+    meeting = @meeting_mutex.synchronize { @meetings[session_id]?.try &.dup }
+    raise "meeting #{session_id} not found" unless meeting
+    system_info, room_settings = notify_load_notifications(meeting)
+    members = room_settings.try &.members.map do |member|
       {member: member, notifications: member.notifications}
     end
-    {settings: settings, members: members}
+    {settings: room_settings, members: members}
   end
 
   def notify_config(system_id : String, timezone : String)
