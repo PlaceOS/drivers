@@ -479,7 +479,11 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def notify_inspect_meeting(session_id : String)
-    @meeting_mutex.synchronize { @meetings[session_id]?.try &.dup }
+    settings = @meeting_mutex.synchronize { @meetings[session_id]?.try &.room_settings }
+    members = settings.try &.members.map do |member|
+      {member: member, notifications: member.notifications}
+    end
+    {settings: settings, members: members}
   end
 
   def notify_config(system_id : String, timezone : String)
