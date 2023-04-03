@@ -193,4 +193,76 @@ module GoBright
       expires_in.seconds.from_now
     end
   end
+
+  enum ApprovalState
+    Inactive      = 0
+    NeedsApproval = 1
+    Approved      = 2
+    Rejected      = 3
+  end
+
+  enum BookingType
+    BookingOnRoom    = 0
+    ServiceOnly      = 1
+    BookingOnDesk    = 2
+    BookingAsTeam    = 3
+    BookingOnParking = 4
+  end
+
+  struct Attendee
+    include JSON::Serializable
+
+    @[JSON::Field(key: "emailAddress")]
+    property email_address : String?
+    property name : String?
+  end
+
+  struct Occurrence
+    include JSON::Serializable
+
+    property id : String?
+
+    @[JSON::Field(key: "composedId")]
+    property composed_id : String?
+
+    @[JSON::Field(key: "bookingType", converter: Enum::ValueConverter(::GoBright::BookingType))]
+    property booking_type : BookingType?
+
+    @[JSON::Field(key: "intentionType")]
+    property intention_type : Int32?
+
+    @[JSON::Field(key: "recurrenceType")]
+    property recurrence_type : Int32?
+
+    @[JSON::Field(key: "approvalState", converter: Enum::ValueConverter(::GoBright::ApprovalState))]
+    property approval_state : ApprovalState?
+
+    @[JSON::Field(key: "isAnonymouslyBooked")]
+    property is_anonymously_booked : Bool?
+
+    @[JSON::Field(key: "licensePlate")]
+    property license_plate : String?
+
+    @[JSON::Field(key: "start")]
+    property start_date : Time
+
+    @[JSON::Field(key: "end")]
+    property end_date : Time
+    property subject : String?
+    property organizer : Attendee?
+    property spaces : Array(Space) = [] of Space
+    property attendees : Array(Attendee) = [] of Attendee
+
+    @[JSON::Field(key: "attendeeAmount")]
+    property attendee_amount : Int32?
+
+    @[JSON::Field(key: "confirmationActive")]
+    property confirmation_active : Bool?
+
+    @[JSON::Field(key: "confirmationWindowStart")]
+    property confirmation_window_start : String?
+
+    @[JSON::Field(key: "confirmationWindowEnd")]
+    property confirmation_window_end : String?
+  end
 end
