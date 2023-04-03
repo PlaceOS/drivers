@@ -52,7 +52,7 @@ class GoBright::API < PlaceOS::Driver
           raise error
         end
 
-        if data = payload.data
+        if data = payload.data || payload.items
           str << data.strip[1..-2]
         end
 
