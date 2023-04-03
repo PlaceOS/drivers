@@ -33,6 +33,7 @@ class GoBright::API < PlaceOS::Driver
     String.build do |str|
       str << "["
       loop do
+        logger.debug { "requesting: #{next_page}" }
         response = get(next_page, headers: HTTP::Headers{
           "Authorization" => get_token,
           "User-Agent"    => @user_agent,
@@ -41,10 +42,19 @@ class GoBright::API < PlaceOS::Driver
 
         @expires = 1.minute.ago if response.status_code == 401
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+        logger.debug { "response body:\n#{response.body}" }
 
         # extract the response data
-        payload = Response.from_json response.body
-        str << payload.data.strip[1..-2]
+        payload = begin
+          Response.from_json response.body
+        rescue error : JSON::SerializableError
+          logger.warn { "failed to parse body:\n#{response.body}" }
+          raise error
+        end
+
+        if data = payload.data
+          str << data.strip[1..-2]
+        end
 
         # perform pagination
         continuation = payload.paging.try &.token

@@ -28,7 +28,7 @@ module GoBright
     getter metadata : Metadata?
 
     @[JSON::Field(converter: String::RawConverter)]
-    getter data : String
+    getter data : String?
 
     @[JSON::Field(key: "paging")]
     getter paging : Paging?
