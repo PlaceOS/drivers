@@ -30,6 +30,9 @@ module GoBright
     @[JSON::Field(converter: String::RawConverter)]
     getter data : String?
 
+    @[JSON::Field(converter: String::RawConverter)]
+    getter items : String?
+
     @[JSON::Field(key: "paging")]
     getter paging : Paging?
   end
