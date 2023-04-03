@@ -109,7 +109,6 @@ class GoBright::LocationService < PlaceOS::Driver
     end
 
     # mark if the space is occupied
-    desk_types = @desk_space_types
     occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id).get.to_json)
     occupancy.each do |details|
       space = spaces[details.id]?
@@ -118,7 +117,18 @@ class GoBright::LocationService < PlaceOS::Driver
       space.occupied = details.occupied? || false
     end
 
+    # mark if the desk is booked
+    occurrences = Array(Occurrence).from_json(gobright.bookings(1.minutes.ago.to_unix, 10.minutes.from_now.to_unix, gobright_location_id).get.to_json)
+    occurrences.each do |occurrence|
+      occurrence.spaces.each do |details|
+        space = spaces[details.id]?
+        next unless space
+        space.occupied = true
+      end
+    end
+
     # build the response
+    desk_types = @desk_space_types
     spaces.values.compact_map do |space|
       loc_type = space.type.in?(desk_types) ? "desk" : "area"
       next if location.presence && location != loc_type
@@ -133,6 +143,7 @@ class GoBright::LocationService < PlaceOS::Driver
           capacity:    space.capacity || 1,
 
           gobright_location_id: gobright_location_id,
+          gobright_space_name:  space.name,
           gobright_space_type:  space.type,
           gobright_space_id:    space.id,
         }
