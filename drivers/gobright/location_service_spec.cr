@@ -16,6 +16,7 @@ DriverSpecs.mock_driver "GoBright::LocationService" do
       "building"             => "zone-1234",
       "capacity"             => 1,
       "gobright_location_id" => "level",
+      "gobright_space_name"  => "desk-1",
       "gobright_space_type"  => "desk",
       "gobright_space_id"    => "space-1234",
     }, {
@@ -26,6 +27,7 @@ DriverSpecs.mock_driver "GoBright::LocationService" do
       "building"             => "zone-1234",
       "capacity"             => 1,
       "gobright_location_id" => "level",
+      "gobright_space_name"  => "room-1",
       "gobright_space_type"  => "room",
       "gobright_space_id"    => "space-4567",
     },
@@ -62,6 +64,10 @@ class GoBrightMock < DriverSpecs::MockDriver
         occupationDetected: true,
       },
     ]
+  end
+
+  def bookings(starting : Int64, ending : Int64, location_id : String | Array(String)? = nil, space_id : String | Array(String)? = nil)
+    [] of Nil
   end
 end
 
