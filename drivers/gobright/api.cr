@@ -71,12 +71,34 @@ class GoBright::API < PlaceOS::Driver
         types = types.is_a?(Array) ? types : [types]
         types.each do |type|
           form.add "SpaceTypes", type.value.to_s
-          form.add "SpaceTypes", type.value.to_s
         end
       end
     end
 
     Array(Space).from_json fetch("/api/v2.0/spaces?#{params}")
+  end
+
+  # the list of booking occurances in the time period specified
+  def bookings(starting : Int64, ending : Int64, location_id : String | Array(String)? = nil, space_id : String | Array(String)? = nil)
+    params = URI::Params.build do |form|
+      form.add "pagingTake", "1000"
+      form.add "include", "spaces"
+      form.add "start", Time.unix(starting).to_rfc3339
+      form.add "end", Time.unix(ending).to_rfc3339
+      if location_id
+        location_ids = location_id.is_a?(Array) ? location_id : [location_id]
+        location_ids.each do |loc|
+          form.add "locationIds", loc
+        end
+      end
+      if space_id
+        space_ids = space_id.is_a?(Array) ? space_id : [space_id]
+        space_ids.each do |space|
+          form.add "spaceIds", space
+        end
+      end
+    end
+    Array(Occurrence).from_json fetch("/api/v2.0/bookings/occurrences?#{params}")
   end
 
   # the occupancy status of the spaces
