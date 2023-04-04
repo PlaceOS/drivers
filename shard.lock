@@ -243,7 +243,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.16.0
+    version: 4.16.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -376,10 +376,6 @@ shards:
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
-
-  vecos:
-    git: https://github.com/place-technology/vecos.git
-    version: 0.1.0+git.commit.479c11c94500dfa3ae477c59dec42161927d16ac
 
   xml_converter:
     git: https://github.com/mamantoha/xml_converter.git
