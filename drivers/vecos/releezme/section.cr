@@ -1,7 +1,7 @@
 require "json"
 
-module Releezme
-  struct Location
+module Vecos
+  struct Section
     include JSON::Serializable
 
     @[JSON::Field(key: "Id")]
@@ -10,7 +10,7 @@ module Releezme
     @[JSON::Field(key: "Name")]
     getter name : String
 
-    @[JSON::Field(key: "TimeZoneId")]
-    getter time_zone : String? = nil
+    @[JSON::Field(key: "LocationId")]
+    getter location_id : String
   end
 end

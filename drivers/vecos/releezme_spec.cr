@@ -1,6 +1,6 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "GoBright::API" do
+DriverSpecs.mock_driver "Vecos::Releezme" do
   resp = exec :locations
 
   expect_http_request do |request, response|
