@@ -35,10 +35,10 @@ module Vecos
     getter door_number : Int32
 
     @[JSON::Field(key: "SelfReleaseAllowed")]
-    getter self_release_allowed : Bool
+    getter self_release_allowed : Bool?
 
     @[JSON::Field(key: "DynamicAllocated")]
-    getter dynamic_allocated : Bool
+    getter dynamic_allocated : Bool?
 
     @[JSON::Field(key: "OpenTime")]
     getter open_time : Int32
@@ -47,19 +47,19 @@ module Vecos
     getter number_of_allocations : Int32
 
     @[JSON::Field(key: "SharedToUser")]
-    getter shared_to_user : Bool
+    getter shared_to_user : Bool?
 
     @[JSON::Field(key: "IsShared")]
-    getter is_shared : Bool
+    getter is_shared : Bool?
 
     @[JSON::Field(key: "IsShareable")]
-    getter is_shareable : Bool
+    getter is_shareable : Bool?
 
     @[JSON::Field(key: "SequenceNumber")]
     getter sequence_number : Int32
 
     @[JSON::Field(key: "StartDateTimeUtc")]
-    getter start_date_time_utc : String
+    getter start_date_time_utc : String?
 
     @[JSON::Field(key: "NumberOfDigitsForDoorNumber")]
     getter number_of_digits_for_door_number : Int32

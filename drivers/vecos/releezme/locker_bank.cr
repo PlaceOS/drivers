@@ -14,18 +14,18 @@ module Vecos
     getter section_id : String
 
     @[JSON::Field(key: "LocationId")]
-    getter location_id : String
+    getter location_id : String?
 
     @[JSON::Field(key: "Published")]
     getter published : Bool
 
     @[JSON::Field(key: "RandomAllocation")]
-    getter random_allocation : Bool
+    getter random_allocation : Bool?
 
     @[JSON::Field(key: "ServiceMode")]
     getter service_mode : Bool
 
     @[JSON::Field(key: "Description")]
-    getter description : String
+    getter description : String?
   end
 end
