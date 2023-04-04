@@ -120,7 +120,3 @@ dependencies:
   # Siemens Desigo API wrapper
   desigo:
     github: place-technology/desigo
-
-  # Releezme Vecos wrapper
-  vecos:
-    github: place-technology/vecos
