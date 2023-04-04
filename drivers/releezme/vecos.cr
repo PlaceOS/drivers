@@ -104,19 +104,147 @@ class Releezme::Vecos < PlaceOS::Driver
     response.body
   end
 
+  # ===============
+  #  COMPANIES
+  # ===============
+
   def companies
     JSON.parse(fetch_item("/api/companies"))["Companies"]
   end
 
+  # =======================
+  #  LOCATIONS / Buildings
+  # =======================
+
   # typically these are buildings
   def locations
-    Array(Location).from_json fetch_pages("/api/locations?pageSize=200").to_json
+    fetch_pages("/api/locations?pageSize=200")
+  end
+
+  def location(location_id : String)
+    Location.from_json fetch_item("/api/locations/#{location_id}")
   end
 
   # typically these are floors in the building
-  def sections(location_id : String)
-    Array(Section).from_json fetch_pages("/api/locations/#{location_id}/sections?pageSize=200").to_json
+  def location_sections(location_id : String)
+    fetch_pages("/api/locations/#{location_id}/sections?pageSize=200")
   end
+
+  # ===================
+  #  SECTIONS / Levels
+  # ===================
+
+  # all floors from all buildings in one request
+  def sections
+    fetch_pages("/api/sections?pageSize=200")
+  end
+
+  def section(section_id : String)
+    Section.from_json fetch_item("/api/locations/#{section_id}")
+  end
+
+  def section_locker_banks(section_id : String)
+    fetch_pages("/api/sections/#{section_id}/lockerbanks?pageSize=200")
+  end
+
+  def section_locker_banks(section_id : String)
+    fetch_pages("/api/sections/#{section_id}/lockerbanks?pageSize=200")
+  end
+
+  # banks and groups in the banks that the user can allocate to themselves
+  def section_banks_allocatable(section_id : String, user_id : String)
+    params = URI::Params.build do |form|
+      form.add "externalUserId", user_id
+      form.add "pageSize", "200"
+    end
+    fetch_pages("/api/sections/#{section_id}/lockerbanklockergroups/allocatable?#{params}")
+  end
+
+  # =====================================
+  #  BANKS / lockers physically together
+  # =====================================
+
+  def banks
+    fetch_pages("/api/lockerbanks?pageSize=200")
+  end
+
+  def bank(bank_id : String)
+    LockerBank.from_json fetch_item("/api/lockerbanks/#{bank_id}")
+  end
+
+  def bank_groups(bank_id : String)
+    fetch_pages("/api/lockerbanks/#{bank_id}/lockergroups?pageSize=200")
+  end
+
+  # returns all the lockers in the bank without paging (but paging json is included)
+  def bank_lockers(bank_id : String)
+    fetch_pages("/api/lockerbanks/#{bank_id}/lockers?pageSize=200")
+  end
+
+  def bank_group_lockers_available(bank_id : String, group_id : String)
+    fetch_pages("/api/lockerbanks/#{bank_id}/#{group_id}/availablelockers?pageSize=200")
+  end
+
+  # NOTE:: Only accessible to System Control Clients
+  def bank_locker_allocations(bank_id : String)
+    fetch_pages("/api/lockerbanks/#{bank_id}/allocations?pageSize=200")
+  end
+
+  # ===============================================
+  #  GROUPS / lockers assigned to a group of users
+  # ===============================================
+
+  def groups
+    fetch_pages("/api/lockergroups?pageSize=200")
+  end
+
+  def group(group_id : String)
+    Array(LockerGroup).from_json fetch_item("/api/lockergroups/#{group_id}")
+  end
+
+  def group_locker_banks(group_id : String)
+    fetch_pages("/api/lockergroups/#{group_id}/lockerbanks?pageSize=200")
+  end
+
+  # =====================================
+  #  BOOKINGS
+  # =====================================
+
+  def bookings(user_id : String)
+    params = URI::Params.build do |form|
+      form.add "externalUserId", user_id
+      form.add "pageSize", "200"
+    end
+    fetch_pages("/api/bookings?#{params}")
+  end
+
+  def bookings_availability(
+    user_id : String,
+    starting : Int64,
+    ending : Int64,
+    section_id : String? = nil,
+    location_id : String? = nil,
+    bank_id : String? = nil,
+    group_id : String? = nil,
+    locker_id : String? = nil
+  )
+    params = URI::Params.build do |form|
+      form.add "externalUserId", user_id
+      form.add "startDateTimeUtc", Time.unix(starting).to_rfc3339
+      form.add "endDateTimeUtc", Time.unix(ending).to_rfc3339
+      form.add "sectionId", section_id.as(String) if section_id.presence
+      form.add "locationId", location_id.as(String) if location_id.presence
+      form.add "lockerBankId", bank_id.as(String) if bank_id.presence
+      form.add "lockerBankId", group_id.as(String) if bank_id.presence && group_id.presence
+      form.add "lockerId", locker_id.as(String) if locker_id.presence
+      form.add "pageSize", "200"
+    end
+    fetch_pages("/api/bookings/availability?#{params}")
+  end
+
+  # =====================================
+  #  LOCKERS
+  # =====================================
 
   # the lockers that are currently allocated to the specified user
   # the user ID is typically email - defined by the client
@@ -125,7 +253,7 @@ class Releezme::Vecos < PlaceOS::Driver
       form.add "externalUserId", user_id
       form.add "pageSize", "200"
     end
-    Array(Locker).from_json fetch_pages("/api/lockers/allocated?#{params}").to_json
+    fetch_pages("/api/lockers/allocated?#{params}")
   end
 
   # check if a user can be allocated a new locker
@@ -135,5 +263,43 @@ class Releezme::Vecos < PlaceOS::Driver
     end
     response = get("/api/lockers/canallocate?#{params}")
     response.body
+  end
+
+  # =====================================
+  #  SHARING
+  # =====================================
+
+  def share_locker_with(locker_id : String, owner_id : String, user_id : String) : Bool
+    params = URI::Params.build do |form|
+      form.add "externalUserId", owner_id
+      form.add "sharedUserId", user_id
+    end
+    response = post("/api/lockers/#{locker_id}/share?#{params}")
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    true
+  end
+
+  def unshare_locker(locker_id : String, owner_id : String) : Bool
+    params = URI::Params.build do |form|
+      form.add "externalUserId", owner_id
+    end
+    response = post("/api/lockers/#{locker_id}/share?#{params}")
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    true
+  end
+
+  def can_share_locker_with?(locker_id : String, owner_id : String, search : String)
+    params = URI::Params.build do |form|
+      form.add "externalUserId", owner_id
+      form.add "searchString", search
+    end
+    Array(LockerUsers).from_json(fetch_item("/api/lockers/#{locker_id}/shareablelockerusers?#{params}"), root: "LockerUsers")
+  end
+
+  def locker_shared_with?(locker_id : String, owner_id : String)
+    params = URI::Params.build do |form|
+      form.add "externalUserId", owner_id
+    end
+    Array(LockerUsers).from_json(fetch_item("/api/lockers/#{locker_id}/shareablelockerusers?#{params}"), root: "LockerUsers")
   end
 end
