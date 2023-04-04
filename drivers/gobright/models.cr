@@ -157,10 +157,10 @@ module GoBright
     getter amenities : Array(Amenity) = [] of Amenity
 
     @[JSON::Field(converter: Enum::ValueConverter(::GoBright::SpaceType))]
-    getter type : SpaceType
+    getter type : SpaceType?
 
     @[JSON::Field(key: "locationId")]
-    getter location_id : String
+    getter location_id : String?
 
     @[JSON::Field(key: "ianaTimeZone")]
     getter iana_time_zone : String?
@@ -223,13 +223,13 @@ module GoBright
   struct Occurrence
     include JSON::Serializable
 
-    property id : String?
+    property id : String
 
     @[JSON::Field(key: "composedId")]
-    property composed_id : String?
+    property composed_id : String
 
     @[JSON::Field(key: "bookingType", converter: Enum::ValueConverter(::GoBright::BookingType))]
-    property booking_type : BookingType?
+    property booking_type : BookingType
 
     @[JSON::Field(key: "intentionType")]
     property intention_type : Int32?
