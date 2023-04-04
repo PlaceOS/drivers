@@ -75,6 +75,6 @@ DriverSpecs.mock_driver "Vecos::Releezme" do
 
   resp.get.should eq [
     {"Id" => "loc-1234", "Name" => "Level 2"},
-    {"Id" => "loc-5678", "Name" => "Level 3"}
+    {"Id" => "loc-5678", "Name" => "Level 3"},
   ]
 end
