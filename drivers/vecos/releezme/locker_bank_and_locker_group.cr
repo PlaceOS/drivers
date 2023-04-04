@@ -1,7 +1,7 @@
 require "./locker_bank"
 require "./locker_group"
 
-module Releezme
+module Vecos
   struct LockerBankAndLockerGroup
     include JSON::Serializable
 

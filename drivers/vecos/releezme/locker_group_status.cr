@@ -1,6 +1,6 @@
 require "json"
 
-module Releezme
+module Vecos
   struct LockerGroupStatus
     include JSON::Serializable
 

@@ -1,12 +1,12 @@
 require "placeos-driver"
 require "oauth2"
-require "./vecos/*"
+require "./releezme/*"
 
 # documentation: https://acc-sapi.releezme.net/swagger/ui/index
 
-class Releezme::Vecos < PlaceOS::Driver
-  descriptive_name "Releezme Vecos Gateway"
-  generic_name :VecosLockers
+class Vecos::Releezme < PlaceOS::Driver
+  descriptive_name "Vecos Releezme Gateway"
+  generic_name :ReleezmeLockers
   uri_base "https://acc-sapi.releezme.net"
 
   default_settings({
