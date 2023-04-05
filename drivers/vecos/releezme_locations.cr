@@ -40,6 +40,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
       @bank_id = locker.locker_bank_id
       @group_id = locker.locker_group_id
       @locker_name = locker.full_door_number
+      @expires_at = locker.expires_date_time_utc
     end
 
     def initialize(booking : Vecos::Booking)
