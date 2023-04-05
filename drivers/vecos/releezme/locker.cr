@@ -44,7 +44,7 @@ module Vecos
     getter open_time : Int32
 
     @[JSON::Field(key: "NrOfAllocations")]
-    getter number_of_allocations : Int32
+    getter number_of_allocations : Int32?
 
     @[JSON::Field(key: "SharedToUser")]
     getter shared_to_user : Bool?
@@ -58,8 +58,11 @@ module Vecos
     @[JSON::Field(key: "SequenceNumber")]
     getter sequence_number : Int32
 
+    @[JSON::Field(key: "ExpiresDateTimeUtc")]
+    getter expires_date_time_utc : Time?
+
     @[JSON::Field(key: "StartDateTimeUtc")]
-    getter start_date_time_utc : String?
+    getter start_date_time_utc : Time?
 
     @[JSON::Field(key: "NumberOfDigitsForDoorNumber")]
     getter number_of_digits_for_door_number : Int32
