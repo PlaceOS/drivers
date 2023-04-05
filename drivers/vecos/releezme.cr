@@ -104,6 +104,11 @@ class Vecos::Releezme < PlaceOS::Driver
     response.body
   end
 
+  @[Security(Level::Support)]
+  def bearer_token
+    @bearer_token
+  end
+
   # ===============
   #  COMPANIES
   # ===============
@@ -242,6 +247,21 @@ class Vecos::Releezme < PlaceOS::Driver
     fetch_pages("/api/bookings/availability?#{params}")
   end
 
+  def book_locker(starting : Int64, ending : Int64, user_id : String, locker_id : String? = nil, group_id : String? = nil, bank_id : String? = nil, timezone : String = "UTC")
+    tz = Time::Location.load(timezone)
+    response = post("/api/bookings", body: {
+      # this seems like a stupid data format? I assume as the locker bank has the timezone?
+      "StartDateTimeUtc" => Time.unix(starting).in(tz).to_s("%m-%d-%Y %H:%M:%S"),
+      "EndDateTimeUtc"   => Time.unix(ending).in(tz).to_s("%m-%d-%Y %H:%M:%S"),
+      "LockerGroupId"    => group_id,
+      "LockerBankId"     => bank_id,
+      "LockerId"         => locker_id,
+      "ExternalUserId"   => user_id,
+    }.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
   # =====================================
   #  LOCKERS
   # =====================================
@@ -265,6 +285,40 @@ class Vecos::Releezme < PlaceOS::Driver
     response.body
   end
 
+  def locker_allocate(locker_id : String, user_id : String)
+    params = URI::Params.build do |form|
+      form.add "externalUserId", user_id
+    end
+    response = post("/api/lockers/#{locker_id}/allocate?#{params}")
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def locker_allocate_random(bank_id : String, group_id : String, user_id : String)
+    params = URI::Params.build do |form|
+      form.add "lockerBankId", bank_id
+      form.add "lockerGroupId", group_id
+      form.add "externalUserId", user_id
+    end
+    response = post("/api/lockers/allocate?#{params}")
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def locker_release(locker_id : String, user_id : String? = nil) : Nil
+    params = URI::Params.build do |form|
+      form.add "externalUserId", user_id if user_id.presence
+    end
+    response = post("/api/lockers/#{locker_id}/release?#{params}")
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+  end
+
+  def locker_unlock(locker_id : String, pin_code : String? = nil)
+    pin_route = pin_code ? nil : "/withoutpincode"
+    response = post("/api/lockers/#{locker_id}/pincode/unlock#{pin_route}", body: pin_code)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+  end
+
   # =====================================
   #  SHARING
   # =====================================
@@ -279,11 +333,11 @@ class Vecos::Releezme < PlaceOS::Driver
     true
   end
 
-  def unshare_locker(locker_id : String, owner_id : String) : Bool
+  def unshare_locker(locker_id : String, owner_id : String, shared_with_internal_id : String? = nil) : Bool
     params = URI::Params.build do |form|
       form.add "externalUserId", owner_id
     end
-    response = post("/api/lockers/#{locker_id}/share?#{params}")
+    response = post("/api/lockers/#{locker_id}/unshare/#{shared_with_internal_id}?#{params}")
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
     true
   end
