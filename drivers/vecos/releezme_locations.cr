@@ -17,7 +17,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   default_settings({
     # the users id
-    user_id_key:    "email",
+    user_id_key:          "email",
     vecos_floor_mappings: {
       "placeos_zone_id": {
         location_id: "level",
