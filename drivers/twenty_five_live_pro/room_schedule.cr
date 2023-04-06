@@ -120,9 +120,9 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
     if current_event
       self[:current_event_starts_at] = current_event.date.start_date
       self[:current_event_ends_at] = current_event.date.end_date
-      #! The attendees data is not available in the Event response
+      # ! The attendees data is not available in the Event response
       self[:current_event_attendees] = 0
-      #! The conflicting data is not available in the Event response
+      # ! The conflicting data is not available in the Event response
       self[:current_event_conflicting] = false
       self[:current_event_id] = current_event.id if @debug
       self[:current_event_description] = current_event.name if @debug
