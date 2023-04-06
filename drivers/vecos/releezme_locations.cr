@@ -20,8 +20,8 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     user_id_key:          "email",
     vecos_floor_mappings: {
       "placeos_zone_id": {
-        location_id: "level",
-        name:        "friendly name for documentation",
+        section_id: "level",
+        name:       "friendly name for documentation",
       },
     },
   })
@@ -32,7 +32,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   def on_update
     @user_id_key = setting?(String, :user_id_key) || "email"
-    @floor_mappings = setting(Hash(String, Mapping), :vecos_floor_mappings).transform_values(&.location_id)
+    @floor_mappings = setting(Hash(String, Mapping), :vecos_floor_mappings).transform_values(&.section_id)
     @zone_filter = @floor_mappings.keys
     @building_id = nil
   end
@@ -44,7 +44,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   struct Mapping
     include JSON::Serializable
-    getter location_id : String
+    getter section_id : String
   end
 
   # Finds the building ID for the current location services object
