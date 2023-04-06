@@ -13,7 +13,7 @@ class GoBright::LocationService < PlaceOS::Driver
   accessor gobright : GoBright_1
 
   default_settings({
-    floor_mappings: {
+    gobright_floor_mappings: {
       "placeos_zone_id": {
         location_id: "level",
         name:        "friendly name for documentation",
@@ -41,7 +41,7 @@ class GoBright::LocationService < PlaceOS::Driver
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @desk_space_types = setting?(Array(SpaceType), :desk_space_types) || [SpaceType::Desk]
-    @floor_mappings = setting(Hash(String, Mapping), :floor_mappings).transform_values(&.location_id)
+    @floor_mappings = setting(Hash(String, Mapping), :gobright_floor_mappings).transform_values(&.location_id)
     @zone_filter = @floor_mappings.keys
     @building_id = nil
 
