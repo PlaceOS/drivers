@@ -150,7 +150,8 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     # release / unshare just this user - otherwise release the whole locker
     owner_id : String? = nil
   ) : Nil
-    releezme.locker_release(locker_id, get_user_key(owner_id)).get
+    owner_id = get_user_key(owner_id) if owner_id
+    releezme.locker_release(locker_id, owner_id).get
   end
 
   # a list of lockers that are allocated to the user
