@@ -373,10 +373,6 @@ shards:
     git: https://github.com/wyhaines/tracer.cr.git
     version: 0.3.1
 
-  twenty-five-live-pro:
-    git: https://github.com/place-technology/twenty-five-live-pro.git
-    version: 0.1.0+git.commit.ea036a769c7b8b9269c84ba8081280839a229144
-
   ulid:
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2

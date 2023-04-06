@@ -128,7 +128,3 @@ dependencies:
   # Releezme Vecos wrapper
   vecos:
     github: place-technology/vecos
-
-  # 25 Live Pro API wrapper
-  twenty-five-live-pro:
-    github: place-technology/twenty-five-live-pro
