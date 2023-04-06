@@ -152,10 +152,6 @@ class Vecos::Releezme < PlaceOS::Driver
     fetch_pages("/api/sections/#{section_id}/lockerbanks?pageSize=200")
   end
 
-  def section_locker_banks(section_id : String)
-    fetch_pages("/api/sections/#{section_id}/lockerbanks?pageSize=200")
-  end
-
   # banks and groups in the banks that the user can allocate to themselves
   def section_banks_allocatable(section_id : String, user_id : String)
     params = URI::Params.build do |form|
