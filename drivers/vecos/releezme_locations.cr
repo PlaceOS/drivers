@@ -102,13 +102,14 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   end
 
   protected def get_user_key(user_id)
+    return user_id.downcase if @user_id_key == "email" && user_id.includes?("@")
     user = staff_api.user(user_id).get
     user[@user_id_key].as_s
   end
 
   # allocates a locker now, the allocation may expire
   def locker_allocate(
-    # PlaceOS user id
+    # PlaceOS user id, recommend using email
     user_id : String,
 
     # the locker location
