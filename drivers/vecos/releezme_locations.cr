@@ -17,7 +17,13 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   default_settings({
     # the users id
-    user_id_key: "email",
+    user_id_key:    "email",
+    floor_mappings: {
+      "placeos_zone_id": {
+        location_id: "level",
+        name:        "friendly name for documentation",
+      },
+    },
   })
 
   def on_load
@@ -26,21 +32,53 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   def on_update
     @user_id_key = setting?(String, :user_id_key) || "email"
+    @floor_mappings = setting(Hash(String, Mapping), :floor_mappings).transform_values(&.location_id)
+    @zone_filter = @floor_mappings.keys
+    @building_id = nil
   end
 
+  # place_zone_id => releexme_section_id
+  @floor_mappings : Hash(String, String) = {} of String => String
+  @zone_filter : Array(String) = [] of String
   @user_id_key : String = "email"
+
+  struct Mapping
+    include JSON::Serializable
+    getter location_id : String
+  end
+
+  # Finds the building ID for the current location services object
+  def get_building_id
+    zone_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine building zone id" }
+    raise error
+  end
+
+  getter building_id : String { get_building_id }
 
   # ========================================
   # Lockers Interface
   # ========================================
 
   class PlaceLocker
-    def initialize(locker : Vecos::Locker, @allocated = false)
+    def initialize(
+      locker : Vecos::Locker,
+      allocated : Bool = false,
+      @building = nil,
+      @level = nil
+    )
       @locker_id = locker.id
       @bank_id = locker.locker_bank_id
       @group_id = locker.locker_group_id
       @locker_name = locker.full_door_number
       @expires_at = locker.expires_date_time_utc
+      @allocated = if allocations = locker.number_of_allocations
+                     (allocations > 0) || allocated
+                   else
+                     allocated
+                   end
     end
 
     def initialize(booking : Vecos::Booking)
@@ -201,5 +239,19 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   # array of lockers on this level
   def device_locations(zone_id : String, location : String? = nil)
+    logger.debug { "searching for lockers in zone #{zone_id}" }
+
+    if building_id == zone_id
+      return @zone_filter.flat_map { |level_id| device_locations(level_id, location) }
+    end
+    return [] of Nil unless @zone_filter.includes?(zone_id)
+
+    # grab all the lockers for the current zone_id
+    releexme_section_id = @floor_mappings[zone_id]
+    banks = Array(Vecos::LockerBank).from_json releezme.section_locker_banks(releexme_section_id).get.to_json
+    banks.flat_map do |bank|
+      lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get.to_json
+      lockers.map { |locker| PlaceLocker.new(locker, building: building_id, level: zone_id) }
+    end
   end
 end
