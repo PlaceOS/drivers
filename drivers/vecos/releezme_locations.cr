@@ -18,7 +18,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   default_settings({
     # the users id
     user_id_key:    "email",
-    floor_mappings: {
+    vecos_floor_mappings: {
       "placeos_zone_id": {
         location_id: "level",
         name:        "friendly name for documentation",
@@ -32,7 +32,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   def on_update
     @user_id_key = setting?(String, :user_id_key) || "email"
-    @floor_mappings = setting(Hash(String, Mapping), :floor_mappings).transform_values(&.location_id)
+    @floor_mappings = setting(Hash(String, Mapping), :vecos_floor_mappings).transform_values(&.location_id)
     @zone_filter = @floor_mappings.keys
     @building_id = nil
   end
