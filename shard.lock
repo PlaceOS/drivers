@@ -259,7 +259,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.7.7
+    version: 6.7.9
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
