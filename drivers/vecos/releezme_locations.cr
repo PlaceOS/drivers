@@ -108,6 +108,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   end
 
   # allocates a locker now, the allocation may expire
+  @[Security(Level::Administrator)]
   def locker_allocate(
     # PlaceOS user id, recommend using email
     user_id : String,
@@ -143,6 +144,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   end
 
   # return the locker to the pool
+  @[Security(Level::Administrator)]
   def locker_release(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -155,12 +157,14 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   end
 
   # a list of lockers that are allocated to the user
+  @[Security(Level::Administrator)]
   def lockers_allocated_to(user_id : String) : Array(PlaceLocker)
     user_id = get_user_key user_id
     lockers = Array(Vecos::Locker).from_json releezme.lockers_allocated_to(user_id).get.to_json
     lockers.map { |locker| PlaceLocker.new(locker, true) }
   end
 
+  @[Security(Level::Administrator)]
   def locker_share(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -170,6 +174,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     releezme.share_locker_with(locker_id, get_user_key(owner_id), get_user_key(share_with)).get
   end
 
+  @[Security(Level::Administrator)]
   def locker_unshare(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -191,6 +196,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   # a list of user-ids that the locker is shared with.
   # this can be placeos user ids or emails
+  @[Security(Level::Administrator)]
   def locker_shared_with(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -201,6 +207,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     shared_with.map { |user| user.email || user.user_id }
   end
 
+  @[Security(Level::Administrator)]
   def locker_unlock(
     bank_id : String | Int64,
     locker_id : String | Int64,
