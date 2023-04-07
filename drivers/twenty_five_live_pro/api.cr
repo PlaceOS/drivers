@@ -1,6 +1,5 @@
 require "placeos-driver"
 require "./models/*"
-require "./parameter_builder"
 
 module TwentyFiveLivePro
   class API < PlaceOS::Driver
@@ -31,13 +30,12 @@ module TwentyFiveLivePro
     end
 
     def get_space_details(id : Int32, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
+      params = URI::Params.build do |form|
+        form.add "include", included_elements.join(",")
+        form.add "expand", expanded_elements.join(",")
+      end
 
-      builder.add("include", included_elements.join(","))
-      builder.add("expand", expanded_elements.join(","))
-
-      response = get("/space/#{id}/detail.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/space/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -46,17 +44,16 @@ module TwentyFiveLivePro
     end
 
     def list_spaces(page : Int32 = 0, items_per_page : Int32 = 10, paginate : String? = nil)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
-
       spaces = [] of Models::Space
 
       loop do
-        builder.add("page", page)
-        builder.add("itemsPerPage", items_per_page)
-        builder.add("paginate", paginate) if paginate
+        params = URI::Params.build do |form|
+          form.add "page", page.to_s
+          form.add "itemsPerPage", items_per_page.to_s
+          form.add "paginate", paginate if paginate
+        end
 
-        response = get("/space/list.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/space/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
@@ -94,11 +91,10 @@ module TwentyFiveLivePro
     end
 
     def availability(id : Int32, start_date : String, end_date : String, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
-
-      builder.add("include", included_elements.join(","))
-      builder.add("expand", expanded_elements.join(","))
+      params = URI::Params.build do |form|
+        form.add "include", included_elements.join(",")
+        form.add "expand", expanded_elements.join(",")
+      end
 
       body = {
         "spaces" => [
@@ -112,7 +108,7 @@ module TwentyFiveLivePro
         ],
       }
 
-      response = post("/spaceAvailability.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"}, body: body.to_json)
+      response = post("/spaceAvailability.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"}, body: body.to_json)
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -121,13 +117,12 @@ module TwentyFiveLivePro
     end
 
     def get_resource_details(id : Int32, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
+      params = URI::Params.build do |form|
+        form.add "include", included_elements.join(",")
+        form.add "expand", expanded_elements.join(",")
+      end
 
-      builder.add("include", included_elements.join(","))
-      builder.add("expand", expanded_elements.join(","))
-
-      response = get("/resource/#{id}/detail.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/resource/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -136,17 +131,16 @@ module TwentyFiveLivePro
     end
 
     def list_resources(page : Int32 = 0, items_per_page : Int32 = 10, paginate : String? = nil)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
-
       resources = [] of Models::Resource
 
       loop do
-        builder.add("page", page)
-        builder.add("itemsPerPage", items_per_page)
-        builder.add("paginate", paginate) if paginate
+        params = URI::Params.build do |form|
+          form.add "page", page.to_s
+          form.add "itemsPerPage", items_per_page.to_s
+          form.add "paginate", paginate if paginate
+        end
 
-        response = get("/resource/list.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/resource/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
@@ -184,13 +178,12 @@ module TwentyFiveLivePro
     end
 
     def get_organization_details(id : Int32, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
+      params = URI::Params.build do |form|
+        form.add "include", included_elements.join(",")
+        form.add "expand", expanded_elements.join(",")
+      end
 
-      builder.add("include", included_elements.join(","))
-      builder.add("expand", expanded_elements.join(","))
-
-      response = get("/organization/#{id}/detail.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/organization/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -199,17 +192,16 @@ module TwentyFiveLivePro
     end
 
     def list_organizations(page : Int32 = 0, items_per_page : Int32 = 10, paginate : String? = nil)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
-
       organizations = [] of Models::Organization
 
       loop do
-        builder.add("page", page)
-        builder.add("itemsPerPage", items_per_page)
-        builder.add("paginate", paginate) if paginate
+        params = URI::Params.build do |form|
+          form.add "page", page.to_s
+          form.add "itemsPerPage", items_per_page.to_s
+          form.add "paginate", paginate if paginate
+        end
 
-        response = get("/organization/list.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/organization/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
@@ -247,13 +239,12 @@ module TwentyFiveLivePro
     end
 
     def get_event_details(id : Int32, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
+      params = URI::Params.build do |form|
+        form.add "include", included_elements.join(",")
+        form.add "expand", expanded_elements.join(",")
+      end
 
-      builder.add("include", included_elements.join(","))
-      builder.add("expand", expanded_elements.join(","))
-
-      response = get("/event/#{id}/detail.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/event/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -262,18 +253,17 @@ module TwentyFiveLivePro
     end
 
     def list_events(page : Int32 = 0, items_per_page : Int32 = 10, since : String? = nil, paginate : String? = nil)
-      io = IO::Memory.new
-      builder = ParameterBuilder.new(io)
-
       events = [] of Models::Event
 
       loop do
-        builder.add("page", page)
-        builder.add("itemsPerPage", items_per_page)
-        builder.add("created_since", since) if since
-        builder.add("paginate", paginate) if paginate
+        params = URI::Params.build do |form|
+          form.add "page", page.to_s
+          form.add "itemsPerPage", items_per_page.to_s
+          form.add "created_since", since if since
+          form.add "paginate", paginate if paginate
+        end
 
-        response = get("/event/list.json?#{io.rewind}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/event/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
