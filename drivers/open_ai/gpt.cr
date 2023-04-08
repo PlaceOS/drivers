@@ -38,7 +38,7 @@ class OpenAI::GPT < PlaceOS::Driver
   # returns the available models for the current key
   def models
     response = check get("/v1/models")
-    Array(Model).from_json response.body
+    List(Model).from_json(response.body).data
   end
 
   # returns the details of the provided model id
