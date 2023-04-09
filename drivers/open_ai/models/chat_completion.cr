@@ -16,7 +16,7 @@ module OpenAI
   struct Message
     include JSON::Serializable
 
-    def initialize(@role, @content)
+    def initialize(@role : Role, @content : String)
     end
 
     getter role : Role
