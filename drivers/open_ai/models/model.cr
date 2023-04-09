@@ -11,9 +11,12 @@ module OpenAI
   struct Usage
     include JSON::Serializable
 
-    getter total_tokens : Int32
-    getter prompt_tokens : Int32
-    getter completion_tokens : Int32
+    def initialize(@total_tokens, @prompt_tokens, @completion_tokens)
+    end
+
+    getter total_tokens : Int64
+    getter prompt_tokens : Int64
+    getter completion_tokens : Int64
   end
 
   # GET https://api.openai.com/v1/models
