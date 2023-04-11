@@ -70,4 +70,9 @@ class OpenAI::VoiceControlInterface < PlaceOS::Driver
       modules:     metadata,
     }
   end
+
+  # returns a hash of status values
+  def module_status(module_id : String) : Hash(String, String)
+    system[module_id].__status__
+  end
 end
