@@ -140,7 +140,6 @@ class Nec::Display < PlaceOS::Driver
       mute_status
       volume_status
       video_input
-      audio_input
     end
   end
 
@@ -149,9 +148,10 @@ class Nec::Display < PlaceOS::Driver
     message = data[7..-3]
     checksum = data[-2]
 
-    unless checksum == data[1..-3].reduce { |a, b| a ^ b }
-      return task.try &.retry("invalid checksum in device response")
-    end
+    # checksum is often incorrect so we'll just ignore it
+    #unless checksum == data[1..-3].reduce { |a, b| a ^ b }
+    #  return task.try &.retry("invalid checksum in device response")
+    #end
 
     begin
       case MsgType.from_value header[4]
