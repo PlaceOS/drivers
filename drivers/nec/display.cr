@@ -175,7 +175,8 @@ class Nec::Display < PlaceOS::Driver
   # Command replies each use a different packet structure
   private def parse_command_reply(message : Bytes)
     # Don't do any processing if this is the response for the save command
-    return if (string = String.new(message[1..-2])) == "00C"
+    string = String.new(message[1..-2])
+    return if {"000C", "00C"}.includes?(string)
     response = string.hexbytes
 
     if response[1..3] == Bytes[0xC2, 0x03, 0xD6] # Set power
