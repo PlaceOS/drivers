@@ -144,14 +144,16 @@ class Nec::Display < PlaceOS::Driver
   end
 
   def received(data, task)
+    logger.debug { "NEC sent: 0x#{data.hexstring}" }
+
     header = data[0..6]
     message = data[7..-3]
     checksum = data[-2]
 
     # checksum is often incorrect so we'll just ignore it
-    #unless checksum == data[1..-3].reduce { |a, b| a ^ b }
+    # unless checksum == data[1..-3].reduce { |a, b| a ^ b }
     #  return task.try &.retry("invalid checksum in device response")
-    #end
+    # end
 
     begin
       case MsgType.from_value header[4]
@@ -163,6 +165,7 @@ class Nec::Display < PlaceOS::Driver
         raise "unknown message type"
       end
     rescue e
+      logger.warn(exception: e) { "processing response" }
       task.try &.abort e.message
     else
       task.try &.success
