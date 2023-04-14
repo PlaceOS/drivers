@@ -117,7 +117,7 @@ STRING
     bookings.subscribe(:presence) { |_sub, presence| update_presence(presence == "true") }
 
     monitor("#{config.control_system.not_nil!.id}/guest/bookings/prompted") do |_sub, response|
-      prompt_response(**NamedTuple(id: String, check_in: Bool).from_json(response))
+      checkin_or_end_meeting(**NamedTuple(id: String, check_in: Bool).from_json(response))
     end
 
     timezone = setting?(String, :time_zone) || config.control_system.not_nil!.timezone.presence
@@ -229,19 +229,19 @@ STRING
       # should we be scheduling a prompt email?
       if time_now >= prompt_at
         logger.debug { "no show, prompting user" }
-        prompt_user meeting
+        send_prompt_or_auto_cancel meeting
       else
         logger.debug { "scheduling no show" }
         schedule.at(prompt_at) do
           logger.debug { "scheduled no show, prompting user" }
-          prompt_user meeting
+          send_prompt_or_auto_cancel meeting
         end
       end
     end
   end
 
-  # sends the templated email to the host for booking confirmation
-  protected def prompt_user(meeting : PlaceCalendar::Event)
+  # decides whether to end the event now or sends the templated email to the host asking them to end or keep ot
+  protected def send_prompt_or_auto_cancel(meeting : PlaceCalendar::Event)
     if @prompted == meeting.id
       logger.debug { "user has already been prompted" }
       return
@@ -263,11 +263,11 @@ STRING
     self[:responded] = false
     self[:prompted] = true
 
-    prompt_response(meeting.id.not_nil!, false) if @auto_cancel
+    checkin_or_end_meeting(meeting.id.not_nil!, false) if @auto_cancel
   end
 
-  # processes the response if the user clicks one of the links in the email
-  protected def prompt_response(id : String, check_in : Bool)
+  # actually end the meeting now or processes the response if the user clicks one of the links in the email
+  protected def checkin_or_end_meeting(id : String, check_in : Bool)
     meeting = current_meeting
     unless meeting
       logger.warn { "received response but no current meeting" }
