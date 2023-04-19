@@ -240,7 +240,7 @@ STRING
     end
   end
 
-  # decides whether to end the event now or sends the templated email to the host asking them to end or keep ot
+  # decides whether to decline the event now or sends the templated email to the host asking them to end or keep it
   protected def send_prompt_or_auto_cancel(meeting : PlaceCalendar::Event)
     if @prompted == meeting.id
       logger.debug { "user has already been prompted" }
@@ -266,7 +266,7 @@ STRING
     checkin_or_end_meeting(meeting.id.not_nil!, false) if @auto_cancel
   end
 
-  # actually end the meeting now or processes the response if the user clicks one of the links in the email
+  # actually decline the meeting now or processes the response if the user clicks one of the links in the email
   protected def checkin_or_end_meeting(id : String, check_in : Bool)
     meeting = current_meeting
     unless meeting
