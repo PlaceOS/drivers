@@ -458,7 +458,7 @@ class Place::Meet < PlaceOS::Driver
       # proxy = (mod.sys == system.id ? system : system mod.sys).get mod.name, mod.idx
       audio.module_id = "#{mod.name}_#{mod.idx}"
       audio.level_feedback = "volume" unless audio.level_feedback?
-      audio.mute_feedback = "mute" unless audio.mute_feedback?
+      audio.mute_feedback = "audio_mute" unless audio.mute_feedback?
       audio.level_id = "\e"
     end
 

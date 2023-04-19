@@ -51,24 +51,32 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     schedule.clear
     schedule.every(1.hour) { sync_locker_list }
     schedule.in(5.seconds) { sync_locker_list }
+    schedule.every(1.minute) { check_subscriptions }
   end
 
   def connected
     # authenticate
     # ws_post("/auth", {username: @ws_username, password: @ws_password}, priority: 99, name: "auth")
-    ws_post("/auth", {user: "kiosk"}, priority: 99, name: "auth")
+    ws_post("/auth", {user: "kiosk"}.to_json, priority: 99, name: "auth")
   end
 
-  protected def ws_post(uri, body = nil, **options)
-    request = "POST #{uri}\r\n#{body ? body.to_json : "{}"}\r\n"
+  @[Security(Level::Administrator)]
+  def ws_post(uri : String, body : String? = nil, **options)
+    request = "POST #{uri}\r\n#{body.presence ? body : "{}"}\r\n"
     logger.debug { "requesting: #{request}" }
     send(request, **options)
   end
 
-  protected def ws_get(uri, **options)
+  @[Security(Level::Administrator)]
+  def ws_get(uri : String, **options)
     request = "GET #{uri}\r\n"
     logger.debug { "requesting: #{request}" }
     send(request, **options)
+  end
+
+  # used to poll the websocket to check for liveliness
+  def check_subscriptions
+    ws_get "/restapi/subscribe"
   end
 
   def received(data, task)
@@ -89,7 +97,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
         logger.debug { "authentication success!" }
 
         # subscribe to all events
-        ws_post("/sub", {mask: 255}, name: "sub")
+        ws_post("/sub", {mask: 255}.to_json, name: "sub")
       when "sub"
         logger.debug { "subscribed to events" }
       else

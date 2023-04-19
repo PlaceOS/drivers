@@ -140,18 +140,20 @@ class Nec::Display < PlaceOS::Driver
       mute_status
       volume_status
       video_input
-      audio_input
     end
   end
 
   def received(data, task)
+    logger.debug { "NEC sent: 0x#{data.hexstring}" }
+
     header = data[0..6]
     message = data[7..-3]
     checksum = data[-2]
 
-    unless checksum == data[1..-3].reduce { |a, b| a ^ b }
-      return task.try &.retry("invalid checksum in device response")
-    end
+    # checksum is often incorrect so we'll just ignore it
+    # unless checksum == data[1..-3].reduce { |a, b| a ^ b }
+    #  return task.try &.retry("invalid checksum in device response")
+    # end
 
     begin
       case MsgType.from_value header[4]
@@ -163,6 +165,7 @@ class Nec::Display < PlaceOS::Driver
         raise "unknown message type"
       end
     rescue e
+      logger.warn(exception: e) { "processing response" }
       task.try &.abort e.message
     else
       task.try &.success
@@ -172,7 +175,8 @@ class Nec::Display < PlaceOS::Driver
   # Command replies each use a different packet structure
   private def parse_command_reply(message : Bytes)
     # Don't do any processing if this is the response for the save command
-    return if (string = String.new(message[1..-2])) == "00C"
+    string = String.new(message[1..-2])
+    return if {"000C", "00C"}.includes?(string)
     response = string.hexbytes
 
     if response[1..3] == Bytes[0xC2, 0x03, 0xD6] # Set power

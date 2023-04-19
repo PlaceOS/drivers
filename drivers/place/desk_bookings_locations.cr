@@ -116,6 +116,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "searching devices in zone #{zone_id}" }
+    return [] of Nil if location && location != "booking"
+
     bookings = [] of Booking
     @bookings.each_value(&.each { |booking|
       next unless zone_id.in?(booking.zones)

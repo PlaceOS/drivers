@@ -13,6 +13,7 @@ class Place::Bookings < PlaceOS::Driver
     calendar_id:            nil,
     calendar_time_zone:     "Australia/Sydney",
     book_now_default_title: "Ad Hoc booking",
+    disable_book_now_host:  false,
     disable_book_now:       false,
     disable_end_meeting:    false,
     pending_period:         5,
@@ -55,6 +56,7 @@ class Place::Bookings < PlaceOS::Driver
   @change_event_sync_delay : UInt32 = 5_u32
   @cache_days : Time::Span = 30.days
   @include_cancelled_bookings : Bool = false
+  @disable_book_now_host : Bool = false
 
   @current_meeting_id : String = ""
   @current_pending : Bool = false
@@ -91,6 +93,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:bookable] = bookable = not_bookable ? false : system.bookable
     @disable_book_now = book_now.nil? ? !bookable : !!book_now
     @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
+    @disable_book_now_host = setting?(Bool, :disable_book_now_host) || false
 
     pending_period = setting?(UInt32, :pending_period) || 5_u32
     @pending_period = pending_period.minutes
@@ -116,6 +119,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:room_name] = setting?(String, :room_name).presence || config.control_system.not_nil!.display_name.presence || config.control_system.not_nil!.name
     self[:room_capacity] = setting?(Int32, :room_capacity) || config.control_system.not_nil!.capacity
     self[:default_title] = @default_title
+    self[:disable_book_now_host] = @disable_book_now_host
     self[:disable_book_now] = @disable_book_now
     self[:disable_end_meeting] = @disable_end_meeting
     self[:pending_period] = pending_period
