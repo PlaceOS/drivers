@@ -129,7 +129,9 @@ class Nec::Display < PlaceOS::Driver
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
     logger.debug { "requested to update mute to #{state}" }
     data = MsgType::SetParameter.build(Command::MuteStatus, state ? 1 : 0)
-    send(data, name: "mute_audio")
+    resp = send(data, name: "mute_audio")
+
+    resp
   end
 
   def do_poll
@@ -138,7 +140,6 @@ class Nec::Display < PlaceOS::Driver
 
     if current_power
       mute_status
-      volume_status
       video_input
     end
   end
@@ -192,6 +193,8 @@ class Nec::Display < PlaceOS::Driver
     end
   end
 
+  @audio_mute : Bool = false
+
   # Get and set parameter replies share common structure
   private def parse_response(message : Bytes)
     response = String.new(message[1..-2]).hexbytes
@@ -208,6 +211,7 @@ class Nec::Display < PlaceOS::Driver
     when .audio_input?
       self[:audio] = Audio.from_value(value)
     when .volume_status?
+      return if @audio_mute
       self[:volume] = value
       self[:audio_mute] = value == 0
     when .brightness_status?
@@ -215,8 +219,12 @@ class Nec::Display < PlaceOS::Driver
     when .contrast_status?
       self[:contrast] = value
     when .mute_status?
-      self[:audio_mute] = value == 1
-      self[:volume] = 0 if value == 1
+      self[:audio_mute] = @audio_mute = value == 1
+      if value == 1
+        self[:volume] = 0
+      else
+        volume_status
+      end
     when .auto_setup?
       # auto_setup
       # nothing needed to do here (we are delaying the next command by 4 seconds)
