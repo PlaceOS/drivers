@@ -74,21 +74,58 @@ class GoBright::LocationService < PlaceOS::Driver
   # Locatable Interface functions
   # ===================================
 
+  # zone_id => bookings
+  @cached_booking_data = {} of String => Hash(String, Occurrence)
+
   # NOTE:: we could keep track of current bookings and then use that information to assign ownership of a desk
   # if the desks are being booked via the check-in/check-out
   # this would allow us to locate
   def locate_user(email : String? = nil, username : String? = nil)
-    logger.debug { "sensor incapable of locating #{email} or #{username}" }
-    [] of Nil
+    logger.debug { "searching for user #{email}" }
+    matches = [] of Occurrence
+
+    # find bookings with the user
+    @cached_booking_data.each do |zone_id, lookup|
+      lookup.each_value do |booking|
+        next unless booking.organizer.try(&.email_address) == email
+        matches << booking
+      end
+    end
+
+    # return the data in the correct format
+    matches.compact_map do |booking|
+      map_booking(booking, booking.matched_space, booking.zone_id)
+    end
   end
 
+  NO_MATCHES = [] of String
+
   def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
-    logger.debug { "sensor incapable of tracking #{email} or #{username}" }
-    [] of String
+    return NO_MATCHES unless email
+    logger.debug { "checking if any bookings for email: #{email}" }
+    matches = [] of String
+    @cached_booking_data.each do |zone_id, lookup|
+      lookup.each_value do |booking|
+        matches << "gobright-#{booking.id}" if booking.organizer.try(&.email_address) == email
+      end
+    end
+    matches
   end
 
   def check_ownership_of(mac_address : String) : OwnershipMAC?
-    logger.debug { "sensor incapable of tracking #{mac_address}" }
+    logger.debug { "checking ownership of: #{mac_address}" }
+    return unless mac_address.starts_with?("gobright-")
+
+    id = mac_address.split("gobright-")[1]
+    @cached_booking_data.each do |zone_id, lookup|
+      if booking = lookup[id]?
+        return {
+          location:    "booking",
+          assigned_to: booking.organizer.try(&.email_address) || booking.attendees.first.email_address.as(String),
+          mac_address: mac_address,
+        }
+      end
+    end
     nil
   end
 
@@ -99,6 +136,7 @@ class GoBright::LocationService < PlaceOS::Driver
       return @zone_filter.flat_map { |level_id| device_locations(level_id, location) }
     end
     return [] of Nil unless @zone_filter.includes?(zone_id)
+    return [] of Nil if location && !location.in?({"desk", "area", "booking"})
 
     # grab all the spaces for the current zone_id
     gobright_location_id = @floor_mappings[zone_id]
@@ -117,19 +155,9 @@ class GoBright::LocationService < PlaceOS::Driver
       space.occupied = details.occupied? || false
     end
 
-    # mark if the desk is booked
-    occurrences = Array(Occurrence).from_json(gobright.bookings(1.minutes.ago.to_unix, 10.minutes.from_now.to_unix, gobright_location_id).get.to_json)
-    occurrences.each do |occurrence|
-      occurrence.spaces.each do |details|
-        space = spaces[details.id]?
-        next unless space
-        space.occupied = true
-      end
-    end
-
     # build the response
     desk_types = @desk_space_types
-    spaces.values.compact_map do |space|
+    occupancy_locs = spaces.values.compact_map do |space|
       loc_type = space.type.in?(desk_types) ? "desk" : "area"
       next if location.presence && location != loc_type
 
@@ -149,5 +177,55 @@ class GoBright::LocationService < PlaceOS::Driver
         }
       end
     end
+
+    return spaces if location && location != "booking"
+
+    # mark if the desk is booked
+    bookings = Array(Occurrence).from_json(gobright.bookings(1.minutes.ago.to_unix, 10.minutes.from_now.to_unix, gobright_location_id).get.to_json)
+
+    lookup = {} of String => Occurrence
+    booking_locs = bookings.compact_map do |occurrence|
+      space = nil
+      occurrence.spaces.each do |details|
+        space = spaces[details.id]?
+        break if space
+      end
+
+      next unless space
+      occurrence.zone_id = zone_id
+      occurrence.matched_space = space
+      lookup[occurrence.id] = occurrence
+      map_booking(occurrence, space, zone_id)
+    end
+
+    @cached_booking_data[zone_id] = lookup
+
+    # merge occupancy and spaces
+    booking_locs.map(&.as(typeof(booking_locs[0]) | typeof(occupancy_locs[0]))) + occupancy_locs.map(&.as(typeof(booking_locs[0]) | typeof(occupancy_locs[0])))
+  end
+
+  protected def map_booking(occurrence, space, zone_id)
+    owner = occurrence.organizer || occurrence.attendees.first
+    starting = occurrence.start_date.to_unix
+    ending = occurrence.end_date.to_unix
+
+    {
+      location:   :booking,
+      type:       "desk",
+      checked_in: !!occurrence.confirmation_active,
+
+      # TODO:: this will not be the correct map_id, will need to map this in AreaManagement
+      asset_id: space.name,
+
+      booking_id:  occurrence.id,
+      building:    building_id,
+      level:       zone_id,
+      ends_at:     ending,
+      started_at:  starting,
+      duration:    ending - starting,
+      mac:         "gobright-#{occurrence.id}",
+      staff_email: owner.email_address,
+      staff_name:  owner.name,
+    }
   end
 end

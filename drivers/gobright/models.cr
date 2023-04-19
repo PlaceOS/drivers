@@ -267,5 +267,11 @@ module GoBright
 
     @[JSON::Field(key: "confirmationWindowEnd")]
     property confirmation_window_end : String?
+
+    @[JSON::Field(ignore: true)]
+    property! zone_id : String
+
+    @[JSON::Field(ignore: true)]
+    property! matched_space : Space
   end
 end
