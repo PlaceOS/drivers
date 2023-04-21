@@ -43,7 +43,7 @@ module TwentyFiveLivePro
       Models::SpaceDetail.from_json(response.body)
     end
 
-    def list_spaces(page : Int32 = 0, items_per_page : Int32 = 10, paginate : String? = nil)
+    def list_spaces(page : Int32 = 1, items_per_page : Int32 = 100, paginate : String? = nil)
       spaces = [] of Models::Space
 
       loop do
@@ -130,7 +130,7 @@ module TwentyFiveLivePro
       Models::ResourceDetail.from_json(response.body)
     end
 
-    def list_resources(page : Int32 = 0, items_per_page : Int32 = 10, paginate : String? = nil)
+    def list_resources(page : Int32 = 1, items_per_page : Int32 = 100, paginate : String? = nil)
       resources = [] of Models::Resource
 
       loop do
@@ -191,7 +191,7 @@ module TwentyFiveLivePro
       Models::OrganizationDetail.from_json(response.body)
     end
 
-    def list_organizations(page : Int32 = 0, items_per_page : Int32 = 10, paginate : String? = nil)
+    def list_organizations(page : Int32 = 1, items_per_page : Int32 = 100, paginate : String? = nil)
       organizations = [] of Models::Organization
 
       loop do
@@ -252,7 +252,7 @@ module TwentyFiveLivePro
       Models::EventDetail.from_json(response.body)
     end
 
-    def list_events(page : Int32 = 0, items_per_page : Int32 = 10, since : String? = nil, paginate : String? = nil)
+    def list_events(page : Int32 = 1, items_per_page : Int32 = 100, since : String? = nil, paginate : String? = nil)
       events = [] of Models::Event
 
       loop do
