@@ -147,7 +147,7 @@ shards:
 
   json-schema:
     git: https://github.com/spider-gazelle/json-schema.git
-    version: 1.3.0
+    version: 1.3.1
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -243,7 +243,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.16.1
+    version: 4.17.0
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -267,7 +267,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.0.4
+    version: 9.1.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
