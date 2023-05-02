@@ -41,6 +41,8 @@ class Place::Bookings < PlaceOS::Driver
 
     hide_meeting_details: false,
     hide_meeting_title:   false,
+
+    # expose_for_analytics: {"key.subkey" => ""},
   })
 
   accessor calendar : Calendar_1
@@ -61,6 +63,7 @@ class Place::Bookings < PlaceOS::Driver
   @current_meeting_id : String = ""
   @current_pending : Bool = false
   @next_pending : Bool = false
+  @expose_for_analytics : Hash(String, String) = {} of String => String
 
   @sensor_stale_minutes : Time::Span = 8.minutes
   @perform_sensor_search : Bool = true
@@ -111,6 +114,7 @@ class Place::Bookings < PlaceOS::Driver
     @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
 
     @sensor_stale_minutes = (setting?(Int32, :sensor_stale_minutes) || 8).minutes
+    @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
 
     # ensure current booking is updated at the start of every minute
     schedule.cron("* * * * *") { check_current_booking }
@@ -290,6 +294,21 @@ class Place::Bookings < PlaceOS::Driver
       self[:all_day_event] = !ending_at
       self[:event_id] = booking["id"]?
 
+      @expose_for_analytics.each do |binding, path|
+        begin
+          binding_keys = path.split("->")
+          data = booking
+          binding_keys.each do |key|
+            data = data.dig? key
+            break unless data
+          end
+          self[binding] = data
+        rescue error
+          logger.warn(exception: error) { "failed to expose #{binding}: #{path} for analytics" }
+          self[binding] = nil
+        end
+      end
+
       previous_booking_id = @current_meeting_id
       new_booking_id = booking["id"].as_s
       schedule.in(1.second) { check_for_sensors } unless new_booking_id == previous_booking_id
@@ -301,6 +320,10 @@ class Place::Bookings < PlaceOS::Driver
       self[:ending_at] = nil
       self[:all_day_event] = nil
       self[:event_id] = nil
+
+      @expose_for_analytics.each_key do |binding|
+        self[binding] = nil
+      end
     end
 
     self[:booked] = booked
