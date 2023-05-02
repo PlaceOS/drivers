@@ -42,7 +42,7 @@ class Place::Bookings < PlaceOS::Driver
     hide_meeting_details: false,
     hide_meeting_title:   false,
 
-    # expose_for_analytics: {"key.subkey" => ""},
+    # expose_for_analytics: {"binding" => "key->subkey"},
   })
 
   accessor calendar : Calendar_1
