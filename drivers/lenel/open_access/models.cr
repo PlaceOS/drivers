@@ -123,8 +123,8 @@ module Lenel::OpenAccess::Models
 
   abstract struct Person < Element
     getter id : Int32
-    getter firstname : String
-    getter lastname : String
+    getter firstname : String?
+    getter lastname : String?
   end
 
   struct Badge < Element
@@ -158,7 +158,7 @@ module Lenel::OpenAccess::Models
   end
 
   struct Cardholder < Person
-    getter email : String
+    getter email : String?
   end
 
   struct Reader < Element
