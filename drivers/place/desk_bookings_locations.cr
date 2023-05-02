@@ -19,8 +19,11 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     # time in seconds
     poll_rate:    60,
     booking_type: "desk",
+
+    # expose_for_analytics: {"output_key" => "booking_key->subkey"},
   })
 
+  @expose_for_analytics : Hash(String, String) = {} of String => String
   @zone_filter : Array(String) = [] of String
   @poll_rate : Time::Span = 60.seconds
   @booking_type : String = "desk"
@@ -40,6 +43,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
 
     @booking_type = setting?(String, :booking_type).presence || "desk"
+    @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
 
     map_zones
     schedule.clear
@@ -137,21 +141,44 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
         break if level && building
       end
 
-      {
-        location:    :booking,
-        type:        @booking_type,
-        checked_in:  booking.checked_in,
-        asset_id:    booking.asset_id,
-        booking_id:  booking.id,
-        building:    building,
-        level:       level,
-        ends_at:     booking.booking_end,
-        started_at:  booking.booking_start,
-        duration:    booking.booking_end - booking.booking_start,
-        mac:         booking.user_id,
-        staff_email: booking.user_email,
-        staff_name:  booking.user_name,
+      # We specify location as JSON::Any so we don't have to
+      # explicitly define the type of this object
+      payload = {
+        "location"    => JSON::Any.new("booking"),
+        "type"        => @booking_type,
+        "checked_in"  => booking.checked_in,
+        "asset_id"    => booking.asset_id,
+        "booking_id"  => booking.id,
+        "building"    => building,
+        "level"       => level,
+        "ends_at"     => booking.booking_end,
+        "started_at"  => booking.booking_start,
+        "duration"    => booking.booking_end - booking.booking_start,
+        "mac"         => booking.user_id,
+        "staff_email" => booking.user_email,
+        "staff_name"  => booking.user_name,
       }
+
+      # check for any custom data we want to include
+      if !booking.extension_data.empty? && (init_data = JSON::Any.new(booking.extension_data))
+        @expose_for_analytics.each do |binding, path|
+          begin
+            binding_keys = path.split("->")
+            data = init_data
+            binding_keys.each do |key|
+              next if key == "extension_data"
+
+              data = data.dig? key
+              break unless data
+            end
+            payload[binding] = data
+          rescue error
+            logger.warn(exception: error) { "failed to expose #{binding}: #{path} for analytics" }
+          end
+        end
+      end
+
+      payload
     end
   end
 
