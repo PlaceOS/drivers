@@ -50,7 +50,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
       case form_data["MODE"]
       # This is the server checking the status of our webhook so just 200 back
       when "STATUS"
-        return {HTTP::Status::OK.to_i, {} of String => String, ""}
+        return {HTTP::Status::OK.to_i, {} of String => String, "SUCCESS"}
         # This is the server asking for a list of devices which we need the config files
       when "CONFIGFILEMANIFEST"
         return {HTTP::Status::OK.to_i, {} of String => String, device_to_manifest.join("\n")}
@@ -63,14 +63,14 @@ class Leviton::Acquisuite < PlaceOS::Driver
         files = files.not_nil!
         return log_file_upload(files, form_data)
       else
-        {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "Invalid mode passed. Either STATUS, CONFIGFILEMANIFEST, CONFIGFILEUPLOAD or LOGFILEUPLOAD required. Got #{form_data["MODE"]}"}
+        {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "FAILURE: Invalid mode passed. Either STATUS, CONFIGFILEMANIFEST, CONFIGFILEUPLOAD or LOGFILEUPLOAD required. Got #{form_data["MODE"]}"}
       end
     end
   rescue error
     logger.warn(exception: error) { "processing webhook request: #{body.inspect}" }
     self[:last_error] = error.inspect_with_backtrace
     self[:error_payload] = body
-    {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, error.message.to_s}
+    {HTTP::Status::INTERNAL_SERVER_ERROR.to_i, {"Content-Type" => "application/json"}, "FAILURE: #{error.message.to_s}"}
   end
 
   protected def log_file_upload(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), form_data : URI::Params)
@@ -81,7 +81,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
       # Add this device to our device list
       @device_list["mb-%03d.ini" % modbus_index] = {"X", "0000-00-00 00:00:00"}
       define_setting(:device_list, @device_list)
-      return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, ""}
+      return {HTTP::Status::NOT_ACCEPTABLE.to_i, {} of String => String, "FAILURE: Device list invalid"}
     end
     return if log_contents.nil?
     csv = CSV.new(log_contents, headers: true)
@@ -114,7 +114,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
         measurement:  "acquisuite",
       }
     end
-    {HTTP::Status::OK.to_i, {} of String => String, ""}
+    {HTTP::Status::OK.to_i, {} of String => String, "SUCCESS"}
   end
 
   protected def config_file_upload(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), form_data : URI::Params)
@@ -130,7 +130,7 @@ class Leviton::Acquisuite < PlaceOS::Driver
 
     # Now update our config list with the new config
     store_config(form_data["MODBUSDEVICE"], config_contents) unless config_contents.nil?
-    {HTTP::Status::OK.to_i, {} of String => String, ""}
+    {HTTP::Status::OK.to_i, {} of String => String, "SUCCESS"}
   end
 
   protected def get_file(files : Hash(String, Array(ActionController::BodyParser::FileUpload)), name : String)
