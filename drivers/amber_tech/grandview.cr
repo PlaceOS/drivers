@@ -114,8 +114,12 @@ class AmberTech::Grandview < PlaceOS::Driver
     {"closed", "closing"}.includes?(self["status"]?)
   end
 
-  protected def parse_state(state : AmberTech::Status)
+  protected def parse_state(state : AmberTech::Status | String)
     case state
+    in String
+      self[:moving0] = false
+      self[:position0] = nil
+      self[:screen0] = "stopped"
     in .stop?
       self[:moving0] = false
       self[:position0] = nil

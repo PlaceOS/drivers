@@ -40,6 +40,6 @@ module AmberTech
   class StatusResp
     include JSON::Serializable
 
-    getter status : Status
+    getter status : Status | String
   end
 end
