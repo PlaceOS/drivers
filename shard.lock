@@ -43,7 +43,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.3.8
+    version: 1.3.9
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -87,7 +87,7 @@ shards:
 
   eventbus:
     git: https://github.com/spider-gazelle/eventbus.git
-    version: 0.9.9+git.commit.086b2ba92475b88e8481b0387eb56c735cbfd7bd
+    version: 0.9.9+git.commit.1f0e2524e766b10d9dc72705fa6578858e8e0b1b
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
@@ -131,7 +131,7 @@ shards:
 
   http_proxy:
     git: https://github.com/mamantoha/http_proxy.git
-    version: 0.9.0
+    version: 0.10.1
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -235,7 +235,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.0.0+git.commit.648bbb3af8917adcc868788d19d705e7811352dc
+    version: 1.0.0+git.commit.6bbddb37fc24ce3253937b54f12fe86882b83e14
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -247,7 +247,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.7.3
+    version: 2.7.5
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.8.4
+    version: 6.8.5
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
