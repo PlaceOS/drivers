@@ -19,6 +19,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     dna_spaces_activation_key: "provide this and the API / tenant ids will be generated automatically",
     dna_spaces_api_key:        "X-API-KEY",
     tenant_id:                 "sfdsfsdgg",
+    verify_activation_key:   false,
 
     # Time before a user location is considered probably too old (in minutes)
     # we have a large time here as DNA spaces only updates when a user moves
@@ -59,6 +60,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   @activation_token : String = ""
+  @verify_activation_key : Bool = false
   @api_key : String = ""
   @tenant_id : String = ""
   @channel : Channel(String) = Channel(String).new
@@ -73,6 +75,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @s2_level = setting?(Int32, :s2_level) || 21
     @floorplan_mappings = setting?(Hash(String, Hash(String, String | Float64)), :floorplan_mappings) || @floorplan_mappings
     @debug_stream = setting?(Bool, :debug_stream) || false
+    @verify_activation_key = setting?(Bool, :verify_activation_key) || false
 
     schedule.clear
     schedule.every(30.minutes) { cleanup_caches }
@@ -114,7 +117,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     raise "unexpected failure obtaining partner public key: #{payload[:message]}" unless payload[:status]
 
     public_key = payload[:data][0].public_key
-    payload, header = JWT.decode(@activation_token, public_key, JWT::Algorithm::RS256)
+    payload, header = JWT.decode(@activation_token, public_key, JWT::Algorithm::RS256, @verify_activation_key)
     app_id = payload["appId"].as_s
     ref_id = payload["activationRefId"].as_s
     tenant_id = payload["tenantId"].as_i64.to_s
