@@ -43,7 +43,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.3.9
+    version: 1.3.11
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -119,7 +119,7 @@ shards:
 
   hound-dog:
     git: https://github.com/place-labs/hound-dog.git
-    version: 2.9.0
+    version: 2.9.1
 
   http-client-digest_auth:
     git: https://github.com/mamantoha/http-client-digest_auth.git
@@ -207,7 +207,7 @@ shards:
 
   opentelemetry-instrumentation:
     git: https://github.com/wyhaines/opentelemetry-instrumentation.cr.git
-    version: 0.5.1+git.commit.d698621cdc7722475e56e6dd8a7c07272432f270
+    version: 0.5.2+git.commit.327d335104d3bafd08426a0afb3755f50bafe13f
 
   opentelemetry-sdk:
     git: https://github.com/wyhaines/opentelemetry-sdk.cr.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.8.5
+    version: 6.8.6
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
