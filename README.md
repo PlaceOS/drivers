@@ -46,8 +46,9 @@ $ ./harness format
 
 ## Documentation
 
-- [Writing a PlaceOS Driver](docs/writing-a-driver.md)
-- [Testing a PlaceOS Driver](docs/writing-a-spec.md)
+- [Existing Driver Docs](https://placeos.github.io/drivers/)
+- [Writing a PlaceOS Driver](https://docs.placeos.com/tutorials/backend/write-a-driver)
+- [Testing a PlaceOS Driver](https://docs.placeos.com/tutorials/backend/write-a-driver/testing-drivers)
 - [Sending Emails](docs/guide-event-emails.md)
 - [Environment Setup](docs/setup.md)
 - [Runtime Debugging](docs/runtime-debugging.md)
