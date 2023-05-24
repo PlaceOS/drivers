@@ -193,19 +193,26 @@ class Place::Bookings < PlaceOS::Driver
     host_calendar = owner.presence || @calendar_id
     room_email = system.email.not_nil!
     room_is_organizer = host_calendar == room_email
-    event = calendar.create_event(
-      title,
-      starting,
-      ending,
-      "",
-      [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer)],
-      @time_zone.name,
-      nil,
-      host_calendar
-    )
-    # Update booking info after creating event
-    schedule.in(2.seconds) { poll_events }
-    event
+
+    events = calendar.list_events(host_calendar, starting, ending, @time_zone.name).get
+
+    if events.as_a.empty?
+      event = calendar.create_event(
+        title,
+        starting,
+        ending,
+        "",
+        [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer)],
+        @time_zone.name,
+        nil,
+        host_calendar
+      )
+      # Update booking info after creating event
+      schedule.in(2.seconds) { poll_events }
+      event
+    else
+      raise "can not book an event, clashing may occur"
+    end
   end
 
   def poll_events : Nil
