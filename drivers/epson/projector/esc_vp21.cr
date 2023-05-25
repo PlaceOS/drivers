@@ -175,6 +175,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     when :power
       state = data[1].to_i
       @power_state = powered = state < 3
+      warming = state == 2
+      cooling = state == 3
 
       if warming || cooling
         schedule.in(5.seconds) { power?(priority: 0) }
@@ -187,8 +189,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       end
 
       self[:power] = powered if @power_stable
-      self[:warming] = warming = state == 2
-      self[:cooling] = cooling = state == 3
+      self[:warming] = warming
+      self[:cooling] = cooling
 
       if powered == @power_target
         self[:video_mute] = false unless powered
