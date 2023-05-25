@@ -161,7 +161,7 @@ class Place::Meet < PlaceOS::Driver
         if power_state == "false"
           logger.debug { "updating screen position: up" }
           system[screen].up
-        elsif power_state == "true" && self[:active] == true
+        elsif power_state == "true"
           logger.debug { "updating screen position: down" }
           system[screen].down
         end
