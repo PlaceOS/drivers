@@ -57,7 +57,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def power?(**options) : Bool
     do_send(:power, **options).get
-    !!self[:power]?.try(&.as_bool)
+    @power_state || false
   end
 
   def switch_to(input : Input)
@@ -175,12 +175,20 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     when :power
       state = data[1].to_i
       @power_state = powered = state < 3
-      self[:warming] = warming = state == 2
-      self[:cooling] = cooling = state == 3
 
       if warming || cooling
         schedule.in(5.seconds) { power?(priority: 0) }
+      elsif !@power_stable
+        if @power_state == @power_target
+          @power_stable = true
+        else
+          power(@power_target)
+        end
       end
+
+      self[:power] = powered if @power_stable
+      self[:warming] = warming = state == 2
+      self[:cooling] = cooling = state == 3
 
       if powered == @power_target
         self[:video_mute] = false unless powered
@@ -209,20 +217,10 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def do_poll
-    if power?(priority: 0)
-      if !@power_stable
-        if @power_state == @power_target
-          @power_stable = true
-          self[:power] = @power_target
-        else
-          power(@power_target)
-        end
-      else
-        self[:power] = @power_state
-        input?
-        video_mute?
-        volume?
-      end
+    if power?(priority: 0) && @power_stable
+      input?
+      video_mute?
+      volume?
     end
     do_send(:lamp, priority: 0)
   end
