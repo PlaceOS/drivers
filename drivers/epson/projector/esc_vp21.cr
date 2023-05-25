@@ -176,7 +176,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
       if warming || cooling
         schedule.in(5.seconds) { power?(priority: 0) }
-      elsif (power_target = @power_target) && powered == power_target
+      elsif !(power_target = @power_target).nil? && powered == power_target
         @power_target = nil
         self[:video_mute] = false unless powered
       end
@@ -205,7 +205,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def do_poll
     if power?(priority: 0)
-      if power_target = @power_target
+      if !(power_target = @power_target).nil?
         if self[:power]? != power_target
           power(power_target)
         else
