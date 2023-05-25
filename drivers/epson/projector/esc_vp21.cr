@@ -19,7 +19,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   descriptive_name "Epson Projector"
   generic_name :Display
 
-  @power_target : Bool? = nil
+  @power_stable : Bool = true
+  @power_target : Bool = true
   @unmute_volume : Float64 = 60.0
 
   def on_load
@@ -47,7 +48,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       logger.debug { "-- epson Proj, requested to power off" }
       do_send(:power, "OFF", delay: 10.seconds, name: "power")
     end
-    self[:power] = state
+    @power_stable = false
     power?
   end
 
@@ -176,8 +177,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
       if warming || cooling
         schedule.in(5.seconds) { power?(priority: 0) }
-      elsif !(power_target = @power_target).nil? && powered == power_target
-        @power_target = nil
+      end
+
+      if powered == @power_target
         self[:video_mute] = false unless powered
       end
     when :av_mute
@@ -205,11 +207,11 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def do_poll
     if power?(priority: 0)
-      if !(power_target = @power_target).nil?
-        if self[:power]? != power_target
-          power(power_target)
+      if !@power_stable
+        if self[:power]? == @power_target
+          @power_stable = true
         else
-          @power_target = nil
+          power(@power_target)
         end
       else
         input?
