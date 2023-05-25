@@ -19,7 +19,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   descriptive_name "Epson Projector"
   generic_name :Display
 
-  getter power_state : Bool? = nil  # actual power state
+  getter power_actual : Bool? = nil  # actual power state
   getter? power_stable : Bool = true # are we in a stable state?
   getter? power_target : Bool = true # what is the target state?
 
@@ -57,7 +57,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def power?(**options) : Bool
     do_send(:power, **options).get
-    @power_state || false
+    @power_actual || false
   end
 
   def switch_to(input : Input)
@@ -174,14 +174,14 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       end
     when :power
       state = data[1].to_i
-      @power_state = powered = state < 3
+      @power_actual = powered = state < 3
       warming = state == 2
       cooling = state == 3
 
       if warming || cooling
         schedule.in(5.seconds) { power?(priority: 10) }
       elsif !@power_stable
-        if @power_state == @power_target
+        if @power_actual == @power_target
           @power_stable = true
         else
           power(@power_target)
