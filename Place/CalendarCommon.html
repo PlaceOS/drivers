@@ -3821,6 +3821,21 @@
       
         <ul>
   
+  <li class=" " data-id="drivers/Place/Bookings/NotifyEvent" data-name="place::bookings::notifyevent">
+      <a href="../Place/Bookings/NotifyEvent.html">NotifyEvent</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/Bookings/NotifyType" data-name="place::bookings::notifytype">
+      <a href="../Place/Bookings/NotifyType.html">NotifyType</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/Bookings/ServiceName" data-name="place::bookings::servicename">
+      <a href="../Place/Bookings/ServiceName.html">ServiceName</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/Place/Bookings/StaffEventChange" data-name="place::bookings::staffeventchange">
       <a href="../Place/Bookings/StaffEventChange.html">StaffEventChange</a>
       
@@ -6188,7 +6203,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L7" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L7" target="_blank">
         place/calendar_common.cr
       </a>
     
@@ -6219,7 +6234,19 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#calendar_service_name-instance-method" class="signature"><strong>#calendar_service_name</strong></a>
+        
+          <div class="summary"><p>returns: google or office365</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#create_event%28title%3AString%2Cevent_start%3AInt64%2Cevent_end%3AInt64%7CNil%3Dnil%2Cdescription%3AString%3D%22%22%2Cattendees%3AArray%28PlaceCalendar%3A%3AEvent%3A%3AAttendee%29%3D%5B%5DofPlaceCalendar%3A%3AEvent%3A%3AAttendee%2Clocation%3AString%7CNil%3Dnil%2Ctimezone%3AString%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ccalendar_id%3AString%7CNil%3Dnil%2Conline_meeting_id%3AString%7CNil%3Dnil%2Conline_meeting_provider%3AString%7CNil%3Dnil%2Conline_meeting_url%3AString%7CNil%3Dnil%2Conline_meeting_sip%3AString%7CNil%3Dnil%2Conline_meeting_phones%3AArray%28String%29%7CNil%3Dnil%2Conline_meeting_pin%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#create_event</strong>(title : String, event_start : Int64, event_end : Int64 | Nil = <span class="n">nil</span>, description : String = <span class="s">&quot;&quot;</span>, attendees : Array(PlaceCalendar::Event::Attendee) = <span class="o">[]</span> <span class="k">of</span> <span class="t">PlaceCalendar</span><span class="t">::</span><span class="t">Event</span><span class="t">::</span><span class="t">Attendee</span>, location : String | Nil = <span class="n">nil</span>, timezone : String | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, calendar_id : String | Nil = <span class="n">nil</span>, online_meeting_id : String | Nil = <span class="n">nil</span>, online_meeting_provider : String | Nil = <span class="n">nil</span>, online_meeting_url : String | Nil = <span class="n">nil</span>, online_meeting_sip : String | Nil = <span class="n">nil</span>, online_meeting_phones : Array(String) | Nil = <span class="n">nil</span>, online_meeting_pin : String | Nil = <span class="n">nil</span>)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#create_notifier%28resource%3AString%2Cnotification_url%3AString%2Cexpiration_time%3AInt64%2Cclient_secret%3AString%7CNil%3Dnil%2Clifecycle_notification_url%3AString%7CNil%3Dnil%29%3APlaceCalendar%3A%3ASubscription-instance-method" class="signature"><strong>#create_notifier</strong>(resource : String, notification_url : String, expiration_time : Int64, client_secret : String | Nil = <span class="n">nil</span>, lifecycle_notification_url : String | Nil = <span class="n">nil</span>) : PlaceCalendar::Subscription</a>
         
       </li>
     
@@ -6230,6 +6257,11 @@
     
       <li class="entry-summary">
         <a href="#delete_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Cnotify%3ABool%3Dfalse%2Ccomment%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#delete_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>, notify : Bool = <span class="n">false</span>, comment : String | Nil = <span class="n">nil</span>)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#delete_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%29%3ANil-instance-method" class="signature"><strong>#delete_notifier</strong>(subscription : PlaceCalendar::Subscription) : Nil</a>
         
       </li>
     
@@ -6320,6 +6352,18 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#reauthorize_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%2Cnew_expiration_time%3ATime%7CNil%3Dnil%29%3APlaceCalendar%3A%3ASubscription-instance-method" class="signature"><strong>#reauthorize_notifier</strong>(subscription : PlaceCalendar::Subscription, new_expiration_time : Time | Nil = <span class="n">nil</span>) : PlaceCalendar::Subscription</a>
+        
+          <div class="summary"><p><span class="flag purple">NOTE</span> : GraphAPI Only!</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#renew_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%2Cnew_expiration_time%3AInt64%29%3APlaceCalendar%3A%3ASubscription-instance-method" class="signature"><strong>#renew_notifier</strong>(subscription : PlaceCalendar::Subscription, new_expiration_time : Int64) : PlaceCalendar::Subscription</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method" class="signature"><strong>#send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>)</a>
         
       </li>
@@ -6369,7 +6413,28 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L164" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L164" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="calendar_service_name-instance-method">
+      <div class="signature">
+        
+        def <strong>calendar_service_name</strong>
+
+        <a class="method-permalink" href="#calendar_service_name-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>returns: google or office365</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L325" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6385,7 +6450,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L278" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L278" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="create_notifier(resource:String,notification_url:String,expiration_time:Int64,client_secret:String|Nil=nil,lifecycle_notification_url:String|Nil=nil):PlaceCalendar::Subscription-instance-method">
+      <div class="signature">
+        
+        def <strong>create_notifier</strong>(resource : String, notification_url : String, expiration_time : Int64, client_secret : String | Nil = <span class="n">nil</span>, lifecycle_notification_url : String | Nil = <span class="n">nil</span>) : PlaceCalendar::Subscription
+
+        <a class="method-permalink" href="#create_notifier%28resource%3AString%2Cnotification_url%3AString%2Cexpiration_time%3AInt64%2Cclient_secret%3AString%7CNil%3Dnil%2Clifecycle_notification_url%3AString%7CNil%3Dnil%29%3APlaceCalendar%3A%3ASubscription-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L330" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6401,7 +6482,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L260" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L260" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6417,7 +6498,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L269" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L269" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="delete_notifier(subscription:PlaceCalendar::Subscription):Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>delete_notifier</strong>(subscription : PlaceCalendar::Subscription) : Nil
+
+        <a class="method-permalink" href="#delete_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%29%3ANil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L349" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6433,7 +6530,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L123" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L123" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6449,7 +6546,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L119" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L119" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6470,7 +6567,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L223" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L223" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6486,7 +6583,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L170" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L170" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6502,7 +6599,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L176" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L176" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6518,7 +6615,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L188" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L188" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6539,7 +6636,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L201" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L201" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6555,7 +6652,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L115" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L115" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6571,7 +6668,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L194" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L194" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6587,7 +6684,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L233" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L233" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6608,7 +6705,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L212" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L212" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6624,7 +6721,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L182" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L182" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6640,7 +6737,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L45" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L45" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6656,7 +6753,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L40" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L40" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6672,7 +6769,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L49" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6688,7 +6785,44 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L111" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L111" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="reauthorize_notifier(subscription:PlaceCalendar::Subscription,new_expiration_time:Time|Nil=nil):PlaceCalendar::Subscription-instance-method">
+      <div class="signature">
+        
+        def <strong>reauthorize_notifier</strong>(subscription : PlaceCalendar::Subscription, new_expiration_time : Time | Nil = <span class="n">nil</span>) : PlaceCalendar::Subscription
+
+        <a class="method-permalink" href="#reauthorize_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%2Cnew_expiration_time%3ATime%7CNil%3Dnil%29%3APlaceCalendar%3A%3ASubscription-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p><span class="flag purple">NOTE</span> : GraphAPI Only!</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L343" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="renew_notifier(subscription:PlaceCalendar::Subscription,new_expiration_time:Int64):PlaceCalendar::Subscription-instance-method">
+      <div class="signature">
+        
+        def <strong>renew_notifier</strong>(subscription : PlaceCalendar::Subscription, new_expiration_time : Int64) : PlaceCalendar::Subscription
+
+        <a class="method-permalink" href="#renew_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%2Cnew_expiration_time%3AInt64%29%3APlaceCalendar%3A%3ASubscription-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L336" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6704,7 +6838,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/place/calendar_common.cr#L128" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/place/calendar_common.cr#L128" target="_blank">View source</a>]
         
       </div>
     </div>

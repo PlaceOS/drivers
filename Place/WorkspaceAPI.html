@@ -3821,6 +3821,21 @@
       
         <ul>
   
+  <li class=" " data-id="drivers/Place/Bookings/NotifyEvent" data-name="place::bookings::notifyevent">
+      <a href="../Place/Bookings/NotifyEvent.html">NotifyEvent</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/Bookings/NotifyType" data-name="place::bookings::notifytype">
+      <a href="../Place/Bookings/NotifyType.html">NotifyType</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/Bookings/ServiceName" data-name="place::bookings::servicename">
+      <a href="../Place/Bookings/ServiceName.html">ServiceName</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/Place/Bookings/StaffEventChange" data-name="place::bookings::staffeventchange">
       <a href="../Place/Bookings/StaffEventChange.html">StaffEventChange</a>
       
@@ -6172,7 +6187,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/ac936acefd3e0ddf6aea897c8c0db69a594d293e/src/google/workspace_api.cr#L3" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/fba2c324c7a0eb3008ed3aeafe739fd9c342561b/src/google/workspace_api.cr#L3" target="_blank">
         google/workspace_api.cr
       </a>
     
@@ -6203,9 +6218,19 @@
     access_token</a>, 
     
   
+    <a href="../Place/CalendarCommon.html#calendar_service_name-instance-method" class="tooltip">
+      <span>calendar_service_name</span>
+    calendar_service_name</a>, 
+    
+  
     <a href="../Place/CalendarCommon.html#create_event%28title%3AString%2Cevent_start%3AInt64%2Cevent_end%3AInt64%7CNil%3Dnil%2Cdescription%3AString%3D%22%22%2Cattendees%3AArray%28PlaceCalendar%3A%3AEvent%3A%3AAttendee%29%3D%5B%5DofPlaceCalendar%3A%3AEvent%3A%3AAttendee%2Clocation%3AString%7CNil%3Dnil%2Ctimezone%3AString%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ccalendar_id%3AString%7CNil%3Dnil%2Conline_meeting_id%3AString%7CNil%3Dnil%2Conline_meeting_provider%3AString%7CNil%3Dnil%2Conline_meeting_url%3AString%7CNil%3Dnil%2Conline_meeting_sip%3AString%7CNil%3Dnil%2Conline_meeting_phones%3AArray%28String%29%7CNil%3Dnil%2Conline_meeting_pin%3AString%7CNil%3Dnil%29-instance-method" class="tooltip">
       <span>create_event(title : String, event_start : Int64, event_end : Int64 | Nil = <span class="n">nil</span>, description : String = <span class="s">&quot;&quot;</span>, attendees : Array(PlaceCalendar::Event::Attendee) = <span class="o">[]</span> <span class="k">of</span> <span class="t">PlaceCalendar</span><span class="t">::</span><span class="t">Event</span><span class="t">::</span><span class="t">Attendee</span>, location : String | Nil = <span class="n">nil</span>, timezone : String | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, calendar_id : String | Nil = <span class="n">nil</span>, online_meeting_id : String | Nil = <span class="n">nil</span>, online_meeting_provider : String | Nil = <span class="n">nil</span>, online_meeting_url : String | Nil = <span class="n">nil</span>, online_meeting_sip : String | Nil = <span class="n">nil</span>, online_meeting_phones : Array(String) | Nil = <span class="n">nil</span>, online_meeting_pin : String | Nil = <span class="n">nil</span>)</span>
     create_event</a>, 
+    
+  
+    <a href="../Place/CalendarCommon.html#create_notifier%28resource%3AString%2Cnotification_url%3AString%2Cexpiration_time%3AInt64%2Cclient_secret%3AString%7CNil%3Dnil%2Clifecycle_notification_url%3AString%7CNil%3Dnil%29%3APlaceCalendar%3A%3ASubscription-instance-method" class="tooltip">
+      <span>create_notifier(resource : String, notification_url : String, expiration_time : Int64, client_secret : String | Nil = <span class="n">nil</span>, lifecycle_notification_url : String | Nil = <span class="n">nil</span>) : PlaceCalendar::Subscription</span>
+    create_notifier</a>, 
     
   
     <a href="../Place/CalendarCommon.html#decline_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Cnotify%3ABool%3Dfalse%2Ccomment%3AString%7CNil%3Dnil%29-instance-method" class="tooltip">
@@ -6216,6 +6241,11 @@
     <a href="../Place/CalendarCommon.html#delete_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Cnotify%3ABool%3Dfalse%2Ccomment%3AString%7CNil%3Dnil%29-instance-method" class="tooltip">
       <span>delete_event(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>, notify : Bool = <span class="n">false</span>, comment : String | Nil = <span class="n">nil</span>)</span>
     delete_event</a>, 
+    
+  
+    <a href="../Place/CalendarCommon.html#delete_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%29%3ANil-instance-method" class="tooltip">
+      <span>delete_notifier(subscription : PlaceCalendar::Subscription) : Nil</span>
+    delete_notifier</a>, 
     
   
     <a href="../Place/CalendarCommon.html#generate_png_qrcode%28text%3AString%2Csize%3AInt32%3D128%29%3AString-instance-method" class="tooltip">
@@ -6296,6 +6326,16 @@
     <a href="../Place/CalendarCommon.html#queue_size-instance-method" class="tooltip">
       <span>queue_size</span>
     queue_size</a>, 
+    
+  
+    <a href="../Place/CalendarCommon.html#reauthorize_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%2Cnew_expiration_time%3ATime%7CNil%3Dnil%29%3APlaceCalendar%3A%3ASubscription-instance-method" class="tooltip">
+      <span>reauthorize_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Time | Nil = <span class="n">nil</span>) : PlaceCalendar::Subscription</span>
+    reauthorize_notifier</a>, 
+    
+  
+    <a href="../Place/CalendarCommon.html#renew_notifier%28subscription%3APlaceCalendar%3A%3ASubscription%2Cnew_expiration_time%3AInt64%29%3APlaceCalendar%3A%3ASubscription-instance-method" class="tooltip">
+      <span>renew_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Int64) : PlaceCalendar::Subscription</span>
+    renew_notifier</a>, 
     
   
     <a href="../Place/CalendarCommon.html#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method" class="tooltip">
