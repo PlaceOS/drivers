@@ -340,7 +340,7 @@ module Place::CalendarCommon
 
   # NOTE:: GraphAPI Only!
   @[PlaceOS::Driver::Security(Level::Support)]
-  def reauthorize_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Time? = nil) : PlaceCalendar::Subscription
+  def reauthorize_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Int64? = nil) : PlaceCalendar::Subscription
     expires = new_expiration_time ? Time.unix(new_expiration_time) : nil
     client &.reauthorize_notifier(subscription, expires)
   end
