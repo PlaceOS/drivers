@@ -321,6 +321,35 @@ module Place::CalendarCommon
     client &.create_event(user_id, event, calendar_id)
   end
 
+  # returns: google or office365
+  def calendar_service_name
+    @client.not_nil!.client_id
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def create_notifier(resource : String, notification_url : String, expiration_time : Int64, client_secret : String? = nil, lifecycle_notification_url : String? = nil) : PlaceCalendar::Subscription
+    expires = Time.unix expiration_time
+    client &.create_notifier(resource, notification_url, expires, client_secret, lifecycle_notification_url: lifecycle_notification_url)
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def renew_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Int64) : PlaceCalendar::Subscription
+    expires = Time.unix new_expiration_time
+    client &.renew_notifier(subscription, expires)
+  end
+
+  # NOTE:: GraphAPI Only!
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def reauthorize_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Time? = nil) : PlaceCalendar::Subscription
+    expires = new_expiration_time ? Time.unix(new_expiration_time) : nil
+    client &.reauthorize_notifier(subscription, expires)
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def delete_notifier(subscription : PlaceCalendar::Subscription) : Nil
+    client &.delete_notifier(subscription)
+  end
+
   protected def rate_limiter
     in_flight = @in_flight
     channel = @channel

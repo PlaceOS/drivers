@@ -42,7 +42,13 @@ class Place::Bookings < PlaceOS::Driver
     hide_meeting_details: false,
     hide_meeting_title:   false,
 
+    # use this to expose arbitrary fields to influx
     # expose_for_analytics: {"binding" => "key->subkey"},
+
+    # use these for enabling push notifications
+    # push_authority: "authority-GAdySsf05mL"
+    # push_notification_url: "https://placeos-dev.aca.im/api/engine/v2/notifications/office365"
+    # push_notification_url: "https://placeos-dev.aca.im/api/engine/v2/notifications/google"
   })
 
   accessor calendar : Calendar_1
@@ -77,7 +83,7 @@ class Place::Bookings < PlaceOS::Driver
 
   def on_update
     schedule.clear
-    @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
+    @calendar_id = (setting?(String, :calendar_id).presence || system.email.not_nil!).downcase
 
     @perform_sensor_search = true
     schedule.in(Random.rand(59).seconds + Random.rand(1000).milliseconds) { poll_events }
@@ -118,6 +124,9 @@ class Place::Bookings < PlaceOS::Driver
 
     # ensure current booking is updated at the start of every minute
     schedule.cron("* * * * *") { check_current_booking }
+
+    # configure push notifications
+    push_notificaitons_configure
 
     # Write to redis last on the off chance there is a connection issue
     self[:room_name] = setting?(String, :room_name).presence || config.control_system.not_nil!.display_name.presence || config.control_system.not_nil!.name
@@ -208,7 +217,11 @@ class Place::Bookings < PlaceOS::Driver
     event
   end
 
+  @polling : Bool = false
+
   def poll_events : Nil
+    return if @polling
+    @polling = true
     check_for_sensors if @perform_sensor_search
 
     now = Time.local @time_zone
@@ -229,6 +242,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:bookings] = @bookings
 
     check_current_booking
+  ensure
+    @polling = false
   end
 
   protected def check_current_booking : Nil
@@ -564,5 +579,155 @@ class Place::Bookings < PlaceOS::Driver
       @perform_sensor_search = true
       self[:sensor_stale] = true
     end
+  end
+
+  enum ServiceName
+    Google
+    Office365
+  end
+
+  enum NotifyType
+    # resource event changes
+    Created # a resource was created (MS only)
+    Updated # a resource was updated (in Google this could also mean created)
+    Deleted # a resource was deleted
+
+    # subscription lifecycle event (MS only)
+    Renew       # subscription was deleted
+    Missed      # MS sends this to mean resource event changes were not sent
+    Reauthorize # subscription needs reauthorization
+  end
+
+  struct NotifyEvent
+    include JSON::Serializable
+
+    getter event_type : NotifyType
+    getter resource_id : String?
+    getter resource_uri : String
+    getter subscription_id : String
+    getter client_secret : String
+
+    @[JSON::Field(converter: Time::EpochConverter)]
+    getter expiration_time : Time
+  end
+
+  @subscription : PlaceCalendar::Subscription? = nil
+  @push_authority : String? = nil
+  @push_notification_url : String? = nil
+  @push_secret : String? = nil
+  @push_service_name : ServiceName? = nil
+  @push_monitoring : PlaceOS::Driver::Subscriptions::ChannelSubscription? = nil
+
+  SUBSCRIPTION_LENGTH = 7.days
+
+  protected def push_notificaitons_configure
+    push_authority = setting?(String, :push_authority).presence
+    @push_notification_url = setting?(String, :push_notification_url).presence
+
+    # load any existing subscriptions
+    @subscription = setting?(PlaceCalendar::Subscription, :push_subscription)
+    @push_secret = setting?(String, :push_secret)
+
+    if push_authority && @push_notification_url
+      # clear the monitoring if authority changed
+      if push_authority != @push_authority && (monitor = @push_monitoring)
+        subscriptions.unsubscribe(monitor)
+        @push_monitoring = nil
+      end
+      @push_authority = push_authority
+      schedule.every(5.minutes, immediate: true) { push_notificaitons_maintain }
+    elsif @subscription
+      push_notificaitons_cleanup
+    end
+  end
+
+  # delete a subscription
+  protected def push_notificaitons_cleanup
+    sub = @subscription
+    return unless sub
+
+    logger.debug { "removing subscription" }
+
+    calendar.delete_notifier(sub)
+    define_setting(:push_subscription, nil)
+  end
+
+  # creates and maintains a subscription
+  protected def push_notificaitons_maintain : Nil
+    subscription = @subscription
+
+    if @push_monitoring.nil?
+      @push_monitoring = monitor("#{@push_authority}/calendar/event") { |_subscription, payload| push_event_occured(payload) }
+    end
+
+    if subscription
+      if subscription.expired?
+        # renew subscription
+        begin
+          logger.debug { "renewing subscription" }
+          expires = SUBSCRIPTION_LENGTH.from_now
+          calendar.renew_notifier(subscription, expires.to_unix).get
+        rescue error
+          logger.error(exception: error) { "failed to renew expired subscription, creating new subscription" }
+          @subscription = nil
+          schedule.in(1.second) { push_notificaitons_maintain; nil }
+        end
+      end
+    else # create a subscription
+      create_subscription
+    end
+  end
+
+  protected def push_event_occured(payload : String)
+    event = NotifyEvent.from_json payload
+    return unless event.subscription_id == @subscription.try &.id
+    if event.client_secret != @push_secret
+      logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
+      return
+    end
+
+    logger.debug { "push notification received! #{event.inspect}" }
+
+    case event.event_type
+    in .created?, .updated?, .deleted?
+      # TODO:: find event uid and update staff api event metadata without
+      # requiring GraphAPI interaction from staff api.
+      poll_events
+    in .missed?
+      # we don't know the exact event id that changed
+      poll_events
+    in .renew?
+      # we need to create a new subscription as the old one has expired
+      create_subscription
+    in .reauthorize?
+      expires = SUBSCRIPTION_LENGTH.from_now
+      calendar.reauthorize_notifier(@subscription, expires.to_unix)
+    end
+  end
+
+  protected def create_subscription
+    @push_service_name = service_name = @push_service_name || ServiceName.parse(calendar.calendar_service_name.get.as_s)
+
+    # different resource routes for the different services
+    case service_name
+    in .google?
+      resource = "/calendars/#{calendar_id}/events"
+    in .office365?
+      resource = "/users/#{calendar_id}/events"
+    in Nil
+      raise "service name not known, waiting for "
+    end
+
+    logger.debug { "registering for push notifications! #{resource}" }
+
+    # create a new secret and subscription
+    expires = SUBSCRIPTION_LENGTH.from_now
+    @push_secret = Random.new.hex(4)
+    sub = calendar.create_notifier(resource, @push_notification_url, expires.to_unix, @push_secret, @push_notification_url).get
+    @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
+
+    # save the subscription details for processing
+    define_setting(:push_subscription, @subscription)
+    define_setting(:push_secret, @push_secret)
   end
 end
