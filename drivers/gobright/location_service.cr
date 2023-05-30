@@ -205,7 +205,7 @@ class GoBright::LocationService < PlaceOS::Driver
   end
 
   protected def map_booking(occurrence, space, zone_id)
-    owner = occurrence.organizer || occurrence.attendees.first
+    owner = occurrence.organizer || occurrence.attendees.first?
     starting = occurrence.start_date.to_unix
     ending = occurrence.end_date.to_unix
 
@@ -224,8 +224,8 @@ class GoBright::LocationService < PlaceOS::Driver
       started_at:  starting,
       duration:    ending - starting,
       mac:         "gobright-#{occurrence.id}",
-      staff_email: owner.email_address,
-      staff_name:  owner.name,
+      staff_email: owner.try &.email_address,
+      staff_name:  owner.try &.name,
     }
   end
 end
