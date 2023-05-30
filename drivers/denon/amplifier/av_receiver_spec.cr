@@ -43,13 +43,13 @@ DriverSpecs.mock_driver "Denon::Amplifier::AvReceiver" do
   # query
   exec(:volume?)
   should_send("MV?")
-  responds("MV80\r")
-  status[:volume].should eq("80")
+  responds("MV49\r")
+  status[:volume].should eq(50.0)
   # change volume
-  exec(:volume, 78)
-  should_send("MV39.0")
-  responds("MV39.0\r")
-  status[:volume].should eq("39.0")
+  exec(:volume, 100)
+  should_send("MV98.0")
+  responds("MV98.0\r")
+  status[:volume].should eq(100.0)
 
   ####
   # MUTE

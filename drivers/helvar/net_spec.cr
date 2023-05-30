@@ -11,7 +11,7 @@ DriverSpecs.mock_driver "Helvar::Net" do
   resp = exec(:get_current_preset, group: 17)
   should_send(">V:2,C:109,G:17#")
   responds("?V:2,C:109,G:17=14#")
-  resp.get
+  resp.get.should eq 14
   status[:area17].should eq(14)
 
   resp = exec(:get_current_preset, group: 20)
@@ -24,4 +24,12 @@ DriverSpecs.mock_driver "Helvar::Net" do
 
   transmit(">V:2,C:11,G:2001,B:1,S:1,F:100#")
   status[:area2001].should eq(1)
+
+  resp = exec(:lighting_level?, area: {id: 17})
+  should_send(">V:2,C:109,G:17#")
+  responds("?V:2,C:109,G:17=1#")
+  should_send(">V:2,C:167,G:17#")
+  responds("?V:2,C:167,G:17=100,75,50,25,0,L,L,L,0,*,*,*,*,*#")
+  resp.get.should eq 75
+  status[:area17_level].should eq(75)
 end

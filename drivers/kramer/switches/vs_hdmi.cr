@@ -1,6 +1,12 @@
+require "placeos-driver"
+require "placeos-driver/interface/switchable"
+
 # Documentation: https://aca.im/driver_docs/Kramer/Kramer%20protocol%202000%20v0.51.pdf
 
 class Kramer::Switcher::VsHdmi < PlaceOS::Driver
+  include Interface::Switchable(Int32, Int32)
+  include Interface::InputSelection(Int32)
+
   # Discovery Information
   tcp_port 23
   descriptive_name "Kramer Protocol 2000 Switcher"
@@ -42,6 +48,23 @@ class Kramer::Switcher::VsHdmi < PlaceOS::Driver
         self[outname] = input
       end
     end
+  end
+
+  def switch(map : Hash(Int32, Array(Int32)), layer : SwitchLayer? = nil)
+    case layer
+    in Nil, .all?
+      switch_video(map)
+    in .video?
+      switch_video(map)
+    in .audio?, .data?, .data2?
+      logger.debug { "layer #{layer} not available on extron matrix" }
+      return
+    end
+  end
+
+  def switch_to(input : Int32)
+    logger.debug { "switching input to #{input}" }
+    self[:input] = input.to_s
   end
 
   def received(data, task)

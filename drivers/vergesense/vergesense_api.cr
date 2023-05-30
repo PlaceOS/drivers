@@ -1,6 +1,8 @@
 require "placeos-driver"
 require "./models"
 
+# docs: https://vergesense.readme.io/reference/reference-getting-started
+
 class Vergesense::VergesenseAPI < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Vergesense API"
@@ -16,6 +18,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
   @buildings : Array(Building) = [] of Building
   @floors : Hash(String, Floor) = {} of String => Floor
+  @spaces : Hash(String, String) = {} of String => String
 
   @debug_payload : Bool = false
   @poll_every : Time::Span? = nil
@@ -47,6 +50,8 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         init_floors
         init_spaces
         init_floors_status
+
+        self["init_complete"] = true
       end
     end
   rescue e
@@ -75,6 +80,10 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
     # Return a 200 response
     SUCCESS_RESPONSE
+  end
+
+  def floor_key(space_id : String)
+    @spaces[space_id]
   end
 
   private def init_buildings
@@ -119,13 +128,26 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
   private def update_floor_space(remote_space)
     floor = @floors[remote_space.floor_key]?
     if floor
-      floor_space = floor.spaces.find { |space| space.space_ref_id == remote_space.space_ref_id }
+      floor_space = floor.spaces.find { |space| space.ref_id == remote_space.ref_id }
       if floor_space
         floor_space.building_ref_id = remote_space.building_ref_id
         floor_space.floor_ref_id = remote_space.floor_ref_id
         floor_space.people = remote_space.people
         floor_space.motion_detected = remote_space.motion_detected
         floor_space.timestamp = remote_space.timestamp
+        floor_space.environment = remote_space.environment
+        floor_space.name = remote_space.name if remote_space.name
+        floor_space.capacity = remote_space.capacity if remote_space.capacity
+        floor_space.max_capacity = remote_space.max_capacity if remote_space.max_capacity
+        floor_space.signs_of_life = remote_space.signs_of_life?
+      else
+        remote_space.signs_of_life = remote_space.signs_of_life?
+        floor.spaces << remote_space
+      end
+
+      # cache the lookups for simple floor discovery
+      if space_ref = remote_space.ref_id
+        @spaces[space_ref] = remote_space.floor_key
       end
     end
   end

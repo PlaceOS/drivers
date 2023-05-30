@@ -132,43 +132,45 @@ class Cisco::DNASpaces::IotTelemetry
   @[JSON::Field(key: "tpData")]
   getter tele_presence_data : TpData?
 
+  def people_count
+    tele_presence_data.try &.people_count
+  end
+
+  def presence
+    tele_presence_data.try &.presence
+  end
+
+  def ambient_noise
+    tele_presence_data.try &.ambient_noise
+  end
+
   def air_quality
     if index = @air_quality_index
       index[:airQualityIndex]
-    else
-      0.0
     end
   end
 
   def temperature
     if temp = @temperature_celsius
       temp[:temperatureInCelsius]
-    else
-      0.0
     end
   end
 
   def humidity
     if humidity = @humidity_percent
       humidity[:humidityInPercentage]
-    else
-      0.0
     end
   end
 
   def air_pressure
     if pressure = @air_pressure_actual
       pressure[:pressure]
-    else
-      0.0
     end
   end
 
   def pir_triggered
     if pir_trigger = @pir_trigger
       pir_trigger[:timestamp]
-    else
-      0_i64
     end
   end
 
@@ -211,11 +213,15 @@ class Cisco::DNASpaces::IotTelemetry
   end
 
   def last_seen
-    position.time_located
+    tele_presence_data.try(&.time_stamp) || position.time_located
   end
 
   def last_seen=(time)
-    position.time_located = time
+    if tele_data = tele_presence_data
+      tele_data.time_stamp = time
+    else
+      position.time_located = time
+    end
   end
 
   def raw_user_id

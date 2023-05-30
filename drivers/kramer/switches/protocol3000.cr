@@ -7,6 +7,7 @@ require "placeos-driver/interface/switchable"
 class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
   include Interface::Muteable
   include Interface::Switchable(Int32, Int32)
+  include Interface::InputSelection(Int32)
 
   # Discovery Information
   tcp_port 23
@@ -54,8 +55,6 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     get_machine_info
   end
 
-  include Interface::InputSelection(Input)
-
   def switch_video(input : Int32, output : Array(Int32))
     do_send(CMDS["switch_video"], build_switch_data({input => output}))
   end
@@ -64,7 +63,7 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
     do_send(CMDS["switch_audio"], build_switch_data({input => output}))
   end
 
-  def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
+  def switch(map : Hash(Int32, Array(Int32)), layer : SwitchLayer? = nil)
     case layer
     in Nil, .all?
       switch_video(map.first_key, map.first_value)
@@ -77,6 +76,11 @@ class Kramer::Switcher::Protocol3000 < PlaceOS::Driver
       logger.debug { "layer #{layer} not available on extron matrix" }
       return
     end
+  end
+
+  def switch_to(input : Int32)
+    logger.debug { "switching input to #{input}" }
+    self[:input] = input.to_s
   end
 
   enum RouteType

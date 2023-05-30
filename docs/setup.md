@@ -1,37 +1,17 @@
 # Setup
 
-This allows you to build and test drivers without installing or running the complete PlaceOS service.
+Usage of [PlaceOS Driver Spec Runner](https://github.com/PlaceOS/driver-spec-runner) allows you to build and test
+drivers without installing or running the complete PlaceOS service.
 
-1. clone the drivers repository: `git clone https://github.com/placeos/drivers drivers`
-2. clone private repositories here: `mkdir ./drivers/repositories`
+## Installation
 
+Clone the drivers repository: `git clone https://github.com/placeos/drivers drivers`
 
-## OSX
+## Reports
 
-Install [Homebrew](https://brew.sh/) to install dependencies
+Test your driver with `./harness report <your_spec_file>`.
+If the spec file argument is omitted, the harness will run specs for every driver in the current repository.
 
-* Install [Crystal Lang](https://crystal-lang.org/reference/installation/): `brew install crystal`
-* Install libssh2: `brew install libssh2`
-* Install redis: `brew install redis`
+## Developing
 
-Ensure the following lines are in your `.bashrc` file
-
-```shell
-export PATH="/usr/local/opt/llvm/bin:$PATH"
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/usr/local/opt/openssl/lib/pkgconfig
-```
-
-
-## Running Specs
-
-1. Ensure redis is running: `redis-server`
-2. Install dependencies: `cd drivers; shards update`
-3. Launch application: `crystal run ./src/app.cr`
-4. Browse to: http://localhost:3000/
-
-Now you can build drivers and run specs:
-
-* Build a drvier or spec: `curl -X POST "http://localhost:3000/build?driver=drivers/helvar/net.cr"`
-* Run a spec: `curl -X POST "http://localhost:3000/test?driver=drivers/lutron/lighting.cr&spec=drivers/lutron/lighting_spec.cr"`
-
-To build or test against drivers in private repositories include the repository param: `repository=private_drivers`
+After running `./harness up`, the harness will expose a development interface on [localhost:8085](http://localhost:8085).

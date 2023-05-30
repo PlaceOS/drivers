@@ -76,10 +76,11 @@ class Lumens::DC193 < PlaceOS::Driver
     send Bytes[0xA0, 0x50, 0x00, 0x00, 0x00, 0xAF], priority: 0
   end
 
-  def zoom_to(position : Int32, auto_focus : Bool = true, index : Int32 | String = 0)
-    return false if @frozen
+  def zoom_to(position : Float64, auto_focus : Bool = true, index : Int32 | String = 0)
+    position = position.clamp(0.0, 100.0)
+    percentage = position / 100.0
+    position = (percentage * @zoom_max.to_f).to_i
 
-    position = (position < 0 ? 0 : @zoom_max) unless @zoom_range.includes?(position)
     low = (position & 0xFF).to_u8
     high = ((position >> 8) & 0xFF).to_u8
     auto_focus = auto_focus ? 0x1F_u8 : 0x13_u8
@@ -212,8 +213,8 @@ class Lumens::DC193 < PlaceOS::Driver
              when :frozen_status, :freeze
                self[:frozen] = @frozen = data[2] == 1_u8
              when :zoom_staus, :zoom_direct_auto_focus, :zoom_direct
-               @zoom = data[2].to_i + (data[3].to_i << 8)
-               self[:zoom] = @zoom
+               value = data[2].to_i + (data[3].to_i << 8)
+               self[:zoom] = value.to_f * (100.0 / @zoom_max.to_f)
              when :picture_mode_staus, :picture_mode
                self[:picture_mode] = PICTURE_MODES[data[2].to_i]
              when :lamp_staus, :lamp

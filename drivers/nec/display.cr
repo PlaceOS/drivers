@@ -119,8 +119,9 @@ class Nec::Display < PlaceOS::Driver
     send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end
 
-  def volume(val : Int32)
-    data = MsgType::SetParameter.build(Command::VolumeStatus, val.clamp(0, 100))
+  def volume(val : Int32 | Float64)
+    val = val.to_f.clamp(0.0, 100.0).round_away.to_i
+    data = MsgType::SetParameter.build(Command::VolumeStatus, val)
     send(data, name: "volume")
     send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end
@@ -128,7 +129,9 @@ class Nec::Display < PlaceOS::Driver
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
     logger.debug { "requested to update mute to #{state}" }
     data = MsgType::SetParameter.build(Command::MuteStatus, state ? 1 : 0)
-    send(data, name: "mute_audio")
+    resp = send(data, name: "mute_audio")
+
+    resp
   end
 
   def do_poll
@@ -137,20 +140,21 @@ class Nec::Display < PlaceOS::Driver
 
     if current_power
       mute_status
-      volume_status
       video_input
-      audio_input
     end
   end
 
   def received(data, task)
+    logger.debug { "NEC sent: 0x#{data.hexstring}" }
+
     header = data[0..6]
     message = data[7..-3]
     checksum = data[-2]
 
-    unless checksum == data[1..-3].reduce { |a, b| a ^ b }
-      return task.try &.retry("invalid checksum in device response")
-    end
+    # checksum is often incorrect so we'll just ignore it
+    # unless checksum == data[1..-3].reduce { |a, b| a ^ b }
+    #  return task.try &.retry("invalid checksum in device response")
+    # end
 
     begin
       case MsgType.from_value header[4]
@@ -162,6 +166,7 @@ class Nec::Display < PlaceOS::Driver
         raise "unknown message type"
       end
     rescue e
+      logger.warn(exception: e) { "processing response" }
       task.try &.abort e.message
     else
       task.try &.success
@@ -171,7 +176,8 @@ class Nec::Display < PlaceOS::Driver
   # Command replies each use a different packet structure
   private def parse_command_reply(message : Bytes)
     # Don't do any processing if this is the response for the save command
-    return if (string = String.new(message[1..-2])) == "00C"
+    string = String.new(message[1..-2])
+    return if {"000C", "00C"}.includes?(string)
     response = string.hexbytes
 
     if response[1..3] == Bytes[0xC2, 0x03, 0xD6] # Set power
@@ -186,6 +192,8 @@ class Nec::Display < PlaceOS::Driver
       logger.warn { "unhandled command reply: #{message}" }
     end
   end
+
+  @audio_mute : Bool = false
 
   # Get and set parameter replies share common structure
   private def parse_response(message : Bytes)
@@ -203,6 +211,7 @@ class Nec::Display < PlaceOS::Driver
     when .audio_input?
       self[:audio] = Audio.from_value(value)
     when .volume_status?
+      return if @audio_mute
       self[:volume] = value
       self[:audio_mute] = value == 0
     when .brightness_status?
@@ -210,8 +219,12 @@ class Nec::Display < PlaceOS::Driver
     when .contrast_status?
       self[:contrast] = value
     when .mute_status?
-      self[:audio_mute] = value == 1
-      self[:volume] = 0 if value == 1
+      self[:audio_mute] = @audio_mute = value == 1
+      if value == 1
+        self[:volume] = 0
+      else
+        volume_status
+      end
     when .auto_setup?
       # auto_setup
       # nothing needed to do here (we are delaying the next command by 4 seconds)

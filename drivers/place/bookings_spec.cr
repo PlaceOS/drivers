@@ -1,14 +1,24 @@
 require "placeos-driver/spec"
+require "placeos-driver/interface/sensor"
 
 DriverSpecs.mock_driver "Place::Bookings" do
   system({
     Calendar: {CalendarMock},
+    Sensor:   {SensorMock},
   })
+
+  sleep 200.milliseconds
 
   # Check it calculates state properly
   exec(:poll_events).get
+
+  sleep 200.milliseconds
+
   bookings = status[:bookings].as_a
   bookings.size.should eq(4)
+
+  sleep 200.milliseconds
+
   status[:booked].should eq(true)
   status[:in_use].should eq(false)
   status[:pending].should eq(true)
@@ -20,6 +30,8 @@ DriverSpecs.mock_driver "Place::Bookings" do
 
   # Start a meeting
   exec(:start_meeting, current_start).get
+  sleep 200.milliseconds
+
   bookings = status[:bookings].as_a
   bookings.size.should eq(4)
   status[:booked].should eq(true)
@@ -31,6 +43,8 @@ DriverSpecs.mock_driver "Place::Bookings" do
 
   # End a meeting
   exec(:end_meeting, current_start).get
+  sleep 2200.milliseconds # polls after 2 seconds
+
   bookings = status[:bookings].as_a
   bookings.size.should eq(3)
 
@@ -40,6 +54,42 @@ DriverSpecs.mock_driver "Place::Bookings" do
   status[:current_pending].should eq(false)
   status[:next_pending].should eq(false)
   status[:status].should eq("free")
+
+  status[:people_count].should eq(12.0)
+  status[:sensor_name].should eq("Mock People Count")
+  status[:presence].should eq(true)
+end
+
+# :nodoc:
+class SensorMock < DriverSpecs::MockDriver
+  include PlaceOS::Driver::Interface::Sensor
+
+  alias Interface = PlaceOS::Driver::Interface
+
+  def on_load
+    self[:people_count] = 12.0
+  end
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    if type == "people_count"
+      [Interface::Sensor::Detail.new(
+        type: Interface::Sensor::SensorType::PeopleCount,
+        value: 12.0,
+        last_seen: Time.utc.to_unix,
+        mac: "mock-people-count",
+        id: nil,
+        name: "Mock People Count",
+        module_id: "mod-Sensor/1",
+        binding: "people_count"
+      )]
+    else
+      [] of Interface::Sensor::Detail
+    end
+  end
+
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    nil
+  end
 end
 
 # :nodoc:
@@ -49,7 +99,7 @@ class CalendarMock < DriverSpecs::MockDriver
     self[:deleted_event] = nil
   end
 
-  def delete_event(calendar_id : String, event_id : String, user_id : String? = nil)
+  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     self[:deleted_event] = {calendar_id, event_id}
     @events = @events.reject { |event| event["id"] == event_id }
     nil
@@ -60,7 +110,8 @@ class CalendarMock < DriverSpecs::MockDriver
     period_start : Int64,
     period_end : Int64,
     time_zone : String? = nil,
-    user_id : String? = nil
+    user_id : String? = nil,
+    include_cancelled : Bool = false
   )
     self[:checked_calendar] = calendar_id
     @events

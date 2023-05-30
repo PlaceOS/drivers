@@ -10,7 +10,7 @@ class Cisco::DNASpaces::Location
   # TODO:: this might be better as an enum
   # if there are only limited types
   @[JSON::Field(key: "inferredLocationTypes")]
-  getter tags : Array(String)
+  getter tags : Array(String) = [] of String
 
   getter parent : Location?
 

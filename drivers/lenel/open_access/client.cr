@@ -131,6 +131,21 @@ class Lenel::OpenAccess::Client
     ))[:item_list]
   end
 
+  def raw_lookup(
+    type_name : String,
+    filter : String? = nil,
+    page_number : Int32? = nil,
+    page_size : Int32? = 100,
+    order_by : String? = nil
+  )
+    params = HTTP::Params.new
+    args.each do |key, val|
+      params.add key.to_s, val.to_s unless val.nil?
+    end
+    response = transport.get(path: "/instances?version=1.0&#{params}")
+    response.body
+  end
+
   # Counts the number of instances of *entity*.
   #
   # *filter* may optionally be used to specify a subset of these.
@@ -162,5 +177,21 @@ class Lenel::OpenAccess::Client
         property_value_map: T.partial(**props),
       }.to_json
     )
+  end
+
+  # Retrieve a list of logged events from Onguard
+  # See Onguard 7.6 OpenAccess User Gude > Chapter 4 REST API > Manage Instances > get logged_events
+  def get_logged_events(
+    filter : String? = nil,
+    page_number : Int32? = nil,
+    page_size : Int32? = 100,
+    order_by : String? = nil
+  )
+    params = HTTP::Params.new
+    args.each do |key, val|
+      params.add key.to_s, val.to_s unless val.nil?
+    end
+    response = transport.get(path: "/logged_events?version=1.0&#{params}")
+    response.body
   end
 end

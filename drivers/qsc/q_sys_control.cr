@@ -1,6 +1,6 @@
 require "placeos-driver"
 
-# Documentation https://q-syshelp.qsc.com/Content/External_Control/Q-SYS_External_Control/007_Q-SYS_External_Control_Protocol.htm
+# Documentation https://q-syshelp.qsc.com/Content/External_Control_APIs/ECP/ECP_Commands.htm
 
 class Qsc::QSysControl < PlaceOS::Driver
   # Discovery Information
@@ -8,30 +8,69 @@ class Qsc::QSysControl < PlaceOS::Driver
   descriptive_name "QSC Audio DSP External Control"
   generic_name :Mixer
 
+  default_settings({
+    _change_groups: {
+      "room123_phone" => {
+        id:       1,
+        controls: ["VoIPCallStatusProgress", "VoIPCallStatusRinging", "VoIPCallStatusOffHook"],
+      },
+    },
+  })
+
   alias Group = NamedTuple(id: Int32, controls: Set(String))
   alias Ids = String | Array(String)
   alias Val = Int32 | Float64
 
   @username : String? = nil
   @password : String? = nil
+
+  @connected : Bool = false
   @change_group_id : Int32 = 30
   @em_id : String? = nil
   @emergency_subscribe : PlaceOS::Driver::Subscriptions::Subscription? = nil
-  @history = {} of String => Symbol
-  @change_groups = {} of Symbol => Group
+  getter history : Hash(String, Symbol) = {} of String => Symbol
+
+  @static_change_groups = {} of String => Group
+  @dynamic_change_groups = {} of String => Group
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r\n")
+    queue.retries = 1
     on_update
   end
 
   def on_update
     @username = setting?(String, :username)
     @password = setting?(String, :password)
-    login if @username
 
-    @change_groups.each do |_, group|
-      logger.debug { "change groups" }
+    @static_change_groups = setting?(Hash(String, Group), :change_groups) || {} of String => Group
+
+    if @connected
+      login if @username
+      recreate_change_groups
+    end
+  end
+
+  def connected
+    @connected = true
+    login if @username
+    recreate_change_groups
+    schedule.every(40.seconds) do
+      logger.debug { "Maintaining Connection" }
+      about
+    end
+  end
+
+  def disconnected
+    @connected = false
+    schedule.clear
+  end
+
+  protected def recreate_change_groups
+    return unless @connected
+    change_groups = @static_change_groups.merge @dynamic_change_groups
+    change_groups.each do |name, group|
+      logger.debug { "configuring change group #{name}" }
       group_id = group[:id]
       controls = group[:controls]
 
@@ -70,18 +109,9 @@ class Qsc::QSysControl < PlaceOS::Driver
     end
   end
 
-  def connected
-    schedule.every(40.seconds) do
-      logger.debug { "Maintaining Connection" }
-      about
-    end
-  end
-
-  def disconnected
-    schedule.clear
-  end
-
   def get_status(control_id : String, **options)
+    fader_type = options[:fader_type]?
+    @history[control_id] = fader_type if fader_type
     do_send("cg #{control_id}\n", **options)
   end
 
@@ -95,6 +125,8 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def set_value(control_id : String, value : Val, ramp_time : Val? = nil, **options)
+    fader_type = options[:fader_type]?
+    @history[control_id] = fader_type if fader_type
     if ramp_time
       do_send("csvr \"#{control_id}\" #{value} #{ramp_time}\n", **options) # , wait: false)
       schedule.in(ramp_time.seconds + 200.milliseconds) { get_status(control_id) }
@@ -128,12 +160,25 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   # Compatibility Methods
-  def fader(fader_ids : Ids, level : Int32)
-    level = level / 10
-    ensure_array(fader_ids).each { |f_id| set_value(f_id, level, name: "fader#{f_id}", fader_type: :fader) }
+  def fader(fader_ids : Ids, level : Val)
+    level = level.to_f.clamp(0.0, 100.0)
+    percentage = level / 100.0
+    range = -100..20
+
+    # adjust into range
+    level_actual = percentage * (range.size - 1).to_f
+    level_actual = (level_actual + range.begin.to_f).round(1)
+
+    ensure_array(fader_ids).each do |f_id|
+      if @history[f_id]? == :percentage_fader
+        set_value(f_id, level, name: "fader#{f_id}")
+      else
+        set_value(f_id, level_actual, name: "fader#{f_id}", fader_type: :fader)
+      end
+    end
   end
 
-  def faders(fader_ids : Ids, level : Int32)
+  def faders(fader_ids : Ids, level : Val)
     fader(fader_ids, level)
   end
 
@@ -151,7 +196,7 @@ class Qsc::QSysControl < PlaceOS::Driver
   end
 
   def mute_toggle(mute_id : Ids)
-    mute(mute_id, !self["fader#{mute_id}_mute"].try(&.as_bool))
+    mute(mute_id, !self["fader#{mute_id}_mute"]?.try(&.as_bool))
   end
 
   def snapshot(name : String, index : Int32, ramp_time : Val = 1.5)
@@ -165,11 +210,11 @@ class Qsc::QSysControl < PlaceOS::Driver
   # For inter-module compatibility
   def query_fader(fader_ids : Ids)
     fad = ensure_array(fader_ids)[0]
-    get_status(fad, fader_type: :fader)
+    get_status(fad, fader_type: (@history[fad]? || :fader))
   end
 
   def query_faders(fader_ids : Ids)
-    ensure_array(fader_ids).each { |f_id| get_status(f_id, fader_type: :fader) }
+    ensure_array(fader_ids).each { |f_id| get_status(f_id, fader_type: (@history[f_id]? || :fader)) }
   end
 
   def query_mute(fader_ids : Ids)
@@ -194,25 +239,10 @@ class Qsc::QSysControl < PlaceOS::Driver
     phone_dial(control_id)
   end
 
-  def phone_watch(control_ids : Ids)
-    # Ensure change group exists
-    group = create_change_group(:phone)
-    group_id = group[:id]
-    controls = group[:controls]
-
-    # Add ids to change group
-    ensure_array(control_ids).each do |id|
-      unless controls.includes?(id)
-        controls << id
-        do_send("cga #{group_id} #{id}\n") # , wait: false)
-      end
-    end
-
-    update_change_group(:phone, group_id, controls)
-  end
-
   private def create_change_group(name) : Group
-    if group = @change_groups[name]?
+    name = name.to_s
+
+    if group = @dynamic_change_groups[name]?
       return group
     end
 
@@ -220,7 +250,7 @@ class Qsc::QSysControl < PlaceOS::Driver
     next_id = @change_group_id
     @change_group_id += 1
 
-    @change_groups[name] = {
+    @dynamic_change_groups[name] = {
       id:       next_id,
       controls: Set(String).new,
     }
@@ -228,28 +258,25 @@ class Qsc::QSysControl < PlaceOS::Driver
     # create change group and poll every 2 seconds
     do_send("cgc #{next_id}\n")        # , wait: false)
     do_send("cgsna #{next_id} 2000\n") # , wait: false)
-    @change_groups[name]
+    @dynamic_change_groups[name]
   end
 
   private def update_change_group(name, id, controls) : Group
-    @change_groups[name] = {
+    @dynamic_change_groups[name.to_s] = {
       id:       id,
       controls: controls,
     }
   end
 
   private def poll_change_group(name)
-    if group = @change_groups[name]
+    if group = @dynamic_change_groups[name]
       do_send("cgpna #{group[:id]}\n") # , wait: false)
     end
   end
 
   def received(data, task)
-    process_response(data, task)
-  end
-
-  private def process_response(data, task, fader_type : Symbol? = nil)
     data = String.new(data)
+    puts "GOT: #{data}"
     return task.try(&.success) if data == "none\r\n"
     logger.debug { "QSys sent: #{data}" }
     resp = shellsplit(data)
@@ -257,18 +284,21 @@ class Qsc::QSysControl < PlaceOS::Driver
     case resp[0]
     when "cv"
       control_id = resp[1]
-      # string rep = resp[2]
-      value = resp[3]
-      position = resp[4].to_i
+      string_rep = resp[2]
+      value = resp[-2]
+      position = resp[-1].to_f
 
       self["pos_#{control_id}"] = position
+      @history[control_id] = :percentage_fader if string_rep.ends_with?('%')
 
-      if type = fader_type || @history[control_id]?
-        @history[control_id] = type
-
+      if type = @history[control_id]?
         case type
         when :fader
-          self["fader#{control_id}"] = (value.to_f * 10).to_i
+          range = -100..20
+          vol_percent = ((value.to_f - range.begin.to_f) / (range.size - 1).to_f) * 100.0
+          self["fader#{control_id}"] = vol_percent.round(2)
+        when :percentage_fader
+          self["fader#{control_id}"] = value.to_f
         when :mute
           self["fader#{control_id}_mute"] = value.to_i == 1
         end
@@ -285,9 +315,7 @@ class Qsc::QSysControl < PlaceOS::Driver
       control_id = resp[1]
       count = resp[2].to_i
 
-      if type = fader_type || @history[control_id]?
-        @history[control_id] = type
-
+      if type = @history[control_id]?
         # Skip strings and extract the values
         next_count = count + 3
         count = resp[next_count].to_i
@@ -296,7 +324,9 @@ class Qsc::QSysControl < PlaceOS::Driver
 
           case type
           when :fader
-            self["fader#{control_id}"] = (value.to_f * 10).to_i
+            range = -100..20
+            vol_percent = ((value.to_f - range.begin.to_f) / (range.size - 1).to_f) * 100.0
+            self["fader#{control_id}"] = vol_percent.round(2)
           when :mute
             self["fader#{control_id}_mute"] = value == 1
           end
@@ -353,7 +383,7 @@ class Qsc::QSysControl < PlaceOS::Driver
 
   private def do_send(req, fader_type : Symbol? = nil, **options)
     logger.debug { "sending #{req}" }
-    send(req, **options) { |data, task| process_response(data, task, fader_type) }
+    send(req, **options)
   end
 
   private def ensure_array(object)

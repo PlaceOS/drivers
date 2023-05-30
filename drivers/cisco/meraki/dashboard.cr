@@ -25,6 +25,9 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     # Max requests a second made to the dashboard
     rate_limit:    4,
     debug_payload: false,
+
+    # filter message type
+    scanning_api_filter: "WiFi",
   })
 
   def on_load
@@ -32,9 +35,14 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     on_update
   end
 
+  def on_unload
+    @channel.close
+  end
+
   @scanning_validator : String = ""
   @scanning_secret : String = ""
   @api_key : String = ""
+  @scanning_api_filter : MessageType = MessageType::WiFi
 
   @rate_limit : Int32 = 4
   @channel : Channel(Nil) = Channel(Nil).new(1)
@@ -48,6 +56,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     @scanning_validator = setting?(String, :meraki_validator) || ""
     @scanning_secret = setting?(String, :meraki_secret) || ""
     @api_key = setting?(String, :meraki_api_key) || ""
+    @scanning_api_filter = setting?(MessageType, :scanning_api_filter) || MessageType::WiFi
 
     @rate_limit = setting?(Int32, :rate_limit) || 4
     @wait_time = 1.second / @rate_limit
@@ -59,6 +68,13 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
   @[Security(PlaceOS::Driver::Level::Support)]
   def fetch(location : String)
     req(location, &.body)
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def fetch_all(location : String)
+    responses = [] of String
+    req_all_pages(location) { |response| responses << response.body }
+    responses
   end
 
   protected def req(location : String)
@@ -99,24 +115,75 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   end
 
-  EMPTY_HEADERS    = {} of String => String
-  SUCCESS_RESPONSE = {HTTP::Status::OK, EMPTY_HEADERS, nil}
-
-  @[Security(PlaceOS::Driver::Level::Support)]
-  def poll_clients(network_id : String? = nil, timespan : UInt32 = 900_u32)
-    clients = [] of Client
-    next_page = "/api/v1/networks/#{network_id}/clients?perPage=1000&timespan=#{timespan}"
+  protected def req_all_pages(location : String) : Nil
+    next_page = location
 
     loop do
       break unless next_page
 
       next_page = req(next_page) do |response|
-        clients.concat Array(Client).from_json(response.body)
+        yield response
         LinkHeader.new(response)["next"]?
       end
     end
+  end
 
-    clients
+  EMPTY_HEADERS    = {} of String => String
+  SUCCESS_RESPONSE = {HTTP::Status::OK.to_i, EMPTY_HEADERS, nil}
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def organizations
+    req("/api/v1/organizations?perPage=1000") do |response|
+      Array(Organization).from_json(response.body)
+    end
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def networks(organization_id : String)
+    nets = [] of Network
+    req_all_pages("/api/v1/organizations/#{organization_id}/networks?perPage=1000") do |response|
+      nets.concat Array(Network).from_json(response.body)
+    end
+    nets
+  end
+
+  @[Security(PlaceOS::Driver::Level::Support)]
+  def poll_clients(
+    network_id : String? = nil,
+    timespan : UInt32 = 900_u32,
+    connection : ConnectionType? = nil,
+    device_serial : String? = nil,
+    statuses : String = "Online"
+  )
+    params = URI::Params.build do |form|
+      form.add "perPage", "1000"
+      form.add "timespan", timespan.to_s
+      form.add "statuses[]", statuses
+      form.add "recentDeviceConnections[]", connection.to_s if connection
+    end
+
+    clients = [] of Client
+    req_all_pages "/api/v1/networks/#{network_id}/clients?#{params}" do |response|
+      clients.concat Array(Client).from_json(response.body)
+    end
+
+    if device_serial
+      clients.select! { |client| client.recent_device_serial == device_serial }.sort! { |a, b| b.last_seen <=> a.last_seen }
+    else
+      clients.sort! { |a, b| b.last_seen <=> a.last_seen }
+    end
+  end
+
+  def ports_statuses(device_serial : String)
+    req("/api/v1/devices/#{device_serial}/switch/ports/statuses") do |response|
+      Array(PortStatusResponse).from_json(response.body)
+    end
+  end
+
+  def get_zones(camera_serial : String)
+    req("/api/v1/devices/#{camera_serial}/camera/analytics/zones") do |response|
+      Array(CameraZone).from_json(response.body)
+    end
   end
 
   # Webhook endpoint for scanning API, expects version 3
@@ -138,8 +205,8 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       seen = DevicesSeen.from_json(body)
       logger.debug { "parsed meraki payload" }
 
-      # We're only interested in Wifi at the moment
-      if seen.message_type != "WiFi"
+      # filter out observations we're not interested in
+      if !@scanning_api_filter.none? && seen.message_type != @scanning_api_filter
         logger.debug { "ignoring message type: #{seen.message_type}" }
         return SUCCESS_RESPONSE
       end
@@ -157,8 +224,19 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     SUCCESS_RESPONSE
   end
 
+  # a webhook for obtaining changes in port status
+  def port_status(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "Webhook Alert received: #{method},\nheaders #{headers},\nbody #{body}" }
+
+    self[:port_update] = WebhookAlert.from_json(body)
+
+    # Return a 200 response
+    SUCCESS_RESPONSE
+  end
+
   protected def rate_limiter
     loop do
+      break if @channel.closed?
       begin
         @channel.send(nil)
       rescue error
@@ -169,6 +247,6 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   rescue
     # Possible error with logging exception, restart rate limiter silently
-    spawn { rate_limiter }
+    spawn { rate_limiter } unless @channel.closed?
   end
 end

@@ -3,6 +3,7 @@ require "json"
 module Gallagher
   class Results(ResultType)
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     property results : Array(ResultType)
 
@@ -13,6 +14,7 @@ module Gallagher
   # Personal Data Field
   class PDF
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     def initialize(@id, @name, @href)
     end
@@ -30,8 +32,20 @@ module Gallagher
     property description : String? = nil
   end
 
+  class DoorDetails
+    include JSON::Serializable
+
+    def initialize(@id, @name, @href)
+    end
+
+    property id : String
+    property name : String
+    property href : String
+  end
+
   class Cardholder
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     def initialize(
       @first_name,
@@ -76,6 +90,7 @@ module Gallagher
 
   class CardType
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     property id : String
     property name : String
@@ -99,30 +114,50 @@ module Gallagher
 
   class Invitation
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     property email : String?
     property mobile : String?
-    property singleFactorOnly : Bool?
+
+    @[JSON::Field(key: "singleFactorOnly")]
+    property single_factor_only : Bool?
+
     property status : String?
     property href : String?
   end
 
-  class Card
+  struct Card
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     def initialize(@href, @status)
     end
 
     property href : String?
-    property type : NamedTuple(href: String)? = nil
+    property type : NamedTuple(href: String, name: String?)? = nil
     property number : String? = nil
     property status : NamedTuple(value: String, type: String?)? = nil
+
+    @[JSON::Field(key: "facilityCode")]
+    property facility_code : String? = nil
 
     @[JSON::Field(key: "cardSerialNumber")]
     property card_serial_number : String? = nil
 
     @[JSON::Field(key: "issueLevel")]
-    property issue_level : String? = nil
+    property issue_level : Int32? = nil
+
+    @[JSON::Field(key: "credentialClass")]
+    property credential_class : String? = nil
+
+    @[JSON::Field(key: "e2eKey")]
+    property e2e_key : String? = nil
+
+    @[JSON::Field(key: "bleFacilityId")]
+    property ble_facility_id : Int64? = nil
+
+    @[JSON::Field(key: "credentialId")]
+    property credential_id : String? = nil
 
     property invitation : Invitation? = nil
 
@@ -132,6 +167,7 @@ module Gallagher
 
   class CardholderAccessGroup
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     property href : String?
 
@@ -140,5 +176,82 @@ module Gallagher
 
     property from : Time?
     property until : Time?
+  end
+
+  class AccessGroup
+    include JSON::Serializable
+
+    property href : String
+    property id : String
+    property name : String
+    property description : String?
+
+    property parent : NamedTuple(
+      href: String,
+      name: String,
+    )?
+
+    property division : NamedTuple(
+      href: String,
+    )
+
+    property cardholders : NamedTuple(
+      href: String,
+    )
+
+    property children : Array(NamedTuple(
+      href: String,
+      name: String,
+    ))?
+  end
+
+  class AccessGroupMembership
+    include JSON::Serializable
+
+    property href : String
+    property cardholder : NamedTuple(
+      href: String,
+      name: String,
+    )
+    property from : Time?
+    property until : Time?
+  end
+
+  struct IdName
+    include JSON::Serializable
+
+    getter id : String
+    getter name : String
+  end
+
+  struct Event
+    include JSON::Serializable
+
+    getter group : IdName
+    getter type : IdName
+    getter source : IdName
+
+    getter id : String
+    getter time : Time
+    getter message : String?
+
+    getter card : Card?
+    getter cardholder : IdName?
+
+    def matching_type?(types : Array(Int32)?)
+      return true unless types
+      types.map(&.to_s).includes?(type.id)
+    end
+  end
+
+  struct Events
+    include JSON::Serializable
+
+    getter events : Array(Event)
+    getter updates : NamedTuple(href: String)
+
+    def update_url
+      updates[:href]
+    end
   end
 end

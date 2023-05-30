@@ -9,21 +9,21 @@ describe Command do
   end
 
   it "serialises the command to an IO" do
-    command = Command[1, '*', 2, SwitchLayer::All]
+    command = Command[1, '*', 2, MatrixLayer::All]
     io = IO::Memory.new
     io.write_bytes command
     io.to_s.should eq("1*2!")
   end
 
   it "provides a string representation suitable for logging" do
-    command = Command[1, '*', 2, SwitchLayer::All]
+    command = Command[1, '*', 2, MatrixLayer::All]
     command.to_s.should eq("‹1*2!›")
   end
 
   it "flattens nested fields" do
     routes = [
-      [1, '*', 2, SwitchLayer::All],
-      [3, '*', 4, SwitchLayer::All],
+      [1, '*', 2, MatrixLayer::All],
+      [3, '*', 4, MatrixLayer::All],
     ]
     command = Command["\e+Q", routes, '\r']
     io = IO::Memory.new
@@ -69,7 +69,7 @@ describe Response do
       tie = tie.as Tie
       tie.input.should eq(1)
       tie.output.should eq(2)
-      tie.layer.should eq(SwitchLayer::All)
+      tie.layer.should eq(MatrixLayer::All)
     end
   end
 
@@ -79,7 +79,7 @@ describe Response do
       tie.should be_a Switch
       tie = tie.as Switch
       tie.input.should eq(1)
-      tie.layer.should eq(SwitchLayer::All)
+      tie.layer.should eq(MatrixLayer::All)
     end
   end
 
@@ -124,7 +124,7 @@ describe Response do
   describe ".parse" do
     it "builds a parser that includes device errors" do
       resp = Response.parse "Out4 In2 Aud", as: Response::Tie
-      typeof(resp).should eq (Tie | Error | Response::ParseError)
+      typeof(resp).should eq(Tie | Error | Response::ParseError)
     end
 
     it "fails for unhandled responses" do

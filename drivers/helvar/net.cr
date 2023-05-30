@@ -1,8 +1,13 @@
 require "placeos-driver"
+require "placeos-driver/interface/lighting"
 
 # Documentation: https://aca.im/driver_docs/Helvar/HelvarNet-Overview.pdf
 
 class Helvar::Net < PlaceOS::Driver
+  include Interface::Lighting::Scene
+  include Interface::Lighting::Level
+  alias Area = Interface::Lighting::Area
+
   # Discovery Information
   tcp_port 50000
   descriptive_name "Helvar Net Lighting Gateway"
@@ -60,7 +65,11 @@ class Helvar::Net < PlaceOS::Driver
   end
 
   def get_current_preset(group : Int32)
-    query_last_scene(group: group)
+    query_last_scene(group: group, name: "query_scene#{group}")
+  end
+
+  def query_scene_levels(group : Int32)
+    query_scene_info(group: group, name: "query_scene#{group}_info")
   end
 
   CMD_METHODS = {
@@ -172,6 +181,7 @@ class Helvar::Net < PlaceOS::Driver
   def received(data, task)
     data = String.new(data)
     logger.debug { "Helvar sent: #{data}" }
+    task_name = task.try(&.name)
 
     # Remove the # at the end of the message
     data = data[0..-2]
@@ -223,17 +233,31 @@ class Helvar::Net < PlaceOS::Driver
       cmd = COMMANDS[params[:cmd]]
       case cmd
       when "query_last_scene"
-        self["area#{params[:group]}"] = value.try &.to_i
+        scene = value.try &.to_i
+        group = params[:group]
+        self["area#{group}"] = scene
+        task.not_nil!.success(scene) if task_name == "query_scene#{group}"
       when "group_scene"
         block = params[:block]
+        group = params[:group]
+        scene = params[:scene].to_i
         if block
           if @ignore_blocks
-            self["area#{params[:group]}"] = params[:scene].to_i
+            self["area#{group}"] = scene
           else
-            self["area#{params[:group]}_block#{block}"] = params[:scene].to_i
+            self["area#{group}_#{block}"] = scene
           end
         else
-          self["area#{params[:group]}"] = params[:scene].to_i
+          self["area#{group}"] = scene
+        end
+        task.not_nil!.success(scene) if task_name == "group_scene#{group}"
+      when "group_level"
+        task.not_nil!.success if task_name == "group_level#{params[:group]}"
+      when "query_scene_info"
+        group = params[:group]
+        if value && task_name == "query_scene#{group}_info"
+          levels = value.split(",L")[0].split(',').map(&.to_i)
+          task.not_nil!.success(levels)
         end
       else
         logger.debug { "unknown response value\n#{cmd} = #{value}" }
@@ -248,7 +272,7 @@ class Helvar::Net < PlaceOS::Driver
       logger.info { "unknown request #{data}" }
     end
 
-    task.try &.success
+    task.try(&.success) unless task_name
   end
 
   ERRORS = {
@@ -286,5 +310,36 @@ class Helvar::Net < PlaceOS::Driver
     end
     logger.debug { "Requesting helvar: #{req}" }
     send(req, **options)
+  end
+
+  # ==================
+  # Lighting Interface
+  # ==================
+  protected def check_arguments(area : Area?)
+    area_id = area.try(&.id)
+    raise ArgumentError.new("area.id required (helvar group)") unless area_id
+    area_id.to_i
+  end
+
+  def set_lighting_scene(scene : UInt32, area : Area? = nil, fade_time : UInt32 = 1000_u32)
+    trigger(check_arguments(area), scene.to_i, fade_time.to_i)
+  end
+
+  def lighting_scene?(area : Area? = nil)
+    get_current_preset check_arguments(area)
+  end
+
+  def set_lighting_level(level : Float64, area : Area? = nil, fade_time : UInt32 = 1000_u32)
+    area_id = check_arguments area
+    light_level(area_id, level.round_even.to_i, fade_time.to_i)
+  end
+
+  def lighting_level?(area : Area? = nil)
+    group = check_arguments area
+    if scene = get_current_preset(group).get(response_required: true).payload.to_i
+      payload = query_scene_levels(group).get(response_required: true).payload
+      levels = Array(Int32).from_json(payload)
+      self["area#{group}_level"] = levels[scene]
+    end
   end
 end

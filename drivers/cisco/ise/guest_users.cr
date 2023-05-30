@@ -2,6 +2,7 @@ require "placeos-driver"
 require "xml"
 
 # Tested with Cisco ISE API v2.2
+# NOTE:: DO NOT USE, HERE FOR COMPATIBILITY REASONS
 # https://developer.cisco.com/docs/identity-services-engine/3.0/#!guest-user/resource-definition
 # However, should work and conform to v1.4 requirements
 # https://www.cisco.com/c/en/us/td/docs/security/ise/1-4/api_ref_guide/api_ref_book/ise_api_ref_guest.html#79039
@@ -149,5 +150,49 @@ class Cisco::Ise::Guests < PlaceOS::Driver
       "username" => guest_info.children.find { |c| c.name == "userName" }.not_nil!.content,
       "password" => guest_info.children.find { |c| c.name == "password" }.not_nil!.content,
     }
+  end
+
+  def test_xml(xml_string : String)
+    response = post("/guestuser/", body: XML.parse(xml_string).to_s, headers: {
+      "Accept"        => TYPE_HEADER,
+      "Content-Type"  => TYPE_HEADER,
+      "Authorization" => @basic_auth,
+    })
+    raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
+  end
+
+  def test2
+    xml_string = %(<?xml version="1.0" encoding="UTF-8"?>
+<ns2:guestuser xmlns:ns2="identity.ers.ise.cisco.com">
+<guestAccessInfo>
+<fromDate>08/06/2014 23:22</fromDate>
+<toDate>08/07/2014 23:22</toDate>
+<validDays>1</validDays>
+</guestAccessInfo>
+<guestInfo>
+<company>New Company</company>
+<emailAddress>john@example.com</emailAddress>
+<firstName>John</firstName>
+<lastName>Doe</lastName>
+<notificationLanguage>English</notificationLanguage>
+<phoneNumber>9999998877</phoneNumber>
+<smsServiceProvider>Global Default</smsServiceProvider>
+<userName>autoguestuser1</userName>
+</guestInfo>
+<guestType>Daily</guestType>
+<personBeingVisited>sponsor</personBeingVisited>
+<portalId>portal101</portalId>
+<reasonForVisit>interview</reasonForVisit>
+</ns2:guestuser>)
+    test_xml(xml_string)
+  end
+
+  def test_json(json : String)
+    response = post("/guestuser/", body: json, headers: {
+      "Accept"        => "application/json",
+      "Content-Type"  => "application/json",
+      "Authorization" => @basic_auth,
+    })
+    raise "failed to create guest, code #{response.status_code}\n#{response.body}" unless response.success?
   end
 end

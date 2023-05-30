@@ -7,7 +7,7 @@ require "./sis/*"
 # processing and general audio-visual products via SSH, telnet and serial
 # control.
 module Extron::SIS
-  TELNET_PORT =    21
+  TELNET_PORT =    23
   SSH_PORT    = 22023
 
   DELIMITER = "\r\n"
@@ -44,7 +44,7 @@ module Extron::SIS
   alias Output = UInt16
 
   # Layers for targetting signal distribution operations.
-  enum SwitchLayer : UInt8
+  enum MatrixLayer : UInt8
     All = 0x21 # '!'
     Aud = 0x24 # '$'
     Vid = 0x25 # '%'
@@ -60,10 +60,10 @@ module Extron::SIS
   end
 
   # Struct for representing a matrix signal path.
-  record Tie, input : Input, output : Output, layer : SwitchLayer
+  record Tie, input : Input, output : Output, layer : MatrixLayer
 
   # Struct for representing a broadcast signal path, or single output switch.
-  record Switch, input : Input, layer : SwitchLayer
+  record Switch, input : Input, layer : MatrixLayer
 
   # IO capacity for a switching layer.
   record MatrixSize, inputs : Input, outputs : Output

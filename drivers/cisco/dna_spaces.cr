@@ -1,12 +1,14 @@
+require "placeos-driver"
 require "set"
 require "jwt"
 require "s2_cells"
 require "simple_retry"
-require "placeos-driver"
+require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/locatable"
 
 class Cisco::DNASpaces < PlaceOS::Driver
   include Interface::Locatable
+  include Interface::Sensor
 
   # Discovery Information
   descriptive_name "Cisco DNA Spaces"
@@ -19,7 +21,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
     tenant_id:                 "sfdsfsdgg",
 
     # Time before a user location is considered probably too old (in minutes)
-    max_location_age: 10,
+    # we have a large time here as DNA spaces only updates when a user moves
+    # device exit is used to signal when a device has left the building
+    max_location_age: 300,
 
     floorplan_mappings: {
       location_a4cb0: {
@@ -49,7 +53,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   def on_unload
-    @terminated = true
     @channel.close
     @stream_active = false
     update_monitoring_status(running: false)
@@ -58,9 +61,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @activation_token : String = ""
   @api_key : String = ""
   @tenant_id : String = ""
-  @terminated : Bool = false
   @channel : Channel(String) = Channel(String).new
-  @max_location_age : Time::Span = 10.minutes
+  @max_location_age : Time::Span = 300.minutes
   @s2_level : Int32 = 21
   @floorplan_mappings : Hash(String, Hash(String, String | Float64)) = Hash(String, Hash(String, String | Float64)).new
   @debug_stream : Bool = false
@@ -179,9 +181,15 @@ class Cisco::DNASpaces < PlaceOS::Driver
   # MAC Address => Location (including user)
   @locations : Hash(String, DeviceLocationUpdate | IotTelemetry) = {} of String => DeviceLocationUpdate | IotTelemetry
   @loc_lock : Mutex = Mutex.new
+  @devices : Hash(String, IotTelemetry) = {} of String => IotTelemetry
+  @dev_lock : Mutex = Mutex.new
 
   def locations
     @loc_lock.synchronize { yield @locations }
+  end
+
+  def devices
+    @dev_lock.synchronize { yield @devices }
   end
 
   @user_lookup : Hash(String, Set(String)) = {} of String => Set(String)
@@ -250,7 +258,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     SimpleRetry.try_to(
       base_interval: 10.milliseconds,
       max_interval: 5.seconds
-    ) { stream_events unless @terminated }
+    ) { stream_events unless terminated? }
   ensure
     @streaming = false
   end
@@ -278,37 +286,47 @@ class Cisco::DNASpaces < PlaceOS::Driver
             # This is used entirely for
             @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
           when DeviceLocationUpdate, IotTelemetry
-            if !payload.has_position?
+            device_mac = format_mac(payload.device.mac_address)
+            payload.last_seen = payload.last_seen // 1000
+
+            if payload.is_a?(IotTelemetry)
               iot_payload = payload.as(IotTelemetry)
-              # process other IoT telemetry such as presense or temperature etc
-              self[iot_payload.device.mac_address] = payload
-              next
+              self[device_mac] = iot_payload
+              devices { |dev| dev[device_mac] = iot_payload }
+
+              next unless iot_payload.has_position?
             end
 
             # Keep track of device location
-            device_mac = format_mac(payload.device.mac_address)
             existing = nil
 
             # ignore locations where we don't have enough details to put the device on a map
             if payload.map_id.presence
               @location_id_maps[payload.location.location_id] = payload.map_id
             else
-              found = false
-              payload.location_mappings.values.each do |loc_id|
-                if map_id = @location_id_maps[loc_id]?
-                  payload.map_id = map_id
-                  found = true
-                  break
+              locations = payload.location_mappings.values
+              level_id = locations.find { |loc_id| @floorplan_mappings[loc_id]? }
+
+              if level_id && (level_data = @floorplan_mappings[level_id]) && level_data["map_width"]? && level_data["map_height"]?
+                # we don't need the map ID as the x, y coordinates are defined by us
+                # we do need the map_id for grouping results, so we assign it the level id
+                payload.map_id = level_id
+              else
+                found = false
+                payload.location_mappings.values.each do |loc_id|
+                  if map_id = @location_id_maps[loc_id]?
+                    payload.map_id = map_id
+                    found = true
+                    break
+                  end
+                end
+
+                if !found
+                  logger.debug { "ignoring device #{device_mac} location as map_id is empty, location id #{payload.location.location_id}, visit #{payload.visit_id}" }
+                  next
                 end
               end
-
-              if !found
-                logger.debug { "ignoring device #{device_mac} location as map_id is empty, location id #{payload.location.location_id}, visit #{payload.visit_id}" }
-                next
-              end
             end
-
-            payload.last_seen = payload.last_seen // 1000
 
             locations do |loc|
               existing = loc[device_mac]?
@@ -635,3 +653,4 @@ class Cisco::DNASpaces < PlaceOS::Driver
 end
 
 require "./dna_spaces/events"
+require "./dna_spaces/sensor_interface"

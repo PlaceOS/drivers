@@ -3,6 +3,8 @@ require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 
+# Documentation: https://aca.im/driver_docs/Sony/sony%20bravia%20simple%20ip%20control.pdf
+
 class Sony::Displays::Bravia < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
@@ -101,8 +103,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     query(Command::AudioMute, priority: 0)
   end
 
-  def volume(level : Int32)
-    request(Command::Volume, level.to_i)
+  def volume(level : Int32 | Float64)
+    level = level.to_f.clamp(0.0, 100.0).round_away.to_i
+    request(Command::Volume, level)
     volume?
   end
 

@@ -1,3 +1,4 @@
+require "set"
 require "json"
 require "placeos-driver"
 require "placeos-driver/interface/locatable"
@@ -70,6 +71,7 @@ class Place::LocationServices < PlaceOS::Driver
   # requests location information on the identifier for all of them
   # concatenates the results and returns them as a single array
   def locate_user(email : String? = nil, username : String? = nil)
+    email = email.try &.downcase
     logger.debug { "searching for #{email}, #{username}" }
     located = [] of JSON::Any
     system.implementing(Interface::Locatable).locate_user(email, username).get.each do |locations|
@@ -106,6 +108,7 @@ class Place::LocationServices < PlaceOS::Driver
   # Will return an array of MAC address strings
   # lowercase with no seperation characters abcdeffd1234 etc
   def macs_assigned_to(email : String? = nil, username : String? = nil)
+    email = email.try &.downcase
     logger.debug { "listing MAC addresses assigned to #{email}, #{username}" }
     macs = [] of String
     system.implementing(Interface::Locatable).macs_assigned_to(email, username).get.each do |found|
@@ -183,9 +186,13 @@ class Place::LocationServices < PlaceOS::Driver
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil)
     logger.debug { "searching sensors of type: #{type.inspect}, mac: #{mac.inspect}, zone_id: #{zone_id}" }
     located = [] of JSON::Any
-    system.implementing(Interface::Sensor).sensors(type, mac, zone_id).get.each do |locations|
+
+    drivers = system.implementing(Interface::Sensor)
+    drivers.sensors(type, mac, zone_id).get.each do |locations|
       located.concat locations.as_a
     end
+
+    driver_ids = Set.new drivers.map(&.@module_id)
 
     if @search_building
       building = JSON::Any.new building_id
@@ -196,7 +203,12 @@ class Place::LocationServices < PlaceOS::Driver
         next if zone_id && zone_id != level_id
         level_id = JSON::Any.new level_id
         system_ids.each do |system_id|
-          results << {level_id, system(system_id).implementing(Interface::Sensor).sensors(type, mac, zone_id)}
+          # ensure we don't query modules more than once
+          drivers = system(system_id).implementing(Interface::Sensor)
+          drivers = PlaceOS::Driver::Proxy::Drivers.new(drivers.reject { |driver| driver.@module_id.in?(driver_ids) })
+          driver_ids.concat drivers.map(&.@module_id)
+
+          results << {level_id, drivers.sensors(type, mac, zone_id)}
         end
       end
 
@@ -218,11 +230,14 @@ class Place::LocationServices < PlaceOS::Driver
   def sensor(mac : String, id : String? = nil)
     logger.debug { "querying sensor with mac: #{mac}, id: #{id.inspect}" }
     located = [] of JSON::Any
-    system.implementing(Interface::Sensor).sensor(mac, id).get.each do |locations|
+    drivers = system.implementing(Interface::Sensor)
+    drivers.sensor(mac, id).get.each do |locations|
       located.concat locations.as_a
     end
 
     return located.first unless located.empty?
+
+    driver_ids = Set.new drivers.map(&.@module_id)
 
     if @search_building
       building = JSON::Any.new building_id
@@ -232,7 +247,12 @@ class Place::LocationServices < PlaceOS::Driver
       systems.each do |level_id, system_ids|
         level_id = JSON::Any.new level_id
         system_ids.each do |system_id|
-          results << {level_id, system(system_id).implementing(Interface::Sensor).sensor(mac, id)}
+          # ensure we don't query modules more than once
+          drivers = system(system_id).implementing(Interface::Sensor)
+          drivers = PlaceOS::Driver::Proxy::Drivers.new(drivers.reject { |driver| driver.@module_id.in?(driver_ids) })
+          driver_ids.concat drivers.map(&.@module_id)
+
+          results << {level_id, drivers.sensor(mac, id)}
         end
       end
 

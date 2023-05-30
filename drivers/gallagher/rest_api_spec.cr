@@ -8,6 +8,11 @@ DriverSpecs.mock_driver "Gallagher::RestAPI" do
     response.output.puts %({
       "version": "8.50.1414.0",
       "features": {
+        "doors": {
+          "doors": {
+            "href": "https://localhost:8904/api/doors"
+          }
+        },
         "cardholders": {
           "cardholders": {
             "href": "https://localhost:8904/api/cardholders"

@@ -8,19 +8,27 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+env:
+  PARALLEL_TESTS: 10
+  PARALLEL_BUILDS: 2
+
 jobs:
-  style:
-    name: "Style"
+  docs:
+    if: false # Temporarily disable as docs just _do not work_ for a driver
+    name: "Crystal Docs"
     runs-on: ubuntu-latest
+    continue-on-error: true
     container: crystallang/crystal
     steps:
-      - uses: actions/checkout@v2
-      - name: Format
-        run: crystal tool format --check
-      - name: Lint
-        uses: crystal-ameba/github-action@v0.2.12
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v3
+      - name: Install Shards
+        run: shards install --ignore-crystal-version
+      - name: Docs
+        run: crystal docs
+
+  style:
+    name: "Style"
+    uses: PlaceOS/.github/.github/workflows/crystal-style.yml@main
 
   subset-report:
     name: "Subset Report - crystal: ${{ matrix.crystal }}, stable: ${{ matrix.stable }}"
@@ -31,7 +39,8 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.0.0
+          - 1.3.2
+          - 1.4.1
         include:
           - stable: false
             crystal: nightly
@@ -40,21 +49,29 @@ jobs:
         uses: trilom/file-changes-action@v1.2.4
         with:
           output: ' '
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Cache shards
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
       - name: Driver Report
         # Skip subset report if dependencies have changed
         if: ${{ !contains(steps.changes.outputs.files, 'shard.yml') && !contains(steps.changes.outputs.files, 'shard.lock')  }}
-        run: ./harness report ${{ steps.changes.outputs.files }}
+        run: |
+          ./harness \
+          report \
+            --verbose \
+            --tests=${{ env.PARALLEL_TESTS }} \
+            --builds=${{ env.PARALLEL_BUILDS }} \
+            ${{ steps.changes.outputs.files }}
         env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs/*.log
@@ -69,24 +86,51 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.0.0
+          - 1.3.2
+          - 1.4.1
         include:
           - stable: false
             crystal: nightly
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
       - name: Cache shards
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: lib
           key: ${{ hashFiles('shard.lock') }}
+
+      # Binary Cache Logic
+      #############################################################################################
+
+      - uses: actions/cache@v3
+        with:
+          path: binaries
+          key: drivers-${{ env.CRYSTAL_VERSION }}-${{ github.run_id }}
+          restore-keys: drivers-${{ env.CRYSTAL_VERSION }}-
+
+      #############################################################################################
+
       - name: Driver Report
-        run: ./harness report
+        run: |
+          ./harness \
+          report \
+            --verbose \
+            --tests=${{ env.PARALLEL_TESTS }} \
+            --builds=${{ env.PARALLEL_BUILDS }}
         env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
           CRYSTAL_VERSION: ${{ matrix.crystal }}
+      - name: Show build container logs
+        if: ${{ failure() }}
+        run: docker-compose logs build
+      - name: Show drivers container logs
+        if: ${{ failure() }}
+        run: docker-compose logs drivers
       - name: Upload failure logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs/*.log

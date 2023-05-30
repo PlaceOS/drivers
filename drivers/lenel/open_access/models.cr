@@ -1,5 +1,12 @@
 require "json"
 
+# Ensure that UTC time strings provide the offset as "+00:00" instead of "Z", as required by Openaccess
+module Lenel::TimeConverter
+  def self.to_json(value : Time, json : JSON::Builder)
+    json.string(value.to_s("%FT%T%:z"))
+  end
+end
+
 # DTO's for OpenAccess entities.
 #
 # These are intentionally lightweight. In cases where a entity holds a
@@ -77,16 +84,58 @@ module Lenel::OpenAccess::Models
     forward_missing_to json_unmapped
   end
 
+  struct Event < Element
+    getter serial_number : Int32?
+    getter timestamp : Time?
+    getter description : String?
+    getter controller_id : Int32
+    getter device_id : Int32
+    getter subdevice_id : Int32?
+    getter segment_id : Int32?
+    getter event_type : Int32
+    getter event_subtype : Int32?
+    getter event_text : String?
+    getter badge_id : Int32?
+    getter badge_id_str : String?
+    getter badge_extended_id : String?
+    getter badge_issue_code : Int32?
+    getter asset_id : Int32?
+    getter cardholder_key : Int32?
+    # getter alarm_priority : Int32?
+    # getter alarm_ack_blue_channel : Int32?
+    # getter alarm_ack_green_channel : Int32?
+    # getter alarm_ack_red_channel : Int32?
+    # getter alarm_blue_channel : Int32?
+    # getter alarm_green_channel : Int32?
+    # getter alarm_red_channel : Int32?
+    getter access_result : Int32?
+    getter cardholder_entered : Bool?
+    getter duress : Bool?
+    getter controller_name : String?
+    getter event_source_name : String?
+    getter cardholder_first_name : String?
+    getter cardholder_last_name : String?
+    getter device_name : String?
+    getter subdevice_name : String?
+    # getter must_acknowledge : Bool?
+    # getter must_mark_in_progress : Bool?
+  end
+
   abstract struct Person < Element
     getter id : Int32
-    getter firstname : String
-    getter lastname : String
+    getter firstname : String?
+    getter lastname : String?
   end
 
   struct Badge < Element
     getter badgekey : Int32
+
+    @[JSON::Field(converter: Lenel::TimeConverter)]
     getter activate : Time?
+
+    @[JSON::Field(converter: Lenel::TimeConverter)]
     getter deactivate : Time?
+
     getter id : Int64?
     getter personid : Int32?
     getter status : Int32?
@@ -109,6 +158,38 @@ module Lenel::OpenAccess::Models
   end
 
   struct Cardholder < Person
-    getter email : String
+    getter email : String?
+  end
+
+  struct Reader < Element
+    getter accessMode : Int32?
+    getter address : Int32?
+    getter controlType : Int32?
+    getter extendedOpenTime : Int32?
+    getter extendedStrikeTime : Int32?
+    getter gatewayAddress : Int32?
+    getter gatewayIPPort : Int32?
+    getter offlineMode : Int32?
+    getter mode : Int32?
+    getter openTime : Int32?
+    getter panelID : Int32?
+    getter portNumber : Int32?
+    getter readerID : Int32?
+    getter readerNumber : Int32?
+    getter slaveID : Int32?
+    getter strikeTime : Int32?
+    getter timeAttendanceType : Int32?
+    getter aux1Name : String?
+    getter aux2Name : String?
+    getter aux3Name : String?
+    getter friendlyName : String?
+    getter gatewayHostName : String?
+    getter hostName : String?
+    getter name : String?
+    getter out1Name : String?
+    getter out2Name : String?
+    getter panelTypeName : String?
+    getter isPairedMaster : Bool?
+    getter isPairedSlave : Bool?
   end
 end

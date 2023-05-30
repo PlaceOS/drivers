@@ -1,6 +1,7 @@
 require "json"
 require "placeos-driver"
 require "placeos-driver/interface/locatable"
+require "./booking_model"
 
 class Place::DeskBookingsLocations < PlaceOS::Driver
   include Interface::Locatable
@@ -18,8 +19,11 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     # time in seconds
     poll_rate:    60,
     booking_type: "desk",
+
+    # expose_for_analytics: {"output_key" => "booking_key->subkey"},
   })
 
+  @expose_for_analytics : Hash(String, String) = {} of String => String
   @zone_filter : Array(String) = [] of String
   @poll_rate : Time::Span = 60.seconds
   @booking_type : String = "desk"
@@ -27,7 +31,9 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def on_load
     monitor("staff/booking/changed") do |_subscription, payload|
       logger.debug { "received booking changed event #{payload}" }
-      booking_changed(Booking.from_json(payload))
+      booking = Booking.from_json(payload)
+      booking.user_email = booking.user_email.downcase
+      booking_changed(booking)
     end
     on_update
   end
@@ -37,6 +43,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
 
     @booking_type = setting?(String, :booking_type).presence || "desk"
+    @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
 
     map_zones
     schedule.clear
@@ -113,6 +120,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "searching devices in zone #{zone_id}" }
+    return [] of Nil if location && location != "booking"
+
     bookings = [] of Booking
     @bookings.each_value(&.each { |booking|
       next unless zone_id.in?(booking.zones)
@@ -132,19 +141,44 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
         break if level && building
       end
 
-      {
-        location:    :booking,
-        type:        @booking_type,
-        checked_in:  booking.checked_in,
-        asset_id:    booking.asset_id,
-        booking_id:  booking.id,
-        building:    building,
-        level:       level,
-        ends_at:     booking.booking_end,
-        mac:         booking.user_id,
-        staff_email: booking.user_email,
-        staff_name:  booking.user_name,
+      # We specify location as JSON::Any so we don't have to
+      # explicitly define the type of this object
+      payload = {
+        "location"    => JSON::Any.new("booking"),
+        "type"        => @booking_type,
+        "checked_in"  => booking.checked_in,
+        "asset_id"    => booking.asset_id,
+        "booking_id"  => booking.id,
+        "building"    => building,
+        "level"       => level,
+        "ends_at"     => booking.booking_end,
+        "started_at"  => booking.booking_start,
+        "duration"    => booking.booking_end - booking.booking_start,
+        "mac"         => booking.user_id,
+        "staff_email" => booking.user_email,
+        "staff_name"  => booking.user_name,
       }
+
+      # check for any custom data we want to include
+      if !booking.extension_data.empty? && (init_data = JSON::Any.new(booking.extension_data))
+        @expose_for_analytics.each do |binding, path|
+          begin
+            binding_keys = path.split("->")
+            data = init_data
+            binding_keys.each do |key|
+              next if key == "extension_data"
+
+              data = data.dig? key
+              break unless data
+            end
+            payload[binding] = data
+          rescue error
+            logger.warn(exception: error) { "failed to expose #{binding}: #{path} for analytics" }
+          end
+        end
+      end
+
+      payload
     end
   end
 
@@ -166,41 +200,6 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     end
   end
 
-  class Booking
-    include JSON::Serializable
-
-    # This is to support events
-    property action : String?
-
-    property id : Int64
-    property booking_type : String
-    property booking_start : Int64
-    property booking_end : Int64
-    property timezone : String?
-
-    # events use resource_id instead of asset_id
-    property asset_id : String?
-    property resource_id : String?
-
-    def asset_id : String
-      (@asset_id || @resource_id).not_nil!
-    end
-
-    property user_id : String
-    property user_email : String
-    property user_name : String
-
-    property zones : Array(String)
-
-    property checked_in : Bool?
-    property rejected : Bool?
-
-    def in_progress?
-      now = Time.utc.to_unix
-      now >= @booking_start && now < @booking_end
-    end
-  end
-
   # Email => Array of bookings
   @bookings : Hash(String, Array(Booking)) = Hash(String, Array(Booking)).new
 
@@ -210,7 +209,11 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def query_desk_bookings : Nil
     bookings = [] of JSON::Any
     @zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a }
-    bookings = bookings.map { |booking| Booking.from_json(booking.to_json) }
+    bookings = bookings.map do |booking|
+      booking = Booking.from_json(booking.to_json)
+      booking.user_email = booking.user_email.downcase
+      booking
+    end
 
     logger.debug { "queried desk bookings, found #{bookings.size}" }
 

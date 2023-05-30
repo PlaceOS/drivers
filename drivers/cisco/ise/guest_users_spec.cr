@@ -1,7 +1,7 @@
-require "xml"
-require "placeos-driver"
-require "./guests"
 require "placeos-driver/spec"
+require "xml"
+
+TIME_FORMAT = "%m/%d/%Y %H:%M"
 
 DriverSpecs.mock_driver "Cisco::Ise::Guests" do
   portal = "portal101"
@@ -16,8 +16,8 @@ DriverSpecs.mock_driver "Cisco::Ise::Guests" do
   })
 
   start_time = Time.local(Time::Location.load("Australia/Sydney"))
-  start_date = start_time.at_beginning_of_day.to_s(Cisco::Ise::Guests::TIME_FORMAT)
-  end_date = start_time.at_end_of_day.to_s(Cisco::Ise::Guests::TIME_FORMAT)
+  start_date = start_time.at_beginning_of_day.to_s(TIME_FORMAT)
+  end_date = start_time.at_end_of_day.to_s(TIME_FORMAT)
   attendee_email = "attendee@test.com"
   company_name = "PlaceOS"
 

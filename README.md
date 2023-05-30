@@ -19,6 +19,7 @@ Command:
     report                  check all drivers' compilation status
     up                      starts the harness
     down                    stops the harness
+    build                   builds drivers and uploads them to S3
     format                  formats driver code
     help                    display this message
 ```
@@ -42,6 +43,16 @@ Before committing, please run...
 ```shell-session
 $ ./harness format
 ```
+
+## Documentation
+
+- [Writing a PlaceOS Driver](docs/writing-a-driver.md)
+- [Testing a PlaceOS Driver](docs/writing-a-spec.md)
+- [Sending Emails](docs/guide-event-emails.md)
+- [Environment Setup](docs/setup.md)
+- [Runtime Debugging](docs/runtime-debugging.md)
+- [Directory Structure](docs/directory_structure.md)
+- [PlaceOS Spec Runner HTTP API](docs/http-api.md)
 
 ## Contributing
 

@@ -21,4 +21,8 @@ class Place::LogicExample < PlaceOS::Driver
   def display_count
     system.count(:Display)
   end
+
+  def not_implemented
+    raise "not implemented"
+  end
 end
