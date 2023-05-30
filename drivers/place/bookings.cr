@@ -618,7 +618,9 @@ class Place::Bookings < PlaceOS::Driver
   @push_service_name : ServiceName? = nil
   @push_monitoring : PlaceOS::Driver::Subscriptions::ChannelSubscription? = nil
 
-  SUBSCRIPTION_LENGTH = 7.days
+  # the API reports that 6 days is the max:
+  # Subscription expiration can only be 10070 minutes in the future.
+  SUBSCRIPTION_LENGTH = 5.days
 
   protected def push_notificaitons_configure
     push_authority = setting?(String, :push_authority).presence
