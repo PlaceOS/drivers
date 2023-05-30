@@ -2,6 +2,7 @@ require "json"
 require "placeos-driver"
 
 # Documentation: https://aca.im/driver_docs/QSC/QRCDocumentation.pdf
+# https://q-syshelp.qsc.com/Content/External_Control_APIs/QRC/QRC_Commands.htm
 
 class Qsc::QSysRemote < PlaceOS::Driver
   tcp_port 1710
@@ -10,7 +11,6 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   @id : Int32 = 0
   @db_based_faders : Bool? = nil
-  @integer_faders : Bool? = nil
   @username : String? = nil
   @password : String? = nil
 
@@ -32,6 +32,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
          9 => "Illegal mixer channel index",
         10 => "Logon required",
   }
+  DB_RANGE = -100..20
 
   alias Num = Int32 | Float64
   alias ValTup = NamedTuple(Name: String, Value: Num)
@@ -46,7 +47,6 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   def on_update
     @db_based_faders = setting?(Bool, :db_based_faders)
-    @integer_faders = setting?(Bool, :integer_faders)
     @username = setting?(String, :username)
     @password = setting?(String, :password)
     logon if @username && @password
@@ -213,18 +213,25 @@ class Qsc::QSysRemote < PlaceOS::Driver
   def matrix_fader(name : String, level : Num, index : Array(Int32), type : String = "matrix_out", **options)
     info = Faders[type]
 
+    level = level.to_f.clamp(0.0, 100.0)
+    percentage = level / 100.0
+
+    # adjust into range
+    level_actual = percentage * (DB_RANGE.size - 1).to_f
+    level_actual = (level_actual + DB_RANGE.begin.to_f).round(1)
+
     if sec = info[:sec]?
       params = {
         :Name      => name,
         info[:pri] => index[0],
         sec        => index[1],
-        :Value     => level,
+        :Value     => level_actual,
       }
     else
       params = {
         :Name      => name,
         info[:pri] => index,
-        :Value     => level,
+        :Value     => level_actual,
       }
     end
 
@@ -257,11 +264,18 @@ class Qsc::QSysRemote < PlaceOS::Driver
   def fader(fader_ids : Ids, value : Num | Bool, component : String? = nil, type : String = "fader", use_value : Bool = false, **options)
     faders = ensure_array(fader_ids)
     if component && (val = value.as?(Num))
+      val = val.to_f.clamp(0.0, 100.0)
+
       if @db_based_faders || use_value
-        val = val / 10 if @integer_faders && !use_value
-        fads = faders.map { |fad| {Name: fad, Value: val} }
+        percentage = val / 100.0
+
+        # adjust into range
+        level_actual = percentage * (DB_RANGE.size - 1).to_f
+        level_actual = (level_actual + DB_RANGE.begin.to_f).round(1)
+
+        fads = faders.map { |fad| {Name: fad, Value: level_actual} }
       else
-        val = val / 1000 if @integer_faders
+        # I think this means 0-100%
         fads = faders.map { |fad| {Name: fad, Position: val} }
       end
       component_set(component, fads, name: "level_#{faders[0]}").get
@@ -367,14 +381,16 @@ class Qsc::QSysRemote < PlaceOS::Driver
           next
         end
 
+        # TODO:: we should just use pos if available?
         if pos && (pos = pos.as_i? || pos.as_f?)
-          self["fader#{name}#{component}_pos"] = @integer_faders ? (pos * 1000).to_i : pos
+          self["fader#{name}#{component}_pos"] = pos
         end
 
         if val.as_s?
           self["#{name}#{component}"] = val
         elsif val = (val.as_i? || val.as_f?)
-          self["fader#{name}#{component}_val"] = @integer_faders ? (val * 10).to_i : val
+          vol_percent = ((val.to_f - DB_RANGE.begin.to_f) / (DB_RANGE.size - 1).to_f) * 100.0
+          self["fader#{name}#{component}_val"] = vol_percent
         end
       end
     end

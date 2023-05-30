@@ -8,8 +8,34 @@ DriverSpecs.mock_driver "Vergesense::LocationService" do
 
   resp = exec(:device_locations, "zone-level").get
   resp.should eq([
-    {"location" => "area", "at_location" => 21, "map_id" => "Conference Room 0721", "level" => "zone-level", "building" => "zone-building", "capacity" => 30, "vergesense_space_id" => "CR_0721", "vergesense_space_type" => "conference_room"},
-    {"location" => "desk", "at_location" => 1, "map_id" => "desk-1234", "level" => "zone-level", "building" => "zone-building", "capacity" => 1, "vergesense_space_id" => "CR_0722", "vergesense_space_type" => "desk"},
+    {
+      "location"              => "area",
+      "at_location"           => 21,
+      "map_id"                => "Conference Room 0721",
+      "level"                 => "zone-level",
+      "building"              => "zone-building",
+      "capacity"              => 30,
+      "vergesense_space_id"   => "CR_0721",
+      "vergesense_space_type" => "conference_room",
+      "area_humidity"         => nil,
+      "area_temperature"      => nil,
+      "area_air_quality"      => nil,
+      "signs_of_life"         => nil,
+    },
+    {
+      "location"              => "desk",
+      "at_location"           => 1,
+      "map_id"                => "desk-1234",
+      "level"                 => "zone-level",
+      "building"              => "zone-building",
+      "capacity"              => 1,
+      "vergesense_space_id"   => "CR_0722",
+      "vergesense_space_type" => "desk",
+      "area_humidity"         => nil,
+      "area_temperature"      => nil,
+      "area_air_quality"      => nil,
+      "signs_of_life"         => nil,
+    },
   ])
 end
 

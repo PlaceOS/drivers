@@ -4,6 +4,53 @@ require "./geo"
 module Cisco::Meraki
   ISO8601 = "%FT%T%z"
 
+  class Organization
+    include JSON::Serializable
+
+    property id : String
+    property name : String
+    property url : String
+    property api : NamedTuple(enabled: Bool)
+  end
+
+  class Network
+    include JSON::Serializable
+
+    property id : String
+
+    @[JSON::Field(key: "organizationId")]
+    property organization_id : String
+
+    property name : String
+
+    @[JSON::Field(key: "productTypes")]
+    property product_types : Array(String)
+
+    @[JSON::Field(key: "timeZone")]
+    property time_zone : String
+    property tags : Array(String)
+    property url : String
+
+    @[JSON::Field(key: "enrollmentString")]
+    property enrollment_string : String?
+    property notes : String?
+  end
+
+  class CameraAnalytics
+    include JSON::Serializable
+    ISO8601_MS = "%FT%T.%3N%z"
+
+    class PeopleCount
+      include JSON::Serializable
+
+      property person : Int32
+    end
+
+    @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::CameraAnalytics::ISO8601_MS))]
+    property ts : Time
+    property zones : Hash(Int64, PeopleCount)
+  end
+
   class FloorPlan
     include JSON::Serializable
 
@@ -29,13 +76,22 @@ module Cisco::Meraki
     end
   end
 
+  class FloorPlanLocation
+    include JSON::Serializable
+
+    property id : String
+    property name : String
+    property x : Float64
+    property y : Float64
+  end
+
   class NetworkDevice
     include JSON::Serializable
 
     # Used for caching the location calculated for this device
     # where an observation doesn't have location values but has a closest WAP
     @[JSON::Field(ignore: true)]
-    property location : Location?
+    property location : DeviceLocation?
 
     @[JSON::Field(key: "floorPlanId")]
     property floor_plan_id : String?
@@ -43,6 +99,10 @@ module Cisco::Meraki
     property lat : Float64
     property lng : Float64
     property mac : String
+
+    property serial : String
+    property model : String
+    property firmware : String
 
     # This is useful for when we have to map meraki IDs to our zones
     property name : String?
@@ -68,21 +128,27 @@ module Cisco::Meraki
     property first_seen : String
 
     @[JSON::Field(key: "lastSeen")]
-    property last_seen : String
+    property last_seen : Time
 
     property manufacturer : String?
     property os : String?
 
+    @[JSON::Field(key: "recentDeviceSerial")]
+    property recent_device_serial : String?
+
     @[JSON::Field(key: "recentDeviceMac")]
     property recent_device_mac : String?
     property ssid : String?
-    property vlan : Int32?
+    property vlan : String?
     property switchport : String?
     property status : String
     property notes : String?
 
     @[JSON::Field(ignore: true)]
     property! time_added : Time
+
+    @[JSON::Field(ignore: true)]
+    getter switch_port : Int32 { @switchport.as(String).to_i }
   end
 
   class RSSI
@@ -93,19 +159,20 @@ module Cisco::Meraki
     property rssi : Int32
   end
 
-  class Location
+  class DeviceLocation
     include JSON::Serializable
 
-    def initialize(@x, @y, @lng, @lat, @variance, @floor_plan_id, @floor_plan_name, @time)
+    def initialize(@x, @y, @lng, @lat, @variance, floor_plan_id, floor_plan_name, @time)
+      @wifi_floor_plan_name = floor_plan_name
+      @wifi_floor_plan_id = floor_plan_id
       @mac = nil
       @client = nil
       @rssi_records = [] of RSSI
-      @nearest_ap_tags = [] of String
     end
 
-    def self.calculate_location(floor : FloorPlan, device : NetworkDevice, time : Time) : Location
+    def self.calculate_location(floor : FloorPlan, device : NetworkDevice, time : Time) : DeviceLocation
       distance = Geo.calculate_xy(floor.top_left, floor.bottom_left, floor.bottom_right, device, floor.to_distance)
-      Location.new(distance.x, distance.y, device.lng, device.lat, 25_f64, floor.id, floor.name, time)
+      DeviceLocation.new(distance.x, distance.y, device.lng, device.lat, 25_f64, floor.id, floor.name, time)
     end
 
     # NOTE:: This is not part of the location response,
@@ -126,16 +193,19 @@ module Cisco::Meraki
     property variance : Float64
 
     @[JSON::Field(key: "floorPlanId")]
-    property floor_plan_id : String?
+    property wifi_floor_plan_id : String?
 
     @[JSON::Field(key: "floorPlanName")]
-    property floor_plan_name : String?
+    property wifi_floor_plan_name : String?
+
+    @[JSON::Field(key: "floorPlan")]
+    property floor_plan : FloorPlanLocation?
 
     @[JSON::Field(converter: Time::Format.new(Cisco::Meraki::ISO8601))]
     property time : Time
 
     @[JSON::Field(key: "nearestApTags")]
-    property nearest_ap_tags : Array(String)
+    property nearest_ap_tags : Array(String) { [] of String }
 
     @[JSON::Field(key: "rssiRecords")]
     property rssi_records : Array(RSSI)
@@ -149,7 +219,7 @@ module Cisco::Meraki
     end
 
     def get_x : Float64?
-      if tmp = x
+      if tmp = x || floor_plan.try(&.x)
         if tmp.is_a?(Float64)
           tmp
         end
@@ -157,11 +227,19 @@ module Cisco::Meraki
     end
 
     def get_y : Float64?
-      if tmp = y
+      if tmp = y || floor_plan.try(&.y)
         if tmp.is_a?(Float64)
           tmp
         end
       end
+    end
+
+    def floor_plan_id
+      wifi_floor_plan_id || floor_plan.try(&.id)
+    end
+
+    def floor_plan_name
+      wifi_floor_plan_name || floor_plan.try(&.name)
     end
   end
 
@@ -192,7 +270,7 @@ module Cisco::Meraki
 
     @[JSON::Field(key: "latestRecord")]
     property latest_record : LatestRecord
-    property locations : Array(Location)
+    property locations : Array(DeviceLocation)
   end
 
   class Data
@@ -203,6 +281,12 @@ module Cisco::Meraki
     property observations : Array(Observation)
   end
 
+  enum MessageType
+    None
+    WiFi
+    Bluetooth
+  end
+
   class DevicesSeen
     include JSON::Serializable
 
@@ -210,8 +294,139 @@ module Cisco::Meraki
     property secret : String
 
     @[JSON::Field(key: "type")]
-    property message_type : String
+    property message_type : MessageType
 
     property data : Data
+  end
+
+  struct CameraZone
+    include JSON::Serializable
+
+    struct Region
+      include JSON::Serializable
+
+      getter x0 : String
+      getter y0 : String
+      getter x1 : String
+      getter y1 : String
+    end
+
+    @[JSON::Field(key: "zoneId")]
+    getter id : String
+    getter type : String
+    getter label : String
+
+    @[JSON::Field(key: "regionOfInterest")]
+    getter region : Region
+
+    @[JSON::Field(ignore: true)]
+    property distance : Float64 = 0.0
+
+    def mid_point
+      mid_x = (region.x0.to_f64 + region.x1.to_f64) / 2.0
+      mid_y = (region.y0.to_f64 + region.y1.to_f64) / 2.0
+      {mid_x, mid_y}
+    end
+
+    getter x : Float64 do
+      xpos, @y = mid_point
+      xpos
+    end
+
+    getter y : Float64 do
+      @x, ypos = mid_point
+      ypos
+    end
+  end
+
+  struct DeskMappings
+    include JSON::Serializable
+
+    getter serial : String
+    getter level_id : String
+
+    # port_id => desk_id
+    getter ports : Hash(Int32, String)
+  end
+
+  struct ZoneDetails
+    include JSON::Serializable
+
+    property id : String
+    property name : String
+    property tags : Array(String)
+  end
+
+  enum ConnectionType
+    Wired
+    Wireless
+  end
+
+  enum AlertType
+    PortConnected
+    PortDisconnected
+  end
+
+  struct WebhookAlert
+    include JSON::Serializable
+
+    struct PortData
+      include JSON::Serializable
+
+      @[JSON::Field(key: "portNum")]
+      getter port_num : Int32
+    end
+
+    @[JSON::Field(key: "networkId")]
+    getter network_id : String
+
+    @[JSON::Field(key: "alertTypeId")]
+    getter alert_type : AlertType
+
+    @[JSON::Field(key: "alertData")]
+    getter alert_data : PortData
+
+    @[JSON::Field(key: "deviceSerial")]
+    getter device_serial : String
+
+    @[JSON::Field(key: "sharedSecret")]
+    getter shared_secret : String
+
+    def port_num : Int32
+      alert_data.port_num
+    end
+  end
+
+  enum PortState
+    Connected
+    Disconnected
+  end
+
+  class PortStatusResponse
+    include JSON::Serializable
+
+    @[JSON::Field(key: "portId")]
+    getter port_id : String
+
+    @[JSON::Field(ignore: true)]
+    getter port : Int32 { port_id.to_i }
+
+    getter? enabled : Bool
+    getter status : PortState
+
+    @[JSON::Field(key: "isUplink")]
+    getter? is_uplink : Bool
+
+    @[JSON::Field(ignore: true)]
+    property! switch_serial : String
+
+    @[JSON::Field(ignore: true)]
+    property mac : String? = nil
+
+    @[JSON::Field(ignore: true)]
+    property! desk_id : String
+
+    @[JSON::Field(ignore: true)]
+    property! level_id : String
   end
 end

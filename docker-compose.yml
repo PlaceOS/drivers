@@ -1,49 +1,75 @@
 version: "3.7"
+
+x-build-client-env: &build-client-env
+  PLACEOS_BUILD_HOST: ${PLACEOS_BUILD_HOST:-build}
+  PLACEOS_BUILD_PORT: ${PLACEOS_BUILD_PORT:-3000}
+
 services:
   # Driver test harness
   drivers:
-    image: placeos/drivers-spec:crystal-${CRYSTAL_VERSION:-1.0.0}
+    image: placeos/drivers-spec:latest
     restart: always
     container_name: placeos-drivers
     hostname: drivers
-    environment:
-      - CRYSTAL_PATH=lib:/lib/local-shards
     depends_on:
+      - build
       - redis
       - install-shards
     ports:
       - 127.0.0.1:8085:8080
       - 127.0.0.1:4444:4444
     volumes:
-      - ./.git:/app/.git
-      - ./.logs:/app/report_failures
-      - ./drivers:/app/drivers
-      - ./lib:/app/lib
-      - ./src:/app/src
-      - ./repositories:/app/repositories
+      - ${PWD}/.logs:/app/report_failures
+      - ${PWD}/repositories:/app/repositories
+      - ${PWD}:/app/repositories/local
     environment:
-      - REDIS_URL=redis://redis:6379
-      - TZ=$TZ
-      - CI=${CI:-}
+      <<: *build-client-env
+      CI: ${CI:-}
+      CRYSTAL_PATH: lib:/lib/local-shards:/usr/share/crystal/src
+      REDIS_URL: redis://redis:6379
+      TZ: $TZ
+    cap_add:
+      - "SYS_PTRACE"
+    security_opt:
+      - "seccomp:unconfined"
+
+  build:
+    image: placeos/build:${PLACE_BUILD_TAG:-latest}
+    restart: always
+    hostname: build
+    volumes:
+      - ${PWD}/repositories:/app/repositories
+      - ${PWD}:/app/repositories/local
+      - ${PWD}/binaries:/app/bin/drivers
+    environment:
+      AWS_REGION: ${AWS_REGION:-ap-southeast-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-placeos-drivers}
+      AWS_KEY: ${AWS_KEY}
+      AWS_SECRET: ${AWS_SECRET}
+      GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
+      PLACEOS_BUILD_LOCAL: 1
+      PLACEOS_ENABLE_TRACE: 1
+      TZ: $TZ
 
   redis:
     image: eqalpha/keydb
     restart: always
     hostname: redis
     environment:
-      - TZ=$TZ
+      TZ: $TZ
 
   # Ensures shards are installed.
   install-shards:
-    image: crystallang/crystal:${CRYSTAL_VERSION:-1.0.0}-alpine
+    image: placeos/crystal:${CRYSTAL_VERSION:-latest}
     restart: "no"
     working_dir: /wd
-    command: ash -c 'shards check -q || shards install'
+    entrypoint: ''
+    command: sh -c 'shards check -q || shards install'
     environment:
-      - SHARDS_OPTS="--ignore-crystal-version"
+      SHARDS_OPTS: "--ignore-crystal-version"
     volumes:
-      - ./shard.lock:/wd/shard.lock
-      - ./shard.yml:/wd/shard.yml
-      - ./shard.override.yml:/wd/shard.override.yml
-      - ./.shards:/wd/.shards
-      - ./lib:/wd/lib
+      - ${PWD}/shard.lock:/wd/shard.lock
+      - ${PWD}/shard.yml:/wd/shard.yml
+      - ${PWD}/shard.override.yml:/wd/shard.override.yml
+      - ${PWD}/.shards:/wd/.shards
+      - ${PWD}/lib:/wd/lib

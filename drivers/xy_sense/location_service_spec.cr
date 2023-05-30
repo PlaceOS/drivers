@@ -33,18 +33,18 @@ class XYSenseMock < DriverSpecs::MockDriver
           capacity: 1,
           category: "Workpoint",
         },
-        {
-          id:       "xysense-desk-456-id",
-          name:     "desk-456",
-          capacity: 1,
-          category: "Workpoint",
-        },
-        {
-          id:       "xysense-area-567-id",
-          name:     "area-567",
-          capacity: 20,
-          category: "Lobby",
-        }],
+                 {
+                   id:       "xysense-desk-456-id",
+                   name:     "desk-456",
+                   capacity: 1,
+                   category: "Workpoint",
+                 },
+                 {
+                   id:       "xysense-area-567-id",
+                   name:     "area-567",
+                   capacity: 20,
+                   category: "Lobby",
+                 }],
       },
     }
 

@@ -5,11 +5,11 @@ module Ashrae
   class DeviceAddress
     include JSON::Serializable
 
-    def initialize(@ip, @id, @net, @addr, @name, @model_name, @vendor_name)
+    def initialize(@ip, @id, @net, @addr)
     end
 
     getter ip : String
-    getter id : UInt32
+    getter id : UInt32?
     getter net : UInt16?
     getter addr : String?
 
@@ -18,7 +18,7 @@ module Ashrae
     end
 
     def identifier
-      ::BACnet::ObjectIdentifier.new :device, @id
+      ::BACnet::ObjectIdentifier.new :device, @id.not_nil!
     end
   end
 

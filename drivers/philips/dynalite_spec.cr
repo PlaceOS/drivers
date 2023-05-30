@@ -1,0 +1,40 @@
+require "placeos-driver/spec"
+
+DriverSpecs.mock_driver "Philips::Dynalite" do
+  exec :trigger, 1, 4, 320
+  should_send Bytes[0x1c, 0x01, 0x20, 0x03, 0x00, 0x00, 0xff, 0xc1]
+  status["area1"].should eq(4)
+
+  # 5 second fade
+  exec :light_level, area: 2, level: 49.5, fade: 5000, channel: 3
+  should_send Bytes[0x1c, 0x02, 0x03, 0x71, 0x82, 0x32, 0xff, 0xbb]
+  status["area2_3_level"].should eq(49.5)
+
+  # 50 second fade
+  exec :light_level, area: 2, level: 49.5, fade: 50000, channel: 3
+  should_send Bytes[0x1c, 0x02, 0x03, 0x72, 0x82, 0x32, 0xff, 0xba]
+  status["area2_3_level"].should eq(49.5)
+
+  # 15 minute fade
+  exec :light_level, area: 2, level: 49.5, fade: 900000, channel: 3
+  should_send Bytes[0x1c, 0x02, 0x03, 0x73, 0x82, 0x0f, 0xff, 0xdc]
+  status["area2_3_level"].should eq(49.5)
+
+  exec :stop_fading, area: 4, channel: 6
+  should_send Bytes[0x1c, 0x04, 0x06, 0x76, 0x00, 0x00, 0xff, 0x65]
+
+  exec :stop_all_fading, area: 4
+  should_send Bytes[0x1c, 0x04, 0x00, 0x7A, 0x00, 0x00, 0xff, 0x67]
+
+  response = exec :get_current_preset, area: 4
+  should_send Bytes[0x1c, 0x04, 0x00, 0x63, 0x00, 0x00, 0xff, 0x7e]
+  responds Bytes[0x1c, 0x04, 0x05, 0x62, 0x00, 0x00, 0xff, 0x7A]
+  response.get.should eq(6)
+  status["area4"].should eq(6)
+
+  response = exec :get_light_level, area: 2, channel: 5
+  should_send Bytes[0x1c, 0x02, 0x05, 0x61, 0x00, 0x00, 0xff, 0x7d]
+  responds Bytes[0x1c, 0x02, 0x05, 0x60, 0x70, 0x70, 0xff, 0x9f]
+  response.get.not_nil!.as_f.to_i.should eq(56)
+  status["area2_5_level"].not_nil!.as_f.to_i.should eq(56)
+end

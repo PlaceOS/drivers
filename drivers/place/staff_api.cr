@@ -1,7 +1,9 @@
 require "json"
 require "oauth2"
 require "placeos"
+require "simple_retry"
 require "placeos-driver"
+require "place_calendar"
 
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
@@ -12,46 +14,29 @@ class Place::StaffAPI < PlaceOS::Driver
   uri_base "https://staff.app.api.com"
 
   default_settings({
-    # PlaceOS API creds, so we can query the zone metadata
-    username:     "",
-    password:     "",
-    client_id:    "",
-    redirect_uri: "",
+    # PlaceOS X-API-key, for simpler authentication
+    api_key: "",
   })
 
   @place_domain : URI = URI.parse("https://staff.app.api.com")
   @host_header : String = ""
-
-  @username : String = ""
-  @password : String = ""
-  @client_id : String = ""
-  @redirect_uri : String = ""
-
-  @running_a_spec : Bool = false
+  @api_key : String = ""
 
   def on_load
     on_update
   end
 
   def on_update
-    # we use the Place Client to query the desk booking data
-    @username = setting(String, :username)
-    @password = setting(String, :password)
-    @client_id = setting(String, :client_id)
-    @redirect_uri = setting(String, :redirect_uri)
+    # x-api-key is the preferred method for API access
+    @api_key = setting(String, :api_key) || ""
+    @access_expires = 30.years.from_now if @api_key.presence
 
     @place_domain = URI.parse(config.uri.not_nil!)
     @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
-
-    @running_a_spec = setting?(Bool, :running_a_spec) || false
   end
 
-  def get_system(id : String)
-    response = get("/api/engine/v2/systems/#{id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+  def get_system(id : String, complete : Bool = false)
+    response = get("/api/engine/v2/systems/#{id}?complete=#{complete}", headers: authentication)
     raise "unexpected response for system id #{id}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -96,12 +81,8 @@ class Place::StaffAPI < PlaceOS::Driver
 
   # Staff details returns the information from AD
   def staff_details(email : String)
-    response = get("/api/staff/v1/people/#{email}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
-    raise "unexpected response for stafff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
+    response = get("/api/staff/v1/people/#{email}", headers: authentication)
+    raise "unexpected response for staff #{email}: #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
       JSON.parse(response.body)
@@ -119,23 +100,38 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def update_user(id : String, body_json : String) : Nil
-    response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: {
-      "Accept"        => "application/json",
-      "Content-Type"  => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+  def create_user(body_json : String)
+    response = post("/api/engine/v2/users", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+    raise "failed to create user: #{response.status_code}" unless response.success?
+    PlaceOS::Client::API::Models::User.from_json response.body
+  end
 
-    raise "failed to update groups for #{id}: #{response.status_code}" unless response.success?
+  @[Security(Level::Support)]
+  def update_user(id : String, body_json : String) : Nil
+    response = patch("/api/engine/v2/users/#{id}", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+
+    raise "failed to update user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def delete_user(id : String, force_removal : Bool = false) : Nil
+    response = delete("/api/engine/v2/users/#{id}?force_removal=#{force_removal}", headers: authentication)
+    raise "failed to delete user #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
+  def revive_user(id : String) : Nil
+    response = post("/api/engine/v2/users/#{id}/revive", headers: authentication)
+    raise "failed to revive user #{id}: #{response.status_code}" unless response.success?
   end
 
   @[Security(Level::Support)]
   def resource_token
-    response = post("/api/engine/v2/users/resource_token", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+    response = post("/api/engine/v2/users/resource_token", headers: authentication)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -146,16 +142,65 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  @[Security(Level::Support)]
+  def query_users(
+    q : String? = nil,
+    limit : Int32 = 20,
+    offset : Int32 = 0,
+    authority_id : String? = nil,
+    include_deleted : Bool = false
+  )
+    placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
+  end
+
+  # ===================================
+  # WebRTC Helper functions
+  # ===================================
+
+  @[Security(Level::Support)]
+  def transfer_user(user_id : String, session_id : String, payload : JSON::Any)
+    status = 200
+    payload_str = payload.to_json
+    SimpleRetry.try_to(
+      max_attempts: 5,
+      base_interval: 1.second,
+      max_interval: 10.seconds,
+    ) do
+      response = post("/api/engine/v2/webrtc/transfer/#{user_id}/#{session_id}", headers: authentication, body: payload_str)
+      # 200 == success
+      # 428 == client is not connected to received the message, should be retried
+      status = response.status_code
+      raise "client not yet connected" unless response.success?
+    end
+    status
+  end
+
+  @[Security(Level::Support)]
+  def kick_user(user_id : String, session_id : String, reason : String)
+    response = post("/api/engine/v2/webrtc/kick/#{user_id}/#{session_id}", headers: authentication, body: {
+      reason: reason,
+    }.to_json)
+    response.status_code
+  end
+
+  def chat_members(session_id : String) : Array(String)
+    SimpleRetry.try_to(
+      max_attempts: 3,
+      base_interval: 1.second,
+      max_interval: 5.seconds,
+    ) do
+      response = get("/api/engine/v2/webrtc/members/#{session_id}", headers: authentication)
+      raise "webrtc service possibly unavailable" unless response.success?
+      Array(String).from_json(response.not_nil!.body)
+    end
+  end
+
   # ===================================
   # Guest details
   # ===================================
   @[Security(Level::Support)]
   def guest_details(guest_id : String)
-    response = get("/api/staff/v1/guests/#{guest_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
-
+    response = get("/api/staff/v1/guests/#{guest_id}", headers: authentication)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -168,11 +213,9 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def update_guest(id : String, body_json : String) : Nil
-    response = patch("/api/staff/v1/guests/#{id}", body: body_json, headers: {
-      "Accept"        => "application/json",
-      "Content-Type"  => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = patch("/api/staff/v1/guests/#{id}", body: body_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
 
     raise "failed to update guest #{id}: #{response.status_code}" unless response.success?
   end
@@ -185,10 +228,7 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "zone_ids", zones.join(",")
     end
 
-    response = patch("/api/staff/v1/guests?#{params}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = get("/api/staff/v1/guests?#{params}", headers: authentication)
 
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
@@ -225,11 +265,89 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "include_cancelled", include_cancelled.to_s if !include_cancelled.nil?
     end
 
-    response = get("/api/staff/v1/events?#{params}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = get("/api/staff/v1/events?#{params}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  # gets an event from either the `system_id` or `calendar` if only one is provided
+  # if both are provided, it gets the event from `calendar` and the metadata from `system_id`
+  # NOTE:: the use of `calendar` will typically not work from a driver unless the X-API-Key
+  #        has read access to it. From a driver perspective you should probably use a
+  #        dedicated Calendar driver with application access and the query_metadata function
+  #        below if metadata is required: `query_metadata(system_id: "sys", event_ref: ["id", "uuid"])`
+  def get_event(event_id : String, system_id : String? = nil, calendar : String? = nil)
+    raise ArgumentError.new("requires system_id or calendar param") unless calendar.presence || system_id.presence
+    params = URI::Params.build do |form|
+      form.add "calendar", calendar.to_s if calendar.presence
+      form.add "system_id", system_id.to_s if system_id.presence
+    end
+
+    response = get("/api/staff/v1/events/#{event_id}?#{params}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  # NOTE:: https://docs.google.com/document/d/1OaZljpjLVueFitmFWx8xy8BT8rA2lITyPsIvSYyNNW8/edit#
+  # The service account making this request needs delegated access and hence you can only edit
+  # events associated with a resource calendar
+  def update_event(system_id : String, event : PlaceCalendar::Event)
+    response = patch("/api/staff/v1/events/#{event.id}?system_id=#{system_id}", headers: authentication, body: event.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    PlaceCalendar::Event.from_json(response.body)
+  end
+
+  def delete_event(system_id : String, event_id : String)
+    response = delete("/api/staff/v1/events/#{event_id}?system_id=#{system_id}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success? || response.status_code == 404
+    true
+  end
+
+  def patch_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil)
+    response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?ical_uid=#{ical_uid}", headers: authentication, body: metadata.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON::Any.from_json(response.body)
+  end
+
+  def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil)
+    response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?ical_uid=#{ical_uid}", headers: authentication, body: metadata.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+    JSON::Any.from_json(response.body)
+  end
+
+  # search for metadata that exists on events to obtain the event information
+  # for response details see `EventMetadata__Assigner` in the OpenAPI docs
+  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/PlaceOS/staff-api/master/OPENAPI_DOC.yml
+  def query_metadata(
+    period_start : Int64? = nil,
+    period_end : Int64? = nil,
+    field_name : String? = nil,
+    value : String? = nil,
+    system_id : String? = nil,
+    event_ref : Array(String)? = nil
+  )
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s if period_start
+      form.add "period_end", period_end.to_s if period_end
+      form.add "field_name", field_name if field_name.presence
+      form.add "value", value if value.presence
+      form.add "event_ref", event_ref.join(",") if event_ref && !event_ref.empty?
+    end
+
+    response = get("/api/staff/v1/events/extension_metadata/#{system_id}?#{params}", headers: authentication)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     begin
@@ -256,6 +374,11 @@ class Place::StaffAPI < PlaceOS::Driver
     placeos_client.metadata.update(id, key, payload, description)
   end
 
+  @[Security(Level::Support)]
+  def merge_metadata(id : String, key : String, payload : JSON::Any, description : String = "")
+    placeos_client.metadata.merge(id, key, payload, description)
+  end
+
   # ===================================
   # ZONE INFORMATION
   # ===================================
@@ -272,7 +395,7 @@ class Place::StaffAPI < PlaceOS::Driver
       q: q,
       limit: limit,
       offset: offset,
-      parent: parent,
+      parent_id: parent,
       tags: tags
     )
   end
@@ -291,20 +414,28 @@ class Place::StaffAPI < PlaceOS::Driver
     booking_start : Int64? = nil,
     booking_end : Int64? = nil,
     checked_in : Bool = false,
+    approved : Bool? = nil,
     title : String? = nil,
     description : String? = nil,
     time_zone : String? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
+    utm_source : String? = nil,
+    limit_override : Int64? = nil
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
     booking_end ||= now.at_end_of_day.to_unix
 
+    checked_in_at = now.to_unix if checked_in
+
     logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
-    response = post("/api/staff/v1/bookings", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    }, body: {
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+      form.add "limit_override", limit_override.to_s unless limit_override.nil?
+    end
+
+    response = post("/api/staff/v1/bookings?#{params}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
       "booking_type"   => booking_type,
@@ -314,10 +445,12 @@ class Place::StaffAPI < PlaceOS::Driver
       "user_name"      => user_name,
       "zones"          => zones,
       "checked_in"     => checked_in,
+      "checked_in_at"  => checked_in_at,
+      "approved"       => approved,
       "title"          => title,
       "description"    => description,
       "timezone"       => time_zone,
-      "extension_data" => extension_data,
+      "extension_data" => extension_data || JSON.parse("{}"),
     }.compact.to_json)
     raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
     true
@@ -332,15 +465,31 @@ class Place::StaffAPI < PlaceOS::Driver
     title : String? = nil,
     description : String? = nil,
     timezone : String? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
+    approved : Bool? = nil,
+    checked_in : Bool? = nil,
+    limit_override : Int64? = nil
   )
     logger.debug { "updating booking #{booking_id}" }
-    response = patch("/api/staff/v1/bookings/#{booking_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    }, body: {
+
+    case checked_in
+    in true
+      checked_in_at = Time.utc.to_unix
+    in false
+      checked_out_at = Time.utc.to_unix
+    in nil
+    end
+
+    params = URI::Params.build do |form|
+      form.add "limit_override", limit_override.to_s unless limit_override.nil?
+    end
+
+    response = patch("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
+      "checked_in"     => checked_in,
+      "checked_in_at"  => checked_in_at,
+      "checked_out_at" => checked_out_at,
       "asset_id"       => asset_id,
       "title"          => title,
       "description"    => description,
@@ -352,12 +501,14 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def reject(booking_id : String | Int64)
+  def reject(booking_id : String | Int64, utm_source : String? = nil)
     logger.debug { "rejecting booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/reject", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+    end
+
+    response = post("/api/staff/v1/bookings/#{booking_id}/reject?#{params}", headers: authentication)
     raise "issue rejecting booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -365,10 +516,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def approve(booking_id : String | Int64)
     logger.debug { "approving booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: authentication)
     raise "issue approving booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -376,32 +524,31 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def booking_state(booking_id : String | Int64, state : String)
     logger.debug { "updating booking #{booking_id} state to: #{state}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: authentication)
     raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
 
   @[Security(Level::Support)]
-  def booking_check_in(booking_id : String | Int64, state : Bool = true)
+  def booking_check_in(booking_id : String | Int64, state : Bool = true, utm_source : String? = nil)
     logger.debug { "checking in booking #{booking_id} to: #{state}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?state=#{state}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+      form.add "state", state.to_s
+    end
+    response = post("/api/staff/v1/bookings/#{booking_id}/check_in?#{params}", headers: authentication)
     raise "issue checking in booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
 
   @[Security(Level::Support)]
-  def booking_delete(booking_id : String | Int64)
+  def booking_delete(booking_id : String | Int64, utm_source : String? = nil)
     logger.debug { "deleting booking #{booking_id}" }
-    response = delete("/api/staff/v1/bookings/#{booking_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    params = URI::Params.build do |form|
+      form.add "utm_source", utm_source.to_s unless utm_source.nil?
+    end
+    response = delete("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication)
     raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
@@ -478,12 +625,13 @@ class Place::StaffAPI < PlaceOS::Driver
     params["rejected"] = rejected.to_s unless rejected.nil?
     params["checked_in"] = checked_in.to_s unless checked_in.nil?
 
+    logger.debug { "requesting staff/v1/bookings: #{params}" }
+
     # Get the existing bookings from the API to check if there is space
-    response = get("/api/staff/v1/bookings", params, {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = get("/api/staff/v1/bookings", params, authentication)
     raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
+
+    logger.debug { "bookings response size: #{response.body.size}" }
 
     # Just parse it here instead of using the Bookings object
     # it will be parsed into an object on the far end
@@ -492,63 +640,63 @@ class Place::StaffAPI < PlaceOS::Driver
 
   def get_booking(booking_id : String | Int64)
     logger.debug { "getting booking #{booking_id}" }
-    response = get("/api/staff/v1/bookings/#{booking_id}", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => "Bearer #{token}",
-    })
+    response = get("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
     raise "issue getting booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
+  end
+
+  # ===================================
+  # SURVEYS
+  # ===================================
+
+  def get_survey_invites(survey_id : Int64? = nil, sent : Bool? = nil)
+    logger.debug { "getting survey_invites (survey #{survey_id}, sent #{sent})" }
+    params = URI::Params.new
+    params["survey_id"] = survey_id.to_s if survey_id
+    params["sent"] = sent.to_s unless sent.nil?
+    response = get("/api/staff/v1/surveys/invitations", params, headers: authentication)
+    raise "issue getting survey invitations (survey #{survey_id}, sent #{sent}): #{response.status_code}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  @[Security(Level::Support)]
+  def update_survey_invite(
+    token : String,
+    email : String? = nil,
+    sent : Bool? = nil
+  )
+    logger.debug { "updating survey invite #{token}" }
+    response = patch("/api/staff/v1/surveys/invitations/#{token}", headers: authentication, body: {
+      "email" => email,
+      "sent"  => sent,
+    }.compact.to_json)
+    raise "issue updating survey invite #{token}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  # ===================================
+
+  @[Security(Level::Support)]
+  def signal(channel : String, payload : JSON::Any? = nil)
+    placeos_client.root.signal(channel, payload)
   end
 
   # For accessing PlaceOS APIs
   protected def placeos_client : PlaceOS::Client
     PlaceOS::Client.new(
       @place_domain,
-      token: OAuth2::AccessToken::Bearer.new(token, nil),
-      host_header: @host_header
+      host_header: @host_header,
+      x_api_key: @api_key
     )
   end
 
   # ===================================
   # PLACEOS AUTHENTICATION:
   # ===================================
-  @access_token : String = ""
-  @access_expires : Time = Time.unix(0)
-
-  protected def authenticate : String
-    uri = @place_domain
-    host = uri.port ? "#{uri.host}:#{uri.port}" : uri.host.not_nil!
-    origin = "#{uri.scheme}://#{host}"
-
-    # Create oauth client, optionally pass custom URIs if needed,
-    # if the authorize or token URIs are not the standard ones
-    # (they can also be absolute URLs)
-    oauth2_client = OAuth2::Client.new(host, @client_id, "",
-      redirect_uri: @redirect_uri,
-      authorize_uri: "#{origin}/auth/oauth/authorize",
-      token_uri: "#{origin}/auth/oauth/token")
-
-    oauth2_client.headers_cb { |headers| headers.add("Host", @host_header) }
-
-    access_token = oauth2_client.get_access_token_using_resource_owner_credentials(
-      @username,
-      @password,
-      "public"
-    ).as(OAuth2::AccessToken::Bearer)
-
-    @access_expires = (access_token.expires_in.not_nil! - 300).seconds.from_now
-    @access_token = access_token.access_token
-  end
-
-  protected def token : String
-    # Don't perform OAuth if we are testing the driver
-    return "spec-test" if @running_a_spec
-    return @access_token if valid_token?
-    authenticate
-  end
-
-  protected def valid_token?
-    Time.utc < @access_expires
+  protected def authentication(headers : HTTP::Headers = HTTP::Headers.new) : HTTP::Headers
+    headers["Accept"] = "application/json"
+    headers["X-API-Key"] = @api_key.presence || "spec-test"
+    headers
   end
 end
 
@@ -556,48 +704,6 @@ end
 class OpenSSL::SSL::Context::Client
   def initialize(method : LibSSL::SSLMethod = Context.default_method)
     super(method)
-
     self.verify_mode = OpenSSL::SSL::VerifyMode::NONE
-    {% if compare_versions(LibSSL::OPENSSL_VERSION, "1.0.2") >= 0 %}
-      self.default_verify_param = "ssl_server"
-    {% end %}
-  end
-end
-
-# Allow for header modification
-class OAuth2::Client
-  def headers_cb(&@headers_cb : HTTP::Headers -> Nil)
-  end
-
-  private def get_access_token : AccessToken
-    headers = HTTP::Headers{
-      "Accept"       => "application/json",
-      "Content-Type" => "application/x-www-form-urlencoded",
-    }
-
-    body = URI::Params.build do |form|
-      case @auth_scheme
-      when .request_body?
-        form.add("client_id", @client_id)
-        form.add("client_secret", @client_secret)
-      when .http_basic?
-        headers.add(
-          "Authorization",
-          "Basic #{Base64.strict_encode("#{@client_id}:#{@client_secret}")}"
-        )
-      end
-      yield form
-    end
-
-    cb = @headers_cb
-    cb.call(headers) if cb
-
-    response = HTTP::Client.post token_uri, form: body, headers: headers
-    case response.status
-    when .ok?, .created?
-      OAuth2::AccessToken.from_json(response.body)
-    else
-      raise OAuth2::Error.new(response.body)
-    end
   end
 end

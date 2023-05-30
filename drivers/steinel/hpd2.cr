@@ -72,7 +72,7 @@ class Steinel::HPD2 < PlaceOS::Driver
 
   TYPES = {
     illuminance: SensorType::Illuminance,
-    temperature: SensorType::AmbientTemp,
+    temperature: SensorType::Temperature,
     humidity:    SensorType::Humidity,
     presence:    SensorType::Presence,
     people:      SensorType::PeopleCount,
@@ -109,20 +109,29 @@ class Steinel::HPD2 < PlaceOS::Driver
 
       time = Time.utc.to_unix
       mod_id = module_id
-      self[:humidity] = humidity = Interface::Sensor::Detail.new(SensorType::Humidity, status.humidity.to_f, time, @mac, "humidity", "Humidity", module_id: mod_id, binding: "humidity")
-      self[:temperature] = temperature = Interface::Sensor::Detail.new(SensorType::AmbientTemp, status.temperature.to_f, time, @mac, "temperature", "Temperature", module_id: mod_id, binding: "temperature")
-      self[:presence] = presence = Interface::Sensor::Detail.new(SensorType::Presence, status.person_presence.zero? ? 0.0 : 1.0, time, @mac, "presence", "Person Presence", module_id: mod_id, binding: "presence")
-      self[:people] = people = Interface::Sensor::Detail.new(SensorType::PeopleCount, status.detected_persons.to_f, time, @mac, "people", "Detected Persons", module_id: mod_id, binding: "people")
-      self[:illuminance] = illuminance = Interface::Sensor::Detail.new(SensorType::Illuminance, status.global_illuminance_lux, time, @mac, "illuminance", "Illuminance", module_id: mod_id, binding: "illuminance")
+      humidity = Interface::Sensor::Detail.new(SensorType::Humidity, status.humidity.to_f, time, @mac, "humidity", "Humidity", module_id: mod_id, binding: "humidity")
+      self[:humidity] = status.humidity.to_f
+      temperature = Interface::Sensor::Detail.new(SensorType::Temperature, status.temperature.to_f, time, @mac, "temperature", "Temperature", module_id: mod_id, binding: "temperature", unit: "Cel")
+      self[:temperature] = status.temperature.to_f
+      pres = status.person_presence.zero? ? 0.0 : 1.0
+      presence = Interface::Sensor::Detail.new(SensorType::Presence, pres, time, @mac, "presence", "Person Presence", module_id: mod_id, binding: "presence")
+      self[:presence] = pres
+      people = Interface::Sensor::Detail.new(SensorType::PeopleCount, status.detected_persons.to_f, time, @mac, "people", "Detected Persons", module_id: mod_id, binding: "people")
+      self[:people] = status.detected_persons
+      illuminance = Interface::Sensor::Detail.new(SensorType::Illuminance, status.global_illuminance_lux, time, @mac, "illuminance", "Illuminance", module_id: mod_id, binding: "illuminance", unit: "lx")
+      self[:illuminance] = status.global_illuminance_lux
 
-      self[:presence_zones] = presence_zones = status.person_presence_zone.map_with_index do |value, index|
+      self[:presence_zones] = status.person_presence_zone.map { |value| value.zero? ? 0.0 : 1.0 }
+      presence_zones = status.person_presence_zone.map_with_index do |value, index|
         Interface::Sensor::Detail.new(SensorType::Presence, value.zero? ? 0.0 : 1.0, time, @mac, "presence-#{index}", "Person Presence in Zone#{index}")
       end
-      self[:people_zones] = people_zones = status.detected_persons_zone.map_with_index do |value, index|
+      self[:people_zones] = status.detected_persons_zone
+      people_zones = status.detected_persons_zone.map_with_index do |value, index|
         Interface::Sensor::Detail.new(SensorType::PeopleCount, value.to_f, time, @mac, "people-#{index}", "Detected People in Zone#{index}")
       end
-      self[:illuminance_zones] = illuminance_zones = status.lux_zone.map_with_index do |value, index|
-        Interface::Sensor::Detail.new(SensorType::Illuminance, value, time, @mac, "illuminance-#{index}", "Illuminance in Zone#{index}")
+      self[:illuminance_zones] = status.lux_zone
+      illuminance_zones = status.lux_zone.map_with_index do |value, index|
+        Interface::Sensor::Detail.new(SensorType::Illuminance, value, time, @mac, "illuminance-#{index}", "Illuminance in Zone#{index}", unit: "lx")
       end
 
       @state = {

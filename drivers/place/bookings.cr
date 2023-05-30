@@ -1,30 +1,53 @@
 require "placeos-driver"
 require "place_calendar"
 require "placeos-driver/interface/locatable"
+require "placeos-driver/interface/sensor"
 
 class Place::Bookings < PlaceOS::Driver
   include Interface::Locatable
 
-  descriptive_name "PlaceOS Bookings"
+  descriptive_name "PlaceOS Room Events"
   generic_name :Bookings
 
   default_settings({
     calendar_id:            nil,
     calendar_time_zone:     "Australia/Sydney",
     book_now_default_title: "Ad Hoc booking",
+    disable_book_now_host:  false,
     disable_book_now:       false,
     disable_end_meeting:    false,
     pending_period:         5,
-    pending_from:           5,
-    cache_polling_period:   2,
+    pending_before:         5,
+    cache_polling_period:   5,
+    cache_days:             30,
+
+    # consider sensor data older than this unreliable
+    sensor_stale_minutes: 8,
+
+    # as graph API is eventually consistent we want to delay syncing for a moment
+    change_event_sync_delay: 5,
 
     control_ui:  "https://if.panel/to_be_used_for_control",
     catering_ui: "https://if.panel/to_be_used_for_catering",
+
+    include_cancelled_bookings: false,
+    hide_qr_code:               false,
+    custom_qr_url:              "https://domain.com/path",
+    custom_qr_color:            "black",
+
+    # This image is displayed along with the capacity when the room is not bookable
+    room_image: "https://domain.com/room_image.svg",
+    sensor_mac: "device-mac",
+
+    hide_meeting_details: false,
+    hide_meeting_title:   false,
+
+    # expose_for_analytics: {"binding" => "key->subkey"},
   })
 
   accessor calendar : Calendar_1
 
-  @calendar_id : String = ""
+  getter calendar_id : String = ""
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
   @default_title : String = "Ad Hoc booking"
   @disable_book_now : Bool = false
@@ -32,6 +55,19 @@ class Place::Bookings < PlaceOS::Driver
   @pending_period : Time::Span = 5.minutes
   @pending_before : Time::Span = 5.minutes
   @bookings : Array(JSON::Any) = [] of JSON::Any
+  @change_event_sync_delay : UInt32 = 5_u32
+  @cache_days : Time::Span = 30.days
+  @include_cancelled_bookings : Bool = false
+  @disable_book_now_host : Bool = false
+
+  @current_meeting_id : String = ""
+  @current_pending : Bool = false
+  @next_pending : Bool = false
+  @expose_for_analytics : Hash(String, String) = {} of String => String
+
+  @sensor_stale_minutes : Time::Span = 8.minutes
+  @perform_sensor_search : Bool = true
+  @sensor_mac : String? = nil
 
   def on_load
     monitor("staff/event/changed") { |_subscription, payload| check_change(payload) }
@@ -43,20 +79,24 @@ class Place::Bookings < PlaceOS::Driver
     schedule.clear
     @calendar_id = setting?(String, :calendar_id).presence || system.email.not_nil!
 
-    schedule.in(Random.rand(60).seconds + Random.rand(1000).milliseconds) { poll_events }
+    @perform_sensor_search = true
+    schedule.in(Random.rand(59).seconds + Random.rand(1000).milliseconds) { poll_events }
 
     cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
     cache_polling_period += Random.rand(30).seconds + Random.rand(1000).milliseconds
     schedule.every(cache_polling_period) { poll_events }
 
-    time_zone = setting?(String, :calendar_time_zone).presence
+    time_zone = setting?(String, :calendar_time_zone).presence || config.control_system.not_nil!.timezone.presence
     @time_zone = Time::Location.load(time_zone) if time_zone
 
     @default_title = setting?(String, :book_now_default_title).presence || "Ad Hoc booking"
 
     book_now = setting?(Bool, :disable_book_now)
-    @disable_book_now = book_now.nil? ? !system.bookable : !!book_now
+    not_bookable = setting?(Bool, :not_bookable) || false
+    self[:bookable] = bookable = not_bookable ? false : system.bookable
+    @disable_book_now = book_now.nil? ? !bookable : !!book_now
     @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
+    @disable_book_now_host = setting?(Bool, :disable_book_now_host) || false
 
     pending_period = setting?(UInt32, :pending_period) || 5_u32
     @pending_period = pending_period.minutes
@@ -64,16 +104,44 @@ class Place::Bookings < PlaceOS::Driver
     pending_before = setting?(UInt32, :pending_before) || 5_u32
     @pending_before = pending_before.minutes
 
+    cache_days = setting?(UInt32, :cache_days) || 30_u32
+    @cache_days = cache_days.days
+
+    @change_event_sync_delay = setting?(UInt32, :change_event_sync_delay) || 5_u32
+
     @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
 
+    @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
+
+    @sensor_stale_minutes = (setting?(Int32, :sensor_stale_minutes) || 8).minutes
+    @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
+
+    # ensure current booking is updated at the start of every minute
+    schedule.cron("* * * * *") { check_current_booking }
+
     # Write to redis last on the off chance there is a connection issue
+    self[:room_name] = setting?(String, :room_name).presence || config.control_system.not_nil!.display_name.presence || config.control_system.not_nil!.name
+    self[:room_capacity] = setting?(Int32, :room_capacity) || config.control_system.not_nil!.capacity
     self[:default_title] = @default_title
+    self[:disable_book_now_host] = @disable_book_now_host
     self[:disable_book_now] = @disable_book_now
     self[:disable_end_meeting] = @disable_end_meeting
     self[:pending_period] = pending_period
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
+    self[:room_image] = setting?(String, :room_image)
+    self[:hide_meeting_details] = setting?(Bool, :hide_meeting_details) || false
+    self[:hide_meeting_title] = setting?(Bool, :hide_meeting_title) || false
+
+    self[:offline_color] = setting?(String, :offline_color)
+    self[:offline_image] = setting?(String, :offline_image)
+
+    self[:custom_qr_color] = setting?(String, :custom_qr_color)
+    self[:custom_qr_url] = setting?(String, :custom_qr_url)
+    self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
+
+    self[:sensor_mac] = @sensor_mac = setting?(String, :sensor_mac)
   end
 
   # This is how we check the rooms status
@@ -83,20 +151,27 @@ class Place::Bookings < PlaceOS::Driver
     logger.debug { "starting meeting #{meeting_start_time}" }
     @last_booking_started = meeting_start_time
     define_setting(:last_booking_started, meeting_start_time)
+    self[:last_booking_started] = meeting_start_time
     check_current_booking
   end
 
+  def checkin
+    if booking = pending
+      start_meeting booking.event_start.to_unix
+    end
+  end
+
   # End either the current meeting early, or the pending meeting
-  def end_meeting(meeting_start_time : Int64) : Nil
+  def end_meeting(meeting_start_time : Int64, notify : Bool = false, comment : String? = nil) : Nil
     cmeeting = current
     result = if cmeeting && cmeeting.event_start.to_unix == meeting_start_time
                logger.debug { "deleting event #{cmeeting.title}, from #{@calendar_id}" }
-               calendar.delete_event(@calendar_id, cmeeting.id)
+               calendar.decline_event(@calendar_id, cmeeting.id, notify: notify, comment: comment)
              else
                nmeeting = upcoming
                if nmeeting && nmeeting.event_start.to_unix == meeting_start_time
                  logger.debug { "deleting event #{nmeeting.title}, from #{@calendar_id}" }
-                 calendar.delete_event(@calendar_id, nmeeting.id)
+                 calendar.decline_event(@calendar_id, nmeeting.id, notify: notify, comment: comment)
                else
                  raise "only the current or pending meeting can be cancelled"
                end
@@ -104,7 +179,7 @@ class Place::Bookings < PlaceOS::Driver
     result.get
 
     # Update the display
-    poll_events
+    schedule.in(2.seconds) { poll_events }
     check_current_booking
   end
 
@@ -129,22 +204,25 @@ class Place::Bookings < PlaceOS::Driver
       host_calendar
     )
     # Update booking info after creating event
-    poll_events
+    schedule.in(2.seconds) { poll_events }
     event
   end
 
   def poll_events : Nil
-    now = Time.local @time_zone
-    start_of_week = now.at_beginning_of_week.to_unix
-    four_weeks_time = start_of_week + 30.days.to_i
+    check_for_sensors if @perform_sensor_search
 
-    logger.debug { "polling events #{@calendar_id}, from #{start_of_week}, to #{four_weeks_time}, in #{@time_zone.name}" }
+    now = Time.local @time_zone
+    start_of_day = now.at_beginning_of_day.to_unix
+    cache_period = start_of_day + @cache_days.to_i
+
+    logger.debug { "polling events #{@calendar_id}, from #{start_of_day}, to #{cache_period}, in #{@time_zone.name}" }
 
     events = calendar.list_events(
       @calendar_id,
-      start_of_week,
-      four_weeks_time,
-      @time_zone.name
+      start_of_day,
+      cache_period,
+      @time_zone.name,
+      include_cancelled: @include_cancelled_bookings
     ).get
 
     @bookings = events.as_a.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
@@ -198,19 +276,54 @@ class Place::Bookings < PlaceOS::Driver
     if current_booking
       booking = @bookings[current_booking]
       start_time = booking["event_start"].as_i64
-
+      ending_at = booking["event_end"]?
       booked = true
+
       # Up to the frontend to delete pending bookings that have past their start time
       if !@disable_end_meeting
         current_pending = true if start_time > @last_booking_started
       elsif @pending_period.to_i > 0_i64
         pending_limit = (Time.unix(start_time) + @pending_period).to_unix
-        current_pending = true if start_time < pending_limit
+        current_pending = true if start_time < pending_limit && start_time > @last_booking_started
       end
 
       self[:current_booking] = booking
+      self[:host_email] = booking["extension_data"]?.try(&.[]?("host_override")) || booking["host"]?
+      self[:started_at] = start_time
+      self[:ending_at] = ending_at ? ending_at.as_i64 : (start_time + 24.hours.to_i)
+      self[:all_day_event] = !ending_at
+      self[:event_id] = booking["id"]?
+
+      @expose_for_analytics.each do |binding, path|
+        begin
+          binding_keys = path.split("->")
+          data = booking
+          binding_keys.each do |key|
+            data = data.dig? key
+            break unless data
+          end
+          self[binding] = data
+        rescue error
+          logger.warn(exception: error) { "failed to expose #{binding}: #{path} for analytics" }
+          self[binding] = nil
+        end
+      end
+
+      previous_booking_id = @current_meeting_id
+      new_booking_id = booking["id"].as_s
+      schedule.in(1.second) { check_for_sensors } unless new_booking_id == previous_booking_id
+      @current_meeting_id = new_booking_id
     else
       self[:current_booking] = nil
+      self[:host_email] = nil
+      self[:started_at] = nil
+      self[:ending_at] = nil
+      self[:all_day_event] = nil
+      self[:event_id] = nil
+
+      @expose_for_analytics.each_key do |binding|
+        self[binding] = nil
+      end
     end
 
     self[:booked] = booked
@@ -225,15 +338,15 @@ class Place::Bookings < PlaceOS::Driver
     end
 
     # Check if pending is enabled
-    if @pending_period.to_i > 0_i64
-      self[:current_pending] = current_pending
-      self[:next_pending] = next_pending
+    if @pending_period.to_i > 0_i64 || @pending_before.to_i > 0_i64
+      self[:current_pending] = @current_pending = current_pending
+      self[:next_pending] = @next_pending = next_pending
       self[:pending] = current_pending || next_pending
 
       self[:in_use] = booked && !current_pending
     else
-      self[:current_pending] = false
-      self[:next_pending] = false
+      self[:current_pending] = @current_pending = current_pending = false
+      self[:next_pending] = @next_pending = next_pending = false
       self[:pending] = false
 
       self[:in_use] = booked
@@ -253,7 +366,11 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   protected def pending : PlaceCalendar::Event?
-    status?(PlaceCalendar::Event, :next_booking)
+    if @current_pending
+      current
+    elsif @next_pending
+      upcoming
+    end
   end
 
   class StaffEventChange
@@ -268,15 +385,23 @@ class Place::Bookings < PlaceOS::Driver
   # This is called when bookings are modified via the staff app
   # it allows us to update the cache faster than via polling alone
   protected def check_change(payload : String)
+    logger.debug { "checking for change in payload:\n#{payload}" }
+
     event = StaffEventChange.from_json(payload)
     if event.system_id == system.id
+      logger.debug { "system id match, waiting #{@change_event_sync_delay} and polling events" }
+      sleep @change_event_sync_delay
       poll_events
       check_current_booking
     else
       matching = @bookings.select { |b| b["id"] == event.event_id }
       if matching
+        logger.debug { "event id match, waiting #{@change_event_sync_delay} and polling events" }
+        sleep @change_event_sync_delay
         poll_events
         check_current_booking
+      else
+        logger.debug { "ignoring event as no matching events found" }
       end
     end
   rescue error
@@ -291,13 +416,14 @@ class Place::Bookings < PlaceOS::Driver
     events.map do |event|
       event_ends = event.all_day? ? event.event_start.in(@time_zone).at_end_of_day : event.event_end.not_nil!
       {
-        location: :meeting,
-        mac:      @calendar_id,
-        event_id: event.id,
-        map_id:   sys.map_id,
-        sys_id:   sys.id,
-        ends_at:  event_ends.to_unix,
-        private:  !!event.private?,
+        location:   :meeting,
+        mac:        @calendar_id,
+        event_id:   event.id,
+        map_id:     sys.map_id,
+        sys_id:     sys.id,
+        ends_at:    event_ends.to_unix,
+        started_at: event.event_start.to_unix,
+        private:    !!event.private?,
       }
     end
   end
@@ -346,5 +472,97 @@ class Place::Bookings < PlaceOS::Driver
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "searching devices in zone #{zone_id}" }
     [] of Nil
+  end
+
+  @sensor_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
+
+  protected def check_for_sensors
+    drivers = system.implementing(Interface::Sensor)
+
+    if sub = @sensor_subscription
+      subscriptions.unsubscribe(sub)
+      @sensor_subscription = nil
+    end
+
+    # Prefer people count data in a space
+    count_data = drivers.sensors("people_count", @sensor_mac).get.flat_map(&.as_a).first?
+
+    if count_data && count_data["module_id"]?.try(&.raw.is_a?(String))
+      if !is_stale?(count_data["last_seen"]?.try &.as_i64)
+        self[:sensor_name] = count_data["name"].as_s
+
+        # the binding might be multiple layers deep
+        binding_keys = count_data["binding"].as_s.split("->")
+        binding = binding_keys.shift
+        @sensor_subscription = subscriptions.subscribe(count_data["module_id"].as_s, binding) do |_sub, payload|
+          data = JSON.parse payload
+          binding_keys.each do |key|
+            data = data.dig? key
+            break unless data
+          end
+          value = data ? (data.as_f? || data.as_i).to_f : nil
+          if value
+            self[:people_count] = value
+            self[:presence] = value > 0.0
+          else
+            self[:people_count] = self[:presence] = nil
+          end
+        end
+        @perform_sensor_search = false
+      end
+    end
+
+    # a people count sensor was stale or not found
+    if @perform_sensor_search
+      self[:people_count] = nil
+
+      # Fallback to checking for presence
+      presence = drivers.sensors("presence", @sensor_mac).get.flat_map(&.as_a).first?
+      if presence && presence["module_id"]?.try(&.raw.is_a?(String))
+        if !is_stale?(presence["last_seen"]?.try &.as_i64)
+          self[:sensor_name] = presence["name"].as_s
+
+          # the binding might be multiple layers deep
+          binding_keys = presence["binding"].as_s.split("->")
+          binding = binding_keys.shift
+          @sensor_subscription = subscriptions.subscribe(presence["module_id"].as_s, binding) do |_sub, payload|
+            data = JSON.parse payload
+            binding_keys.each do |key|
+              data = data.dig? key
+              break unless data
+            end
+            value = data ? (data.as_f? || data.as_i).to_f : nil
+            self[:presence] = value ? value > 0.0 : nil
+          end
+          @perform_sensor_search = false
+        else
+          self[:sensor_name] = self[:presence] = nil
+          @perform_sensor_search = true
+        end
+      end
+    end
+  rescue error
+    @perform_sensor_search = true
+    logger.error(exception: error) { "checking for sensors" }
+    self[:people_count] = nil
+    self[:presence] = nil
+    self[:sensor_name] = nil
+    self[:sensor_stale] = true
+  end
+
+  def is_stale?(timestamp : Int64?) : Bool
+    if timestamp.nil?
+      return self[:sensor_stale] = false
+    end
+
+    sensor_time = Time.unix(timestamp)
+    stale_time = @sensor_stale_minutes.ago
+
+    if sensor_time > stale_time
+      self[:sensor_stale] = false
+    else
+      @perform_sensor_search = true
+      self[:sensor_stale] = true
+    end
   end
 end

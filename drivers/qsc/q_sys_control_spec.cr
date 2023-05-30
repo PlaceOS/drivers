@@ -1,6 +1,8 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Qsc::QSysControl" do
+  sleep 1
+
   settings({
     username:  "user",
     password:  "pass",
@@ -38,35 +40,40 @@ DriverSpecs.mock_driver "Qsc::QSysControl" do
   status[:fader3_mute].should eq(true)
 
   exec(:faders, ["1", "2", "3"], 90)
-  should_send("csv \"1\" 9.0\n")
+  should_send("csv \"1\" 8.0\n")
   responds("cv \"1\" \"control string\" 9 6\r\n")
   status[:pos_1].should eq(6)
+  status[:fader1].should eq(90.83)
   status[:fader1_mute].should eq(true)
-  should_send("csv \"2\" 9.0\n")
-  responds("cv \"2\" \"control string\" 9 7\r\n")
+  should_send("csv \"2\" 8.0\n")
+  responds("cv \"2\" \"control string\" 8 7\r\n")
   status[:pos_2].should eq(7)
   status[:fader2].should eq(90)
-  should_send("csv \"3\" 9.0\n")
-  responds("cv \"3\" \"control string\" 9 8\r\n")
+  should_send("csv \"3\" 8.0\n")
+  responds("cv \"3\" \"control string\" 8 8\r\n")
   status[:pos_3].should eq(8)
   status[:fader3].should eq(90)
 
-  exec(:phone_watch, "0")
-  should_send("cgc 31\n")
-  responds("none\r\n")
-  should_send("cgsna 31 2000\n")
-  responds("none\r\n")
-  should_send("cga 31 0\n")
-  responds("none\r\n")
-
-  exec(:phone_watch, ["1", "2"])
-  should_send("cga 31 1\n")
-  responds("none\r\n")
-  should_send("cga 31 2\n")
-  responds("none\r\n")
+  exec(:fader, "HH2:Level", 90)
+  should_send(%(csv "HH2:Level" 8.0\n))
+  responds %(cv "HH2:Level" "-53.2dB" -53.2 8.0\r\n)
+  status["faderHH2:Level"].should eq(39.0)
 
   exec(:phone_number, "0123456789", "1")
   should_send("css \"1\" \"0123456789\"\n")
   responds("cv \"1\" \"0123456789\" 9 8\r\n")
   status[:"1"].should eq("0123456789")
+
+  # Test percentage faders
+  exec(:query_fader, ["3"])
+  should_send %(cg 3\n)
+  responds %(cv 3 "0%" 0 0\r\n)
+  status[:pos_3].should eq(0.0)
+  status[:fader3].should eq(0.0)
+
+  exec(:query_fader, ["2"])
+  should_send %(cg 2\n)
+  responds %(cv 2 "20%" 20 20\r\n)
+  status[:pos_2].should eq(20.0)
+  status[:fader2].should eq(20.0)
 end
