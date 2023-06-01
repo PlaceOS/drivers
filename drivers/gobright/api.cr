@@ -92,7 +92,7 @@ class GoBright::API < PlaceOS::Driver
   def bookings(starting : Int64, ending : Int64, location_id : String | Array(String)? = nil, space_id : String | Array(String)? = nil)
     params = URI::Params.build do |form|
       form.add "pagingTake", "1000"
-      form.add "include", "spaces"
+      form.add "include", "spaces,organizer,attendees"
       form.add "start", Time.unix(starting).to_rfc3339
       form.add "end", Time.unix(ending).to_rfc3339
       if location_id
