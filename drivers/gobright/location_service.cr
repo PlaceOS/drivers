@@ -214,8 +214,10 @@ class GoBright::LocationService < PlaceOS::Driver
       type:       "desk",
       checked_in: !!occurrence.confirmation_active,
 
-      # TODO:: this will not be the correct map_id, will need to map this in AreaManagement
+      # We supply map_id here as this will be mapped to the correct id
+      # and the frontend preferences map_id over asset_id
       asset_id: space.name,
+      map_id:   space.name,
 
       booking_id:  occurrence.id,
       building:    building_id,
