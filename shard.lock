@@ -55,7 +55,7 @@ shards:
 
   csuuid:
     git: https://github.com/wyhaines/csuuid.cr.git
-    version: 1.0.0+git.commit.812ee5e1252b27ee2895ec7897094cde3e4a5dc2
+    version: 1.0.0+git.commit.41710010d5b8be818b1ca7b84ef412348e1912bd
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
@@ -187,7 +187,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.19.2
+    version: 1.20.1
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -243,7 +243,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.17.2
+    version: 4.18.0
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
