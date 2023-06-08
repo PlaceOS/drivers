@@ -230,7 +230,7 @@ module Place::CalendarCommon
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def list_events(calendar_id : String, period_start : Int64, period_end : Int64, time_zone : String? = nil, user_id : String? = nil, include_cancelled : Bool = false)
+  def list_events(calendar_id : String, period_start : Int64, period_end : Int64, time_zone : String? = nil, user_id : String? = nil, include_cancelled : Bool = false, ical_uid : String? = nil)
     location = time_zone ? Time::Location.load(time_zone) : Time::Location.local
     period_start = Time.unix(period_start).in location
     period_end = Time.unix(period_end).in location
@@ -239,21 +239,26 @@ module Place::CalendarCommon
     logger.debug { "listing events for #{calendar_id}" }
 
     _client = @client.not_nil!
-    if _client.client_id == :google
-      _client.calendar.as(PlaceCalendar::Google).list_events(user_id, calendar_id,
-        period_start: period_start,
-        period_end: period_end,
-        showDeleted: include_cancelled,
-        # https://cloud.google.com/apis/docs/system-parameters (avoid hitting request quotas in common driver usage)
-        quotaUser: calendar_id[0..39]
-      )
-    else
-      _client.list_events(user_id, calendar_id,
-        period_start: period_start,
-        period_end: period_end,
-        showDeleted: include_cancelled
-      )
-    end
+    events = if _client.client_id == :google
+               _client.calendar.as(PlaceCalendar::Google).list_events(user_id, calendar_id,
+                 period_start: period_start,
+                 period_end: period_end,
+                 showDeleted: include_cancelled,
+                 ical_uid: ical_uid,
+                 # https://cloud.google.com/apis/docs/system-parameters (avoid hitting request quotas in common driver usage)
+                 quotaUser: calendar_id[0..39]
+               )
+             else
+               _client.list_events(user_id, calendar_id,
+                 period_start: period_start,
+                 period_end: period_end,
+                 showDeleted: include_cancelled,
+                 ical_uid: ical_uid
+               )
+             end
+    # FFS MS doesn't always filter for icaluid correctly
+    events = events.select { |e| e.ical_uid == ical_uid } if ical_uid
+    events
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
