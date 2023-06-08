@@ -6203,7 +6203,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L7" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L7" target="_blank">
         place/calendar_common.cr
       </a>
     
@@ -6272,6 +6272,11 @@
     
       <li class="entry-summary">
         <a href="#generate_svg_qrcode%28text%3AString%29%3AString-instance-method" class="signature"><strong>#generate_svg_qrcode</strong>(text : String) : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#get_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -6413,7 +6418,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L164" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L164" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6434,7 +6439,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L330" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L337" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6450,7 +6455,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L283" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L290" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6466,7 +6471,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L335" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L342" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6482,7 +6487,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L265" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L272" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6498,7 +6503,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L274" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L281" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6514,7 +6519,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L354" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L361" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6530,7 +6535,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L123" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L123" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6546,7 +6551,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L119" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L119" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_event(calendar_id:String,event_id:String,user_id:String|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>get_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#get_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L265" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6567,7 +6588,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L223" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L223" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6583,7 +6604,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L170" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L170" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6599,7 +6620,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L176" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L176" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6615,7 +6636,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L188" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L188" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6636,7 +6657,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L201" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L201" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6652,7 +6673,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L115" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L115" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6668,7 +6689,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L194" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L194" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6684,7 +6705,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L233" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L233" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6705,7 +6726,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L212" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L212" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6721,7 +6742,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L182" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L182" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6737,7 +6758,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L45" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L45" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6753,7 +6774,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L40" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L40" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6769,7 +6790,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L49" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6785,7 +6806,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L111" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L111" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6806,7 +6827,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L348" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L355" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6822,7 +6843,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L341" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L348" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6838,7 +6859,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/8f84db789734ccb5317b9467169e03ba1b42fea6/src/place/calendar_common.cr#L128" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/place/calendar_common.cr#L128" target="_blank">View source</a>]
         
       </div>
     </div>
