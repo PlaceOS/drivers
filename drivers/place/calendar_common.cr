@@ -262,6 +262,13 @@ module Place::CalendarCommon
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
+  def get_event(calendar_id : String, event_id : String, user_id : String? = nil)
+    logger.debug { "fetching event #{event_id} on #{calendar_id}" }
+    user_id = user_id || @service_account.presence || calendar_id
+    client &.get_event(user_id, id: event_id, calendar_id: calendar_id)
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
   def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     user_id = user_id || @service_account.presence || calendar_id
 
