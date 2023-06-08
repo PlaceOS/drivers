@@ -321,6 +321,16 @@ module Place::CalendarCommon
     client &.create_event(user_id, event, calendar_id)
   end
 
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def update_event(event : PlaceCalendar::Event, user_id : String? = nil, calendar_id : String? = nil)
+    user_id = (user_id || @service_account.presence || calendar_id).not_nil!
+    calendar_id = calendar_id || user_id
+
+    logger.debug { "updating event #{event.id} on #{event.host}" }
+
+    client &.update_event(user_id: user_id, event: event, calendar_id: calendar_id)
+  end
+
   # returns: google or office365
   def calendar_service_name
     @client.not_nil!.client_id
