@@ -6,8 +6,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   generic_name :RoomBookingApproval
   description %(Room Booking approval for tentative events)
 
-  # default_settings({
-  # })
+  default_settings({} of String => String)
 
   accessor calendar : Calendar_1
 
@@ -64,7 +63,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def approve_event(calendar_id : String, event_id : String, user_id : String? = nil)
-    if event = Array(PlaceCalendar::Event).from_json(self[:approval_required].as_h.values.flatten).find { |e| e.id == event_id }
+    if event = Array(PlaceCalendar::Event).from_json(self[:approval_required].as_h.values.flatten.to_json).find { |e| e.id == event_id }
       event.status = "accepted"
       calendar.update_event(event: event, user_id: user_id, calendar_id: calendar_id)
     else
