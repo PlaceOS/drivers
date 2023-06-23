@@ -10,11 +10,17 @@ class Place::RoomBookingApproval < PlaceOS::Driver
 
   accessor calendar : Calendar_1
 
+  getter building_id : String { get_building_id.not_nil! }
+  getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
+
   def on_load
     on_update
   end
 
   def on_update
+    @building_id = nil
+    @systems = nil
+    
     schedule.clear
     # used to detect changes in building configuration
     schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
@@ -22,9 +28,6 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     # The search
     schedule.every(5.minutes) { find_bookings_for_approval }
   end
-
-  getter building_id : String { get_building_id.not_nil! }
-  getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   # Finds the building ID for the current location services object
   def get_building_id
