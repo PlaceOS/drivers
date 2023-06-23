@@ -2,7 +2,7 @@ require "placeos-driver"
 require "place_calendar"
 
 class Place::RoomBookingApproval < PlaceOS::Driver
-  descriptive_name "PlaceOS Event Approval"
+  descriptive_name "PlaceOS Room Booking Approval"
   generic_name :RoomBookingApproval
   description %(Room Booking approval for tentative events)
 
