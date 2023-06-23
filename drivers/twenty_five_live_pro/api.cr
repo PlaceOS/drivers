@@ -252,7 +252,7 @@ module TwentyFiveLivePro
       Models::EventDetail.from_json(response.body)
     end
 
-    def list_events(space_id Int32 = 1, page : Int32 = 1, items_per_page : Int32 = 100, since : String? = nil, paginate : String? = nil)
+    def list_events(space_id : Int32 = 1, page : Int32 = 1, items_per_page : Int32 = 100, since : String? = nil, paginate : String? = nil)
       events = [] of Models::Event
 
       loop do
