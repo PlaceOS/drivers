@@ -20,7 +20,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   def on_update
     @building_id = nil
     @systems = nil
-    
+
     schedule.clear
     # used to detect changes in building configuration
     schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
