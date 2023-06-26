@@ -2536,13 +2536,48 @@
       
         <ul>
   
+  <li class=" " data-id="drivers/JohnsonControls/Attribute" data-name="johnsoncontrols::attribute">
+      <a href="../JohnsonControls/Attribute.html">Attribute</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/JohnsonControls/AuthResponse" data-name="johnsoncontrols::authresponse">
       <a href="../JohnsonControls/AuthResponse.html">AuthResponse</a>
       
     </li>
   
+  <li class=" " data-id="drivers/JohnsonControls/Command" data-name="johnsoncontrols::command">
+      <a href="../JohnsonControls/Command.html">Command</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/JohnsonControls/Equipment" data-name="johnsoncontrols::equipment">
+      <a href="../JohnsonControls/Equipment.html">Equipment</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/JohnsonControls/EquipmentPoints" data-name="johnsoncontrols::equipmentpoints">
       <a href="../JohnsonControls/EquipmentPoints.html">EquipmentPoints</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/JohnsonControls/GetEquipmentHostedByNetworkDeviceResponse" data-name="johnsoncontrols::getequipmenthostedbynetworkdeviceresponse">
+      <a href="../JohnsonControls/GetEquipmentHostedByNetworkDeviceResponse.html">GetEquipmentHostedByNetworkDeviceResponse</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/JohnsonControls/GetNetworkDeviceChildrenResponse" data-name="johnsoncontrols::getnetworkdevicechildrenresponse">
+      <a href="../JohnsonControls/GetNetworkDeviceChildrenResponse.html">GetNetworkDeviceChildrenResponse</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/JohnsonControls/GetObjectAttributesWithSamplesResponse" data-name="johnsoncontrols::getobjectattributeswithsamplesresponse">
+      <a href="../JohnsonControls/GetObjectAttributesWithSamplesResponse.html">GetObjectAttributesWithSamplesResponse</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/JohnsonControls/GetSamplesForAnObjectAttributeResponse" data-name="johnsoncontrols::getsamplesforanobjectattributeresponse">
+      <a href="../JohnsonControls/GetSamplesForAnObjectAttributeResponse.html">GetSamplesForAnObjectAttributeResponse</a>
       
     </li>
   
@@ -2556,8 +2591,18 @@
       
     </li>
   
+  <li class=" " data-id="drivers/JohnsonControls/NetworkDevice" data-name="johnsoncontrols::networkdevice">
+      <a href="../JohnsonControls/NetworkDevice.html">NetworkDevice</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/JohnsonControls/Point" data-name="johnsoncontrols::point">
       <a href="../JohnsonControls/Point.html">Point</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/JohnsonControls/Sample" data-name="johnsoncontrols::sample">
+      <a href="../JohnsonControls/Sample.html">Sample</a>
       
     </li>
   
@@ -6173,7 +6218,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L5" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L5" target="_blank">
         johnson_controls/metasys.cr
       </a>
     
@@ -6228,7 +6273,17 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#get_commands_for_an_object%28id%3AString%29%3AArray%28Command%29-instance-method" class="signature"><strong>#get_commands_for_an_object</strong>(id : String) : Array(Command)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#get_data-instance-method" class="signature"><strong>#get_data</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_equipment_hosted_by_network_device%28id%3AString%2Cpage%3AInt32%3D1%2Cpage_size%3AInt32%3D10%29%3AGetEquipmentHostedByNetworkDeviceResponse-instance-method" class="signature"><strong>#get_equipment_hosted_by_network_device</strong>(id : String, page : Int32 = <span class="n">1</span>, page_size : Int32 = <span class="n">10</span>) : GetEquipmentHostedByNetworkDeviceResponse</a>
         
       </li>
     
@@ -6238,7 +6293,22 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#get_network_device_children%28id%3AString%2Cpage%3AInt32%3D1%2Cpage_size%3AInt32%3D10%29%3AGetNetworkDeviceChildrenResponse-instance-method" class="signature"><strong>#get_network_device_children</strong>(id : String, page : Int32 = <span class="n">1</span>, page_size : Int32 = <span class="n">10</span>) : GetNetworkDeviceChildrenResponse</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_object_attributes_with_samples%28id%3AString%29%3AGetObjectAttributesWithSamplesResponse-instance-method" class="signature"><strong>#get_object_attributes_with_samples</strong>(id : String) : GetObjectAttributesWithSamplesResponse</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#get_request_debug%28path%3AString%2C%2A%2Aparams%29-instance-method" class="signature"><strong>#get_request_debug</strong>(path : String, **params)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_samples_for_an_object_attribute%28id%3AString%2Cattribute_id%3AString%2Cstart_time%3AString%2Cend_time%3AString%2Cpage%3AInt32%3D1%2Cpage_size%3AInt32%3D10%29%3AGetSamplesForAnObjectAttributeResponse-instance-method" class="signature"><strong>#get_samples_for_an_object_attribute</strong>(id : String, attribute_id : String, start_time : String, end_time : String, page : Int32 = <span class="n">1</span>, page_size : Int32 = <span class="n">10</span>) : GetSamplesForAnObjectAttributeResponse</a>
         
       </li>
     
@@ -6253,12 +6323,22 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#lookup_object_id%28fqr%3AString%29%3AString-instance-method" class="signature"><strong>#lookup_object_id</strong>(fqr : String) : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#on_load-instance-method" class="signature"><strong>#on_load</strong></a>
         
       </li>
     
       <li class="entry-summary">
         <a href="#on_update-instance-method" class="signature"><strong>#on_update</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#send_command_to_an_object%28id%3AString%2Ccommand_id%3AString%2Cbody%3AArray%28JSON%3A%3AAny%29%29-instance-method" class="signature"><strong>#send_command_to_an_object</strong>(id : String, command_id : String, body : Array(JSON::Any))</a>
         
       </li>
     
@@ -6337,7 +6417,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L195" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L265" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6353,7 +6433,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L96" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L98" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_commands_for_an_object(id:String):Array(Command)-instance-method">
+      <div class="signature">
+        
+        def <strong>get_commands_for_an_object</strong>(id : String) : Array(<a href="../JohnsonControls/Command.html">Command</a>)
+
+        <a class="method-permalink" href="#get_commands_for_an_object%28id%3AString%29%3AArray%28Command%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L165" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6369,7 +6465,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L163" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L229" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_equipment_hosted_by_network_device(id:String,page:Int32=1,page_size:Int32=10):GetEquipmentHostedByNetworkDeviceResponse-instance-method">
+      <div class="signature">
+        
+        def <strong>get_equipment_hosted_by_network_device</strong>(id : String, page : Int32 = <span class="n">1</span>, page_size : Int32 = <span class="n">10</span>) : <a href="../JohnsonControls/GetEquipmentHostedByNetworkDeviceResponse.html">GetEquipmentHostedByNetworkDeviceResponse</a>
+
+        <a class="method-permalink" href="#get_equipment_hosted_by_network_device%28id%3AString%2Cpage%3AInt32%3D1%2Cpage_size%3AInt32%3D10%29%3AGetEquipmentHostedByNetworkDeviceResponse-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L133" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6385,7 +6497,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L91" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L91" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_network_device_children(id:String,page:Int32=1,page_size:Int32=10):GetNetworkDeviceChildrenResponse-instance-method">
+      <div class="signature">
+        
+        def <strong>get_network_device_children</strong>(id : String, page : Int32 = <span class="n">1</span>, page_size : Int32 = <span class="n">10</span>) : <a href="../JohnsonControls/GetNetworkDeviceChildrenResponse.html">GetNetworkDeviceChildrenResponse</a>
+
+        <a class="method-permalink" href="#get_network_device_children%28id%3AString%2Cpage%3AInt32%3D1%2Cpage_size%3AInt32%3D10%29%3AGetNetworkDeviceChildrenResponse-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L122" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_object_attributes_with_samples(id:String):GetObjectAttributesWithSamplesResponse-instance-method">
+      <div class="signature">
+        
+        def <strong>get_object_attributes_with_samples</strong>(id : String) : <a href="../JohnsonControls/GetObjectAttributesWithSamplesResponse.html">GetObjectAttributesWithSamplesResponse</a>
+
+        <a class="method-permalink" href="#get_object_attributes_with_samples%28id%3AString%29%3AGetObjectAttributesWithSamplesResponse-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L144" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6401,7 +6545,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L179" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L249" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_samples_for_an_object_attribute(id:String,attribute_id:String,start_time:String,end_time:String,page:Int32=1,page_size:Int32=10):GetSamplesForAnObjectAttributeResponse-instance-method">
+      <div class="signature">
+        
+        def <strong>get_samples_for_an_object_attribute</strong>(id : String, attribute_id : String, start_time : String, end_time : String, page : Int32 = <span class="n">1</span>, page_size : Int32 = <span class="n">10</span>) : <a href="../JohnsonControls/GetSamplesForAnObjectAttributeResponse.html">GetSamplesForAnObjectAttributeResponse</a>
+
+        <a class="method-permalink" href="#get_samples_for_an_object_attribute%28id%3AString%2Cattribute_id%3AString%2Cstart_time%3AString%2Cend_time%3AString%2Cpage%3AInt32%3D1%2Cpage_size%3AInt32%3D10%29%3AGetSamplesForAnObjectAttributeResponse-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L151" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6417,7 +6577,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L40" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L40" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6433,7 +6593,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L63" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L63" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="lookup_object_id(fqr:String):String-instance-method">
+      <div class="signature">
+        
+        def <strong>lookup_object_id</strong>(fqr : String) : String
+
+        <a class="method-permalink" href="#lookup_object_id%28fqr%3AString%29%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L115" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6449,7 +6625,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L22" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L22" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6465,7 +6641,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L26" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L26" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="send_command_to_an_object(id:String,command_id:String,body:Array(JSON::Any))-instance-method">
+      <div class="signature">
+        
+        def <strong>send_command_to_an_object</strong>(id : String, command_id : String, body : Array(JSON::Any))
+
+        <a class="method-permalink" href="#send_command_to_an_object%28id%3AString%2Ccommand_id%3AString%2Cbody%3AArray%28JSON%3A%3AAny%29%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L172" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6481,7 +6673,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L36" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L36" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6497,7 +6689,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/373a6e5a998d8ec729ecbb02db8a561b6474ceb3/src/johnson_controls/metasys.cr#L111" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d31cdacd0f9dfb799aa7c1684cd45defb17feb2e/src/johnson_controls/metasys.cr#L177" target="_blank">View source</a>]
         
       </div>
     </div>
