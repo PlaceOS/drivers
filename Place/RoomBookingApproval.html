@@ -13,7 +13,7 @@
 <script type="text/javascript" src="../js/doc.js"></script>
 
   <meta name="repository-name" content="drivers">
-  <title>Place::Router - drivers master</title>
+  <title>Place::RoomBookingApproval - drivers master</title>
   <script type="text/javascript">
     CrystalDocs.base_path = "../";
   </script>
@@ -4226,12 +4226,12 @@
       
     </li>
   
-  <li class=" " data-id="drivers/Place/RoomBookingApproval" data-name="place::roombookingapproval">
+  <li class=" current" data-id="drivers/Place/RoomBookingApproval" data-name="place::roombookingapproval">
       <a href="../Place/RoomBookingApproval.html">RoomBookingApproval</a>
       
     </li>
   
-  <li class="parent open current" data-id="drivers/Place/Router" data-name="place::router">
+  <li class="parent " data-id="drivers/Place/Router" data-name="place::router">
       <a href="../Place/Router.html">Router</a>
       
         <ul>
@@ -6190,10 +6190,12 @@
 <div class="main-content">
 <h1 class="type-name">
 
-  <span class="kind">module</span> Place::Router
+  <span class="kind">class</span> Place::RoomBookingApproval
 
 </h1>
 
+
+  <ul class="superclass-hierarchy"><li class="superclass"><a href="../Place/RoomBookingApproval.html">Place::RoomBookingApproval</a></li><li class="superclass"><a href="../PlaceOS/Driver.html">PlaceOS::Driver</a></li><li class="superclass">Reference</li><li class="superclass">Object</li></ul>
 
 
 
@@ -6221,8 +6223,8 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/router/digraph.cr#L8" target="_blank">
-        place/router/digraph.cr
+      <a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L4" target="_blank">
+        place/room_booking_approval.cr
       </a>
     
     <br/>
@@ -6236,11 +6238,102 @@
 
 
 
+  <h2>
+    <a id="instance-method-summary" class="anchor" href="#instance-method-summary">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Instance Method Summary
+  </h2>
+  <ul class="list-summary">
+    
+      <li class="entry-summary">
+        <a href="#approve_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#approve_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#building_id%3AString-instance-method" class="signature"><strong>#building_id</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#decline_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Cnotify%3ABool%3Dfalse%2Ccomment%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#decline_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>, notify : Bool = <span class="n">false</span>, comment : String | Nil = <span class="n">nil</span>)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#find_bookings_for_approval-instance-method" class="signature"><strong>#find_bookings_for_approval</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_building_id-instance-method" class="signature"><strong>#get_building_id</strong></a>
+        
+          <div class="summary"><p>Finds the building ID for the current location services object</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_systems_list-instance-method" class="signature"><strong>#get_systems_list</strong></a>
+        
+          <div class="summary"><p>Grabs the list of systems in the building</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#on_load-instance-method" class="signature"><strong>#on_load</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#on_update-instance-method" class="signature"><strong>#on_update</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#systems%3AHash%28String%2CArray%28String%29%29-instance-method" class="signature"><strong>#systems</strong> : Hash(String, Array(String))</a>
+        
+      </li>
+    
+  </ul>
+
 
 
 
 
 <div class="methods-inherited">
+  
+    
+
+
+    
+
+
+    
+
+
+  
+    
+
+
+    
+
+
+    
+
+
+  
+    
+
+
+    
+
+
+    
+
+
   
 </div>
 
@@ -6248,6 +6341,170 @@
 
 
 
+
+  <h2>
+    <a id="instance-method-detail" class="anchor" href="#instance-method-detail">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Instance Method Detail
+  </h2>
+  
+    <div class="entry-detail" id="approve_event(calendar_id:String,event_id:String,user_id:String|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>approve_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#approve_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L68" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="building_id:String-instance-method">
+      <div class="signature">
+        
+        def <strong>building_id</strong> : String
+
+        <a class="method-permalink" href="#building_id%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L13" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="decline_event(calendar_id:String,event_id:String,user_id:String|Nil=nil,notify:Bool=false,comment:String|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>decline_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>, notify : Bool = <span class="n">false</span>, comment : String | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#decline_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Cnotify%3ABool%3Dfalse%2Ccomment%3AString%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L78" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="find_bookings_for_approval-instance-method">
+      <div class="signature">
+        
+        def <strong>find_bookings_for_approval</strong>
+
+        <a class="method-permalink" href="#find_bookings_for_approval-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L49" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_building_id-instance-method">
+      <div class="signature">
+        
+        def <strong>get_building_id</strong>
+
+        <a class="method-permalink" href="#get_building_id-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Finds the building ID for the current location services object</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L33" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_systems_list-instance-method">
+      <div class="signature">
+        
+        def <strong>get_systems_list</strong>
+
+        <a class="method-permalink" href="#get_systems_list-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Grabs the list of systems in the building</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L42" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="on_load-instance-method">
+      <div class="signature">
+        
+        def <strong>on_load</strong>
+
+        <a class="method-permalink" href="#on_load-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L16" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="on_update-instance-method">
+      <div class="signature">
+        
+        def <strong>on_update</strong>
+
+        <a class="method-permalink" href="#on_update-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L20" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="systems:Hash(String,Array(String))-instance-method">
+      <div class="signature">
+        
+        def <strong>systems</strong> : Hash(String, Array(String))
+
+        <a class="method-permalink" href="#systems%3AHash%28String%2CArray%28String%29%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/15df05be9e6107b613aa84b7d631a5364c5f292d/src/place/room_booking_approval.cr#L14" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
 
 
 
