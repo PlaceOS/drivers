@@ -90,6 +90,8 @@ class JohnsonControls::Metasys < PlaceOS::Driver
 
   def get_equipment_points(id : String) : EquipmentPoints
     response = get_request("/equipment/#{id}/points")
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
     EquipmentPoints.from_json(response.body)
   end
 
@@ -105,7 +107,71 @@ class JohnsonControls::Metasys < PlaceOS::Driver
       page_size: 1,      # only get 1 result which will be the latest value with help of the sort option below
       sort: "-timestamp" # sort so that latest value shows first
     )
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
     SamplesResponse.from_json(response.body).items.first.value.actual
+  end
+
+  def lookup_object_id(fqr : String) : String
+    response = get_request("/objectIdentifiers?fqr=#{fqr}")
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    response.body.to_s
+  end
+
+  def get_network_device_children(id : String, page : Int32 = 1, page_size : Int32 = 10) : GetNetworkDeviceChildrenResponse
+    response = get_request("/networkDevices/#{id}/objects",
+      page: page,
+      page_size: page_size,
+      sort: "-timestamp" # sort so that latest value shows first
+    )
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    GetNetworkDeviceChildrenResponse.from_json(response.body)
+  end
+
+  def get_equipment_hosted_by_network_device(id : String, page : Int32 = 1, page_size : Int32 = 10) : GetEquipmentHostedByNetworkDeviceResponse
+    response = get_request("/networkDevices/#{id}/equipment",
+      page: page,
+      page_size: page_size,
+      sort: "-timestamp"
+    )
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    GetEquipmentHostedByNetworkDeviceResponse.from_json(response.body)
+  end
+
+  def get_object_attributes_with_samples(id : String) : GetObjectAttributesWithSamplesResponse
+    response = get_request("/objects/#{id}/trendedAttributes")
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    GetObjectAttributesWithSamplesResponse.from_json(response.body)
+  end
+
+  def get_samples_for_an_object_attribute(id : String, attribute_id : String, start_time : String, end_time : String, page : Int32 = 1, page_size : Int32 = 10) : GetSamplesForAnObjectAttributeResponse
+    response = get_request("/objects/#{id}/attributes/#{attribute_id}/samples",
+      start_time: start_time,
+      end_time: end_time,
+      page: page,
+      page_size: page_size,
+      sort: "-timestamp"
+    )
+
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    GetSamplesForAnObjectAttributeResponse.from_json(response.body)
+  end
+
+  def get_commands_for_an_object(id : String) : Array(Command)
+    response = get_request("/objects/#{id}/commands")
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    Array(Command).from_json(response.body)
+  end
+
+  def send_command_to_an_object(id : String, command_id : String, body : Array(JSON::Any))
+    response = put_request("/objects/#{id}/commands/#{command_id}", body: body)
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
   end
 
   def update_data
@@ -173,6 +239,10 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     else
       get(path, headers: {"Authorization" => get_token})
     end
+  end
+
+  private def put_request(path : String, body)
+    put(path, headers: {"Authorization" => get_token}, body: body.to_json)
   end
 
   @[Security(Level::Support)]
