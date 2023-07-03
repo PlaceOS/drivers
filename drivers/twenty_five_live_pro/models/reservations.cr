@@ -5,13 +5,8 @@ module TwentyFiveLivePro
     struct Reservations
       include JSON::Serializable
 
-<<<<<<< HEAD
-        struct Reservation
-            include JSON::Serializable
-=======
-      @[JSON::Field(key: "engine")]
-      property engine : String?
->>>>>>> bc1cdf2bb02d0432447194932fc7caacaeb1fb18
+      struct Reservation
+          include JSON::Serializable
 
       struct Data
         include JSON::Serializable
