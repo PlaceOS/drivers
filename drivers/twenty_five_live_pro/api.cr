@@ -240,9 +240,9 @@ module TwentyFiveLivePro
 
     def list_reservations(space_id : Int32, start_date : String, end_date : String)
       params = URI::Params.build do |form|
-       form.add "space_id", space_id.to_s
-       form.add "start_dt", start_date.to_s
-       form.add "end_dt", end_date.to_s
+        form.add "space_id", space_id.to_s
+        form.add "start_dt", start_date
+        form.add "end_dt", end_date
       end
 
       response = get("/reservations.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
