@@ -8,7 +8,7 @@ module TwentyFiveLivePro
       struct Content
         include JSON::Serializable
 
-        struct Reservations
+        struct Data
           include JSON::Serializable
 
           @[JSON::Field(key: "engine")]
@@ -147,7 +147,7 @@ module TwentyFiveLivePro
         end
 
         @[JSON::Field(key: "reservations")]
-        property reservations : Reservations
+        property reservations : Data
       end
 
       @[JSON::Field(key: "content")]
