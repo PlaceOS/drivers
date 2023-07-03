@@ -2,7 +2,7 @@ require "json"
 
 module TwentyFiveLivePro
   module Models
-    struct Reservations
+    struct Data
       include JSON::Serializable
 
       struct Reservation
@@ -137,7 +137,7 @@ module TwentyFiveLivePro
       end
 
         @[JSON::Field(key: "reservation")]
-        property reservation : Array(Reservation)
+        property reservation : Array(Data)
     end
 
     @[JSON::Field(key: "Reservations")]
