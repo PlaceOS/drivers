@@ -2,11 +2,11 @@ require "json"
 
 module TwentyFiveLivePro
   module Models
-    struct Data
+    struct Reservations
       include JSON::Serializable
 
-      struct Reservations
-          include JSON::Serializable
+      @[JSON::Field(key: "engine")]
+        property engine : String
 
       struct Reservation
         include JSON::Serializable
@@ -143,5 +143,4 @@ module TwentyFiveLivePro
     @[JSON::Field(key: "Reservations")]
     property reservations : Reservations
   end
-end
 end
