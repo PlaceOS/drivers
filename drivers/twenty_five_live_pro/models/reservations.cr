@@ -6,7 +6,7 @@ module TwentyFiveLivePro
       include JSON::Serializable
 
       @[JSON::Field(key: "engine")]
-        property engine : String
+      property engine : String
 
       struct Reservation
         include JSON::Serializable
@@ -136,8 +136,8 @@ module TwentyFiveLivePro
         property registration_label : String?
       end
 
-        @[JSON::Field(key: "reservation")]
-        property reservation : Array(Reservation)
+      @[JSON::Field(key: "reservation")]
+      property reservation : Array(Reservation)
     end
 
     @[JSON::Field(key: "Reservations")]
