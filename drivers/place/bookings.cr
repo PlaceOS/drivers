@@ -60,7 +60,6 @@ class Place::Bookings < PlaceOS::Driver
   @disable_end_meeting : Bool = false
   @pending_period : Time::Span = 5.minutes
   @pending_before : Time::Span = 5.minutes
-  @bookings : Array(JSON::Any) = [] of JSON::Any
   @change_event_sync_delay : UInt32 = 5_u32
   @cache_days : Time::Span = 30.days
   @include_cancelled_bookings : Bool = false
@@ -123,7 +122,9 @@ class Place::Bookings < PlaceOS::Driver
     @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
 
     # ensure current booking is updated at the start of every minute
-    schedule.cron("* * * * *") { check_current_booking }
+    schedule.cron("* * * * *") do
+      schedule.in(rand(1000).milliseconds) { check_current_booking(self[:bookings].as_a) }
+    end
 
     # configure push notifications
     push_notificaitons_configure
@@ -161,7 +162,7 @@ class Place::Bookings < PlaceOS::Driver
     @last_booking_started = meeting_start_time
     define_setting(:last_booking_started, meeting_start_time)
     self[:last_booking_started] = meeting_start_time
-    check_current_booking
+    check_current_booking(self[:bookings].as_a)
   end
 
   def checkin
@@ -188,8 +189,7 @@ class Place::Bookings < PlaceOS::Driver
     result.get
 
     # Update the display
-    schedule.in(2.seconds) { poll_events }
-    check_current_booking
+    schedule.in(1.seconds) { poll_events }
   end
 
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
@@ -236,23 +236,22 @@ class Place::Bookings < PlaceOS::Driver
       cache_period,
       @time_zone.name,
       include_cancelled: @include_cancelled_bookings
-    ).get
+    ).get.as_a.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
 
-    @bookings = events.as_a.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
-    self[:bookings] = @bookings
-
-    check_current_booking
+    self[:bookings] = events
+    check_current_booking(events)
+    events
   ensure
     @polling = false
   end
 
-  protected def check_current_booking : Nil
+  protected def check_current_booking(bookings) : Nil
     now = Time.utc.to_unix
     previous_booking = nil
     current_booking = nil
     next_booking = Int32::MAX
 
-    @bookings.each_with_index do |event, index|
+    bookings.each_with_index do |event, index|
       starting = event["event_start"].as_i64
 
       # All meetings are in the future
@@ -281,7 +280,7 @@ class Place::Bookings < PlaceOS::Driver
       end
     end
 
-    self[:previous_booking] = previous_booking ? @bookings[previous_booking] : nil
+    self[:previous_booking] = previous_booking ? bookings[previous_booking] : nil
 
     # Configure room status (free, pending, in-use)
     current_pending = false
@@ -289,7 +288,7 @@ class Place::Bookings < PlaceOS::Driver
     booked = false
 
     if current_booking
-      booking = @bookings[current_booking]
+      booking = bookings[current_booking]
       start_time = booking["event_start"].as_i64
       ending_at = booking["event_end"]?
       booked = true
@@ -344,7 +343,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:booked] = booked
 
     # We haven't checked the index of `next_booking` exists, hence the `[]?`
-    if booking = @bookings[next_booking]?
+    if booking = bookings[next_booking]?
       start_time = booking["event_start"].as_i64
       next_pending = true if start_time <= @pending_before.from_now.to_unix
       self[:next_booking] = booking
@@ -407,14 +406,12 @@ class Place::Bookings < PlaceOS::Driver
       logger.debug { "system id match, waiting #{@change_event_sync_delay} and polling events" }
       sleep @change_event_sync_delay
       poll_events
-      check_current_booking
     else
-      matching = @bookings.select { |b| b["id"] == event.event_id }
+      matching = self[:bookings]?.try(&.as_a.select { |b| b["id"].as_s == event.event_id })
       if matching
         logger.debug { "event id match, waiting #{@change_event_sync_delay} and polling events" }
         sleep @change_event_sync_delay
         poll_events
-        check_current_booking
       else
         logger.debug { "ignoring event as no matching events found" }
       end
