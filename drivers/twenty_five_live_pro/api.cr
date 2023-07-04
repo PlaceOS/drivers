@@ -250,7 +250,7 @@ module TwentyFiveLivePro
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
 
-      Models::Reservations.from_json(response.body)
+      response.body
     end
 
     def get_event_details(id : Int32, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)
