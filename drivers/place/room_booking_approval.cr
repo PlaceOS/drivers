@@ -65,7 +65,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def approve_event(calendar_id : String, event_id : String, user_id : String? = nil)
+  def approve_event(event_id : String, user_id : String? = nil, calendar_id : String? = nil)
     if event = find_bookings_for_approval.values.flatten.find { |e| e.id == event_id }
       event.status = "accepted"
       calendar.update_event(event: event, user_id: user_id, calendar_id: calendar_id)
