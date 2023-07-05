@@ -87,9 +87,12 @@ class Place::Bookings < PlaceOS::Driver
     @perform_sensor_search = true
     schedule.in(Random.rand(30).seconds + Random.rand(30_000).milliseconds) { poll_events }
 
-    cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
-    cache_polling_period += Random.rand(30_000).milliseconds
-    schedule.every(cache_polling_period) { poll_events }
+    cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes.total_milliseconds.to_i
+    cache_polling_period += Random.rand(5_000)
+    cache_random_period = cache_polling_period // 3
+    schedule.every(cache_polling_period.milliseconds) do
+      schedule.in(Random.rand(cache_random_period).milliseconds) { poll_events }
+    end
 
     time_zone = setting?(String, :calendar_time_zone).presence || config.control_system.not_nil!.timezone.presence
     @time_zone = Time::Location.load(time_zone) if time_zone
