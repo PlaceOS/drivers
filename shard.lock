@@ -87,7 +87,7 @@ shards:
 
   eventbus:
     git: https://github.com/spider-gazelle/eventbus.git
-    version: 0.9.9+git.commit.635e95322815069ac76c9d3b32aa57433c5bb478
+    version: 0.9.9+git.commit.0e30bccef306197b558c1d697a98b6d24ab03ae8
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
@@ -107,7 +107,7 @@ shards:
 
   google:
     git: https://github.com/placeos/google.git
-    version: 3.4.0
+    version: 3.5.0
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
@@ -187,7 +187,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.21.2
+    version: 1.22.0
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -243,7 +243,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.18.3
+    version: 4.19.0
 
   placeos:
     git: https://github.com/placeos/crystal-client.git

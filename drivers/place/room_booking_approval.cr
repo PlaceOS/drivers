@@ -46,7 +46,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     nil
   end
 
-  def find_bookings_for_approval
+  def find_bookings_for_approval : Hash(String, Array(PlaceCalendar::Event))
     results = {} of String => Array(PlaceCalendar::Event)
 
     systems.each do |level_id, system_ids|
@@ -65,13 +65,8 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def approve_event(calendar_id : String, event_id : String, user_id : String? = nil)
-    if event = Array(PlaceCalendar::Event).from_json(self[:approval_required].as_h.values.flatten.to_json).find { |e| e.id == event_id }
-      event.status = "accepted"
-      calendar.update_event(event: event, user_id: user_id, calendar_id: calendar_id)
-    else
-      logger.warn { "unable to find event" }
-    end
+  def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
+    calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
   end
 
   @[Security(Level::Support)]
