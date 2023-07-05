@@ -5,7 +5,7 @@ module TwentyFiveLivePro
   class API < PlaceOS::Driver
     descriptive_name "25 Live Pro API Gateway"
     generic_name :Bookings
-    uri_base "https://example.com/r25ws/wrd/partners/run"
+    uri_base "https://example.com/r25ws/wrd/partners/run/external"
 
     default_settings({
       username:   "admin",
@@ -35,7 +35,7 @@ module TwentyFiveLivePro
         form.add "expand", expanded_elements.join(",")
       end
 
-      response = get("/external/space/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/space/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -53,7 +53,7 @@ module TwentyFiveLivePro
           form.add "paginate", paginate if paginate
         end
 
-        response = get("/external/space/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/space/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
@@ -108,7 +108,7 @@ module TwentyFiveLivePro
         ],
       }
 
-      response = post("/external/spaceAvailability.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"}, body: body.to_json)
+      response = post("/spaceAvailability.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"}, body: body.to_json)
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -122,7 +122,7 @@ module TwentyFiveLivePro
         form.add "expand", expanded_elements.join(",")
       end
 
-      response = get("/external/resource/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/resource/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -140,7 +140,7 @@ module TwentyFiveLivePro
           form.add "paginate", paginate if paginate
         end
 
-        response = get("/external/resource/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/resource/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
@@ -183,7 +183,7 @@ module TwentyFiveLivePro
         form.add "expand", expanded_elements.join(",")
       end
 
-      response = get("/external/organization/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/organization/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -201,7 +201,7 @@ module TwentyFiveLivePro
           form.add "paginate", paginate if paginate
         end
 
-        response = get("/external/organization/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/organization/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
@@ -238,28 +238,13 @@ module TwentyFiveLivePro
       organizations
     end
 
-    def list_reservations(space_id : Int32, start_date : String, end_date : String)
-      params = URI::Params.build do |form|
-        form.add "space_id", space_id.to_s
-        form.add "start_dt", start_date
-        form.add "end_dt", end_date
-      end
-
-      response = get("/reservations.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
-
-      raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
-      logger.debug { "response body:\n#{response.body}" }
-
-      Models::Reservations.from_json(response.body)
-    end
-
     def get_event_details(id : Int32, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)
       params = URI::Params.build do |form|
         form.add "include", included_elements.join(",")
         form.add "expand", expanded_elements.join(",")
       end
 
-      response = get("/external/event/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+      response = get("/event/#{id}/detail.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
@@ -279,7 +264,7 @@ module TwentyFiveLivePro
           form.add "paginate", paginate if paginate
         end
 
-        response = get("/external/event/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
+        response = get("/event/list.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
         raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
         logger.debug { "response body:\n#{response.body}" }
