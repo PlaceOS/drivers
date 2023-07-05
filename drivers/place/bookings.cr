@@ -85,10 +85,10 @@ class Place::Bookings < PlaceOS::Driver
     @calendar_id = (setting?(String, :calendar_id).presence || system.email.not_nil!).downcase
 
     @perform_sensor_search = true
-    schedule.in(Random.rand(59).seconds + Random.rand(1000).milliseconds) { poll_events }
+    schedule.in(Random.rand(30).seconds + Random.rand(30_000).milliseconds) { poll_events }
 
     cache_polling_period = (setting?(UInt32, :cache_polling_period) || 2_u32).minutes
-    cache_polling_period += Random.rand(30).seconds + Random.rand(1000).milliseconds
+    cache_polling_period += Random.rand(30_000).milliseconds
     schedule.every(cache_polling_period) { poll_events }
 
     time_zone = setting?(String, :calendar_time_zone).presence || config.control_system.not_nil!.timezone.presence
@@ -655,8 +655,12 @@ class Place::Bookings < PlaceOS::Driver
   protected def push_notificaitons_maintain : Nil
     subscription = @subscription
 
+    logger.debug { "maintaining push subscription, monitoring: #{!!@push_monitoring}" }
+
     if @push_monitoring.nil?
-      @push_monitoring = monitor("#{@push_authority}/calendar/event") { |_subscription, payload| push_event_occured(payload) }
+      channel_path = "#{@push_authority}/calendar/event"
+      logger.debug { "monitoring channel: #{channel_path}" }
+      @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
     end
 
     if subscription
@@ -678,14 +682,17 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   protected def push_event_occured(payload : String)
+    logger.debug { "push notification received! #{payload}" }
+
     event = NotifyEvent.from_json payload
-    return unless event.subscription_id == @subscription.try &.id
+    if event.subscription_id != @subscription.try &.id
+      logger.debug { "ignoring notify event as we are not subscribed to it #{event.subscription_id} != #{@subscription.try &.id}" }
+      return
+    end
     if event.client_secret != @push_secret
       logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
       return
     end
-
-    logger.debug { "push notification received! #{event.inspect}" }
 
     case event.event_type
     in .created?, .updated?, .deleted?
