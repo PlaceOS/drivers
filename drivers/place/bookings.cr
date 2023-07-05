@@ -698,14 +698,18 @@ class Place::Bookings < PlaceOS::Driver
     in .created?, .updated?, .deleted?
       # TODO:: find event uid and update staff api event metadata without
       # requiring GraphAPI interaction from staff api.
+      logger.debug { "polling events as received #{event.event_type} notification" }
       poll_events
     in .missed?
       # we don't know the exact event id that changed
+      logger.debug { "polling events as a notification was previously missed" }
       poll_events
     in .renew?
       # we need to create a new subscription as the old one has expired
+      logger.debug { "a subscription renewal is required" }
       create_subscription
     in .reauthorize?
+      logger.debug { "a subscription reauthorization is required" }
       expires = SUBSCRIPTION_LENGTH.from_now
       calendar.reauthorize_notifier(@subscription, expires.to_unix)
     end
