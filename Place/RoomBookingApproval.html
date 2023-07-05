@@ -6248,7 +6248,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L4" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L4" target="_blank">
         place/room_booking_approval.cr
       </a>
     
@@ -6274,7 +6274,7 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#approve_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#approve_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>)</a>
+        <a href="#accept_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Cnotify%3ABool%3Dfalse%2Ccomment%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#accept_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>, notify : Bool = <span class="n">false</span>, comment : String | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -6289,7 +6289,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#find_bookings_for_approval-instance-method" class="signature"><strong>#find_bookings_for_approval</strong></a>
+        <a href="#find_bookings_for_approval%3AHash%28String%2CArray%28PlaceCalendar%3A%3AEvent%29%29-instance-method" class="signature"><strong>#find_bookings_for_approval</strong> : Hash(String, Array(PlaceCalendar::Event))</a>
         
       </li>
     
@@ -6376,18 +6376,18 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="approve_event(calendar_id:String,event_id:String,user_id:String|Nil=nil)-instance-method">
+    <div class="entry-detail" id="accept_event(calendar_id:String,event_id:String,user_id:String|Nil=nil,notify:Bool=false,comment:String|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>approve_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>)
+        def <strong>accept_event</strong>(calendar_id : String, event_id : String, user_id : String | Nil = <span class="n">nil</span>, notify : Bool = <span class="n">false</span>, comment : String | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#approve_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#accept_event%28calendar_id%3AString%2Cevent_id%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Cnotify%3ABool%3Dfalse%2Ccomment%3AString%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L68" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L68" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6403,7 +6403,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L13" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L13" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6419,23 +6419,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L78" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L73" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="find_bookings_for_approval-instance-method">
+    <div class="entry-detail" id="find_bookings_for_approval:Hash(String,Array(PlaceCalendar::Event))-instance-method">
       <div class="signature">
         
-        def <strong>find_bookings_for_approval</strong>
+        def <strong>find_bookings_for_approval</strong> : Hash(String, Array(PlaceCalendar::Event))
 
-        <a class="method-permalink" href="#find_bookings_for_approval-instance-method">#</a>
+        <a class="method-permalink" href="#find_bookings_for_approval%3AHash%28String%2CArray%28PlaceCalendar%3A%3AEvent%29%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L49" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6456,7 +6456,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L33" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L33" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6477,7 +6477,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L42" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L42" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6493,7 +6493,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L16" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L16" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6509,7 +6509,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L20" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L20" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6525,7 +6525,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6c8d22bf15a379554ab625a4c842a0c97c96eba/src/place/room_booking_approval.cr#L14" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2d46bb43c3dc6217c13554a97ae3fa5112b2ed41/src/place/room_booking_approval.cr#L14" target="_blank">View source</a>]
         
       </div>
     </div>
