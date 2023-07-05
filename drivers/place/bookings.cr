@@ -619,6 +619,7 @@ class Place::Bookings < PlaceOS::Driver
   @push_secret : String? = nil
   @push_service_name : ServiceName? = nil
   @push_monitoring : PlaceOS::Driver::Subscriptions::ChannelSubscription? = nil
+  @push_mutex : Mutex = Mutex.new(:reentrant)
 
   # the API reports that 6 days is the max:
   # Subscription expiration can only be 10070 minutes in the future.
@@ -647,42 +648,46 @@ class Place::Bookings < PlaceOS::Driver
 
   # delete a subscription
   protected def push_notificaitons_cleanup
-    sub = @subscription
-    return unless sub
+    @push_mutex.synchronize do
+      sub = @subscription
+      return unless sub
 
-    logger.debug { "removing subscription" }
+      logger.debug { "removing subscription" }
 
-    calendar.delete_notifier(sub)
-    define_setting(:push_subscription, nil)
+      calendar.delete_notifier(sub)
+      define_setting(:push_subscription, nil)
+    end
   end
 
   # creates and maintains a subscription
   protected def push_notificaitons_maintain : Nil
-    subscription = @subscription
+    @push_mutex.synchronize do
+      subscription = @subscription
 
-    logger.debug { "maintaining push subscription, monitoring: #{!!@push_monitoring}" }
+      logger.debug { "maintaining push subscription, monitoring: #{!!@push_monitoring}" }
 
-    if @push_monitoring.nil?
-      channel_path = "#{@push_authority}/calendar/event"
-      logger.debug { "monitoring channel: #{channel_path}" }
-      @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
-    end
-
-    if subscription
-      if subscription.expired?
-        # renew subscription
-        begin
-          logger.debug { "renewing subscription" }
-          expires = SUBSCRIPTION_LENGTH.from_now
-          calendar.renew_notifier(subscription, expires.to_unix).get
-        rescue error
-          logger.error(exception: error) { "failed to renew expired subscription, creating new subscription" }
-          @subscription = nil
-          schedule.in(1.second) { push_notificaitons_maintain; nil }
-        end
+      if @push_monitoring.nil?
+        channel_path = "#{@push_authority}/calendar/event"
+        logger.debug { "monitoring channel: #{channel_path}" }
+        @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
       end
-    else # create a subscription
-      create_subscription
+
+      if subscription
+        if subscription.expired?
+          # renew subscription
+          begin
+            logger.debug { "renewing subscription" }
+            expires = SUBSCRIPTION_LENGTH.from_now
+            calendar.renew_notifier(subscription, expires.to_unix).get
+          rescue error
+            logger.error(exception: error) { "failed to renew expired subscription, creating new subscription" }
+            @subscription = nil
+            schedule.in(1.second) { push_notificaitons_maintain; nil }
+          end
+        end
+      else # create a subscription
+        create_subscription
+      end
     end
   end
 
@@ -728,28 +733,30 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   protected def create_subscription
-    @push_service_name = service_name = @push_service_name || ServiceName.parse(calendar.calendar_service_name.get.as_s)
+    @push_mutex.synchronize do
+      @push_service_name = service_name = @push_service_name || ServiceName.parse(calendar.calendar_service_name.get.as_s)
 
-    # different resource routes for the different services
-    case service_name
-    in .google?
-      resource = "/calendars/#{calendar_id}/events"
-    in .office365?
-      resource = "/users/#{calendar_id}/events"
-    in Nil
-      raise "service name not known, waiting for "
+      # different resource routes for the different services
+      case service_name
+      in .google?
+        resource = "/calendars/#{calendar_id}/events"
+      in .office365?
+        resource = "/users/#{calendar_id}/events"
+      in Nil
+        raise "service name not known, waiting for "
+      end
+
+      logger.debug { "registering for push notifications! #{resource}" }
+
+      # create a new secret and subscription
+      expires = SUBSCRIPTION_LENGTH.from_now
+      @push_secret = Random.new.hex(4)
+      sub = calendar.create_notifier(resource, @push_notification_url, expires.to_unix, @push_secret, @push_notification_url).get
+      @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
+
+      # save the subscription details for processing
+      define_setting(:push_subscription, @subscription)
+      define_setting(:push_secret, @push_secret)
     end
-
-    logger.debug { "registering for push notifications! #{resource}" }
-
-    # create a new secret and subscription
-    expires = SUBSCRIPTION_LENGTH.from_now
-    @push_secret = Random.new.hex(4)
-    sub = calendar.create_notifier(resource, @push_notification_url, expires.to_unix, @push_secret, @push_notification_url).get
-    @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
-
-    # save the subscription details for processing
-    define_setting(:push_subscription, @subscription)
-    define_setting(:push_secret, @push_secret)
   end
 end
