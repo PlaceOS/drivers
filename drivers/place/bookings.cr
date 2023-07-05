@@ -122,8 +122,13 @@ class Place::Bookings < PlaceOS::Driver
     @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
 
     # ensure current booking is updated at the start of every minute
+    # rand spreads the load placed on redis
     schedule.cron("* * * * *") do
-      schedule.in(rand(1000).milliseconds) { check_current_booking(self[:bookings].as_a) }
+      schedule.in(rand(1000).milliseconds) do
+        if list = self[:bookings]?
+          check_current_booking(list.as_a)
+        end
+      end
     end
 
     # configure push notifications
@@ -213,7 +218,7 @@ class Place::Bookings < PlaceOS::Driver
       host_calendar
     )
     # Update booking info after creating event
-    schedule.in(2.seconds) { poll_events }
+    schedule.in(2.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
     event
   end
 
@@ -684,35 +689,42 @@ class Place::Bookings < PlaceOS::Driver
   protected def push_event_occured(payload : String)
     logger.debug { "push notification received! #{payload}" }
 
-    event = NotifyEvent.from_json payload
-    if event.subscription_id != @subscription.try &.id
-      logger.debug { "ignoring notify event as we are not subscribed to it #{event.subscription_id} != #{@subscription.try &.id}" }
-      return
-    end
-    if event.client_secret != @push_secret
-      logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
-      return
-    end
+    events = Array(NotifyEvent).from_json payload
+    should_poll = false
 
-    case event.event_type
-    in .created?, .updated?, .deleted?
-      # TODO:: find event uid and update staff api event metadata without
-      # requiring GraphAPI interaction from staff api.
-      logger.debug { "polling events as received #{event.event_type} notification" }
-      poll_events
-    in .missed?
-      # we don't know the exact event id that changed
-      logger.debug { "polling events as a notification was previously missed" }
-      poll_events
-    in .renew?
-      # we need to create a new subscription as the old one has expired
-      logger.debug { "a subscription renewal is required" }
-      create_subscription
-    in .reauthorize?
-      logger.debug { "a subscription reauthorization is required" }
-      expires = SUBSCRIPTION_LENGTH.from_now
-      calendar.reauthorize_notifier(@subscription, expires.to_unix)
+    events.each do |event|
+      if event.subscription_id != @subscription.try &.id
+        logger.debug { "ignoring notify event as we are not subscribed to it #{event.subscription_id} != #{@subscription.try &.id}" }
+        next
+      end
+      if event.client_secret != @push_secret
+        logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
+        next
+      end
+
+      case event.event_type
+      in .created?, .updated?, .deleted?
+        # TODO:: find event uid and update staff api event metadata without
+        # requiring GraphAPI interaction from staff api.
+        logger.debug { "polling events as received #{event.event_type} notification" }
+        should_poll = true
+      in .missed?
+        # we don't know the exact event id that changed
+        logger.debug { "polling events as a notification was previously missed" }
+        should_poll = true
+      in .renew?
+        # we need to create a new subscription as the old one has expired
+        logger.debug { "a subscription renewal is required" }
+        create_subscription
+      in .reauthorize?
+        logger.debug { "a subscription reauthorization is required" }
+        expires = SUBSCRIPTION_LENGTH.from_now
+        calendar.reauthorize_notifier(@subscription, expires.to_unix)
+      end
     end
+    poll_events if should_poll
+  rescue error
+    logger.error(exception: error) { "error processing push notification" }
   end
 
   protected def create_subscription
