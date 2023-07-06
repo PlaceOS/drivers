@@ -196,25 +196,25 @@ module KontaktIO
     getter room_id : Int64
 
     @[JSON::Field(key: "roomName")]
-    getter room_name : String
+    getter room_name : String?
 
     @[JSON::Field(key: "floorId")]
-    getter floor_id : Int64
+    getter floor_id : Int64?
 
     @[JSON::Field(key: "floorName")]
-    getter floor_name : String
+    getter floor_name : String?
 
     @[JSON::Field(key: "buildingId")]
-    getter building_id : Int64
+    getter building_id : Int64?
 
     @[JSON::Field(key: "buildingName")]
-    getter building_name : String
+    getter building_name : String?
 
     @[JSON::Field(key: "campusId")]
-    getter campus_id : Int64
+    getter campus_id : Int64?
 
     @[JSON::Field(key: "campusName")]
-    getter campus_name : String
+    getter campus_name : String?
 
     @[JSON::Field(key: "lastUpdate")]
     getter last_update : Time
