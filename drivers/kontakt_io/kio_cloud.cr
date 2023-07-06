@@ -16,7 +16,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     on_update
   end
 
-  @api_key : String = ""
+  @api_key : String = %()
 
   def on_update
     @api_key = setting(String, :kio_api_key)

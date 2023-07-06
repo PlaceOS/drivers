@@ -15,7 +15,7 @@ class KontaktIO::RoomSensor < PlaceOS::Driver
 
   accessor kontakt_io : KontaktIO_1
 
-  @space_id : String = ""
+  @space_id : String = %()
 
   getter! space : RoomOccupancy
 

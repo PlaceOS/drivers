@@ -22,6 +22,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
         name:        "friendly name for documentation",
       },
     },
+
     return_empty_spaces: true,
   })
 
