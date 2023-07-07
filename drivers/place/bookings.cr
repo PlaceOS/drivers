@@ -636,26 +636,24 @@ class Place::Bookings < PlaceOS::Driver
 
     if @push_notification_url
       # clear the monitoring if authority changed
-      if subscription.try(&.id) != @subscription.try(&.id) && (monitor = @push_monitoring)
+      if subscription && subscription.try(&.id) != @subscription.try(&.id) && (monitor = @push_monitoring)
         subscriptions.unsubscribe(monitor)
         @push_monitoring = nil
       end
       @subscription = subscription
       schedule.every(5.minutes, immediate: true) { push_notificaitons_maintain }
-    elsif @subscription
-      push_notificaitons_cleanup
+    elsif subscription
+      push_notificaitons_cleanup(subscription)
     end
   end
 
   # delete a subscription
-  protected def push_notificaitons_cleanup
+  protected def push_notificaitons_cleanup(sub)
     @push_mutex.synchronize do
-      sub = @subscription
-      return unless sub
-
       logger.debug { "removing subscription" }
 
-      calendar.delete_notifier(sub)
+      calendar.delete_notifier(sub) if sub
+      @subscription = nil
       define_setting(:push_subscription, nil)
     end
   end
@@ -664,29 +662,33 @@ class Place::Bookings < PlaceOS::Driver
   protected def push_notificaitons_maintain : Nil
     @push_mutex.synchronize do
       subscription = @subscription
-      return unless subscription
 
-      logger.debug { "maintaining push subscription, monitoring: #{!!@push_monitoring}" }
+      logger.debug { "maintaining push subscription, monitoring: #{!!@push_monitoring}, subscription: #{subscription ? !subscription.expired? : "none"}" }
 
-      if @push_monitoring.nil?
-        channel_path = "#{subscription.id}/event"
-        logger.debug { "monitoring channel: #{channel_path}" }
-        @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
-      end
+      return create_subscription unless subscription
 
       if subscription.expired?
         # renew subscription
         begin
           logger.debug { "renewing subscription" }
           expires = SUBSCRIPTION_LENGTH.from_now
-          calendar.renew_notifier(subscription, expires.to_unix).get
+          sub = calendar.renew_notifier(subscription, expires.to_unix).get
+          @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
+
+          # save the subscription details for processing
+          define_setting(:push_subscription, @subscription)
         rescue error
           logger.error(exception: error) { "failed to renew expired subscription, creating new subscription" }
           @subscription = nil
           schedule.in(1.second) { push_notificaitons_maintain; nil }
         end
-      else # create a subscription
-        create_subscription
+        return
+      end
+
+      if @push_monitoring.nil?
+        channel_path = "#{subscription.id}/event"
+        logger.debug { "monitoring channel: #{channel_path}" }
+        @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
       end
     end
   end
