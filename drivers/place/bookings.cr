@@ -617,7 +617,6 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   @subscription : PlaceCalendar::Subscription? = nil
-  @push_authority : String? = nil
   @push_notification_url : String? = nil
   @push_secret : String? = nil
   @push_service_name : ServiceName? = nil
@@ -629,20 +628,19 @@ class Place::Bookings < PlaceOS::Driver
   SUBSCRIPTION_LENGTH = 5.days
 
   protected def push_notificaitons_configure
-    push_authority = setting?(String, :push_authority).presence
     @push_notification_url = setting?(String, :push_notification_url).presence
 
     # load any existing subscriptions
-    @subscription = setting?(PlaceCalendar::Subscription, :push_subscription)
+    subscription = setting?(PlaceCalendar::Subscription, :push_subscription)
     @push_secret = setting?(String, :push_secret)
 
-    if push_authority && @push_notification_url
+    if @push_notification_url
       # clear the monitoring if authority changed
-      if push_authority != @push_authority && (monitor = @push_monitoring)
+      if subscription.try(&.id) != @subscription.try(&.id) && (monitor = @push_monitoring)
         subscriptions.unsubscribe(monitor)
         @push_monitoring = nil
       end
-      @push_authority = push_authority
+      @subscription = subscription
       schedule.every(5.minutes, immediate: true) { push_notificaitons_maintain }
     elsif @subscription
       push_notificaitons_cleanup
@@ -666,27 +664,26 @@ class Place::Bookings < PlaceOS::Driver
   protected def push_notificaitons_maintain : Nil
     @push_mutex.synchronize do
       subscription = @subscription
+      return unless subscription
 
       logger.debug { "maintaining push subscription, monitoring: #{!!@push_monitoring}" }
 
       if @push_monitoring.nil?
-        channel_path = "#{@push_authority}/calendar/event"
+        channel_path = "#{subscription.id}/event"
         logger.debug { "monitoring channel: #{channel_path}" }
         @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
       end
 
-      if subscription
-        if subscription.expired?
-          # renew subscription
-          begin
-            logger.debug { "renewing subscription" }
-            expires = SUBSCRIPTION_LENGTH.from_now
-            calendar.renew_notifier(subscription, expires.to_unix).get
-          rescue error
-            logger.error(exception: error) { "failed to renew expired subscription, creating new subscription" }
-            @subscription = nil
-            schedule.in(1.second) { push_notificaitons_maintain; nil }
-          end
+      if subscription.expired?
+        # renew subscription
+        begin
+          logger.debug { "renewing subscription" }
+          expires = SUBSCRIPTION_LENGTH.from_now
+          calendar.renew_notifier(subscription, expires.to_unix).get
+        rescue error
+          logger.error(exception: error) { "failed to renew expired subscription, creating new subscription" }
+          @subscription = nil
+          schedule.in(1.second) { push_notificaitons_maintain; nil }
         end
       else # create a subscription
         create_subscription
@@ -697,40 +694,32 @@ class Place::Bookings < PlaceOS::Driver
   protected def push_event_occured(payload : String)
     logger.debug { "push notification received! #{payload}" }
 
-    events = Array(NotifyEvent).from_json payload
-    should_poll = false
+    event = NotifyEvent.from_json payload
 
-    events.each do |event|
-      if event.subscription_id != @subscription.try &.id
-        logger.debug { "ignoring notify event as we are not subscribed to it #{event.subscription_id} != #{@subscription.try &.id}" }
-        next
-      end
-      if event.client_secret != @push_secret
-        logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
-        next
-      end
-
-      case event.event_type
-      in .created?, .updated?, .deleted?
-        # TODO:: find event uid and update staff api event metadata without
-        # requiring GraphAPI interaction from staff api.
-        logger.debug { "polling events as received #{event.event_type} notification" }
-        should_poll = true
-      in .missed?
-        # we don't know the exact event id that changed
-        logger.debug { "polling events as a notification was previously missed" }
-        should_poll = true
-      in .renew?
-        # we need to create a new subscription as the old one has expired
-        logger.debug { "a subscription renewal is required" }
-        create_subscription
-      in .reauthorize?
-        logger.debug { "a subscription reauthorization is required" }
-        expires = SUBSCRIPTION_LENGTH.from_now
-        calendar.reauthorize_notifier(@subscription, expires.to_unix)
-      end
+    if event.client_secret != @push_secret
+      logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
+      return
     end
-    poll_events if should_poll
+
+    case event.event_type
+    in .created?, .updated?, .deleted?
+      # TODO:: find event uid and update staff api event metadata without
+      # requiring GraphAPI interaction from staff api.
+      logger.debug { "polling events as received #{event.event_type} notification" }
+      poll_events
+    in .missed?
+      # we don't know the exact event id that changed
+      logger.debug { "polling events as a notification was previously missed" }
+      poll_events
+    in .renew?
+      # we need to create a new subscription as the old one has expired
+      logger.debug { "a subscription renewal is required" }
+      create_subscription
+    in .reauthorize?
+      logger.debug { "a subscription reauthorization is required" }
+      expires = SUBSCRIPTION_LENGTH.from_now
+      calendar.reauthorize_notifier(@subscription, expires.to_unix)
+    end
   rescue error
     logger.error(exception: error) { "error processing push notification" }
   end
