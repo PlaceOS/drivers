@@ -5,9 +5,6 @@ module TwentyFiveLivePro
     struct Reservation
       include JSON::Serializable
 
-      @[JSON::Field(key: "postEventDt")]
-      property post_event_dt : String
-
       @[JSON::Field(key: "registration_url")]
       property registration_url : String
 

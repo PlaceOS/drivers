@@ -247,8 +247,8 @@ module TwentyFiveLivePro
 
       response = get("/reservations.json?#{params}", headers: HTTP::Headers{"Authorization" => get_basic_authorization, "User-Agent" => @user_agent, "Content-Type" => "application/json"})
 
-      raise "unexpected response #{response.status_code}#{response.body}" unless response.success?
-      logger.debug { "response body:#{response.body}" }
+      raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+      logger.debug { "response body:\n#{response.body}" }
 
       Models::Reservation.from_json(response.body)
     end
