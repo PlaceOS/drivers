@@ -6,7 +6,7 @@ module TwentyFiveLivePro
       include JSON::Serializable
 
       @[JSON::Field(key: "post_event_dt")]
-      property post_event_dt : String?
+      property date : Date
 
       @[JSON::Field(key: "registration_url")]
       property registration_url : String
