@@ -2,11 +2,11 @@ require "json"
 
 module TwentyFiveLivePro
   module Models
-    struct Reservation
+    class Reservation
       include JSON::Serializable
 
       @[JSON::Field(key: "post_event_dt")]
-      property date : Date
+      property post_event_dt : Date
 
       @[JSON::Field(key: "registration_url")]
       property registration_url : String
