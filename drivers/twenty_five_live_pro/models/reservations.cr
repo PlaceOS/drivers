@@ -4,8 +4,9 @@ module TwentyFiveLivePro
   module Models
     struct Reservation
       include JSON::Serializable
+      include JSON::Serializable::Unmapped
 
-      @[JSON::Field(key: "post_event_dt\n")]
+      @[JSON::Field(key: "post_event_dt")]
       property post_event_dt : String
 
       @[JSON::Field(key: "registration_url")]
