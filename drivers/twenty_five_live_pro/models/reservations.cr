@@ -88,7 +88,7 @@ module TwentyFiveLivePro
       property event_type_name : String?
 
       @[JSON::Field(key: "reservation_start_dt")]
-      property reservation_start_dt : String
+      property reservation_start_dt : String?
 
       @[JSON::Field(key: "reservation_comments")]
       property reservation_comments : String?
@@ -109,7 +109,7 @@ module TwentyFiveLivePro
       property organization_id : Int64?
 
       @[JSON::Field(key: "reservation_end_dt")]
-      property reservation_end_dt : String
+      property reservation_end_dt : String?
 
       @[JSON::Field(key: "registered_count")]
       property registered_count : Int64?
@@ -121,7 +121,7 @@ module TwentyFiveLivePro
       property event_name : String?
 
       @[JSON::Field(key: "event_start_dt")]
-      property event_start_dt : String
+      property event_start_dt : String?
 
       @[JSON::Field(key: "registration_label")]
       property registration_label : String?
