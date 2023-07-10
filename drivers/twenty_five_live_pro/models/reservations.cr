@@ -12,7 +12,7 @@ module TwentyFiveLivePro
       property registration_url : String?
 
       @[JSON::Field(key: "event_end_dt")]
-      property event_end_dt : String
+      property event_end_dt : String?
 
       @[JSON::Field(key: "profile_description")]
       property profile_description : String?
