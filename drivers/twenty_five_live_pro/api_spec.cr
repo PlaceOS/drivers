@@ -2,6 +2,162 @@ require "./models/**"
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "TwentyFiveLivePro::API" do
+  # Reservations
+
+  list_reservations = exec(:list_reservations, 88, "2023-06-26T00:00:00", "2023-06-27T00:00:00")
+
+  expect_http_request do |request, response|
+    case "#{request.path}?#{request.query}"
+    when "/reservations.json?space_id=88&start_dt=2023-06-26T00:00:00&end_dt=2023-06-27T00:00:00"
+      response.status_code = 200
+      response << %({
+        "reservations": {
+          "engine": "accl",
+          "reservation": [
+            {
+              "post_event_dt": "2023-06-26T11:30:00-04:00",
+              "registration_url": "",
+              "event_end_dt": "2023-06-26T11:30:00-04:00",
+              "profile_description": "",
+              "profile_name": "M 1000-1130 05/08",
+              "reservation_comment_id": "",
+              "expected_count": 150,
+              "reservation_state_name": "Standard",
+              "last_mod_dt": "2023-01-12T15:47:37-05:00",
+              "space_reservation": {
+                "default_layout_capacity": 168,
+                "shared": "F",
+                "layout_id": 2,
+                "layout_name": "As Is",
+                "space_instructions": "",
+                "space_name": "CLH A",
+                "space_instruction_id": "",
+                "selected_layout_capacity": 168,
+                "actual_count": "",
+                "space_id": 88,
+                "formal_name": "Redacted Lecture Hall A - Lecture Hall"
+              },
+              "event_title": "SC MATH 1507  3.00 A LECT 01 EN (Term SUSC)",
+              "reservation_state": 1,
+              "event_locator": "2023-AAKSTR",
+              "organization_name": "SC MATH",
+              "event_type_class": "",
+              "event_type_name": "LECT",
+              "reservation_start_dt": "2023-06-26T10:00:00-04:00",
+              "reservation_comments": "",
+              "reservation_id": 2793064,
+              "pre_event_dt": "2023-06-26T10:00:00-04:00",
+              "event_id": 81053,
+              "profile_id": 100682,
+              "organization_id": 473,
+              "reservation_end_dt": "2023-06-26T11:30:00-04:00",
+              "registered_count": 102,
+              "last_mod_user": "aaross",
+              "event_name": "SC MATH 1507  3.00 A MMP 2022-3",
+              "event_start_dt": "2023-06-26T10:00:00-04:00",
+              "registration_label": ""
+            },
+            {
+              "post_event_dt": "2023-06-26T15:00:00-04:00",
+              "registration_url": "",
+              "event_end_dt": "2023-06-26T15:00:00-04:00",
+              "profile_description": "",
+              "profile_name": "M 1300-1500 05/08",
+              "reservation_comment_id": "",
+              "expected_count": 150,
+              "reservation_state_name": "Standard",
+              "last_mod_dt": "2023-01-12T15:47:37-05:00",
+              "space_reservation": {
+                "default_layout_capacity": 168,
+                "shared": "F",
+                "layout_id": 2,
+                "layout_name": "As Is",
+                "space_instructions": "",
+                "space_name": "CLH A",
+                "space_instruction_id": "",
+                "selected_layout_capacity": 168,
+                "actual_count": 150,
+                "space_id": 88,
+                "formal_name": "Redacted Lecture Hall A - Lecture Hall"
+              },
+              "event_title": "LE EECS 2031  3.00 A LECT 01 EN (Term SULE)",
+              "reservation_state": 1,
+              "event_locator": "2023-AAKSZL",
+              "organization_name": "LE EECS",
+              "event_type_class": "",
+              "event_type_name": "LECT",
+              "reservation_start_dt": "2023-06-26T13:00:00-04:00",
+              "reservation_comments": "",
+              "reservation_id": 2794453,
+              "pre_event_dt": "2023-06-26T13:00:00-04:00",
+              "event_id": 81132,
+              "profile_id": 100778,
+              "organization_id": 367,
+              "reservation_end_dt": "2023-06-26T15:00:00-04:00",
+              "registered_count": 142,
+              "last_mod_user": "aaross",
+              "event_name": "LE EECS 2031  3.00 A 2022-3",
+              "event_start_dt": "2023-06-26T13:00:00-04:00",
+              "registration_label": ""
+            },
+            {
+              "post_event_dt": "2023-06-26T21:00:00-04:00",
+              "registration_url": "",
+              "event_end_dt": "2023-06-26T21:00:00-04:00",
+              "profile_description": "",
+              "profile_name": "M 1800-2100 05/08",
+              "reservation_comment_id": "",
+              "expected_count": 150,
+              "reservation_state_name": "Standard",
+              "last_mod_dt": "2023-01-12T15:47:37-05:00",
+              "space_reservation": {
+                "default_layout_capacity": 168,
+                "shared": "F",
+                "layout_id": 2,
+                "layout_name": "As Is",
+                "space_instructions": "",
+                "space_name": "CLH A",
+                "space_instruction_id": "",
+                "selected_layout_capacity": 168,
+                "actual_count": "",
+                "space_id": 88,
+                "formal_name": "Redacted Lecture Hall A - Lecture Hall"
+              },
+              "event_title": "SC MATH 1510  6.00 A LECT 01 EN (Term SUSC)",
+              "reservation_state": 1,
+              "event_locator": "2023-AAKSTS",
+              "organization_name": "SC MATH",
+              "event_type_class": "",
+              "event_type_name": "LECT",
+              "reservation_start_dt": "2023-06-26T18:00:00-04:00",
+              "reservation_comments": "",
+              "reservation_id": 2793093,
+              "pre_event_dt": "2023-06-26T18:00:00-04:00",
+              "event_id": 81054,
+              "profile_id": 100684,
+              "organization_id": 473,
+              "reservation_end_dt": "2023-06-26T21:00:00-04:00",
+              "registered_count": 58,
+              "last_mod_user": "aaross",
+              "event_name": "SC MATH 1510  6.00 A MMP 2022-3",
+              "event_start_dt": "2023-06-26T18:00:00-04:00",
+              "registration_label": ""
+            }
+          ],
+          "pubdate": "2023-07-10T12:21:05-04:00"
+        }
+      })
+    else
+      response.status_code = 500
+      response << "expected get space details request"
+    end
+  end
+
+  reservations = Array(TwentyFiveLivePro::Models::Reservation).from_json(list_reservations.get.not_nil!.to_json)
+  reservations.size should eq 3
+  reservations.first.reservation_id.should eq 2793064
+
+
   # Spaces
 
   get_space_details = exec(:get_space_details, 1, ["all"], ["all"])
