@@ -6,16 +6,16 @@ module TwentyFiveLivePro
       include JSON::Serializable
 
       @[JSON::Field(key: "post_event_dt")]
-      property post_event_dt : Date
+      property post_event_dt : Date?
 
       @[JSON::Field(key: "registration_url")]
-      property registration_url : String
+      property registration_url : String?
 
       @[JSON::Field(key: "event_end_dt")]
       property event_end_dt : String
 
       @[JSON::Field(key: "profile_description")]
-      property profile_description : String
+      property profile_description : String?
 
       @[JSON::Field(key: "profile_name")]
       property profile_name : String?
@@ -24,13 +24,13 @@ module TwentyFiveLivePro
       property reservation_comment_id : String?
 
       @[JSON::Field(key: "expected_count")]
-      property expected_count : Int64
+      property expected_count : Int64?
 
       @[JSON::Field(key: "reservation_state_name")]
       property reservation_state_name : String?
 
       @[JSON::Field(key: "last_mod_dt")]
-      property last_mod_dt : String
+      property last_mod_dt : String?
 
       struct Space
         include JSON::Serializable
@@ -42,7 +42,7 @@ module TwentyFiveLivePro
         property shared : String?
 
         @[JSON::Field(key: "layout_id")]
-        property layout_id : Int64
+        property layout_id : Int64?
 
         @[JSON::Field(key: "layout_name")]
         property layout_name : String?
@@ -57,7 +57,7 @@ module TwentyFiveLivePro
         property space_instruction_id : String?
 
         @[JSON::Field(key: "selected_layout_capacity")]
-        property selected_layout_capacity : Int64
+        property selected_layout_capacity : Int64?
 
         @[JSON::Field(key: "actual_count")]
         property actual_count : String?
@@ -73,7 +73,7 @@ module TwentyFiveLivePro
       property event_title : String?
 
       @[JSON::Field(key: "reservation_state")]
-      property reservation_state : Int64
+      property reservation_state : Int64?
 
       @[JSON::Field(key: "event_locator")]
       property event_locator : String?
@@ -97,22 +97,22 @@ module TwentyFiveLivePro
       property reservation_id : Int64
 
       @[JSON::Field(key: "pre_event_dt")]
-      property pre_event_dt : String
+      property pre_event_dt : String?
 
       @[JSON::Field(key: "event_id")]
       property event_id : Int64
 
       @[JSON::Field(key: "profile_id")]
-      property profile_id : Int64
+      property profile_id : Int64?
 
       @[JSON::Field(key: "organization_id")]
-      property organization_id : Int64
+      property organization_id : Int64?
 
       @[JSON::Field(key: "reservation_end_dt")]
       property reservation_end_dt : String
 
       @[JSON::Field(key: "registered_count")]
-      property registered_count : Int64
+      property registered_count : Int64?
 
       @[JSON::Field(key: "last_mod_user")]
       property last_mod_user : String?
