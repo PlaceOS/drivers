@@ -156,6 +156,7 @@ DriverSpecs.mock_driver "TwentyFiveLivePro::API" do
   reservations = Array(TwentyFiveLivePro::Models::Reservation).from_json(list_reservations.get.not_nil!.to_json)
   reservations.size should eq 3
   reservations.first.reservation_id.should eq 2793064
+  reservations.last.space_reservation.space_id.should eq 88
 
 
   # Spaces
