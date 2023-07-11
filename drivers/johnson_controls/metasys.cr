@@ -242,7 +242,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   end
 
   private def put_request(path : String, body)
-    put(path, headers: {"Authorization" => get_token, "Content-Type" => "application/json"}, body: body.to_json)
+    put(path, headers: {"Authorization" => get_token , "Content-Type" => CONTENT_TYPE}, body: body.to_json)
   end
 
   @[Security(Level::Support)]
