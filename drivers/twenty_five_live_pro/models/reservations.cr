@@ -106,25 +106,25 @@ module TwentyFiveLivePro
           property reservation_comments : String?
  
           @[JSON::Field(key: "reservation_id")]
-          property reservation_id : Int64?
+          property reservation_id : Int64? | String?
  
           @[JSON::Field(key: "pre_event_dt")]
           property pre_event_dt : String
  
           @[JSON::Field(key: "event_id")]
-          property event_id : Int64?
+          property event_id : Int64? | String?
  
           @[JSON::Field(key: "profile_id")]
-          property profile_id : Int64?
+          property profile_id : Int64? | String?
  
           @[JSON::Field(key: "organization_id")]
-          property organization_id : Int64?
+          property organization_id : Int64? | String?
  
           @[JSON::Field(key: "reservation_end_dt")]
           property reservation_end_dt : String
  
           @[JSON::Field(key: "registered_count")]
-          property registered_count : Int64?
+          property registered_count : Int64? | String?
  
           @[JSON::Field(key: "last_mod_user")]
           property last_mod_user : String?
