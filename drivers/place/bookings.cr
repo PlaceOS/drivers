@@ -75,8 +75,6 @@ class Place::Bookings < PlaceOS::Driver
   @sensor_mac : String? = nil
 
   def on_load
-    monitor("staff/event/changed") { |_subscription, payload| check_change(payload) }
-
     on_update
   end
 
@@ -393,39 +391,6 @@ class Place::Bookings < PlaceOS::Driver
     elsif @next_pending
       upcoming
     end
-  end
-
-  class StaffEventChange
-    include JSON::Serializable
-
-    property action : String    # create, update, cancelled
-    property system_id : String # primary calendar effected
-    property event_id : String
-    property resource : String # the resource email that is effected
-  end
-
-  # This is called when bookings are modified via the staff app
-  # it allows us to update the cache faster than via polling alone
-  protected def check_change(payload : String)
-    logger.debug { "checking for change in payload:\n#{payload}" }
-
-    event = StaffEventChange.from_json(payload)
-    if event.system_id == system.id
-      logger.debug { "system id match, waiting #{@change_event_sync_delay} and polling events" }
-      sleep @change_event_sync_delay
-      poll_events
-    else
-      matching = self[:bookings]?.try(&.as_a.select { |b| b["id"].as_s == event.event_id })
-      if matching
-        logger.debug { "event id match, waiting #{@change_event_sync_delay} and polling events" }
-        sleep @change_event_sync_delay
-        poll_events
-      else
-        logger.debug { "ignoring event as no matching events found" }
-      end
-    end
-  rescue error
-    logger.error { "processing change event: #{error.inspect_with_backtrace}" }
   end
 
   # ===================================
