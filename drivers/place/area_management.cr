@@ -361,8 +361,13 @@ class Place::AreaManagement < PlaceOS::Driver
       if location_type = loc["location"]?
         # measurement name for simplified querying in influxdb
         loc["measurement"] = location_type
-        if location_type == "desk"
+        case location_type
+        when "desk"
           if maps_to = desk_mappings[loc["map_id"].as_s]?
+            loc["map_id"] = JSON::Any.new(maps_to)
+          end
+        when "booking"
+          if loc["type"].as_s == "desk" && (maps_to = desk_mappings[loc["map_id"].as_s]?)
             loc["map_id"] = JSON::Any.new(maps_to)
           end
         end
