@@ -4,18 +4,15 @@ module TwentyFiveLivePro
   module Models
     struct ParentReservations
       include JSON::Serializable
-      include JSON::Serializable::Unmapped
  
       struct Reservations
         include JSON::Serializable
-        include JSON::Serializable::Unmapped
  
         @[JSON::Field(key: "engine")]
         property engine : String?
  
         struct Data
           include JSON::Serializable
-          include JSON::Serializable::Unmapped
  
           @[JSON::Field(key: "post_event_dt")]
           property post_event_dt : String
@@ -46,7 +43,6 @@ module TwentyFiveLivePro
  
           struct Space
             include JSON::Serializable
-            include JSON::Serializable::Unmapped
  
             @[JSON::Field(key: "default_layout_capacity")]
             property default_layout_capacity : Int64?
@@ -110,7 +106,7 @@ module TwentyFiveLivePro
           property reservation_comments : String?
  
           @[JSON::Field(key: "reservation_id")]
-          property reservation_id : Int64?
+          property reservation_id : Int64
  
           @[JSON::Field(key: "pre_event_dt")]
           property pre_event_dt : String
