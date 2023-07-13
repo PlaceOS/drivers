@@ -367,7 +367,7 @@ class Place::AreaManagement < PlaceOS::Driver
             loc["map_id"] = JSON::Any.new(maps_to)
           end
         when "booking"
-          if loc["type"].as_s == "desk" && (maps_to = desk_mappings[loc["map_id"].as_s]?)
+          if (has_map_id = loc["map_id"]?.try(&.as_s)) && loc["type"].as_s == "desk" && (maps_to = desk_mappings[has_map_id]?)
             loc["map_id"] = JSON::Any.new(maps_to)
           end
         end
