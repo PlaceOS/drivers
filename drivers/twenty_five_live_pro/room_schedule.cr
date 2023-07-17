@@ -81,33 +81,14 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
     relevant_reservations = [] of Models::ParentReservations
     parent_reservations = Array(Models::ParentReservations).from_json(twenty_five_live_pro.list_reservations(88, 100, since, nil).get.not_nil!.to_json)
 
-    parent_reservations.each do |reservations|
-      details = Models::EventDetail.from_json(twenty_five_live_pro.get_event_details(event.id, ["all"], ["all"]).get.not_nil!.to_json)
-
-      if expanded_info = details.content.expanded_info
-        if spaces = expanded_info.spaces
-          next if spaces.empty?
-
-          if @space_id == spaces.first.space_id
-            if event_data = details.content.data
-              if event_items = event_data.items
-                next if event_items.empty?
-
-                event_items.each do |event_item|
-                  if date = event_item.date
-                    if date.start_date.to_rfc3339.includes?(start_date) && date.end_date.to_rfc3339.includes?(start_date)
-                      relevant_events.push(Models::Event.from_json(event_item.to_json))
-                    end
-                  end
-                end
-              end
-            end
-          end
-        end
+    parent_reservations.each do |parent_reservation|
+      parent_reservation.reservations.reservation.each do |reservation|
+        start_date = Time.parse_rfc3339 reservation.reservation_start_dt
+        end_date = Time.parse_rfc3339 reservation.reservation_end_dt
       end
     end
 
-    relevant_events
+    relevant_reservations
   end
 
   private def update_event_details(previous_event : Models::Event | Nil = nil, current_event : Models::Event | Nil = nil, next_event : Models::Event | Nil = nil)
