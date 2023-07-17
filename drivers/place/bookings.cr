@@ -583,7 +583,6 @@ class Place::Bookings < PlaceOS::Driver
 
   @subscription : PlaceCalendar::Subscription? = nil
   @push_notification_url : String? = nil
-  @push_secret : String? = nil
   @push_service_name : ServiceName? = nil
   @push_monitoring : PlaceOS::Driver::Subscriptions::ChannelSubscription? = nil
   @push_mutex : Mutex = Mutex.new(:reentrant)
@@ -597,7 +596,6 @@ class Place::Bookings < PlaceOS::Driver
 
     # load any existing subscriptions
     subscription = setting?(PlaceCalendar::Subscription, :push_subscription)
-    @push_secret = setting?(String, :push_secret)
 
     if @push_notification_url
       # clear the monitoring if authority changed
@@ -663,7 +661,8 @@ class Place::Bookings < PlaceOS::Driver
 
     event = NotifyEvent.from_json payload
 
-    if event.client_secret != @push_secret
+    secret = @subscription.try &.client_secret
+    if secret && secret != event.client_secret
       logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
       return
     end
@@ -709,13 +708,12 @@ class Place::Bookings < PlaceOS::Driver
 
       # create a new secret and subscription
       expires = SUBSCRIPTION_LENGTH.from_now
-      @push_secret = Random.new.hex(4)
-      sub = calendar.create_notifier(resource, @push_notification_url, expires.to_unix, @push_secret, @push_notification_url).get
+      push_secret = Random.new.hex(4)
+      sub = calendar.create_notifier(resource, @push_notification_url, expires.to_unix, push_secret, @push_notification_url).get
       @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
 
       # save the subscription details for processing
       define_setting(:push_subscription, @subscription)
-      define_setting(:push_secret, @push_secret)
     end
   end
 end
