@@ -662,7 +662,7 @@ class Place::Bookings < PlaceOS::Driver
     event = NotifyEvent.from_json payload
 
     secret = @subscription.try &.client_secret
-    if secret && secret != event.client_secret
+    unless secret && secret == event.client_secret
       logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
       return
     end
