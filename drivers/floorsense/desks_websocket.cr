@@ -88,7 +88,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     in Response
       if !payload.result
         logger.warn { "task #{task.try &.name} failed.." }
-        disconnect
+        # disconnect
         return task.try &.abort
       end
 
