@@ -220,7 +220,7 @@ module Floorsense
   class BookingStatus
     include JSON::Serializable
 
-    property key : String
+    property key : String?
     property uid : String
 
     @[JSON::Field(key: "bktype")]
