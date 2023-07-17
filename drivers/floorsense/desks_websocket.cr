@@ -162,7 +162,13 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
   macro parse(response, klass, &modify)
     check_success({{response}})
-    check_response Resp({{klass}}).from_json({{response}}.body.not_nil!) {{modify}}
+    %resp_body = {{response}}.body
+    begin
+      check_response Resp({{klass}}).from_json(%resp_body.not_nil!) {{modify}}
+    rescue error
+      logger.debug { "failed to parse response: #{%resp_body}" }
+      raise error
+    end
   end
 
   def default_headers
