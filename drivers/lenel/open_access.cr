@@ -241,6 +241,11 @@ class Lenel::OpenAccess < PlaceOS::Driver
     cardholders.first?
   end
 
+  @[Security(Level::Support)]
+  def lookup_cardholders(email : String)
+    client.lookup Cardholder, filter: %(email = "#{email}")
+  end
+
   # Lookup a cardholder by ID
   @[Security(Level::Support)]
   def lookup_cardholder_id(id : Int32)
