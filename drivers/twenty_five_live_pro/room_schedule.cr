@@ -77,9 +77,9 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
     end
   end
 
-  def fetch_events(space_id : Int32, start_date : String, end_date : String)
+  def fetch_events(space_id : String, start_date : String, end_date : String)
     relevant_reservations = [] of Models::Reservation
-    parent_reservations = Array(Models::ParentReservations).from_json(twenty_five_live_pro.list_reservations(space_id, start_date, end_date).get.not_nil!.to_json)
+    parent_reservations = Array(Models::ParentReservations).from_json(twenty_five_live_pro.list_reservations(space_id.to_i, start_date, end_date).get.not_nil!.to_json)
 
     parent_reservations.each do |parent_reservation|
       parent_reservation.reservations.reservation.each do |reservation|
