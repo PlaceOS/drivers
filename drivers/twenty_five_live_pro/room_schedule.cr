@@ -55,7 +55,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         # end
         # end
 
-        current_and_past_events, future_events = todays_events.partition { |e| Time.local > Time.parse_rfc3339 e.reservation_start_dt }
+        current_and_past_events, future_events = todays_events.partition { |e| Time.local > Time.parse_rfc3339 e.reservation_start_dt}
         current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
 
         if @debug
@@ -85,9 +85,12 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
       parent_reservation.reservations.reservation.each do |reservation|
         start_date = Time.parse_rfc3339 reservation.reservation_start_dt
         end_date = Time.parse_rfc3339 reservation.reservation_end_dt
+        reservation_id = reservation.reservation_id
+        event_title = reservation.event_title
+        registered_count = reservation.registered_count
+        relevant_reservations.push(Models::Reservation.from_json(reservation.to_json))
       end
     end
-
     relevant_reservations
   end
 
