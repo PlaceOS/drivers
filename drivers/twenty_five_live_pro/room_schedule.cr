@@ -55,7 +55,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         # end
         # end
 
-        current_and_past_events, future_events = todays_events.partition { |e| Time.local > Time.parse_rfc3339 e.reservation_start_dt}
+        current_and_past_events, future_events = todays_events.partition { |e| Time.local > Time.parse_rfc3339 e.reservation_start_dt }
         current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
 
         if @debug
@@ -79,17 +79,15 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
 
   def fetch_events(space_id : String, start_date : String, end_date : String)
     relevant_reservations = [] of Models::Reservation
-    parent_reservations = Array(Models::ParentReservations).from_json(twenty_five_live_pro.list_reservations(space_id.to_i, start_date, end_date).get.not_nil!.to_json)
+    parent_reservations = Models::ParentReservations.from_json(twenty_five_live_pro.list_reservations(space_id.to_i, start_date, end_date).get.not_nil!.to_json)
 
-    parent_reservations.each do |parent_reservation|
-      parent_reservation.reservations.reservation.each do |reservation|
-        start_date = Time.parse_rfc3339 reservation.reservation_start_dt
-        end_date = Time.parse_rfc3339 reservation.reservation_end_dt
-        reservation_id = reservation.reservation_id
-        event_title = reservation.event_title
-        registered_count = reservation.registered_count
-        relevant_reservations.push(Models::Reservation.from_json(reservation.to_json))
-      end
+    parent_reservations.reservations.reservation.each do |reservation|
+      start_date = Time.parse_rfc3339 reservation.reservation_start_dt
+      end_date = Time.parse_rfc3339 reservation.reservation_end_dt
+      reservation_id = reservation.reservation_id
+      event_title = reservation.event_title
+      registered_count = reservation.registered_count
+      relevant_reservations.push(Models::Reservation.from_json(reservation.to_json))
     end
     relevant_reservations
   end
