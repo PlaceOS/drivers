@@ -45,12 +45,12 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         todays_events = fetch_events(today.to_s("%Y-%m-%d"), today.to_s("%Y-%m-%d"))
 
         # Determine which events contain other events
-        # todays_events.sort_by(&.duration).reverse!
+        # todays_events.sort_by(&.date.duration).reverse!
 
         # todays_events.each_with_index do |e, i|
         # if todays_events.skip(i + 1).find { |f| contains?(e, f) }
         # e.container = true
-        # else
+        # else.
         # e.container = false
         # end
         # end
@@ -66,7 +66,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         next_event = future_events.min_by? &.reservation_start_dt
         previous_event = past_events.max_by? &.reservation_end_dt
         current_event = current_events.find { |e| }
-        #current_container_event = current_events.find(&.container)
+        # current_container_event = current_events.find(&.container)
 
         update_event_details(previous_event, current_event, next_event)
         advance_countdowns(previous_event, current_event, next_event)
@@ -79,11 +79,13 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
 
   def fetch_events(start_date : String, end_date : String)
     relevant_reservations = [] of Models::Reservation
-    reservations = Array(Models::Reservation).from_json(twenty_five_live_pro.list_reservations(88, start_date, end_date).get.not_nil!.to_json)
+    parent_reservations = Array(Models::ParentReservations).from_json(twenty_five_live_pro.list_reservations(88, start_date, end_date).get.not_nil!.to_json)
 
-    reservations.each do |reservation|
-      start_date = Time.parse_rfc3339 reservation.reservation_start_dt
-      end_date = Time.parse_rfc3339 reservation.reservation_end_dt
+    parent_reservations.each do |parent_reservation|
+      parent_reservation.reservations.reservation.each do |reservation|
+        start_date = Time.parse_rfc3339 reservation.reservation_start_dt
+        end_date = Time.parse_rfc3339 reservation.reservation_end_dt
+      end
     end
 
     relevant_reservations
@@ -152,10 +154,10 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
 
   # Does a contain b?
   private def contains?(a : Models::Reservation, b : Models::Reservation)
-    breservation_start_dt >= areservation_start_dt && breservation_end_dt <= areservation_end_dt
+    b.reservation_start_dt >= a.reservation_start_dt && b.reservation_end_dt <= a.reservation_end_dt
   end
 
   private def overlaps?(a : Models::Reservation, b : Models::Reservation)
-    breservation_start_dt < areservation_end_dt || breservation_end_dt > areservation_start_dt
+    b.reservation_start_dt < a.reservation_end_dt || b.reservation_end_dt > a.reservation_start_dt
   end
 end
