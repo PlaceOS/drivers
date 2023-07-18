@@ -42,7 +42,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         @next_countdown.try &.cancel
         @next_countdown = nil
         today = Time.local
-        todays_events = fetch_events(today.to_s("%Y-%m-%d"), today.to_s("%Y-%m-%d"))
+        todays_events = fetch_events(@space_id, today.to_s("%Y-%m-%d"), today.to_s("%Y-%m-%d"))
 
         # Determine which events contain other events
         # todays_events.sort_by(&.date.duration).reverse!
@@ -77,9 +77,9 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
     end
   end
 
-  def fetch_events(start_date : String, end_date : String)
+  def fetch_events(space_id : String, start_date : String, end_date : String)
     relevant_reservations = [] of Models::Reservation
-    parent_reservations = Array(Models::ParentReservations).from_json(twenty_five_live_pro.list_reservations(88, start_date, end_date).get.not_nil!.to_json)
+    parent_reservations = Array(Models::ParentReservations).from_json(twenty_five_live_pro.list_reservations(space_id, start_date, end_date).get.not_nil!.to_json)
 
     parent_reservations.each do |parent_reservation|
       parent_reservation.reservations.reservation.each do |reservation|
