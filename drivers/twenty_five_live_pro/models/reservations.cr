@@ -140,7 +140,7 @@ module TwentyFiveLivePro
         end
  
         @[JSON::Field(key: "reservation")]
-        property reservation : Array(Data)
+        property reservation : Array(Data) | Data
       end
  
       @[JSON::Field(key: "reservations")]
