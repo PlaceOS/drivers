@@ -41,7 +41,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         @request_running = true
         @next_countdown.try &.cancel
         @next_countdown = nil
-        today = Time.local
+        today = Time.local Time::Location.load("America/Toronto")
         todays_events = fetch_events(@space_id, today.to_s("%Y-%m-%d"), today.to_s("%Y-%m-%d"))
 
         # Determine which events contain other events
@@ -55,7 +55,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         # end
         # end
 
-        current_and_past_events, future_events = todays_events.partition { |e| Time.local > Time.parse_rfc3339 e.reservation_start_dt }
+        current_and_past_events, future_events = todays_events.partition { |e| (Time.local Time::Location.load("America/Toronto")) > Time.parse_rfc3339 e.reservation_start_dt }
         current_events, past_events = current_and_past_events.partition { |e| in_progress?(e) }
 
         if @debug
@@ -128,24 +128,24 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
   end
 
   private def countup_previous_event(previous : Models::Reservation)
-    time_since_previous = Time.local - Time.parse_rfc3339 previous.reservation_end_dt
+    time_since_previous = (Time.local Time::Location.load("America/Toronto")) - Time.parse_rfc3339 previous.reservation_end_dt
     self[:minutes_since_previous_event] = time_since_previous.total_minutes.to_i
   end
 
   private def countdown_next_event(next_event : Models::Reservation)
-    time_til_next = Time.parse_rfc3339(next_event.reservation_start_dt) - Time.local
+    time_til_next = Time.parse_rfc3339(next_event.reservation_start_dt) - Time.local Time::Location.load("America/Toronto")
     self[:minutes_til_next_event] = time_til_next.total_minutes.to_i
     # return whether the next event has started
-    Time.local >= Time.parse_rfc3339 next_event.reservation_start_dt
+    (Time.local Time::Location.load("America/Toronto")) >= Time.parse_rfc3339 next_event.reservation_start_dt
   end
 
   private def countdown_current_event(current : Models::Reservation)
-    time_since_start = Time.local - Time.parse_rfc3339 current.reservation_start_dt
-    time_til_end = Time.parse_rfc3339(current.reservation_end_dt) - Time.local
+    time_since_start = (Time.local Time::Location.load("America/Toronto")) - Time.parse_rfc3339 current.reservation_start_dt
+    time_til_end = Time.parse_rfc3339(current.reservation_end_dt) - (Time.local Time::Location.load("America/Toronto"))
     self[:minutes_since_current_event_started] = time_since_start.total_minutes.to_i
     self[:minutes_til_current_event_ends] = time_til_end.total_minutes.to_i
     # return whether the current event has ended
-    Time.local > Time.parse_rfc3339 current.reservation_end_dt
+    (Time.local Time::Location.load("America/Toronto")) > Time.parse_rfc3339 current.reservation_end_dt
   end
 
   private def in_progress?(reservation : Models::Reservation)
