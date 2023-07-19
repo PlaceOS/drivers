@@ -149,7 +149,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
   end
 
   private def in_progress?(reservation : Models::Reservation)
-    now = Time.local
+    now = Time.local Time::Location.load("America/Toronto")
     now >= Time.parse_rfc3339(reservation.reservation_start_dt) && now <= Time.parse_rfc3339(reservation.reservation_end_dt)
   end
 
