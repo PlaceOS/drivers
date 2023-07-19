@@ -141,8 +141,8 @@ module TwentyFiveLivePro
           property registration_label : String?
         end
 
-        @[JSON::Field(key: "reservation", emit_null: true)]
-        property reservation : Array(Data)? | Data?
+        @[JSON::Field(key: "reservation")]
+        property reservation : Array(Data)
       end
 
       @[JSON::Field(key: "reservations")]
