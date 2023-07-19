@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "place_calendar"
+require "placeos-driver/interface/mailer"
 
 class Place::BookingCheckInHelper < PlaceOS::Driver
   descriptive_name "PlaceOS Check-in helper"
@@ -8,7 +9,10 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
 
   accessor bookings : Bookings_1
   accessor staff_api : StaffAPI_1
-  accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
+
+  def mailer
+    system.implementing(Interface::Mailer)[0]
+  end
 
   default_settings({
     # how many minutes until we want to prompt the user
