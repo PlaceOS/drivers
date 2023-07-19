@@ -12,8 +12,11 @@ class Place::SurveyMailer < PlaceOS::Driver
     email_template: "survey",
   })
 
-  accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
   accessor staff_api : StaffAPI_1
+
+  def mailer
+    system.implementing(Interface::Mailer)[0]
+  end
 
   def on_load
     on_update

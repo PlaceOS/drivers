@@ -4,7 +4,7 @@ class Place::LogicExample < PlaceOS::Driver
   descriptive_name "Example Logic"
   generic_name :ExampleLogic
 
-  accessor main_lcd : Display_1, implementing: Powerable
+  accessor main_lcd : Display_1
 
   def on_update
     logger.info { "woot! an update #{setting?(String, :name)}" }

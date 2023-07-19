@@ -35,8 +35,11 @@ class Place::VisitorMailer < PlaceOS::Driver
   })
 
   accessor staff_api : StaffAPI_1
-  accessor mailer : Mailer_1, implementing: PlaceOS::Driver::Interface::Mailer
   accessor network_provider : NetworkAccess_1 # Written for Cisco ISE Driver, but ideally compatible with others
+
+  def mailer
+    system.implementing(Interface::Mailer)[0]
+  end
 
   def on_load
     # Guest has been marked as attending a meeting in person
