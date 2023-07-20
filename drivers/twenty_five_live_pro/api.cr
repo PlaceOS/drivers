@@ -251,15 +251,16 @@ module TwentyFiveLivePro
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
-      
+
       body = JSON.parse response.body
-      
-      case body.["reservations"].["reservation"]
-      in .as_a?
-        reservation_array.push(body.["reservations"].["reservation"])
+
+      if body.["reservations"].["reservation"].as_a?
+        reservation_array.concat(Array(Models::Reservation).from_json(body.["reservations"].["reservation"].to_json))
+      elsif body.["reservations"].["reservation"].as_h?
+        reservation_array.push(Models::Reservation.from_json(body.["reservations"].["reservation"].to_json))
       end
 
-      Models::ParentReservations.from_json(response.body)
+      reservation_array
     end
 
     def get_event_details(id : Int32, included_elements : Array(String) = [] of String, expanded_elements : Array(String) = [] of String)

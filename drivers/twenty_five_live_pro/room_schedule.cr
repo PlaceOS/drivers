@@ -66,7 +66,6 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
         next_event = future_events.min_by? &.reservation_start_dt
         previous_event = past_events.max_by? &.reservation_end_dt
         current_event = current_events.sample
-        #current_container_event = current_events.find(&.container)
 
         update_event_details(previous_event, current_event, next_event)
         advance_countdowns(previous_event, current_event, next_event)
@@ -79,16 +78,17 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
 
   def fetch_events(space_id : String, start_date : String, end_date : String)
     relevant_reservations = [] of Models::Reservation
-    parent_reservations = Models::ParentReservations.from_json(twenty_five_live_pro.list_reservations(space_id.to_i, start_date, end_date).get.not_nil!.to_json)
+    reservations = Array(Models::Reservation).from_json(twenty_five_live_pro.list_reservations(space_id.to_i, start_date, end_date).get.not_nil!.to_json)
 
-    parent_reservations.reservations.reservation.each do |reservation|
+    reservations.each do |reservation|
       start_date = Time.parse_rfc3339 reservation.reservation_start_dt
       end_date = Time.parse_rfc3339 reservation.reservation_end_dt
       reservation_id = reservation.reservation_id
       event_title = reservation.event_title
       registered_count = reservation.registered_count
-      relevant_reservations.push(Models::Reservation.from_json(reservation.to_json))
+      relevant_reservations.push(reservation)
     end
+
     relevant_reservations
   end
 
