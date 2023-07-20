@@ -65,7 +65,7 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
 
         next_event = future_events.min_by? &.reservation_start_dt
         previous_event = past_events.max_by? &.reservation_end_dt
-        current_event = current_events.sample
+        current_event = current_events.empty? ? nil : current_events.sample
 
         update_event_details(previous_event, current_event, next_event)
         advance_countdowns(previous_event, current_event, next_event)
