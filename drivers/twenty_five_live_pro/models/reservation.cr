@@ -19,7 +19,6 @@ module TwentyFiveLivePro
 
       @[JSON::Field(key: "registered_count")]
       property registered_count : Int64?
-
     end
   end
 end
