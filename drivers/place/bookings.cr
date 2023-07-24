@@ -203,6 +203,14 @@ class Place::Bookings < PlaceOS::Driver
     starting = Time.utc.to_unix
     ending = starting + period_in_seconds
 
+    # is the room about to be used?
+    raise "the room is currently in use" if @next_pending || status(Bool, "in_use")
+
+    # will the next booking overlap with the room?
+    if next_booking = upcoming
+      raise "unable to book due to clash" if next_booking.event_start.to_unix < ending
+    end
+
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
     host_calendar = owner.presence || @calendar_id
