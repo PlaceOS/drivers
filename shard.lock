@@ -235,7 +235,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.0.0+git.commit.44d19f9ddf3bdb242df50332425dcaf765821440
+    version: 1.0.0+git.commit.e614b076c9f185d0891b505ea74c4b5e7e6307b7
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -243,7 +243,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.19.0
+    version: 4.19.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
