@@ -182,11 +182,11 @@ class Place::Bookings < PlaceOS::Driver
     cmeeting = current
     result = if cmeeting && cmeeting.event_start.to_unix == meeting_start_time
                logger.debug { "deleting event #{cmeeting.title}, from #{@calendar_id}" }
-               calendar.decline_event(@calendar_id, cmeeting.id, notify: notify, comment: comment)
+               calendar.delete_event(@calendar_id, cmeeting.id)
              else
                nmeeting = upcoming
                if nmeeting && nmeeting.event_start.to_unix == meeting_start_time
-                 logger.debug { "deleting event #{nmeeting.title}, from #{@calendar_id}" }
+                 logger.debug { "declining event #{nmeeting.title}, from #{@calendar_id}" }
                  calendar.decline_event(@calendar_id, nmeeting.id, notify: notify, comment: comment)
                else
                  raise "only the current or pending meeting can be cancelled"
@@ -194,8 +194,8 @@ class Place::Bookings < PlaceOS::Driver
              end
     result.get
 
-    # Update the display
-    schedule.in(1.seconds) { poll_events }
+    # Update booking info after creating event
+    schedule.in(1.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
   end
 
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
