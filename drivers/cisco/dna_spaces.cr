@@ -85,10 +85,10 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @activation_token = setting?(String, :dna_spaces_activation_key) || ""
     if @activation_token.empty?
       @api_key = setting(String, :dna_spaces_api_key)
-      @tenant_id = setting(String, :tenant_id)
+      @tenant_id = setting(String | Int64, :tenant_id).to_s
     else
       @api_key = setting?(String, :dna_spaces_api_key) || ""
-      @tenant_id = setting?(String, :tenant_id) || ""
+      @tenant_id = setting?(String | Int64, :tenant_id).try(&.to_s) || ""
 
       # Activate the API key using the activation_token
       schedule.in(5.seconds) { activate } if @api_key.empty?
