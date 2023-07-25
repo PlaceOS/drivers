@@ -583,15 +583,19 @@ class Place::Bookings < PlaceOS::Driver
     getter resource_id : String?
     getter resource_uri : String
     getter subscription_id : String
+    getter client_secret : String
 
-    @client_secret : String | Int64
+    @[JSON::Field(converter: Time::EpochConverter)]
+    getter expiration_time : Time
+  end
+
+  # TODO:: remove in the future
+  struct PlaceCalendar::Subscription
+    @client_secret : String | Int64?
 
     def client_secret
       @client_secret.to_s
     end
-
-    @[JSON::Field(converter: Time::EpochConverter)]
-    getter expiration_time : Time
   end
 
   @subscription : PlaceCalendar::Subscription? = nil
