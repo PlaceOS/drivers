@@ -725,7 +725,7 @@ class Place::Bookings < PlaceOS::Driver
 
       # create a new secret and subscription
       expires = SUBSCRIPTION_LENGTH.from_now
-      push_secret = Random.new.hex(4)
+      push_secret = "a#{Random.new.hex(4)}"
       sub = calendar.create_notifier(resource, @push_notification_url, expires.to_unix, push_secret, @push_notification_url).get
       @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
 
