@@ -41,6 +41,11 @@ class Place::Demo::Display < PlaceOS::Driver
     self[:volume] = @volume = level.to_f64
   end
 
+  def test_setting(key : String, payload : JSON::Any)
+    define_setting(key, payload)
+    payload
+  end
+
   # There seems to only be audio mute available
   def mute(
     state : Bool = true,
