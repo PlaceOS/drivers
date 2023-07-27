@@ -101,8 +101,10 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
     if current_event
       self[:current_event_starts_at] = current_event.reservation_start_dt
       self[:current_event_ends_at] = current_event.reservation_end_dt
+      self[:current_event_description] = current_event.event_title
+      self[:current_event_description] = current_event.registered_count
       self[:current_event_id] = current_event.reservation_id if @debug
-      self[:current_event_description] = current_event.event_title if @debug
+
     end
 
     if next_event
