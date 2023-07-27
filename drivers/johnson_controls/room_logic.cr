@@ -3,7 +3,7 @@ require "./metasys_models"
 
 class JohnsonControls::RoomLogic < PlaceOS::Driver
   descriptive_name "JCI Room Schedule Logic"
-  generic_name :RoomSchedule
+  generic_name :RoomLogic
   description %(Polls Johnson Controls Metasys API Module to expose object present value)
 
   default_settings({
@@ -34,7 +34,7 @@ class JohnsonControls::RoomLogic < PlaceOS::Driver
   end
 
   def fetch_present_value
-    values = GetSingleObjectPresentValueResponse.from_json(johnson_controls.get_single_object_presentValue(object_id).get.not_nil!.to_json)
+    values = GetSingleObjectPresentValueResponse.from_json(johnson_controls.get_single_object_presentValue(object_id.to_s).get.not_nil!.to_json)
     self["present_value"] = values.item.presentValue.value
   end
 end
