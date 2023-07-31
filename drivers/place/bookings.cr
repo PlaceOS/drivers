@@ -596,6 +596,14 @@ class Place::Bookings < PlaceOS::Driver
     def client_secret
       @client_secret.to_s
     end
+
+    def expired?
+      if time = expires_at
+        1.hour.from_now >= time
+      else
+        false
+      end
+    end
   end
 
   @subscription : PlaceCalendar::Subscription? = nil
@@ -606,7 +614,7 @@ class Place::Bookings < PlaceOS::Driver
 
   # the API reports that 6 days is the max:
   # Subscription expiration can only be 10070 minutes in the future.
-  SUBSCRIPTION_LENGTH = 5.days
+  SUBSCRIPTION_LENGTH = 3.hours
 
   protected def push_notificaitons_configure
     @push_notification_url = setting?(String, :push_notification_url).presence
@@ -621,7 +629,8 @@ class Place::Bookings < PlaceOS::Driver
         @push_monitoring = nil
       end
       @subscription = subscription
-      schedule.every(5.minutes, immediate: true) { push_notificaitons_maintain }
+      schedule.every(5.minutes + rand(120).seconds) { push_notificaitons_maintain }
+      schedule.in(rand(30).seconds) { push_notificaitons_maintain(true) }
     elsif subscription
       push_notificaitons_cleanup(subscription)
     end
@@ -639,7 +648,7 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   # creates and maintains a subscription
-  protected def push_notificaitons_maintain : Nil
+  protected def push_notificaitons_maintain(force_renew = false) : Nil
     @push_mutex.synchronize do
       subscription = @subscription
 
@@ -647,7 +656,7 @@ class Place::Bookings < PlaceOS::Driver
 
       return create_subscription unless subscription
 
-      if subscription.expired?
+      if force_renew || subscription.expired?
         # renew subscription
         begin
           logger.debug { "renewing subscription" }
