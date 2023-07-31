@@ -647,8 +647,12 @@ class Place::Bookings < PlaceOS::Driver
     end
   end
 
+  getter sub_renewed_at : Time = 21.minutes.ago
+
   # creates and maintains a subscription
   protected def push_notificaitons_maintain(force_renew = false) : Nil
+    should_force = force_renew && @sub_renewed_at < 20.minutes.ago
+
     @push_mutex.synchronize do
       subscription = @subscription
 
@@ -656,7 +660,7 @@ class Place::Bookings < PlaceOS::Driver
 
       return create_subscription unless subscription
 
-      if force_renew || subscription.expired?
+      if should_force || subscription.expired?
         # renew subscription
         begin
           logger.debug { "renewing subscription" }
@@ -666,6 +670,7 @@ class Place::Bookings < PlaceOS::Driver
 
           # save the subscription details for processing
           define_setting(:push_subscription, @subscription)
+          @sub_renewed_at = Time.local
         rescue error
           logger.error(exception: error) { "failed to renew expired subscription, creating new subscription" }
           @subscription = nil
@@ -740,6 +745,7 @@ class Place::Bookings < PlaceOS::Driver
 
       # save the subscription details for processing
       define_setting(:push_subscription, @subscription)
+      @sub_renewed_at = Time.local
     end
   end
 end
