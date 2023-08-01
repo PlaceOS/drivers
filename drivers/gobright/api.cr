@@ -58,10 +58,26 @@ class GoBright::API < PlaceOS::Driver
 
         # perform pagination
         continuation = payload.paging.try &.token
-        break unless continuation
+        total_items = payload.paging.try &.total
+
+        if continuation
+          next_page = "#{location}#{append}continuationToken=#{continuation}"
+        elsif total_items
+          uri = URI.parse next_page
+          params = uri.query_params
+          skip = params["pagingSkip"]?.try(&.to_i) || 0
+          taking = params["pagingTake"]?.try(&.to_i) || 100
+
+          break if (skip + taking) >= total_items
+
+          params["pagingSkip"] = (skip + taking).to_s
+          uri.query_params = params
+          next_page = uri.to_s
+        else
+          break
+        end
 
         str << ","
-        next_page = "#{location}#{append}continuationToken=#{continuation}"
       end
       str << "]"
     end
