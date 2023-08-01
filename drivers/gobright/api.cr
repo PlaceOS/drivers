@@ -68,6 +68,7 @@ class GoBright::API < PlaceOS::Driver
           skip = params["pagingSkip"]?.try(&.to_i) || 0
           taking = params["pagingTake"]?.try(&.to_i) || 100
 
+          # skip once at the end
           break if (skip + taking) >= total_items
 
           params["pagingSkip"] = (skip + taking).to_s
