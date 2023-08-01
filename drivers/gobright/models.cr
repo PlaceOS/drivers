@@ -18,7 +18,7 @@ module GoBright
     include JSON::Serializable
 
     @[JSON::Field(key: "totalCount")]
-    getter total : Int32
+    getter total : Int32?
 
     @[JSON::Field(key: "continuationToken")]
     getter token : String?
