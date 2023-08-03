@@ -24,6 +24,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
         name:       "friendly name for documentation",
       },
     },
+    door_number_lookup: false,
   })
 
   def on_load
@@ -31,16 +32,28 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   end
 
   def on_update
+    @door_number_lookup = setting?(Bool, :door_number_lookup) || false
     @user_id_key = setting?(String, :user_id_key) || "email"
     @floor_mappings = setting(Hash(String, Mapping), :vecos_floor_mappings).transform_values(&.section_id)
     @zone_filter = @floor_mappings.keys
     @building_id = nil
+
+    if @door_number_lookup
+      schedule.clear
+      schedule.in(rand(10).seconds) do
+        @floor_mappings.each_key do |zone_id|
+          device_locations(zone_id)
+        end
+      end
+    end
   end
 
   # place_zone_id => releexme_section_id
   @floor_mappings : Hash(String, String) = {} of String => String
   @zone_filter : Array(String) = [] of String
   @user_id_key : String = "email"
+  @door_number_lookup : Bool = false
+  @last_mapped : Time = 4.hours.ago
 
   struct Mapping
     include JSON::Serializable
@@ -58,6 +71,14 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   getter building_id : String { get_building_id }
 
+  def lookup_id(locker_id : String) : String
+    if @door_number_lookup
+      status?(String, locker_id.downcase) || locker_id
+    else
+      locker_id
+    end
+  end
+
   # ========================================
   # Lockers Interface
   # ========================================
@@ -69,7 +90,8 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
       @building = nil,
       @level = nil
     )
-      @locker_id = locker.id
+      @locker_uid = locker.id
+      @locker_id = locker.full_door_number
       @bank_id = locker.locker_bank_id
       @group_id = locker.locker_group_id
       @locker_name = locker.full_door_number
@@ -82,7 +104,8 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     end
 
     def initialize(booking : Vecos::Booking)
-      @locker_id = booking.locker_id
+      @locker_uid = booking.locker_id
+      @locker_id = booking.full_door_number
       @bank_id = booking.locker_bank_id
       @group_id = booking.locker_group_id
       @locker_name = booking.full_door_number
@@ -91,6 +114,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     end
 
     getter group_id : String? = nil
+    getter locker_uid : String? = nil
   end
 
   protected def get_group_id(user_id, bank_id)
@@ -123,6 +147,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     expires_at : Int64? = nil
   ) : PlaceLocker
     user_id = get_user_key(user_id)
+    locker_id = locker_id ? lookup_id(locker_id.to_s) : nil
 
     if expires_at
       timezone = system.timezone || "UTC"
@@ -152,6 +177,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     # release / unshare just this user - otherwise release the whole locker
     owner_id : String? = nil
   ) : Nil
+    locker_id = lookup_id(locker_id.to_s)
     owner_id = get_user_key(owner_id) if owner_id
     releezme.locker_release(locker_id, owner_id).get
   end
@@ -171,6 +197,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     owner_id : String,
     share_with : String
   ) : Nil
+    locker_id = lookup_id(locker_id.to_s)
     releezme.share_locker_with(locker_id, get_user_key(owner_id), get_user_key(share_with)).get
   end
 
@@ -183,6 +210,8 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     shared_with_id : String? = nil
   ) : Nil
     owner_id = get_user_key(owner_id)
+    locker_id = lookup_id(locker_id.to_s)
+
     # we need the internal id if we want to unshare an individual
     if shared_with_id
       shared_with_external_id = get_user_key(shared_with_id)
@@ -203,6 +232,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     owner_id : String
   ) : Array(String)
     owner_id = get_user_key(owner_id)
+    locker_id = lookup_id(locker_id.to_s)
     shared_with = Array(Vecos::LockerUsers).from_json releezme.locker_shared_with?(locker_id, owner_id).get.to_json
     shared_with.map { |user| user.email || user.user_id }
   end
@@ -220,6 +250,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     # optional pin code - if user entered from a kiosk
     pin_code : String? = nil
   ) : Nil
+    locker_id = lookup_id(locker_id.to_s)
     releezme.locker_unlock(locker_id, pin_code).get
   end
 
@@ -258,9 +289,22 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     # grab all the lockers for the current zone_id
     releexme_section_id = @floor_mappings[zone_id]
     banks = Array(Vecos::LockerBank).from_json releezme.section_locker_banks(releexme_section_id).get.to_json
-    banks.flat_map do |bank|
-      lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get.to_json
-      lockers.map { |locker| PlaceLocker.new(locker, building: building_id, level: zone_id) }
+
+    if @door_number_lookup && @last_mapped < 3.hour.ago
+      # periodically save the locker name => id mappings in redis
+      @last_mapped = Time.utc
+      banks.flat_map do |bank|
+        lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get.to_json
+        lockers.map do |locker|
+          self[locker.full_door_number.downcase] = locker.id
+          PlaceLocker.new(locker, building: building_id, level: zone_id)
+        end
+      end
+    else
+      banks.flat_map do |bank|
+        lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get.to_json
+        lockers.map { |locker| PlaceLocker.new(locker, building: building_id, level: zone_id) }
+      end
     end
   end
 end
