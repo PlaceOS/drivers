@@ -14,6 +14,7 @@ class Vecos::Releezme < PlaceOS::Driver
     client_secret: "856b5b85d3eb4697369",
     username:      "admin",
     password:      "admin",
+    releezme_authentication_domain: "acc-identity.releezme.net"
   })
 
   def on_load
@@ -25,9 +26,10 @@ class Vecos::Releezme < PlaceOS::Driver
     client_secret = setting(String, :client_secret)
     username = setting(String, :username)
     password = setting(String, :password)
+    releezme_authentication_domain = setting(String, :releezme_authentication_domain)
 
     transport.before_request do |req|
-      access_token = get_access_token(client_id, client_secret, username, password)
+      access_token = get_access_token(client_id, client_secret, username, password, releezme_authentication_domain)
       req.headers["Authorization"] = access_token
       req.headers["Content-Type"] = "application/json"
       logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
@@ -38,7 +40,7 @@ class Vecos::Releezme < PlaceOS::Driver
   @bearer_token : String = ""
   @access_token : OAuth2::AccessToken? = nil
 
-  protected def get_access_token(client_id, client_secret, username, password)
+  protected def get_access_token(client_id, client_secret, username, password, releezme_authentication_domain)
     return @bearer_token if 1.minute.from_now < @expires
 
     # check if we are running a spec
@@ -48,7 +50,7 @@ class Vecos::Releezme < PlaceOS::Driver
       port = uri.port.as(Int32)
       scheme = "http"
     else
-      auth_domain = "acc-identity.releezme.net"
+      auth_domain = releezme_authentication_domain
       scheme = "https"
     end
 
