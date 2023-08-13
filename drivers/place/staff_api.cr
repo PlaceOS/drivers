@@ -1,6 +1,7 @@
 require "json"
 require "oauth2"
 require "placeos"
+require "link-header"
 require "simple_retry"
 require "placeos-driver"
 require "place_calendar"
@@ -610,32 +611,44 @@ class Place::StaffAPI < PlaceOS::Driver
     period_start ||= Time.utc.to_unix
     period_end ||= 30.minutes.from_now.to_unix
 
-    params = {
-      "period_start" => period_start.to_s,
-      "period_end"   => period_end.to_s,
-      "type"         => type,
-    }
-    params["zones"] = zones.join(",") unless zones.empty?
-    params["user"] = user if user && !user.empty?
-    params["email"] = email if email && !email.empty?
-    params["state"] = state if state && !state.empty?
-    params["created_before"] = created_before.to_s if created_before
-    params["created_after"] = created_after.to_s if created_after
-    params["approved"] = approved.to_s unless approved.nil?
-    params["rejected"] = rejected.to_s unless rejected.nil?
-    params["checked_in"] = checked_in.to_s unless checked_in.nil?
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s if period_start
+      form.add "period_end", period_end.to_s if period_end
+      form.add "type", type
+
+      form.add "zones", zones.join(",") unless zones.empty?
+      form.add "user", user.to_s if user.presence
+      form.add "email", email.to_s if email.presence
+      form.add "state", state.to_s if state.presence
+      form.add "created_before", created_before.to_s if created_before
+      form.add "created_after", created_after.to_s if created_after
+      form.add "approved", approved.to_s unless approved.nil?
+      form.add "rejected", rejected.to_s unless rejected.nil?
+      form.add "checked_in", checked_in.to_s unless checked_in.nil?
+    end
 
     logger.debug { "requesting staff/v1/bookings: #{params}" }
 
     # Get the existing bookings from the API to check if there is space
-    response = get("/api/staff/v1/bookings", params, authentication)
-    raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
+    bookings = [] of JSON::Any
+    next_request = "/api/staff/v1/bookings?#{params}"
 
-    logger.debug { "bookings response size: #{response.body.size}" }
+    loop do
+      response = get(next_request, headers: authentication)
+      raise "issue loading list of bookings (zones #{zones}): #{response.status_code}" unless response.success?
+      links = LinkHeader.new(response)
 
-    # Just parse it here instead of using the Bookings object
-    # it will be parsed into an object on the far end
-    JSON.parse(response.body)
+      # Just parse it here instead of using the Bookings object
+      # it will be parsed into an object on the far end
+      bookings.concat JSON.parse(response.body).as_a
+
+      next_request = links["next"]?
+      break unless next_request
+    end
+
+    logger.debug { "bookings count: #{bookings.size}" }
+
+    bookings
   end
 
   def get_booking(booking_id : String | Int64)
