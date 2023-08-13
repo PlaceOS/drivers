@@ -10,11 +10,11 @@ class Vecos::Releezme < PlaceOS::Driver
   uri_base "https://acc-sapi.releezme.net"
 
   default_settings({
-    client_id:     "8537d5c8-a85c-4657-bc6b-7c35b1405464",
-    client_secret: "856b5b85d3eb4697369",
-    username:      "admin",
-    password:      "admin",
-    releezme_authentication_domain: "acc-identity.releezme.net"
+    client_id:                      "8537d5c8-a85c-4657-bc6b-7c35b1405464",
+    client_secret:                  "856b5b85d3eb4697369",
+    username:                       "admin",
+    password:                       "admin",
+    releezme_authentication_domain: "acc-identity.releezme.net",
   })
 
   def on_load
