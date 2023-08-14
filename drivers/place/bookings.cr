@@ -30,6 +30,7 @@ class Place::Bookings < PlaceOS::Driver
     control_ui:  "https://if.panel/to_be_used_for_control",
     catering_ui: "https://if.panel/to_be_used_for_catering",
 
+    application_permissions:    true,
     include_cancelled_bookings: false,
     hide_qr_code:               false,
     custom_qr_url:              "https://domain.com/path",
@@ -63,6 +64,7 @@ class Place::Bookings < PlaceOS::Driver
   @change_event_sync_delay : UInt32 = 5_u32
   @cache_days : Time::Span = 30.days
   @include_cancelled_bookings : Bool = false
+  @application_permissions : Bool = false
   @disable_book_now_host : Bool = false
 
   @current_meeting_id : String = ""
@@ -118,6 +120,7 @@ class Place::Bookings < PlaceOS::Driver
     @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
 
     @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
+    @application_permissions = setting?(Bool, :application_permissions) || false
 
     @sensor_stale_minutes = (setting?(Int32, :sensor_stale_minutes) || 8).minutes
     @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
@@ -213,18 +216,29 @@ class Place::Bookings < PlaceOS::Driver
 
     logger.debug { "booking event #{title}, from #{starting}, to #{ending}, in #{@time_zone.name}, on #{@calendar_id}" }
 
-    host_calendar = owner.presence || @calendar_id
     room_email = system.email.not_nil!
-    room_is_organizer = host_calendar == room_email
+
+    if @application_permissions
+      host_calendar = @calendar_id
+      attendees = [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, true)]
+      attendees << PlaceCalendar::Event::Attendee.new(owner, owner) if owner && !owner.empty?
+    else
+      host_calendar = owner.presence || @calendar_id
+      room_is_organizer = host_calendar == room_email
+      attendees = [
+        PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer),
+      ]
+    end
+
     event = calendar.create_event(
-      title,
-      starting,
-      ending,
-      "",
-      [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer)],
-      @time_zone.name,
-      nil,
-      host_calendar
+      title: title,
+      event_start: starting,
+      event_end: ending,
+      description: "",
+      attendees: attendees,
+      location: status?(String, "room_name"),
+      timezone: @time_zone.name,
+      calendar_id: host_calendar
     )
     # Update booking info after creating event
     schedule.in(2.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
