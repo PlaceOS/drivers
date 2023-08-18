@@ -640,10 +640,11 @@ class Place::StaffAPI < PlaceOS::Driver
 
       # Just parse it here instead of using the Bookings object
       # it will be parsed into an object on the far end
-      bookings.concat JSON.parse(response.body).as_a
+      new_bookings = JSON.parse(response.body).as_a
+      bookings.concat new_bookings
 
       next_request = links["next"]?
-      break unless next_request
+      break if next_request.nil? || new_bookings.empty?
     end
 
     logger.debug { "bookings count: #{bookings.size}" }
