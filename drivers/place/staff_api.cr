@@ -12,14 +12,14 @@ class Place::StaffAPI < PlaceOS::Driver
   description %(helpers for requesting data held in the staff API)
 
   # The PlaceOS API
-  uri_base "https://staff.app.api.com"
+  uri_base "https://staff"
 
   default_settings({
     # PlaceOS X-API-key, for simpler authentication
     api_key: "",
   })
 
-  @place_domain : URI = URI.parse("https://staff.app.api.com")
+  @place_domain : URI = URI.parse("https://staff")
   @host_header : String = ""
   @api_key : String = ""
 
@@ -644,7 +644,7 @@ class Place::StaffAPI < PlaceOS::Driver
       bookings.concat new_bookings
 
       next_request = links["next"]?
-      break if next_request.nil? || new_bookings.empty? || bookings.size >= 10_000
+      break if next_request.nil? || new_bookings.empty?
     end
 
     logger.debug { "bookings count: #{bookings.size}" }
