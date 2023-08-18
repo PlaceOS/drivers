@@ -644,7 +644,7 @@ class Place::StaffAPI < PlaceOS::Driver
       bookings.concat new_bookings
 
       next_request = links["next"]?
-      break if next_request.nil? || new_bookings.empty?
+      break if next_request.nil? || new_bookings.empty? || bookings.size >= 10_000
     end
 
     logger.debug { "bookings count: #{bookings.size}" }
