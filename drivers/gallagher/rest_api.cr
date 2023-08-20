@@ -266,6 +266,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     division_href : String? = nil
   )
     short_name ||= "#{first_name} #{last_name}"
+    short_name = short_name[0..15]
 
     payload = Cardholder.new(
       first_name, last_name, short_name, description, authorised,
