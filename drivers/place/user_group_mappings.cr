@@ -33,6 +33,9 @@ class Place::UserGroupMappings < PlaceOS::Driver
         place_id:     "optional-place-id",
       },
     },
+
+    # authority id
+    authority_id: "authority-12345",
   })
 
   class UserLogin
@@ -50,6 +53,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
   alias Mapping = NamedTuple(place_id: String)
   alias Prefix = NamedTuple(strip_prefix: Bool?, place_id: String?)
 
+  @authority_id : String = ""
   @group_mappings : Hash(String, Mapping) = {} of String => Mapping
   @group_prefixes : Hash(String, Prefix) = {} of String => Prefix
   @users_checked : UInt64 = 0_u64
@@ -59,6 +63,8 @@ class Place::UserGroupMappings < PlaceOS::Driver
     @group_mappings = setting?(Hash(String, Mapping), :group_mappings) || {} of String => Mapping
     @group_prefixes = setting?(Hash(String, Prefix), :group_prefix) || {} of String => Prefix
     @group_prefixes = @group_prefixes.transform_keys(&.downcase)
+
+    @authority_id = setting?(String, :authority_id) || "authority-12345"
   end
 
   protected def new_user_login(user_json)
@@ -137,7 +143,8 @@ class Place::UserGroupMappings < PlaceOS::Driver
     loop do
       users = staff_api.query_users(
         limit: limit,
-        offset: offset
+        offset: offset,
+        authority_id: @authority_id
       ).get.as_a
 
       logger.debug { "syncing users #{offset}->#{offset + limit}..." }
