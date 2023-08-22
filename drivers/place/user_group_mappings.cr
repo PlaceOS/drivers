@@ -83,7 +83,13 @@ class Place::UserGroupMappings < PlaceOS::Driver
     logger.debug { "checking groups of: #{id}" }
 
     # Loading the existing user info in PlaceOS (we need the users id)
-    user = NamedTuple(email: String, login_name: String?).from_json staff_api.user(id).get.to_json
+    user_json = staff_api.user(id).get
+    sync_user(user_json)
+  end
+
+  protected def sync_user(user_json)
+    # Loading the existing user info in PlaceOS (we need the users id)
+    user = NamedTuple(id: String, email: String, login_name: String?).from_json user_json.to_json
     email = user[:login_name].presence || user[:email]
     logger.debug { "found placeos user info: #{user[:email]}, id #{user[:email]}" }
 
@@ -111,7 +117,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
         end
       end
     end
-    staff_api.update_user(id, {groups: groups}.to_json).get
+    staff_api.update_user(user[:id], {groups: groups}.to_json).get
 
     logger.debug { "checked #{users_groups.size}, found #{groups.size} matching: #{groups}" }
   end
@@ -126,6 +132,8 @@ class Place::UserGroupMappings < PlaceOS::Driver
     limit = 100
     offset = 0
 
+    issues_with = [] of String
+
     loop do
       users = staff_api.query_users(
         limit: limit,
@@ -136,16 +144,20 @@ class Place::UserGroupMappings < PlaceOS::Driver
 
       # process 20 users a second
       users.each do |user|
-        check_user(user["id"].as_s)
-        sleep 50.milliseconds
+        begin
+          sync_user(user)
+          sleep 50.milliseconds
+        rescue error
+          issues_with << user["email"].as_s
+        end
       end
 
       break if users.size < limit
       offset += limit
     end
 
-    logger.debug { "sync complete!" }
-    "roughtly #{offset + limit} users synced"
+    logger.debug { "sync complete! issues with #{issues_with.size}:\n#{issues_with}" }
+    issues_with
   ensure
     @syncing = false
   end
