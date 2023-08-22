@@ -115,4 +115,38 @@ class Place::UserGroupMappings < PlaceOS::Driver
 
     logger.debug { "checked #{users_groups.size}, found #{groups.size} matching: #{groups}" }
   end
+
+  @syncing : Bool = false
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def sync_all_users
+    return "currently syncing" if @syncing
+    @syncing = true
+
+    limit = 100
+    offset = 0
+
+    loop do
+      users = staff_api.query_users(
+        limit: limit,
+        offset: offset
+      ).get.as_a
+
+      logger.debug { "syncing users #{offset}->#{offset + limit}..." }
+
+      # process 20 users a second
+      users.each do |user|
+        check_user(user["id"].as_s)
+        sleep 50.milliseconds
+      end
+
+      break if users.size < limit
+      offset += limit
+    end
+
+    logger.debug { "sync complete!" }
+    "roughtly #{offset + limit} users synced"
+  ensure
+    @syncing = false
+  end
 end
