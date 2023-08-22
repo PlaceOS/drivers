@@ -69,7 +69,7 @@ class Place::BookingApprover < PlaceOS::Driver
     booking_type = @approve_booking_types[0]? || "desk"
     bookings = Array(Booking).from_json staff_api.query_bookings(
       type: booking_type,
-      created_after: 12.hours.ago,
+      created_after: 12.hours.ago.to_unix,
       zones: [get_building_id],
       approved: false
     ).get.to_json
@@ -77,6 +77,7 @@ class Place::BookingApprover < PlaceOS::Driver
       booking.action = "create"
       approve_booking booking
     end
+    "found #{bookings.size} missed"
   end
 
   def status
