@@ -43,8 +43,6 @@ class Place::BookingApprover < PlaceOS::Driver
   end
 
   private def approve_booking(booking : Booking)
-    return false unless booking.action == "create"
-
     if !@approve_zones.empty?
       if (booking.zones & @approve_zones).empty?
         logger.debug { "Ignoring booking as no booking zone matches #{booking.id}" }
@@ -59,24 +57,30 @@ class Place::BookingApprover < PlaceOS::Driver
       end
     end
 
-    staff_api.approve(booking.id).get
-    logger.debug { "Approved Booking #{booking.id}" }
-    @bookings_approved += 1
-    true
+    if booking.action == "create" || !booking.approved
+      staff_api.approve(booking.id).get
+      logger.debug { "Approved Booking #{booking.id}" }
+      @bookings_approved += 1
+      true
+    else
+      false
+    end
   end
 
   def approve_missed
     booking_type = @approve_booking_types[0]? || "desk"
+
     bookings = Array(Booking).from_json staff_api.query_bookings(
       type: booking_type,
-      created_after: 12.hours.ago.to_unix,
       zones: [get_building_id],
       approved: false
     ).get.to_json
+
     bookings.each do |booking|
       booking.action = "create"
       approve_booking booking
     end
+
     "found #{bookings.size} missed"
   end
 
