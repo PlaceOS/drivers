@@ -104,13 +104,15 @@ class Place::Smtp < PlaceOS::Driver
     attachments : Array(Attachment) = [] of Attachment,
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
-    from : String | Array(String) | Nil = nil
+    from : String | Array(String) | Nil = nil,
+    reply_to : String | Array(String) | Nil = nil
   ) : Bool
     to = {to} unless to.is_a?(Array)
 
     from = {from} unless from.nil? || from.is_a?(Array)
     cc = {cc} unless cc.nil? || cc.is_a?(Array)
     bcc = {bcc} unless bcc.nil? || bcc.is_a?(Array)
+    reply_to = {reply_to} unless reply_to.nil? || reply_to.is_a?(Array)
 
     message = EMail::Message.new
 
@@ -127,6 +129,10 @@ class Place::Smtp < PlaceOS::Driver
     to.each { |_to| message.to(_to) }
     bcc.each { |_bcc| message.bcc(_bcc) }
     cc.each { |_cc| message.cc(_cc) }
+
+    if reply_to
+      reply_to.each { |_reply| message.reply_to(_reply) }
+    end
 
     message.message(message_plaintext.as(String)) unless message_plaintext.presence.nil?
     message.message_html(message_html.as(String)) unless message_html.presence.nil?
