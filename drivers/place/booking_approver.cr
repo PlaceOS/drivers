@@ -43,6 +43,8 @@ class Place::BookingApprover < PlaceOS::Driver
   end
 
   private def approve_booking(booking : Booking)
+    return if booking.action == "cancelled"
+
     if booking.action != "create"
       booking = Booking.from_json(staff_api.get_booking(booking.id).get.to_json)
     end
