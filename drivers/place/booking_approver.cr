@@ -43,6 +43,10 @@ class Place::BookingApprover < PlaceOS::Driver
   end
 
   private def approve_booking(booking : Booking)
+    if booking.action != "create"
+      booking = Booking.from_json(staff_api.get_booking(booking.id).get.to_json)
+    end
+
     if !@approve_zones.empty?
       if (booking.zones & @approve_zones).empty?
         logger.debug { "Ignoring booking as no booking zone matches #{booking.id}" }
@@ -57,7 +61,7 @@ class Place::BookingApprover < PlaceOS::Driver
       end
     end
 
-    if booking.action == "create" || !booking.approved
+    if !booking.approved
       staff_api.approve(booking.id).get
       logger.debug { "Approved Booking #{booking.id}" }
       @bookings_approved += 1
@@ -65,6 +69,8 @@ class Place::BookingApprover < PlaceOS::Driver
     else
       false
     end
+  rescue error
+    logger.warn(exception: error) { "failed to approve booking #{booking.id}" }
   end
 
   def approve_missed
