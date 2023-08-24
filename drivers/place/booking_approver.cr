@@ -73,7 +73,8 @@ class Place::BookingApprover < PlaceOS::Driver
     bookings = Array(Booking).from_json staff_api.query_bookings(
       type: booking_type,
       zones: [get_building_id],
-      approved: false
+      approved: false,
+      period_end: 8.weeks.from_now.to_unix
     ).get.to_json
 
     bookings.each do |booking|
