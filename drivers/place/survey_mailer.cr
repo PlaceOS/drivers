@@ -45,10 +45,13 @@ class Place::SurveyMailer < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def send_survey_emails
-    invites = Array(SurveyInvite).from_json staff_api.get_survey_invites(sent: false).get.to_json
+    # using #get_survey_invites instead of #get_survey_invites(sent: false)
+    # due to an issue with the query
+    invites = Array(SurveyInvite).from_json staff_api.get_survey_invites.get.to_json
     sent_invites : Hash(String, Array(Int64)) = {} of String => Array(Int64)
 
     invites.each do |invite|
+      next if invite.sent
       begin
         if !(sent_surveys = sent_invites[invite.email]?) || !sent_surveys.includes?(invite.survey_id)
           sent_invites[invite.email] ||= [] of Int64
@@ -78,6 +81,6 @@ class Place::SurveyMailer < PlaceOS::Driver
     property survey_id : Int64
     property token : String
     property email : String
-    property sent : Bool
+    property sent : Bool?
   end
 end
