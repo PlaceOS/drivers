@@ -5,7 +5,7 @@ class StaffAPI < DriverSpecs::MockDriver
   def get_survey_invites(survey_id : Int64? = nil, sent : Bool? = nil)
     survey_id ||= 1
 
-    unsent_invites = [
+    invites = [
       {
         id:        1,
         survey_id: survey_id,
@@ -21,15 +21,29 @@ class StaffAPI < DriverSpecs::MockDriver
         sent:      false,
       },
       {
-        id:        2,
+        id:        3,
         survey_id: survey_id,
         token:     "QWERTY",
         email:     "user2@spec.test",
         sent:      false,
       },
+      {
+        id:        4,
+        survey_id: survey_id,
+        token:     "QWERTY",
+        email:     "user3@spec.test",
+        sent:      nil,
+      },
+      {
+        id:        5,
+        survey_id: survey_id,
+        token:     "QWERTY",
+        email:     "user4@spec.test",
+        sent:      true,
+      },
     ]
 
-    JSON.parse(unsent_invites.to_json)
+    JSON.parse(invites.to_json)
   end
 
   def update_survey_invite(token : String, email : String? = nil, sent : Bool? = nil)
@@ -79,5 +93,5 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
   })
 
   _resp = exec(:send_survey_emails).get
-  system(:Mailer_1)[:sent].should eq 2
+  system(:Mailer_1)[:sent].should eq 3
 end
