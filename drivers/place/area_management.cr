@@ -75,7 +75,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
   # zone_id => desk_ids
   @duplication_factor : Float64 = 0.8
-  @level_details : Hash(String, LevelCapacity) = {} of String => LevelCapacity
+  getter level_details : Hash(String, LevelCapacity) = {} of String => LevelCapacity
 
   # PlaceOS client config
   getter building_id : String { get_building_id.not_nil! }
