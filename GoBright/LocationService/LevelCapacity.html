@@ -14,7 +14,7 @@
 <script type="text/javascript" src="../../js/doc.js"></script>
 
   <meta name="repository-name" content="drivers">
-  <title>Delta::Models::GenericValue - drivers master</title>
+  <title>GoBright::LocationService::LevelCapacity - drivers master</title>
   <script type="text/javascript">
     CrystalDocs.base_path = "../../";
   </script>
@@ -1522,7 +1522,7 @@
       
     </li>
   
-  <li class="parent open current" data-id="drivers/Delta" data-name="delta">
+  <li class="parent " data-id="drivers/Delta" data-name="delta">
       <a href="../../Delta.html">Delta</a>
       
         <ul>
@@ -1532,7 +1532,7 @@
       
     </li>
   
-  <li class="parent open current" data-id="drivers/Delta/Models" data-name="delta::models">
+  <li class="parent " data-id="drivers/Delta/Models" data-name="delta::models">
       <a href="../../Delta/Models.html">Models</a>
       
         <ul>
@@ -1542,7 +1542,7 @@
       
     </li>
   
-  <li class=" current" data-id="drivers/Delta/Models/GenericValue" data-name="delta::models::genericvalue">
+  <li class=" " data-id="drivers/Delta/Models/GenericValue" data-name="delta::models::genericvalue">
       <a href="../../Delta/Models/GenericValue.html">GenericValue</a>
       
     </li>
@@ -2297,7 +2297,7 @@
       
     </li>
   
-  <li class="parent " data-id="drivers/GoBright" data-name="gobright">
+  <li class="parent open current" data-id="drivers/GoBright" data-name="gobright">
       <a href="../../GoBright.html">GoBright</a>
       
         <ul>
@@ -2342,12 +2342,12 @@
       
     </li>
   
-  <li class="parent " data-id="drivers/GoBright/LocationService" data-name="gobright::locationservice">
+  <li class="parent open current" data-id="drivers/GoBright/LocationService" data-name="gobright::locationservice">
       <a href="../../GoBright/LocationService.html">LocationService</a>
       
         <ul>
   
-  <li class=" " data-id="drivers/GoBright/LocationService/LevelCapacity" data-name="gobright::locationservice::levelcapacity">
+  <li class=" current" data-id="drivers/GoBright/LocationService/LevelCapacity" data-name="gobright::locationservice::levelcapacity">
       <a href="../../GoBright/LocationService/LevelCapacity.html">LevelCapacity</a>
       
     </li>
@@ -6221,12 +6221,12 @@
 <div class="main-content">
 <h1 class="type-name">
 
-  <span class="kind">struct</span> Delta::Models::GenericValue
+  <span class="kind">struct</span> GoBright::LocationService::LevelCapacity
 
 </h1>
 
 
-  <ul class="superclass-hierarchy"><li class="superclass"><a href="../../Delta/Models/GenericValue.html">Delta::Models::GenericValue</a></li><li class="superclass">Struct</li><li class="superclass">Value</li><li class="superclass">Object</li></ul>
+  <ul class="superclass-hierarchy"><li class="superclass"><a href="../../GoBright/LocationService/LevelCapacity.html">GoBright::LocationService::LevelCapacity</a></li><li class="superclass">Struct</li><li class="superclass">Value</li><li class="superclass">Object</li></ul>
 
 
 
@@ -6282,8 +6282,8 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/delta/models/generic_value.cr#L5" target="_blank">
-        delta/models/generic_value.cr
+      <a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/gobright/location_service.cr#L42" target="_blank">
+        gobright/location_service.cr
       </a>
     
     <br/>
@@ -6325,22 +6325,7 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#base%3AString-instance-method" class="signature"><strong>#base</strong> : String</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#base%3D%28base%3AString%29-instance-method" class="signature"><strong>#base=</strong>(base : String)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#value%3AJSON%3A%3AAny-instance-method" class="signature"><strong>#value</strong> : JSON::Any</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#value%3D%28value%3AJSON%3A%3AAny%29-instance-method" class="signature"><strong>#value=</strong>(value : JSON::Any)</a>
+        <a href="#desk_mappings%3AHash%28String%2CString%29-instance-method" class="signature"><strong>#desk_mappings</strong> : Hash(String, String)</a>
         
       </li>
     
@@ -6415,7 +6400,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/delta/models/generic_value.cr#L6" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/gobright/location_service.cr#L43" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6434,66 +6419,18 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="base:String-instance-method">
+    <div class="entry-detail" id="desk_mappings:Hash(String,String)-instance-method">
       <div class="signature">
         
-        def <strong>base</strong> : String
+        def <strong>desk_mappings</strong> : Hash(String, String)
 
-        <a class="method-permalink" href="#base%3AString-instance-method">#</a>
+        <a class="method-permalink" href="#desk_mappings%3AHash%28String%2CString%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/delta/models/generic_value.cr#L9" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="base=(base:String)-instance-method">
-      <div class="signature">
-        
-        def <strong>base=</strong>(base : String)
-
-        <a class="method-permalink" href="#base%3D%28base%3AString%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/delta/models/generic_value.cr#L9" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="value:JSON::Any-instance-method">
-      <div class="signature">
-        
-        def <strong>value</strong> : JSON::Any
-
-        <a class="method-permalink" href="#value%3AJSON%3A%3AAny-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/delta/models/generic_value.cr#L12" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="value=(value:JSON::Any)-instance-method">
-      <div class="signature">
-        
-        def <strong>value=</strong>(value : JSON::Any)
-
-        <a class="method-permalink" href="#value%3D%28value%3AJSON%3A%3AAny%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/delta/models/generic_value.cr#L12" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/77ebf453bd93818b8f5bf6fbe1e1459144ff00c2/src/gobright/location_service.cr#L45" target="_blank">View source</a>]
         
       </div>
     </div>
