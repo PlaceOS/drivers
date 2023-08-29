@@ -11,6 +11,7 @@ class GoBright::LocationService < PlaceOS::Driver
 
   accessor staff_api : StaffAPI_1
   accessor gobright : GoBright_1
+  accessor area_management : AreaManagement_1
 
   default_settings({
     gobright_floor_mappings: {
@@ -38,6 +39,12 @@ class GoBright::LocationService < PlaceOS::Driver
     getter location_id : String
   end
 
+  struct LevelCapacity
+    include JSON::Serializable
+
+    getter desk_mappings : Hash(String, String)
+  end
+
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @desk_space_types = setting?(Array(SpaceType), :desk_space_types) || [SpaceType::Desk]
@@ -48,6 +55,11 @@ class GoBright::LocationService < PlaceOS::Driver
     timezone = Time::Location.load(system.timezone.presence || "Australia/Sydney")
     schedule.clear
     schedule.cron(setting?(String, :space_cache_cron) || "0 5 * * *", timezone) { cache_space_details }
+    schedule.every(10.minutes) { @level_details = nil }
+  end
+
+  getter level_details : Hash(String, LevelCapacity) do
+    Hash(String, LevelCapacity).from_json area_management.level_details.get.to_json
   end
 
   # Finds the building ID for the current location services object
@@ -94,7 +106,8 @@ class GoBright::LocationService < PlaceOS::Driver
 
     # return the data in the correct format
     matches.compact_map do |booking|
-      map_booking(booking, booking.matched_space, booking.zone_id)
+      zone_id = booking.zone_id
+      map_booking(booking, booking.matched_space, zone_id, level_details[zone_id]?.try(&.desk_mappings))
     end
   end
 
@@ -204,10 +217,12 @@ class GoBright::LocationService < PlaceOS::Driver
     booking_locs.map(&.as(typeof(booking_locs[0]) | typeof(occupancy_locs[0]))) + occupancy_locs.map(&.as(typeof(booking_locs[0]) | typeof(occupancy_locs[0])))
   end
 
-  protected def map_booking(occurrence, space, zone_id)
+  protected def map_booking(occurrence, space, zone_id, mappings = nil)
     owner = occurrence.organizer || occurrence.attendees.first?
     starting = occurrence.start_date.to_unix
     ending = occurrence.end_date.to_unix
+    space_name = space.name
+    map_id = mappings ? (mappings[space_name]? || space_name) : space_name
 
     {
       location:   :booking,
@@ -216,8 +231,8 @@ class GoBright::LocationService < PlaceOS::Driver
 
       # We supply map_id here as this will be mapped to the correct id
       # and the frontend preferences map_id over asset_id
-      asset_id: space.name,
-      map_id:   space.name,
+      asset_id: space_name,
+      map_id:   map_id,
 
       booking_id:  occurrence.id,
       building:    building_id,

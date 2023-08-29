@@ -3,8 +3,9 @@ require "./models"
 
 DriverSpecs.mock_driver "GoBright::LocationService" do
   system({
-    GoBright: {GoBrightMock},
-    StaffAPI: {StaffAPIMock},
+    GoBright:       {GoBrightMock},
+    StaffAPI:       {StaffAPIMock},
+    AreaManagement: {AreaManagementMock},
   })
 
   exec(:device_locations, "placeos_zone_id").get.should eq([
@@ -79,5 +80,12 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
     # NOTE:: zone-1234 is the default zone used in the spec runner
     [{id: "zone-1234"}]
+  end
+end
+
+# :nodoc:
+class AreaManagementMock < DriverSpecs::MockDriver
+  def level_details
+    {} of String => String
   end
 end
