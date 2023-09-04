@@ -33,6 +33,10 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
         building_id:    "zone-456",
       },
     ],
+
+    line_crossing_combined: {
+      area_name: ["camera_serial1", "camera_serial2"],
+    },
   })
 
   SUBS = {
@@ -47,6 +51,9 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     # Number of entrances in the camera’s complete field of view
     # {ts: unix_time, counts: {person: number, vehicle: number}}
     "/merakimv/+/0",
+
+    # meraki entry and exist monitoring
+    "/merakimv/+/crossing/+",
   }
 
   @keep_alive : Int32 = 60
@@ -60,6 +67,12 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
   @sub_proc : Proc(String, Bytes, Nil) = Proc(String, Bytes, Nil).new { |_key, _payload| nil }
 
   @floor_lookup : Hash(String, FloorMapping) = {} of String => FloorMapping
+
+  # area name => array of serials
+  @line_crossing : Hash(String, Array(String)) = {} of String => Array(String)
+
+  # serial => area name
+  @crossing_lookup : Hash(String, String) = {} of String => String
 
   def on_load
     @sub_proc = Proc(String, Bytes, Nil).new { |key, payload| on_message(key, payload) }
@@ -92,6 +105,13 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
 
     existing = @subs
     @subs = SUBS.to_a
+
+    @line_crossing = line_crossing_combined = setting?(Hash(String, Array(String)), :line_crossing_combined) || {} of String => Array(String)
+    line_crossing_mapping = {} of String => String
+    line_crossing_combined.each do |name, serials|
+      serials.each { |serial| line_crossing_mapping[serial] = name }
+    end
+    @crossing_lookup = line_crossing_mapping
 
     schedule.clear
     schedule.every((@keep_alive // 3).seconds) { ping }
@@ -154,6 +174,15 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     end
   end
 
+  # Serial => count
+  getter crossing_people : Hash(String, Tuple(Int32, Int64)) do
+    Hash(String, Tuple(Int32, Int64)).new { |hash, key| hash[key] = {0, 0_i64} }
+  end
+
+  getter crossing_vehicle : Hash(String, Tuple(Int32, Int64)) do
+    Hash(String, Tuple(Int32, Int64)).new { |hash, key| hash[key] = {0, 0_i64} }
+  end
+
   getter lux : Hash(String, Tuple(Float64, Int64)) = {} of String => Tuple(Float64, Int64)
 
   # this is where we do all of the MQTT message processing
@@ -174,6 +203,20 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       light = LuxLevel.from_json(json_message)
       lux[serial_no] = {light.lux, light.timestamp}
       self["camera_#{serial_no}_lux"] = light.lux
+    when "crossing"
+      crossing = Crossing.from_json(json_message)
+      count_hash = crossing.type.person? ? crossing_people : crossing_vehicle
+      lookup_name = @crossing_lookup[serial_no]? || serial_no
+      current_count, _timestamp = count_hash[lookup_name]
+      case crossing.event
+      when .crossing_in?
+        current_count += 1
+      when .crossing_out?
+        current_count -= 1
+      end
+      current_count = 0 if current_count < 0
+      count_hash[lookup_name] = {current_count, crossing.timestamp}
+      self["camera_mvx-#{serial_no}_#{crossing.type.to_s.downcase}"] = current_count
     else
       # Everything else is a zone count
       entry = Entrances.from_json json_message
@@ -250,10 +293,14 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       add_lux_values(sensors, mac, serial_filter)
       add_people_counts(sensors, mac, serial_filter)
       add_vehicle_counts(sensors, mac, serial_filter)
+      add_people_crossing(sensors, mac, serial_filter)
+      add_vehicle_crossing(sensors, mac, serial_filter)
     when .people_count?
       add_people_counts(sensors, mac, serial_filter)
+      add_people_crossing(sensors, mac, serial_filter)
     when .counter?
       add_vehicle_counts(sensors, mac, serial_filter)
+      add_vehicle_crossing(sensors, mac, serial_filter)
     when .illuminance?
       add_lux_values(sensors, mac, serial_filter)
     else
@@ -285,6 +332,44 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
       vehicle_counts.each do |serial, zones|
         next if serial_filter && !serial_filter.includes?(serial)
         zones.each { |zone_name, (count, time)| sensors << to_sensor(SensorType::Counter, serial, "zone#{zone_name}_vehicles", count, time) }
+      end
+    end
+    sensors
+  end
+
+  protected def add_people_crossing(sensors, mac : String? = nil, serial_filter : Array(String)? = nil)
+    if mac
+      return sensors unless mac.starts_with?("mvx-")
+      mac = mac[4..-1]
+
+      if data = crossing_people[mac]?
+        count, time = data
+        sensors << to_sensor(SensorType::PeopleCount, "mvx-#{mac}", "person", count, time)
+      end
+    else
+      crossing_people.each do |mac, (count, time)|
+        serial = @line_crossing[mac]?.try(&.first?) || mac
+        next if serial_filter && !serial_filter.includes?(serial)
+        sensors << to_sensor(SensorType::PeopleCount, "mvx-#{mac}", "person", count, time)
+      end
+    end
+    sensors
+  end
+
+  protected def add_vehicle_crossing(sensors, mac : String? = nil, serial_filter : Array(String)? = nil)
+    if mac
+      return sensors unless mac.starts_with?("mvx-")
+      mac = mac[4..-1]
+
+      if data = crossing_vehicle[mac]?
+        count, time = data
+        sensors << to_sensor(SensorType::Counter, "mvx-#{mac}", "vehicle", count, time)
+      end
+    else
+      crossing_vehicle.each do |mac, (count, time)|
+        serial = @line_crossing[mac]?.try(&.first?) || mac
+        next if serial_filter && !serial_filter.includes?(serial)
+        sensors << to_sensor(SensorType::Counter, "mvx-#{mac}", "vehicle", count, time)
       end
     end
     sensors

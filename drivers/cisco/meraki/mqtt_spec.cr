@@ -146,4 +146,34 @@ DriverSpecs.mock_driver "Place::MQTT" do
       [137, 542, 162, 573, 189, 597, 0],
     ],
   })
+
+  # ============================
+  # Check Line Crossing
+  # ============================
+  puts "===== REMOTE PUBLISH ====="
+  publish = MQTT::V3::Publish.new
+  publish.id = MQTT::RequestType::Publish
+  publish.message_id = 8_u16
+  publish.topic = "/merakimv/56789/crossing/uuid"
+  publish.payload = %({"label":"testing","event":"crossing_in","type":"person","ts":1642564558,"object_id":2})
+  publish.packet_length = publish.calculate_length
+
+  transmit publish.to_slice
+  sleep 0.1 # wait a bit for processing
+  status["camera_mvx-56789_person"].should eq(1)
+
+  exec(:sensors, "people_count", "mvx-56789").get.should eq([
+    {
+      "status"    => "normal",
+      "type"      => "people_count",
+      "value"     => 1.0,
+      "last_seen" => 1642564558,
+      "mac"       => "mvx-56789",
+      "id"        => "person",
+      "name"      => "Meraki Camera mvx-56789: person",
+      "module_id" => "spec_runner",
+      "binding"   => "camera_mvx-56789_person",
+      "location"  => "sensor",
+    },
+  ])
 end
