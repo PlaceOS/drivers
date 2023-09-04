@@ -161,6 +161,10 @@ class Place::Bookings < PlaceOS::Driver
     self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
 
     self[:sensor_mac] = @sensor_mac = setting?(String, :sensor_mac)
+
+    # min and max meeting duration
+    self[:min_duration] = setting?(Int32, :min_duration) || 15
+    self[:max_duration] = setting?(Int32, :max_duration) || 480
   end
 
   # This is how we check the rooms status
