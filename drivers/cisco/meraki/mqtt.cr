@@ -37,6 +37,9 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
     line_crossing_combined: {
       area_name: ["camera_serial1", "camera_serial2"],
     },
+
+    timezone:                    "America/New_York",
+    disable_line_crossing_reset: false,
   })
 
   SUBS = {
@@ -115,6 +118,17 @@ class Cisco::Meraki::MQTT < PlaceOS::Driver
 
     schedule.clear
     schedule.every((@keep_alive // 3).seconds) { ping }
+
+    if !setting?(Bool, :disable_line_crossing_reset)
+      time_zone = setting?(String, :timezone).presence || "America/New_York"
+      tz = Time::Location.load(time_zone)
+      schedule.cron("30 3 * * *", tz) do
+        crossing_people.each_key { |key| self["camera_mvx-#{key}_person"] = 0 }
+        crossing_people.clear
+        crossing_vehicle.each_key { |key| self["camera_mvx-#{key}_vehicle"] = 0 }
+        crossing_vehicle.clear
+      end
+    end
 
     if client = @mqtt
       unsub = existing - @subs
