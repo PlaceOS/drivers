@@ -912,6 +912,21 @@
       
     </li>
   
+  <li class=" " data-id="drivers/Cisco/Meraki/Crossing" data-name="cisco::meraki::crossing">
+      <a href="../../Cisco/Meraki/Crossing.html">Crossing</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Cisco/Meraki/CrossingEvent" data-name="cisco::meraki::crossingevent">
+      <a href="../../Cisco/Meraki/CrossingEvent.html">CrossingEvent</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Cisco/Meraki/CrossingObject" data-name="cisco::meraki::crossingobject">
+      <a href="../../Cisco/Meraki/CrossingObject.html">CrossingObject</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/Cisco/Meraki/Dashboard" data-name="cisco::meraki::dashboard">
       <a href="../../Cisco/Meraki/Dashboard.html">Dashboard</a>
       
@@ -6268,7 +6283,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L14" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L14" target="_blank">
         cisco/meraki/mqtt.cr
       </a>
     
@@ -6300,7 +6315,7 @@
       
     
       <dt class="entry-const" id="SUBS">
-        <strong>SUBS</strong> = <code>{<span class="s">&quot;/merakimv/+/net.meraki.detector&quot;</span>, <span class="s">&quot;/merakimv/+/light&quot;</span>, <span class="s">&quot;/merakimv/+/0&quot;</span>}</code>
+        <strong>SUBS</strong> = <code>{<span class="s">&quot;/merakimv/+/net.meraki.detector&quot;</span>, <span class="s">&quot;/merakimv/+/light&quot;</span>, <span class="s">&quot;/merakimv/+/0&quot;</span>, <span class="s">&quot;/merakimv/+/crossing/+&quot;</span>}</code>
       </dt>
       
     
@@ -6324,6 +6339,18 @@
     
       <li class="entry-summary">
         <a href="#connected-instance-method" class="signature"><strong>#connected</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#crossing_people%3AHash%28String%2CTuple%28Int32%2CInt64%29%29-instance-method" class="signature"><strong>#crossing_people</strong> : Hash(String, Tuple(Int32, Int64))</a>
+        
+          <div class="summary"><p>Serial =&gt; count</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#crossing_vehicle%3AHash%28String%2CTuple%28Int32%2CInt64%29%29-instance-method" class="signature"><strong>#crossing_vehicle</strong> : Hash(String, Tuple(Int32, Int64))</a>
         
       </li>
     
@@ -6461,7 +6488,44 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L115" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L135" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="crossing_people:Hash(String,Tuple(Int32,Int64))-instance-method">
+      <div class="signature">
+        
+        def <strong>crossing_people</strong> : Hash(String, Tuple(Int32, Int64))
+
+        <a class="method-permalink" href="#crossing_people%3AHash%28String%2CTuple%28Int32%2CInt64%29%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Serial =&gt; count</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L178" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="crossing_vehicle:Hash(String,Tuple(Int32,Int64))-instance-method">
+      <div class="signature">
+        
+        def <strong>crossing_vehicle</strong> : Hash(String, Tuple(Int32, Int64))
+
+        <a class="method-permalink" href="#crossing_vehicle%3AHash%28String%2CTuple%28Int32%2CInt64%29%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L182" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6477,7 +6541,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L129" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L149" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6493,7 +6557,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L157" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L186" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6509,7 +6573,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L64" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L77" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6525,7 +6589,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L69" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L82" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6541,7 +6605,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L72" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L85" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6557,7 +6621,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L145" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L165" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6573,7 +6637,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L134" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L154" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6589,7 +6653,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L139" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L159" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6610,7 +6674,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L197" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L240" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6633,7 +6697,7 @@ mac_address can be used to grab data from a single device (basic grouping)</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L234" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L277" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6649,7 +6713,7 @@ mac_address can be used to grab data from a single device (basic grouping)</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/164e7eea43f822acdd2d6037887066689ab81ac9/src/cisco/meraki/mqtt.cr#L151" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/03b336be43c0133741718913d935d46f3628f405/src/cisco/meraki/mqtt.cr#L171" target="_blank">View source</a>]
         
       </div>
     </div>
