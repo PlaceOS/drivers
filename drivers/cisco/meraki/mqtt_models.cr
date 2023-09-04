@@ -71,4 +71,28 @@ Float64                                           # occupancy
     @[JSON::Field(ignore: true)]
     getter count : Int32 { counts[:person] || counts[:vehicle] || 0 }
   end
+
+  enum CrossingObject
+    Person
+    Vehicle
+    Unknown
+  end
+
+  enum CrossingEvent
+    CrossingIn
+    CrossingOut
+    Expired
+    Appeared
+  end
+
+  struct Crossing
+    include JSON::Serializable
+
+    @[JSON::Field(key: "ts")]
+    getter timestamp : Int64
+    # getter object_id : Int64
+    getter label : String?
+    getter event : CrossingEvent
+    getter type : CrossingObject
+  end
 end
