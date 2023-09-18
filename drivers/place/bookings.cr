@@ -42,6 +42,7 @@ class Place::Bookings < PlaceOS::Driver
 
     hide_meeting_details: false,
     hide_meeting_title:   false,
+    enable_end_meeting_button: false,
 
     # use this to expose arbitrary fields to influx
     # expose_for_analytics: {"binding" => "key->subkey"},
@@ -165,6 +166,8 @@ class Place::Bookings < PlaceOS::Driver
     # min and max meeting duration
     self[:min_duration] = setting?(Int32, :min_duration) || 15
     self[:max_duration] = setting?(Int32, :max_duration) || 480
+
+    self[:enable_end_meeting_button] = setting?(Bool, :enable_end_meeting_button) || false
   end
 
   # This is how we check the rooms status
