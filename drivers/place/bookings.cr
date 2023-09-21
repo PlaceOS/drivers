@@ -43,6 +43,7 @@ class Place::Bookings < PlaceOS::Driver
     hide_meeting_details: false,
     hide_meeting_title:   false,
     enable_end_meeting_button: false,
+    max_user_search_results: 20,
 
     # use this to expose arbitrary fields to influx
     # expose_for_analytics: {"binding" => "key->subkey"},
@@ -67,6 +68,7 @@ class Place::Bookings < PlaceOS::Driver
   @include_cancelled_bookings : Bool = false
   @application_permissions : Bool = false
   @disable_book_now_host : Bool = false
+  @max_user_search_results : UInt32 = 20
 
   @current_meeting_id : String = ""
   @current_pending : Bool = false
@@ -106,6 +108,7 @@ class Place::Bookings < PlaceOS::Driver
     @disable_book_now = book_now.nil? ? !bookable : !!book_now
     @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
     @disable_book_now_host = setting?(Bool, :disable_book_now_host) || false
+    @max_user_search_results = setting?(UInt32, :max_user_search_results) || 20_u32
 
     pending_period = setting?(UInt32, :pending_period) || 5_u32
     @pending_period = pending_period.minutes
@@ -206,6 +209,11 @@ class Place::Bookings < PlaceOS::Driver
 
     # Update booking info after creating event
     schedule.in(1.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
+  end
+
+  # Allow apps to search for attendees (to add to new bookings) via driver instead of via staff-api (as some role based accounts may not have MS Graph access)
+  def list_users(query : String? = nil, limit : UInt32? = 20_u32)
+    calendar.list_users(query, limit).get.as_a
   end
 
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
