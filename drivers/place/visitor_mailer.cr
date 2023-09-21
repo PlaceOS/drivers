@@ -12,11 +12,12 @@ class Place::VisitorMailer < PlaceOS::Driver
   description %(emails visitors when they are invited and notifies hosts when they check in)
 
   default_settings({
-    timezone:           "GMT",
-    date_time_format:   "%c",
-    time_format:        "%l:%M%p",
-    date_format:        "%A, %-d %B",
-    booking_space_name: "Client Floor",
+    timezone:                  "GMT",
+    date_time_format:          "%c",
+    time_format:               "%l:%M%p",
+    date_format:               "%A, %-d %B",
+    booking_space_name:        "Client Floor",
+    determine_host_name_using: "calendar-driver",
 
     send_reminders:                     "0 7 * * *",
     reminder_template:                  "visitor",
@@ -35,6 +36,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   })
 
   accessor staff_api : StaffAPI_1
+  accessor calendar : Calendar_1
   accessor network_provider : NetworkAccess_1 # Written for Cisco ISE Driver, but ideally compatible with others
 
   def mailer
@@ -73,6 +75,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @send_reminders : String? = nil
   @event_template : String = "event"
   @booking_template : String = "booking"
+  @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
   @network_password_length : Int32 = DEFAULT_PASSWORD_LENGTH
   @network_password_exclude : String = DEFAULT_PASSWORD_EXCLUDE
@@ -92,6 +95,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @event_template = setting?(String, :event_template) || "event"
     @booking_template = setting?(String, :booking_template) || "booking"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
+    @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
     @network_password_length = setting?(Int32, :password_length) || DEFAULT_PASSWORD_LENGTH
     @network_password_exclude = setting?(String, :password_exclude) || DEFAULT_PASSWORD_EXCLUDE
@@ -376,7 +380,18 @@ class Place::VisitorMailer < PlaceOS::Driver
     get_room_details(system_id, retries + 1)
   end
 
-  protected def get_host_name(host_email, retries = 0)
+  protected def get_host_name(host_email)
+    @determine_host_name_using == "staff-api-driver" ? get_host_name_from_staff_api_driver(host_email) : get_host_name_from_calendar_driver(host_email)
+  end
+
+  protected def get_host_name_from_calendar_driver(host_email)
+    calendar.get_user(host_email).get["name"]
+  rescue error
+    logger.error { "issue loading host details #{host_email}" }
+    return "your host"
+  end
+
+  protected def get_host_name_from_staff_api_driver(host_email, retries = 0)
     staff_api.staff_details(host_email).get["name"].as_s.split('(')[0]
   rescue error
     if retries > 3
@@ -384,7 +399,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       return "your host"
     end
     sleep 1
-    get_host_name(host_email, retries + 1)
+    get_host_name_from_staff_api_driver(host_email, retries + 1)
   end
 
   # For Cisco ISE network credentials
