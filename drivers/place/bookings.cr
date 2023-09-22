@@ -40,8 +40,8 @@ class Place::Bookings < PlaceOS::Driver
     room_image: "https://domain.com/room_image.svg",
     sensor_mac: "device-mac",
 
-    hide_meeting_details: false,
-    hide_meeting_title:   false,
+    hide_meeting_details:      false,
+    hide_meeting_title:        false,
     enable_end_meeting_button: false,
 
     # use this to expose arbitrary fields to influx
