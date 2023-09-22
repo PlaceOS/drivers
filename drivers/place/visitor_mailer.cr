@@ -190,7 +190,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # don't email staff members
     if !@host_domain_filter.empty?
-      return if guest_details.attendee_email.split('@', 2)[1].in?(@host_domain_filter)
+      return if guest_details.attendee_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
     end
 
     if guest_details.action == "checkin"
