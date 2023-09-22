@@ -222,6 +222,15 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def delete_guest(id : Int64 | String) : Nil
+    response = delete("/api/staff/v1/guests/#{id}", headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+
+    raise "failed to delete guest #{id}: #{response.status_code}" unless response.success?
+  end
+
+  @[Security(Level::Support)]
   def query_guests(period_start : Int64, period_end : Int64, zones : Array(String))
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s
