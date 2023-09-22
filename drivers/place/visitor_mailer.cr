@@ -32,6 +32,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     network_password_minimum_symbols:   DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
     network_group_ids:                  [] of String,
     debug:                              false,
+    host_domain_filter:                 [] of String,
   })
 
   accessor staff_api : StaffAPI_1
@@ -60,6 +61,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @visitor_emails_sent : UInt64 = 0_u64
   @visitor_email_errors : UInt64 = 0_u64
   @disable_qr_code : Bool = false
+  @host_domain_filter : Array(String) = [] of String
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
   @date_time_format : String = "%c"
@@ -100,6 +102,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @network_password_minimum_numbers = setting?(Int32, :password_minimum_numbers) || DEFAULT_PASSWORD_MINIMUM_NUMBERS
     @network_password_minimum_symbols = setting?(Int32, :password_minimum_symbols) || DEFAULT_PASSWORD_MINIMUM_SYMBOLS
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
+    @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
 
     time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -183,6 +186,11 @@ class Place::VisitorMailer < PlaceOS::Driver
     # ensure the event is for this building
     if zones = guest_details.zones
       return unless zones.includes?(building_zone.id)
+    end
+
+    # don't email staff members
+    if !@host_domain_filter.empty?
+      return if guest_details.attendee_email.split('@', 2)[1].in?(@host_domain_filter)
     end
 
     if guest_details.action == "checkin"
