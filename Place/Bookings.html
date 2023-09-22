@@ -6293,7 +6293,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L6" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L6" target="_blank">
         place/bookings.cr
       </a>
     
@@ -6380,6 +6380,13 @@ Subscription expiration can only be 10070 minutes in the future.</p>
     
       <li class="entry-summary">
         <a href="#is_stale%3F%28timestamp%3AInt64%7CNil%29%3ABool-instance-method" class="signature"><strong>#is_stale?</strong>(timestamp : Int64 | Nil) : Bool</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#list_users%28query%3AString%7CNil%3Dnil%2Climit%3AUInt32%7CNil%3D20_u32%29-instance-method" class="signature"><strong>#list_users</strong>(query : String | Nil = <span class="n">nil</span>, limit : UInt32 | Nil = <span class="n">20_u32</span>)</a>
+        
+          <div class="summary"><p>Allow apps to search for attendees (to add to new bookings) via driver instead of via staff-api (as some role based accounts may not have MS Graph access)</p></div>
         
       </li>
     
@@ -6497,7 +6504,7 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L211" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L219" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6513,7 +6520,7 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L58" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L59" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6538,7 +6545,7 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L474" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L482" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6554,7 +6561,7 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L184" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L187" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6579,7 +6586,7 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L486" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L494" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6600,7 +6607,7 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L191" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L194" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6616,7 +6623,28 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L567" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L575" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="list_users(query:String|Nil=nil,limit:UInt32|Nil=20_u32)-instance-method">
+      <div class="signature">
+        
+        def <strong>list_users</strong>(query : String | Nil = <span class="n">nil</span>, limit : UInt32 | Nil = <span class="n">20_u32</span>)
+
+        <a class="method-permalink" href="#list_users%28query%3AString%7CNil%3Dnil%2Climit%3AUInt32%7CNil%3D20_u32%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Allow apps to search for attendees (to add to new bookings) via driver instead of via staff-api (as some role based accounts may not have MS Graph access)</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L215" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6641,7 +6669,7 @@ Subscription expiration can only be 10070 minutes in the future.</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L445" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L453" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6667,7 +6695,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L470" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L478" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6683,7 +6711,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L80" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L82" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6699,7 +6727,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L84" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L86" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6715,7 +6743,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L257" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L265" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6731,7 +6759,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L176" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L179" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -6747,7 +6775,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/39bc7587c247c0340e1d44b919d59bb052ea602b/src/place/bookings.cr#L671" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/f126d592858f435d88322d2527f518e8f16140e3/src/place/bookings.cr#L679" target="_blank">View source</a>]
         
       </div>
     </div>
