@@ -213,7 +213,7 @@ class Place::Bookings < PlaceOS::Driver
 
   # Allow apps to search for attendees (to add to new bookings) via driver instead of via staff-api (as some role based accounts may not have MS Graph access)
   def list_users(query : String? = nil, limit : UInt32? = 20_u32)
-    calendar.list_users(query, limit).get.as_a
+    calendar.list_users(query, limit)
   end
 
   def book_now(period_in_seconds : Int64, title : String? = nil, owner : String? = nil)
