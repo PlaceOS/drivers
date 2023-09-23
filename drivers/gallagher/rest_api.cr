@@ -136,7 +136,13 @@ class Gallagher::RestAPI < PlaceOS::Driver
     @divisions_endpoint = @cardholders_endpoint.sub("cardholders", "divisions")
     @access_groups_endpoint = get_path payload["features"]["accessGroups"]["accessGroups"]["href"].as_s
     @events_endpoint = get_path payload["features"]["events"]["events"]["href"].as_s
-    @doors_endpoint = get_path payload["features"]["doors"]["doors"]["href"].as_s
+
+    # not sure what version of Gallagher this was added
+    begin
+      @doors_endpoint = get_path payload["features"]["doors"]["doors"]["href"].as_s
+    rescue error
+      logger.debug(exception: error) { "error locating doors feature URI" }
+    end
 
     if api_version >= SemanticVersion.parse("8.10.0")
       @card_types_endpoint = get_path payload["features"]["cardTypes"]["assign"]["href"].as_s
