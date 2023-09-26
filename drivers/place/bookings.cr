@@ -732,6 +732,9 @@ class Place::Bookings < PlaceOS::Driver
       # TODO:: find event uid and update staff api event metadata without
       # requiring GraphAPI interaction from staff api.
       logger.debug { "polling events as received #{event.event_type} notification" }
+      if resource_id = event.resource_id
+        self[:last_event_notification] = {event.event_type, resource_id, Time.utc.to_unix}
+      end
       poll_events
     in .missed?
       # we don't know the exact event id that changed
