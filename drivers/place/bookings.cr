@@ -121,7 +121,9 @@ class Place::Bookings < PlaceOS::Driver
 
     @change_event_sync_delay = setting?(UInt32, :change_event_sync_delay) || 5_u32
 
-    @last_booking_started = setting?(Int64, :last_booking_started) || 0_i64
+    # ensure we don't load any millisecond timestamps
+    last_started = setting?(Int64, :last_booking_started) || 0_i64
+    @last_booking_started = last_started > 30.minutes.from_now.to_unix ? 0_i64 : last_started
 
     @include_cancelled_bookings = setting?(Bool, :include_cancelled_bookings) || false
     @application_permissions = setting?(Bool, :application_permissions) || false
@@ -176,18 +178,24 @@ class Place::Bookings < PlaceOS::Driver
   # This is how we check the rooms status
   @last_booking_started : Int64 = 0_i64
 
+  # we no longer accept user specified values
   def start_meeting(meeting_start_time : Int64) : Nil
-    logger.debug { "starting meeting #{meeting_start_time}" }
+    logger.warn { "deprecated function call to start_meeting, please use checkin" }
+    checkin
+  end
+
+  def checkin : Nil
+    if booking = pending || current
+      check_in_actual booking.event_start.to_unix
+    end
+  end
+
+  private def check_in_actual(meeting_start_time : Int64)
+    logger.debug { "starting meeting @ #{meeting_start_time}" }
     @last_booking_started = meeting_start_time
     define_setting(:last_booking_started, meeting_start_time)
     self[:last_booking_started] = meeting_start_time
     check_current_booking(self[:bookings].as_a)
-  end
-
-  def checkin
-    if booking = pending
-      start_meeting booking.event_start.to_unix
-    end
   end
 
   # End either the current meeting early, or the pending meeting
