@@ -391,16 +391,25 @@ class Place::Bookings < PlaceOS::Driver
       end
     end
 
-    self[:booked] = booked
-
     # We haven't checked the index of `next_booking` exists, hence the `[]?`
     if booking = bookings[next_booking]?
       start_time = booking["event_start"].as_i64
-      next_pending = true if start_time <= @pending_before.from_now.to_unix
+
+      # is the next meeting pending?
+      if start_time <= @pending_before.from_now.to_unix
+        # if start time is greater than last started, then no one has checked in yet
+        if start_time > @last_booking_started
+          next_pending = true
+        else
+          booked = true
+        end
+      end
       self[:next_booking] = booking
     else
       self[:next_booking] = nil
     end
+
+    self[:booked] = booked
 
     # Check if pending is enabled
     if @pending_period.to_i > 0_i64 || @pending_before.to_i > 0_i64
