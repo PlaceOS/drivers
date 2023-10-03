@@ -28,6 +28,9 @@ dependencies:
   place_calendar:
     github: PlaceOS/calendar
 
+  office365:
+    github: PlaceOS/office365
+
   placeos-compiler:
     github: placeos/compiler
 
