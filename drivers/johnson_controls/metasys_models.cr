@@ -228,6 +228,31 @@ module JohnsonControls
     property object_url : String
   end
 
+  class GetSingleObjectPresentValueResponse
+    include JSON::Serializable
+
+    class Item
+      include JSON::Serializable
+
+      class Value
+        include JSON::Serializable
+
+        @[JSON::Field(key: "value")]
+        property value : String?
+
+        @[JSON::Field(key: "reliability")]
+        property reliability : String?
+
+        @[JSON::Field(key: "priority")]
+        property next : String?
+      end
+      @[JSON::Field(key: "presentValue")]
+      property presentValue : Value
+    end
+    @[JSON::Field(key: "item")]
+    property item : Item
+  end
+
   class SamplesResponse
     include JSON::Serializable
 
