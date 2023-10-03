@@ -148,6 +148,13 @@ class JohnsonControls::Metasys < PlaceOS::Driver
     GetObjectAttributesWithSamplesResponse.from_json(response.body)
   end
 
+  def get_single_object_presentValue(id : String) : GetSingleObjectPresentValueResponse
+    response = get_request("/objects/#{id}/attributes/presentValue")
+    raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+
+    GetSingleObjectPresentValueResponse.from_json(response.body)
+  end
+
   def get_samples_for_an_object_attribute(id : String, attribute_id : String, start_time : String, end_time : String, page : Int32 = 1, page_size : Int32 = 10) : GetSamplesForAnObjectAttributeResponse
     response = get_request("/objects/#{id}/attributes/#{attribute_id}/samples",
       start_time: start_time,
@@ -242,7 +249,7 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   end
 
   private def put_request(path : String, body)
-    put(path, headers: {"Authorization" => get_token}, body: body.to_json)
+    put(path, headers: {"Authorization" => get_token , "Content-Type" => CONTENT_TYPE}, body: body.to_json)
   end
 
   @[Security(Level::Support)]
