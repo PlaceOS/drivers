@@ -118,7 +118,7 @@ dependencies:
 
   # Stripe API wrapper
   stripetease:
-    github: grkek/stripetease
+    github: place-technology/stripetease
 
   # Siemens Desigo API wrapper
   desigo:
