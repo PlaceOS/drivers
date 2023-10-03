@@ -246,9 +246,11 @@ module JohnsonControls
         @[JSON::Field(key: "priority")]
         property next : String?
       end
+
       @[JSON::Field(key: "presentValue")]
       property presentValue : Value
     end
+
     @[JSON::Field(key: "item")]
     property item : Item
   end
