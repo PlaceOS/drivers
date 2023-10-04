@@ -68,9 +68,10 @@ class Keycloak::RestAPI < PlaceOS::Driver
     search : String? = nil,
     email : String? = nil,
     enabled_users_only : Bool = true,
-    all_pages : Bool = false
+    all_pages : Bool = false,
+    auth_token : String? = nil
   )
-    user_token = "Bearer #{get_token}"
+    user_token = "Bearer #{auth_token.presence || get_token}"
 
     params = URI::Params.build do |form|
       form.add "search", search.to_s if search.presence
