@@ -722,15 +722,25 @@ class Place::Bookings < PlaceOS::Driver
           @subscription = nil
           schedule.in(1.second) { push_notificaitons_maintain; nil }
         end
+
+        configure_push_monitoring
         return
       end
 
-      if @push_monitoring.nil?
-        channel_path = "#{subscription.id}/event"
-        logger.debug { "monitoring channel: #{channel_path}" }
-        @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
-      end
+      configure_push_monitoring if @push_monitoring.nil?
     end
+  end
+
+  protected def configure_push_monitoring
+    subscription = @subscription.as(PlaceCalendar::Subscription)
+    channel_path = "#{subscription.id}/event"
+
+    if old = @push_monitoring
+      subscriptions.unsubscribe old
+    end
+
+    @push_monitoring = monitor(channel_path) { |_subscription, payload| push_event_occured(payload) }
+    logger.debug { "monitoring channel: #{channel_path}" }
   end
 
   protected def push_event_occured(payload : String)
@@ -795,6 +805,8 @@ class Place::Bookings < PlaceOS::Driver
       # save the subscription details for processing
       define_setting(:push_subscription, @subscription)
       @sub_renewed_at = Time.local
+
+      configure_push_monitoring
     end
   end
 end
