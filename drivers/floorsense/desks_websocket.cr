@@ -166,8 +166,14 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     begin
       check_response Resp({{klass}}).from_json(%resp_body.not_nil!) {{modify}}
     rescue error
-      logger.debug { "failed to parse response: #{%resp_body}" }
-      raise error
+      begin
+        response = Response.from_json(%resp_body)
+        raise "#{response.message} (#{response.code})" unless response.result
+        raise "unexpected response type: #{%resp_body}"
+      rescue
+        logger.debug { "failed to parse response: #{%resp_body}" }
+        raise error
+      end
     end
   end
 

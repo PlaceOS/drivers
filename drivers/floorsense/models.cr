@@ -22,6 +22,7 @@ module Floorsense
   class Response < Payload
     getter type : String = "response"
     getter result : Bool
+    getter code : Int32?
     getter message : String
     getter info : JSON::Any?
 
