@@ -21,13 +21,25 @@ DriverSpecs.mock_driver "Place::TODOs" do
     "task"     => "my task",
   }])
 
-  exec(:function_schemas).get.should eq({
-    "list_tasks" => {} of String => JSON::Any,
-    "add_task" => {
-      "description" => {"type" => "string", "title" => "String"}
+  exec(:function_schemas).get.should eq([
+    {
+      "function" => "list_tasks",
+      "description" => "returns the list of tasks and their current status",
+      "parameters" => {} of String => JSON::Any
     },
-    "complete_task" => {
-      "index" => {"type" => "integer", "format" => "Int32", "title" => "Int32"}
+    {
+      "function" => "add_task",
+      "description" => "adds a new task to the list",
+      "parameters" => {
+        "description" => {"type" => "string", "title" => "String"}
+      }
+    },
+    {
+      "function" => "complete_task",
+      "description" => "marks a task as completed",
+      "parameters" => {
+        "index" => {"type" => "integer", "format" => "Int32", "title" => "Int32"}
+      }
     }
-  })
+  ])
 end
