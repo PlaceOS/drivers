@@ -2,11 +2,11 @@ require "placeos-driver"
 require "placeos-driver/interface/chat_functions"
 
 class Place::TODOs < PlaceOS::Driver
-  include PlaceOS::Driver::Interface::ChatFunctions
+  include Interface::ChatFunctions
 
   descriptive_name "PlaceOS TODO list"
   generic_name :TODO
-  description %(an example of a driver providing functions to a LLM)
+  description %(an example driver providing functions to a LLM)
 
   @todos = [] of NamedTuple(complete: Bool, task: String)
 

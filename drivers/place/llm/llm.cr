@@ -7,8 +7,7 @@ class Place::LLM < PlaceOS::Driver
   description %(an interface for LLMs such as ChatGPT for discovering capabilities)
 
   default_settings({
-    prompt: %(
-you are an AI assistant in a smart building.
+    prompt: %(you are an AI assistant in a smart building.
 Helping a staff member with every day tasks.
 Don't disclose that you're an AI
 Skip language that implies regret or apology
@@ -19,8 +18,7 @@ don't direct to other sources
 focus on key points in questions
 simplify complex issues with steps
 clarify unclear questions before answering
-correct errors in previous answers
-),
+correct errors in previous answers),
   })
 
   def on_load
