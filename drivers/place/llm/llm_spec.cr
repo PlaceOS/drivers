@@ -1,7 +1,7 @@
 require "placeos-driver/spec"
 require "placeos-driver/interface/chat_functions"
 
-DriverSpecs.mock_driver "Place::Bookings" do
+DriverSpecs.mock_driver "Place::LLM" do
   system({
     DeskBookings: {DeskMock},
     RoomBookings: {RoomMock},
