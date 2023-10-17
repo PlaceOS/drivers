@@ -23,23 +23,23 @@ DriverSpecs.mock_driver "Place::TODOs" do
 
   exec(:function_schemas).get.should eq([
     {
-      "function" => "list_tasks",
+      "function"    => "list_tasks",
       "description" => "returns the list of tasks and their current status",
-      "parameters" => {} of String => JSON::Any
+      "parameters"  => {} of String => JSON::Any,
     },
     {
-      "function" => "add_task",
+      "function"    => "add_task",
       "description" => "adds a new task to the list",
-      "parameters" => {
-        "description" => {"type" => "string", "title" => "String"}
-      }
+      "parameters"  => {
+        "description" => {"type" => "string", "title" => "String"},
+      },
     },
     {
-      "function" => "complete_task",
+      "function"    => "complete_task",
       "description" => "marks a task as completed",
-      "parameters" => {
-        "index" => {"type" => "integer", "format" => "Int32", "title" => "Int32"}
-      }
-    }
+      "parameters"  => {
+        "index" => {"type" => "integer", "format" => "Int32", "title" => "Int32"},
+      },
+    },
   ])
 end
