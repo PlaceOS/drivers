@@ -19,6 +19,10 @@ focus on key points in questions
 simplify complex issues with steps
 clarify unclear questions before answering
 correct errors in previous answers),
+
+    user_hint: "Hi! I'm your workplace assistant.\n" +
+               "I can get you instant answers for almost anything as well as perform actions such as booking a meeting room.\n" +
+               "How can I help?",
   })
 
   def on_load
@@ -27,6 +31,11 @@ correct errors in previous answers),
 
   def on_update
     @prompt = setting(String, :prompt)
+    self[:user_hint] = setting?(String, :user_hint) || "Hi! I'm your workplace assistant."
+
+    schedule.clear
+    schedule.in(5.seconds) { update_prompt }
+    schedule.every(5.minutes) { update_prompt }
   end
 
   getter! prompt : String
@@ -46,5 +55,9 @@ correct errors in previous answers),
       capabilities: capabilities,
       system_id:    system.id,
     }
+  end
+
+  protected def update_prompt
+    self[:prompt] = new_chat
   end
 end

@@ -22,27 +22,27 @@ DriverSpecs.mock_driver "Place::LLM" do
 
   system(:DeskBookings_1).function_schemas.should eq([
     {
-      function: "list_of_levels",
+      function:    "list_of_levels",
       description: "returns the list of levels with available desks",
-      parameters: {} of String => JSON::Any
+      parameters:  {} of String => JSON::Any,
     },
     {
-      function: "book",
+      function:    "book",
       description: "books a desk, you can optionally provide a preferred level or how many days from now if the booking is for tomorrow etc",
-      parameters: {
+      parameters:  {
         "level" => {
-          "anyOf" => [{"type" => "null"}, {"type" => "string"}],
-          "title" => "(String | Nil)",
-          "default" => nil
+          "anyOf"   => [{"type" => "null"}, {"type" => "string"}],
+          "title"   => "(String | Nil)",
+          "default" => nil,
         },
         "days_in_future" => {
-          "type" => "integer",
-          "format" => "Int32",
-          "title" => "Int32",
-          "default" => 0
-        }
-      }
-    }
+          "type"    => "integer",
+          "format"  => "Int32",
+          "title"   => "Int32",
+          "default" => 0,
+        },
+      },
+    },
   ])
 end
 
