@@ -55,6 +55,8 @@ class Place::Schedule < PlaceOS::Driver
     starting = now.at_beginning_of_day + days
     ending = now.at_end_of_day + days
 
+    logger.debug { "requesting events for #{me.name} (#{me.email}) @ #{starting} -> #{ending}" }
+
     events = cal_client.list_events(me.email, period_start: starting, period_end: ending)
     events = Array(Event).from_json(events.to_json)
     events.each { |event| event.configure_times(timezone) }
@@ -170,11 +172,11 @@ class Place::Schedule < PlaceOS::Driver
 
   record AccessToken, token : String, expires : Int64? { include JSON::Serializable }
 
-  def get_users_access_token
+  protected def get_users_access_token
     AccessToken.from_json staff_api.user_resource_token.get.to_json
   end
 
-  def place_calendar_client : ::PlaceCalendar::Client
+  protected def place_calendar_client : ::PlaceCalendar::Client
     token = get_users_access_token
 
     case @platform
