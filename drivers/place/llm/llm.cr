@@ -18,7 +18,8 @@ don't direct to other sources
 focus on key points in questions
 simplify complex issues with steps
 clarify unclear questions before answering
-correct errors in previous answers),
+correct errors in previous answers
+end with follow up questions where applicable),
 
     user_hint: "Hi! I'm your workplace assistant.\n" +
                "I can get you instant answers for almost anything as well as perform actions such as booking a meeting room.\n" +
@@ -31,13 +32,14 @@ correct errors in previous answers),
 
   def on_update
     @prompt = setting(String, :prompt)
-    self[:user_hint] = setting?(String, :user_hint) || "Hi! I'm your workplace assistant."
+    @user_hint = setting?(String, :user_hint) || "Hi! I'm your workplace assistant."
 
     schedule.clear
     schedule.in(5.seconds) { update_prompt }
     schedule.every(5.minutes) { update_prompt }
   end
 
+  getter! user_hint : String
   getter! prompt : String
 
   def capabilities
@@ -59,5 +61,6 @@ correct errors in previous answers),
 
   protected def update_prompt
     self[:prompt] = new_chat
+    self[:user_hint] = @user_hint
   end
 end

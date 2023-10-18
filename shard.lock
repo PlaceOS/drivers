@@ -199,7 +199,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.3.0
+    version: 2.4.4
 
   opentelemetry-api:
     git: https://github.com/wyhaines/opentelemetry-api.cr.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.9.9
+    version: 6.9.10
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
