@@ -143,6 +143,20 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+  # NOTE:: this function requires "users" scope to be specified explicity for access
+  @[Security(Level::Administrator)]
+  def user_resource_token
+    response = post("/api/engine/v2/users/#{invoked_by_user_id}/resource_token", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
   @[Security(Level::Support)]
   def query_users(
     q : String? = nil,
