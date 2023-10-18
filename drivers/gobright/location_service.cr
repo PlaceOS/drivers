@@ -33,6 +33,7 @@ class GoBright::LocationService < PlaceOS::Driver
   @floor_mappings : Hash(String, String) = {} of String => String
   @zone_filter : Array(String) = [] of String
   @desk_space_types : Array(SpaceType) = [SpaceType::Desk]
+  @default_space_type : SpaceType?
 
   struct Mapping
     include JSON::Serializable
@@ -47,7 +48,8 @@ class GoBright::LocationService < PlaceOS::Driver
 
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
-    @desk_space_types = setting?(Array(SpaceType), :desk_space_types) || [SpaceType::Desk]
+    @desk_space_types = setting?(Array(SpaceType), :desk_space_types) || [SpaceType::Desk]  # By default the setting will not be present (so will be nil, which should query all Space Types)
+    @default_space_type = setting?(SpaceType, :default_space_type) || nil
     @floor_mappings = setting(Hash(String, Mapping), :gobright_floor_mappings).transform_values(&.location_id)
     @zone_filter = @floor_mappings.keys
     @building_id = nil
@@ -160,7 +162,7 @@ class GoBright::LocationService < PlaceOS::Driver
     end
 
     # mark if the space is occupied
-    occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id).get.to_json)
+    occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id, @default_space_type).get.to_json)
     occupancy.each do |details|
       space = spaces[details.id]?
       next unless space
