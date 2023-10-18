@@ -42,4 +42,9 @@ DriverSpecs.mock_driver "Place::TODOs" do
       },
     },
   ])
+
+  # Test the interface
+  status[:capabilities].should eq exec(:capabilities).get
+  status[:function_schemas].should eq exec(:function_schemas).get
+  status[:loaded].should eq(true)
 end

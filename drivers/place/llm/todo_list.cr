@@ -10,6 +10,10 @@ class Place::TODOs < PlaceOS::Driver
 
   @todos = [] of NamedTuple(complete: Bool, task: String)
 
+  def on_load
+    self[:loaded] = true
+  end
+
   def capabilities : String
     "manages the list of tasks a user needs to complete throughout the day"
   end
