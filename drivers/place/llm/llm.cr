@@ -46,7 +46,7 @@ end with follow up questions where applicable),
     system.implementing(Interface::ChatFunctions).map do |driver|
       {
         id:         driver.module_name,
-        capability: driver.capabilities.get.as_s,
+        capability: driver[:capabilities].as_s,
       }
     end
   end
