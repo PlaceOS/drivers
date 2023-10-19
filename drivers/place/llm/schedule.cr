@@ -150,9 +150,15 @@ class Place::Schedule < PlaceOS::Driver
     {% for param in %w(title location host attendees) %}
       existing.{{param.id}} = event.{{param.id}}.nil? ? existing.{{param.id}} : event.{{param.id}}.not_nil!
     {% end %}
-    existing.all_day = event.all_day.nil? ? existing.all_day? : event.all_day.not_nil!
+
     existing.event_start = event.starting.nil? ? existing.event_start.in(timezone) : event.starting.not_nil!.in(timezone)
-    existing.event_end = event.ending.nil? ? existing.event_end.try(&.in(timezone)) : event.ending.not_nil!.in(timezone)
+    if event.all_day
+      existing.all_day = true
+      existing.event_end = nil
+    else
+      existing.all_day = false
+      existing.event_end = event.ending.nil? ? existing.event_end.try(&.in(timezone)) : event.ending.not_nil!.in(timezone)
+    end
 
     logger.debug { "updating event: #{existing.inspect}" }
 
