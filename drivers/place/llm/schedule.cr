@@ -123,8 +123,8 @@ class Place::Schedule < PlaceOS::Driver
     new_event.title = event.title
     new_event.location = event.location
     new_event.all_day = event.all_day
-    new_event.event_start = event.starting
-    new_event.event_end = event.ending
+    new_event.event_start = event.starting.in(timezone)
+    new_event.event_end = event.ending.in(timezone)
     new_event.body = event.title
     new_event.timezone = timezone.name
     new_event.creator = my_email
