@@ -101,9 +101,15 @@ class Place::Schedule < PlaceOS::Driver
     my_email = me.email.downcase
     host_email = (event.host.presence || me.email).downcase
     i_am_host = host_email == my_email
+    host_name = host_email
 
-    attendees = input_event.attendees.uniq.reject { |attendee| attendee.email.downcase == host_email }
-    attendees << PlaceCalendar::Event::Attendee.new(name: i_am_host ? me.name : host_email, email: host_email, response_status: "accepted")
+    attendees = event.attendees.uniq.reject do |attendee|
+      if attendee.email.downcase == host_email
+        host_name = attendee.name
+        true
+      end
+    end
+    attendees << PlaceCalendar::Event::Attendee.new(name: i_am_host ? me.name : host_name, email: host_email, response_status: "accepted")
 
     # create the calendar event
     new_event = PlaceCalendar::Event.new
@@ -114,7 +120,7 @@ class Place::Schedule < PlaceOS::Driver
     new_event.event_start = event.starting
     new_event.event_end = event.ending
     new_event.body = event.title
-    new_event.timezone = timezone
+    new_event.timezone = timezone.name
 
     logger.debug { "creating booking: #{new_event.inspect}" }
 
