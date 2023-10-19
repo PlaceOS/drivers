@@ -98,7 +98,7 @@ class Place::Schedule < PlaceOS::Driver
     end
   end
 
-  @[Description("create a calendar entry with the provided event details. Make sure the attendees are available by getting their schedules first, remember to include the host in the attendees list. Don't specify an ending time for all day bookings. You can specify an alternate host if booking on behalf of someone else. Don't provide a response_status for attendees when using this function")]
+  @[Description("create a calendar entry with the provided event details. Make sure the attendees are available by getting their schedules first, remember to include the host in the attendees list. Don't specify an ending time for all day bookings. You can specify an alternate host if booking on behalf of someone else. Don't provide a response_status for attendees when using this function. Starting and ending date times must be ISO 8601 formatted with the timezone")]
   def create(event : CreateEvent)
     cal_client = place_calendar_client
     me = current_user
@@ -227,7 +227,7 @@ class Place::Schedule < PlaceOS::Driver
     cal_client.get_user_by_email(email)
   end
 
-  @[Description("search for a staff member using odata filter queries, don't include `$filter=`, for example: `givenName eq 'mary' or startswith(surname,'smith')`, confrim with the user when there are multiple results")]
+  @[Description("search for a staff member using odata filter queries, don't include `$filter=`, for example: `givenName eq 'mary' or startswith(surname,'smith')`, confrim with the user when there are multiple results, search for both givenName and surname using `or` if there is ambiguity")]
   def search_staff_member(filter : String)
     logger.debug { "searching for staff member: #{filter}" }
     cal_client = place_calendar_client
