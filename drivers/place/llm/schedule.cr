@@ -233,11 +233,8 @@ class Place::Schedule < PlaceOS::Driver
     @[JSON::Field(converter: Time::EpochConverter, type: "integer", format: "Int64", ignore_serialize: true)]
     getter event_end : Time?
 
-    @[JSON::Field(ignore_deserialize: true)]
-    getter starting : Time { event_start.in(time_zone) }
-
-    @[JSON::Field(ignore_deserialize: true)]
-    getter ending : Time? { event_end.try &.in(time_zone) }
+    getter starting : Time?
+    getter ending : Time?
 
     # these are used to configure the JSON times correctly
     @[JSON::Field(ignore_serialize: true)]
@@ -248,8 +245,8 @@ class Place::Schedule < PlaceOS::Driver
 
     def configure_times(tz : Time::Location)
       @time_zone = tz
-      starting
-      ending
+      @starting = event_start.in(tz)
+      @ending = event_end.try &.in(tz)
     end
   end
 
