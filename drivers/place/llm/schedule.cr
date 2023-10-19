@@ -107,7 +107,8 @@ class Place::Schedule < PlaceOS::Driver
     {% end %}
     new_event.event_start = event.starting
     new_event.event_end = event.ending
-    new_event.timezone = timezone.name
+
+    logger.debug { "creating booking: #{new_event}" }
 
     # convert to the simplified view
     created_event = cal_client.create_event(user_id: me.email.downcase, event: new_event, calendar_id: book_on_behalf_of.downcase)
@@ -130,7 +131,8 @@ class Place::Schedule < PlaceOS::Driver
     existing.all_day = event.all_day.nil? ? existing.all_day? : event.all_day.not_nil!
     existing.event_start = event.starting.nil? ? existing.event_start : event.starting.not_nil!
     existing.event_end = event.ending.nil? ? existing.event_end : event.ending
-    existing.timezone = existing.timezone.presence ? existing.timezone : timezone.name
+
+    logger.debug { "updating event: #{existing}" }
 
     # update the event
     updated_event = cal_client.update_event(user_id: me.email, event: existing, calendar_id: existing.host)
@@ -141,6 +143,8 @@ class Place::Schedule < PlaceOS::Driver
   def cancel(event_id : String, reason : String? = nil)
     cal_client = place_calendar_client
     me = current_user
+
+    logger.debug { "declining event: #{event_id}" }
 
     cal_client.decline_event(
       user_id: me.email,
@@ -158,9 +162,11 @@ class Place::Schedule < PlaceOS::Driver
   end
 
   @[Description("use to confirm your attendance at a meeting this will update your attendee response_status in the specified meeting from your schedule. You should probably provide a reason when declining, however this is optional")]
-  def attending_meeting(event_id : String, attendance : Attendance, reason : String? = nil)
+  def update_attending_status(event_id : String, attendance : Attendance, reason : String? = nil)
     cal_client = place_calendar_client
     me = current_user
+
+    logger.debug { "updating attendance: #{attendance} #{reason} -> #{event_id}" }
 
     case attendance
     in .decline?
@@ -194,10 +200,10 @@ class Place::Schedule < PlaceOS::Driver
     getter title : String
     getter location : String?
     getter host : String?
-    getter all_day : Bool = false
     getter attendees : Array(PlaceCalendar::Event::Attendee) = [] of PlaceCalendar::Event::Attendee
     getter starting : Time
     getter ending : Time?
+    getter all_day : Bool = false
   end
 
   struct UpdateEvent
