@@ -65,7 +65,7 @@ class Place::Schedule < PlaceOS::Driver
     events
   end
 
-  @[Description("returns free busy times of the emails specified. This can be a person or a resource like a room")]
+  @[Description("returns busy periods of the emails specified. This can be a person or a resource like a room. An empty schedules array means they are available")]
   def get_schedules(emails : Array(String), day_offset : Int32 = 0)
     cal_client = place_calendar_client
     me = current_user
@@ -106,23 +106,29 @@ class Place::Schedule < PlaceOS::Driver
     host_name = host_email
 
     attendees = event.attendees.uniq.reject do |attendee|
-      if attendee.email.downcase == host_email
+      attend_email = attendee.email.downcase
+      if attend_email == host_email
         host_name = attendee.name
         true
+      elsif attend_email == my_email
+        attendee.organizer = true
+        false
       end
     end
-    attendees << PlaceCalendar::Event::Attendee.new(name: i_am_host ? me.name : host_name, email: host_email, response_status: "accepted")
+    attendees << PlaceCalendar::Event::Attendee.new(name: i_am_host ? me.name : host_name, email: host_email, response_status: "accepted", organizer: i_am_host)
 
     # create the calendar event
     new_event = PlaceCalendar::Event.new
     new_event.attendees = attendees
-    {% for param in %w(title location host all_day) %}
-      new_event.{{param.id}} = event.{{param.id}}
-    {% end %}
+    new_event.title = event.title
+    new_event.location = event.location
+    new_event.all_day = event.all_day
     new_event.event_start = event.starting
     new_event.event_end = event.ending
     new_event.body = event.title
     new_event.timezone = timezone.name
+    new_event.creator = my_email
+    new_event.host = host_email
 
     logger.debug { "creating booking: #{new_event.inspect}" }
 
