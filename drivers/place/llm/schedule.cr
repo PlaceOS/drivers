@@ -98,20 +98,28 @@ class Place::Schedule < PlaceOS::Driver
   def create(event : CreateEvent)
     cal_client = place_calendar_client
     me = current_user
-    book_on_behalf_of = event.host.presence || me.email
+    my_email = me.email.downcase
+    host_email = (event.host.presence || me.email).downcase
+    i_am_host = host_email == my_email
+
+    attendees = input_event.attendees.uniq.reject { |attendee| attendee.email.downcase == host_email }
+    attendees << PlaceCalendar::Event::Attendee.new(name: i_am_host ? me.name : host_email, email: host_email, response_status: "accepted")
 
     # create the calendar event
     new_event = PlaceCalendar::Event.new
-    {% for param in %w(title location host all_day attendees) %}
+    new_event.attendees = attendees
+    {% for param in %w(title location host all_day) %}
       new_event.{{param.id}} = event.{{param.id}}
     {% end %}
     new_event.event_start = event.starting
     new_event.event_end = event.ending
+    new_event.body = event.title
+    new_event.timezone = timezone
 
     logger.debug { "creating booking: #{new_event.inspect}" }
 
     # convert to the simplified view
-    created_event = cal_client.create_event(user_id: me.email.downcase, event: new_event, calendar_id: book_on_behalf_of.downcase)
+    created_event = cal_client.create_event(user_id: my_email, event: new_event, calendar_id: host_email)
     Event.from_json(created_event.to_json).configure_times(timezone)
   end
 
