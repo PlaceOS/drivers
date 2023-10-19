@@ -20,7 +20,7 @@ class Place::Schedule < PlaceOS::Driver
 
   @platform : String = "office365"
   @email_domain : String = "org.com"
-  @conference_type : String = "office365"
+  @conference_type : String? = "teamsForBusiness"
   @fallback_timezone : Time::Location = Time::Location::UTC
 
   def on_load
@@ -28,7 +28,7 @@ class Place::Schedule < PlaceOS::Driver
     @fallback_timezone = Time::Location.load(timezone)
     @platform = setting?(String, :platform) || "office365"
     @email_domain = setting?(String, :email_domain) || "org.com"
-    @conference_type = setting?(String, :conference_type) || "teamsForBusiness"
+    @conference_type = setting?(String, :conference_type)
   end
 
   # =========================
@@ -129,7 +129,7 @@ class Place::Schedule < PlaceOS::Driver
     Event.from_json(created_event.to_json).configure_times(timezone)
   end
 
-  @[Description("update the details of an existing event. The original id is required, otherwise you only need to provide the changes. You must provide the complete list of attendees if that list is being modified. Don't provide a response_status for attendees when using this function")]
+  @[Description("update the details of an existing event. The original id is required, otherwise you only need to provide the changes. You must provide the complete list of attendees if that list is being modified. Don't provide a response_status for attendees when using this function. You can't modify events where the start time is in the past")]
   def modify(event : UpdateEvent)
     cal_client = place_calendar_client
     me = current_user
