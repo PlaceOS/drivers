@@ -108,7 +108,7 @@ class Place::Schedule < PlaceOS::Driver
     new_event.event_start = event.starting
     new_event.event_end = event.ending
 
-    logger.debug { "creating booking: #{new_event}" }
+    logger.debug { "creating booking: #{new_event.inspect}" }
 
     # convert to the simplified view
     created_event = cal_client.create_event(user_id: me.email.downcase, event: new_event, calendar_id: book_on_behalf_of.downcase)
@@ -132,7 +132,7 @@ class Place::Schedule < PlaceOS::Driver
     existing.event_start = event.starting.nil? ? existing.event_start : event.starting.not_nil!
     existing.event_end = event.ending.nil? ? existing.event_end : event.ending
 
-    logger.debug { "updating event: #{existing}" }
+    logger.debug { "updating event: #{existing.inspect}" }
 
     # update the event
     updated_event = cal_client.update_event(user_id: me.email, event: existing, calendar_id: existing.host)
