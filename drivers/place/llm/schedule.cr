@@ -42,10 +42,11 @@ class Place::Schedule < PlaceOS::Driver
       str << "my meeting room bookings will have me as the host or creator.\n"
       str << "meeting rooms are the attendees marked as resources.\n"
       str << "all day events may not have an ending time.\n"
+      str << "internal staff have the following email domain: #{@email_domain}. We can only obtain the schedules of internal staff\n"
     end
   end
 
-  @[Description("returns my schedule with event details. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc.")]
+  @[Description("returns my schedule with event details with attendees and their response status. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc.")]
   def my_schedule(day_offset : Int32 = 0)
     cal_client = place_calendar_client
     me = current_user
@@ -64,25 +65,164 @@ class Place::Schedule < PlaceOS::Driver
     events
   end
 
-  @[Description("returns free busy times of the email specified. This can be a person or a resource like a room")]
-  def get_schedule(emails : Array(String), day_offset : Int32 = 0)
-    nil
+  @[Description("returns free busy times of the emails specified. This can be a person or a resource like a room")]
+  def get_schedules(emails : Array(String), day_offset : Int32 = 0)
+    cal_client = place_calendar_client
+    me = current_user
+
+    now = Time.local(timezone)
+    days = day_offset.days
+    starting = now.at_beginning_of_day + days
+    ending = now.at_end_of_day + days
+    duration = ending - starting
+
+    logger.debug { "getting schedules for #{emails} @ #{starting} -> #{ending}" }
+
+    availability_view_interval = [duration, Time::Span.new(minutes: 30)].min.total_minutes.to_i!
+    busy = cal_client.get_availability(me.email, emails, starting, ending, view_interval: availability_view_interval)
+
+    # Remove busy times that are outside of the period
+    busy.each do |status|
+      new_availability = [] of PlaceCalendar::Availability
+      status.availability.each do |avail|
+        next if avail.status == PlaceCalendar::AvailabilityStatus::Busy &&
+                (starting <= avail.ends_at) && (ending >= avail.starts_at)
+        new_availability << avail
+      end
+      status.availability = new_availability
+    end
+    busy
+  end
+
+  @[Description("create a calendar entry with the provided event details. Make sure the attendees are available by getting their schedules first, remember to include the host in the attendees list. Don't specify an ending time for all day bookings. You can specify an alternate host if booking on behalf of someone else. Don't provide a response_status for attendees when using this function")]
+  def create(event : CreateEvent)
+    cal_client = place_calendar_client
+    me = current_user
+    book_on_behalf_of = event.host.presence || me.email
+
+    # create the calendar event
+    new_event = PlaceCalendar::Event.new
+    {% for param in %w(title location host all_day attendees) %}
+      new_event.{{param.id}} = event.{{param.id}}
+    {% end %}
+    new_event.event_start = event.starting
+    new_event.event_end = event.ending
+    new_event.timezone = timezone.name
+
+    # convert to the simplified view
+    created_event = cal_client.create_event(user_id: me.email.downcase, event: new_event, calendar_id: book_on_behalf_of.downcase)
+    Event.from_json(created_event.to_json)
+  end
+
+  @[Description("update the details of an existing event. The original id is required, otherwise you only need to provide the changes. You must provide the complete list of attendees if that list is being modified. Don't provide a response_status for attendees when using this function")]
+  def modify(event : UpdateEvent)
+    cal_client = place_calendar_client
+    me = current_user
+
+    # fetch existing event
+    existing = cal_client.get_event(me.email, id: event.id)
+    return "error: could not find event with id '#{event.id}', it may have been cancelled?" unless existing
+
+    # update with these new details
+    {% for param in %w(title location host attendees) %}
+      existing.{{param.id}} = event.{{param.id}}.nil? ? existing.{{param.id}} : event.{{param.id}}.not_nil!
+    {% end %}
+    existing.all_day = event.all_day.nil? ? existing.all_day? : event.all_day.not_nil!
+    existing.event_start = event.starting.nil? ? existing.event_start : event.starting.not_nil!
+    existing.event_end = event.ending.nil? ? existing.event_end : event.ending
+    existing.timezone = existing.timezone.presence ? existing.timezone : timezone.name
+
+    # update the event
+    updated_event = cal_client.update_event(user_id: me.email, event: existing, calendar_id: existing.host)
+    Event.from_json(updated_event.to_json)
+  end
+
+  @[Description("cancels an event. Confirm before performing this action and ask if they want to optionally provide a reason for the cancellation")]
+  def cancel(event_id : String, reason : String? = nil)
+    cal_client = place_calendar_client
+    me = current_user
+
+    cal_client.decline_event(
+      user_id: me.email,
+      id: event_id,
+      notify: !!reason,
+      comment: reason
+    )
+
+    "cancelled"
+  end
+
+  enum Attendance
+    Attend
+    Decline
+  end
+
+  @[Description("use to confirm your attendance at a meeting this will update your attendee response_status in the specified meeting from your schedule. You should probably provide a reason when declining, however this is optional")]
+  def attending_meeting(event_id : String, attendance : Attendance, reason : String? = nil)
+    cal_client = place_calendar_client
+    me = current_user
+
+    case attendance
+    in .decline?
+      cal_client.decline_event(
+        user_id: me.email,
+        id: event_id,
+        notify: true,
+        comment: reason
+      )
+
+      "declined"
+    in .attend?
+      cal_client.accept_event(
+        user_id: me.email,
+        id: event_id,
+        notify: true,
+        comment: reason
+      )
+
+      "attending"
+    end
   end
 
   # =========================
   # Support functions
   # =========================
 
+  struct CreateEvent
+    include JSON::Serializable
+
+    getter title : String
+    getter location : String?
+    getter host : String?
+    getter all_day : Bool = false
+    getter attendees : Array(PlaceCalendar::Event::Attendee) = [] of PlaceCalendar::Event::Attendee
+    getter starting : Time
+    getter ending : Time?
+  end
+
+  struct UpdateEvent
+    include JSON::Serializable
+
+    getter id : String
+    getter title : String?
+    getter location : String?
+    getter host : String?
+    getter attendees : Array(PlaceCalendar::Event::Attendee)?
+    getter starting : Time?
+    getter ending : Time?
+    getter all_day : Bool?
+  end
+
   struct Event
     include JSON::Serializable
 
+    getter id : String?
     getter title : String?
     getter location : String?
     getter status : String?
     getter host : String?
     getter creator : String?
     getter all_day : Bool
-    getter recurring : Bool = false
     getter attendees : Array(PlaceCalendar::Event::Attendee)
     getter online_meeting_url : String?
 
@@ -112,10 +252,6 @@ class Place::Schedule < PlaceOS::Driver
       ending
     end
   end
-
-  # struct System
-  #  include JSON::Serializable
-  # end
 
   struct User
     include JSON::Serializable
