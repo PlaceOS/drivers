@@ -37,12 +37,14 @@ class Place::Schedule < PlaceOS::Driver
 
   getter capabilities : String do
     String.build do |str|
-      str << "details of my daily schedule, meeting room bookings and events I'm attending.\n"
+      str << "lookup or search for the email and phone numbers other staff members.\n"
+      str << "provides details of my daily schedule, meeting room bookings and events I'm attending.\n"
       str << "meeting room bookings must have a resource as an attendee.\n"
       str << "my meeting room bookings will have me as the host or creator.\n"
       str << "meeting rooms are the attendees marked as resources.\n"
       str << "all day events may not have an ending time.\n"
       str << "internal staff have the following email domain: #{@email_domain}. We can only obtain the schedules of internal staff\n"
+      str << "check schedules before booking or moving meetings to ensure no one is busy at that time\n"
     end
   end
 
@@ -84,14 +86,14 @@ class Place::Schedule < PlaceOS::Driver
     tz = timezone
     cal_client.get_availability(me.email, emails, starting, ending, view_interval: availability_view_interval).map do |avail|
       {
-        email: avail.calendar,
+        email:    avail.calendar,
         schedule: avail.availability.map do |sched|
           {
-            status: sched.status,
+            status:   sched.status,
             starting: sched.starts_at.in(tz),
-            ending: sched.ends_at.in(tz),
+            ending:   sched.ends_at.in(tz),
           }
-        end
+        end,
       }
     end
   end
@@ -167,7 +169,7 @@ class Place::Schedule < PlaceOS::Driver
     Event.from_json(updated_event.to_json).configure_times(timezone)
   end
 
-  @[Description("cancels an event. Confirm before performing this action and ask if they want to optionally provide a reason for the cancellation")]
+  @[Description("cancels an event with an optional reason")]
   def cancel(event_id : String, reason : String? = nil)
     cal_client = place_calendar_client
     me = current_user
@@ -216,6 +218,20 @@ class Place::Schedule < PlaceOS::Driver
 
       "attending"
     end
+  end
+
+  @[Description("find a staff members name and phone number by providing their email address")]
+  def lookup_staff_member(email : String)
+    logger.debug { "looking up staff member: #{email}" }
+    cal_client = place_calendar_client
+    cal_client.get_user_by_email(email)
+  end
+
+  @[Description("search for a staff member using odata filter queries, don't include `$filter=`, for example: `givenName eq 'mary' or startswith(surname,'smith')`, confrim with the user when there are multiple results")]
+  def search_staff_member(filter : String)
+    logger.debug { "searching for staff member: #{filter}" }
+    cal_client = place_calendar_client
+    cal_client.list_users(filter: filter)
   end
 
   # =========================
@@ -281,7 +297,7 @@ class Place::Schedule < PlaceOS::Driver
       @time_zone = tz
       @starting = event_start.in(tz)
       @ending = event_end.try &.in(tz)
-      self 
+      self
     end
   end
 
