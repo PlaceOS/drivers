@@ -111,7 +111,7 @@ class Place::Schedule < PlaceOS::Driver
 
     # convert to the simplified view
     created_event = cal_client.create_event(user_id: me.email.downcase, event: new_event, calendar_id: book_on_behalf_of.downcase)
-    Event.from_json(created_event.to_json)
+    Event.from_json(created_event.to_json).configure_times(timezone)
   end
 
   @[Description("update the details of an existing event. The original id is required, otherwise you only need to provide the changes. You must provide the complete list of attendees if that list is being modified. Don't provide a response_status for attendees when using this function")]
@@ -134,7 +134,7 @@ class Place::Schedule < PlaceOS::Driver
 
     # update the event
     updated_event = cal_client.update_event(user_id: me.email, event: existing, calendar_id: existing.host)
-    Event.from_json(updated_event.to_json)
+    Event.from_json(updated_event.to_json).configure_times(timezone)
   end
 
   @[Description("cancels an event. Confirm before performing this action and ask if they want to optionally provide a reason for the cancellation")]
@@ -213,7 +213,7 @@ class Place::Schedule < PlaceOS::Driver
     getter all_day : Bool?
   end
 
-  struct Event
+  class Event
     include JSON::Serializable
 
     getter id : String?
@@ -247,6 +247,7 @@ class Place::Schedule < PlaceOS::Driver
       @time_zone = tz
       @starting = event_start.in(tz)
       @ending = event_end.try &.in(tz)
+      self 
     end
   end
 
