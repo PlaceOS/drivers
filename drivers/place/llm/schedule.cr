@@ -79,7 +79,21 @@ class Place::Schedule < PlaceOS::Driver
     logger.debug { "getting schedules for #{emails} @ #{starting} -> #{ending}" }
 
     availability_view_interval = {duration, 30.minutes}.min.total_minutes.to_i!
-    cal_client.get_availability(me.email, emails, starting, ending, view_interval: availability_view_interval)
+
+    # format the data that helps the LLM make sense of it
+    tz = timezone
+    cal_client.get_availability(me.email, emails, starting, ending, view_interval: availability_view_interval).map do |avail|
+      {
+        email: avail.calendar,
+        schedule: avail.availability.map do |sched|
+          {
+            status: sched.status,
+            starting: sched.starts_at.in(tz),
+            ending: sched.ends_at.in(tz),
+          }
+        end
+      }
+    end
   end
 
   @[Description("create a calendar entry with the provided event details. Make sure the attendees are available by getting their schedules first, remember to include the host in the attendees list. Don't specify an ending time for all day bookings. You can specify an alternate host if booking on behalf of someone else. Don't provide a response_status for attendees when using this function")]
