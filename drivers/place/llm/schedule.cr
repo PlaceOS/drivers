@@ -78,20 +78,8 @@ class Place::Schedule < PlaceOS::Driver
 
     logger.debug { "getting schedules for #{emails} @ #{starting} -> #{ending}" }
 
-    availability_view_interval = [duration, Time::Span.new(minutes: 30)].min.total_minutes.to_i!
-    busy = cal_client.get_availability(me.email, emails, starting, ending, view_interval: availability_view_interval)
-
-    # Remove busy times that are outside of the period
-    busy.each do |status|
-      new_availability = [] of PlaceCalendar::Availability
-      status.availability.each do |avail|
-        next if avail.status == PlaceCalendar::AvailabilityStatus::Busy &&
-                (starting <= avail.ends_at) && (ending >= avail.starts_at)
-        new_availability << avail
-      end
-      status.availability = new_availability
-    end
-    busy
+    availability_view_interval = {duration, 30.minutes}.min.total_minutes.to_i!
+    cal_client.get_availability(me.email, emails, starting, ending, view_interval: availability_view_interval)
   end
 
   @[Description("create a calendar entry with the provided event details. Make sure the attendees are available by getting their schedules first, remember to include the host in the attendees list. Don't specify an ending time for all day bookings. You can specify an alternate host if booking on behalf of someone else. Don't provide a response_status for attendees when using this function")]
