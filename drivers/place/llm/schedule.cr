@@ -124,7 +124,7 @@ class Place::Schedule < PlaceOS::Driver
     new_event.location = event.location
     new_event.all_day = event.all_day
     new_event.event_start = event.starting.in(timezone)
-    new_event.event_end = event.ending.in(timezone)
+    new_event.event_end = event.ending.try &.in(timezone)
     new_event.body = event.title
     new_event.timezone = timezone.name
     new_event.creator = my_email
@@ -151,8 +151,8 @@ class Place::Schedule < PlaceOS::Driver
       existing.{{param.id}} = event.{{param.id}}.nil? ? existing.{{param.id}} : event.{{param.id}}.not_nil!
     {% end %}
     existing.all_day = event.all_day.nil? ? existing.all_day? : event.all_day.not_nil!
-    existing.event_start = event.starting.nil? ? existing.event_start : event.starting.not_nil!
-    existing.event_end = event.ending.nil? ? existing.event_end : event.ending
+    existing.event_start = event.starting.nil? ? existing.event_start.in(timezone) : event.starting.not_nil!.in(timezone)
+    existing.event_end = event.ending.nil? ? existing.event_end.try(&.in(timezone)) : event.ending.not_nil!.in(timezone)
 
     logger.debug { "updating event: #{existing.inspect}" }
 
