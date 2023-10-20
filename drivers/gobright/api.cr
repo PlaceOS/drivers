@@ -105,6 +105,22 @@ class GoBright::API < PlaceOS::Driver
     Array(Space).from_json fetch("/api/v2.0/spaces?#{params}")
   end
 
+  # Paged list of state per space, filtered by location/spacetype
+  def spaces_state(location : String? = nil, types : SpaceType | Array(SpaceType)? = nil)
+    params = URI::Params.build do |form|
+      form.add "pagingTake", "100"
+      form.add "filterLocationId", location.to_s unless location.presence.nil?
+      if types
+        types = types.is_a?(Array) ? types : [types]
+        types.each do |type|
+          form.add "filterSpaceType", type.value.to_s
+        end
+      end
+    end
+
+    Array(Space).from_json fetch("/api/v2.0/spaces/state?#{params}")
+  end
+
   # the list of booking occurances in the time period specified
   def bookings(starting : Int64, ending : Int64, location_id : String | Array(String)? = nil, space_id : String | Array(String)? = nil)
     params = URI::Params.build do |form|
