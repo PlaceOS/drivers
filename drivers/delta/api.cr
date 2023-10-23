@@ -28,8 +28,10 @@ class Delta::API < PlaceOS::Driver
   end
 
   private def fetch(path : String)
-    request = "/enteliweb#{path}?alt=json"
-
+    logger.debug { config.uri } if @debug
+    request = "#{path}?alt=json"
+    logger.debug { request } if @debug
+    
     response = get(request, headers: HTTP::Headers{
       "User-Agent"    => @user_agent,
       "Accept"        => "*/*"
