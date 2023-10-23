@@ -34,6 +34,7 @@ class Delta::API < PlaceOS::Driver
     
     response = get(request, headers: HTTP::Headers{
       "User-Agent"    => @user_agent,
+      "Accept"        => "*/*"
     })
 
     logger.debug { response.headers } if @debug
