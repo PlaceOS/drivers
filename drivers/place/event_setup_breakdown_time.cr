@@ -1,7 +1,7 @@
 require "placeos-driver"
 require "place_calendar"
 
-class Place::SurveyMailer < PlaceOS::Driver
+class Place::EventSetupBreakdownTime < PlaceOS::Driver
   descriptive_name "PlaceOS Event Setup/Breakdown Time"
   generic_name :EventSetupBreakdownTime
   description %(Manages setup/breakdown time before/after events)
