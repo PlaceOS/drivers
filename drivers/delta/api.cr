@@ -32,11 +32,11 @@ class Delta::API < PlaceOS::Driver
 
   private def fetch(path : String)
     response = get("#{path}?alt=json", headers: HTTP::Headers{
-      "Authorization" => Base64.strict_encode("#{@username}:#{@password}"),
+      "Authorization" => ["Basic", Base64.strict_encode("#{@username}:#{@password}")].join(" "),
       "User-Agent"    => @user_agent,
     })
 
-    logger.debug { response } if @debug
+    logger.debug { response.headers } if @debug
     logger.debug { response.body } if @debug
 
     response
