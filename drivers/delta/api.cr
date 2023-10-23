@@ -10,6 +10,7 @@ class Delta::API < PlaceOS::Driver
     username:   "admin",
     password:   "admin",
     user_agent: "PlaceOS",
+    debug: false
   })
 
   def on_load
@@ -19,19 +20,26 @@ class Delta::API < PlaceOS::Driver
   @username : String = "admin"
   @password : String = "admin"
   @user_agent : String = "PlaceOS"
+  @debug : Bool = false
 
   def on_update
     @username = setting(String, :username)
     @password = setting(String, :password)
 
     @user_agent = setting?(String, :user_agent) || "PlaceOS"
+    @debug = setting?(Bool, :debug) || false
   end
 
   private def fetch(path : String)
-    get("#{path}?alt=json", headers: HTTP::Headers{
+    response = get("#{path}?alt=json", headers: HTTP::Headers{
       "Authorization" => Base64.strict_encode("#{@username}:#{@password}"),
       "User-Agent"    => @user_agent,
     })
+
+    logger.debug { response } if @debug
+    logger.debug { response.body } if @debug
+
+    response
   end
 
   # list all sites
