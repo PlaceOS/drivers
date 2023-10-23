@@ -7,8 +7,10 @@ class Delta::API < PlaceOS::Driver
   uri_base "https://example.delta.io"
 
   default_settings({
-    username:   "admin",
-    password:   "admin",
+    basic_auth: {
+      username: "srvc_acct",
+      password: "password!",
+    },
     user_agent: "PlaceOS",
     debug: false
   })
@@ -17,22 +19,20 @@ class Delta::API < PlaceOS::Driver
     on_update
   end
 
-  @username : String = "admin"
-  @password : String = "admin"
   @user_agent : String = "PlaceOS"
   @debug : Bool = false
 
   def on_update
-    @username = setting(String, :username)
-    @password = setting(String, :password)
-
     @user_agent = setting?(String, :user_agent) || "PlaceOS"
     @debug = setting?(Bool, :debug) || false
   end
 
   private def fetch(path : String)
-    response = get("#{path}?alt=json", headers: HTTP::Headers{
-      "Authorization" => ["Basic", Base64.strict_encode("#{@username}:#{@password}")].join(" "),
+    logger.debug { config.uri } if @debug
+    request = "#{path}?alt=json"
+    logger.debug { request } if @debug
+    
+    response = get(request, headers: HTTP::Headers{
       "User-Agent"    => @user_agent,
     })
 
