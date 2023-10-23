@@ -325,6 +325,13 @@ class Place::StaffAPI < PlaceOS::Driver
     PlaceCalendar::Event.from_json(response.body)
   end
 
+  def create_event(event : PlaceCalendar::Event)
+    response = post("/api/staff/v1/events", headers: authentication, body: event.to_json)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    PlaceCalendar::Event.from_json(response.body)
+  end
+
   def delete_event(system_id : String, event_id : String)
     response = delete("/api/staff/v1/events/#{event_id}?system_id=#{system_id}", headers: authentication)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success? || response.status_code == 404
