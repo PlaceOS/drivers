@@ -29,23 +29,30 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
 
     meta = EventMetadata.from_json staff_api.query_metadata(system_id: system_id, event_ref: [signal.event_id, signal.event_ical_uid]).get.to_json
 
+    linked_events = LinkedEvents.new(main_event_ical: event.ical_uid, main_event_id: event.id)
+    linked_events.setup_event_id = meta.setup_event_id if meta.setup_event_id
+    linked_events.breakdown_event_id = meta.breakdown_event_id if meta.breakdown_event_id
+
     # create/update setup event
     if meta.setup_time > 0
       if setup_event_id = meta.setup_event_id
         setup_event = PlaceCalendar::Event.from_json staff_api.get_event(event_id: setup_event_id, system_id: system_id, calendar: calendar).get.to_json
-        setup_event.event_start = event_start - meta.setup_time.seconds
+        setup_event.event_start = event_start - meta.setup_time.minutes
         setup_event.event_end = event_start
+        setup_event.body = "<<<#{linked_events.to_json}}>>>"
         staff_api.update_event(system_id: system_id, event: setup_event)
         logger.debug { "updated setup event #{setup_event}" }
       else
-        setup_event = PlaceCalendar::Event.from_json staff_api.get_event(
+        setup_event = PlaceCalendar::Event.from_json staff_api.create_event(
           PlaceCalendar::Event.new(
             host: calendar,
             title: "Setup for #{event.title}",
-            event_start: event_start - meta.setup_time.seconds,
+            event_start: event_start - meta.setup_time.minutes,
             event_end: event_start,
+            body: "<<<#{linked_events.to_json}}>>>",
           )).get.to_json
 
+        linked_events.setup_event_id = setup_event.id
         logger.debug { "created setup event #{setup_event}" }
         meta.setup_event_id = setup_event.id
       end
@@ -56,14 +63,18 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
       if breakdown_event_id = meta.breakdown_event_id
         breakdown_event = PlaceCalendar::Event.from_json staff_api.get_event(event_id: breakdown_event_id, system_id: system_id, calendar: calendar).get.to_json
         breakdown_event.event_start = event_end
-        breakdown_event.event_end = event_end + meta.breakdown_time.seconds
+        breakdown_event.event_end = event_end + meta.breakdown_time.minutes
+        breakdown_event.body = "<<<#{linked_events.to_json}}>>>"
+        staff_api.update_event(system_id: system_id, event: breakdown_event)
+        logger.debug { "updated breakdown event #{breakdown_event}" }
       else
-        breakdown_event = PlaceCalendar::Event.from_json staff_api.get_event(
+        breakdown_event = PlaceCalendar::Event.from_json staff_api.create_event(
           PlaceCalendar::Event.new(
             host: calendar,
             title: "Breakdown for #{event.title}",
             event_start: event_end,
-            event_end: event_end + meta.breakdown_time.seconds,
+            event_end: event_end + meta.breakdown_time.minutes,
+            body: "<<<#{linked_events.to_json}}>>>",
           )).get.to_json
 
         logger.debug { "created breakdown event #{breakdown_event}" }
@@ -91,6 +102,18 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
 
     # save metadata
     staff_api.patch_event_metadata(system_id: system_id, event_id: signal.event_id, metadata: meta, ical_uid: signal.event_ical_uid)
+  end
+
+  struct LinkedEvents
+    include JSON::Serializable
+
+    property main_event_ical : String?
+    property main_event_id : String?
+    property setup_event_id : String?
+    property breakdown_event_id : String?
+
+    def initialize(@main_event_ical : String?, @main_event_id : String?)
+    end
   end
 
   struct EventChangedSignal
