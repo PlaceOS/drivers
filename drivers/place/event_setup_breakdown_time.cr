@@ -22,9 +22,6 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
   private def event_changed(signal : EventChangedSignal)
     system_id = signal.system_id
     event = signal.event
-    calendar = event.host || signal.host || signal.resource
-    raise "missing event_start time" unless event_start = event.event_start
-    raise "missing event_end time" unless event_end = event.event_end
     cancelled = event.status == "cancelled" || signal.action == "cancelled"
 
     # delete setup/breakdown events if event is cancelled
@@ -34,23 +31,29 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
           system_id: system_id,
           event_id: setup_event_id,
         )
+        logger.debug { "deleted setup event #{setup_event_id}" }
       end
       if breakdown_event_id = event.breakdown_event_id
         staff_api.delete_event(
           system_id: system_id,
           event_id: breakdown_event_id,
         )
+        logger.debug { "deleted breakdown event #{breakdown_event_id}" }
       end
       return
     end
+
+    calendar = event.host || signal.host || signal.resource
+    raise "missing event_start time" unless event_start = event.event_start
+    raise "missing event_end time" unless event_end = event.event_end
 
     linked_events = LinkedEvents.new(main_event_ical: event.ical_uid, main_event_id: event.id)
     linked_events.setup_event_id = event.setup_event_id if event.setup_event_id
     linked_events.breakdown_event_id = event.breakdown_event_id if event.breakdown_event_id
 
     linked_events = LinkedEvents.new(main_event_ical: event.ical_uid, main_event_id: event.id)
-    linked_events.setup_event_id = meta.setup_event_id if meta.setup_event_id
-    linked_events.breakdown_event_id = meta.breakdown_event_id if meta.breakdown_event_id
+    linked_events.setup_event_id = event.setup_event_id if event.setup_event_id
+    linked_events.breakdown_event_id = event.breakdown_event_id if event.breakdown_event_id
 
     # create/update setup event
     if (setup_time = event.setup_time) && setup_time > 0
@@ -75,6 +78,13 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         logger.debug { "created setup event #{setup_event}" }
         event.setup_event_id = setup_event.id
       end
+    elsif (setup_time = event.setup_time) && (setup_event_id = event.setup_event_id) && setup_time == 0
+      staff_api.delete_event(
+        system_id: system_id,
+        event_id: setup_event_id,
+      )
+      logger.debug { "deleted setup event #{setup_event_id}" }
+      event.setup_event_id = ""
     end
 
     # create/update breakdown event
@@ -99,6 +109,13 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         logger.debug { "created breakdown event #{breakdown_event}" }
         event.breakdown_event_id = breakdown_event.id
       end
+    elsif (breakdown_time = event.breakdown_time) && (breakdown_event_id = event.breakdown_event_id) && breakdown_time == 0
+      staff_api.delete_event(
+        system_id: system_id,
+        event_id: breakdown_event_id,
+      )
+      logger.debug { "deleted breakdown event #{breakdown_event_id}" }
+      event.breakdown_event_id = ""
     end
 
     # save metadata
