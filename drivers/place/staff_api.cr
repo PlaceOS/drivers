@@ -338,14 +338,28 @@ class Place::StaffAPI < PlaceOS::Driver
     true
   end
 
-  def patch_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil)
-    response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?ical_uid=#{ical_uid}", headers: authentication, body: metadata.to_json)
+  def patch_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil, setup_time : Int64? = nil, breakdown_time : Int64? = nil, setup_event_id : String? = nil, breakdown_event_id : String? = nil)
+    params = URI::Params.build do |form|
+      form.add "ical_uid", ical_uid.to_s if ical_uid.presence
+      form.add "setup_time", setup_time.to_s if setup_time
+      form.add "breakdown_time", breakdown_time.to_s if breakdown_time
+      form.add "setup_event_id", setup_event_id.to_s if setup_event_id
+      form.add "breakdown_event_id", breakdown_event_id.to_s if breakdown_event_id
+    end
+    response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?#{params}", headers: authentication, body: metadata.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
     JSON::Any.from_json(response.body)
   end
 
-  def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil)
-    response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?ical_uid=#{ical_uid}", headers: authentication, body: metadata.to_json)
+  def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil, setup_time : Int64? = nil, breakdown_time : Int64? = nil, setup_event_id : String? = nil, breakdown_event_id : String? = nil)
+    params = URI::Params.build do |form|
+      form.add "ical_uid", ical_uid.to_s if ical_uid.presence
+      form.add "setup_time", setup_time.to_s if setup_time
+      form.add "breakdown_time", breakdown_time.to_s if breakdown_time
+      form.add "setup_event_id", setup_event_id.to_s if setup_event_id
+      form.add "breakdown_event_id", breakdown_event_id.to_s if breakdown_event_id
+    end
+    response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?#{params}", headers: authentication, body: metadata.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
     JSON::Any.from_json(response.body)
   end
