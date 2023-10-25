@@ -48,7 +48,7 @@ class GoBright::LocationService < PlaceOS::Driver
 
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
-    @desk_space_types = setting?(Array(SpaceType), :desk_space_types) || [SpaceType::Desk]  # By default the setting will not be present (so will be nil, which should query all Space Types)
+    @desk_space_types = setting?(Array(SpaceType), :desk_space_types) || [SpaceType::Desk] # By default the setting will not be present (so will be nil, which should query all Space Types)
     @default_space_type = setting?(SpaceType, :default_space_type) || nil
     @floor_mappings = setting(Hash(String, Mapping), :gobright_floor_mappings).transform_values(&.location_id)
     @zone_filter = @floor_mappings.keys
