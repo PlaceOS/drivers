@@ -7,6 +7,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
   description %(Manages setup/breakdown time before/after events)
 
   accessor staff_api : StaffAPI_1
+  accessor calendar : Calendar_1
 
   def on_load
     on_update
@@ -22,20 +23,21 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
   private def event_changed(signal : EventChangedSignal)
     system_id = signal.system_id
     event = signal.event
+    calendar_id = event.host || signal.host || signal.resource
     cancelled = event.status == "cancelled" || signal.action == "cancelled"
 
     # delete setup/breakdown events if event is cancelled
     if cancelled
       if setup_event_id = event.setup_event_id
-        staff_api.delete_event(
-          system_id: system_id,
+        calendar.delete_event(
+          calendar_id: calendar_id,
           event_id: setup_event_id,
         )
         logger.debug { "deleted setup event #{setup_event_id}" }
       end
       if breakdown_event_id = event.breakdown_event_id
-        staff_api.delete_event(
-          system_id: system_id,
+        calendar.delete_event(
+          calendar_id: calendar_id,
           event_id: breakdown_event_id,
         )
         logger.debug { "deleted breakdown event #{breakdown_event_id}" }
@@ -43,7 +45,6 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
       return
     end
 
-    calendar = event.host || signal.host || signal.resource
     raise "missing event_start time" unless event_start = event.event_start
     raise "missing event_end time" unless event_end = event.event_end
 
@@ -58,29 +59,28 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     # create/update setup event
     if (setup_time = event.setup_time) && setup_time > 0
       if setup_event_id = event.setup_event_id
-        setup_event = PlaceCalendar::Event.from_json staff_api.get_event(event_id: setup_event_id, system_id: system_id, calendar: calendar).get.to_json
+        setup_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id: calendar_id, event_id: setup_event_id).get.to_json
         setup_event.event_start = event_start - setup_time.minutes
         setup_event.event_end = event_start
         setup_event.body = "<<<#{linked_events.to_json}}>>>"
-        staff_api.update_event(system_id: system_id, event: setup_event)
+        calendar.update_event(event: setup_event, calendar_id: calendar_id)
         logger.debug { "updated setup event #{setup_event}" }
       else
-        setup_event = PlaceCalendar::Event.from_json staff_api.create_event(
-          PlaceCalendar::Event.new(
-            host: calendar,
-            title: "Setup for #{event.title}",
-            event_start: event_start - setup_time.minutes,
-            event_end: event_start,
-            body: "<<<#{linked_events.to_json}}>>>",
-          )).get.to_json
+        setup_event = PlaceCalendar::Event.from_json calendar.create_event(
+          calendar_id: calendar_id,
+          title: "Setup for #{event.title}",
+          event_start: event_start - setup_time.minutes,
+          event_end: event_start,
+          description: "<<<#{linked_events.to_json}}>>>",
+        ).get.to_json
 
         linked_events.setup_event_id = setup_event.id
         logger.debug { "created setup event #{setup_event}" }
         event.setup_event_id = setup_event.id
       end
     elsif (setup_time = event.setup_time) && (setup_event_id = event.setup_event_id) && setup_time == 0
-      staff_api.delete_event(
-        system_id: system_id,
+      calendar.delete_event(
+        calendar_id: calendar_id,
         event_id: setup_event_id,
       )
       logger.debug { "deleted setup event #{setup_event_id}" }
@@ -90,28 +90,27 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     # create/update breakdown event
     if (breakdown_time = event.breakdown_time) && breakdown_time > 0
       if breakdown_event_id = event.breakdown_event_id
-        breakdown_event = PlaceCalendar::Event.from_json staff_api.get_event(event_id: breakdown_event_id, system_id: system_id, calendar: calendar).get.to_json
+        breakdown_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id: calendar_id, event_id: breakdown_event_id).get.to_json
         breakdown_event.event_start = event_end
         breakdown_event.event_end = event_end + breakdown_time.minutes
         breakdown_event.body = "<<<#{linked_events.to_json}}>>>"
-        staff_api.update_event(system_id: system_id, event: breakdown_event)
+        calendar.update_event(event: breakdown_event, calendar_id: calendar_id)
         logger.debug { "updated breakdown event #{breakdown_event}" }
       else
-        breakdown_event = PlaceCalendar::Event.from_json staff_api.create_event(
-          PlaceCalendar::Event.new(
-            host: calendar,
-            title: "Breakdown for #{event.title}",
-            event_start: event_end,
-            event_end: event_end + breakdown_time.minutes,
-            body: "<<<#{linked_events.to_json}}>>>",
-          )).get.to_json
+        breakdown_event = PlaceCalendar::Event.from_json calendar.create_event(
+          calendar_id: calendar_id,
+          title: "Breakdown for #{event.title}",
+          event_start: event_end,
+          event_end: event_end + breakdown_time.minutes,
+          description: "<<<#{linked_events.to_json}}>>>",
+        ).get.to_json
 
         logger.debug { "created breakdown event #{breakdown_event}" }
         event.breakdown_event_id = breakdown_event.id
       end
     elsif (breakdown_time = event.breakdown_time) && (breakdown_event_id = event.breakdown_event_id) && breakdown_time == 0
-      staff_api.delete_event(
-        system_id: system_id,
+      calendar.delete_event(
+        calendar_id: calendar_id,
         event_id: breakdown_event_id,
       )
       logger.debug { "deleted breakdown event #{breakdown_event_id}" }
