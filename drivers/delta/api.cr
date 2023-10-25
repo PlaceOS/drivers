@@ -12,7 +12,7 @@ class Delta::API < PlaceOS::Driver
       password: "password!",
     },
     user_agent: "PlaceOS",
-    debug: false
+    debug:      false,
   })
 
   def on_load
@@ -31,10 +31,10 @@ class Delta::API < PlaceOS::Driver
     logger.debug { config.uri } if @debug
     request = "#{path}?alt=json"
     logger.debug { request } if @debug
-    
+
     response = get(request, headers: HTTP::Headers{
-      "User-Agent"    => @user_agent,
-      "Accept"        => "*/*"
+      "User-Agent" => @user_agent,
+      "Accept"     => "*/*",
     })
 
     logger.debug { response.headers } if @debug

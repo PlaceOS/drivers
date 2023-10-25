@@ -25,7 +25,24 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     calendar = event.host || signal.host || signal.resource
     raise "missing event_start time" unless event_start = event.event_start
     raise "missing event_end time" unless event_end = event.event_end
-    cancelled = event.status == "cancelled"
+    cancelled = event.status == "cancelled" || signal.action == "cancelled"
+
+    # delete setup/breakdown events if event is cancelled
+    if cancelled
+      if setup_event_id = event.setup_event_id
+        staff_api.delete_event(
+          system_id: system_id,
+          event_id: setup_event_id,
+        )
+      end
+      if breakdown_event_id = event.breakdown_event_id
+        staff_api.delete_event(
+          system_id: system_id,
+          event_id: breakdown_event_id,
+        )
+      end
+      return
+    end
 
     linked_events = LinkedEvents.new(main_event_ical: event.ical_uid, main_event_id: event.id)
     linked_events.setup_event_id = event.setup_event_id if event.setup_event_id
@@ -81,24 +98,6 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
 
         logger.debug { "created breakdown event #{breakdown_event}" }
         event.breakdown_event_id = breakdown_event.id
-      end
-    end
-
-    # delete setup/breakdown events if event is cancelled
-    if cancelled
-      if setup_event_id = event.setup_event_id
-        staff_api.delete_event(
-          system_id: system_id,
-          event_id: setup_event_id,
-        ).get
-        event.setup_event_id = nil
-      end
-      if breakdown_event_id = event.breakdown_event_id
-        staff_api.delete_event(
-          system_id: system_id,
-          event_id: breakdown_event_id,
-        ).get
-        event.breakdown_event_id = nil
       end
     end
 
