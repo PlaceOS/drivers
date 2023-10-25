@@ -31,6 +31,10 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     linked_events.setup_event_id = event.setup_event_id if event.setup_event_id
     linked_events.breakdown_event_id = event.breakdown_event_id if event.breakdown_event_id
 
+    linked_events = LinkedEvents.new(main_event_ical: event.ical_uid, main_event_id: event.id)
+    linked_events.setup_event_id = meta.setup_event_id if meta.setup_event_id
+    linked_events.breakdown_event_id = meta.breakdown_event_id if meta.breakdown_event_id
+
     # create/update setup event
     if (setup_time = event.setup_time) && setup_time > 0
       if setup_event_id = event.setup_event_id
@@ -107,6 +111,18 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     property breakdown_time : Int64? = nil
     property setup_event_id : String? = nil
     property breakdown_event_id : String? = nil
+  end
+
+  struct LinkedEvents
+    include JSON::Serializable
+
+    property main_event_ical : String?
+    property main_event_id : String?
+    property setup_event_id : String?
+    property breakdown_event_id : String?
+
+    def initialize(@main_event_ical : String?, @main_event_id : String?)
+    end
   end
 
   struct LinkedEvents
