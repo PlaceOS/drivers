@@ -629,7 +629,7 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def query_bookings(
-    type : String,
+    type : String? = nil,
     period_start : Int64? = nil,
     period_end : Int64? = nil,
     zones : Array(String) = [] of String,
@@ -649,7 +649,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s if period_start
       form.add "period_end", period_end.to_s if period_end
-      form.add "type", type
+      form.add "type", type.to_s if type.presence
 
       form.add "zones", zones.join(",") unless zones.empty?
       form.add "user", user.to_s if user.presence
