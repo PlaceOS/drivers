@@ -69,8 +69,8 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         setup_event = PlaceCalendar::Event.from_json calendar.create_event(
           calendar_id: calendar_id,
           title: "Setup for #{event.title}",
-          event_start: event_start - setup_time.minutes,
-          event_end: event_start,
+          event_start: (event_start - setup_time.minutes).to_unix,
+          event_end: event_start.to_unix,
           description: "<<<#{linked_events.to_json}}>>>",
         ).get.to_json
 
@@ -100,8 +100,8 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         breakdown_event = PlaceCalendar::Event.from_json calendar.create_event(
           calendar_id: calendar_id,
           title: "Breakdown for #{event.title}",
-          event_start: event_end,
-          event_end: event_end + breakdown_time.minutes,
+          event_start: event_end.to_unix,
+          event_end: (event_end + breakdown_time.minutes).to_unix,
           description: "<<<#{linked_events.to_json}}>>>",
         ).get.to_json
 
