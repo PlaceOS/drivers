@@ -23,7 +23,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
   private def event_changed(signal : EventChangedSignal)
     system_id = signal.system_id
     event = signal.event
-    calendar_id = event.host || signal.host || signal.resource
+    calendar_id = event.calendar || signal.resource
     cancelled = event.status == "cancelled" || signal.action == "cancelled"
 
     # delete setup/breakdown events if event is cancelled
