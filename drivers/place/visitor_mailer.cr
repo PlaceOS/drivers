@@ -23,6 +23,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     reminder_template:                  "visitor",
     event_template:                     "event",
     booking_template:                   "booking",
+    notify_checkin_template:            "notify_checkin",
     disable_qr_code:                    false,
     send_network_credentials:           false,
     network_password_length:            DEFAULT_PASSWORD_LENGTH,
@@ -77,6 +78,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @send_reminders : String? = nil
   @event_template : String = "event"
   @booking_template : String = "booking"
+  @notify_checkin_template : String = "notify_checkin"
   @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
   @network_password_length : Int32 = DEFAULT_PASSWORD_LENGTH
@@ -96,6 +98,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @reminder_template = setting?(String, :reminder_template) || "visitor"
     @event_template = setting?(String, :event_template) || "event"
     @booking_template = setting?(String, :booking_template) || "booking"
+    @notify_checkin_template = setting?(String, :notify_checkin_template) || "notify_checkin"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
@@ -143,6 +146,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       "booking_updated" => BookingGuest,
       "meeting_created" => EventGuest,
       "meeting_update"  => EventGuest,
+      "checkin"         => GuestCheckin
     }
 
     property action : String
@@ -183,6 +187,15 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
   end
 
+  class GuestCheckin < GuestNotification
+    include JSON::Serializable
+
+    property system_id : String = ""
+    property event_id : String = ""
+    property resource : String = ""
+    property resource_id : String = ""
+  end
+
   protected def guest_event(payload)
     logger.debug { "received guest event payload: #{payload}" }
     guest_details = GuestNotification.from_json payload
@@ -197,38 +210,41 @@ class Place::VisitorMailer < PlaceOS::Driver
       return if guest_details.attendee_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
     end
 
-    if guest_details.action == "checkin"
-      # send_checkedin_email(
-      #   guest_details.host,
-      #   guest_details.attendee_name,
-      # )
-      # self[:users_checked_in] = @users_checked_in += 1
-    else
-      case guest_details
-      in EventGuest
-        room = get_room_details(guest_details.system_id)
-        area_name = room.display_name.presence || room.name
-        template = @event_template
-      in BookingGuest
-        area_name = @booking_space_name
-        template = @booking_template
-      in GuestNotification
-        # should never get here
-        return
-      end
-
-      send_visitor_qr_email(
-        template,
+    case guest_details
+    in GuestCheckin
+      send_checkedin_email(
+        @notify_checkin_template,
         guest_details.attendee_email,
         guest_details.attendee_name,
         guest_details.host,
         guest_details.event_summary,
-        guest_details.event_starting,
-        guest_details.resource_id,
-        guest_details.event_id,
-        area_name
+        guest_details.event_starting
       )
+      self[:users_checked_in] = @users_checked_in += 1
+      return
+    in EventGuest
+      room = get_room_details(guest_details.system_id)
+      area_name = room.display_name.presence || room.name
+      template = @event_template
+    in BookingGuest
+      area_name = @booking_space_name
+      template = @booking_template
+    in GuestNotification
+      # should never get here
+      return
     end
+
+    send_visitor_qr_email(
+      template,
+      guest_details.attendee_email,
+      guest_details.attendee_name,
+      guest_details.host,
+      guest_details.event_summary,
+      guest_details.event_starting,
+      guest_details.resource_id,
+      guest_details.event_id,
+      area_name
+    )
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -237,6 +253,34 @@ class Place::VisitorMailer < PlaceOS::Driver
       time:  Time.local.to_s,
       user:  payload,
     }
+  end
+
+  @[Security(Level::Support)]
+  def send_checkedin_email(
+    template : String,
+    visitor_email : String,
+    visitor_name : String?,
+    host_email : String?,
+    event_title : String?,
+    event_start : Int64,
+  )
+    local_start_time = Time.unix(event_start).in(@time_zone)
+
+    mailer.send_template(
+      visitor_email,
+      {"visitor_invited", template}, # Template selection: "visitor_invited" "notify_checkin"
+      {
+        visitor_email:    visitor_email,
+        visitor_name:     visitor_name,
+        host_name:        get_host_name(host_email),
+        host_email:       host_email,
+        building_name:    building_zone.display_name.presence || building_zone.name,
+        event_title:      event_title,
+        event_start:      local_start_time.to_s(@time_format),
+        event_date:       local_start_time.to_s(@date_format),
+        event_time:       local_start_time.to_s(@time_format),
+      }
+    )
   end
 
   @[Security(Level::Support)]
