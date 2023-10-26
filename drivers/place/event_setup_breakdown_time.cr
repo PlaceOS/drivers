@@ -56,7 +56,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     end
 
     # skip if no changes
-    if meta = Array(EventMetadata).from_json(staff_api.query_metadata(system_id: system_id, event_ref: [signal.event_id, signal.event_ical_uid]).get.to_json).try &.first
+    if meta = Array(EventMetadata).from_json(staff_api.query_metadata(system_id: system_id, event_ref: [signal.event_id, signal.event_ical_uid]).get.to_json).first?
       if meta.setup_time == event.setup_time &&
          meta.setup_event_id == event.setup_event_id &&
          (
