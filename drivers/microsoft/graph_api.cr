@@ -6,7 +6,7 @@ class Microsoft::GraphAPI < PlaceOS::Driver
   descriptive_name "Microsoft Graph API"
   generic_name :Calendar
 
-  uri_base "https://staff.app.api.com"
+  uri_base "https://staff.api.com"
 
   default_settings({
     calendar_service_account: "service_account@email.address",
