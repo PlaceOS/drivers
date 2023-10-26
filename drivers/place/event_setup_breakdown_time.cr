@@ -64,7 +64,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         setup_event.event_end = event_start
         setup_event.body = "<<<#{linked_events.to_json}}>>>"
         calendar.update_event(event: setup_event, calendar_id: calendar_id)
-        logger.debug { "updated setup event #{setup_event}" }
+        logger.debug { "updated setup event #{setup_event_id} on #{calendar_id}" }
       else
         setup_event = PlaceCalendar::Event.from_json calendar.create_event(
           calendar_id: calendar_id,
@@ -72,10 +72,11 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
           event_start: (event_start - setup_time.minutes).to_unix,
           event_end: event_start.to_unix,
           description: "<<<#{linked_events.to_json}}>>>",
+          attendees: [PlaceCalendar::Event::Attendee.new(name: calendar_id, email: calendar_id, response_status: "accepted", resource: true, organizer: true)],
         ).get.to_json
 
         linked_events.setup_event_id = setup_event.id
-        logger.debug { "created setup event #{setup_event}" }
+        logger.debug { "created setup event #{setup_event.id} on #{calendar_id}" }
         event.setup_event_id = setup_event.id
       end
     elsif (setup_time = event.setup_time) && (setup_event_id = event.setup_event_id) && setup_time == 0
@@ -83,7 +84,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         calendar_id: calendar_id,
         event_id: setup_event_id,
       )
-      logger.debug { "deleted setup event #{setup_event_id}" }
+      logger.debug { "deleted setup event #{setup_event_id} on #{calendar_id}" }
       event.setup_event_id = ""
     end
 
@@ -95,7 +96,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         breakdown_event.event_end = event_end + breakdown_time.minutes
         breakdown_event.body = "<<<#{linked_events.to_json}}>>>"
         calendar.update_event(event: breakdown_event, calendar_id: calendar_id)
-        logger.debug { "updated breakdown event #{breakdown_event}" }
+        logger.debug { "updated breakdown event #{breakdown_event_id} on #{calendar_id}" }
       else
         breakdown_event = PlaceCalendar::Event.from_json calendar.create_event(
           calendar_id: calendar_id,
@@ -103,9 +104,10 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
           event_start: event_end.to_unix,
           event_end: (event_end + breakdown_time.minutes).to_unix,
           description: "<<<#{linked_events.to_json}}>>>",
+          attendees: [PlaceCalendar::Event::Attendee.new(name: calendar_id, email: calendar_id, response_status: "accepted", resource: true, organizer: true)],
         ).get.to_json
 
-        logger.debug { "created breakdown event #{breakdown_event}" }
+        logger.debug { "created breakdown event #{breakdown_event.id} on #{calendar_id}" }
         event.breakdown_event_id = breakdown_event.id
       end
     elsif (breakdown_time = event.breakdown_time) && (breakdown_event_id = event.breakdown_event_id) && breakdown_time == 0
@@ -113,7 +115,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
         calendar_id: calendar_id,
         event_id: breakdown_event_id,
       )
-      logger.debug { "deleted breakdown event #{breakdown_event_id}" }
+      logger.debug { "deleted breakdown event #{breakdown_event_id} on #{calendar_id}" }
       event.breakdown_event_id = ""
     end
 
