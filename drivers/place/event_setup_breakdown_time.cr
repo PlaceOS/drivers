@@ -9,15 +9,21 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
   accessor calendar : Calendar_1
 
+  @event_change_mutex : Mutex = Mutex.new
+
   def on_load
+    monitor("staff/event/changed") do |_subscription, payload|
+      logger.debug { "received event changed signal #{payload}" }
+
+      @event_change_mutex.synchronize do
+        event_changed(EventChangedSignal.from_json(payload))
+      end
+    end
+
     on_update
   end
 
   def on_update
-    monitor("staff/event/changed") do |_subscription, payload|
-      logger.debug { "received event changed signal #{payload}" }
-      event_changed(EventChangedSignal.from_json(payload))
-    end
   end
 
   private def event_changed(signal : EventChangedSignal)
@@ -47,6 +53,24 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
 
     raise "missing event_start time" unless event_start = event.event_start
     raise "missing event_end time" unless event_end = event.event_end
+
+    if meta = EventMetadata.from_json staff_api.query_metadata(system_id: system_id, event_ref: [signal.event_id, signal.event_ical_uid]).get.to_json
+      if meta.setup_time == event.setup_time &&
+         meta.setup_event_id == event.setup_event_id &&
+         (
+           (meta.setup_time > 0 && meta.setup_event_id) ||
+           (meta.setup_time == 0 && !meta.setup_event_id.presence)
+         ) &&
+         meta.breakdown_time == event.breakdown_time &&
+         meta.breakdown_event_id == event.breakdown_event_id &&
+         (
+           (meta.breakdown_time > 0 && meta.breakdown_event_id) ||
+           (meta.breakdown_time == 0 && !meta.breakdown_event_id.presence)
+         )
+        logger.debug { "skipping event #{signal.event_id} on #{calendar_id} as no changes" }
+        return
+      end
+    end
 
     linked_events = LinkedEvents.new(main_event_ical: event.ical_uid, main_event_id: event.id)
     linked_events.setup_event_id = event.setup_event_id if event.setup_event_id
