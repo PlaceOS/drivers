@@ -30,7 +30,7 @@ class DisplayMock < DriverSpecs::MockDriver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
-    self[:mute] = state
+    self[:audio_mute] = state
   end
 
   def volume(level : Int32 | Float64)
@@ -86,12 +86,13 @@ DriverSpecs.mock_driver "Place::Meet" do
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
   system(:Display_1)["power"].should be_true
 
-  exec(:mute, true, "Display_1").get
-  status["mute"]?.should be_true
-
   exec(:volume, 50, "Display_1").get
   system(:Display_1)["volume"].should eq(50)
   status["volume"]?.should eq(50)
+
+  exec(:mute, true, "Display_1").get
+  system(:Display_1)["audio_mute"].should be_true
+  status["mute"]?.should be_true
 
   puts "Spec completed successfully"
 end
