@@ -187,7 +187,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.23.0
+    version: 1.23.2
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
