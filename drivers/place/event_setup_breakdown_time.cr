@@ -13,10 +13,14 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
 
   def on_load
     monitor("staff/event/changed") do |_subscription, payload|
-      logger.debug { "received event changed signal #{payload}" }
+      begin
+        logger.debug { "received event changed signal #{payload}" }
 
-      @event_change_mutex.synchronize do
-        event_changed(EventChangedSignal.from_json(payload))
+        @event_change_mutex.synchronize do
+          event_changed(EventChangedSignal.from_json(payload))
+        end
+      rescue error
+        logger.warn(exception: error) { "error processing event changed signal" }
       end
     end
 
