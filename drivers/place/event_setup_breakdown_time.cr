@@ -54,6 +54,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     raise "missing event_start time" unless event_start = event.event_start
     raise "missing event_end time" unless event_end = event.event_end
 
+    # skip if no changes
     if meta = EventMetadata.from_json staff_api.query_metadata(system_id: system_id, event_ref: [signal.event_id, signal.event_ical_uid]).get.to_json
       if meta.setup_time == event.setup_time &&
          meta.setup_event_id == event.setup_event_id &&
