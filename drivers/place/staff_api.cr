@@ -456,7 +456,8 @@ class Place::StaffAPI < PlaceOS::Driver
     time_zone : String? = nil,
     extension_data : JSON::Any? = nil,
     utm_source : String? = nil,
-    limit_override : Int64? = nil
+    limit_override : Int64? = nil,
+    attendees : Array(PlaceCalendar::Event::Attendee)? = nil
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -487,6 +488,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "description"    => description,
       "timezone"       => time_zone,
       "extension_data" => extension_data || JSON.parse("{}"),
+      "attendees"      => attendees,
     }.compact.to_json)
     raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
     true

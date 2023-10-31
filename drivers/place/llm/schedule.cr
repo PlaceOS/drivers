@@ -24,6 +24,10 @@ class Place::Schedule < PlaceOS::Driver
   @fallback_timezone : Time::Location = Time::Location::UTC
 
   def on_load
+    on_update
+  end
+
+  def on_update
     timezone = config.control_system.not_nil!.timezone.presence || setting?(String, :time_zone).presence || "Australia/Sydney"
     @fallback_timezone = Time::Location.load(timezone)
     @platform = setting?(String, :platform) || "office365"
