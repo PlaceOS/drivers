@@ -190,12 +190,12 @@ class Place::Bookings < PlaceOS::Driver
     end
   end
 
-  private def check_in_actual(meeting_start_time : Int64)
+  private def check_in_actual(meeting_start_time : Int64, check_bookings : Bool = true)
     logger.debug { "starting meeting @ #{meeting_start_time}" }
     @last_booking_started = meeting_start_time
     define_setting(:last_booking_started, meeting_start_time)
     self[:last_booking_started] = meeting_start_time
-    check_current_booking(self[:bookings].as_a)
+    check_current_booking(self[:bookings].as_a) if check_bookings
   end
 
   # End either the current meeting early, or the pending meeting
@@ -265,6 +265,8 @@ class Place::Bookings < PlaceOS::Driver
     )
     # Update booking info after creating event
     schedule.in(2.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
+
+    check_in_actual starting, check_bookings: false
     event
   end
 
