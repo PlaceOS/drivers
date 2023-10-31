@@ -146,7 +146,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       "booking_updated" => BookingGuest,
       "meeting_created" => EventGuest,
       "meeting_update"  => EventGuest,
-      "checkin"         => GuestCheckin
+      "checkin"         => GuestCheckin,
     }
 
     property action : String
@@ -262,7 +262,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     visitor_name : String?,
     host_email : String?,
     event_title : String?,
-    event_start : Int64,
+    event_start : Int64
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -270,16 +270,16 @@ class Place::VisitorMailer < PlaceOS::Driver
       visitor_email,
       {"visitor_invited", template}, # Template selection: "visitor_invited" "notify_checkin"
       {
-        visitor_email:    visitor_email,
-        visitor_name:     visitor_name,
-        host_name:        get_host_name(host_email),
-        host_email:       host_email,
-        building_name:    building_zone.display_name.presence || building_zone.name,
-        event_title:      event_title,
-        event_start:      local_start_time.to_s(@time_format),
-        event_date:       local_start_time.to_s(@date_format),
-        event_time:       local_start_time.to_s(@time_format),
-      }
+      visitor_email: visitor_email,
+      visitor_name:  visitor_name,
+      host_name:     get_host_name(host_email),
+      host_email:    host_email,
+      building_name: building_zone.display_name.presence || building_zone.name,
+      event_title:   event_title,
+      event_start:   local_start_time.to_s(@time_format),
+      event_date:    local_start_time.to_s(@date_format),
+      event_time:    local_start_time.to_s(@time_format),
+    }
     )
   end
 
