@@ -50,6 +50,30 @@ module Delta
 
       @[JSON::Field(key: "cov-increment")]
       property cov_increment : GenericValue?
+
+      @[JSON::Field(key: "present-value")]
+      property present_value : GenericValue?
+
+      @[JSON::Field(key: "status-flags")]
+      property status_flags : GenericValue?
+
+      @[JSON::Field(key: "event-state")]
+      property event_state : GenericValue?
+
+      @[JSON::Field(key: "out-of-service")]
+      property out_of_service : GenericValue?
+
+      @[JSON::Field(key: "present-value")]
+      property present_value : GenericValue?
+
+      @[JSON::Field(key: "units")]
+      property units : GenericValue?
+
+      @[JSON::Field(key: "description")]
+      property description : GenericValue?
+
+      @[JSON::Field(key: "reliability")]
+      property reliability : GenericValue?
     end
   end
 end
