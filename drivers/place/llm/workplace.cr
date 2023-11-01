@@ -81,12 +81,16 @@ class Place::Workplace < PlaceOS::Driver
   alias Metadata = Hash(String, PlaceOS::Client::API::Models::Metadata)
   alias ChildMetadata = Array(NamedTuple(zone: PlaceZone, metadata: Metadata))
 
-  @[Description("returns the list of available desks on the level and day specified. Make sure to get the list of levels first for the appropriate ids")]
+  @[Description("returns the list of available desks on the level and day specified. Make sure to get the list of levels first for the appropriate level_id")]
   def desks(level_id : String, day_offset : Int32 = 0)
     logger.debug { "listing desks on level #{level_id}, day offset #{day_offset}" }
 
     # get the list of desks for the level
-    response = Metadata.from_json(staff_api.metadata(level_id, "desks").get.to_json).dig?("desks", "details")
+    all_desks = staff_api.metadata(level_id, "desks").get
+    response = Metadata.from_json(all_desks.to_json).dig?("desks", "details")
+
+    logger.debug { "found desks: #{response}\nin metadata: #{all_desks}" }
+
     return [] of Desk unless response
 
     desks = Array(Desk).from_json(response)
