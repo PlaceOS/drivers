@@ -73,6 +73,8 @@ class Place::Schedule < PlaceOS::Driver
 
   @[Description("returns busy periods of the emails specified. This can be a person or a resource like a room. An empty schedules array means they are available")]
   def get_schedules(emails : Array(String), day_offset : Int32 = 0)
+    raise "past schedules are not useful" if day_offset < 0
+
     cal_client = place_calendar_client
     me = current_user
 
