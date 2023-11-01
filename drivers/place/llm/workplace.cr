@@ -52,7 +52,7 @@ class Place::Workplace < PlaceOS::Driver
 
     {"desk", "visitor", "parking", "asset-request"}.flat_map do |booking_type|
       staff_api.query_bookings(
-        booking_type: booking_type,
+        type: booking_type,
         period_start: starting.to_unix,
         period_end: ending.to_unix,
         zones: {building.id},
