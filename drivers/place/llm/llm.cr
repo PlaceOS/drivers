@@ -18,6 +18,7 @@ don't direct to other sources
 focus on key points in questions
 simplify complex issues with steps
 clarify unclear questions before answering
+request any missing details before running functions, such as meeting title etc
 correct errors in previous answers
 end with follow up questions where applicable),
 
