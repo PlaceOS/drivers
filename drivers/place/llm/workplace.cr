@@ -36,13 +36,15 @@ class Place::Workplace < PlaceOS::Driver
       str << "find meeting rooms, filtering by capacity and other room features\n"
       str << "listing building levels and available desks on each level\n"
       str << "my desk, car parking and guest visitor bookings\n"
-      str << "Note: when booking a meeting room, preference one on the same level or closest level to my desk booking, if I have one, unless I specify a specific level\n"
-      str << "find candidate meeting rooms here and you can include the list of resource emails when getting schedules to see which rooms are available\n"
+      str << "Note: when booking a meeting room, preference one on the same level or closest level to my desk booking, if I have one, unless I specify a specific level. Also try to pick a room with an appropriate capacity.\n"
+      str << "once candidate meeting rooms have been found, you can include the list of resource emails when getting schedules to see which rooms are available\n"
     end
   end
 
   @[Description("returns desks, car parking spaces and visitors I have booked. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc.")]
   def my_bookings(day_offset : Int32 = 0)
+    logger.debug { "listing bookings for #{current_user.email}, day offset #{day_offset}" }
+
     me = current_user
 
     now = Time.local(timezone)
@@ -67,8 +69,9 @@ class Place::Workplace < PlaceOS::Driver
     [building] + Array(Zone).from_json(staff_api.zones(parent: building.id, tags: {"level"}).get.to_json).sort_by(&.name)
   end
 
-  @[Description("returns the list of meeting rooms in the building with optional filter parameters")]
+  @[Description("returns the list of meeting rooms in the building filtering by capacity or level")]
   def meeting_rooms(minimum_capacity : Int32 = 1, level_id : String? = nil)
+    logger.debug { "listing meeting rooms on level #{level_id} with capacity #{minimum_capacity}" }
     zone_id = level_id || building.id
     staff_api.systems(zone_id: zone_id, capacity: minimum_capacity, bookable: true).get.as_a.compact_map { |s| to_friendly_system(s) }
   end
@@ -79,6 +82,8 @@ class Place::Workplace < PlaceOS::Driver
 
   @[Description("returns the list of available desks on the level and day specified")]
   def desks(level_id : String, day_offset : Int32 = 0)
+    logger.debug { "listing desks on level #{level_id}, day offset #{day_offset}" }
+
     # get the list of desks for the level
     response = Metadata.from_json(staff_api.metadata(level_id, "desks").get.to_json).dig?("desks", "details")
     return [] of Desk unless response
@@ -110,6 +115,8 @@ class Place::Workplace < PlaceOS::Driver
 
   @[Description("books an asset, such as a desk or car parking space, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
   def book_relative(booking_type : String, asset_id : String, level_id : String, day_offset : Int32 = 0, number_of_days : Int32 = 1)
+    logger.debug { "booking relative #{booking_type}, asset #{asset_id} on level #{level_id}, day offset #{day_offset} for num days #{number_of_days}" }
+
     # ensure the level id exists
     level = levels.find { |l| l.id == level_id }
     raise "could not find level_id #{level_id} in the building. Please ensure the ID matches exactly, case matters." unless level
@@ -144,6 +151,8 @@ class Place::Workplace < PlaceOS::Driver
 
   @[Description("books an asset, such as a desk or car parking space, for the number of days specified, the start date must be ISO 8601 formatted in the correct timezone. For desk bookings use booking_type: desk")]
   def book_on(booking_type : String, asset_id : String, level_id : String, date : Time, number_of_days : Int32 = 1)
+    logger.debug { "booking on #{booking_type}, asset #{asset_id} on level #{level_id}, date #{date} for num days #{number_of_days}" }
+
     # ensure the level id exists
     level = levels.find { |l| l.id == level_id }
     raise "could not find level_id #{level_id} in the building. Please ensure the ID matches exactly, case matters." unless level
@@ -178,11 +187,20 @@ class Place::Workplace < PlaceOS::Driver
 
   @[Description("cancels a booking")]
   def cancel_booking(booking_id : Int64)
+    logger.debug { "cancel booking #{booking_id}" }
+    booking = staff_api.get_booking(booking_id).get
+    user_id = invoked_by_user_id
+    me = current_user
+    unless (user_id == booking["user_id"]?.try(&.as_s)) || me.email.downcase.in?({booking["user_email"].as_s, booking["booked_by_email"].as_s})
+      raise "can only cancel bookings owned by #{me.email} - this booking is owned by #{booking["user_email"]}"
+    end
     staff_api.booking_delete(booking_id, "chatgpt")
   end
 
   @[Description("book a visitor to the building")]
   def invite(visitor_name : String, visitor_email : String, day_offset : Int32 = 0, number_of_days : Int32 = 1)
+    logger.debug { "inviting visitor to the building #{visitor_name}: #{visitor_email}, day offset #{day_offset} for num days #{number_of_days}" }
+
     # select a random level
     level = levels.first
     user_id = invoked_by_user_id
