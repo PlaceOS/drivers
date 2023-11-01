@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/chat_functions"
+require "set"
 
 # metadata class
 require "placeos"
@@ -73,7 +74,17 @@ class Place::Workplace < PlaceOS::Driver
     l.each do |level|
       all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
       if all_desks
-        level.number_of_bookable_desks = all_desks.as_a.size
+        desks = all_desks.as_a
+        level.bookable_desk_count = desks.size
+        features = Set(String).new
+        desks.each do |desk|
+          if feat = desk["features"]?
+            feat.as_a.each { |f| features << f.as_s }
+          end
+        end
+        level.desk_features = features.to_a unless features.empty?
+      else
+        level.bookable_desk_count = 0
       end
     end
     l
@@ -99,8 +110,8 @@ class Place::Workplace < PlaceOS::Driver
   alias Metadata = Hash(String, PlaceOS::Client::API::Models::Metadata)
   alias ChildMetadata = Array(NamedTuple(zone: PlaceZone, metadata: Metadata))
 
-  @[Description("returns the list of available desks on the level and day specified. Make sure to get the list of levels first for the appropriate level_id")]
-  def desks(level_id : String, day_offset : Int32 = 0)
+  @[Description("returns the list of available desks on the level and day specified. If the level has desk features then you can also filter by features")]
+  def desks(level_id : String, day_offset : Int32 = 0, feature : String? = nil)
     logger.debug { "listing desks on level #{level_id}, day offset #{day_offset}" }
 
     # ensure the level id exists
@@ -128,14 +139,15 @@ class Place::Workplace < PlaceOS::Driver
     # filter out desks that are not available to the user
     desks.reject! do |desk|
       next true if desk.id.in?(bookings)
+      next true if feature && !desk.features.includes?(feature)
       if !desk.groups.empty?
         (desk.groups & me.groups).empty?
       end
     end
 
+    # need to limit the results as the LLM runs out of memory
     logger.debug { "found #{desks.size} available desks" }
-
-    desks
+    desks[0..10].sample(5)
   end
 
   @[Description("books an asset, such as a desk or car parking space, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
@@ -148,7 +160,10 @@ class Place::Workplace < PlaceOS::Driver
 
     user_id = invoked_by_user_id
     me = current_user
-    now = Time.local(timezone).at_beginning_of_day
+    current_time = Time.local(timezone)
+    now = current_time.at_beginning_of_day
+
+    raise "booking in the past is not permitted" unless day_offset > 0 || (day_offset == 0 && current_time.hour < 18)
 
     # ensure the asset exists if we can check for it
     case booking_type
@@ -198,6 +213,8 @@ class Place::Workplace < PlaceOS::Driver
     user_id = invoked_by_user_id
     me = current_user
     now = date.in(timezone).at_beginning_of_day
+    current_time = Time.local(timezone)
+    raise "booking in the past is not permitted" unless current_time < now || (current_time - now) < 18.hours
 
     # ensure the asset exists if we can check for it
     case booking_type
@@ -255,7 +272,11 @@ class Place::Workplace < PlaceOS::Driver
     level = levels.first
     user_id = invoked_by_user_id
     me = current_user
-    now = Time.local(timezone).at_beginning_of_day
+    current_time = Time.local(timezone)
+    now = current_time.at_beginning_of_day
+
+    raise "booking in the past is not permitted" unless day_offset > 0 || (day_offset == 0 && current_time.hour < 16)
+
     visitor_email = visitor_email.downcase
 
     resp = nil
@@ -297,7 +318,6 @@ class Place::Workplace < PlaceOS::Driver
     include JSON::Serializable
 
     getter id : String
-    getter name : String
     getter groups : Array(String) = [] of String
     getter features : Array(String) = [] of String
   end
@@ -321,27 +341,26 @@ class Place::Workplace < PlaceOS::Driver
 
     getter id : String? = nil
     getter name : String
-    getter display_name : String? = nil
-    getter description : String
     getter features : Array(String)
     getter email : String?
     getter capacity : Int32 = 0
 
-    getter level : Zone
+    getter level_id : String
     getter map_id : String? = nil
-    getter images : Array(String)
 
-    def initialize(@level : Zone, system : JSON::Any)
+    # getter images : Array(String)
+
+    def initialize(level : Zone, system : JSON::Any)
       sys = system.as_h
       @id = sys["id"].as_s
-      @name = sys["name"].as_s
-      @display_name = sys["display_name"]?.try &.as_s?
-      @description = sys["description"]?.try &.as_s? || ""
+      @name = sys["display_name"]?.try(&.as_s?) || sys["name"].as_s
+      # @description = sys["description"]?.try &.as_s? || ""
       @features = sys["features"].as_a.map(&.as_s)
-      @images = sys["images"].as_a.map(&.as_s)
+      # @images = sys["images"].as_a.map(&.as_s)
       @email = sys["email"]?.try &.as_s?
       @capacity = sys["capacity"].as_i
       @map_id = sys["map_id"]?.try &.as_s?
+      @level_id = level.id
     end
   end
 
@@ -371,14 +390,14 @@ class Place::Workplace < PlaceOS::Driver
     getter user_id : String?
     getter user_email : String
     getter user_name : String
-    getter level : Zone
+    getter level_id : String
 
     # getter booked_by_email : String
     # getter booked_by_name : String
 
     getter checked_in : Bool = false
 
-    def initialize(@level : Zone, book : JSON::Any, timezone : Time::Location)
+    def initialize(level : Zone, book : JSON::Any, timezone : Time::Location)
       b = book.as_h
       @id = b["id"].as_s
       @starting = Time.unix(b["booking_start"].as_i64).in(timezone)
@@ -389,6 +408,7 @@ class Place::Workplace < PlaceOS::Driver
       @user_email = b["user_email"].as_s
       @user_name = b["user_name"].as_s
       @checked_in = b["checked_in"].as_bool
+      @level_id = level.id
 
       # @booked_by_email = b["booked_by_email"].as_s
       # @booked_by_name = b["booked_by_name"].as_s
@@ -425,7 +445,8 @@ class Place::Workplace < PlaceOS::Driver
     getter display_name : String?
     getter tags : Array(String)
 
-    property number_of_bookable_desks : Int32? = nil
+    property bookable_desk_count : Int32? = nil
+    property desk_features : Array(String)? = nil
 
     @[JSON::Field(key: "timezone")]
     getter tz : String?
