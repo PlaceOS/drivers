@@ -147,7 +147,7 @@ class Place::Workplace < PlaceOS::Driver
 
     # need to limit the results as the LLM runs out of memory
     logger.debug { "found #{desks.size} available desks" }
-    desks[0..10].sample(5)
+    desks.sample(5)
   end
 
   @[Description("books an asset, such as a desk or car parking space, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
