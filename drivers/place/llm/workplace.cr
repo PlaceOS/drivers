@@ -50,13 +50,16 @@ class Place::Workplace < PlaceOS::Driver
     starting = now.at_beginning_of_day + days
     ending = now.at_end_of_day + days
 
-    staff_api.query_bookings(
-      period_start: starting.to_unix,
-      period_end: ending.to_unix,
-      zones: {building.id},
-      user: invoked_by_user_id,
-      email: me.email
-    ).get.as_a.compact_map { |b| to_friendly_booking(b) }
+    {"desk", "visitor", "parking", "asset-request"}.flat_map do |booking_type|
+      staff_api.query_bookings(
+        booking_type: booking_type,
+        period_start: starting.to_unix,
+        period_end: ending.to_unix,
+        zones: {building.id},
+        user: invoked_by_user_id,
+        email: me.email
+      ).get.as_a.compact_map { |b| to_friendly_booking(b) }
+    end
   end
 
   @[Description("returns the building and list of levels")]
