@@ -66,8 +66,12 @@ class Place::Workplace < PlaceOS::Driver
     end
   end
 
-  @[Description("returns the building and list of levels")]
-  getter levels : Array(Zone) do
+  @[Description("returns the building details and list of levels")]
+  def levels : Array(Zone)
+    all_levels
+  end
+
+  getter all_levels : Array(Zone) do
     [building] + Array(Zone).from_json(staff_api.zones(parent: building.id, tags: {"level"}).get.to_json).sort_by(&.name)
   end
 
