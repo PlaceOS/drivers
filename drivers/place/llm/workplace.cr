@@ -33,11 +33,12 @@ class Place::Workplace < PlaceOS::Driver
 
   getter capabilities : String do
     String.build do |str|
-      str << "find meeting rooms, filtering by capacity and other room features\n"
-      str << "listing building levels and available desks on each level\n"
-      str << "my desk, car parking and guest visitor bookings\n"
+      str << "functions for listing building levels to obtain level names and level ids\n"
+      str << "find meeting rooms, filtering by capacity and or level id\n"
+      str << "my current desk, car parking and guest visitor bookings\n"
       str << "Note: when booking a meeting room, preference one on the same level or closest level to my desk booking, if I have one, unless I specify a specific level. Also try to pick a room with an appropriate capacity.\n"
       str << "once candidate meeting rooms have been found, you can include the list of resource emails when getting schedules to see which rooms are available\n"
+      str << "this capability also supports managing desk bookings and inviting visitors to the building"
     end
   end
 
@@ -80,7 +81,7 @@ class Place::Workplace < PlaceOS::Driver
   alias Metadata = Hash(String, PlaceOS::Client::API::Models::Metadata)
   alias ChildMetadata = Array(NamedTuple(zone: PlaceZone, metadata: Metadata))
 
-  @[Description("returns the list of available desks on the level and day specified")]
+  @[Description("returns the list of available desks on the level and day specified. Make sure to get the list of levels first for the appropriate ids")]
   def desks(level_id : String, day_offset : Int32 = 0)
     logger.debug { "listing desks on level #{level_id}, day offset #{day_offset}" }
 
