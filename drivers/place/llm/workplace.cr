@@ -68,7 +68,15 @@ class Place::Workplace < PlaceOS::Driver
 
   @[Description("returns the building details and list of levels")]
   def levels : Array(Zone)
-    all_levels
+    logger.debug { "getting list of levels" }
+    l = all_levels
+    l.each do |level|
+      all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
+      if all_desks
+        level.number_of_bookable_desks = all_desks.as_a.size
+      end
+    end
+    l
   end
 
   getter all_levels : Array(Zone) do
@@ -95,17 +103,14 @@ class Place::Workplace < PlaceOS::Driver
   def desks(level_id : String, day_offset : Int32 = 0)
     logger.debug { "listing desks on level #{level_id}, day offset #{day_offset}" }
 
-    # get the list of desks for the level
-    all_desks = staff_api.metadata(level_id, "desks").get
-    response = Metadata.from_json(all_desks.to_json).dig?("desks", "details")
-
     # ensure the level id exists
     level = levels.find { |l| l.id == level_id }
     raise "could not find level_id #{level_id} in the building. Make sure you've obtained the list of levels." unless level
 
-    return [] of Desk unless response
-
-    desks = Array(Desk).from_json(response)
+    # get the list of desks for the level
+    all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
+    raise "no bookable desks on this level, please try another." unless all_desks
+    desks = Array(Desk).from_json(all_desks.to_json)
 
     # calculate the offset time
     now = Time.local(timezone)
@@ -148,12 +153,9 @@ class Place::Workplace < PlaceOS::Driver
     # ensure the asset exists if we can check for it
     case booking_type
     when "desk"
-      all_desks = staff_api.metadata(level_id, "desks").get
-      response = Metadata.from_json(all_desks.to_json).dig?("desks", "details")
-
-      raise "no desks found on level #{level_id}, ensure this id is correct" unless response
-
-      desks = Array(Desk).from_json(response)
+      all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
+      raise "no desks found on level #{level_id}, ensure this id is correct" unless all_desks
+      desks = Array(Desk).from_json(all_desks.to_json)
       desk = desks.find { |d| d.id == asset_id }
 
       raise "could not find a desk with id: #{asset_id}" unless desk
@@ -200,12 +202,9 @@ class Place::Workplace < PlaceOS::Driver
     # ensure the asset exists if we can check for it
     case booking_type
     when "desk"
-      all_desks = staff_api.metadata(level_id, "desks").get
-      response = Metadata.from_json(all_desks.to_json).dig?("desks", "details")
-
-      raise "no desks found on level #{level_id}, ensure this id is correct" unless response
-
-      desks = Array(Desk).from_json(response)
+      all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
+      raise "no desks found on level #{level_id}, ensure this id is correct" unless all_desks
+      desks = Array(Desk).from_json(all_desks.to_json)
       desk = desks.find { |d| d.id == asset_id }
 
       raise "could not find a desk with id: #{asset_id}" unless desk
@@ -418,13 +417,15 @@ class Place::Workplace < PlaceOS::Driver
 
   getter building : Zone { get_building }
 
-  struct Zone
+  class Zone
     include JSON::Serializable
 
     getter id : String
     getter name : String
     getter display_name : String?
     getter tags : Array(String)
+
+    property number_of_bookable_desks : Int32? = nil
 
     @[JSON::Field(key: "timezone")]
     getter tz : String?
