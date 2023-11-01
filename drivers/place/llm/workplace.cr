@@ -79,7 +79,7 @@ class Place::Workplace < PlaceOS::Driver
         features = Set(String).new
         desks.each do |desk|
           if feat = desk["features"]?
-            feat.as_a.each { |f| features << f.as_s }
+            feat.as_a.each { |f| features << f.as_s.downcase }
           end
         end
         level.desk_features = features.to_a unless features.empty?
@@ -137,9 +137,10 @@ class Place::Workplace < PlaceOS::Driver
     bookings = bookings.map(&.[]("asset_id").as_s)
 
     # filter out desks that are not available to the user
+    feature = feature.try(&.downcase)
     desks.reject! do |desk|
       next true if desk.id.in?(bookings)
-      next true if feature && !desk.features.includes?(feature)
+      next true if feature && !desk.features.map!(&.downcase).includes?(feature)
       if !desk.groups.empty?
         (desk.groups & me.groups).empty?
       end
