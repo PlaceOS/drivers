@@ -115,6 +115,9 @@ class Place::Workplace < PlaceOS::Driver
         (desk.groups & me.groups).empty?
       end
     end
+
+    logger.debug { "found #{desks.size} available desks" }
+
     desks
   end
 
@@ -129,6 +132,20 @@ class Place::Workplace < PlaceOS::Driver
     user_id = invoked_by_user_id
     me = current_user
     now = Time.local(timezone).at_beginning_of_day
+
+    # ensure the asset exists if we can check for it
+    case booking_type
+    when "desk"
+      all_desks = staff_api.metadata(level_id, "desks").get
+      response = Metadata.from_json(all_desks.to_json).dig?("desks", "details")
+
+      raise "no desks found on level #{level_id}, ensure this id is correct" unless response
+
+      desks = Array(Desk).from_json(response)
+      desk = desks.find { |d| d.id == asset_id }
+
+      raise "could not find a desk with id: #{asset_id}" unless desk
+    end
 
     resp = nil
     (day_offset...number_of_days).each do |offset|
@@ -151,7 +168,9 @@ class Place::Workplace < PlaceOS::Driver
       )
     end
     resp.try &.get
-    "booked!"
+
+    starting = now + day_offset.days
+    "booking for #{asset_id} created on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}"
   end
 
   @[Description("books an asset, such as a desk or car parking space, for the number of days specified, the start date must be ISO 8601 formatted in the correct timezone. For desk bookings use booking_type: desk")]
@@ -165,6 +184,20 @@ class Place::Workplace < PlaceOS::Driver
     user_id = invoked_by_user_id
     me = current_user
     now = date.in(timezone).at_beginning_of_day
+
+    # ensure the asset exists if we can check for it
+    case booking_type
+    when "desk"
+      all_desks = staff_api.metadata(level_id, "desks").get
+      response = Metadata.from_json(all_desks.to_json).dig?("desks", "details")
+
+      raise "no desks found on level #{level_id}, ensure this id is correct" unless response
+
+      desks = Array(Desk).from_json(response)
+      desk = desks.find { |d| d.id == asset_id }
+
+      raise "could not find a desk with id: #{asset_id}" unless desk
+    end
 
     resp = nil
     (0...number_of_days).each do |offset|
@@ -187,7 +220,8 @@ class Place::Workplace < PlaceOS::Driver
       )
     end
     resp.try &.get
-    "booked!"
+
+    "booking for #{asset_id} created on #{now.day_of_week}, #{now.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}"
   end
 
   @[Description("cancels a booking")]
@@ -239,7 +273,9 @@ class Place::Workplace < PlaceOS::Driver
       )
     end
     resp.try &.get
-    "invited!"
+
+    starting = now + day_offset.days
+    "invited #{visitor_email} to the office on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}"
   end
 
   # =========================
@@ -250,6 +286,7 @@ class Place::Workplace < PlaceOS::Driver
     include JSON::Serializable
 
     getter id : String
+    getter name : String
     getter groups : Array(String) = [] of String
     getter features : Array(String) = [] of String
   end
