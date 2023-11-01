@@ -38,7 +38,8 @@ class Place::Workplace < PlaceOS::Driver
       str << "my current desk, car parking and guest visitor bookings\n"
       str << "Note: when booking a meeting room, preference one on the same level or closest level to my desk booking, if I have one, unless I specify a specific level. Also try to pick a room with an appropriate capacity.\n"
       str << "once candidate meeting rooms have been found, you can include the list of resource emails when getting schedules to see which rooms are available\n"
-      str << "this capability also supports managing desk bookings and inviting visitors to the building"
+      str << "this capability also supports managing desk bookings and inviting visitors to the building\n"
+      str << "please cancel any bookings made on the incorrect day"
     end
   end
 
@@ -73,6 +74,11 @@ class Place::Workplace < PlaceOS::Driver
   @[Description("returns the list of meeting rooms in the building filtering by capacity or level")]
   def meeting_rooms(minimum_capacity : Int32 = 1, level_id : String? = nil)
     logger.debug { "listing meeting rooms on level #{level_id} with capacity #{minimum_capacity}" }
+
+    # ensure the level id exists
+    level = levels.find { |l| l.id == level_id }
+    raise "could not find level_id #{level_id} in the building. Make sure you've obtained the list of levels." unless level
+
     zone_id = level_id || building.id
     staff_api.systems(zone_id: zone_id, capacity: minimum_capacity, bookable: true).get.as_a.compact_map { |s| to_friendly_system(s) }
   end
@@ -89,7 +95,9 @@ class Place::Workplace < PlaceOS::Driver
     all_desks = staff_api.metadata(level_id, "desks").get
     response = Metadata.from_json(all_desks.to_json).dig?("desks", "details")
 
-    logger.debug { "found desks: #{response}\nin metadata: #{all_desks}" }
+    # ensure the level id exists
+    level = levels.find { |l| l.id == level_id }
+    raise "could not find level_id #{level_id} in the building. Make sure you've obtained the list of levels." unless level
 
     return [] of Desk unless response
 
@@ -127,7 +135,7 @@ class Place::Workplace < PlaceOS::Driver
 
     # ensure the level id exists
     level = levels.find { |l| l.id == level_id }
-    raise "could not find level_id #{level_id} in the building. Please ensure the ID matches exactly, case matters." unless level
+    raise "could not find level_id #{level_id} in the building. Make sure you've obtained the list of levels." unless level
 
     user_id = invoked_by_user_id
     me = current_user
@@ -179,7 +187,7 @@ class Place::Workplace < PlaceOS::Driver
 
     # ensure the level id exists
     level = levels.find { |l| l.id == level_id }
-    raise "could not find level_id #{level_id} in the building. Please ensure the ID matches exactly, case matters." unless level
+    raise "could not find level_id #{level_id} in the building. Make sure you've obtained the list of levels." unless level
 
     user_id = invoked_by_user_id
     me = current_user
