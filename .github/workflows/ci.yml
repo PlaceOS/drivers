@@ -20,7 +20,7 @@ jobs:
     continue-on-error: true
     container: crystallang/crystal
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Shards
         run: shards install --ignore-crystal-version
       - name: Docs
@@ -48,7 +48,7 @@ jobs:
         uses: trilom/file-changes-action@v1.2.4
         with:
           output: ' '
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cache shards
         uses: actions/cache@v3
         with:
@@ -91,7 +91,7 @@ jobs:
           - stable: false
             crystal: nightly
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Cache shards
         uses: actions/cache@v3
