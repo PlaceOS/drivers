@@ -33,10 +33,14 @@ jobs:
             --strict-driver-info \
             --repository-uri https://github.com/${{ github.repository }} \
             --repository-path ./repositories/local \
-            --ref ${{ github.sha }}
+            --ref ${{ github.sha }} \
+            --branch ${{ github.ref_name }}
         env:
           CRYSTAL_VERSION: ${{ env.CRYSTAL_VERSION }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_SECRET: ${{ secrets.AWS_SECRET }}
           AWS_KEY: ${{ secrets.AWS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+          # CLOUD_BUILD_SERVER: CLOUD_BUILD_SERVICE_ROOT_ENDPOINT
+          # GIT_TOKEN: GIT_TOKEN_FOR_PRIVATE_REPO_IF_REQUIRED
+
