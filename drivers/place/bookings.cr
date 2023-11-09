@@ -199,11 +199,11 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   # End either the current meeting early, or the pending meeting
-  def end_meeting(meeting_start_time : Int64, notify : Bool = false, comment : String? = nil) : Nil
+  def end_meeting(meeting_start_time : Int64, notify : Bool = true, comment : String = "cancelled at booking panel") : Nil
     cmeeting = current
     result = if cmeeting && cmeeting.event_start.to_unix == meeting_start_time
                logger.debug { "deleting event #{cmeeting.title}, from #{@calendar_id}" }
-               calendar.delete_event(@calendar_id, cmeeting.id)
+               calendar.delete_event(@calendar_id, cmeeting.id, notify: notify, comment: comment)
              else
                nmeeting = upcoming
                if nmeeting && nmeeting.event_start.to_unix == meeting_start_time
