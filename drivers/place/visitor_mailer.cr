@@ -267,7 +267,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     local_start_time = Time.unix(event_start).in(@time_zone)
 
     mailer.send_template(
-      visitor_email,
+      host_email,
       {"visitor_invited", template}, # Template selection: "visitor_invited" "notify_checkin"
       {
       visitor_email: visitor_email,
