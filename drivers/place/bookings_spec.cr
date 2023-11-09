@@ -105,7 +105,7 @@ class CalendarMock < DriverSpecs::MockDriver
     nil
   end
 
-  def delete_event(calendar_id : String, event_id : String, user_id : String? = nil)
+  def delete_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     self[:deleted_event] = {calendar_id, event_id}
     @events = @events.reject { |event| event["id"] == event_id }
     nil
