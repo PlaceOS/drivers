@@ -35,6 +35,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     network_group_ids:                  [] of String,
     debug:                              false,
     host_domain_filter:                 [] of String,
+
+    disable_event_visitors:             true
   })
 
   accessor staff_api : StaffAPI_1
@@ -88,6 +90,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @network_password_minimum_numbers : Int32 = DEFAULT_PASSWORD_MINIMUM_NUMBERS
   @network_password_minimum_symbols : Int32 = DEFAULT_PASSWORD_MINIMUM_SYMBOLS
   @network_group_ids = [] of String
+  @disable_event_visitors : Bool = true
 
   def on_update
     @debug = setting?(Bool, :debug) || true
@@ -110,6 +113,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @network_password_minimum_symbols = setting?(Int32, :password_minimum_symbols) || DEFAULT_PASSWORD_MINIMUM_SYMBOLS
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
     @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
+    @disable_event_visitors = setting?(Bool, :disable_event_visitors) || false
 
     time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -223,6 +227,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       self[:users_checked_in] = @users_checked_in += 1
       return
     in EventGuest
+      return if @disable_event_visitors
+
       room = get_room_details(guest_details.system_id)
       area_name = room.display_name.presence || room.name
       template = @event_template
