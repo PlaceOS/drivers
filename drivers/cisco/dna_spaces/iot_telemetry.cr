@@ -213,7 +213,7 @@ class Cisco::DNASpaces::IotTelemetry
   end
 
   def last_seen
-    tele_presence_data.try(&.time_stamp) || position.time_located
+    tele_presence_data.try(&.time_stamp) || (has_position? ? position.time_located : device_rtc)
   end
 
   def last_seen=(time)
