@@ -290,6 +290,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
             @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
           when DeviceLocationUpdate, IotTelemetry
             device_mac = format_mac(payload.device.mac_address)
+
+            # we want timestamps in seconds
             payload.last_seen = payload.last_seen // 1000
 
             if payload.is_a?(IotTelemetry)

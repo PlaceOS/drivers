@@ -219,9 +219,12 @@ class Cisco::DNASpaces::IotTelemetry
   def last_seen=(time)
     if tele_data = tele_presence_data
       tele_data.time_stamp = time
-    else
+    elsif has_position?
       position.time_located = time
+    else
+      @device_rtc = time
     end
+    time
   end
 
   def raw_user_id
