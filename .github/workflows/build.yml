@@ -5,6 +5,7 @@ on:
 
 env:
   CRYSTAL_VERSION: 1.4.1
+  PLACE_BUILD_TAG: nightly
 
 jobs:
   build:
@@ -43,4 +44,5 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           # CLOUD_BUILD_SERVER: CLOUD_BUILD_SERVICE_ROOT_ENDPOINT
           # GIT_TOKEN: GIT_TOKEN_FOR_PRIVATE_REPO_IF_REQUIRED
+          PLACE_BUILD_TAG: ${{ env.PLACE_BUILD_TAG }}
 
