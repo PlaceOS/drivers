@@ -16,10 +16,10 @@ class Cisco::DNASpaces < PlaceOS::Driver
   uri_base "https://partners.dnaspaces.io"
 
   default_settings({
-    dna_spaces_activation_key: "provide this and the API / tenant ids will be generated automatically",
-    dna_spaces_api_key:        "X-API-KEY",
-    tenant_id:                 "sfdsfsdgg",
-    verify_activation_key:     false,
+    _dna_spaces_activation_key: "provide this and the API / tenant ids will be generated automatically",
+    _dna_spaces_api_key:        "X-API-KEY",
+    _tenant_id:                 "sfdsfsdgg",
+    verify_activation_key:      false,
 
     # Time before a user location is considered probably too old (in minutes)
     # we have a large time here as DNA spaces only updates when a user moves
