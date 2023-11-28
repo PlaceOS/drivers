@@ -6,7 +6,7 @@ module Delta
       include JSON::Serializable
 
       @[JSON::Field(key: "id")]
-      property id : String
+      property id : UInt32
 
       @[JSON::Field(key: "$base")]
       property base : String
@@ -17,10 +17,7 @@ module Delta
       @[JSON::Field(key: "displayName")]
       property display_name : String
 
-      @[JSON::Field(key: "truncated")]
-      property truncated : Bool
-
-      def initialize(@id : String, @base : String, @node_type : String, @display_name : String, @truncated : Bool)
+      def initialize(@id : UInt32, @base : String, @node_type : String, @display_name : String)
       end
     end
   end
