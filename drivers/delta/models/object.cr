@@ -5,8 +5,8 @@ module Delta
     struct Object
       include JSON::Serializable
 
-      @[JSON::Field(key: "id")]
-      property id : String
+      property object_type : String
+      property instance : UInt32
 
       @[JSON::Field(key: "$base")]
       property base : String
@@ -14,10 +14,8 @@ module Delta
       @[JSON::Field(key: "displayName")]
       property display_name : String
 
-      @[JSON::Field(key: "truncated")]
-      property truncated : Bool
-
-      def initialize(@id : String, @base : String, @display_name : String, @truncated : Bool)
+      def initialize(@object_type : String, instance : String, @base : String, @display_name : String)
+        @instance = instance.to_u32
       end
     end
   end

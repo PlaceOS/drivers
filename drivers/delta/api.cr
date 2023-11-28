@@ -50,7 +50,7 @@ class Delta::API < PlaceOS::Driver
   end
 
   # list devices for site
-  def list_devices_by_site_name(site_name : String)
+  def list_devices(site_name : String)
     devices = [] of Models::Device
     path = URI.encode_path("/api/.bacnet/#{site_name}")
 
@@ -64,15 +64,14 @@ class Delta::API < PlaceOS::Driver
     body.json_unmapped.keys.each do |key|
       value = body.json_unmapped[key].as_h
 
-      devices.push(Models::Device.new(id: key, base: value["$base"].to_s, node_type: value["nodeType"].to_s, display_name: value["displayName"].to_s, truncated: Bool.new(JSON::PullParser.new(value["truncated"].to_s))))
+      devices.push(Models::Device.new(id: key.to_u32, base: value["$base"].to_s, node_type: value["nodeType"].to_s, display_name: value["displayName"].to_s))
     end
 
     devices
   end
 
   # list objects from device resource
-  def list_objects_by_device_number(site_name : String, device_number : String)
-    objects = [] of Models::Object
+  def list_device_objects(site_name : String, device_number : String | UInt32)
     path = URI.encode_path("/api/.bacnet/#{site_name}/#{device_number}")
     response = fetch(path)
 
@@ -80,42 +79,21 @@ class Delta::API < PlaceOS::Driver
     logger.debug { "response body:\n#{response.body}" }
 
     body = Models::ListObjectsByDeviceNumber.from_json(response.body)
+    objects = Array(Models::Object).new(body.json_unmapped.size)
 
-    body.json_unmapped.keys.each do |key|
-      value = body.json_unmapped[key].as_h
-
-      objects.push(Models::Object.new(id: key, base: value["$base"].to_s, display_name: value["displayName"].to_s, truncated: Bool.new(JSON::PullParser.new(value["truncated"].to_s))))
+    body.json_unmapped.each do |key, obj|
+      value = obj.as_h
+      object_type, instance = key.split(',', 2)
+      objects.push(Models::Object.new(object_type, instance, base: value["$base"].to_s, display_name: value["displayName"].to_s))
     end
 
     objects
   end
 
   # get value of property from object through instance
-  def get_value_property_by_object_type_through_instance(site_name : String, device_number : String, object_type : String, instance : String)
+  def get_object_value(site_name : String, device_number : String | UInt32, object_type : String, instance : String | UInt32)
     path = URI.encode_path("/api/.bacnet/#{site_name}/#{device_number}/#{object_type},#{instance}")
 
-    response = fetch(path)
-
-    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
-    logger.debug { "response body:\n#{response.body}" }
-
-    Models::ValueProperty.from_json(response.body)
-  end
-
-  # get value of property from object through property name
-  def get_value_property_by_object_type_through_property_name(site_name : String, device_number : String, object_type : String, property_name : String)
-    path = URI.encode_path("/api/.bacnet/#{site_name}/#{device_number}/#{object_type},#{property_name}")
-    response = fetch(path)
-
-    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
-    logger.debug { "response body:\n#{response.body}" }
-
-    Models::ValueProperty.from_json(response.body)
-  end
-
-  # get value of property from object through subproperty path
-  def get_value_property_by_object_type_through_subproperty_path(site_name : String, device_number : String, object_type : String, subproperty_path : String)
-    path = URI.encode_path("/api/.bacnet/#{site_name}/#{device_number}/#{object_type},#{subproperty_path}")
     response = fetch(path)
 
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
