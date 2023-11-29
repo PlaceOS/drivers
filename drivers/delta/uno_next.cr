@@ -131,7 +131,7 @@ class Delta::UNOnext < PlaceOS::Driver
     # grab all the UNONext devices and pull the sensor data from them
     device_ids = delta_api.list_devices(@site_name).get.as_a.compact_map do |dev|
       dev = dev.as_h
-      if dev["display_name"].as_s == "UNONext"
+      if (dev["display_name"]?.try &.as_s) == "UNONext"
         dev["id"].as_i64.to_u32
       end
     end
