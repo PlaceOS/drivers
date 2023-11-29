@@ -84,10 +84,8 @@ build() {
                      --no-deps \
                      -v "${PWD}/repositories:/app/repositories" \
                      -v "${PWD}/drivers:/app/repositories/drivers" \
-                     build \
-                     bash /app/scripts/entrypoint.sh \
-                     build \
-                     $@
+                     --entrypoint="/app/scripts/entrypoint.sh" \
+                     build build $@
 }
 
 usage() {
