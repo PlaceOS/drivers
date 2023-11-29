@@ -81,7 +81,13 @@ class Delta::UNOnext < PlaceOS::Driver
     prop = Models::ValueProperty.from_json delta_api.get_object_value(@site_name, device_id, "analog-input", index).get.to_json
     return nil if (prop.out_of_service.try(&.value.as_i?) || 1) != 0
 
-    value = prop.present_value.try &.value.as_s.to_f?
+    value = prop.present_value.try do |pv|
+      if string = pv.value.as_s?
+        string.to_f?
+      elsif int = pv.value.as_i?
+        int.to_f
+      end
+    end
     return nil unless value
 
     case prop.units.try &.value
@@ -105,7 +111,12 @@ class Delta::UNOnext < PlaceOS::Driver
   protected def device_sensors(device_id : UInt32, sensor_type : SensorType? = nil)
     SENSOR_TYPES.compact_map do |index, type|
       next if sensor_type && type != sensor_type
-      build_sensor_details(type, device_id, index)
+      begin
+        build_sensor_details(type, device_id, index)
+      rescue error
+        logger.warn(exception: error) { "error parsing sensor id #{device_id}.#{index}" }
+        nil
+      end
     end
   end
 
