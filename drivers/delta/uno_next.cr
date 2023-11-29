@@ -81,7 +81,7 @@ class Delta::UNOnext < PlaceOS::Driver
     prop = Models::ValueProperty.from_json delta_api.get_object_value(@site_name, device_id, "analog-input", index).get.to_json
     return nil if (prop.out_of_service.try(&.value.as_i) || 0) != 0
 
-    value = prop.present_value.try &.value.as_f
+    value = prop.present_value.try &.value.as_s.to_f?
     return nil unless value
 
     case prop.units.try &.value
