@@ -7,7 +7,7 @@ require "./models/**"
 class Delta::UNOnext < PlaceOS::Driver
   include Interface::Sensor
 
-  descriptive_name "UNOnext Indoor Air Quality Monitor"
+  descriptive_name "Delta UNOnext Indoor Air Monitor"
   generic_name :UNOnext
   description %(collects sensor data from UNOnext sensors)
 
@@ -79,7 +79,7 @@ class Delta::UNOnext < PlaceOS::Driver
 
   protected def build_sensor_details(sensor : SensorType, device_id : UInt32, index : Int32) : Detail?
     prop = Models::ValueProperty.from_json delta_api.get_object_value(@site_name, device_id, "analog-input", index).get.to_json
-    return nil if (prop.out_of_service.try(&.value.as_i) || 0) != 0
+    return nil if (prop.out_of_service.try(&.value.as_i?) || 1) != 0
 
     value = prop.present_value.try &.value.as_s.to_f?
     return nil unless value
