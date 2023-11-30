@@ -39,7 +39,7 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.8.2
+          - latest
         include:
           - stable: false
             crystal: nightly
@@ -85,8 +85,7 @@ jobs:
       matrix:
         stable: [true]
         crystal:
-          - 1.3.2
-          - 1.4.1
+          - latest
         include:
           - stable: false
             crystal: nightly
