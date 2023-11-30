@@ -347,6 +347,7 @@ class Place::Workplace < PlaceOS::Driver
     getter capacity : Int32 = 0
 
     getter level_id : String
+    getter level_name : String
     getter map_id : String? = nil
 
     # getter images : Array(String)
@@ -362,6 +363,7 @@ class Place::Workplace < PlaceOS::Driver
       @capacity = sys["capacity"].as_i
       @map_id = sys["map_id"]?.try &.as_s?
       @level_id = level.id
+      @level_name = level.display_name || level.name
     end
   end
 
@@ -392,6 +394,7 @@ class Place::Workplace < PlaceOS::Driver
     getter user_email : String
     getter user_name : String
     getter level_id : String
+    getter level_name : String
 
     # getter booked_by_email : String
     # getter booked_by_name : String
@@ -410,6 +413,7 @@ class Place::Workplace < PlaceOS::Driver
       @user_name = b["user_name"].as_s
       @checked_in = b["checked_in"].as_bool
       @level_id = level.id
+      @level_name = level.display_name || level.name
 
       # @booked_by_email = b["booked_by_email"].as_s
       # @booked_by_name = b["booked_by_name"].as_s
