@@ -21,7 +21,6 @@ There are two styles of switching supported:
 NOTE:: when an input is presented to an output via `route("Input_id", "Output_id")`
 if the input and output support the `Powerable` interface, they will be powered on
 
-
 ### Examples
 
 A basic single display system
@@ -93,7 +92,6 @@ outputs:
 
 ```
 
-
 ### Default routes
 
 these are applied at system startup
@@ -106,7 +104,6 @@ default_routes:
   VC_Camera_2: Camera_2
 
 ```
-
 
 ## Naming Inputs and Outputs
 
@@ -157,7 +154,6 @@ outputs:
 
 ```
 
-
 ## Laying out Tabs
 
 Spaces can have more inputs and outputs defined then you want to display on the panel. Some things are auto switched etc so you need define you tab layouts.
@@ -177,7 +173,6 @@ tabs:
 
 ```
 
-
 ### Cisco Video Conferencing
 
 Configuring a tab with Cisco VC controls
@@ -196,7 +191,6 @@ tabs:
 
 ```
 
-
 configuring camera switching where cameras are connected via a switcher (single input on the VC unit)
 
 ```yaml
@@ -204,6 +198,7 @@ configuring camera switching where cameras are connected via a switcher (single 
 connections:
   # outputs:
   '*VC_Camera_Input': Switcher_1.1!video
+  '*Recorder_Camera_Input': Switcher_1.2!video
   Switcher_1: # inputs:
     '35': Camera_1
     '36': Camera_2
@@ -225,6 +220,11 @@ inputs:
 
 # When camera 1 or 2 is selected, we'll switch it to this output
 vc_camera_in: VC_Camera_Input
+
+# If the camera needs to be switched to multiple sources (i.e. a recording device and a VC system)
+vc_camera_in:
+  - VC_Camera_Input
+  - Recorder_Camera_Input
 
 ```
 
@@ -265,7 +265,6 @@ inputs:
 
 ```
 
-
 ### IPTV Control
 
 Configuring IPTV controls for a page
@@ -292,7 +291,6 @@ channel_details:
     channel: 'udp://239.192.10.170:5000?hwchan=0'
     icon: 'https://os.place.tech/placeos.com/16335767803641925864.svg'
 ```
-
 
 ## Help pages
 
@@ -323,7 +321,6 @@ help:
 
 You can drag and drop images and videos into backoffice so they are available for embedding.
 
-
 ## Defining Outputs to display
 
 You need to define which ouputs will be displayed on the panel.
@@ -349,7 +346,6 @@ preview_outputs:
   - Display_3
 
 ```
-
 
 ## Front of House Audio
 
@@ -387,7 +383,6 @@ master_audio:
   default_level: 60
 
 ```
-
 
 ## Projector Screen Linking
 
@@ -432,7 +427,6 @@ change_groups: {
 
 ```
 
-
 ## Microphone configuration
 
 A basic list of fader and mute values that represent the microphones available
@@ -458,7 +452,6 @@ local_microphones:
     max_level: 90
 
 ```
-
 
 ## Joining Config
 
