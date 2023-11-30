@@ -51,6 +51,7 @@ class Delta::UNOnext < PlaceOS::Driver
   SENSOR_TYPES = {
     0 => SensorType::Temperature,
     1 => SensorType::Humidity,
+    2 => SensorType::PPM, # PM2.5 (particles smaller than 2.5)
     4 => SensorType::PPM, # CO2
     5 => SensorType::Illuminance,
     9 => SensorType::PPM, # O3
@@ -93,6 +94,8 @@ class Delta::UNOnext < PlaceOS::Driver
     case prop.units.try &.value
     when "°C"
       unit = "Cel"
+    when "lx"
+      unit = "lx"
     end
 
     Detail.new(
