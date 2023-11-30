@@ -180,7 +180,7 @@ class Place::Workplace < PlaceOS::Driver
     end
 
     resp = nil
-    (day_offset...number_of_days).each do |offset|
+    (day_offset...(day_offset + number_of_days)).each do |offset|
       # calculate the offset time
       days = offset.days
       starting = now + days + 8.hours
@@ -265,6 +265,7 @@ class Place::Workplace < PlaceOS::Driver
       raise "can only cancel bookings owned by #{me.email} - this booking is owned by #{booking["user_email"]}"
     end
     staff_api.booking_delete(booking_id, "chatgpt")
+    "booking has been removed"
   end
 
   @[Description("book a visitor to the building")]
@@ -283,7 +284,7 @@ class Place::Workplace < PlaceOS::Driver
     visitor_email = visitor_email.downcase
 
     resp = nil
-    (0...number_of_days).each do |offset|
+    (day_offset...(day_offset + number_of_days)).each do |offset|
       # calculate the offset time
       days = offset.days
       starting = now + days + 8.hours
