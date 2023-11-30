@@ -44,16 +44,19 @@ class Place::Workplace < PlaceOS::Driver
     end
   end
 
-  @[Description("returns desks, car parking spaces and visitors I have booked. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc.")]
-  def my_bookings(day_offset : Int32 = 0)
+  @[Description("returns desks, car parking spaces and visitors I have booked. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc. If you provide a date, in ISO 8601 format and the correct timezone, the date will be used.")]
+  def my_bookings(day_offset : Int32 = 0, date : Time? = nil)
     logger.debug { "listing bookings for #{current_user.email}, day offset #{day_offset}" }
-
     me = current_user
 
-    now = Time.local(timezone)
-    days = day_offset.days
-    starting = now.at_beginning_of_day + days
-    ending = now.at_end_of_day + days
+    if date
+      starting = date.in(timezone).at_beginning_of_day
+    else
+      now = Time.local(timezone)
+      days = day_offset.days
+      starting = now.at_beginning_of_day + days
+    end
+    ending = starting.at_end_of_day
 
     {"desk", "visitor", "parking", "asset-request"}.flat_map do |booking_type|
       staff_api.query_bookings(
@@ -205,7 +208,7 @@ class Place::Workplace < PlaceOS::Driver
     "booking for #{asset_id} created on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}"
   end
 
-  @[Description("books an asset, such as a desk or car parking space, for the number of days specified, the start date must be ISO 8601 formatted in the correct timezone. For desk bookings use booking_type: desk")]
+  @[Description("books an asset, such as a desk or car parking space, for the number of days specified, the start date must be in ISO 8601 format with the correct timezone. For desk bookings use booking_type: desk")]
   def book_on(booking_type : String, asset_id : String, level_id : String, date : Time, number_of_days : Int32 = 1)
     logger.debug { "booking on #{booking_type}, asset #{asset_id} on level #{level_id}, date #{date} for num days #{number_of_days}" }
 
