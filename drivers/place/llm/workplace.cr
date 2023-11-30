@@ -46,12 +46,13 @@ class Place::Workplace < PlaceOS::Driver
 
   @[Description("returns desks, car parking spaces and visitors I have booked. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc. If you provide a date, in ISO 8601 format and the correct timezone, the date will be used.")]
   def my_bookings(day_offset : Int32 = 0, date : Time? = nil)
-    logger.debug { "listing bookings for #{current_user.email}, day offset #{day_offset}" }
     me = current_user
 
     if date
       starting = date.in(timezone).at_beginning_of_day
+      logger.debug { "listing bookings for #{current_user.email}, on day #{starting}" }
     else
+      logger.debug { "listing bookings for #{current_user.email}, day offset #{day_offset}" }
       now = Time.local(timezone)
       days = day_offset.days
       starting = now.at_beginning_of_day + days
@@ -116,7 +117,7 @@ class Place::Workplace < PlaceOS::Driver
   alias ChildMetadata = Array(NamedTuple(zone: PlaceZone, metadata: Metadata))
 
   @[Description("returns the list of available desks on the level and day specified. If the level has desk features then you can also filter by features")]
-  def desks(level_id : String, day_offset : Int32 = 0, feature : String? = nil)
+  def desks(level_id : String, day_offset : Int32 = 0, date : Time? = nil, feature : String? = nil)
     logger.debug { "listing desks on level #{level_id}, day offset #{day_offset}" }
 
     # ensure the level id exists
@@ -129,10 +130,14 @@ class Place::Workplace < PlaceOS::Driver
     desks = Array(Desk).from_json(all_desks.to_json)
 
     # calculate the offset time
-    now = Time.local(timezone)
-    days = day_offset.days
-    starting = now.at_beginning_of_day + days
-    ending = now.at_end_of_day + days
+    if date
+      starting = date.in(timezone).at_beginning_of_day
+    else
+      now = Time.local(timezone)
+      days = day_offset.days
+      starting = now.at_beginning_of_day + days
+    end
+    ending = starting.at_end_of_day
 
     # need current user so we can filter out desks limited to certain groups
     me = current_user
@@ -272,7 +277,7 @@ class Place::Workplace < PlaceOS::Driver
   end
 
   @[Description("book a visitor to the building")]
-  def invite(visitor_name : String, visitor_email : String, day_offset : Int32 = 0, number_of_days : Int32 = 1)
+  def invite(visitor_name : String, visitor_email : String, day_offset : Int32 = 0, date : Time? = nil, number_of_days : Int32 = 1)
     logger.debug { "inviting visitor to the building #{visitor_name}: #{visitor_email}, day offset #{day_offset} for num days #{number_of_days}" }
 
     # select a random level
@@ -281,6 +286,12 @@ class Place::Workplace < PlaceOS::Driver
     me = current_user
     current_time = Time.local(timezone)
     now = current_time.at_beginning_of_day
+
+    # adjust the offset if a date has been selected
+    if date
+      desired_date = date.in(timezone).at_beginning_of_day
+      day_offset = (desired_date - now).total_days.round_away.to_i
+    end
 
     raise "booking in the past is not permitted" unless day_offset > 0 || (day_offset == 0 && current_time.hour < 16)
 
