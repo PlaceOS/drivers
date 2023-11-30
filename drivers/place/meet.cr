@@ -767,11 +767,11 @@ class Place::Meet < PlaceOS::Driver
     getter vc_camera_input : String | Int32?
   end
 
-  @vc_camera_in : String? = nil
+  @vc_camera_in : String | Array(String)? = nil
   protected getter vc_camera_module : String { "Camera" }
 
   def init_vidconf
-    @vc_camera_in = setting?(String, :vc_camera_in)
+    @vc_camera_in = setting?(String | Array(String), :vc_camera_in)
     @vc_camera_module = setting?(String, :vc_camera_module)
   end
 
@@ -788,9 +788,17 @@ class Place::Meet < PlaceOS::Driver
     cam = camera_details(camera)
     system[cam.mod].power(true)
 
-    if camera_in = @vc_camera_in
+    # route the camera
+    case camera_in = @vc_camera_in
+    in String
       route_signal(camera, camera_in)
-    elsif camera_vc_in = cam.vc_camera_input
+    in Array(String)
+      camera_in.each { |cin| route_signal(camera, cin) }
+    in Nil
+    end
+
+    # switch to the correct VC input
+    if camera_vc_in = cam.vc_camera_input
       system[@local_vidconf].camera_select(camera_vc_in)
     end
   end
