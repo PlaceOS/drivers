@@ -52,15 +52,19 @@ class Place::Schedule < PlaceOS::Driver
     end
   end
 
-  @[Description("returns my schedule with event details with attendees and their response status. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc.")]
-  def my_schedule(day_offset : Int32 = 0)
+  @[Description("returns my schedule with event details with attendees and their response status. day_offset: 0 will return todays schedule, day_offset: 1 will return tomorrows schedule etc. If you provide a date, in ISO 8601 format and the correct timezone, the date will be used.")]
+  def my_schedule(day_offset : Int32 = 0, date : Time? = nil)
     cal_client = place_calendar_client
     me = current_user
 
-    now = Time.local(timezone)
-    days = day_offset.days
-    starting = now.at_beginning_of_day + days
-    ending = now.at_end_of_day + days
+    if date
+      starting = date.in(timezone).at_beginning_of_day
+    else
+      now = Time.local(timezone)
+      days = day_offset.days
+      starting = now.at_beginning_of_day + days
+    end
+    ending = starting.at_end_of_day
 
     logger.debug { "requesting events for #{me.name} (#{me.email}) @ #{starting} -> #{ending}" }
 
@@ -88,16 +92,20 @@ class Place::Schedule < PlaceOS::Driver
   end
 
   @[Description("returns busy periods of the emails specified. Search for staff first if you haven't been given their email address. This can be a person or a resource like a room. An empty schedules array means they are available")]
-  def get_schedules(emails : Array(String), day_offset : Int32 = 0)
-    raise "past schedules are not useful" if day_offset < 0
-
+  def get_schedules(emails : Array(String), day_offset : Int32 = 0, date : Time? = nil)
     cal_client = place_calendar_client
     me = current_user
 
-    now = Time.local(timezone)
-    days = day_offset.days
-    starting = now.at_beginning_of_day + days
-    ending = now.at_end_of_day + days
+    if date
+      starting = date.in(timezone).at_beginning_of_day
+    else
+      now = Time.local(timezone)
+      days = day_offset.days
+      starting = now.at_beginning_of_day + days
+    end
+    ending = starting.at_end_of_day
+    return "past schedules are not useful" if ending < Time.utc
+
     duration = ending - starting
 
     logger.debug { "getting schedules for #{emails} @ #{starting} -> #{ending}" }
