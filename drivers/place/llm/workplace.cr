@@ -382,7 +382,7 @@ class Place::Workplace < PlaceOS::Driver
   struct Booking
     include JSON::Serializable
 
-    getter id : String? = nil
+    getter id : Int64? = nil
     getter starting : Time
     getter ending : Time
 
@@ -400,7 +400,7 @@ class Place::Workplace < PlaceOS::Driver
 
     def initialize(level : Zone, book : JSON::Any, timezone : Time::Location)
       b = book.as_h
-      @id = b["id"].as_s
+      @id = b["id"].as_i64
       @starting = Time.unix(b["booking_start"].as_i64).in(timezone)
       @ending = Time.unix(b["booking_end"].as_i64).in(timezone)
       @booking_type = b["booking_type"].as_s
