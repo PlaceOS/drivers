@@ -131,18 +131,32 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
     name_map
   end
 
+  DUMMY_OUTPUT = [] of Int32
+
   def switch(map : Hash(Input, Array(Output)), layer : SwitchLayer? = nil)
     layer ||= SwitchLayer::All
 
     return unless layer.all? || layer.video? || layer.audio?
 
-    connect(map, layer) do |mod, (video, audio)|
-      if layer.all? || layer.audio?
-        switch_audio_to audio
-      end
+    logger.debug { "switching #{layer}: #{map}" }
 
-      if layer.all? || layer.video?
+    connect(map, layer) do |mod, (video, audio)|
+      case layer
+      in .all?
+        switch_audio_to audio
         mod.switch_to(video)
+      in .audio?
+        switch_audio_to audio
+      in .video?
+        # the NVX RX implements this interface but the output is ignored
+        inp = case video
+              in JSON::Any
+                video.as_s? || video.as_i
+              in String
+                video
+              end
+        mod.switch({inp => DUMMY_OUTPUT}, layer)
+      in .data?, .data2?
       end
     end
   end
