@@ -98,9 +98,11 @@ class Place::Workplace < PlaceOS::Driver
   def meeting_rooms(minimum_capacity : Int32 = 1, level_id : String? = nil)
     logger.debug { "listing meeting rooms on level #{level_id} with capacity #{minimum_capacity}" }
 
-    # ensure the level id exists
-    level = levels.find { |l| l.id == level_id }
-    raise "could not find level_id #{level_id} in the building. Make sure you've obtained the list of levels." unless level
+    # ensure the level id exists if provided
+    if level_id
+      level = levels.find { |l| l.id == level_id }
+      raise "could not find level_id #{level_id} in the building. Make sure you've obtained the list of levels." unless level
+    end
 
     zone_id = level_id || building.id
     staff_api.systems(zone_id: zone_id, capacity: minimum_capacity, bookable: true).get.as_a.compact_map { |s| to_friendly_system(s) }
