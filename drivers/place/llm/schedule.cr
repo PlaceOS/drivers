@@ -41,7 +41,7 @@ class Place::Schedule < PlaceOS::Driver
 
   getter capabilities : String do
     String.build do |str|
-      str << "lookup or search for the email and phone numbers other staff members.\n"
+      str << "lookup or search for the email and phone numbers of other staff members if you haven't been provided their details. Do not guess.\n"
       str << "provides details of my daily schedule, meeting room bookings and events I'm attending.\n"
       str << "meeting room bookings must have a resource as an attendee.\n"
       str << "my meeting room bookings will have me as the host or creator.\n"
@@ -71,7 +71,23 @@ class Place::Schedule < PlaceOS::Driver
     events
   end
 
-  @[Description("returns busy periods of the emails specified. This can be a person or a resource like a room. An empty schedules array means they are available")]
+  @[Description("search for a staff members phone and email addresses using odata filter queries, don't include `$filter=`, for example: `givenName eq 'mary' or startswith(surname,'smith')`, confrim with the user when there are multiple results, search for both givenName and surname using `or` if there is ambiguity")]
+  def search_staff_member(filter : String)
+    logger.debug { "searching for staff member: #{filter}" }
+    cal_client = place_calendar_client
+    cal_client.list_users(filter: filter)
+  end
+
+  @[Description("look up a staff members name and phone number by providing their email address. Use search if you only have their name")]
+  def lookup_staff_member(email : String)
+    logger.debug { "looking up staff member: #{email}" }
+    cal_client = place_calendar_client
+    user = cal_client.get_user_by_email(email)
+    return "could not find a staff member with email #{email}. Try searching for their name?" unless user
+    user
+  end
+
+  @[Description("returns busy periods of the emails specified. Search for staff first if you haven't been given their email address. This can be a person or a resource like a room. An empty schedules array means they are available")]
   def get_schedules(emails : Array(String), day_offset : Int32 = 0)
     raise "past schedules are not useful" if day_offset < 0
 
@@ -224,22 +240,6 @@ class Place::Schedule < PlaceOS::Driver
 
       "attending"
     end
-  end
-
-  @[Description("search for a staff members phone and email addresses using odata filter queries, don't include `$filter=`, for example: `givenName eq 'mary' or startswith(surname,'smith')`, confrim with the user when there are multiple results, search for both givenName and surname using `or` if there is ambiguity")]
-  def search_staff_member(filter : String)
-    logger.debug { "searching for staff member: #{filter}" }
-    cal_client = place_calendar_client
-    cal_client.list_users(filter: filter)
-  end
-
-  @[Description("look up a staff members name and phone number by providing their email address. Use search if you only have their name")]
-  def lookup_staff_member(email : String)
-    logger.debug { "looking up staff member: #{email}" }
-    cal_client = place_calendar_client
-    user = cal_client.get_user_by_email(email)
-    return "could not find a staff member with email #{email}. Try searching for their name?" unless user
-    user
   end
 
   # =========================
