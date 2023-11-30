@@ -226,18 +226,20 @@ class Place::Schedule < PlaceOS::Driver
     end
   end
 
-  @[Description("find a staff members name and phone number by providing their email address")]
-  def lookup_staff_member(email : String)
-    logger.debug { "looking up staff member: #{email}" }
-    cal_client = place_calendar_client
-    cal_client.get_user_by_email(email)
-  end
-
-  @[Description("search for a staff member using odata filter queries, don't include `$filter=`, for example: `givenName eq 'mary' or startswith(surname,'smith')`, confrim with the user when there are multiple results, search for both givenName and surname using `or` if there is ambiguity")]
+  @[Description("search for a staff members phone and email addresses using odata filter queries, don't include `$filter=`, for example: `givenName eq 'mary' or startswith(surname,'smith')`, confrim with the user when there are multiple results, search for both givenName and surname using `or` if there is ambiguity")]
   def search_staff_member(filter : String)
     logger.debug { "searching for staff member: #{filter}" }
     cal_client = place_calendar_client
     cal_client.list_users(filter: filter)
+  end
+
+  @[Description("look up a staff members name and phone number by providing their email address. Use search if you only have their name")]
+  def lookup_staff_member(email : String)
+    logger.debug { "looking up staff member: #{email}" }
+    cal_client = place_calendar_client
+    user = cal_client.get_user_by_email(email)
+    return "could not find a staff member with email #{email}. Try searching for their name?" unless user
+    user
   end
 
   # =========================
