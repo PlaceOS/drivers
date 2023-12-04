@@ -896,6 +896,7 @@ class Place::Meet < PlaceOS::Driver
     self[:join_modes] = @join_modes = join_lookup
 
     self[:join_lockout_secondary] = setting?(Bool, :join_lockout_secondary) || false
+    self[:join_hide_button] = setting?(Bool, :join_hide_button) || false
   end
 
   def join_mode(mode_id : String, master : Bool = true)
