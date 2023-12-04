@@ -42,6 +42,7 @@ class Place::Meet < PlaceOS::Driver
     # if we want to display the selected tab on displays meant only for the presenter
     preview_outputs: ["Display_2"],
     vc_camera_in:    "switch_camera_output_id",
+    join_lockout_secondary: true,
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
@@ -893,6 +894,8 @@ class Place::Meet < PlaceOS::Driver
     join_lookup = {} of String => JoinDetail
     join_settings.try &.modes.each { |mode| join_lookup[mode.id] = mode }
     self[:join_modes] = @join_modes = join_lookup
+
+    self[:join_lockout_secondary] = setting?(Bool, :join_lockout_secondary) || false
   end
 
   def join_mode(mode_id : String, master : Bool = true)
