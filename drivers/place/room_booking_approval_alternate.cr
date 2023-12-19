@@ -7,7 +7,7 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
   description %(Room Booking approval for events where the room has not responded)
 
   default_settings({
-    assume_last_attendee_is_room: false   # only use this when Bookings_1.event.attendees shows the room as "resource: false"
+    assume_last_attendee_is_room: false, # only use this when Bookings_1.event.attendees shows the room as "resource: false"
   })
 
   accessor calendar : Calendar_1
@@ -80,7 +80,6 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
 
   private def room_attendee(event : PlaceCalendar::Event)
     return event.attendees.last if @assume_last_attendee_is_room
-    event.attendees.find{ |a| a.resource }
+    event.attendees.find { |a| a.resource }
   end
-  
 end

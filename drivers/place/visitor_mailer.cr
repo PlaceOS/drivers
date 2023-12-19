@@ -36,7 +36,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     debug:                              false,
     host_domain_filter:                 [] of String,
 
-    disable_event_visitors:             true
+    disable_event_visitors: true,
   })
 
   accessor staff_api : StaffAPI_1
