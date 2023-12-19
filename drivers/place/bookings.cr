@@ -769,22 +769,22 @@ class Place::Bookings < PlaceOS::Driver
       # staff-api will:
       #  * notify change
       #  * which will link_master_metadata
-      event = begin
-        calendar.get_event(
+      begin
+        event = calendar.get_event(
           @calendar_id,
           notification.resource_id
         ).get unless notification.event_type.deleted?
+
+        publish("#{@push_authority}/bookings/event", {
+          event_id:  notification.resource_id,
+          change:    notification.event_type,
+          system_id: system.id,
+          event:     event,
+        })
       rescue error
         logger.warn(exception: error) { "fetching booking event on change notification" }
         nil
       end
-
-      publish("#{@push_authority}/bookings/event", {
-        event_id:  notification.resource_id,
-        change:    notification.event_type,
-        system_id: system.id,
-        event:     event,
-      })
 
       poll_events
     in .missed?
