@@ -656,6 +656,7 @@ class Place::Bookings < PlaceOS::Driver
 
   @subscription : PlaceCalendar::Subscription? = nil
   @push_notification_url : String? = nil
+  @push_authority : String? = nil
   @push_service_name : ServiceName? = nil
   @push_monitoring : PlaceOS::Driver::Subscriptions::ChannelSubscription? = nil
   @push_mutex : Mutex = Mutex.new(:reentrant)
@@ -666,6 +667,7 @@ class Place::Bookings < PlaceOS::Driver
 
   protected def push_notificaitons_configure
     @push_notification_url = setting?(String, :push_notification_url).presence
+    @push_authority = setting?(String, :push_authority).presence
 
     # load any existing subscriptions
     subscription = setting?(PlaceCalendar::Subscription, :push_subscription)
@@ -748,22 +750,42 @@ class Place::Bookings < PlaceOS::Driver
   protected def push_event_occured(payload : String)
     logger.debug { "push notification received! #{payload}" }
 
-    event = NotifyEvent.from_json payload
+    notification = NotifyEvent.from_json payload
 
     secret = @subscription.try &.client_secret
-    unless secret && secret == event.client_secret
-      logger.warn { "ignoring notify event with mismatched secret: #{event.inspect}" }
+    unless secret && secret == notification.client_secret
+      logger.warn { "ignoring notify event with mismatched secret: #{notification.inspect}" }
       return
     end
 
-    case event.event_type
+    case notification.event_type
     in .created?, .updated?, .deleted?
-      # TODO:: find event uid and update staff api event metadata without
-      # requiring GraphAPI interaction from staff api.
-      logger.debug { "polling events as received #{event.event_type} notification" }
-      if resource_id = event.resource_id
-        self[:last_event_notification] = {event.event_type, resource_id, Time.utc.to_unix}
+      logger.debug { "polling events as received #{notification.event_type} notification" }
+      if resource_id = notification.resource_id
+        self[:last_event_notification] = {notification.event_type, resource_id, Time.utc.to_unix}
       end
+
+      # fetch the event from the calendar and signal to staff API
+      # staff-api will:
+      #  * notify change
+      #  * which will link_master_metadata
+      event = begin
+        calendar.get_event(
+          @calendar_id,
+          notification.resource_id
+        ).get unless notification.event_type.deleted?
+      rescue error
+        logger.warn(exception: error) { "fetching booking event on change notification" }
+        nil
+      end
+
+      publish("#{@push_authority}/bookings/event", {
+        event_id:  notification.resource_id,
+        change:    notification.event_type,
+        system_id: system.id,
+        event:     event,
+      })
+
       poll_events
     in .missed?
       # we don't know the exact event id that changed

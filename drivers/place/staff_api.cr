@@ -23,6 +23,9 @@ class Place::StaffAPI < PlaceOS::Driver
   @host_header : String = ""
   @api_key : String = ""
 
+  @authority_id : String = ""
+  @event_monitoring : PlaceOS::Driver::Subscriptions::ChannelSubscription? = nil
+
   def on_load
     on_update
   end
@@ -34,6 +37,57 @@ class Place::StaffAPI < PlaceOS::Driver
 
     @place_domain = URI.parse(config.uri.not_nil!)
     @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
+
+    # skip if not going to work
+    return unless @api_key.presence
+    schedule.clear
+    schedule.every(1.hour + rand(300).seconds) { lookup_authority_id }
+    schedule.in(1.second) { lookup_authority_id }
+  end
+
+  def lookup_authority_id(retry : Int32 = 0)
+    response = get("/auth/authority")
+    raise "unexpected response for /auth/authority: #{response.status_code}\n#{response.body}" unless response.success?
+
+    old_id = @authority_id
+    @authority_id = NamedTuple(id: String).from_json(response.body)[:id]
+    monitor_event_changes unless old_id == @authority_id
+  rescue error
+    logger.warn(exception: error) { "failed to lookup authority id" }
+    sleep rand(3)
+    retry += 1
+    return if retry == 10
+    spawn { lookup_authority_id(retry) }
+  end
+
+  protected def monitor_event_changes
+    if monitor = @event_monitoring
+      subscriptions.unsubscribe(monitor)
+      @event_monitoring = nil
+    end
+
+    @event_monitoring = monitor("#{@authority_id}/bookings/event") { |_subscription, payload| push_event_occured(payload) }
+  end
+
+  struct PushEvent
+    include JSON::Serializable
+
+    getter event_id : String
+    getter change : String
+    getter system_id : String
+    getter event : JSON::Any?
+  end
+
+  protected def push_event_occured(payload)
+    event = PushEvent.from_json payload
+
+    response = post("/api/staff/v1/events/notify/#{event.change}/#{event.system_id}/#{event.event_id}",
+      body: event.event.to_json,
+      headers: authentication(HTTP::Headers{
+        "Content-Type" => "application/json",
+      })
+    )
+    raise "unexpected response processing push event: #{response.status_code}\n#{payload}" unless response.success?
   end
 
   def get_system(id : String, complete : Bool = false)
