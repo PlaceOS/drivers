@@ -16,7 +16,8 @@ class Place::StaffAPI < PlaceOS::Driver
 
   default_settings({
     # PlaceOS X-API-key, for simpler authentication
-    api_key: "",
+    api_key:              "",
+    disable_event_notify: false,
   })
 
   @place_domain : URI = URI.parse("https://staff")
@@ -25,6 +26,8 @@ class Place::StaffAPI < PlaceOS::Driver
 
   @authority_id : String = ""
   @event_monitoring : PlaceOS::Driver::Subscriptions::ChannelSubscription? = nil
+  @notify_count : UInt64 = 0_u64
+  @notify_fails : UInt64 = 0_u64
 
   def on_load
     on_update
@@ -40,6 +43,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
     # skip if not going to work
     return unless @api_key.presence
+    return if setting?(Bool, :disable_event_notify)
     schedule.clear
     schedule.every(1.hour + rand(300).seconds) { lookup_authority_id }
     schedule.in(1.second) { lookup_authority_id }
@@ -79,6 +83,7 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   protected def push_event_occured(payload)
+    @notify_count += 1
     event = PushEvent.from_json payload
 
     response = post("/api/staff/v1/events/notify/#{event.change}/#{event.system_id}/#{event.event_id}",
@@ -87,7 +92,19 @@ class Place::StaffAPI < PlaceOS::Driver
         "Content-Type" => "application/json",
       })
     )
-    raise "unexpected response processing push event: #{response.status_code}\n#{payload}" unless response.success?
+    if !response.success?
+      @notify_fails += 1
+      raise "unexpected response processing push event: #{response.status_code}\n#{payload}"
+    end
+  end
+
+  def push_event_status
+    {
+      authority_id: @authority_id,
+      monitoring:   !!@event_monitoring,
+      events:       @notify_count,
+      failures:     @notify_fails,
+    }
   end
 
   def get_system(id : String, complete : Bool = false)
