@@ -40,8 +40,8 @@ class Place::Meet < PlaceOS::Driver
     ],
 
     # if we want to display the selected tab on displays meant only for the presenter
-    preview_outputs: ["Display_2"],
-    vc_camera_in:    "switch_camera_output_id",
+    preview_outputs:        ["Display_2"],
+    vc_camera_in:           "switch_camera_output_id",
     join_lockout_secondary: true,
 
     # only required in joining rooms
