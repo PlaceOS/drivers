@@ -6,13 +6,23 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
   generic_name :RoomBookingApproval
   description %(Room Booking approval for events where the room has not responded)
 
-  default_settings({} of String => String)
+  default_settings({
+    notify_host_on_accept: true,
+    notify_host_on_decline: true,
+    default_accept_message: "Request accepted",
+    default_decline_message: "Request not accepted"
+  })
 
 
   accessor calendar : Calendar_1
 
   getter building_id : String { get_building_id.not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
+
+  @notify_host_on_accept : Bool = true
+  @notify_host_on_decline : Bool = true
+  @default_accept_message : String = "Request accepted"
+  @default_decline_message : String = "Request not accepted"
 
   def on_load
     on_update
@@ -28,6 +38,12 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
 
     # The search
     schedule.every(5.minutes) { find_bookings_for_approval }
+
+    @notify_host_on_accept = setting?(Bool, :notify_host_on_accept) || true
+    @notify_host_on_decline = setting?(Bool, :notify_host_on_decline) || true
+    @default_accept_message = setting?(String, :default_accept_message) || "Request accepted"
+    @default_decline_message = setting?(String, :default_decline_message) || "Request not accepted"
+
   end
 
   # Finds the building ID for the current location services object
@@ -65,12 +81,12 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
     self[:approval_required] = results
   end
 
-  def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
-    calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
+  def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = nil, comment : String? = nil)
+    calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify || @notify_host_on_accept, comment: comment || @default_accept_message)
   end
 
-  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
-    calendar.decline_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
+  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = nil, comment : String? = nil)
+    calendar.decline_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify || @notify_host_on_decline, comment: comment || @default_decline_message)
   end
 
   private def room_attendee(event : PlaceCalendar::Event)
