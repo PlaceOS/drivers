@@ -84,6 +84,8 @@ class Place::StaffAPI < PlaceOS::Driver
 
   protected def push_event_occured(payload)
     @notify_count += 1
+    logger.debug { "new push event: #{payload}" }
+
     event = PushEvent.from_json payload
 
     response = post("/api/staff/v1/events/notify/#{event.change}/#{event.system_id}/#{event.event_id}",
