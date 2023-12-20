@@ -780,7 +780,7 @@ class Place::Bookings < PlaceOS::Driver
           change:    notification.event_type,
           system_id: system.id,
           event:     event,
-        })
+        }.to_json)
       rescue error
         logger.warn(exception: error) { "fetching booking event on change notification" }
         nil
