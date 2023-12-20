@@ -6,24 +6,19 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
   generic_name :RoomBookingApproval
   description %(Room Booking approval for events where the room has not responded)
 
-  default_settings({
-    assume_last_attendee_is_room: false, # only use this when Bookings_1.event.attendees shows the room as "resource: false"
-  })
+  default_settings({} of String => String)
+
 
   accessor calendar : Calendar_1
 
   getter building_id : String { get_building_id.not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
-  @assume_last_attendee_is_room : Bool = false
-
   def on_load
     on_update
   end
 
   def on_update
-    @assume_last_attendee_is_room = setting?(Bool, :assume_last_attendee_is_room) || false
-
     @building_id = nil
     @systems = nil
 
@@ -79,7 +74,6 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
   end
 
   private def room_attendee(event : PlaceCalendar::Event)
-    return event.attendees.last if @assume_last_attendee_is_room
-    event.attendees.find { |a| a.resource }
+    event.attendees.find { |a| a.resource } || event.attendees.last
   end
 end
