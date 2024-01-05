@@ -59,7 +59,7 @@ shards:
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
-    version: 0.12.0
+    version: 0.13.1
 
   debug:
     git: https://github.com/sija/debug.cr.git
@@ -91,7 +91,7 @@ shards:
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
-    version: 0.3.1
+    version: 0.4.1
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -231,11 +231,11 @@ shards:
 
   pg:
     git: https://github.com/will/crystal-pg.git
-    version: 0.27.0
+    version: 0.28.0
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.0.0+git.commit.e614b076c9f185d0891b505ea74c4b5e7e6307b7
+    version: 1.1.0+git.commit.e35e4c535be1ab47b6afb821723ceafb637fa4e8
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.9.16
+    version: 6.9.17
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -283,7 +283,7 @@ shards:
 
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
-    version: 1.0.2
+    version: 1.0.3
 
   quantum:
     git: https://github.com/place-technology/quantum.git
