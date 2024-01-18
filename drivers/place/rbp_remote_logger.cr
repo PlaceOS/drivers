@@ -6,10 +6,12 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
   description %(Recieve logs streamed from Room Booking Panel app)
 
   default_settings({
+    enabled: false,
     max_log_entries:    1000,
-    debug: false
+    debug: false,
   })
 
+  @enabled : Bool = false
   @max_log_entries : UInt32 = 1000_u32
   @debug : Bool = false
 
@@ -18,8 +20,11 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
   end
 
   def on_update
+    @logging_enabled = setting?(Bool, "enabled") || true
     @max_log_entries = setting?(UInt32, "max_log_entries") || 1000_u32
     @debug = setting?(Bool, "debug") || false
+
+    self[:enabled] = @logging_enabled
   end
 
   def post_event(payload : JSON::Any)
