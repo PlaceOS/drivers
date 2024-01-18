@@ -32,6 +32,7 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
     log_entry = LogEntry.from_json(payload)
     self[log_entry.device_id] ||= [] of JSON::Any
     self[log_entry.device_id] = self[log_entry.device_id].as_a.unshift(JSON::Any.new(log_entry.to_json)).truncate(0, @max_log_entries)
+    log_entry
   end
 
   class LogEntry
