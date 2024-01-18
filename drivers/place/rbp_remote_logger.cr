@@ -28,7 +28,7 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
   end
 
   def post_event(payload : String)
-    logger.debug { "Received: #{payload}" }
+    logger.debug { "Received: #{payload}" } if @debug
     log_entry = LogEntry.from_json(payload)
     self[log_entry.device_id] ||= [] of JSON::Any
     self[log_entry.device_id] = self[log_entry.device_id].as_a.unshift(JSON::Any.new(log_entry.to_json)).truncate(0, @max_log_entries)
@@ -40,7 +40,7 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
     
     property id : String
     property device_id : String
-    property type : String
+    property type : String  # Enum 'network' | 'console' | 'dom'
     property subtype : String
     property timestamp : Int32
     property raw : JSON::Any
