@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "json"
 
 class Place::RbpRemoteLogger < PlaceOS::Driver
   descriptive_name "Log Receiver for Room Booking Panel app"
@@ -6,14 +7,15 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
   description %(Recieve logs streamed from Room Booking Panel app)
 
   default_settings({
-    enabled: false,
-    max_log_entries:    1000,
-    debug: false,
+    enabled:         false,
+    max_log_entries: 1000,
+    debug:           false,
   })
 
   @enabled : Bool = false
   @max_log_entries : Int32 = 1000
   @debug : Bool = false
+  @entries : Hash(String, Array(JSON::Any)) = {} of String => Array(JSON::Any)
 
   def on_load
     on_update
@@ -29,18 +31,28 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
 
   def post_event(payload : String)
     logger.debug { "Received: #{payload}" } if @debug
-    log_entry = LogEntry.from_json(payload)
-    self[log_entry.device_id] ||= [] of JSON::Any
-    self[log_entry.device_id] = self[log_entry.device_id].as_a.unshift(JSON::Any.new(log_entry.to_json)).truncate(0, @max_log_entries)
-    log_entry
+
+    entry = Entry.from_json(payload)
+
+    @entries[entry.device_id] ||= [] of JSON::Any
+
+    @entries[entry.device_id] =
+      @entries
+        .[entry.device_id]
+        .unshift(JSON.parse(payload))
+        .truncate(0, @max_log_entries)
+
+    self[:entries] = @entries
+
+    entry
   end
 
-  class LogEntry
+  class Entry
     include JSON::Serializable
-    
+
     property id : String
     property device_id : String
-    property type : String  # Enum 'network' | 'console' | 'dom'
+    property type : String # Enum 'network' | 'console' | 'dom'
     property subtype : String
     property timestamp : Int32
     property raw : JSON::Any

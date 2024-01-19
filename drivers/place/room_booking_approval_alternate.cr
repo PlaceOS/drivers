@@ -7,13 +7,12 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
   description %(Room Booking approval for events where the room has not responded)
 
   default_settings({
-    notify_host_on_accept: true,
-    notify_host_on_decline: true,
-    default_accept_message: "Request accepted",
-    default_decline_message: "Request not accepted",
-    events_requiring_approval_are_tentative: true
+    notify_host_on_accept:                   true,
+    notify_host_on_decline:                  true,
+    default_accept_message:                  "Request accepted",
+    default_decline_message:                 "Request not accepted",
+    events_requiring_approval_are_tentative: true,
   })
-
 
   accessor calendar : Calendar_1
 
@@ -73,9 +72,7 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
         sys = system(system_id)
         if sys.exists?("Bookings", 1)
           if bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "bookings")
-            @events_requiring_approval_are_tentative ? 
-              bookings.select! { |event| event.status == "tentative" }
-              : bookings.select! { |booking| room_attendee(booking).try(&.response_status).in?({"needsAction", "tentative"}) }
+            @events_requiring_approval_are_tentative ? bookings.select! { |event| event.status == "tentative" } : bookings.select! { |booking| room_attendee(booking).try(&.response_status).in?({"needsAction", "tentative"}) }
             results[system_id] = bookings unless bookings.empty?
           end
         end
