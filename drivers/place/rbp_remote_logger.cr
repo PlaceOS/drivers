@@ -29,8 +29,11 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
     self[:enabled] = @logging_enabled
   end
 
-  def post_event(payload : String)
+  def post_event(payload : JSON::Any | String)
     logger.debug { "Received: #{payload}" } if @debug
+
+    payload = payload.to_json if payload.is_a?(JSON::Any)
+    payload = payload.to_s if payload.is_a?(String)
 
     entry = Entry.from_json(payload)
 
