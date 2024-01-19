@@ -57,7 +57,7 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
     property device_id : String
     property type : String # Enum 'network' | 'console' | 'dom'
     property subtype : String
-    property timestamp : Int32
+    property timestamp : Int64
     property raw : JSON::Any
     property data : JSON::Any
     property metadata : JSON::Any
