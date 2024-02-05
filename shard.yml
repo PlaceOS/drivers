@@ -10,6 +10,10 @@ dependencies:
     github: arcage/crystal-email
     version: ~> 0.6.0
 
+  bindata:
+    github: spider-gazelle/bindata
+    version: ~> 2.0
+
   inactive-support:
     github: spider-gazelle/inactive-support
 
@@ -71,6 +75,10 @@ dependencies:
   # the STOMP protocol
   stomp:
     github: spider-gazelle/stomp
+
+  # KNX protocol
+  knx:
+    github: spider-gazelle/knx
 
   # MQTT protocol
   mqtt:

@@ -155,7 +155,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
-    self[:room_image] = setting?(String, :room_image)
+    self[:room_image] = setting?(String, :room_image) || config.control_system.try(&.images.try(&.first?))
     self[:hide_meeting_details] = setting?(Bool, :hide_meeting_details) || false
     self[:hide_meeting_title] = setting?(Bool, :hide_meeting_title) || false
 
