@@ -34,7 +34,7 @@ services:
       - "seccomp:unconfined"
 
   build:
-    image: placeos/build:${PLACE_BUILD_TAG:-latest}
+    image: placeos/build:${PLACE_BUILD_TAG:-nightly}
     restart: always
     hostname: build
     volumes:

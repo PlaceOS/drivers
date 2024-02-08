@@ -37,7 +37,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     host_domain_filter:                 [] of String,
 
     disable_event_visitors: true,
-    invite_zone_tag: "building"
+    invite_zone_tag:        "building",
   })
 
   accessor staff_api : StaffAPI_1
