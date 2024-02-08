@@ -192,6 +192,7 @@ class Place::AreaManagement < PlaceOS::Driver
   # Queries all the sensors in a building and exposes the data
   def request_sensor_data(level_id : String? = nil) : Hash(String, Array(SensorDetail))
     sensors = if level_id
+                level_sensors = @level_sensors[level_id]?
                 location_service.sensors(zone_id: level_id).get.as_a
               else
                 location_service.sensors.get.as_a
@@ -225,6 +226,13 @@ class Place::AreaManagement < PlaceOS::Driver
         sensor.y = location.y
         sensor.level = location.level
         sensor.building = building_id_local
+      end
+
+      # If a sensor has been added to the map, add the level details
+      if sensor.level.nil? && level_sensors
+        if level_sensors[sensor.id ? "#{sensor.mac}-#{sensor.id}" : sensor.mac]?
+          sensor.level = level_id
+        end
       end
 
       if sensor.x && (level_id ? sensor.level == level_id : sensor.level)
