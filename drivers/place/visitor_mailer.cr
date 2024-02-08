@@ -37,6 +37,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     host_domain_filter:                 [] of String,
 
     disable_event_visitors: true,
+    invite_zone_tag: "building"
   })
 
   accessor staff_api : StaffAPI_1
@@ -75,6 +76,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   getter! building_zone : ZoneDetails
   @booking_space_name : String = "Client Floor"
+  @invite_zone_tag : String = "building"
 
   @reminder_template : String = "visitor"
   @send_reminders : String? = nil
@@ -114,6 +116,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
     @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
     @disable_event_visitors = setting?(Bool, :disable_event_visitors) || false
+    @invite_zone_tag = setting?(String, :invite_zone_tag) || "building"
 
     time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -131,7 +134,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   protected def find_building(zones : Array(String)) : Nil
     zones.each do |zone_id|
       zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
-      if zone.tags.includes?("building")
+      if zone.tags.includes?(@invite_zone_tag)
         @building_zone = zone
         break
       end
