@@ -109,7 +109,9 @@ class Place::AutoRelease < PlaceOS::Driver
 
     systems.each do |level_id, system_ids|
       level_config = get_auto_release_config?(level_id)
-      next unless enabled?(level_config) || enabled?(building_config)
+      release_config = level_config || building_config
+      next unless enabled?(release_config)
+
       system_ids.each do |system_id|
         sys = system(system_id)
         if sys.exists?("Bookings", 1)
@@ -122,7 +124,9 @@ class Place::AutoRelease < PlaceOS::Driver
               metadata = staff_api.metadata(event.id).get.as_h
               if linked_bookings = metadata["linked_bookings"]?
                 linked_bookings.as_a.each do |linked_booking|
-                  if !linked_booking.as_h["checked_in"]? && (user_id = linked_booking.as_h["user_id"]?)
+                  if !linked_booking.as_h["checked_in"]? &&
+                     release_config.includes? linked_booking.as_h["type"] &&
+                                              (user_id = linked_booking.as_h["user_id"]?)
                     users[event.id] = staff_api.user(user_id).get
                   end
                 end
@@ -157,7 +161,6 @@ class Place::AutoRelease < PlaceOS::Driver
 
             released_bookings = [] of String
             bookings.each do |event|
-              release_config = level_config || building_config
               if config = release_config
                 if (time_before = config.time_before) && time_before > 0
                   staff_api.reject(event.id).get
