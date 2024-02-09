@@ -15,14 +15,6 @@ class Place::AutoRelease < PlaceOS::Driver
     release_locations: ["wfh"],
   })
 
-  # TODO:
-  # - get all zones with auto_release settings
-  # - get all bookings / events for the next XX hours for those zones that are not checked in
-  # - get all users  for those bookings / events
-  # - filter bookings / events to those users who are absent (not on-site)
-  # - release bookings / events that are past the release time from the zone settings
-  # - send users an email to confirm the booking / event
-
   accessor staff_api : StaffAPI_1
 
   getter building_id : String { get_building_id.not_nil! }
@@ -163,14 +155,20 @@ class Place::AutoRelease < PlaceOS::Driver
               end
             end
 
-            release_config = level_config || building_config
-            if config = release_config
-              if (time_before = config.time_before) && time_before > 0
-                # TODO: release the booking
-              elsif (time_after = config.time_after) && time_after > 0
-                # TODO: release the booking
+            released_bookings = [] of String
+            bookings.each do |event|
+              release_config = level_config || building_config
+              if config = release_config
+                if (time_before = config.time_before) && time_before > 0
+                  staff_api.reject(event.id).get
+                  released_bookings << event.id
+                elsif (time_after = config.time_after) && time_after > 0
+                  staff_api.reject(event.id).get
+                  released_bookings << event.id
+                end
               end
             end
+            bookings.select! { |event| !released_bookings.includes? event.id }
 
             results[system_id] = bookings unless bookings.empty?
           end
