@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "place_calendar"
 
 class Place::AutoRelease < PlaceOS::Driver
   descriptive_name "PlaceOS Auto Release Mailer"
@@ -36,7 +37,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @email_template : String = "auto_release"
   @send_emails : String? = nil
 
-  @time_window_hours : Int64 = 1
+  @time_window_hours : Int32 = 1
   @release_locations : Array(String) = ["wfh"]
 
   def on_update
@@ -49,8 +50,8 @@ class Place::AutoRelease < PlaceOS::Driver
     time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
 
-    @time_window_hours = setting?(Int64, :time_window_hours).presence || 1
-    @release_locations = setting?(Array(String), :release_locations).presence || ["wfh"]
+    @time_window_hours = setting?(Int32, :time_window_hours) || 1
+    @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
 
     schedule.clear
 
@@ -95,39 +96,47 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
-  def enabled?(config : AutoReleaseConfig?) : Bool
-    return false if config.nil?
-    ((time_before = config.time_before) && time_before > 0) ||
-      ((time_after = config.time_after) && time_after > 0)
+  def enabled?(config : AutoReleaseConfig) : Bool
+    # return false if config.nil?
+    if ((time_before = config.time_before) && time_before > 0) ||
+       ((time_after = config.time_after) && time_after > 0)
+      true
+    else
+      false
+    end
   end
 
   @[Security(Level::Support)]
   def find_and_release_bookings : Hash(String, Array(PlaceCalendar::Event))
     results = {} of String => Array(PlaceCalendar::Event)
 
-    building_config = get_auto_release_config?(building_id)
+    return results unless release_config = get_auto_release_config?(building_id)
+    return results unless enabled?(release_config)
 
     systems.each do |level_id, system_ids|
-      level_config = get_auto_release_config?(level_id)
-      release_config = level_config || building_config
-      next unless enabled?(release_config)
-
       system_ids.each do |system_id|
         sys = system(system_id)
         if sys.exists?("Bookings", 1)
           if bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "bookings")
-            bookings.select! { |event| event.event_start < Time.now + @time_window_hours.hours }
-            bookings.select! { |event| event.event_end > Time.now }
+            bookings.select! { |event| event.event_start < Time.utc + @time_window_hours.hours }
+            bookings.select! do |event|
+              if event_end = event.event_end
+                event_end > Time.utc
+              else
+                true
+              end
+            end
 
             users = {} of String => JSON::Any?
             bookings.each do |event|
-              metadata = staff_api.metadata(event.id).get.as_h
+              next unless event_id = event.id
+              metadata = staff_api.metadata(event_id).get.as_h
               if linked_bookings = metadata["linked_bookings"]?
                 linked_bookings.as_a.each do |linked_booking|
                   if !linked_booking.as_h["checked_in"]? &&
-                     release_config.includes? linked_booking.as_h["type"] &&
-                                              (user_id = linked_booking.as_h["user_id"]?)
-                    users[event.id] = staff_api.user(user_id).get
+                     release_config.resources.includes? linked_booking.as_h["type"] &&
+                                                        (user_id = linked_booking.as_h["user_id"]?)
+                    users[event_id] = staff_api.user(user_id).get
                   end
                 end
               end
@@ -142,12 +151,12 @@ class Place::AutoRelease < PlaceOS::Driver
                   false
                 else
                   day_of_week = event.event_start.day_of_week.value + 1
-                  event_time = event.event_start + (event.event_start.minute / 60.0)
+                  event_time = event.event_start.hour + (event.event_start.minute / 60.0)
 
                   if (preference = work_preferences.find { |pref| pref.day_of_week == day_of_week })
                     (preference.start_time > event_time || preference.end_time < event_time) &&
                       (@release_locations.includes? preference.location)
-                  elsif (override = work_overrides[event.event_start.to_date.to_s])
+                  elsif (override = work_overrides[event.event_start.date.to_s])
                     (override.start_time > event_time || override.end_time < event_time) &&
                       (@release_locations.includes? override.location)
                   else
@@ -161,13 +170,14 @@ class Place::AutoRelease < PlaceOS::Driver
 
             released_bookings = [] of String
             bookings.each do |event|
+              next unless event_id = event.id
               if config = release_config
                 if (time_before = config.time_before) && time_before > 0
-                  staff_api.reject(event.id).get
-                  released_bookings << event.id
+                  staff_api.reject(event_id).get
+                  released_bookings << event_id
                 elsif (time_after = config.time_after) && time_after > 0
-                  staff_api.reject(event.id).get
-                  released_bookings << event.id
+                  staff_api.reject(event_id).get
+                  released_bookings << event_id
                 end
               end
             end
@@ -184,18 +194,21 @@ class Place::AutoRelease < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def send_release_emails
-    self[:pending_release].each do |event|
-      begin
-        mailer.send_template(
-          to: event.host,
-          template: {@email_template, "auto_release"},
-          args: {
-            email:    event.host,
-            event_id: event.id,
-            ical_uid: event.ical_uid,
-          })
-      rescue error
-        logger.warn(exception: error) { "failed to send release email to #{email}" }
+    bookings = Hash(String, Array(PlaceCalendar::Event)).from_json self[:pending_release].to_json
+    bookings.each do |sys, events|
+      events.each do |event|
+        begin
+          mailer.send_template(
+            to: event.host,
+            template: {@email_template, "auto_release"},
+            args: {
+              email:    event.host,
+              event_id: event.id,
+              ical_uid: event.ical_uid,
+            })
+        rescue error
+          logger.warn(exception: error) { "failed to send release email to #{event.host}" }
+        end
       end
     end
   end
