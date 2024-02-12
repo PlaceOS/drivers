@@ -75,13 +75,6 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
-  def get_buildings
-    zone_ids = system["StaffAPI"].zones(tags: "building").get.as_a
-  rescue error
-    logger.warn(exception: error) { "unable to find buildings" }
-    nil
-  end
-
   # Grabs the list of systems in the building
   def get_systems_list
     system["StaffAPI"].systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
