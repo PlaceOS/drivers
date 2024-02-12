@@ -67,11 +67,11 @@ class Place::AreaManagement < PlaceOS::Driver
   )
 
   # zone_id => sensors
-  @level_sensors : Hash(String, Hash(String, SensorMeta)) = {} of String => Hash(String, SensorMeta)
+  getter level_sensors : Hash(String, Hash(String, SensorMeta)) = {} of String => Hash(String, SensorMeta)
   # zone_id => areas
-  @level_areas : Hash(String, Array(AreaConfig)) = {} of String => Array(AreaConfig)
+  getter level_areas : Hash(String, Array(AreaConfig)) = {} of String => Array(AreaConfig)
   # area_id => area
-  @areas : Hash(String, AreaConfig) = {} of String => AreaConfig
+  getter areas : Hash(String, AreaConfig) = {} of String => AreaConfig
 
   # zone_id => desk_ids
   @duplication_factor : Float64 = 0.8
@@ -86,7 +86,7 @@ class Place::AreaManagement < PlaceOS::Driver
   @rate_limit : Channel(Nil) = Channel(Nil).new
   @update_lock : Mutex = Mutex.new
   @include_sensors : Bool = false
-  @sensor_discovery = {} of String => SensorMeta
+  getter sensor_discovery = {} of String => SensorMeta
 
   @desk_id_mappings = [] of String
 
