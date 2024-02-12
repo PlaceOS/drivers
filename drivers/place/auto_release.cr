@@ -114,6 +114,10 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
+  def system_zones
+    system.zones
+  end
+
   @[Security(Level::Support)]
   def get_release_config(zone_id : String) : AutoReleaseConfig?
     auto_release = staff_api.zone(zone_id).get.as_h["auto_release"]?
