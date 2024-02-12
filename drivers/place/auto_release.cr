@@ -19,6 +19,7 @@ class Place::AutoRelease < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   getter building_id : String { get_building_id.not_nil! }
+  getter zone_parent_id : String { get_building_parent_id.not_nil! }
   getter release_config : AutoReleaseConfig { get_release_config(building_id).not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
@@ -43,7 +44,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def on_update
     @building_id = nil
-    release_config = nil
+    @zone_parent_id = nil
+    @release_config = nil
     @systems = nil
 
     @send_emails = setting?(String, :send_emails).presence
@@ -86,6 +88,19 @@ class Place::AutoRelease < PlaceOS::Driver
   rescue error
     logger.warn(exception: error) { "unable to obtain list of systems in the building" }
     nil
+  end
+
+  # Finds the zone parent ID for the current location services object
+  def get_building_parent_id
+    parent_ids = system["StaffAPI"].zones(tags: "building").get.as_a.map(&.[]("parent_id").as_s)
+    parent_ids.first
+  rescue error
+    logger.warn(exception: error) { "unable to determine building zone parent_id" }
+    nil
+  end
+
+  def get_buildings_list
+    staff_api.zones(parent: get_building_parent_id, tags: "building").get.as_a
   end
 
   @[Security(Level::Support)]
