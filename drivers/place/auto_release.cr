@@ -3,7 +3,7 @@ require "placeos-driver/interface/mailer"
 require "place_calendar"
 
 class Place::AutoRelease < PlaceOS::Driver
-  descriptive_name "PlaceOS Auto Release Mailer"
+  descriptive_name "PlaceOS Auto Release"
   generic_name :AutoRelease
   description %(emails visitors to confirm automatic release of their booking when they have indicated they are not on-site and releases the booking if they do not confirm)
 
@@ -72,6 +72,13 @@ class Place::AutoRelease < PlaceOS::Driver
     (zone_ids & system.zones).first
   rescue error
     logger.warn(exception: error) { "unable to determine building zone id" }
+    nil
+  end
+
+  def get_buildings
+    zone_ids = system["StaffAPI"].zones(tags: "building").get.as_a
+  rescue error
+    logger.warn(exception: error) { "unable to find buildings" }
     nil
   end
 
