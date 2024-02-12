@@ -19,7 +19,7 @@ class Place::AutoRelease < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   getter building_id : String { get_building_id.not_nil! }
-  getter zone_parent_id : String { get_building_parent_id.not_nil! }
+  getter building_parent_id : String { get_building_parent_id.not_nil! }
   getter release_config : AutoReleaseConfig { get_release_config(building_id).not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
@@ -44,7 +44,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def on_update
     @building_id = nil
-    @zone_parent_id = nil
+    @building_parent_id = nil
     @release_config = nil
     @systems = nil
 
@@ -101,6 +101,17 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def get_buildings_list
     staff_api.zones(parent: get_building_parent_id, tags: "building").get.as_a
+  rescue error
+    logger.warn(exception: error) { "unable to obtain list of buildings in the org" }
+    nil
+  end
+
+  def get_org_id
+    zone_ids = system["StaffAPI"].zones(tags: "org").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine org zone id" }
+    nil
   end
 
   @[Security(Level::Support)]
