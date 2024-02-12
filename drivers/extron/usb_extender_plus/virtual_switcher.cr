@@ -12,8 +12,8 @@ class Extron::UsbExtenderPlus::VirtualSwitcher < PlaceOS::Driver
   generic_name :USB_Switcher
   descriptive_name "Extron USB Extender Plus Switcher"
 
-  accessor hosts : Array(USB_Host), implementing: InputSelection
-  accessor devices : Array(USB_Device), implementing: InputSelection
+  accessor hosts : Array(USB_Host)
+  accessor devices : Array(USB_Device)
 
   getter host_macs : Hash(String, Int32) do
     hash = {} of String => Int32
@@ -46,6 +46,7 @@ class Extron::UsbExtenderPlus::VirtualSwitcher < PlaceOS::Driver
       host_mac = host.status(String, :mac_address)
 
       unjoin_all_devices
+      unjoin_all_hosts
       devices.each { |device| perform_join(host, device) }
     end
   end
