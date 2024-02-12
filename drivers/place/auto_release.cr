@@ -19,8 +19,6 @@ class Place::AutoRelease < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   getter building_id : String { get_building_id.not_nil! }
-  getter building_parent_id : String { get_building_parent_id.not_nil! }
-  getter release_config : AutoReleaseConfig { get_release_config(building_id).not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   def mailer
@@ -41,11 +39,10 @@ class Place::AutoRelease < PlaceOS::Driver
 
   @time_window_hours : Int32 = 1
   @release_locations : Array(String) = ["wfh"]
+  @release_config : AutoReleaseConfig = AutoReleaseConfig.new
 
   def on_update
     @building_id = nil
-    @building_parent_id = nil
-    @release_config = nil
     @systems = nil
 
     @send_emails = setting?(String, :send_emails).presence
@@ -56,14 +53,12 @@ class Place::AutoRelease < PlaceOS::Driver
 
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
+    @release_config = AutoReleaseConfig.from_json setting?(JSON::Any, :release_config).to_json
 
     schedule.clear
 
     # used to detect changes in building configuration
     schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
-
-    # used to detect changes in release configuration
-    schedule.every(5.minutes) { @release_config = get_release_config(building_id).not_nil! }
 
     # The search
     schedule.every(5.minutes) { find_and_release_bookings }
@@ -90,48 +85,6 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
-  # Finds the zone parent ID for the current location services object
-  def get_building_parent_id
-    parent_ids = system["StaffAPI"].zones(tags: "building").get.as_a.map(&.[]("parent_id").as_s)
-    parent_ids.first
-  rescue error
-    logger.warn(exception: error) { "unable to determine building zone parent_id" }
-    nil
-  end
-
-  def get_buildings_list
-    staff_api.zones(parent: get_building_parent_id, tags: "building").get.as_a
-  rescue error
-    logger.warn(exception: error) { "unable to obtain list of buildings in the org" }
-    nil
-  end
-
-  def get_org_id
-    zone_ids = system["StaffAPI"].zones(tags: "org").get.as_a.map(&.[]("id").as_s)
-    (zone_ids & system.zones).first
-  rescue error
-    logger.warn(exception: error) { "unable to determine org zone id" }
-    nil
-  end
-
-  def system_zones
-    system.zones
-  end
-
-  @[Security(Level::Support)]
-  def get_release_config(zone_id : String) : AutoReleaseConfig?
-    auto_release = staff_api.zone(zone_id).get.as_h["auto_release"]?
-    if auto_release
-      AutoReleaseConfig.from_json auto_release.to_json
-    else
-      logger.info { "unable to obtain auto release configuration for zone #{zone_id}" }
-      nil
-    end
-  rescue error
-    logger.warn(exception: error) { "unable to obtain configuration for zone #{zone_id}" }
-    nil
-  end
-
   def enabled?(config : AutoReleaseConfig) : Bool
     # return false if config.nil?
     if ((time_before = config.time_before) && time_before > 0) ||
@@ -146,8 +99,7 @@ class Place::AutoRelease < PlaceOS::Driver
   def find_and_release_bookings : Hash(String, Array(PlaceCalendar::Event))
     results = {} of String => Array(PlaceCalendar::Event)
 
-    return results unless release_config
-    return results unless enabled?(release_config)
+    return results unless enabled?(@release_config)
 
     systems.each do |level_id, system_ids|
       system_ids.each do |system_id|
@@ -170,8 +122,8 @@ class Place::AutoRelease < PlaceOS::Driver
               if linked_bookings = metadata["linked_bookings"]?
                 linked_bookings.as_a.each do |linked_booking|
                   if !linked_booking.as_h["checked_in"]? &&
-                     release_config.resources.includes? linked_booking.as_h["type"] &&
-                                                        (user_id = linked_booking.as_h["user_id"]?)
+                     @release_config.resources.includes? linked_booking.as_h["type"] &&
+                                                         (user_id = linked_booking.as_h["user_id"]?)
                     users[event_id] = staff_api.user(user_id).get
                   end
                 end
@@ -207,7 +159,7 @@ class Place::AutoRelease < PlaceOS::Driver
             released_bookings = [] of String
             bookings.each do |event|
               next unless event_id = event.id
-              if config = release_config
+              if config = @release_config
                 if (time_before = config.time_before) && time_before > 0
                   staff_api.reject(event_id).get
                   released_bookings << event_id
