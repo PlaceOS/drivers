@@ -19,7 +19,7 @@ class Place::AutoRelease < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   getter building_id : String { get_building_id.not_nil! }
-  getter auto_release_config : AutoReleaseConfig { get_auto_release_config(building_id).not_nil! }
+  getter release_config : AutoReleaseConfig { get_release_config(building_id).not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   def mailer
@@ -43,7 +43,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def on_update
     @building_id = nil
-    auto_release_config = nil
+    release_config = nil
     @systems = nil
 
     @send_emails = setting?(String, :send_emails).presence
@@ -59,6 +59,9 @@ class Place::AutoRelease < PlaceOS::Driver
 
     # used to detect changes in building configuration
     schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
+
+    # used to detect changes in release configuration
+    schedule.every(5.minutes) { @release_config = get_release_config(building_id).not_nil! }
 
     # The search
     schedule.every(5.minutes) { find_and_release_bookings }
@@ -85,20 +88,17 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
-  def get_zone(zone_id : String)
-    staff_api.zone(zone_id).get.as_h
-  end
-
   @[Security(Level::Support)]
-  def get_auto_release_config(zone_id : String) : AutoReleaseConfig?
+  def get_release_config(zone_id : String) : AutoReleaseConfig?
     auto_release = staff_api.zone(zone_id).get.as_h["auto_release"]?
     if auto_release
       AutoReleaseConfig.from_json auto_release.to_json
     else
+      logger.info { "unable to obtain auto release configuration for zone #{zone_id}" }
       nil
     end
   rescue error
-    logger.warn(exception: error) { "unable to obtain auto release configuration for zone #{zone_id}" }
+    logger.warn(exception: error) { "unable to obtain configuration for zone #{zone_id}" }
     nil
   end
 
@@ -116,7 +116,7 @@ class Place::AutoRelease < PlaceOS::Driver
   def find_and_release_bookings : Hash(String, Array(PlaceCalendar::Event))
     results = {} of String => Array(PlaceCalendar::Event)
 
-    return results unless release_config = get_auto_release_config(building_id)
+    return results unless release_config
     return results unless enabled?(release_config)
 
     systems.each do |level_id, system_ids|
