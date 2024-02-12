@@ -70,7 +70,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
   # Finds the building ID for the current location services object
   def get_building_id
-    zone_ids = system["StaffAPI"].zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    zone_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
     (zone_ids & system.zones).first
   rescue error
     logger.warn(exception: error) { "unable to determine building zone id" }
@@ -79,14 +79,13 @@ class Place::AutoRelease < PlaceOS::Driver
 
   # Grabs the list of systems in the building
   def get_systems_list
-    system["StaffAPI"].systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
+    staff_api.systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
   rescue error
     logger.warn(exception: error) { "unable to obtain list of systems in the building" }
     nil
   end
 
   def enabled?(config : AutoReleaseConfig) : Bool
-    # return false if config.nil?
     if ((time_before = config.time_before) && time_before > 0) ||
        ((time_after = config.time_after) && time_after > 0)
       true
