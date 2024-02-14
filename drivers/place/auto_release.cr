@@ -95,24 +95,24 @@ class Place::AutoRelease < PlaceOS::Driver
     end
   end
 
-  def get_pending_bookings : Array(Place::StaffAPI::Booking)
-    results = [] of Place::StaffAPI::Booking
+  def get_pending_bookings : Array(Booking)
+    results = [] of Booking
 
     @auto_release.resources.each do |type|
-      bookings = staff_api.query_bookings(
+      bookings = Array(Booking).from_json staff_api.query_bookings(
         type: type,
         period_start: Time.utc.to_unix,
         period_end: (Time.utc + @time_window_hours.hours).to_unix,
         zones: [building_id],
         checked_in: false,
-      ).get.as_a
+      ).get.to_json
       results += bookings
     end
 
     self[:pending_release] = results
   rescue error
     logger.warn(exception: error) { "unable to obtain list of bookings" }
-    [] of Place::StaffAPI::Booking
+    [] of Booking
   end
 
   @[Security(Level::Support)]
@@ -232,5 +232,41 @@ class Place::AutoRelease < PlaceOS::Driver
   # location: Name of the location the work is being performed at
   record WorktimePreference, day_of_week : Int64, start_time : Float64, end_time : Float64, location : String = "" do
     include JSON::Serializable
+  end
+
+  struct Booking
+    include JSON::Serializable
+
+    property id : Int64
+
+    property user_id : String
+    property user_email : String
+    property user_name : String
+    property asset_id : String
+    property zones : Array(String)
+    property booking_type : String
+
+    property booking_start : Int64
+    property booking_end : Int64
+
+    property timezone : String?
+    property title : String?
+    property description : String?
+
+    property checked_in : Bool
+    property rejected : Bool
+    property approved : Bool
+
+    property approver_id : String?
+    property approver_email : String?
+    property approver_name : String?
+
+    property booked_by_id : String
+    property booked_by_email : String
+    property booked_by_name : String
+
+    property process_state : String?
+    property last_changed : Int64?
+    property created : Int64?
   end
 end
