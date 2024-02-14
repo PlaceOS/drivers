@@ -101,8 +101,8 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release.resources.each do |type|
       bookings = staff_api.query_bookings(
         type: type,
-        period_start: Time.utc,
-        period_end: Time.utc + @time_window_hours.hours,
+        period_start: Time.utc.to_unix,
+        period_end: (Time.utc + @time_window_hours.hours).to_unix,
         zones: [building_id],
         checked_in: false,
       ).get.as_a
