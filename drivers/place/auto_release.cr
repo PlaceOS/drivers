@@ -105,6 +105,8 @@ class Place::AutoRelease < PlaceOS::Driver
       results += bookings
     end
 
+    logger.debug { "found #{results.size} pending bookings" }
+
     self[:pending_bookings] = results
   rescue error
     logger.warn(exception: error) { "unable to obtain list of bookings" }
@@ -146,6 +148,8 @@ class Place::AutoRelease < PlaceOS::Driver
       end
     end
 
+    logger.debug { "found #{results.size} bookings pending release" }
+
     self[:pending_release] = results
   end
 
@@ -164,6 +168,8 @@ class Place::AutoRelease < PlaceOS::Driver
         results << booking
       end
     end
+
+    logger.debug { "released #{released_bookings.size} bookings" }
 
     released_bookings
   rescue error
