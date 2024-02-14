@@ -12,7 +12,7 @@ class Place::AutoRelease < PlaceOS::Driver
     send_emails:    "15 */1 * * *",
     email_template: "auto_release",
     # release_url: "https://example.com/release",
-    time_window_hours: 1,
+    time_window_hours: 2,
     release_locations: ["wfh"],
   })
 
@@ -60,8 +60,11 @@ class Place::AutoRelease < PlaceOS::Driver
     # used to detect changes in building configuration
     schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
 
-    # The search
-    schedule.every(5.minutes) { find_and_release_bookings }
+    # find bookins pending release
+    schedule.every(5.minutes) { pending_release }
+
+    # release bookings
+    schedule.every(5.minutes) { release_bookings }
 
     if emails = @send_emails
       schedule.cron(emails, @time_zone) { send_release_emails }
@@ -77,14 +80,6 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
-  # Grabs the list of systems in the building
-  def get_systems_list
-    staff_api.systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
-  rescue error
-    logger.warn(exception: error) { "unable to obtain list of systems in the building" }
-    nil
-  end
-
   @[Security(Level::Support)]
   def enabled? : Bool
     if !@auto_release.resources.empty? &&
@@ -95,6 +90,7 @@ class Place::AutoRelease < PlaceOS::Driver
     end
   end
 
+  @[Security(Level::Support)]
   def get_pending_bookings : Array(Booking)
     results = [] of Booking
 
@@ -109,90 +105,43 @@ class Place::AutoRelease < PlaceOS::Driver
       results += bookings
     end
 
-    self[:pending_release] = results
+    self[:pending_bookings] = results
   rescue error
     logger.warn(exception: error) { "unable to obtain list of bookings" }
-    self[:pending_release] = [] of Booking
+    self[:pending_bookings] = [] of Booking
   end
 
   @[Security(Level::Support)]
-  def find_and_release_bookings : Hash(String, Array(PlaceCalendar::Event))
-    results = {} of String => Array(PlaceCalendar::Event)
+  def get_user_preferences?(user_id : String)
+    user = staff_api.user(user_id).get
 
-    return results unless enabled?
+    work_preferences = Array(WorktimePreference).from_json user.as_h["work_preferences"].to_json
+    work_overrides = Hash(String, WorktimePreference).from_json user.as_h["work_overrides"].to_json
 
-    systems.each do |level_id, system_ids|
-      system_ids.each do |system_id|
-        sys = system(system_id)
-        if sys.exists?("Bookings", 1)
-          if bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "bookings")
-            bookings.select! { |event| event.event_start < Time.utc + @time_window_hours.hours }
-            bookings.select! do |event|
-              if event_end = event.event_end
-                event_end > Time.utc
-              else
-                true
-              end
-            end
+    {work_preferences: work_preferences, work_overrides: work_overrides}
+  rescue error
+    logger.warn(exception: error) { "unable to obtain user work location" }
+    nil
+  end
 
-            users = {} of String => JSON::Any?
-            bookings.each do |event|
-              next unless event_id = event.id
-              metadata = staff_api.metadata(event_id).get.as_h
-              if linked_bookings = metadata["linked_bookings"]?
-                linked_bookings.as_a.each do |linked_booking|
-                  if !linked_booking.as_h["checked_in"]? &&
-                     @auto_release.resources.includes? linked_booking.as_h["type"] &&
-                                                       (user_id = linked_booking.as_h["user_id"]?)
-                    users[event_id] = staff_api.user(user_id).get
-                  end
-                end
-              end
-            end
+  @[Security(Level::Support)]
+  def pending_release
+    results = [] of Booking
+    bookings = get_pending_bookings
 
-            bookings.select! do |event|
-              if user = users[event.id]?
-                work_preferences = Array(WorktimePreference).from_json user.as_h["work_preferences"].to_json
-                work_overrides = Hash(String, WorktimePreference).from_json user.as_h["work_overrides"].to_json
+    bookings.each do |booking|
+      if preferences = get_user_preferences?(booking.user_id)
+        day_of_week = Time.from_unix(booking.booking_start).day_of_week.value + 1
+        event_time = Time.from_unix(booking.booking_start).hour + (Time.from_unix(booking.booking_start).minute / 60.0)
 
-                if work_preferences.empty? && work_overrides.empty?
-                  false
-                else
-                  day_of_week = event.event_start.day_of_week.value + 1
-                  event_time = event.event_start.hour + (event.event_start.minute / 60.0)
-
-                  if (preference = work_preferences.find { |pref| pref.day_of_week == day_of_week })
-                    (preference.start_time > event_time || preference.end_time < event_time) &&
-                      (@release_locations.includes? preference.location)
-                  elsif (override = work_overrides[event.event_start.date.to_s])
-                    (override.start_time > event_time || override.end_time < event_time) &&
-                      (@release_locations.includes? override.location)
-                  else
-                    false
-                  end
-                end
-              else
-                false
-              end
-            end
-
-            released_bookings = [] of String
-            bookings.each do |event|
-              next unless event_id = event.id
-              if config = @auto_release
-                if (time_before = config.time_before) && time_before > 0
-                  staff_api.reject(event_id).get
-                  released_bookings << event_id
-                elsif (time_after = config.time_after) && time_after > 0
-                  staff_api.reject(event_id).get
-                  released_bookings << event_id
-                end
-              end
-            end
-            bookings.select! { |event| !released_bookings.includes? event.id }
-
-            results[system_id] = bookings unless bookings.empty?
-          end
+        if (override = preferences[:work_overrides][Time.from_unix(booking.booking_start).date.to_s]) &&
+           (override.start_time > event_time || override.end_time < event_time) &&
+           (@release_locations.includes? override.location)
+          results << booking
+        elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
+              (preference.start_time > event_time || preference.end_time < event_time) &&
+              (@release_locations.includes? preference.location)
+          results << booking
         end
       end
     end
@@ -200,23 +149,46 @@ class Place::AutoRelease < PlaceOS::Driver
     self[:pending_release] = results
   end
 
+  def release_bookings
+    released_bookings = [] of Booking
+    bookings = Array(Booking).from_json self[:pending_release].to_json
+
+    bookings.each do |booking|
+      if @auto_release.time_before > 0 && Time.utc.to_unix - booking.booking_start < @auto_release.time_before / 60
+        logger.debug { "rejecting booking #{booking.id} as it is within the time_before window" }
+        staff_api.reject(booking.id).get
+        results << booking
+      elsif @auto_release.time_after > 0 && booking.booking_end - Time.utc.to_unix < @auto_release.time_after / 60
+        logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
+        staff_api.reject(booking.id).get
+        results << booking
+      end
+    end
+
+    released_bookings
+  rescue error
+    logger.warn(exception: error) { "unable to release bookings" }
+    [] of Booking
+  end
+
   @[Security(Level::Support)]
   def send_release_emails
-    bookings = Hash(String, Array(PlaceCalendar::Event)).from_json self[:pending_release].to_json
-    bookings.each do |sys, events|
-      events.each do |event|
-        begin
-          mailer.send_template(
-            to: event.host,
-            template: {@email_template, "auto_release"},
-            args: {
-              email:    event.host,
-              event_id: event.id,
-              ical_uid: event.ical_uid,
-            })
-        rescue error
-          logger.warn(exception: error) { "failed to send release email to #{event.host}" }
-        end
+    bookings = Array(Booking).from_json self[:pending_release].to_json
+
+    bookings.each do |booking|
+      begin
+        mailer.send_template(
+          to: booking.user_email,
+          template: {@email_template, "auto_release"},
+          args: {
+            booking_id:    booking.id,
+            user_email:    booking.user_email,
+            user_name:     booking.user_name,
+            booking_start: booking.booking_start,
+            booking_end:   booking.booking_end,
+          })
+      rescue error
+        logger.warn(exception: error) { "failed to send release email to #{event.host}" }
       end
     end
   end
