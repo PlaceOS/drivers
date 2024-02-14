@@ -112,7 +112,7 @@ class Place::AutoRelease < PlaceOS::Driver
     self[:pending_release] = results
   rescue error
     logger.warn(exception: error) { "unable to obtain list of bookings" }
-    [] of Booking
+    self[:pending_release] = [] of Booking
   end
 
   @[Security(Level::Support)]
