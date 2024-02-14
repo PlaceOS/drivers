@@ -85,6 +85,7 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
+  @[Security(Level::Support)]
   def enabled? : Bool
     if !@auto_release.resources.empty? &&
        ((@auto_release.time_before > 0) || (@auto_release.time_after > 0))
@@ -92,6 +93,26 @@ class Place::AutoRelease < PlaceOS::Driver
     else
       false
     end
+  end
+
+  def get_pending_bookings : Array(Place::StaffAPI::Booking)
+    results = [] of Place::StaffAPI::Booking
+
+    @auto_release.resources.each do |type|
+      bookings = staff_api.query_bookings(
+        type: type,
+        period_start: Time.utc,
+        period_end: Time.utc + @time_window_hours.hours,
+        zones: [building_id],
+        checked_in: false,
+      ).get.as_a
+      results += bookings
+    end
+
+    self[:pending_release] = results
+  rescue error
+    logger.warn(exception: error) { "unable to obtain list of bookings" }
+    [] of Place::StaffAPI::Booking
   end
 
   @[Security(Level::Support)]
