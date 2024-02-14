@@ -53,7 +53,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
-    @release_config = AutoReleaseConfig.from_json setting?(JSON::Any, :release_config).to_json
+    @release_config = setting?(AutoReleaseConfig, :release_config) || AutoReleaseConfig.new
 
     schedule.clear
 
