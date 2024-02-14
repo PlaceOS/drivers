@@ -85,9 +85,9 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
-  def enabled?(config : AutoReleaseConfig) : Bool
-    if ((time_before = config.time_before) && time_before > 0) ||
-       ((time_after = config.time_after) && time_after > 0)
+  def enabled? : Bool
+    if !@auto_release.resources.empty? &&
+       ((@auto_release.time_before > 0) || (@auto_release.time_after > 0))
       true
     else
       false
@@ -98,7 +98,7 @@ class Place::AutoRelease < PlaceOS::Driver
   def find_and_release_bookings : Hash(String, Array(PlaceCalendar::Event))
     results = {} of String => Array(PlaceCalendar::Event)
 
-    return results unless enabled?(@auto_release)
+    return results unless enabled?
 
     systems.each do |level_id, system_ids|
       system_ids.each do |system_id|
@@ -122,7 +122,7 @@ class Place::AutoRelease < PlaceOS::Driver
                 linked_bookings.as_a.each do |linked_booking|
                   if !linked_booking.as_h["checked_in"]? &&
                      @auto_release.resources.includes? linked_booking.as_h["type"] &&
-                                                         (user_id = linked_booking.as_h["user_id"]?)
+                                                       (user_id = linked_booking.as_h["user_id"]?)
                     users[event_id] = staff_api.user(user_id).get
                   end
                 end
@@ -201,7 +201,7 @@ class Place::AutoRelease < PlaceOS::Driver
   end
 
   # time_before and time_after are in minutes
-  record AutoReleaseConfig, time_before : Int64? = nil, time_after : Int64? = nil, resources : Array(String) = [] of String do
+  record AutoReleaseConfig, time_before : Int64 = 0, time_after : Int64 = 0, resources : Array(String) = [] of String do
     include JSON::Serializable
   end
 
