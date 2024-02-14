@@ -19,7 +19,6 @@ class Place::AutoRelease < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   getter building_id : String { get_building_id.not_nil! }
-  getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   def mailer
     system.implementing(Interface::Mailer)[0]
@@ -43,7 +42,6 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def on_update
     @building_id = nil
-    @systems = nil
 
     @send_emails = setting?(String, :send_emails).presence
     @email_template = setting?(String, :email_template) || "auto_release"
@@ -56,9 +54,6 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
 
     schedule.clear
-
-    # used to detect changes in building configuration
-    schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
 
     # find bookins pending release
     schedule.every(5.minutes) { pending_release }
@@ -133,10 +128,10 @@ class Place::AutoRelease < PlaceOS::Driver
 
     bookings.each do |booking|
       if preferences = get_user_preferences?(booking.user_id)
-        day_of_week = Time.from_unix(booking.booking_start).day_of_week.value + 1
-        event_time = Time.from_unix(booking.booking_start).hour + (Time.from_unix(booking.booking_start).minute / 60.0)
+        day_of_week = Time.unix(booking.booking_start).day_of_week.value + 1
+        event_time = Time.unix(booking.booking_start).hour + (Time.unix(booking.booking_start).minute / 60.0)
 
-        if (override = preferences[:work_overrides][Time.from_unix(booking.booking_start).date.to_s]) &&
+        if (override = preferences[:work_overrides][Time.unix(booking.booking_start).date.to_s]) &&
            (override.start_time > event_time || override.end_time < event_time) &&
            (@release_locations.includes? override.location)
           results << booking
@@ -161,11 +156,11 @@ class Place::AutoRelease < PlaceOS::Driver
       if @auto_release.time_before > 0 && Time.utc.to_unix - booking.booking_start < @auto_release.time_before / 60
         logger.debug { "rejecting booking #{booking.id} as it is within the time_before window" }
         staff_api.reject(booking.id).get
-        results << booking
+        released_bookings << booking
       elsif @auto_release.time_after > 0 && booking.booking_end - Time.utc.to_unix < @auto_release.time_after / 60
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id).get
-        results << booking
+        released_bookings << booking
       end
     end
 
@@ -194,7 +189,7 @@ class Place::AutoRelease < PlaceOS::Driver
             booking_end:   booking.booking_end,
           })
       rescue error
-        logger.warn(exception: error) { "failed to send release email to #{event.host}" }
+        logger.warn(exception: error) { "failed to send release email to #{booking.user_email}" }
       end
     end
   end
