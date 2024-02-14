@@ -39,7 +39,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
   @time_window_hours : Int32 = 1
   @release_locations : Array(String) = ["wfh"]
-  @release_config : AutoReleaseConfig = AutoReleaseConfig.new
+  @auto_release : AutoReleaseConfig = AutoReleaseConfig.new
 
   def on_update
     @building_id = nil
@@ -53,7 +53,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
-    @release_config = setting?(AutoReleaseConfig, :release_config) || AutoReleaseConfig.new
+    @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
 
     schedule.clear
 
@@ -98,7 +98,7 @@ class Place::AutoRelease < PlaceOS::Driver
   def find_and_release_bookings : Hash(String, Array(PlaceCalendar::Event))
     results = {} of String => Array(PlaceCalendar::Event)
 
-    return results unless enabled?(@release_config)
+    return results unless enabled?(@auto_release)
 
     systems.each do |level_id, system_ids|
       system_ids.each do |system_id|
@@ -121,7 +121,7 @@ class Place::AutoRelease < PlaceOS::Driver
               if linked_bookings = metadata["linked_bookings"]?
                 linked_bookings.as_a.each do |linked_booking|
                   if !linked_booking.as_h["checked_in"]? &&
-                     @release_config.resources.includes? linked_booking.as_h["type"] &&
+                     @auto_release.resources.includes? linked_booking.as_h["type"] &&
                                                          (user_id = linked_booking.as_h["user_id"]?)
                     users[event_id] = staff_api.user(user_id).get
                   end
@@ -158,7 +158,7 @@ class Place::AutoRelease < PlaceOS::Driver
             released_bookings = [] of String
             bookings.each do |event|
               next unless event_id = event.id
-              if config = @release_config
+              if config = @auto_release
                 if (time_before = config.time_before) && time_before > 0
                   staff_api.reject(event_id).get
                   released_bookings << event_id
