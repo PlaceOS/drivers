@@ -131,7 +131,7 @@ class Place::AutoRelease < PlaceOS::Driver
         day_of_week = Time.unix(booking.booking_start).day_of_week.value + 1
         event_time = Time.unix(booking.booking_start).hour + (Time.unix(booking.booking_start).minute / 60.0)
 
-        if (override = preferences[:work_overrides][Time.unix(booking.booking_start).to_s(format: "%F")]) &&
+        if (override = preferences[:work_overrides][Time.unix(booking.booking_start).to_s(format: "%F")]?) &&
            (override.start_time > event_time || override.end_time < event_time) &&
            (@release_locations.includes? override.location)
           results << booking
