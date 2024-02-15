@@ -255,7 +255,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.9.0
+    version: 2.10.0
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
