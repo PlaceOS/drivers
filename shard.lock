@@ -275,7 +275,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.1.0
+    version: 9.37.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -381,7 +381,7 @@ shards:
     git: https://github.com/wyhaines/tracer.cr.git
     version: 0.3.1
 
-  ulid:
+  ulid: # Overridden
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
 
