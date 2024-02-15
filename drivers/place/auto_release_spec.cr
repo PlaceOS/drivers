@@ -60,6 +60,58 @@ class StaffAPI < DriverSpecs::MockDriver
       authority_id: "authority-wYLBwmC7GFbupt",
       deleted:      false,
       department:   "",
+      work_preferences: [
+        {
+          day_of_week: 0,
+          start_time: 9,
+          end_time: 17,
+          location: "wfo",
+        },
+        {
+          day_of_week: 1,
+          start_time: 9,
+          end_time: 17,
+          location: "wfo",
+        },
+        {
+          day_of_week: 2,
+          start_time: 9,
+          end_time: 17,
+          location: "wfh",
+        },
+        {
+          day_of_week: 3,
+          start_time: 9,
+          end_time: 17,
+          location: "wfh",
+        },
+        {
+          day_of_week: 4,
+          start_time: 9,
+          end_time: 17,
+          location: "wfh",
+        },
+        {
+          day_of_week: 5,
+          start_time: 9,
+          end_time: 17,
+          location: "wfh",
+        },
+        {
+          day_of_week: 6,
+          start_time: 9,
+          end_time: 17,
+          location: "wfo",
+        },
+      ],
+      work_overrides: {
+        "2024-02-15": {
+          day_of_week: 4,
+          start_time: 9,
+          end_time: 17,
+          location: "wfo",
+        }
+      },
       sys_admin:    false,
       support:      false,
       email:        "user_one@example.com",
@@ -69,7 +121,7 @@ class StaffAPI < DriverSpecs::MockDriver
       staff_id:     "",
       card_number:  "",
     }
-
+    
     JSON.parse(user.to_json)
   end
 end
