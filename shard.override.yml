@@ -2,3 +2,6 @@
 dependencies:
   pars:
     github: spider-gazelle/pars
+
+  ulid:
+    github: place-labs/ulid

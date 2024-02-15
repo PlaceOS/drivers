@@ -14,6 +14,10 @@ dependencies:
     github: spider-gazelle/bindata
     version: ~> 2.0
 
+  placeos-models:
+    github: placeos/models
+    version: ">= 9.37"
+
   inactive-support:
     github: spider-gazelle/inactive-support
 
@@ -45,7 +49,7 @@ dependencies:
   # The PlaceOS API client
   placeos:
     github: placeos/crystal-client
-    version: ~> 2.2
+    version: ">= 2.10"
 
   # HTTP Client helper
   responsible:
