@@ -756,6 +756,25 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  # level is a percentage 0.0->100.0
+  def set_microphone(level : Float64, mute : Bool = false)
+    @local_mics.each do |mic|
+      mixer = system[mic.module_id]
+
+      if level_index = mic.level_index
+        mixer.fader(mic.level_id, level, level_index)
+      else
+        mixer.fader(mic.level_id, level)
+      end
+
+      if mute_index = mic.mute_index
+        mixer.mute(mic.level_id, mute, mute_index)
+      else
+        mixer.mute(mic.level_id, mute)
+      end
+    end
+  end
+
   # ====================
   # VC Camera Management
   # ====================
