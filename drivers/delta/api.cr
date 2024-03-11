@@ -27,7 +27,7 @@ class Delta::API < PlaceOS::Driver
     @debug = setting?(Bool, :debug) || false
   end
 
-  private def fetch(path : String, skip : Int32 = 0, max_results : Int32 = 500)
+  private def fetch(path : String, skip : Int32 = 0, max_results : Int32 = 1000)
     logger.debug { config.uri } if @debug
     request = "#{path}?alt=json&skip=#{skip}&max-results=#{max_results}"
     logger.debug { request } if @debug
@@ -71,7 +71,7 @@ class Delta::API < PlaceOS::Driver
       end
 
       break if body.json_unmapped.keys.size == 0
-      skip += 500
+      skip += 1000
     end
 
     devices
