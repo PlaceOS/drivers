@@ -67,7 +67,7 @@ class Delta::API < PlaceOS::Driver
         devices.push(Models::Device.new(id: key.to_u32, base: value["$base"].to_s, node_type: value["nodeType"].to_s, display_name: value["displayName"].to_s))
       end
 
-      break if body.json_unmapped.keys.size < 500
+      break if body.json_unmapped.keys.size == 0
       skip += 500
     end
 
