@@ -27,9 +27,9 @@ class Delta::API < PlaceOS::Driver
     @debug = setting?(Bool, :debug) || false
   end
 
-  private def fetch(path : String)
+  private def fetch(path : String, skip : Int32 = 0, max_results : Int32 = 500)
     logger.debug { config.uri } if @debug
-    request = "#{path}?alt=json&skip=0&max-results=1000"
+    request = "#{path}?alt=json&skip=#{skip}&max-results=#{max_results}"
     logger.debug { request } if @debug
 
     response = get(request, headers: HTTP::Headers{
@@ -51,20 +51,24 @@ class Delta::API < PlaceOS::Driver
 
   # list devices for site
   def list_devices(site_name : String)
+    skip = 0
     devices = [] of Models::Device
     path = URI.encode_path("/api/.bacnet/#{site_name}")
 
-    response = fetch(path)
+    loop do
+      response = fetch(path, skip)
 
-    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
-    logger.debug { "response body:\n#{response.body}" }
+      raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+      logger.debug { "response body:\n#{response.body}" }
 
-    body = Models::ListDevicesBySiteNameResponse.from_json(response.body)
+      body = Models::ListDevicesBySiteNameResponse.from_json(response.body)
+      body.json_unmapped.keys.each do |key|
+        value = body.json_unmapped[key].as_h
+        devices.push(Models::Device.new(id: key.to_u32, base: value["$base"].to_s, node_type: value["nodeType"].to_s, display_name: value["displayName"].to_s))
+      end
 
-    body.json_unmapped.keys.each do |key|
-      value = body.json_unmapped[key].as_h
-
-      devices.push(Models::Device.new(id: key.to_u32, base: value["$base"].to_s, node_type: value["nodeType"].to_s, display_name: value["displayName"].to_s))
+      break if body.json_unmapped.keys.size < 500
+      skip += 500
     end
 
     devices
