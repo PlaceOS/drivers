@@ -8,7 +8,7 @@ DriverSpecs.mock_driver "Delta::API" do
 
   expect_http_request do |request, response|
     case "#{request.path}?#{request.query}"
-    when "/api/.bacnet?alt=json"
+    when "/api/.bacnet?alt=json&skip=0&max-results=500"
       response.status_code = 200
       response << %({
         "$base": "Collection",
@@ -34,7 +34,7 @@ DriverSpecs.mock_driver "Delta::API" do
 
   expect_http_request do |request, response|
     case "#{request.path}?#{request.query}"
-    when "/api/.bacnet/Random%20Name?alt=json"
+    when "/api/.bacnet/Random%20Name?alt=json&skip=0&max-results=500"
       response.status_code = 200
       response << %({
         "$base": "Collection",
@@ -83,7 +83,7 @@ DriverSpecs.mock_driver "Delta::API" do
 
   expect_http_request do |request, response|
     case "#{request.path}?#{request.query}"
-    when "/api/.bacnet/Random%20Name/200?alt=json"
+    when "/api/.bacnet/Random%20Name/200?alt=json&skip=0&max-results=500"
       response.status_code = 200
       response << %({
         "$base": "Collection",
@@ -113,7 +113,7 @@ DriverSpecs.mock_driver "Delta::API" do
 
   expect_http_request do |request, response|
     case "#{request.path}?#{request.query}"
-    when "/api/.bacnet/Random%20Name/200/A%2C3?alt=json"
+    when "/api/.bacnet/Random%20Name/200/A%2C3?alt=json&skip=0&max-results=500"
       response.status_code = 200
       response << %({
         "$base": "Object",
