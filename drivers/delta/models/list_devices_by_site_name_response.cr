@@ -7,7 +7,11 @@ module Delta
       include JSON::Serializable::Unmapped
 
       @[JSON::Field(key: "$base")]
-      property base : String
+      property base : String? = nil
+
+      # returns this when there are no more results
+      @[JSON::Field(key: "Collection")]
+      property collection : String? = nil
     end
   end
 end

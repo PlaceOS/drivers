@@ -61,6 +61,9 @@ class Delta::API < PlaceOS::Driver
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
       logger.debug { "response body:\n#{response.body}" }
 
+      # returns this when there are no more results
+      # {"Collection":""}
+
       body = Models::ListDevicesBySiteNameResponse.from_json(response.body)
       body.json_unmapped.keys.each do |key|
         value = body.json_unmapped[key].as_h
