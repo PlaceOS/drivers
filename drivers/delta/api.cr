@@ -29,7 +29,7 @@ class Delta::API < PlaceOS::Driver
 
   private def fetch(path : String)
     logger.debug { config.uri } if @debug
-    request = "#{path}?alt=json"
+    request = "#{path}?alt=json&skip=0&max-results=1000"
     logger.debug { request } if @debug
 
     response = get(request, headers: HTTP::Headers{
