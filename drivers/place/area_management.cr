@@ -149,6 +149,8 @@ class Place::AreaManagement < PlaceOS::Driver
 
   # Finds the building ID for the current location services object
   def get_building_id
+    building_setting = setting?(String, :building_zone_override)
+    return building_setting if building_setting.presence
     zone_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
     (zone_ids & system.zones).first
   rescue error
