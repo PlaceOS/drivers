@@ -98,7 +98,19 @@ class Delta::UNOnext < PlaceOS::Driver
       unit = "lx"
     end
 
+    modifier = case index
+               when 2
+                 "particle"
+               when 4
+                 "CO2"
+               when 9
+                 "O3"
+               else
+                 nil
+               end
+
     Detail.new(
+      modifier: modifier,
       type: sensor,
       value: value,
       last_seen: Time.utc.to_unix,
