@@ -355,8 +355,8 @@ class Place::AreaManagement < PlaceOS::Driver
   protected def update_level_locations(level_counts, level_id, details, sensor_data)
     areas = @level_areas[level_id]? || [] of AreaConfig
     unsorted_sensors = sensor_data.try &.[]?(level_id) || [] of SensorDetail
-    sensors = Hash(SensorType, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
-    unsorted_sensors.each { |sensor| sensors[sensor.type] << sensor }
+    sensors = Hash(String, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
+    unsorted_sensors.each { |sensor| sensors[sensor.modified_type.underscore] << sensor }
 
     # Provide the frontend with the list of all known desk ids on a level
     self["#{level_id}:desk_ids"] = details[:desk_ids]
@@ -422,8 +422,8 @@ class Place::AreaManagement < PlaceOS::Driver
       end
     end
 
-    people_counts = sensors[SensorType::PeopleCount]?
-    sensor_summary = sensors.transform_keys(&.to_s.underscore).transform_values do |values|
+    people_counts = sensors["people_count"]?
+    sensor_summary = sensors.transform_values do |values|
       if values.size > 0
         (values.sum(&.value) / values.size).round(@rounding_precision)
       else
@@ -493,15 +493,15 @@ class Place::AreaManagement < PlaceOS::Driver
         end
 
         # build sensor summary for the area
-        area_sensors = Hash(SensorType, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
+        area_sensors = Hash(String, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
         sensors.each do |type, array|
           array.each do |sensor|
             area_sensors[type] << sensor if polygon.contains(sensor.x.not_nil!, sensor.y.not_nil!)
           end
         end
 
-        people_counts = area_sensors[SensorType::PeopleCount]?
-        sensor_summary = area_sensors.transform_keys(&.to_s.underscore).transform_values do |values|
+        people_counts = area_sensors["people_count"]?
+        sensor_summary = area_sensors.transform_values do |values|
           if values.size > 0
             (values.sum(&.value) / values.size).round(@rounding_precision)
           else
