@@ -38,6 +38,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     disable_event_visitors: true,
     invite_zone_tag:        "building",
+    is_parent_zone:         false,
   })
 
   accessor staff_api : StaffAPI_1
@@ -61,6 +62,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @time_zone : Time::Location = Time::Location.load("GMT")
 
   @debug : Bool = false
+  @is_parent_zone : Bool = false
   @users_checked_in : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
@@ -75,6 +77,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @date_format : String = "%A, %-d %B"
 
   getter! building_zone : ZoneDetails
+  getter parent_zone_ids : Array(String) = [] of String
   @booking_space_name : String = "Client Floor"
   @invite_zone_tag : String = "building"
 
@@ -117,6 +120,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
     @disable_event_visitors = setting?(Bool, :disable_event_visitors) || false
     @invite_zone_tag = setting?(String, :invite_zone_tag) || "building"
+    @is_parent_zone = setting?(Bool, :is_parent_zone) || false
 
     time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
@@ -136,6 +140,11 @@ class Place::VisitorMailer < PlaceOS::Driver
       zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
       if zone.tags.includes?(@invite_zone_tag)
         @building_zone = zone
+        if @is_parent_zone && (child_zones = Array(ZoneDetails).from_json(staff_api.zones(parent: zone_id).get.to_json))
+          @parent_zone_ids = child_zones.map(&.id)
+        else
+          @parent_zone_ids = [] of String
+        end
         break
       end
     end
@@ -209,12 +218,18 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # ensure the event is for this building
     if zones = guest_details.zones
-      return unless zones.includes?(building_zone.id)
+      check = [building_zone.id] + @parent_zone_ids
+
+      if (check & zones).empty?
+        logger.debug { "ignoring event as does not match any zones: #{check}" }
+        return
+      end
     end
 
     # don't email staff members
-    if !@host_domain_filter.empty?
-      return if guest_details.attendee_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
+    if !@host_domain_filter.empty? && guest_details.attendee_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
+      logger.debug { "ignoring event matches host domain filter" }
+      return
     end
 
     case guest_details
@@ -422,6 +437,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     property display_name : String?
     property location : String?
     property tags : Array(String)
+    property parent_id : String?
   end
 
   class SystemDetails
