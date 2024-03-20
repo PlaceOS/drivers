@@ -352,11 +352,11 @@ class Place::AreaManagement < PlaceOS::Driver
     level_details = {} of String => LevelCapacity
     level_buildings = {} of String => String
 
-    buildings.each do |building_id|
+    buildings.each do |b_id|
       # Attempt to obtain the latest version of the metadata
-      response = ChildMetadata.from_json(staff_api.metadata_children(building_id).get.to_json)
+      response = ChildMetadata.from_json(staff_api.metadata_children(b_id).get.to_json)
       response.each do |meta|
-        level_buildings[meta[:zone].id] = building_id
+        level_buildings[meta[:zone].id] = b_id
         update_level_details(level_details, meta[:zone], meta[:metadata])
       end
     end
