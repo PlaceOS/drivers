@@ -188,8 +188,8 @@ class Place::AreaManagement < PlaceOS::Driver
   end
 
   def write_sensor_discovery
-    sensor_discovery.each do |building_id, sensors|
-      staff_api.write_metadata(building_id, "sensor-discovered", sensors)
+    sensor_discovery.each do |b_id, sensors|
+      staff_api.write_metadata(b_id, "sensor-discovered", sensors)
     end
   end
 
@@ -410,7 +410,7 @@ class Place::AreaManagement < PlaceOS::Driver
       },
       ts_tag_keys: {"s2_cell_id"},
       ts_tags:     {
-        pos_building: building_id,
+        pos_building: level_buildings[level_id]? || building_id,
         pos_level:    level_id,
       },
     }
@@ -545,7 +545,7 @@ class Place::AreaManagement < PlaceOS::Driver
       measurement: "area_summary",
       ts_hint:     "complex",
       ts_tags:     {
-        pos_building: building_id,
+        pos_building: level_buildings[level_id]? || building_id,
         pos_level:    level_id,
       },
     }
