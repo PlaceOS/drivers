@@ -38,7 +38,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     disable_event_visitors: true,
     invite_zone_tag:        "building",
-    is_parent_zone:         false,
+    is_campus:              false,
   })
 
   accessor staff_api : StaffAPI_1
@@ -120,7 +120,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
     @disable_event_visitors = setting?(Bool, :disable_event_visitors) || false
     @invite_zone_tag = setting?(String, :invite_zone_tag) || "building"
-    @is_parent_zone = setting?(Bool, :is_parent_zone) || false
+    @is_parent_zone = setting?(Bool, :is_campus) || false
 
     time_zone = setting?(String, :timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
