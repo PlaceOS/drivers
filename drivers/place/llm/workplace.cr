@@ -187,8 +187,7 @@ class Place::Workplace < PlaceOS::Driver
       raise "could not find a desk with id: #{asset_id}" unless desk
     end
 
-    resp = nil
-    (day_offset...(day_offset + number_of_days)).each do |offset|
+    ids = (day_offset...(day_offset + number_of_days)).map do |offset|
       # calculate the offset time
       days = offset.days
       starting = now + days + 8.hours
@@ -206,11 +205,14 @@ class Place::Workplace < PlaceOS::Driver
         time_zone: timezone.to_s,
         utm_source: "chatgpt"
       )
+      resp.get["id"].as_i64
     end
-    resp.try &.get
-
     starting = now + day_offset.days
-    "booking for #{asset_id} created on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}"
+
+    {
+      booking_ids: ids,
+      details:     "booking for #{asset_id} created on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}",
+    }
   end
 
   @[Description("books an asset, such as a desk or car parking space, for the number of days specified, the start date must be in ISO 8601 format with the correct timezone. For desk bookings use booking_type: desk")]
@@ -238,8 +240,7 @@ class Place::Workplace < PlaceOS::Driver
       raise "could not find a desk with id: #{asset_id}" unless desk
     end
 
-    resp = nil
-    (0...number_of_days).each do |offset|
+    ids = (0...number_of_days).map do |offset|
       # calculate the offset time
       days = offset.days
       starting = now + days + 8.hours
@@ -257,23 +258,28 @@ class Place::Workplace < PlaceOS::Driver
         time_zone: timezone.to_s,
         utm_source: "chatgpt"
       )
+      resp.get["id"].as_i64
     end
-    resp.try &.get
 
-    "booking for #{asset_id} created on #{now.day_of_week}, #{now.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}"
+    {
+      booking_ids: ids,
+      details:     "booking for #{asset_id} created on #{now.day_of_week}, #{now.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}",
+    }
   end
 
-  @[Description("cancels a booking")]
-  def cancel_booking(booking_id : Int64)
-    logger.debug { "cancel booking #{booking_id}" }
-    booking = staff_api.get_booking(booking_id).get
-    user_id = invoked_by_user_id
-    me = current_user
-    unless (user_id == booking["user_id"]?.try(&.as_s)) || me.email.downcase.in?({booking["user_email"].as_s, booking["booked_by_email"].as_s})
-      raise "can only cancel bookings owned by #{me.email} - this booking is owned by #{booking["user_email"]}"
+  @[Description("cancels the given booking ids")]
+  def cancel_bookings(booking_ids : Array(Int64))
+    logger.debug { "cancel bookings #{booking_ids}" }
+    booking_ids.each do |booking_id|
+      booking = staff_api.get_booking(booking_id).get
+      user_id = invoked_by_user_id
+      me = current_user
+      unless (user_id == booking["user_id"]?.try(&.as_s)) || me.email.downcase.in?({booking["user_email"].as_s, booking["booked_by_email"].as_s})
+        raise "can only cancel bookings owned by #{me.email} - this booking is owned by #{booking["user_email"]}"
+      end
+      staff_api.booking_delete(booking_id, "chatgpt")
     end
-    staff_api.booking_delete(booking_id, "chatgpt")
-    "booking has been removed"
+    "bookings have been removed"
   end
 
   @[Description("book a visitor to the building")]
@@ -297,8 +303,7 @@ class Place::Workplace < PlaceOS::Driver
 
     visitor_email = visitor_email.downcase
 
-    resp = nil
-    (day_offset...(day_offset + number_of_days)).each do |offset|
+    ids = (day_offset...(day_offset + number_of_days)).map do |offset|
       # calculate the offset time
       days = offset.days
       starting = now + days + 8.hours
@@ -321,11 +326,14 @@ class Place::Workplace < PlaceOS::Driver
           email: visitor_email,
         }]
       )
+      resp.get["id"].as_i64
     end
-    resp.try &.get
-
     starting = now + day_offset.days
-    "invited #{visitor_email} to the office on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}"
+
+    {
+      booking_ids: ids,
+      details:     "invited #{visitor_email} to the office on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}",
+    }
   end
 
   # =========================
