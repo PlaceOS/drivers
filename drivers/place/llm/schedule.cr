@@ -128,7 +128,7 @@ class Place::Schedule < PlaceOS::Driver
     end
   end
 
-  @[Description("create a calendar entry with the provided event details. Make sure the attendees are available by getting their schedules first, remember to include the host in the attendees list. Don't specify an ending time for all day bookings. You can specify an alternate host if booking on behalf of someone else. Don't provide a response_status for attendees when using this function. Starting and ending date times must be ISO 8601 formatted with the timezone")]
+  @[Description("create a calendar entry with the provided event details. Make sure the attendees are available by getting their schedules first, remember to include the host in the attendees list. An ending time is required except for all day bookings. You can specify an alternate host if booking on behalf of someone else. Don't provide a response_status for attendees when using this function. Starting and ending date times must be ISO 8601 formatted with the timezone")]
   def create(event : CreateEvent)
     cal_client = place_calendar_client
     me = current_user
@@ -148,6 +148,8 @@ class Place::Schedule < PlaceOS::Driver
       end
     end
     attendees << PlaceCalendar::Event::Attendee.new(name: i_am_host ? me.name : host_name, email: host_email, response_status: "accepted", organizer: i_am_host)
+
+    return "error: ending time required unless this is an all_day event" if event.ending.nil? && event.all_day == false
 
     # create the calendar event
     new_event = PlaceCalendar::Event.new
@@ -190,6 +192,7 @@ class Place::Schedule < PlaceOS::Driver
     else
       existing.all_day = false
       existing.event_end = event.ending.nil? ? existing.event_end.try(&.in(timezone)) : event.ending.not_nil!.in(timezone)
+      return "error: ending time required unless this is an all_day event" if event.ending.nil? && event.all_day == false
     end
 
     logger.debug { "updating event: #{existing.inspect}" }
