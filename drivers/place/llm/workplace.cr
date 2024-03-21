@@ -71,7 +71,7 @@ class Place::Workplace < PlaceOS::Driver
     end
   end
 
-  @[Description("returns the building details and list of levels")]
+  @[Description("returns the building details and list of levels. Use this to obtain level_ids")]
   def levels : Array(Zone)
     logger.debug { "getting list of levels" }
     l = all_levels
@@ -116,7 +116,7 @@ class Place::Workplace < PlaceOS::Driver
   alias Metadata = Hash(String, PlaceOS::Client::API::Models::Metadata)
   alias ChildMetadata = Array(NamedTuple(zone: PlaceZone, metadata: Metadata))
 
-  @[Description("returns the list of available desks on the level and day specified. If the level has desk features then you can also filter by features")]
+  @[Description("returns the list of desks available for booking on the level and day specified. If the level has desk features then you can also filter by features.")]
   def desks(level_id : String, day_offset : Int32 = 0, date : Time? = nil, feature : String? = nil)
     logger.debug { "listing desks on level #{level_id}, day offset #{day_offset}" }
 
