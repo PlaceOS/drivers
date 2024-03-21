@@ -1,9 +1,9 @@
-require "json"
+require "json-schema"
+require "placeos-driver"
 require "oauth2"
 require "placeos"
 require "link-header"
 require "simple_retry"
-require "placeos-driver"
 require "place_calendar"
 
 class Place::StaffAPI < PlaceOS::Driver
@@ -564,7 +564,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "attendees"      => attendees,
     }.compact.to_json)
     raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
-    true
+    JSON.parse(response.body)
   end
 
   @[Security(Level::Support)]
@@ -608,7 +608,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "extension_data" => extension_data,
     }.compact.to_json)
     raise "issue updating booking #{booking_id}: #{response.status_code}" unless response.success?
-    true
+    JSON.parse(response.body)
   end
 
   @[Security(Level::Support)]
