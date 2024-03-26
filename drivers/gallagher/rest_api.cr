@@ -310,7 +310,9 @@ class Gallagher::RestAPI < PlaceOS::Driver
       card_updates = {} of String => Array(Card)
       card_updates["add"] = cards if cards
       card_updates["update"] = update_cards if update_cards
-      card_updates["remove"] = remove_cards if remove_cards
+      if remove_cards
+        card_updates["remove"] = remove_cards.map { |card| Card.new(card.href, nil) }
+      end
     end
 
     if access_groups || remove_access_groups || update_access_groups
