@@ -203,7 +203,7 @@ class Place::Bookings < PlaceOS::Driver
     cmeeting = current
     result = if cmeeting && cmeeting.event_start.to_unix == meeting_start_time
                logger.debug { "deleting event #{cmeeting.title}, from #{@calendar_id}" }
-               calendar.delete_event(@calendar_id, cmeeting.id, notify: notify, comment: comment)
+               calendar.decline_event(@calendar_id, cmeeting.id, notify: notify, comment: comment)
              else
                nmeeting = upcoming
                if nmeeting && nmeeting.event_start.to_unix == meeting_start_time
