@@ -79,8 +79,8 @@ class Delta::UNOnext < PlaceOS::Driver
   SENSOR_TYPES = {
     0 => SensorType::Temperature,
     1 => SensorType::Humidity,
-    2 => SensorType::PPM, # PM2.5 (particles smaller than 2.5)
-    4 => SensorType::PPM, # CO2
+    2 => SensorType::AirQuality, # PM2.5 (particles smaller than 2.5)
+    4 => SensorType::PPM,        # CO2
     5 => SensorType::Illuminance,
     # 9 => SensorType::PPM, # O3
   }
@@ -143,18 +143,14 @@ class Delta::UNOnext < PlaceOS::Driver
       sensor = SensorType::Temperature
     when "%RH"
       sensor = SensorType::Humidity
+    when "µg/m³"
+      sensor = SensorType::AirQuality
     when "lx"
       unit = "lx"
       sensor = SensorType::Illuminance
     when "ppm"
-      case prop.object_name.try(&.value.as_s)
-      when .try(&.includes?("_C02"))
-        modifier = "CO2"
-        sensor = SensorType::PPM
-      else
-        modifier = "particle"
-        sensor = SensorType::PPM
-      end
+      modifier = "CO2"
+      sensor = SensorType::PPM
     end
     return nil unless sensor
 
