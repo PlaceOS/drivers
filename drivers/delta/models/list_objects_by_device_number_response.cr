@@ -11,6 +11,9 @@ module Delta
 
       @[JSON::Field(key: "nodeType")]
       property node_type : String
+
+      @[JSON::Field(key: "next")]
+      property next_req : String? = nil
     end
   end
 end

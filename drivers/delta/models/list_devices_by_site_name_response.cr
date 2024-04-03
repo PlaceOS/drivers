@@ -12,6 +12,9 @@ module Delta
       # returns this when there are no more results
       @[JSON::Field(key: "Collection")]
       property collection : String? = nil
+
+      @[JSON::Field(key: "next")]
+      property next_req : String? = nil
     end
   end
 end
