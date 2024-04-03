@@ -70,7 +70,7 @@ class Delta::API < PlaceOS::Driver
         devices.push(Models::Device.new(id: key.to_u32, base: value["$base"].to_s, node_type: value["nodeType"].to_s, display_name: value["displayName"].to_s))
       end
 
-      break if body.json_unmapped.keys.size == 0
+      break if body.json_unmapped.keys.size < 1000
       skip += 1000
     end
 
@@ -79,19 +79,25 @@ class Delta::API < PlaceOS::Driver
 
   # list objects from device resource
   def list_device_objects(site_name : String, device_number : String | UInt32)
+    skip = 0
+    objects = [] of Models::Object
     path = URI.encode_path("/api/.bacnet/#{site_name}/#{device_number}")
-    response = fetch(path)
 
-    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
-    logger.debug { "response body:\n#{response.body}" }
+    loop do
+      response = fetch(path, skip)
 
-    body = Models::ListObjectsByDeviceNumber.from_json(response.body)
-    objects = Array(Models::Object).new(body.json_unmapped.size)
+      raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+      logger.debug { "response body:\n#{response.body}" }
 
-    body.json_unmapped.each do |key, obj|
-      value = obj.as_h
-      object_type, instance = key.split(',', 2)
-      objects.push(Models::Object.new(object_type, instance, base: value["$base"].to_s, display_name: value["displayName"].to_s))
+      body = Models::ListObjectsByDeviceNumber.from_json(response.body)
+      body.json_unmapped.each do |key, obj|
+        value = obj.as_h
+        object_type, instance = key.split(',', 2)
+        objects.push(Models::Object.new(object_type, instance, base: value["$base"].to_s, display_name: value["displayName"].to_s))
+      end
+
+      break if body.json_unmapped.keys.size < 1000
+      skip += 1000
     end
 
     objects
