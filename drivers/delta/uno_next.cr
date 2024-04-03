@@ -2,6 +2,18 @@ require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "./models/**"
 
+struct Delta::Models::Object
+  # re-open the object model
+  @[JSON::Field(ignore: true)]
+  property! building_zone : String
+
+  @[JSON::Field(ignore: true)]
+  property! level_zone : String
+
+  @[JSON::Field(ignore: true)]
+  property! device_id : UInt32
+end
+
 # documentation: https://isdweb.deltaww.com/resources/files/UNOnext_bacnet_user_guide.pdf
 
 class Delta::UNOnext < PlaceOS::Driver
@@ -12,21 +24,37 @@ class Delta::UNOnext < PlaceOS::Driver
   description %(collects sensor data from UNOnext sensors)
 
   default_settings({
-    site_name: "My Office",
+    site_name:        "My Office",
+    manager_mappings: [{
+      building_zone: "zone_id_here",
+      level_zone:    "zone_id_here",
+      managers:      [107100, 107300],
+    }],
+    # seconds between polling
+    poll_every: 10,
   })
 
   accessor delta_api : Delta_1
 
   def on_load
-    schedule.every(1.minute) { cache_sensor_data }
     on_update
+  end
+
+  record ManMap, building_zone : String, level_zone : String, managers : Array(UInt32) do
+    include JSON::Serializable
   end
 
   def on_update
     @site_name = setting(String, :site_name)
+    @manager_mappings = setting(Array(ManMap), :manager_mappings)
+
+    poll_every = setting?(Int32, :poll_every) || 10
+    schedule.clear
+    schedule.every(poll_every.seconds) { cache_sensor_data }
   end
 
   getter site_name : String = "My Office"
+  getter manager_mappings : Array(ManMap) = [] of ManMap
 
   # ===================================
   # Sensor Interface functions
@@ -36,13 +64,10 @@ class Delta::UNOnext < PlaceOS::Driver
     return nil unless id && mac.starts_with?("unonext-")
 
     device_id = mac.lchop("unonext-").to_u32?
-    index = id.to_i?
+    index = id.to_u32?
     return nil unless device_id && index
 
-    type = SENSOR_TYPES[index]?
-    return nil unless type
-
-    build_sensor_details(type, device_id, index)
+    build_sensor_details(device_id, index)
   rescue error
     logger.warn(exception: error) { "checking for sensor" }
     nil
@@ -54,7 +79,7 @@ class Delta::UNOnext < PlaceOS::Driver
     2 => SensorType::PPM, # PM2.5 (particles smaller than 2.5)
     4 => SensorType::PPM, # CO2
     5 => SensorType::Illuminance,
-    9 => SensorType::PPM, # O3
+    # 9 => SensorType::PPM, # O3
   }
   NO_MATCH = [] of Interface::Sensor::Detail
 
@@ -71,15 +96,15 @@ class Delta::UNOnext < PlaceOS::Driver
       device_id = mac.lchop("unonext-").to_u32?
     end
 
-    build_sensors(sensor_type, device_id)
+    cache_sensor_data(zone_id, sensor_type, device_id)
   end
 
   # ===================================
   # Helper functions
   # ===================================
 
-  protected def build_sensor_details(sensor : SensorType, device_id : UInt32, index : Int32) : Detail?
-    prop = Models::ValueProperty.from_json delta_api.get_object_value(@site_name, device_id, "analog-input", index).get.to_json
+  protected def build_sensor_details(device_id : UInt32, index : UInt32, building : String? = nil, level : String? = nil) : Detail?
+    prop = Models::ValueProperty.from_json delta_api.get_object_value(@site_name, device_id, "analog-value", index).get.to_json
     return nil if (prop.out_of_service.try(&.value.as_i?) || 1) != 0
 
     value = prop.present_value.try do |pv|
@@ -94,20 +119,23 @@ class Delta::UNOnext < PlaceOS::Driver
     case prop.units.try &.value
     when "°C"
       unit = "Cel"
+      sensor = SensorType::Temperature
+    when "%RH"
+      sensor = SensorType::Humidity
     when "lx"
       unit = "lx"
+      sensor = SensorType::Illuminance
+    when "ppm"
+      case prop.object_name.try(&.value.as_s)
+      when .try(&.includes?("_C02"))
+        modifier = "CO2"
+        sensor = SensorType::PPM
+      else
+        modifier = "particle"
+        sensor = SensorType::PPM
+      end
     end
-
-    modifier = case index
-               when 2
-                 "particle"
-               when 4
-                 "CO2"
-               when 9
-                 "O3"
-               else
-                 nil
-               end
+    return nil unless sensor
 
     Detail.new(
       modifier: modifier,
@@ -119,63 +147,57 @@ class Delta::UNOnext < PlaceOS::Driver
       name: "UNONext #{device_id}.#{index} #{prop.display_name} #{prop.units.try &.value}",
       binding: "#{device_id}.#{index}",
       module_id: module_id,
-      unit: unit
+      unit: unit,
+      building: building,
+      level: level,
     )
+  rescue error
+    logger.warn(exception: error) { "error requesting object value from #{device_id}.#{index}" }
+    nil
   end
 
-  protected def device_sensors(device_id : UInt32, sensor_type : SensorType? = nil)
-    SENSOR_TYPES.compact_map do |index, type|
-      next if sensor_type && type != sensor_type
-      begin
-        build_sensor_details(type, device_id, index)
-      rescue error
-        logger.warn(exception: error) { "error parsing sensor id #{device_id}.#{index}" }
-        nil
+  NO_OBJECTS = [] of Models::Object
+
+  def cache_sensor_data(zone_id : String? = nil, sensor : SensorType? = nil, device_id : UInt32? = nil)
+    # grab all the UNONext manager objects
+    site = site_name
+    all_objects = manager_mappings.flat_map do |man_map|
+      if zone = zone_id
+        next NO_OBJECTS unless zone.in?({man_map.building_zone, man_map.level_zone})
       end
-    end
-  end
 
-  protected def build_sensors(sensor_type : SensorType? = nil, device_id : UInt32? = nil)
-    if device_id
-      # get the sensor data from the one device
-      device_sensors device_id, sensor_type
-    else
-      # use cache data
-      device_ids = status?(Array(UInt32), "device_ids")
-      return NO_MATCH unless device_ids
+      man_map.managers.flat_map do |id|
+        if device = device_id
+          next NO_OBJECTS unless id == device
+        end
 
-      device_ids.flat_map do |id|
-        SENSOR_TYPES.compact_map do |index, type|
-          next if sensor_type && type != sensor_type
-          status?(Detail, "#{id}.#{index}")
+        begin
+          Array(Models::Object).from_json(delta_api.list_device_objects(site, id).get.to_json)
+            .select(&.display_name.includes?("UnoNext"))
+            .map do |obj|
+              obj.building_zone = man_map.building_zone
+              obj.level_zone = man_map.level_zone
+              obj.device_id = id
+              obj
+            end
+        rescue error
+          logger.warn(exception: error) { "error requesting objects from manager #{id}" }
+          NO_OBJECTS
         end
       end
     end
-  end
 
-  def cache_sensor_data
-    # grab all the UNONext devices and pull the sensor data from them
-    device_ids = delta_api.list_devices(@site_name).get.as_a.compact_map do |dev|
-      dev = dev.as_h
-      if (dev["displayName"]?.try &.as_s) == "UNONext"
-        dev["id"].as_i64.to_u32
+    # parse them into sensor data
+    all_objects.each_slice(7).to_a.flat_map do |objects|
+      sensors = Array(Interface::Sensor::Detail).new(5)
+      SENSOR_TYPES.each do |index, type|
+        next if sensor && sensor != type
+        object = objects[index]
+
+        details = build_sensor_details(object.device_id, object.instance, object.building_zone, object.level_zone)
+        sensors << details if details
       end
+      sensors
     end
-
-    self["device_ids"] = device_ids
-    cached = 0
-
-    device_ids.each do |id|
-      begin
-        device_sensors(id).each do |sensor|
-          cached += 1
-          self[sensor.binding] = sensor
-        end
-      rescue error
-        logger.warn(exception: error) { "error fetching sensor id #{id}" }
-      end
-    end
-
-    cached
   end
 end
