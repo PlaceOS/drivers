@@ -202,8 +202,7 @@ class Delta::UNOnext < PlaceOS::Driver
 
     # parse them into sensor data
     all_objects.each_slice(7) do |objects|
-      SENSOR_TYPES.each do |index, type|
-        next if sensor && sensor != type
+      SENSOR_TYPES.each do |index, _type|
         object = objects[index]
 
         if details = build_sensor_details(object.device_id, object.instance, object.building_zone, object.level_zone)
