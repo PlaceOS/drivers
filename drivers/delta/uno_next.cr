@@ -175,19 +175,13 @@ class Delta::UNOnext < PlaceOS::Driver
 
   NO_OBJECTS = [] of Models::Object
 
-  def cache_sensor_data(zone_id : String? = nil, sensor : SensorType? = nil, device_id : UInt32? = nil) : Nil
+  protected def cache_sensor_data : Nil
+    logger.debug { "caching sensor data" }
+
     # grab all the UNONext manager objects
     site = site_name
     all_objects = manager_mappings.flat_map do |man_map|
-      if zone = zone_id
-        next NO_OBJECTS unless zone.in?({man_map.building_zone, man_map.level_zone})
-      end
-
       man_map.managers.flat_map do |id|
-        if device = device_id
-          next NO_OBJECTS unless id == device
-        end
-
         begin
           Array(Models::Object).from_json(delta_api.list_device_objects(site, id).get.to_json)
             .select(&.display_name.includes?("UnoNext"))
@@ -203,6 +197,8 @@ class Delta::UNOnext < PlaceOS::Driver
         end
       end
     end
+
+    logger.debug { "found #{all_objects.size} UnoNext objects" }
 
     # parse them into sensor data
     all_objects.each_slice(7) do |objects|

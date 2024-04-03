@@ -70,7 +70,7 @@ class Delta::API < PlaceOS::Driver
         devices.push(Models::Device.new(id: key.to_u32, base: value["$base"].to_s, node_type: value["nodeType"].to_s, display_name: value["displayName"].to_s))
       end
 
-      break if body.json_unmapped.keys.size < 1000
+      break unless body.next_req.presence
       skip += 1000
     end
 
@@ -96,7 +96,7 @@ class Delta::API < PlaceOS::Driver
         objects.push(Models::Object.new(object_type, instance, base: value["$base"].to_s, display_name: value["displayName"].to_s))
       end
 
-      break if body.json_unmapped.keys.size < 1000
+      break unless body.next_req.presence
       skip += 1000
     end
 
