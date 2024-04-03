@@ -49,12 +49,15 @@ class Delta::UNOnext < PlaceOS::Driver
     @manager_mappings = setting(Array(ManMap), :manager_mappings)
 
     poll_every = setting?(Int32, :poll_every) || 10
+
+    @cached_data = Hash(String, Array(Detail)).new { |hash, key| hash[key] = [] of Detail }
     schedule.clear
     schedule.every(poll_every.seconds) { cache_sensor_data }
   end
 
   getter site_name : String = "My Office"
   getter manager_mappings : Array(ManMap) = [] of ManMap
+  getter cached_data : Hash(String, Array(Detail)) = {} of String => Array(Detail)
 
   # ===================================
   # Sensor Interface functions
@@ -86,6 +89,7 @@ class Delta::UNOnext < PlaceOS::Driver
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Detail)
     logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
 
+    # skip processing where possible
     if type
       sensor_type = SensorType.parse(type)
       return NO_MATCH unless SENSOR_TYPES.values.includes?(sensor_type)
@@ -93,10 +97,27 @@ class Delta::UNOnext < PlaceOS::Driver
 
     if mac
       return NO_MATCH unless mac.starts_with?("unonext-")
-      device_id = mac.lchop("unonext-").to_u32?
     end
 
-    cache_sensor_data(zone_id, sensor_type, device_id)
+    # grab the relevant values
+    result = if zone_id
+               cached_data[zone_id]? || [] of Detail
+             else
+               manager_mappings.flat_map do |man_map|
+                 cached_data[man_map.level_zone]? || [] of Detail
+               end
+             end
+
+    # filter them based on the request
+    if sensor_type && mac
+      result.reject! { |details| details.type != sensor_type || details.mac != mac }
+    elsif sensor_type
+      result.reject! { |details| details.type != sensor_type }
+    elsif mac
+      result.reject! { |details| details.mac != mac }
+    end
+
+    result
   end
 
   # ===================================
@@ -158,7 +179,7 @@ class Delta::UNOnext < PlaceOS::Driver
 
   NO_OBJECTS = [] of Models::Object
 
-  def cache_sensor_data(zone_id : String? = nil, sensor : SensorType? = nil, device_id : UInt32? = nil)
+  def cache_sensor_data(zone_id : String? = nil, sensor : SensorType? = nil, device_id : UInt32? = nil) : Nil
     # grab all the UNONext manager objects
     site = site_name
     all_objects = manager_mappings.flat_map do |man_map|
@@ -188,16 +209,18 @@ class Delta::UNOnext < PlaceOS::Driver
     end
 
     # parse them into sensor data
-    all_objects.each_slice(7).to_a.flat_map do |objects|
-      sensors = Array(Interface::Sensor::Detail).new(5)
+    all_objects.each_slice(7) do |objects|
       SENSOR_TYPES.each do |index, type|
         next if sensor && sensor != type
         object = objects[index]
 
-        details = build_sensor_details(object.device_id, object.instance, object.building_zone, object.level_zone)
-        sensors << details if details
+        if details = build_sensor_details(object.device_id, object.instance, object.building_zone, object.level_zone)
+          self[details.binding] = details
+
+          @cached_data[object.building_zone] << details
+          @cached_data[object.level_zone] << details
+        end
       end
-      sensors
     end
   end
 end
