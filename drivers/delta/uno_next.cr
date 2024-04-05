@@ -199,6 +199,7 @@ class Delta::UNOnext < PlaceOS::Driver
     end
 
     logger.debug { "found #{all_objects.size} UnoNext objects" }
+    cached_data = Hash(String, Array(Detail)).new { |hash, key| hash[key] = [] of Detail }
 
     # parse them into sensor data
     all_objects.each_slice(7) do |objects|
@@ -208,10 +209,12 @@ class Delta::UNOnext < PlaceOS::Driver
         if details = build_sensor_details(object.device_id, object.instance, object.building_zone, object.level_zone)
           self[details.binding] = details
 
-          @cached_data[object.building_zone] << details
-          @cached_data[object.level_zone] << details
+          cached_data[object.building_zone] << details
+          cached_data[object.level_zone] << details
         end
       end
     end
+
+    @cached_data = cached_data
   end
 end
