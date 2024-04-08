@@ -90,6 +90,7 @@ class Delta::ZenPIRLocation < PlaceOS::Driver
     getter location : Symbol = :area
     property level : String
     property map_id : String
+    property area_id : String
     property capacity : Int32
     property at_location : Int32
 
@@ -97,7 +98,7 @@ class Delta::ZenPIRLocation < PlaceOS::Driver
     property zen_object_id : UInt32
 
     def initialize(
-      @level, @map_id, @capacity, @at_location,
+      @level, @map_id, @area_id, @capacity, @at_location,
       @zen_device_id, @zen_object_id
     )
     end
