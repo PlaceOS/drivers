@@ -137,6 +137,7 @@ class Delta::ZenPIRLocation < PlaceOS::Driver
 
           loc = Location.new(
             level: pir_map.level_zone,
+            area_id: pir.map,
             map_id: pir.map,
             capacity: 1,
             at_location: at_location,
