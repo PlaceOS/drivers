@@ -2,18 +2,6 @@ require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "./models/**"
 
-struct Delta::Models::Object
-  # re-open the object model
-  @[JSON::Field(ignore: true)]
-  property! building_zone : String
-
-  @[JSON::Field(ignore: true)]
-  property! level_zone : String
-
-  @[JSON::Field(ignore: true)]
-  property! device_id : UInt32
-end
-
 # documentation: https://isdweb.deltaww.com/resources/files/UNOnext_bacnet_user_guide.pdf
 
 class Delta::UNOnext < PlaceOS::Driver
@@ -178,18 +166,26 @@ class Delta::UNOnext < PlaceOS::Driver
   protected def cache_sensor_data : Nil
     logger.debug { "caching sensor data" }
 
+    local_cache = Hash(String, Array(Detail)).new { |hash, key| hash[key] = [] of Detail }
+
     # grab all the UNONext manager objects
     site = site_name
-    all_objects = manager_mappings.flat_map do |man_map|
-      man_map.managers.flat_map do |id|
+    all_objects = manager_mappings.each do |man_map|
+      man_map.managers.each do |id|
         begin
           Array(Models::Object).from_json(delta_api.list_device_objects(site, id).get.to_json)
             .select(&.display_name.includes?("UnoNext"))
-            .map do |obj|
-              obj.building_zone = man_map.building_zone
-              obj.level_zone = man_map.level_zone
-              obj.device_id = id
-              obj
+            .each do |object|
+              # skip the data points we don't care about
+              next if object.display_name.includes?("PM10")
+              next if object.display_name.includes?("TVOC")
+
+              if details = build_sensor_details(id, object.instance, man_map.building_zone, man_map.level_zone)
+                self[details.binding] = details
+
+                local_cache[man_map.building_zone] << details
+                local_cache[man_map.level_zone] << details
+              end
             end
         rescue error
           logger.warn(exception: error) { "error requesting objects from manager #{id}" }
@@ -198,24 +194,7 @@ class Delta::UNOnext < PlaceOS::Driver
       end
     end
 
-    logger.debug { "found #{all_objects.size} UnoNext objects" }
-    local_cache = Hash(String, Array(Detail)).new { |hash, key| hash[key] = [] of Detail }
-
-    # parse them into sensor data
-    all_objects.each_slice(7) do |objects|
-      SENSOR_TYPES.each do |index, _type|
-        object = objects[index]?
-        next unless object
-
-        if details = build_sensor_details(object.device_id, object.instance, object.building_zone, object.level_zone)
-          self[details.binding] = details
-
-          local_cache[object.building_zone] << details
-          local_cache[object.level_zone] << details
-        end
-      end
-    end
-
+    logger.debug { "updating sensor cache" }
     @cached_data = local_cache
   end
 end
