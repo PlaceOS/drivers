@@ -26,12 +26,14 @@ class Vergesense::LocationService < PlaceOS::Driver
     },
     return_empty_spaces: true,
     desk_space_types:    ["desk"],
+    notify_updates:      false,
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
   @zone_filter : Array(String) = [] of String
   @building_mappings : Hash(String, String?) = {} of String => String?
   @desk_space_types : Array(String) = ["desk"]
+  @notify_updates : Bool = false
 
   def on_load
     on_update
@@ -39,6 +41,7 @@ class Vergesense::LocationService < PlaceOS::Driver
 
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
+    @notify_updates = setting?(Bool, :notify_updates) || false
     @desk_space_types = setting?(Array(String), :desk_space_types) || ["desk"]
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.values.map do |z|
@@ -69,7 +72,7 @@ class Vergesense::LocationService < PlaceOS::Driver
 
   protected def level_state_change(zone_id, floor)
     @occupancy_mappings[zone_id] = floor
-    area_manager.update_available({zone_id})
+    area_manager.update_available({zone_id}) if @notify_updates
   rescue error
     logger.error(exception: error) { "error updating level #{zone_id} space changes" }
   end
