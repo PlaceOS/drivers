@@ -20,7 +20,7 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
   result.get.should eq({
     "edition"  => "Integriti Professional Edition",
     "version"  => "23.1.1.21454",
-    "protocol" => "3",
+    "protocol" => 3,
   })
 
   # ===========
@@ -34,4 +34,33 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
   end
 
   result.get.should eq "v2"
+
+  # =====
+  # Sites
+  # =====
+  result = exec(:sites)
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <PagedQueryResult>
+        <TotalRecords>1</TotalRecords>
+        <Page>1</Page>
+        <PageSize>1000</PageSize>
+        <RowVersion>-1</RowVersion>
+        <NextPageUrl>http://20.213.104.2:80/restapi/v2/BasicStatus/SiteKeyword?Page=2&amp;PageSize=1000&amp;SortProperty=ID&amp;SortOrder=Ascending&amp;</NextPageUrl>
+        <Rows>
+            <SiteKeyword ID="1">
+                <ID>1</ID>
+                <Name>PlaceOS</Name>
+            </SiteKeyword>
+        </Rows>
+      </PagedQueryResult>
+    XML
+  end
+
+  result.get.should eq([{
+    "id"   => 1,
+    "name" => "PlaceOS",
+  }])
 end
