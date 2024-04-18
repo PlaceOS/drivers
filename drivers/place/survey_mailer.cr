@@ -45,9 +45,7 @@ class Place::SurveyMailer < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def send_survey_emails
-    # using #get_survey_invites instead of #get_survey_invites(sent: false)
-    # due to `sent <> true` not being equivalent to `sent IS NOT true` in PostgreSQL
-    invites = Array(SurveyInvite).from_json staff_api.get_survey_invites.get.to_json
+    invites = Array(SurveyInvite).from_json staff_api.get_survey_invites(sent: false).get.to_json
     sent_invites : Hash(String, Array(Int64)) = {} of String => Array(Int64)
 
     invites.each do |invite|
