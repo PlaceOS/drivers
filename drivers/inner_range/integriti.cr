@@ -19,6 +19,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     },
     api_key:             "api-access-key",
     default_unlock_time: 10,
+    default_site_id:     1,
   })
 
   def on_load
@@ -35,9 +36,11 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
 
     @default_unlock_time = setting?(Int32, :default_unlock_time) || 10
+    @default_site_id = setting?(Int32, :default_site_id) || 1
   end
 
   getter default_unlock_time : Int32 = 10
+  getter default_site_id : Int32 = 1
 
   macro check(response)
     begin
@@ -54,68 +57,146 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  macro extract(document, keys)
-    {% for node, variable in keys %}
-      {% resolved_type = variable.type.resolve %}
-      {% if resolved_type == Int32 %}
-        var_{{ variable.var }} = 0
-      {% elsif resolved_type == Int64 %}
-        var_{{ variable.var }} = 0_i64
-      {% elsif resolved_type == Float64 %}
-        var_{{ variable.var }} = 0.0
-      {% else %}
-        var_{{ variable.var }} = ""
+  macro define_xml_type(klass, keys)
+    alias {{klass}} = NamedTuple(
+      {% for _node, variable in keys %}
+        {{ variable.var }}: {{ variable.type }},
       {% end %}
-    {% end %}
+    )
 
-    if %data = {{document}}.document? ? {{document}}.first_element_child : {{document}}
-      %data.children.select(&.element?).each do |child|
-        case child.name
+    protected def extract_{{klass.id.stringify.underscore.id}}(document : XML::Node) : {{klass}}
+      {% for _node, variable in keys %}
+        {% resolved_type = variable.type.resolve %}
+        {% if resolved_type == Int32 %}
+          var_{{ variable.var }} = 0
+        {% elsif resolved_type == Int64 %}
+          var_{{ variable.var }} = 0_i64
+        {% elsif resolved_type == Float64 %}
+          var_{{ variable.var }} = 0.0
+        {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
+          var_{{ variable.var }} = uninitialized {{resolved_type}}
+        {% else %}
+          var_{{ variable.var }} = ""
+        {% end %}
+      {% end %}
+
+      if %data = document.document? ? document.first_element_child : document
         {% for node, variable in keys %}
-        when {{node.id.stringify}}
-          %content = child.content || ""
+          {% if node.starts_with? "attr_" %}
+            {% attribute_name = node.split("_")[1] %}
+            %content = %data[{{attribute_name}}]? || ""
 
-          {% resolved_type = variable.type.resolve %}
-          {% if resolved_type == Int32 %}
-            var_{{ variable.var }} = %content.to_i? || 0
-          {% elsif resolved_type == Int64 %}
-            var_{{ variable.var }} = %content.to_i64? || 0_i64
-          {% elsif resolved_type == Float64 %}
-            var_{{ variable.var }} = %content.to_f? || 0.0
-          {% else %}
-            var_{{ variable.var }} = %content
+            {% resolved_type = variable.type.resolve %}
+            {% if resolved_type == Int32 %}
+              var_{{ variable.var }} = %content.to_i? || 0
+            {% elsif resolved_type == Int64 %}
+              var_{{ variable.var }} = %content.to_i64? || 0_i64
+            {% elsif resolved_type == Float64 %}
+              var_{{ variable.var }} = %content.to_f? || 0.0
+            {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
+              var_{{ variable.var }} = extract_{{variable.type.stringify.underscore.id}}(child)
+            {% else %}
+              var_{{ variable.var }} = %content
+            {% end %}
           {% end %}
         {% end %}
+
+        %data.children.select(&.element?).each do |child|
+          case child.name
+          {% for node, variable in keys %}
+          when {{node.id.stringify}}
+            %content = child.content || ""
+
+            {% resolved_type = variable.type.resolve %}
+            {% if resolved_type == Int32 %}
+              var_{{ variable.var }} = %content.to_i? || 0
+            {% elsif resolved_type == Int64 %}
+              var_{{ variable.var }} = %content.to_i64? || 0_i64
+            {% elsif resolved_type == Float64 %}
+              var_{{ variable.var }} = %content.to_f? || 0.0
+            {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
+              var_{{ variable.var }} = extract_{{variable.type.stringify.underscore.id}}(child)
+            {% else %}
+              var_{{ variable.var }} = %content
+            {% end %}
+          {% end %}
+          end
+        end
+      end
+
+      {
+        {% for node, variable in keys %}
+          {{ variable.var }}: var_{{ variable.var }},
+        {% end %}
+      }
+    end
+  end
+
+  alias Filter = Hash(String, String | Bool | Int64 | Int32 | Float64 | Float32 | Nil)
+
+  def build_filter(filter : Filter) : String
+    XML.build(indent: "  ") do |xml|
+      xml.element("FilterExpression", {
+        "xmlns:xsd" => "http://www.w3.org/2001/XMLSchema",
+        "xmlns:xsi" => "http://www.w3.org/2001/XMLSchema-instance",
+        "xsi:type"  => "AggregateExpression",
+      }) do
+        # xml.element("OperatorType") { xml.text "Or" }
+        xml.element("OperatorType") { xml.text "And" }
+        xml.element("SubExpressions") do
+          filter.each do |key, value|
+            xml.element("FilterExpression", {
+              "xsi:type" => "PropertyExpression",
+            }) do
+              xml.element("PropertyName") { xml.text key }
+              # also supports: Greater, Less
+              xml.element("OperatorType") { xml.text "Equals" }
+              xml.element("Args") do
+                compare_type = case value
+                               in String
+                                 "xsd:string"
+                               in Bool
+                                 "xsd:boolean"
+                               in Int32
+                                 "xsd:int"
+                               in Int64
+                                 "xsd:long"
+                               in Float32
+                                 "xsd:float"
+                               in Float64
+                                 "xsd:double"
+                               in Nil
+                                 raise "nil values not supported"
+                               end
+
+                xml.element("anyType", {
+                  "xsi:type" => compare_type,
+                }) do
+                  xml.text value.to_s
+                end
+              end
+            end
+          end
         end
       end
     end
-
-    {
-      {% for node, variable in keys %}
-        {{ variable.var }}: var_{{ variable.var }},
-      {% end %}
-    }
   end
 
-  # <ApiVersion>http://20.213.104.2:80/restapi/ApiVersion/v2</ApiVersion>
-  def api_version : String
-    document = check get("/ApiVersion")
-    uri = URI.parse document.first_element_child.try(&.content).as(String)
-    Path[uri.path].basename
-  end
+  protected def paginate_request(next_page : String, filter : Filter = Filter.new, &)
+    filter.compact!
+    next_page = if filter.empty?
+                  "/v2/BasicStatus/#{next_page}?PageSize=1000"
+                else
+                  body = build_filter(filter)
+                  "/v2/BasicStatus/GetFilteredEntities/#{next_page}?PageSize=1000"
+                end
 
-  def system_info
-    document = check get("/v2/SystemInfo")
-    extract(document, {
-      "ProductEdition"  => edition : String,
-      "ProductVersion"  => version : String,
-      "ProtocolVersion" => protocol : Int32,
-    })
-  end
-
-  protected def paginate_request(next_page : String, &)
     loop do
-      document = check get(next_page)
+      document = if filter.empty?
+                   check get(next_page)
+                 else
+                   check post(next_page, body: body)
+                 end
 
       page_size = 0
       next_page = ""
@@ -143,17 +224,137 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  alias Site = NamedTuple(id: Int64, name: String)
+  # <ApiVersion>http://20.213.104.2:80/restapi/ApiVersion/v2</ApiVersion>
+  def api_version : String
+    document = check get("/ApiVersion")
+    uri = URI.parse document.first_element_child.try(&.content).as(String)
+    Path[uri.path].basename
+  end
 
+  # ===========
+  # SYSTEM INFO
+  # ===========
+
+  define_xml_type(SystemInfo, {
+    "ProductEdition"  => edition : String,
+    "ProductVersion"  => version : String,
+    "ProtocolVersion" => protocol : Int32,
+  })
+
+  def system_info
+    document = check get("/v2/SystemInfo")
+    extract_system_info(document)
+  end
+
+  # =====
+  # SITES
+  # =====
+
+  define_xml_type(Site, {
+    "ID"   => id : Int32,
+    "Name" => name : String,
+  })
+
+  # roughly analogous to buildings
   def sites : Array(Site)
     sites = [] of Site
-    paginate_request("/v2/BasicStatus/SiteKeyword?PageSize=1000") do |row|
-      sites << extract(row, {
-        "ID"   => id : Int64,
-        "Name" => name : String,
-      })
+    paginate_request("SiteKeyword") do |row|
+      sites << extract_site(row)
     end
     sites
+  end
+
+  # =====
+  # AREAS
+  # =====
+
+  define_xml_type(Area, {
+    "ID"   => id : Int64,
+    "Name" => name : String,
+    "Site" => site : Site,
+  })
+
+  # roughly zones in a building
+  def areas(site_id : Int32? = nil)
+    areas = [] of Area
+    filter = Filter{
+      "Site.ID" => site_id,
+    }
+    paginate_request("Area", filter) do |row|
+      areas << extract_area(row)
+    end
+    areas
+  end
+
+  # ==========
+  # Partitions
+  # ==========
+
+  define_xml_type(Partition, {
+    "ID"          => id : Int32,
+    "Name"        => name : String,
+    "ParentId"    => parent_id : Int32,
+    "PartitionId" => partition_id : Int32,
+    "ShortName"   => short_name : String,
+  })
+
+  # doors on a site
+  def partitions(parent_id : Int32? = nil)
+    partitions = [] of Partition
+    filter = Filter{
+      "ParentId" => parent_id,
+    }
+    paginate_request("Partition", filter) do |row|
+      partitions << extract_partition(row)
+    end
+    partitions
+  end
+
+  # =====
+  # Users
+  # =====
+
+  define_xml_type(User, {
+    "ID"               => id : Int64,
+    "Name"             => name : String,
+    "SiteID"           => site_id : Int32,
+    "SiteName"         => site_name : String,
+    "Address"          => address : String,
+    "attr_PartitionID" => partition_id : Int32,
+  })
+
+  # users in a site
+  def users(site_id : Int32? = nil)
+    users = [] of User
+    filter = Filter{
+      "SiteID" => site_id,
+    }
+    paginate_request("User", filter) do |row|
+      users << extract_user(row)
+    end
+    users
+  end
+
+  # =====
+  # Doors
+  # =====
+
+  define_xml_type(IntegritiDoor, {
+    "ID"   => id : Int64,
+    "Name" => name : String,
+    "Site" => site : Site,
+  })
+
+  # doors on a site
+  def doors(site_id : Int32? = nil)
+    doors = [] of IntegritiDoor
+    filter = Filter{
+      "Site.ID" => site_id,
+    }
+    paginate_request("Door", filter) do |row|
+      doors << extract_integriti_door(row)
+    end
+    doors
   end
 
   # =======================
@@ -162,9 +363,9 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def door_list : Array(Door)
-    # doors.map { |d| Door.new(d.id, d.name) }
-    raise "not implemented"
-    [] of Door
+    doors(default_site_id).map do |door|
+      Door.new(door[:id].to_s, door[:name])
+    end
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]

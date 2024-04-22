@@ -63,4 +63,112 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
     "id"   => 1,
     "name" => "PlaceOS",
   }])
+
+  # =====
+  # Areas
+  # =====
+  result = exec(:areas)
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <PagedQueryResult>
+        <TotalRecords>1</TotalRecords>
+        <Page>1</Page>
+        <PageSize>1000</PageSize>
+        <RowVersion>-1</RowVersion>
+        <NextPageUrl>http://20.213.104.2:80/restapi/v2/BasicStatus/Area?Page=2&amp;PageSize=1000&amp;SortProperty=ID&amp;SortOrder=Ascending&amp;</NextPageUrl>
+        <Rows>
+            <SiteKeyword ID="1">
+                <ID>1</ID>
+                <Name>Level 1</Name>
+                <Site ID="1">
+                    <ID>1</ID>
+                    <Name>PlaceOS</Name>
+                </Site>
+            </SiteKeyword>
+        </Rows>
+      </PagedQueryResult>
+    XML
+  end
+
+  result.get.should eq([{
+    "id"   => 1,
+    "name" => "Level 1",
+    "site" => {
+      "id"   => 1,
+      "name" => "PlaceOS",
+    },
+  }])
+
+  # =====
+  # Users
+  # =====
+  result = exec(:users)
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <PagedQueryResult>
+          <TotalRecords>12</TotalRecords>
+          <Page>1</Page>
+          <PageSize>1000</PageSize>
+          <RowVersion>-1</RowVersion>
+          <NextPageUrl>http://20.213.104.2:80/restapi/v2/BasicStatus/User?Page=2&amp;PageSize=1000&amp;SortProperty=ID&amp;SortOrder=Ascending&amp;</NextPageUrl>
+          <Rows>
+              <User PartitionID="1" ID="U1">
+                  <SiteName>PlaceOS</SiteName>
+                  <SiteID>1</SiteID>
+                  <ID>281474976710657</ID>
+                  <Name>Installer</Name>
+                  <Notes></Notes>
+                  <Address>U1</Address>
+              </User>
+              <User PartitionID="0" ID="U2">
+                  <SiteName>PlaceOS</SiteName>
+                  <SiteID>1</SiteID>
+                  <ID>281474976710658</ID>
+                  <Name>Master</Name>
+                  <Notes></Notes>
+                  <Address>U2</Address>
+              </User>
+              <User PartitionID="2" ID="U3">
+                  <SiteName>PlaceOS</SiteName>
+                  <SiteID>2</SiteID>
+                  <ID>281474976710659</ID>
+                  <Name>Card 12</Name>
+                  <Notes></Notes>
+                  <Address>U3</Address>
+              </User>
+          </Rows>
+      </PagedQueryResult>
+    XML
+  end
+
+  result.get.should eq([
+    {
+      "id"           => 281474976710657,
+      "name"         => "Installer",
+      "site_id"      => 1,
+      "site_name"    => "PlaceOS",
+      "address"      => "U1",
+      "partition_id" => 1,
+    },
+    {
+      "id"           => 281474976710658,
+      "name"         => "Master",
+      "site_id"      => 1,
+      "site_name"    => "PlaceOS",
+      "address"      => "U2",
+      "partition_id" => 0,
+    },
+    {
+      "id"           => 281474976710659,
+      "name"         => "Card 12",
+      "site_id"      => 2,
+      "site_name"    => "PlaceOS",
+      "address"      => "U3",
+      "partition_id" => 2,
+    },
+  ])
 end
