@@ -139,6 +139,7 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
                   <Name>Card 12</Name>
                   <Notes></Notes>
                   <Address>U3</Address>
+                  <cf_EmailAddress>steve@place.tech</cf_EmailAddress>
               </User>
           </Rows>
       </PagedQueryResult>
@@ -153,6 +154,7 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "site_name"    => "PlaceOS",
       "address"      => "U1",
       "partition_id" => 1,
+      "email"        => "",
     },
     {
       "id"           => 281474976710658,
@@ -161,6 +163,7 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "site_name"    => "PlaceOS",
       "address"      => "U2",
       "partition_id" => 0,
+      "email"        => "",
     },
     {
       "id"           => 281474976710659,
@@ -169,6 +172,34 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "site_name"    => "PlaceOS",
       "address"      => "U3",
       "partition_id" => 2,
+      "email"        => "steve@place.tech",
     },
   ])
+
+  result = exec(:user, 281474976710659)
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <User PartitionID="2" ID="U3">
+          <SiteName>PlaceOS</SiteName>
+          <SiteID>2</SiteID>
+          <ID>281474976710659</ID>
+          <Name>Card 12</Name>
+          <Notes></Notes>
+          <Address>U3</Address>
+          <cf_EmailAddress>steve@place.tech</cf_EmailAddress>
+      </User>
+    XML
+  end
+
+  result.get.should eq({
+    "id"           => 281474976710659,
+    "name"         => "Card 12",
+    "site_id"      => 2,
+    "site_name"    => "PlaceOS",
+    "address"      => "U3",
+    "partition_id" => 2,
+    "email"        => "steve@place.tech",
+  })
 end

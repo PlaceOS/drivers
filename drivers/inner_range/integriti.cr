@@ -264,6 +264,11 @@ class InnerRange::Integriti < PlaceOS::Driver
     sites
   end
 
+  def site(id : Int64 | String)
+    document = check get("/v2/BasicStatus/SiteKeyword/#{id}")
+    extract_site(document)
+  end
+
   # =====
   # AREAS
   # =====
@@ -284,6 +289,11 @@ class InnerRange::Integriti < PlaceOS::Driver
       areas << extract_area(row)
     end
     areas
+  end
+
+  def area(id : Int64 | String)
+    document = check get("/v2/BasicStatus/Area/#{id}")
+    extract_area(document)
   end
 
   # ==========
@@ -310,6 +320,11 @@ class InnerRange::Integriti < PlaceOS::Driver
     partitions
   end
 
+  def partition(id : Int64 | String)
+    document = check get("/v2/BasicStatus/Partition/#{id}")
+    extract_partition(document)
+  end
+
   # =====
   # Users
   # =====
@@ -321,18 +336,25 @@ class InnerRange::Integriti < PlaceOS::Driver
     "SiteName"         => site_name : String,
     "Address"          => address : String,
     "attr_PartitionID" => partition_id : Int32,
+    "cf_EmailAddress"  => email : String,
   })
 
   # users in a site
-  def users(site_id : Int32? = nil)
+  def users(site_id : Int32? = nil, email : String? = nil)
     users = [] of User
     filter = Filter{
-      "SiteID" => site_id,
+      "SiteID"          => site_id,
+      "cf_EmailAddress" => email,
     }
     paginate_request("User", filter) do |row|
       users << extract_user(row)
     end
     users
+  end
+
+  def user(id : Int64 | String)
+    document = check get("/v2/BasicStatus/User/#{id}")
+    extract_user(document)
   end
 
   # =====
@@ -355,6 +377,11 @@ class InnerRange::Integriti < PlaceOS::Driver
       doors << extract_integriti_door(row)
     end
     doors
+  end
+
+  def door(id : Int64 | String)
+    document = check get("/v2/BasicStatus/Door/#{id}")
+    extract_integriti_door(document)
   end
 
   # =======================
