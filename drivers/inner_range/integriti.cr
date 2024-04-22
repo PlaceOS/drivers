@@ -57,12 +57,16 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  macro define_xml_type(klass, keys)
+  PROPS = {} of String => String
+
+  macro define_xml_type(klass, keys, lookup = nil)
     alias {{klass}} = NamedTuple(
       {% for _node, variable in keys %}
         {{ variable.var }}: {{ variable.type }},
       {% end %}
     )
+
+    {% PROPS[lookup || klass.stringify] = keys.keys.join(",") %}
 
     protected def extract_{{klass.id.stringify.underscore.id}}(document : XML::Node) : {{klass}}
       {% for _node, variable in keys %}
@@ -71,6 +75,8 @@ class InnerRange::Integriti < PlaceOS::Driver
           var_{{ variable.var }} = 0
         {% elsif resolved_type == Int64 %}
           var_{{ variable.var }} = 0_i64
+        {% elsif resolved_type == Bool %}
+          var_{{ variable.var }} = false
         {% elsif resolved_type == Float64 %}
           var_{{ variable.var }} = 0.0
         {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
@@ -91,6 +97,8 @@ class InnerRange::Integriti < PlaceOS::Driver
               var_{{ variable.var }} = %content.to_i? || 0
             {% elsif resolved_type == Int64 %}
               var_{{ variable.var }} = %content.to_i64? || 0_i64
+            {% elsif resolved_type == Bool %}
+              var_{{ variable.var }} = %content.downcase == "true"
             {% elsif resolved_type == Float64 %}
               var_{{ variable.var }} = %content.to_f? || 0.0
             {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
@@ -112,6 +120,8 @@ class InnerRange::Integriti < PlaceOS::Driver
               var_{{ variable.var }} = %content.to_i? || 0
             {% elsif resolved_type == Int64 %}
               var_{{ variable.var }} = %content.to_i64? || 0_i64
+            {% elsif resolved_type == Bool %}
+              var_{{ variable.var }} = %content.downcase == "true"
             {% elsif resolved_type == Float64 %}
               var_{{ variable.var }} = %content.to_f? || 0.0
             {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
@@ -182,13 +192,23 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  protected def paginate_request(next_page : String, filter : Filter = Filter.new, &)
+  # &FullObject=true doesn't work for cards annoyingly...
+  protected def prop_param(type : String)
+    if props = PROPS[type]?
+      "AdditionalProperties=#{props}"
+    else
+      "FullObject=true"
+    end
+  end
+
+  protected def paginate_request(category : String, type : String, filter : Filter = Filter.new, &)
     filter.compact!
+
     next_page = if filter.empty?
-                  "/v2/BasicStatus/#{next_page}?PageSize=1000"
+                  "/v2/#{category}/#{type}?PageSize=1000&#{prop_param(type)}"
                 else
                   body = build_filter(filter)
-                  "/v2/BasicStatus/GetFilteredEntities/#{next_page}?PageSize=1000"
+                  "/v2/#{category}/GetFilteredEntities/#{type}?PageSize=1000&#{prop_param(type)}"
                 end
 
     loop do
@@ -251,21 +271,22 @@ class InnerRange::Integriti < PlaceOS::Driver
   # =====
 
   define_xml_type(Site, {
-    "ID"   => id : Int32,
-    "Name" => name : String,
-  })
+    "ID"          => id : Int32,
+    "Name"        => name : String,
+    "PartitionID" => partition_id : Int32,
+  }, "SiteKeyword")
 
   # roughly analogous to buildings
   def sites : Array(Site)
     sites = [] of Site
-    paginate_request("SiteKeyword") do |row|
+    paginate_request("BasicStatus", "SiteKeyword") do |row|
       sites << extract_site(row)
     end
     sites
   end
 
   def site(id : Int64 | String)
-    document = check get("/v2/BasicStatus/SiteKeyword/#{id}")
+    document = check get("/v2/BasicStatus/SiteKeyword/#{id}?#{prop_param "SiteKeyword"}")
     extract_site(document)
   end
 
@@ -285,14 +306,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     filter = Filter{
       "Site.ID" => site_id,
     }
-    paginate_request("Area", filter) do |row|
+    paginate_request("BasicStatus", "Area", filter) do |row|
       areas << extract_area(row)
     end
     areas
   end
 
   def area(id : Int64 | String)
-    document = check get("/v2/BasicStatus/Area/#{id}")
+    document = check get("/v2/BasicStatus/Area/#{id}?#{prop_param "Area"}")
     extract_area(document)
   end
 
@@ -314,14 +335,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     filter = Filter{
       "ParentId" => parent_id,
     }
-    paginate_request("Partition", filter) do |row|
+    paginate_request("BasicStatus", "Partition", filter) do |row|
       partitions << extract_partition(row)
     end
     partitions
   end
 
   def partition(id : Int64 | String)
-    document = check get("/v2/BasicStatus/Partition/#{id}")
+    document = check get("/v2/BasicStatus/Partition/#{id}?#{prop_param "Partition"}")
     extract_partition(document)
   end
 
@@ -346,15 +367,61 @@ class InnerRange::Integriti < PlaceOS::Driver
       "SiteID"          => site_id,
       "cf_EmailAddress" => email,
     }
-    paginate_request("User", filter) do |row|
+    paginate_request("BasicStatus", "User", filter) do |row|
       users << extract_user(row)
     end
     users
   end
 
   def user(id : Int64 | String)
-    document = check get("/v2/BasicStatus/User/#{id}")
+    document = check get("/v2/BasicStatus/User/#{id}?#{prop_param "User"}")
     extract_user(document)
+  end
+
+  # =====
+  # Doors
+  # =====
+
+  define_xml_type(Card, {
+    "ID"                                  => id : String,
+    "Name"                                => name : String,
+    "CardNumberNumeric"                   => card_number_numeric : Int64,
+    "CardNumber"                          => card_number : String,
+    "CardSerialNumber"                    => card_serial_number : String,
+    "IssueNumber"                         => issue_number : Int32,
+    # Active, ActiveExpiring, ActiveReplacement seem to be the only active states
+    "State"                               => state : String,
+    "ExpiryDateTime"                      => expiry : String,
+    "StartDateTime"                       => valid_from : String,
+    "LastUsed"                            => last_used : String,
+    "CloudCredentialId"                   => cloud_credential_id : String,
+    # None or HIDMobileCredential
+    "CloudCredentialType"                 => cloud_credential_type : String,
+    "CloudCredentialPoolId"               => cloud_credential_pool_id : String,
+    "CloudCredentialInvitationId"         => cloud_credential_invite_id : String,
+    "CloudCredentialInvitationCode"       => cloud_credential_invite_code : String,
+    "CloudCredentialCommunicationHandler" => cloud_credential_comms_handler : String,
+    "ManagedByActiveDirectory"            => active_directory : Bool,
+    # these are Ref types...
+    # define a special ref types that extracts attributes
+    # "Site" => site : Site,
+    # "User" => user : User,
+  })
+
+  def cards(site_id : Int32? = nil)
+    cards = [] of Card
+    filter = Filter{
+      "Site.ID" => site_id,
+    }
+    paginate_request("VirtualCardBadge", "Card", filter) do |row|
+      cards << extract_card(row)
+    end
+    cards
+  end
+
+  def card(id : Int64 | String)
+    document = check get("/v2/VirtualCardBadge/Card/#{id}?#{prop_param "Card"}")
+    extract_card(document)
   end
 
   # =====
@@ -365,7 +432,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     "ID"   => id : Int64,
     "Name" => name : String,
     "Site" => site : Site,
-  })
+  }, "Door")
 
   # doors on a site
   def doors(site_id : Int32? = nil)
@@ -373,14 +440,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     filter = Filter{
       "Site.ID" => site_id,
     }
-    paginate_request("Door", filter) do |row|
+    paginate_request("BasicStatus", "Door", filter) do |row|
       doors << extract_integriti_door(row)
     end
     doors
   end
 
   def door(id : Int64 | String)
-    document = check get("/v2/BasicStatus/Door/#{id}")
+    document = check get("/v2/BasicStatus/Door/#{id}?#{prop_param "Door"}")
     extract_integriti_door(document)
   end
 

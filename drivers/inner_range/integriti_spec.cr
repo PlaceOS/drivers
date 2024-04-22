@@ -60,8 +60,9 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
   end
 
   result.get.should eq([{
-    "id"   => 1,
-    "name" => "PlaceOS",
+    "id"           => 1,
+    "name"         => "PlaceOS",
+    "partition_id" => 0,
   }])
 
   # =====
@@ -96,8 +97,9 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
     "id"   => 1,
     "name" => "Level 1",
     "site" => {
-      "id"   => 1,
-      "name" => "PlaceOS",
+      "id"           => 1,
+      "name"         => "PlaceOS",
+      "partition_id" => 0,
     },
   }])
 
@@ -202,4 +204,65 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
     "partition_id" => 2,
     "email"        => "steve@place.tech",
   })
+
+  # =====
+  # Cards
+  # =====
+  result = exec(:cards)
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <PagedQueryResult>
+        <TotalRecords>10</TotalRecords>
+        <Page>1</Page>
+        <PageSize>1000</PageSize>
+        <RowVersion>-1</RowVersion>
+        <NextPageUrl>http://20.213.104.2:80/restapi/v2/VirtualCardBadge/Card?Page=2&amp;PageSize=1000&amp;SortProperty=ID&amp;SortOrder=Ascending&amp;AdditionalProperties=ID,Name,CardNumberNumeric,User,CardNumber,CardSerialNumber,State,Site,ExpiryDateTime,StartDateTime,LastUsed,CardType,CloudCredentialType,CloudCredentialPoolId,ManagedByActiveDirectory&amp;</NextPageUrl>
+        <Rows>
+          <Card ID="c1fc4c28-0c1c-4573-a9cf-0025dbf6c8f7">
+              <ID>c1fc4c28-0c1c-4573-a9cf-0025dbf6c8f7</ID>
+              <Name>19</Name>
+              <Notes></Notes>
+              <Site>
+                  <Ref Type="SiteKeyword" ID="1" Name="PlaceOS"/>
+              </Site>
+              <User>
+                  <Ref Type="User" PartitionID="0" ID="U10"/>
+              </User>
+              <LastUsed>2024-04-11T00:49:35.6588387+12:00</LastUsed>
+              <State>Active</State>
+              <ManagedByActiveDirectory>False</ManagedByActiveDirectory>
+              <StartDateTime>0001-01-01T00:00:00.0000000+00:00</StartDateTime>
+              <ExpiryDateTime>0001-01-01T00:00:00.0000000+00:00</ExpiryDateTime>
+              <CardNumber>19</CardNumber>
+              <CardNumberNumeric>19</CardNumberNumeric>
+              <CloudCredentialType>None</CloudCredentialType>
+          </Card>
+        </Rows>
+      </PagedQueryResult>
+    XML
+  end
+
+  result.get.should eq([
+    {
+      "id" => "c1fc4c28-0c1c-4573-a9cf-0025dbf6c8f7",
+      "name" => "19",
+      "card_number_numeric" => 19,
+      "card_number" => "19",
+      "card_serial_number" => "",
+      "issue_number" => 0,
+      "state" => "Active",
+      "expiry" => "0001-01-01T00:00:00.0000000+00:00",
+      "valid_from" => "0001-01-01T00:00:00.0000000+00:00",
+      "last_used" => "2024-04-11T00:49:35.6588387+12:00",
+      "cloud_credential_id" => "",
+      "cloud_credential_type" => "None",
+      "cloud_credential_pool_id" => "",
+      "cloud_credential_invite_id" => "",
+      "cloud_credential_invite_code" => "",
+      "cloud_credential_comms_handler" => "",
+      "active_directory" => false
+    }
+  ])
 end
