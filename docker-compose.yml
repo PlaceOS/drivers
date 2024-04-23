@@ -50,6 +50,7 @@ services:
       PLACEOS_BUILD_LOCAL: 1
       PLACEOS_ENABLE_TRACE: 1
       TZ: $TZ
+      BUILD_SERVICE_DISABLED: ${BUILD_SERVICE_DISABLED:-true}
 
   redis:
     image: eqalpha/keydb
