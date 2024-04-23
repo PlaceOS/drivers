@@ -59,31 +59,29 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   PROPS = {} of String => String
 
+  abstract struct IntegritiObject
+    include JSON::Serializable
+  end
+
   macro define_xml_type(klass, keys, lookup = nil)
-    alias {{klass}} = NamedTuple(
+    struct {{klass}} < IntegritiObject
       {% for _node, variable in keys %}
-        {{ variable.var }}: {{ variable.type }},
+        getter! {{ variable.var }} : {{ variable.type }}
       {% end %}
-    )
+
+      def initialize(
+        {% for _node, variable in keys %}
+          @{{ variable.var }} = nil,
+        {% end %}
+      )
+      end
+    end
 
     {% PROPS[lookup || klass.stringify] = keys.keys.join(",") %}
 
     protected def extract_{{klass.id.stringify.underscore.id}}(document : XML::Node) : {{klass}}
       {% for _node, variable in keys %}
-        {% resolved_type = variable.type.resolve %}
-        {% if resolved_type == Int32 %}
-          var_{{ variable.var }} = 0
-        {% elsif resolved_type == Int64 %}
-          var_{{ variable.var }} = 0_i64
-        {% elsif resolved_type == Bool %}
-          var_{{ variable.var }} = false
-        {% elsif resolved_type == Float64 %}
-          var_{{ variable.var }} = 0.0
-        {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
-          var_{{ variable.var }} = uninitialized {{resolved_type}}
-        {% else %}
-          var_{{ variable.var }} = ""
-        {% end %}
+        var_{{ variable.var }} = nil
       {% end %}
 
       if %data = document.document? ? document.first_element_child : document
@@ -101,7 +99,7 @@ class InnerRange::Integriti < PlaceOS::Driver
               var_{{ variable.var }} = %content.downcase == "true"
             {% elsif resolved_type == Float64 %}
               var_{{ variable.var }} = %content.to_f? || 0.0
-            {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
+            {% elsif resolved_type.superclass == IntegritiObject %}
               var_{{ variable.var }} = extract_{{variable.type.stringify.underscore.id}}(child)
             {% else %}
               var_{{ variable.var }} = %content
@@ -124,7 +122,7 @@ class InnerRange::Integriti < PlaceOS::Driver
               var_{{ variable.var }} = %content.downcase == "true"
             {% elsif resolved_type == Float64 %}
               var_{{ variable.var }} = %content.to_f? || 0.0
-            {% elsif resolved_type.stringify.starts_with? "NamedTuple" %}
+            {% elsif resolved_type.superclass == IntegritiObject %}
               var_{{ variable.var }} = extract_{{variable.type.stringify.underscore.id}}(child)
             {% else %}
               var_{{ variable.var }} = %content
@@ -134,11 +132,11 @@ class InnerRange::Integriti < PlaceOS::Driver
         end
       end
 
-      {
+      {{klass}}.new(
         {% for node, variable in keys %}
           {{ variable.var }}: var_{{ variable.var }},
         {% end %}
-      }
+      )
     end
   end
 
@@ -379,7 +377,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   # =====
-  # Doors
+  # Cards
   # =====
 
   define_xml_type(Card, {
@@ -458,7 +456,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   @[PlaceOS::Driver::Security(Level::Support)]
   def door_list : Array(Door)
     doors(default_site_id).map do |door|
-      Door.new(door[:id].to_s, door[:name])
+      Door.new(door.id.to_s, door.name)
     end
   end
 
