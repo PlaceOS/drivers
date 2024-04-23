@@ -60,9 +60,8 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
   end
 
   result.get.should eq([{
-    "id"           => 1,
-    "name"         => "PlaceOS",
-    "partition_id" => 0,
+    "id"   => 1,
+    "name" => "PlaceOS",
   }])
 
   # =====
@@ -97,9 +96,8 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
     "id"   => 1,
     "name" => "Level 1",
     "site" => {
-      "id"           => 1,
-      "name"         => "PlaceOS",
-      "partition_id" => 0,
+      "id"   => 1,
+      "name" => "PlaceOS",
     },
   }])
 
@@ -156,7 +154,6 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "site_name"    => "PlaceOS",
       "address"      => "U1",
       "partition_id" => 1,
-      "email"        => "",
     },
     {
       "id"           => 281474976710658,
@@ -165,7 +162,6 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "site_name"    => "PlaceOS",
       "address"      => "U2",
       "partition_id" => 0,
-      "email"        => "",
     },
     {
       "id"           => 281474976710659,
@@ -246,23 +242,16 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
 
   result.get.should eq([
     {
-      "id" => "c1fc4c28-0c1c-4573-a9cf-0025dbf6c8f7",
-      "name" => "19",
-      "card_number_numeric" => 19,
-      "card_number" => "19",
-      "card_serial_number" => "",
-      "issue_number" => 0,
-      "state" => "Active",
-      "expiry" => "0001-01-01T00:00:00.0000000+00:00",
-      "valid_from" => "0001-01-01T00:00:00.0000000+00:00",
-      "last_used" => "2024-04-11T00:49:35.6588387+12:00",
-      "cloud_credential_id" => "",
+      "id"                    => "c1fc4c28-0c1c-4573-a9cf-0025dbf6c8f7",
+      "name"                  => "19",
+      "card_number_numeric"   => 19,
+      "card_number"           => "19",
+      "state"                 => "Active",
+      "expiry"                => "0001-01-01T00:00:00.0000000+00:00",
+      "valid_from"            => "0001-01-01T00:00:00.0000000+00:00",
+      "last_used"             => "2024-04-11T00:49:35.6588387+12:00",
       "cloud_credential_type" => "None",
-      "cloud_credential_pool_id" => "",
-      "cloud_credential_invite_id" => "",
-      "cloud_credential_invite_code" => "",
-      "cloud_credential_comms_handler" => "",
-      "active_directory" => false
-    }
+      "active_directory"      => false,
+    },
   ])
 end

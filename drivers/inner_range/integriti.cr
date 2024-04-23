@@ -381,18 +381,18 @@ class InnerRange::Integriti < PlaceOS::Driver
   # =====
 
   define_xml_type(Card, {
-    "ID"                                  => id : String,
-    "Name"                                => name : String,
-    "CardNumberNumeric"                   => card_number_numeric : Int64,
-    "CardNumber"                          => card_number : String,
-    "CardSerialNumber"                    => card_serial_number : String,
-    "IssueNumber"                         => issue_number : Int32,
+    "ID"                => id : String,
+    "Name"              => name : String,
+    "CardNumberNumeric" => card_number_numeric : Int64,
+    "CardNumber"        => card_number : String,
+    "CardSerialNumber"  => card_serial_number : String,
+    "IssueNumber"       => issue_number : Int32,
     # Active, ActiveExpiring, ActiveReplacement seem to be the only active states
-    "State"                               => state : String,
-    "ExpiryDateTime"                      => expiry : String,
-    "StartDateTime"                       => valid_from : String,
-    "LastUsed"                            => last_used : String,
-    "CloudCredentialId"                   => cloud_credential_id : String,
+    "State"             => state : String,
+    "ExpiryDateTime"    => expiry : String,
+    "StartDateTime"     => valid_from : String,
+    "LastUsed"          => last_used : String,
+    "CloudCredentialId" => cloud_credential_id : String,
     # None or HIDMobileCredential
     "CloudCredentialType"                 => cloud_credential_type : String,
     "CloudCredentialPoolId"               => cloud_credential_pool_id : String,
