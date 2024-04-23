@@ -264,6 +264,64 @@ class InnerRange::Integriti < PlaceOS::Driver
     extract_system_info(document)
   end
 
+  # =======================
+  # Collection Modification
+  # =======================
+  # these are special routes for adding or removing items from collections
+  # use XML.build_fragment as errors if there is a version header: <?xml version="1.0"?>
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def add_to_collection(type : String, id : String, property_name : String, payload : String)
+    check patch("/v2/User/#{type}/#{id}/#{property_name}/addToCollection", body: payload)
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def remove_from_collection(type : String, id : String, property_name : String, payload : String)
+    check patch("/v2/User/#{type}/#{id}/#{property_name}/removeFromCollection", body: payload)
+  end
+
+  # =======================
+  # Add or Update DB entry
+  # =======================
+
+  # This is the only way to add or update a database entry...
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def add_or_update(payload : String)
+    check post("/v2/User/AddOrUpdate?IncludeObjectInResult=true", body: payload)
+  end
+
+  protected def add(type : String, &)
+    payload = XML.build_fragment(indent: "  ") do |xml|
+      xml.element(type) { yield xml }
+    end
+    add_or_update payload
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def add_entry(type : String, fields : Hash(String, String | Float64 | Int64))
+    add(type) do |xml|
+      fields.each do |key, value|
+        xml.element(key) { xml.text value.to_s }
+      end
+    end
+  end
+
+  protected def update(type : String, id : String, attribute : String = "Address", &)
+    payload = XML.build_fragment(indent: "  ") do |xml|
+      xml.element(type, {attribute => id}) { yield xml }
+    end
+    add_or_update payload
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def update_entry(type : String, id : String, fields : Hash(String, String | Float64 | Int64), attribute : String = "Address")
+    update(type, id, attribute) do |xml|
+      fields.each do |key, value|
+        xml.element(key) { xml.text value.to_s }
+      end
+    end
+  end
+
   # =====
   # SITES
   # =====
