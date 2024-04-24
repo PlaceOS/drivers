@@ -254,4 +254,43 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "active_directory"      => false,
     },
   ])
+
+  # =================
+  # Permission Groups
+  # =================
+  result = exec(:permission_groups)
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <PagedQueryResult>
+          <TotalRecords>3</TotalRecords>
+          <Page>1</Page>
+          <PageSize>25</PageSize>
+          <RowVersion>-1</RowVersion>
+          <NextPageUrl>http://20.213.104.2:80/restapi/v2/User/PermissionGroup?Page=2&amp;PageSize=25&amp;SortProperty=ID&amp;SortOrder=Ascending&amp;</NextPageUrl>
+          <Rows>
+              <PermissionGroup PartitionID="0" ID="QG1">
+                  <SiteName>PlaceOS</SiteName>
+                  <SiteID>1</SiteID>
+                  <ID>1970324836974593</ID>
+                  <Name>Manager</Name>
+                  <Notes></Notes>
+                  <Address>QG1</Address>
+              </PermissionGroup>
+          </Rows>
+      </PagedQueryResult>
+    XML
+  end
+
+  result.get.should eq([
+    {
+      "partition_id" => 0,
+      "site_name"    => "PlaceOS",
+      "site_id"      => 1,
+      "id"           => 1970324836974593,
+      "name"         => "Manager",
+      "address"      => "QG1",
+    },
+  ])
 end

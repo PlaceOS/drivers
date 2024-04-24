@@ -191,7 +191,8 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   # &FullObject=true doesn't work for cards annoyingly...
-  protected def prop_param(type : String)
+  protected def prop_param(type : String, summary_only : Bool = false)
+    return "" if summary_only
     if props = PROPS[type]?
       "AdditionalProperties=#{props}"
     else
@@ -199,14 +200,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  protected def paginate_request(category : String, type : String, filter : Filter = Filter.new, &)
+  protected def paginate_request(category : String, type : String, filter : Filter = Filter.new, summary_only : Bool = false, &)
     filter.compact!
 
     next_page = if filter.empty?
-                  "/v2/#{category}/#{type}?PageSize=1000&#{prop_param(type)}"
+                  "/v2/#{category}/#{type}?PageSize=1000&#{prop_param(type, summary_only)}"
                 else
                   body = build_filter(filter)
-                  "/v2/#{category}/GetFilteredEntities/#{type}?PageSize=1000&#{prop_param(type)}"
+                  "/v2/#{category}/GetFilteredEntities/#{type}?PageSize=1000&#{prop_param(type, summary_only)}"
                 end
 
     loop do
@@ -272,12 +273,38 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def add_to_collection(type : String, id : String, property_name : String, payload : String)
-    check patch("/v2/User/#{type}/#{id}/#{property_name}/addToCollection", body: payload)
+    check patch("/v2/User/#{type}/#{id}/#{property_name}/addToCollection?IncludeObjectInResult=true", body: payload)
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def remove_from_collection(type : String, id : String, property_name : String, payload : String)
-    check patch("/v2/User/#{type}/#{id}/#{property_name}/removeFromCollection", body: payload)
+    check patch("/v2/User/#{type}/#{id}/#{property_name}/removeFromCollection?IncludeObjectInResult=true", body: payload)
+  end
+
+  protected def modify_collection(type : String, id : String, property_name : String, payload : String, *, add : Bool = true)
+    if add
+      add_to_collection(type, id, property_name, payload)
+    else
+      remove_from_collection(type, id, property_name, payload)
+    end
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def modify_user_permission_groups(user_id : String, group_id : String, partition_id : String | Int32 = 0, add : Bool = true)
+    payload = XML.build_fragment(indent: "  ") do |xml|
+      xml.element("UserPermission") do
+        xml.element("What") do
+          xml.element("Ref", {
+            "Type"        => "PermissionGroup",
+            "PartitionID" => partition_id.to_s,
+            # group_id should look like: "QG2"
+            "ID" => group_id,
+          })
+        end
+      end
+    end
+
+    modify_collection("User", user_id, "Permissions", payload, add: add)
   end
 
   # =======================
@@ -320,6 +347,36 @@ class InnerRange::Integriti < PlaceOS::Driver
         xml.element(key) { xml.text value.to_s }
       end
     end
+  end
+
+  # =================
+  # Permission Groups
+  # =================
+
+  define_xml_type(PermissionGroup, {
+    "attr_PartitionID" => partition_id : Int32,
+    "SiteName"         => site_name : String,
+    "SiteID"           => site_id : Int32,
+    "ID"               => id : Int64,
+    "Name"             => name : String,
+    "Address"          => address : String,
+  })
+
+  def permission_groups(site_id : Int32? = nil) : Array(PermissionGroup)
+    pgroups = [] of PermissionGroup
+    filter = Filter{
+      "Site.ID" => site_id,
+    }
+    paginate_request("User", "PermissionGroup", filter, summary_only: true) do |row|
+      pgroups << extract_permission_group(row)
+    end
+    pgroups
+  end
+
+  def permission_group(id : Int64 | String)
+    # we only want summaries of these, so no prop_param provided
+    document = check get("/v2/User/PermissionGroup/#{id}")
+    extract_site(document)
   end
 
   # =====
