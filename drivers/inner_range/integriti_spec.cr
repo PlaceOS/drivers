@@ -252,6 +252,16 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "last_used"             => "2024-04-11T00:49:35.6588387+12:00",
       "cloud_credential_type" => "None",
       "active_directory"      => false,
+      "site"                  => {"id" => 1, "name" => "PlaceOS", "partition_id" => 0},
+      "user"                  => {
+        "id"           => 0,
+        "name"         => "",
+        "site_id"      => 0,
+        "site_name"    => "",
+        "address"      => "U10",
+        "partition_id" => 0,
+        "email"        => "",
+      },
     },
   ])
 

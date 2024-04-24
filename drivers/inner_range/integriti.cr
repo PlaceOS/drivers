@@ -90,42 +90,79 @@ class InnerRange::Integriti < PlaceOS::Driver
             {% attribute_name = node.split("_")[1] %}
             %content = %data[{{attribute_name}}]? || ""
 
+            # extract the data
             {% resolved_type = variable.type.resolve %}
+            {% variable_var = variable.var %}
             {% if resolved_type == Int32 %}
-              var_{{ variable.var }} = %content.to_i? || 0
+              var_{{ variable_var }} = %content.to_i? || 0
             {% elsif resolved_type == Int64 %}
-              var_{{ variable.var }} = %content.to_i64? || 0_i64
+              var_{{ variable_var }} = %content.to_i64? || 0_i64
             {% elsif resolved_type == Bool %}
-              var_{{ variable.var }} = %content.downcase == "true"
+              var_{{ variable_var }} = %content.downcase == "true"
             {% elsif resolved_type == Float64 %}
-              var_{{ variable.var }} = %content.to_f? || 0.0
+              var_{{ variable_var }} = %content.to_f? || 0.0
             {% elsif resolved_type.superclass == IntegritiObject %}
-              var_{{ variable.var }} = extract_{{variable.type.stringify.underscore.id}}(child)
+              var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
             {% else %}
-              var_{{ variable.var }} = %content
+              var_{{ variable_var }} = %content
             {% end %}
           {% end %}
         {% end %}
 
         %data.children.select(&.element?).each do |child|
           case child.name
+          when "Ref"
+            # minimal data provided in attributes
+            {% for node, variable in keys %}
+              {% if node.starts_with? "attr_" %}
+                {% attribute_name = node.split("_")[1] %}
+              {% else %}
+                {% attribute_name = node %}
+              {% end %}
+
+              # ID in ref's are actually the Address in objects
+              {% if attribute_name == "Address" %}
+                {% attribute_name = "ID" %}
+              {% end %}
+              %content = child[{{attribute_name}}]? || ""
+
+              # extract the data
+              {% resolved_type = variable.type.resolve %}
+              {% variable_var = variable.var %}
+
+              {% if resolved_type == Int32 %}
+                var_{{ variable_var }} = %content.to_i? || 0
+              {% elsif resolved_type == Int64 %}
+                var_{{ variable_var }} = %content.to_i64? || 0_i64
+              {% elsif resolved_type == Bool %}
+                var_{{ variable_var }} = %content.downcase == "true"
+              {% elsif resolved_type == Float64 %}
+                var_{{ variable_var }} = %content.to_f? || 0.0
+              {% elsif resolved_type.superclass == IntegritiObject %}
+                var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
+              {% else %}
+                var_{{ variable_var }} = %content
+              {% end %}
+            {% end %}
           {% for node, variable in keys %}
           when {{node.id.stringify}}
             %content = child.content || ""
 
+            # extract the data
             {% resolved_type = variable.type.resolve %}
+            {% variable_var = variable.var %}
             {% if resolved_type == Int32 %}
-              var_{{ variable.var }} = %content.to_i? || 0
+              var_{{ variable_var }} = %content.to_i? || 0
             {% elsif resolved_type == Int64 %}
-              var_{{ variable.var }} = %content.to_i64? || 0_i64
+              var_{{ variable_var }} = %content.to_i64? || 0_i64
             {% elsif resolved_type == Bool %}
-              var_{{ variable.var }} = %content.downcase == "true"
+              var_{{ variable_var }} = %content.downcase == "true"
             {% elsif resolved_type == Float64 %}
-              var_{{ variable.var }} = %content.to_f? || 0.0
+              var_{{ variable_var }} = %content.to_f? || 0.0
             {% elsif resolved_type.superclass == IntegritiObject %}
-              var_{{ variable.var }} = extract_{{variable.type.stringify.underscore.id}}(child)
+              var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
             {% else %}
-              var_{{ variable.var }} = %content
+              var_{{ variable_var }} = %content
             {% end %}
           {% end %}
           end
@@ -515,16 +552,16 @@ class InnerRange::Integriti < PlaceOS::Driver
     "CloudCredentialInvitationCode"       => cloud_credential_invite_code : String,
     "CloudCredentialCommunicationHandler" => cloud_credential_comms_handler : String,
     "ManagedByActiveDirectory"            => active_directory : Bool,
-    # these are Ref types...
-    # define a special ref types that extracts attributes
-    # "Site" => site : Site,
-    # "User" => user : User,
+    # these are Ref types so won't be fully hydrated (id and name only)
+    "Site" => site : Site,
+    "User" => user : User,
   })
 
-  def cards(site_id : Int32? = nil)
+  def cards(site_id : Int32? = nil, user_id : String | Int64? = nil)
     cards = [] of Card
     filter = Filter{
       "Site.ID" => site_id,
+      "User.ID" => user_id,
     }
     paginate_request("VirtualCardBadge", "Card", filter) do |row|
       cards << extract_card(row)
