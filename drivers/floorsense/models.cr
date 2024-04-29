@@ -23,7 +23,7 @@ module Floorsense
     getter type : String = "response"
     getter result : Bool
     getter code : Int32?
-    getter message : String
+    getter message : String?
     getter info : JSON::Any?
 
     def info
@@ -44,6 +44,13 @@ module Floorsense
 
     # Returned on success
     property info : T?
+  end
+
+  class Setting
+    include JSON::Serializable
+
+    property value : JSON::Any
+    property key : String
   end
 
   class AuthInfo
