@@ -146,8 +146,8 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     telemetry = [] of JSON::Any
 
     params = URI::Params.new
-    params["endTime"] = 1.minute.ago.to_rfc3339(fraction_digits: 3)
-    params["startTime"] = Time.utc.to_rfc3339(fraction_digits: 3)
+    params["endTime"] = Time.utc.to_rfc3339(fraction_digits: 3)
+    params["startTime"] = 1.minute.ago.to_rfc3339(fraction_digits: 3)
     params["trackingId"] = tracking_ids.map(&.strip.downcase).join(",") unless tracking_ids.empty?
 
     make_request("GET", "/v3/telemetry", params: params) do |data|
