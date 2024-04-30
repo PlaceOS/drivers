@@ -145,7 +145,12 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   ) : Array(JSON::Any)
     telemetry = [] of JSON::Any
 
+    end_time = 1.minute.ago.to_rfc3339(fraction_digits: 3)
+    start_time = Time.utc.to_rfc3339(fraction_digits: 3)
+
     query = URI::Params.build do |form|
+      form.add("endTime", end_time)
+      form.add("startTime", start_time)
       form.add("trackingId", tracking_ids.map(&.strip.downcase).join(",")) unless tracking_ids.empty?
     end
 
