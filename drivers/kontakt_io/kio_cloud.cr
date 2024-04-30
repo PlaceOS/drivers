@@ -140,6 +140,23 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     room_occupancy
   end
 
+  def telemetry(
+    tracking_ids : Array(String) = [] of String
+  ) : Array(JSON::Any)
+    telemetry = [] of JSON::Any
+
+    query = URI::Params.build do |form|
+      form.add("trackingId", tracking_ids.map(&.strip.downcase).join(",")) unless tracking_ids.empty?
+    end
+
+    make_request("GET", "/v3/telemetry?#{query}") do |data|
+      resp = Response(JSON::Any).from_json(data)
+      telemetry.concat resp.content
+      resp.page
+    end
+    telemetry
+  end
+
   # ===================================
   # Caching sensor data
   # ===================================
