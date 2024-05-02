@@ -30,13 +30,15 @@ class Rhombus::SecurityMock < PlaceOS::Driver
     # ensure door names and IDs don't change between reloads
     door_list_size = setting?(Int32, :door_list_size) || 30
     Faker.seed door_list_size
+    door_id = 1000
 
     doors = Array(Door).new(door_list_size)
     door_list_size.times do
       doors << Door.new(
-        Faker::Business.credit_card_number,
+        door_id.to_s,
         Faker::Commerce.department
       )
+      door_id += 1
     end
     @door_list = doors
 
