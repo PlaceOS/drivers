@@ -32,6 +32,7 @@ DriverSpecs.mock_driver "KontaktIO::SensorService" do
     "map_id"          => "room-195835",
     "level"           => "zone-level",
     "building"        => "zone-building",
+    "capacity"        => nil,
     "kontakt_io_room" => "Open Pod",
   }])
 end

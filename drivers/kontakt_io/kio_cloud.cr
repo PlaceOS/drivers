@@ -140,18 +140,16 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     room_occupancy
   end
 
-  def telemetry(
-    tracking_ids : Array(String) = [] of String
-  ) : Array(JSON::Any)
-    telemetry = [] of JSON::Any
+  def telemetry(tracking_ids : Array(String)) : Array(Telemetry)
+    telemetry = [] of Telemetry
 
     params = URI::Params.new
     params["endTime"] = Time.utc.to_rfc3339(fraction_digits: 3)
-    params["startTime"] = 1.minute.ago.to_rfc3339(fraction_digits: 3)
+    params["startTime"] = 2.minutes.ago.to_rfc3339(fraction_digits: 3)
     params["trackingId"] = tracking_ids.map(&.strip.downcase).join(",") unless tracking_ids.empty?
 
     make_request("GET", "/v3/telemetry", params: params) do |data|
-      resp = Response(JSON::Any).from_json(data)
+      resp = Response(Telemetry).from_json(data)
       telemetry.concat resp.content
       resp.page
     end
@@ -164,10 +162,30 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   getter occupancy_cache : Hash(Int64, RoomOccupancy) = {} of Int64 => RoomOccupancy
 
   protected def cache_occupancy_counts
-    occupancy = room_occupancy
-    cache = Hash(Int64, RoomOccupancy).new(occupancy.size) do |_hash, key|
+    sensor_to_room = {} of String => Room
+    rooms.each do |room|
+      room.room_sensor_ids.each do |sensor_id|
+        sensor_to_room[sensor_id] = room
+      end
+    end
+
+    cache = Hash(Int64, RoomOccupancy).new(sensor_to_room.size) do |_hash, key|
       raise KeyError.new(%(Missing hash key: "#{key}"))
     end
+
+    # 3rd party motion sensors
+    recent_motion = 180_i64
+    telemetry_data = telemetry(sensor_to_room.keys)
+    telemetry_data.each do |sensor|
+      seconds_since = sensor.seconds_since_motion
+      next unless seconds_since
+
+      room = sensor_to_room[sensor.id]
+      self["room-#{room.id}"] = cache[room.id] = room.to_room_occupancy(seconds_since <= recent_motion, sensor.timestamp)
+    end
+
+    # occupancy counters
+    occupancy = room_occupancy
     occupancy.each { |room| self["room-#{room.room_id}"] = cache[room.room_id] = room }
     @occupancy_cache = cache
     self[:occupancy_cached_at] = Time.utc.to_unix

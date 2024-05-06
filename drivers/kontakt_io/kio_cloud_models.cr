@@ -5,13 +5,13 @@ module KontaktIO
     include JSON::Serializable
 
     getter size : Int32
-    getter number : Int32
+    getter number : Int32 { 0 }
 
     @[JSON::Field(key: "totalElements")]
-    getter total_elements : Int32
+    getter total_elements : Int32 { 0 }
 
     @[JSON::Field(key: "totalPages")]
-    getter total_pages : Int32
+    getter total_pages : Int32 { 0 }
   end
 
   class Response(T)
@@ -126,6 +126,13 @@ module KontaktIO
     getter y : Int64?
   end
 
+  class BuildingShort
+    include JSON::Serializable
+
+    getter id : Int64
+    getter name : String
+  end
+
   class Floor
     include JSON::Serializable
     include JSON::Serializable::Unmapped
@@ -144,6 +151,8 @@ module KontaktIO
 
     @[JSON::Field(key: "anchorLng")]
     getter lng : Float64?
+
+    getter building : BuildingShort? = nil
   end
 
   class Building
@@ -187,10 +196,45 @@ module KontaktIO
 
     @[JSON::Field(key: "roomNumber")]
     getter room_number : Int64?
+
+    @[JSON::Field(key: "roomSensors")]
+    getter room_sensors : Array(RoomSensor) { [] of RoomSensor }
+
+    def room_sensor_ids : Array(String)
+      room_sensors.map(&.tracking_id)
+    end
+
+    def to_room_occupancy(occupied : Bool, last_update : Time)
+      RoomOccupancy.new self, occupied, last_update
+    end
+  end
+
+  struct RoomSensor
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    @[JSON::Field(key: "trackingId")]
+    getter tracking_id : String
   end
 
   struct RoomOccupancy
     include JSON::Serializable
+
+    def initialize(room : Room, occupied : Bool, last_update : Time)
+      @room_id = room.id
+      @room_name = room.name
+      floor = room.floor
+      @floor_id = floor.id
+      @floor_name = floor.name
+      floor.building.try do |building|
+        @building_id = building.id
+        @building_name = building.name
+      end
+
+      @occupancy = occupied ? 1 : 0
+      @last_update = last_update
+      @pir = true
+    end
 
     @[JSON::Field(key: "roomId")]
     getter room_id : Int64
@@ -205,19 +249,37 @@ module KontaktIO
     getter floor_name : String?
 
     @[JSON::Field(key: "buildingId")]
-    getter building_id : Int64?
+    getter building_id : Int64? = nil
 
     @[JSON::Field(key: "buildingName")]
-    getter building_name : String?
+    getter building_name : String? = nil
 
     @[JSON::Field(key: "campusId")]
-    getter campus_id : Int64?
+    getter campus_id : Int64? = nil
 
     @[JSON::Field(key: "campusName")]
-    getter campus_name : String?
+    getter campus_name : String? = nil
 
     @[JSON::Field(key: "lastUpdate")]
     getter last_update : Time
     getter occupancy : Int32
+
+    getter? pir : Bool = false
+  end
+
+  class Telemetry
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    @[JSON::Field(key: "trackingId")]
+    getter id : String
+
+    @[JSON::Field(key: "secondsSincePirMotion")]
+    getter seconds_since_motion : Int64?
+
+    @[JSON::Field(key: "numberOfPeopleDetected")]
+    getter number_of_people : Int32?
+
+    getter timestamp : Time
   end
 end
