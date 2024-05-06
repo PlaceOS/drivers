@@ -79,14 +79,15 @@ class KontaktIO::SensorService < PlaceOS::Driver
     nil
   end
 
+  LOCATION = {"desk", "area"}
+
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "searching locatable in zone #{zone_id}" }
     floor_ids = @zone_lookup[zone_id]?
     return [] of Nil unless floor_ids && floor_ids.size > 0
+    return [] of Nil if location && !LOCATION.includes?(location)
 
-    loc_type = "desk"
-    return [] of Nil if location && location != loc_type
-
+    loc = LOCATION
     cache = @occupancy_cache
     cache.compact_map do |(room_id, space)|
       next unless space.floor_id.in?(floor_ids)
@@ -99,6 +100,13 @@ class KontaktIO::SensorService < PlaceOS::Driver
         #  temperature = env.temperature.value
         #  iaq = env.iaq.try &.value
         # end
+        if space.pir?
+          capacity = 1
+          loc_type = loc[1]
+        else
+          loc_type = loc[0]
+          capacity = nil
+        end
 
         {
           location:    loc_type,
@@ -106,6 +114,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
           map_id:      "room-#{space.room_id}",
           level:       zone_id,
           building:    @floor_mappings[space.floor_id.to_s]?.try(&.[](:building_id)),
+          capacity:    capacity,
 
           kontakt_io_room: space.room_name,
         }
@@ -125,6 +134,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
 
     case id
     when "people"
+      return nil if room.pir?
       build_sensor_details(room, :people_count)
     when "presence"
       build_sensor_details(room, :presence)
