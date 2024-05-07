@@ -24,6 +24,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_template:                     "event",
     booking_template:                   "booking",
     notify_checkin_template:            "notify_checkin",
+    group_event_template:               "group_event",
     disable_qr_code:                    false,
     send_network_credentials:           false,
     network_password_length:            DEFAULT_PASSWORD_LENGTH,
@@ -86,6 +87,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @event_template : String = "event"
   @booking_template : String = "booking"
   @notify_checkin_template : String = "notify_checkin"
+  @group_event_template : String = "group_event"
   @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
   @network_password_length : Int32 = DEFAULT_PASSWORD_LENGTH
@@ -107,6 +109,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @event_template = setting?(String, :event_template) || "event"
     @booking_template = setting?(String, :booking_template) || "booking"
     @notify_checkin_template = setting?(String, :notify_checkin_template) || "notify_checkin"
+    @group_event_template = setting?(String, :group_event_template) || "group_event"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
@@ -253,6 +256,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     in BookingGuest
       area_name = @booking_space_name
       template = @booking_template
+      booking_type = staff_api.get_booking(guest_details.booking_id).get["booking_type"].as_s
+      template = @group_event_template if booking_type == "group-event"
     in GuestNotification
       # should never get here
       return
