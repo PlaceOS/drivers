@@ -2,7 +2,9 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "KontaktIO::SensorService" do
   system({
-    KontaktIO: {KontaktIOMock},
+    KontaktIO:        {KontaktIOMock},
+    LocationServices: {LocationServicesMock},
+    StaffAPI:         {StaffAPIMock},
   })
   settings({
     floor_mappings: {
@@ -58,5 +60,31 @@ class KontaktIOMock < DriverSpecs::MockDriver
         "occupancy"    => 3,
       },
     }
+  end
+end
+
+# :nodoc:
+class LocationServicesMock < DriverSpecs::MockDriver
+  def building_id : String
+    "zone-building"
+  end
+end
+
+# :nodoc:
+class StaffAPIMock < DriverSpecs::MockDriver
+  def systems(
+    q : String? = nil,
+    zone_id : String? = nil,
+    capacity : Int32? = nil,
+    bookable : Bool? = nil,
+    features : String? = nil,
+    limit : Int32 = 1000,
+    offset : Int32 = 0
+  )
+    [] of String
+  end
+
+  def system_settings(id : String, key : String)
+    nil
   end
 end

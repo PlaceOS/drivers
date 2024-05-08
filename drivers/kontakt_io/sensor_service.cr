@@ -14,6 +14,9 @@ class KontaktIO::SensorService < PlaceOS::Driver
   accessor kontakt_io : KontaktIO_1
   bind KontaktIO_1, :occupancy_cached_at, :update_cache
 
+  accessor staff_api : StaffAPI_1
+  accessor location_service : LocationServices_1
+
   default_settings({
     floor_mappings: {
       "KontaktIO_floor_id": {
@@ -59,6 +62,30 @@ class KontaktIO::SensorService < PlaceOS::Driver
 
   protected def update_cache(_sub, _event)
     @occupancy_cache = Hash(Int64, RoomOccupancy).from_json kontakt_io.occupancy_cache.get.to_json
+  end
+
+  # System id => Map ID
+  getter system_map_ids : Hash(String, String) do
+    building_zone = location_service.building_id.get.as_s
+    map_ids = {} of String => String
+    staff_api.systems(zone_id: building_zone).get.as_a.each do |sys|
+      map_id = sys["map_id"]?.try(&.as_s?)
+      next unless map_id
+      map_ids[sys["id"].as_s] = map_id
+    end
+    map_ids
+  end
+
+  # KIO room id => Map ID
+  getter map_ids : Hash(Int64, String) do
+    ids = {} of Int64 => String
+    system_map_ids.each do |sys_id, map_id|
+      resp = staff_api.system_settings(sys_id, "space_ref_id").get
+      value = resp.as_s?.try(&.to_i64?) || resp.as_i64?
+      next unless value
+      ids[value] = map_id
+    end
+    ids
   end
 
   # ===================================
@@ -111,7 +138,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
         {
           location:    loc_type,
           at_location: people_count,
-          map_id:      "room-#{space.room_id}",
+          map_id:      map_ids[space.room_id]? || "room-#{space.room_id}",
           level:       zone_id,
           building:    @floor_mappings[space.floor_id.to_s]?.try(&.[](:building_id)),
           capacity:    capacity,
