@@ -1,26 +1,35 @@
 require "uri"
 require "jwt"
 require "./models"
+require "placeos-driver/interface/lockers"
 require "placeos-driver"
 
 # Documentation:
 # https://apiguide.smartalock.com/
 # https://documenter.getpostman.com/view/8843075/SVmwvctF?version=latest#3bfbb050-722d-4433-889a-8793fa90af9c
 
-class Floorsense::Desks < PlaceOS::Driver  
+class Floorsense::LockersWebsocket < PlaceOS::Driver
+  include Interface::Lockers
+
+  alias PlaceLocker = PlaceOS::Driver::Interface::Lockers::PlaceLocker
+
   # Discovery Information
   generic_name :Floorsense
-  descriptive_name "Floorsense Desk Tracking"
+  descriptive_name "Floorsense Locker Tracking (WS)"
 
-  uri_base "https://_your_subdomain_.floorsense.com.au"
+  uri_base "wss://_your_subdomain_.floorsense.com.au/ws"
 
   default_settings({
-    username: "srvc_acct",
-    password: "password!",
+    username:    "srvc_acct",
+    password:    "password!",
+    ws_username: "srvc_acct",
+    ws_password: "password!",
   })
 
   @username : String = ""
   @password : String = ""
+  @ws_username : String = ""
+  @ws_password : String = ""
   @auth_token : String = ""
   @auth_expiry : Time = 1.minute.ago
   @user_cache : Hash(String, User) = {} of String => User
@@ -30,20 +39,80 @@ class Floorsense::Desks < PlaceOS::Driver
   # Locker key => controller id
   @lockers : Hash(String, LockerInfo) = {} of String => LockerInfo
 
-  # Desk key => controller id
-  @desks : Hash(String, DeskInfo) = {} of String => DeskInfo
-
   def on_load
+    transport.tokenizer = Tokenizer.new("\r\n")
     on_update
   end
 
   def on_update
-    @username = URI.encode_www_form setting(String, :username)
-    @password = URI.encode_www_form setting(String, :password)
+    @username = setting(String, :username)
+    @password = setting(String, :password)
+    @ws_username = setting?(String, :ws_username) || @username
+    @ws_password = setting?(String, :ws_password) || @password
 
     schedule.clear
     schedule.every(1.hour) { sync_locker_list }
     schedule.in(5.seconds) { sync_locker_list }
+    schedule.every(1.minute) { check_subscriptions }
+  end
+
+  def connected
+    # authenticate
+    # ws_post("/auth", {username: @ws_username, password: @ws_password}, priority: 99, name: "auth")
+    ws_post("/auth", {user: "kiosk"}.to_json, priority: 99, name: "auth")
+  end
+
+  @[Security(Level::Administrator)]
+  def ws_post(uri : String, body : String? = nil, **options)
+    request = "POST #{uri}\r\n#{body.presence ? body : "{}"}\r\n"
+    logger.debug { "requesting: #{request}" }
+    send(request, **options)
+  end
+
+  @[Security(Level::Administrator)]
+  def ws_get(uri : String, **options)
+    request = "GET #{uri}\r\n"
+    logger.debug { "requesting: #{request}" }
+    send(request, **options)
+  end
+
+  # used to poll the websocket to check for liveliness
+  def check_subscriptions
+    ws_get "/restapi/subscribe"
+  end
+
+  def received(data, task)
+    string = String.new(data).rstrip
+    logger.debug { "websocket sent: #{string}" }
+    payload = Payload.from_json(string)
+
+    case payload
+    in Response
+      if !payload.result
+        logger.warn { "task #{task.try &.name} failed.." }
+        # disconnect
+        return task.try &.abort
+      end
+
+      case task.try &.name
+      when "auth"
+        logger.debug { "authentication success!" }
+
+        # subscribe to all events
+        ws_post("/sub", {mask: 255}.to_json, name: "sub")
+      when "sub"
+        logger.debug { "subscribed to events" }
+      else
+        logger.warn { "unknown task: #{(task.try &.name).inspect}" }
+      end
+      task.try &.success
+    in Event
+      self["event_#{payload.code}"] = payload.info || payload.message
+    in Payload
+      logger.error { "base class, this case will never occur" }
+    end
+  rescue error
+    logger.error(exception: error) { "failed to parse: #{string.inspect}" }
   end
 
   def expire_token!
@@ -58,10 +127,13 @@ class Floorsense::Desks < PlaceOS::Driver
   def get_token
     return @auth_token unless token_expired?
 
-    response = post("/restapi/login", body: "username=#{@username}&password=#{@password}", headers: {
-      "Content-Type" => "application/x-www-form-urlencoded",
-      "Accept"       => "application/json",
-    })
+    response = post("/restapi/login",
+      body: "username=#{URI.encode_www_form @username}&password=#{URI.encode_www_form @password}",
+      headers: {
+        "Content-Type" => "application/x-www-form-urlencoded",
+        "Accept"       => "application/json",
+      }
+    )
 
     data = response.body.not_nil!
     logger.debug { "received login response #{data}" }
@@ -92,7 +164,19 @@ class Floorsense::Desks < PlaceOS::Driver
 
   macro parse(response, klass, &modify)
     check_success({{response}})
-    check_response Resp({{klass}}).from_json({{response}}.body.not_nil!) {{modify}}
+    %resp_body = {{response}}.body
+    begin
+      check_response Resp({{klass}}).from_json(%resp_body.not_nil!) {{modify}}
+    rescue error
+      begin
+        response = Response.from_json(%resp_body)
+        raise "#{response.message} (#{response.code})" unless response.result
+        raise "unexpected response type: #{%resp_body}"
+      rescue
+        logger.debug { "failed to parse response: #{%resp_body}" }
+        raise error
+      end
+    end
   end
 
   def default_headers
@@ -104,28 +188,30 @@ class Floorsense::Desks < PlaceOS::Driver
 
   def sync_locker_list
     lockers = {} of String => LockerInfo
-    desks = {} of String => DeskInfo
 
     controller_list.each do |controller_id, controller|
       next unless controller.lockers
-      lockers(controller_id).each do |locker|
-        next unless locker.key
-        locker.controller_id = controller_id
-        lockers[locker.key.not_nil!] = locker
-      end
 
-      desk_list(controller_id).each do |desk|
-        next unless desk.key
-        desk.controller_id = controller_id
-        desks[desk.key.not_nil!] = desk
+      begin
+        lockers(controller_id).each do |locker|
+          next unless locker.key
+          locker.controller_id = controller_id
+          lockers[locker.key.not_nil!] = locker
+        end
+      rescue error
+        logger.warn(exception: error) { "obtaining locker list for controller #{controller.name} - #{controller_id}, possibly offline" }
       end
     end
+
     @lockers = lockers
-    @desks = desks
   end
 
-  def controller_list
-    response = get("/restapi/slave-list", headers: default_headers)
+  def controller_list(locker : Bool? = nil)
+    query = URI::Params.build do |form|
+      form.add("locks", "true") if locker
+    end
+
+    response = get("/restapi/slave-list?#{query}", headers: default_headers)
     controllers = parse response, Array(ControllerInfo)
 
     mappings = {} of Int32 => ControllerInfo
@@ -204,6 +290,15 @@ class Floorsense::Desks < PlaceOS::Driver
     check_success(response)
   end
 
+  def get_locker_reservation(reservation_id : String)
+    query = URI::Params.build { |form|
+      form.add("resid", reservation_id) if reservation_id
+    }
+
+    response = get("/restapi/res?#{query}", headers: default_headers)
+    parse response, LockerBooking
+  end
+
   def locker_reservation(
     locker_key : String,
     user_id : String,
@@ -230,10 +325,11 @@ class Floorsense::Desks < PlaceOS::Driver
     parse response, LockerBooking
   end
 
-  def locker_reservations(active : Bool? = nil, user_id : String? = nil)
+  def locker_reservations(active : Bool? = nil, user_id : String? = nil, controller_id : String? = nil)
     query = URI::Params.build { |form|
       form.add("uid", user_id) if user_id
       form.add("active", "1") if active
+      form.add("cid", controller_id) if controller_id
     }
 
     response = get("/restapi/res-list?#{query}", headers: default_headers)
@@ -241,7 +337,7 @@ class Floorsense::Desks < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def locker_release(reservation_id : String)
+  def locker_release_reservation(reservation_id : String)
     response = post("/restapi/res-release", headers: {
       "Accept"        => "application/json",
       "Authorization" => get_token,
@@ -268,7 +364,7 @@ class Floorsense::Desks < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def locker_unlock(
+  def _locker_unlock(
     locker_key : String,
     user_id : String
   )
@@ -446,11 +542,6 @@ class Floorsense::Desks < PlaceOS::Driver
     parse response, Array(Floor)
   end
 
-  def desks(plan_id : String | Int32)
-    response = get("/restapi/floorplan-desk?planid=#{plan_id}", headers: default_headers)
-    parse response, Array(DeskStatus)
-  end
-
   def bookings(plan_id : String, period_start : Int64? = nil, period_end : Int64? = nil)
     period_start ||= Time.utc.to_unix
     period_end ||= 15.minutes.from_now.to_unix
@@ -504,151 +595,16 @@ class Floorsense::Desks < PlaceOS::Driver
     parse response, JSON::Any
   end
 
-  # More details on: https://apiguide.smartalock.com/#d685f36e-a513-44d9-8205-2b071922733a
-  def desk_scan(
-    eui64 : String,
-    key : String | Int64 | Nil = nil,
-    cid : String? = nil,
-    uid : String? = nil
-  )
-    response = post("/restapi/desk-scan", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => get_token,
-      "Content-Type"  => "application/x-www-form-urlencoded",
-    }, body: URI::Params.build { |form|
-      form.add("eui64", eui64.to_s)
-      form.add("key", key.to_s)
-      form.add("cid", cid.to_s) unless cid.nil?
-      form.add("uid", uid.to_s) unless uid.nil?
-    })
-    parse response, JSON::Any
-  end
-
-  def create_booking(
-    user_id : String | Int64,
-    plan_id : String | Int32,
-    key : String,
-    description : String? = nil,
-    starting : Int64? = nil,
-    ending : Int64? = nil,
-    time_zone : String? = nil,
-    booking_type : String = "advance"
-  )
-    desks_on_plan = desks(plan_id)
-    desk = desks_on_plan.find(&.key.==(key))
-
-    raise "could not find desk #{key} on plan #{plan_id}" unless desk
-
-    now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
-    starting ||= now.at_beginning_of_day.to_unix
-    ending ||= now.at_end_of_day.to_unix
-
-    response = post("/restapi/booking-create", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => get_token,
-      "Content-Type"  => "application/x-www-form-urlencoded",
-    }, body: URI::Params.build { |form|
-      form.add("uid", user_id.to_s)
-      form.add("cid", desk.cid.to_s)
-      form.add("key", key)
-      form.add("bktype", booking_type)
-      form.add("desc", description.not_nil!) if description
-      form.add("start", starting.to_s)
-      form.add("finish", ending.to_s)
-      form.add("confexpiry", ending.to_s)
-    })
-
-    booking = parse response, BookingStatus
-    booking.user = get_user(booking.uid)
-    booking
-  end
-
-  def release_booking(booking_id : String | Int64)
-    response = post("/restapi/booking-release", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => get_token,
-      "Content-Type"  => "application/x-www-form-urlencoded",
-    }, body: URI::Params.build(&.add("bkid", booking_id.to_s)))
-
-    check_success(response)
-  end
-
-  def update_booking(
-    booking_id : String | Int64,
-    privacy : Bool? = nil
-  )
-    response = post("/restapi/booking", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => get_token,
-      "Content-Type"  => "application/x-www-form-urlencoded",
-    }, body: URI::Params.build { |form|
-      form.add("bkid", booking_id.to_s)
-      form.add("privacy", privacy.to_s)
-    })
-
-    booking = parse response, BookingStatus
-    booking.user = get_user(booking.uid)
-    booking
-  end
-
-  def desk_list(controller_id : String | Int32)
-    response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
-    parse response, Array(DeskInfo)
-  end
-
   enum LedColour
     Red
     Green
     Blue
   end
 
-  enum DeskPower
-    On
-    Off
-    Policy
-  end
-
-  enum DeskHeight
-    Sit
-    Stand
-  end
-
   enum QiMode
     On
     Off
     Auto
-  end
-
-  def desk_control(
-    desk_key : String,
-    led_state : LedState? = nil,
-    led_colour : LedColour? = nil,
-    desk_power : DeskPower? = nil,
-    desk_height : DeskHeight | Int32? = nil,
-    qi_mode : QiMode? = nil,
-    reboot : Bool = false,
-    clean : Bool = false
-  )
-    controller_id = @desks[desk_key].controller_id
-
-    response = post("/restapi/desk-control", headers: {
-      "Accept"        => "application/json",
-      "Authorization" => get_token,
-      "Content-Type"  => "application/x-www-form-urlencoded",
-    }, body: URI::Params.build { |form|
-      form.add("cid", controller_id.to_s)
-      form.add("key", desk_key)
-
-      form.add("led", led_state.to_s.downcase) if led_state
-      form.add("led-colour", led_colour.to_s.downcase) if led_colour
-      form.add("desk-power", desk_power.to_s.downcase) if desk_power
-      form.add("desk-height", desk_height.to_s.downcase) if desk_height
-      form.add("qi-mode", qi_mode.to_s.downcase) if qi_mode
-      form.add("reboot", "true") if reboot
-      form.add("clean", "true") if clean
-    })
-
-    check_success(response)
   end
 
   def user_groups_list(in_use : Bool = true)
@@ -761,13 +717,6 @@ class Floorsense::Desks < PlaceOS::Driver
     end
   end
 
-  def at_location(controller_id : String, desk_key : String)
-    response = get("/restapi/user-locate?cid=#{controller_id}&desk_key=#{desk_key}", headers: default_headers)
-    logger.debug { "at_location response: #{response.body}" }
-    users = parse response, Array(User)
-    users.first?
-  end
-
   @[Security(Level::Support)]
   def clear_user_cache!
     @user_cache.clear
@@ -785,7 +734,7 @@ class Floorsense::Desks < PlaceOS::Driver
   end
 
   protected def check_response(resp)
-    check_response(resp) { |value| value.not_nil! }
+    check_response(resp, &.not_nil!)
   end
 
   protected def check_response(resp)
@@ -794,5 +743,235 @@ class Floorsense::Desks < PlaceOS::Driver
     else
       raise "bad response result (#{resp.code}) #{resp.message}"
     end
+  end
+
+  # ========================================
+  # Lockers Interface
+  # ========================================
+
+  class PlaceLocker
+    property expires_at : Int64?
+
+    property controller_id : Int32?
+    property reservation_id : String?
+    
+    property locker_id : String?
+    property user_id : String?
+
+    property key : String?
+    property pin : String?
+    property restype : String?
+    property releasecode : Int32?
+
+    property allocated : Bool?
+
+    def initialize(locker_id : String, booking : Floorsense::LockerBooking)
+      # Default properties
+      @bank_id = String.new
+      @locker_name = String.new
+
+      # Custom properties
+      @controller_id = booking.controller_id
+      @locker_id = locker_id
+      @reservation_id = booking.reservation_id
+      @user_id = booking.user_id
+      @key = booking.key
+      @pin = booking.pin
+      @restype = booking.restype
+      @releasecode = booking.releasecode
+      @expires_at = booking.finish
+      @allocated = !booking.released?
+    end
+
+    def initialize(info : Floorsense::LockerInfo)
+      # Default properties
+      @bank_id = String.new
+      @locker_name = String.new
+
+      @controller_id = info.controller_id
+      @locker_id = info.locker_id.to_s
+      @reservation_id = info.resid
+      @user_id = info.uid
+      @key = info.key
+      @pin = nil
+      @restype = nil
+      @releasecode = nil
+      @expires_at = nil
+      @allocated = nil
+    end
+  end
+
+  # allocates a locker now, the allocation may expire
+  @[Security(Level::Administrator)]
+  def locker_allocate(
+    # PlaceOS user id, recommend using email
+    user_id : String,
+
+    # the locker location
+    bank_id : String | Int64,
+
+    # raises an error if this is nil
+    locker_id : String | Int64? = nil,
+
+    # attempts to create a booking that expires at the time specified
+    expires_at : Int64? = nil
+  ) : PlaceLocker
+    raise Exception.new("Required parameter locker_id is missing") unless locker_id
+
+    if expires_at
+      duration = expires_at - Time.local.to_unix
+
+      booking = locker_reservation(locker_id.to_s, user_id, nil, Int32.new(duration / 60))
+
+      return PlaceLocker.new(locker_id.to_s, booking)
+    end
+
+    booking = locker_reservation(locker_id.to_s, user_id, nil, nil)
+
+    return PlaceLocker.new(locker_id.to_s, booking)
+  end
+
+  # return the locker to the pool
+  @[Security(Level::Administrator)]
+  def locker_release(
+    # Use bank_id as reservation_id
+    bank_id : String | Int64,
+    locker_id : String | Int64,
+
+    # release / unshare just this user - otherwise release the whole locker
+    owner_id : String? = nil
+  ) : Nil
+    locker_release_reservation(bank_id.to_s)
+  end
+
+  # a list of lockers that are allocated to the user
+  @[Security(Level::Administrator)]
+  def lockers_allocated_to(user_id : String) : Array(PlaceLocker)
+    lockers = all_lockers
+      .map do |locker_info|
+        if user_id == locker_info.uid
+          PlaceLocker.new(locker_info)
+        end
+      end
+      .compact
+  end
+
+  @[Security(Level::Administrator)]
+  def locker_share(
+    # Used as reservation_id
+    bank_id : String | Int64,
+    locker_id : String | Int64,
+    owner_id : String,
+    # Used as user_id
+    share_with : String
+  ) : Nil
+    locker_share(bank_id.to_s, share_with.to_s)
+  end
+
+  @[Security(Level::Administrator)]
+  def locker_unshare(
+    # Used as reservation_id
+    bank_id : String | Int64,
+    # Used as user_id
+    locker_id : String | Int64,
+    owner_id : String,
+    # the individual you previously shared with
+    shared_with_id : String? = nil
+  ) : Nil
+    locker_unshare(bank_id.to_s, locker_id.to_s)
+  end
+
+  # a list of user-ids that the locker is shared with.
+  # this can be placeos user ids or emails
+  @[Security(Level::Administrator)]
+  def locker_shared_with(
+    # Used as reservation_id
+    bank_id : String | Int64,
+    locker_id : String | Int64,
+    owner_id : String
+  ) : Array(String)
+    locker_shared?(bank_id.to_s).map do |shared_with|
+      shared_with.as_h.["uid"].to_s
+    end
+  end
+
+  @[Security(Level::Administrator)]
+  def locker_unlock(
+    bank_id : String | Int64,
+    locker_id : String | Int64,
+
+    # sometimes required by locker systems
+    owner_id : String? = nil,
+    # time in seconds the locker should be unlocked
+    # (can be ignored if not implemented)
+    open_time : Int32 = 60,
+    # optional pin code - if user entered from a kiosk
+    pin_code : String? = nil
+  ) : Nil
+    _locker_unlock(locker_id.to_s, owner_id.to_s)
+  end
+
+  # ========================================
+  # Locatable Interface
+  # ========================================
+
+  # array of devices and their x, y coordinates, that are associated with this user
+  def locate_user(email : String? = nil, username : String? = nil)
+    logger.debug { "smartalock is incapable of locating users" }
+    [] of Nil
+  end
+
+  # return an array of MAC address strings
+  # lowercase with no seperation characters abcdeffd1234 etc
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
+    logger.debug { "smartalockis incapable of listing macs assigned to an user or an email" }
+    [] of String
+  end
+
+  # return `nil` or `{"location": "wireless", "assigned_to": "bob123", "mac_address": "abcd"}`
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
+    logger.debug { "smartalock is incapable of checking ownerships" }
+    nil
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    logger.debug { "smartalock is incapable to locate devices" }
+    [] of Nil
+  end
+
+  # ========================================
+  # Modified API
+  # ========================================
+
+  def locker_allocate_me(
+    locker_id : String | Int64? = nil,
+    expires_at : Int64? = nil
+  )
+    locker_allocate(__ensure_user_id__, String.new, locker_id, expires_at)
+  end
+
+  # Release by passing in the reservation id
+  def locker_release_mine(reservation_id : String)
+    locker_release(reservation_id, String.new, nil)
+  end
+
+  def lockers_allocated_to_me
+    lockers_allocated_to __ensure_user_id__
+  end
+
+  def locker_share_mine(reservation_id : String, user_id : String)
+    locker_share(reservation_id, String.new, String.new, user_id)
+  end
+
+  def locker_unshare_mine(reservation_id : String, user_id : String)
+    locker_unshare(reservation_id, user_id, String.new, nil)
+  end
+
+  def locker_shared_with_others(reservation_id : String)
+    locker_shared_with(reservation_id, String.new, String.new)
+  end
+
+  def locker_unlock_mine(locker_id : String)
+    locker_unlock(String.new, locker_id, __ensure_user_id__, 0, nil)
   end
 end
