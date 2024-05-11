@@ -754,7 +754,7 @@ class Floorsense::LockersWebsocket < PlaceOS::Driver
 
     property controller_id : Int32?
     property reservation_id : String?
-    
+
     property locker_id : String?
     property user_id : String?
 
