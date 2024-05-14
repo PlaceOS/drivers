@@ -22,6 +22,11 @@ class Optergy::P864 < PlaceOS::Driver
 
   def on_load
     on_update
+
+    schedule.every(1.minutes) { version }
+    transport.before_request do |req|
+      logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
+    end
   end
 
   def on_update
