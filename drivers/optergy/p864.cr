@@ -61,6 +61,7 @@ class Optergy::P864 < PlaceOS::Driver
       end
 
       {% if type != "input" %}
+        @[Security(Level::Administrator)]
         def write_analog_{{ type.id }}(instance : Int32, value : Float64, priority : Int32 = 8)
           path = String.build do |str|
             str << {{url}}
@@ -97,6 +98,7 @@ class Optergy::P864 < PlaceOS::Driver
       end
 
       {% if type != "input" %}
+        @[Security(Level::Administrator)]
         def write_binary_{{ type.id }}(instance : Int32, value : Bool, priority : Int32 = 8)
           path = String.build do |str|
             str << {{url}}
