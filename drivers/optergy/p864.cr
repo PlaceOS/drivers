@@ -5,7 +5,7 @@ require "./p864_models"
 
 class Optergy::P864 < PlaceOS::Driver
   # Discovery Information
-  generic_name :SMS
+  generic_name :BMS
   descriptive_name "Optergy P864 BMS"
   uri_base "https://bms.org.com"
 
