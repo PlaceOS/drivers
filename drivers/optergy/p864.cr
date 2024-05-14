@@ -144,7 +144,10 @@ class Optergy::P864 < PlaceOS::Driver
   def get_token
     return @auth_token unless token_expired?
 
-    response = post("/authorize", body: {
+    response = post("/authorize", headers: HTTP::Headers{
+      "Accept"       => "application/json",
+      "Content-Type" => "application/json",
+    }, body: {
       username: @username,
       password: @password,
     }.to_json)
@@ -176,6 +179,7 @@ class Optergy::P864 < PlaceOS::Driver
   def auth_headers
     HTTP::Headers{
       "Accept"        => "application/json",
+      "Content-Type"  => "application/json",
       "Authorization" => get_token,
     }
   end
