@@ -377,11 +377,19 @@ class InnerRange::Integriti < PlaceOS::Driver
     add_or_update payload
   end
 
+  # use this to update fields in various models, like:
+  # update_entry(type: "User", id: "U5", fields: {cf_HasMobileCredential: true})
   @[PlaceOS::Driver::Security(Level::Support)]
-  def update_entry(type : String, id : String, fields : Hash(String, String | Float64 | Int64), attribute : String = "Address")
+  def update_entry(type : String, id : String, fields : Hash(String, String | Float64 | Int64 | Bool), attribute : String = "Address")
     update(type, id, attribute) do |xml|
       fields.each do |key, value|
-        xml.element(key) { xml.text value.to_s }
+        value_str = case value
+                    when Bool
+                      value ? "True" : "False"
+                    else
+                      value.to_s
+                    end
+        xml.element(key) { xml.text value_str }
       end
     end
   end
