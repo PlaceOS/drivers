@@ -362,10 +362,16 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def add_entry(type : String, fields : Hash(String, String | Float64 | Int64))
+  def add_entry(type : String, fields : Hash(String, String | Float64 | Int64 | Bool))
     add(type) do |xml|
       fields.each do |key, value|
-        xml.element(key) { xml.text value.to_s }
+        value_str = case value
+                    when Bool
+                      value ? "True" : "False"
+                    else
+                      value.to_s
+                    end
+        xml.element(key) { xml.text value_str }
       end
     end
   end
