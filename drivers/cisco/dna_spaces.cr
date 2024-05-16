@@ -259,9 +259,12 @@ class Cisco::DNASpaces < PlaceOS::Driver
   protected def start_streaming_events
     @streaming = true
     SimpleRetry.try_to(
-      base_interval: 10.milliseconds,
-      max_interval: 5.seconds
-    ) { stream_events unless terminated? }
+      base_interval: 2.seconds,
+      max_interval: 10.seconds
+    ) do
+      logger.info { "connecting to event stream" }
+      stream_events unless terminated?
+    end
   ensure
     @streaming = false
   end
