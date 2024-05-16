@@ -47,10 +47,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
   def on_load
     on_update
-    if !@api_key.empty?
-      @streaming = true
-      spawn(same_thread: true) { start_streaming_events }
-    end
   end
 
   def on_unload
@@ -94,9 +90,11 @@ class Cisco::DNASpaces < PlaceOS::Driver
       schedule.in(5.seconds) { activate } if @api_key.empty?
     end
 
-    if !@streaming && !@api_key.empty?
-      @streaming = true
-      spawn(same_thread: true) { start_streaming_events }
+    @description_lock.synchronize do
+      if !@streaming && !@api_key.empty?
+        @streaming = true
+        spawn(same_thread: true) { start_streaming_events }
+      end
     end
   end
 
@@ -150,9 +148,12 @@ class Cisco::DNASpaces < PlaceOS::Driver
     logger.debug { "settings saved! Starting stream" }
     @api_key = api_key
     @tenant_id = tenant_id
-    if !@streaming
-      @streaming = true
-      spawn(same_thread: true) { start_streaming_events }
+
+    @description_lock.synchronize do
+      if !@streaming
+        @streaming = true
+        spawn(same_thread: true) { start_streaming_events }
+      end
     end
   end
 
