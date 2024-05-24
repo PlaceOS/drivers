@@ -3,6 +3,7 @@ require "../place/calendar_common"
 class Place::WorkspaceAPI < PlaceOS::Driver
   include Place::CalendarCommon
 
+  # update to trigger build..
   descriptive_name "Google Workplace APIs"
   generic_name :Calendar
 

@@ -179,9 +179,14 @@ module Place::CalendarCommon
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def list_users(query : String? = nil, limit : Int32? = nil)
-    logger.debug { "listing user details, query #{query}" }
-    client &.list_users(query, limit)
+  def list_users(
+    query : String? = nil,
+    limit : Int32? = nil,
+    filter : String? = nil,
+    next_page : String? = nil
+  )
+    logger.debug { "listing user details, query #{query || filter}, limit #{limit} (next: #{!!next_page})" }
+    client &.list_users(query, limit, filter: filter, next_link: next_page)
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
