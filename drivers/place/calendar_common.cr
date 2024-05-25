@@ -178,6 +178,10 @@ module Place::CalendarCommon
     client &.get_members(group_id)
   end
 
+  class PlaceCalendar::User
+    property next_page : String? = nil
+  end
+
   @[PlaceOS::Driver::Security(Level::Support)]
   def list_users(
     query : String? = nil,
@@ -186,7 +190,13 @@ module Place::CalendarCommon
     next_page : String? = nil
   )
     logger.debug { "listing user details, query #{query || filter}, limit #{limit} (next: #{!!next_page})" }
-    client &.list_users(query, limit, filter: filter, next_link: next_page)
+    users = client &.list_users(query, limit, filter: filter, next_link: next_page)
+    # next link is not returned to reduce payload size and used
+    # in the staff API for setting a header
+    if user = users.first?
+      user.next_page = user.next_link
+    end
+    users
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
