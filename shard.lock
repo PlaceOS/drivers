@@ -59,7 +59,7 @@ shards:
 
   csuuid:
     git: https://github.com/wyhaines/csuuid.cr.git
-    version: 1.0.0+git.commit.a4cf9615c6518cf27c68a1755a8c2ac4ae4fe987
+    version: 1.0.1+git.commit.b71cf5c899dd5cde6aff8e922bdabd5e2dfab585
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
@@ -275,7 +275,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.45.0
+    version: 9.47.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
