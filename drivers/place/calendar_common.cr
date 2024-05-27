@@ -172,10 +172,22 @@ module Place::CalendarCommon
     client &.get_groups(user_id)
   end
 
+  class PlaceCalendar::Member
+    property next_page : String? = nil
+  end
+
   @[PlaceOS::Driver::Security(Level::Support)]
-  def get_members(group_id : String)
+  def get_members(
+    group_id : String,
+    next_page : String? = nil
+  )
     logger.debug { "listing members of group: #{group_id}" }
-    client &.get_members(group_id)
+    members = client &.get_members(group_id)
+
+    if member = members.first?
+      member.next_page = member.next_link
+    end
+    members
   end
 
   class PlaceCalendar::User
