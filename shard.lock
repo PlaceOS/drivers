@@ -39,7 +39,7 @@ shards:
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
-    version: 2.0.0
+    version: 2.0.1
 
   crc16:
     git: https://github.com/maiha/crc16.cr.git
@@ -195,7 +195,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.24.0
+    version: 1.25.1
 
   open_api:
     git: https://github.com/elbywan/open_api.cr.git
@@ -251,7 +251,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.20.1
+    version: 4.21.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
