@@ -182,6 +182,14 @@ module Place::CalendarCommon
     next_page : String? = nil
   )
     logger.debug { "listing members of group: #{group_id}" }
+
+    if group_id.includes?('@')
+      client do |_client|
+        if _client.client_id == :office365
+          logger.warn { "inefficient group members request. Recommended obtaining group.id versus using email" }
+        end
+      end
+    end
     members = client &.get_members(group_id)
 
     if member = members.first?
