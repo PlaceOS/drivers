@@ -59,7 +59,7 @@ class Place::AutoRelease < PlaceOS::Driver
     schedule.every(5.minutes) { pending_release }
 
     # release bookings
-    schedule.every(5.minutes) { release_bookings }
+    schedule.every(1.minute) { release_bookings }
 
     if emails = @send_emails
       schedule.cron(emails, @time_zone) { send_release_emails }
