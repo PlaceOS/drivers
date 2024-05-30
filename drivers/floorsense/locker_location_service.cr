@@ -104,7 +104,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
           # So we can look up who is at a desk at some point in the future
           mac: "cid=#{locker.controller_id}&key=#{locker.key}",
 
-          floorsense_status:    locker.status,
+          floorsense_status:      locker.status,
           floorsense_locker_type: locker.type,
         }
       end
