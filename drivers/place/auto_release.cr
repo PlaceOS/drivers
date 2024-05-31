@@ -59,7 +59,7 @@ class Place::AutoRelease < PlaceOS::Driver
     schedule.every(5.minutes) { pending_release }
 
     # release bookings
-    schedule.every(5.minutes) { release_bookings }
+    schedule.every(1.minute) { release_bookings }
 
     if emails = @send_emails
       schedule.cron(emails, @time_zone) { send_release_emails }
@@ -153,11 +153,11 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings = Array(Booking).from_json self[:pending_release].to_json
 
     bookings.each do |booking|
-      if @auto_release.time_before > 0 && Time.utc.to_unix - booking.booking_start < @auto_release.time_before / 60
+      if @auto_release.time_before > 0 && booking.booking_start - Time.utc.to_unix < @auto_release.time_before / 60
         logger.debug { "rejecting booking #{booking.id} as it is within the time_before window" }
         staff_api.reject(booking.id).get
         released_bookings << booking
-      elsif @auto_release.time_after > 0 && booking.booking_end - Time.utc.to_unix < @auto_release.time_after / 60
+      elsif @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start < @auto_release.time_after / 60
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id).get
         released_bookings << booking
