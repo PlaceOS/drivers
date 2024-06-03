@@ -245,6 +245,26 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, Array(JSON::Any)
   end
 
+  def get_setting(key : String, user_id : String? = nil)
+    query = URI::Params.build { |form|
+      form.add("key", key)
+      form.add("uid", %("#{user_id.to_s}")) if user_id
+    }
+    response = get("/restapi/setting?#{query}", headers: default_headers)
+    parse response, Setting
+  end
+
+  # example keys: "desk_height_sit", "desk_height_stand"
+  def set_setting(key : String, value : JSON::Any, user_id : String? = nil)
+    body = URI::Params.build { |form|
+      form.add("key", key)
+      form.add("value", value.to_json)
+      form.add("uid", %("#{user_id.to_s}")) if user_id
+    }
+    response = post("/restapi/setting", headers: default_headers, body: body)
+    response.success?
+  end
+
   def all_lockers
     return @lockers.values unless @lockers.empty?
     sync_locker_list.values
