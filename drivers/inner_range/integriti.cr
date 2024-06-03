@@ -372,19 +372,29 @@ class InnerRange::Integriti < PlaceOS::Driver
   # Add or Update DB entry
   # =======================
 
+  define_xml_type(AddOrUpdateResult, {
+    "ID"      => id : Int64,
+    "Address" => address : String,
+    "Message" => message : String,
+  })
+
   alias UpdateFields = Hash(String, String | Float64 | Int64 | Bool | Ref | Nil)
 
   # This is the only way to add or update a database entry...
   @[PlaceOS::Driver::Security(Level::Support)]
-  def add_or_update(payload : String)
-    check post("/v2/User/AddOrUpdate?IncludeObjectInResult=true", body: payload)
+  def add_or_update(payload : String, return_object : Bool = false)
+    if return_object
+      check post("/v2/User/AddOrUpdate?IncludeObjectInResult=true", body: payload)
+    else
+      check post("/v2/User/AddOrUpdate", body: payload)
+    end
   end
 
-  protected def add(type : String, &)
+  protected def add(type : String, return_object : Bool = false, &)
     payload = XML.build_fragment(indent: "  ") do |xml|
       xml.element(type) { yield xml }
     end
-    add_or_update payload
+    add_or_update payload, return_object: return_object
   end
 
   protected def apply_fields(xml, fields)
@@ -407,22 +417,22 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def add_entry(type : String, fields : UpdateFields)
-    add(type) { |xml| apply_fields(xml, fields) }
+  def add_entry(type : String, fields : UpdateFields, return_object : Bool = false)
+    add(type, return_object) { |xml| apply_fields(xml, fields) }
   end
 
-  protected def update(type : String, id : String, attribute : String = "Address", &)
+  protected def update(type : String, id : String, attribute : String = "Address", return_object : Bool = false, &)
     payload = XML.build_fragment(indent: "  ") do |xml|
       xml.element(type, {attribute => id}) { yield xml }
     end
-    add_or_update payload
+    add_or_update payload, return_object: return_object
   end
 
   # use this to update fields in various models, like:
   # update_entry(type: "User", id: "U5", fields: {cf_HasMobileCredential: true})
   @[PlaceOS::Driver::Security(Level::Support)]
-  def update_entry(type : String, id : String, fields : UpdateFields, attribute : String = "Address")
-    update(type, id, attribute) { |xml| apply_fields(xml, fields) }
+  def update_entry(type : String, id : String, fields : UpdateFields, attribute : String = "Address", return_object : Bool = false)
+    update(type, id, attribute, return_object) { |xml| apply_fields(xml, fields) }
   end
 
   # =================
@@ -576,7 +586,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   @[PlaceOS::Driver::Security(Level::Support)]
   def create_user(name : String, email : String, phone : String?) : String
     first_name, second_name = name.split(' ', 2)
-    user = extract_user(add_entry("User", UpdateFields{
+    user = extract_add_or_update_result(add_entry("User", UpdateFields{
       "FirstName"  => first_name,
       "SecondName" => second_name,
       cf_email     => email,
