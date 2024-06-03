@@ -569,6 +569,22 @@ class InnerRange::Integriti < PlaceOS::Driver
     extract_user(document)
   end
 
+  def user_id_lookup(email : String) : Array(String)
+    users(email: email).map(&.address.as(String))
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def create_user(name : String, email : String, phone : String?) : String
+    first_name, second_name = name.split(' ', 2)
+    user = extract_user(add_entry("User", UpdateFields{
+      "FirstName"  => first_name,
+      "SecondName" => second_name,
+      cf_email     => email,
+      cf_phone     => phone,
+    }.compact!))
+    user.address.as(String)
+  end
+
   # ================
   # User Permissions
   # ================
@@ -585,16 +601,35 @@ class InnerRange::Integriti < PlaceOS::Driver
     "Expired" => expired : Bool,
   })
 
-  def user_permissions(user_id : String? = nil, group_id : String? = nil) : Array(UserPermission)
+  def user_permissions(user_id : String? = nil, group_id : String? = nil, externally_managed : Bool? = nil) : Array(UserPermission)
     user_permissions = [] of UserPermission
     filter = Filter{
-      "User.Address" => user_id,
-      "What.Address" => group_id,
+      "User.Address"             => user_id,
+      "What.Address"             => group_id,
+      "ManagedByActiveDirectory" => externally_managed,
     }
     paginate_request("User", "UserPermission", filter) do |row|
       user_permissions << extract_user_permission(row)
     end
     user_permissions
+  end
+
+  def managed_users_in_group(group_address : String) : Hash(String, String)
+    user_ids = user_permissions(group_id: group_address, externally_managed: true).map do |permission|
+      permission.user.address.as(String)
+    end
+
+    field = cf_email
+    email_user_id = Hash(String, String).new("", users.size)
+
+    user_ids.each do |user_id|
+      document = check get("/v2/BasicStatus/User/#{user_id}?AdditionalProperties=#{field}")
+      if email = extract_user(document).email
+        email_user_id[email.downcase] = user_id
+      end
+    end
+
+    email_user_id
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]

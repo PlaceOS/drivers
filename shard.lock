@@ -251,7 +251,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.21.3
+    version: 4.22.0
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -275,7 +275,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.47.0
+    version: 9.47.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
