@@ -20,6 +20,9 @@ class InnerRange::Integriti < PlaceOS::Driver
     api_key:             "api-access-key",
     default_unlock_time: 10,
     default_site_id:     1,
+
+    custom_field_email: "cf_EmailAddress",
+    custom_field_phone: "cf_Mobile",
   })
 
   def on_load
@@ -28,6 +31,8 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   def on_update
     api_key = setting?(String, :api_key) || ""
+    @cf_email = setting?(String, :custom_field_email) || "cf_EmailAddress"
+    @cf_phone = setting?(String, :custom_field_phone) || "cf_Mobile"
 
     transport.before_request do |request|
       request.headers["API-KEY"] = api_key
@@ -41,6 +46,8 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   getter default_unlock_time : Int32 = 10
   getter default_site_id : Int32 = 1
+  getter cf_email : String = "cf_EmailAddress"
+  getter cf_phone : String = "cf_Mobile"
 
   macro check(response)
     begin
@@ -88,24 +95,27 @@ class InnerRange::Integriti < PlaceOS::Driver
         {% for node, variable in keys %}
           {% if node.starts_with? "attr_" %}
             {% attribute_name = node.split("_")[1] %}
-            %content = %data[{{attribute_name}}]? || ""
+            if %content = %data[{{attribute_name}}]?
 
-            # extract the data
-            {% resolved_type = variable.type.resolve %}
-            {% variable_var = variable.var %}
-            {% if resolved_type == Int32 %}
-              var_{{ variable_var }} = %content.to_i? || 0
-            {% elsif resolved_type == Int64 %}
-              var_{{ variable_var }} = %content.to_i64? || 0_i64
-            {% elsif resolved_type == Bool %}
-              var_{{ variable_var }} = %content.downcase == "true"
-            {% elsif resolved_type == Float64 %}
-              var_{{ variable_var }} = %content.to_f? || 0.0
-            {% elsif resolved_type.superclass == IntegritiObject %}
-              var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
-            {% else %}
-              var_{{ variable_var }} = %content
-            {% end %}
+              # extract the data
+              {% resolved_type = variable.type.resolve %}
+              {% variable_var = variable.var %}
+              {% if resolved_type == Int32 %}
+                var_{{ variable_var }} = %content.to_i?
+              {% elsif resolved_type == Int64 %}
+                var_{{ variable_var }} = %content.to_i64?
+              {% elsif resolved_type == Bool %}
+                var_{{ variable_var }} = %content.downcase == "true"
+              {% elsif resolved_type == Float64 %}
+                var_{{ variable_var }} = %content.to_f?
+              {% elsif resolved_type.superclass == IntegritiObject %}
+                var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
+              {% else %}
+                var_{{ variable_var }} = %content
+              {% end %}
+            else
+              var_{{ variable_var }} = nil
+            end
           {% end %}
         {% end %}
 
@@ -124,46 +134,57 @@ class InnerRange::Integriti < PlaceOS::Driver
               {% if attribute_name == "Address" %}
                 {% attribute_name = "ID" %}
               {% end %}
-              %content = child[{{attribute_name}}]? || ""
 
+              if %content = child[{{attribute_name}}]?
+                # extract the data
+                {% resolved_type = variable.type.resolve %}
+                {% variable_var = variable.var %}
+
+                {% if resolved_type == Int32 %}
+                  var_{{ variable_var }} = %content.to_i?
+                {% elsif resolved_type == Int64 %}
+                  var_{{ variable_var }} = %content.to_i64?
+                {% elsif resolved_type == Bool %}
+                  var_{{ variable_var }} = %content.downcase == "true"
+                {% elsif resolved_type == Float64 %}
+                  var_{{ variable_var }} = %content.to_f?
+                {% elsif resolved_type.superclass == IntegritiObject %}
+                  var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
+                {% else %}
+                  var_{{ variable_var }} = %content
+                {% end %}
+              else
+                var_{{ variable_var }} = nil
+              end
+            {% end %}
+          {% for node, variable in keys %}
+            {% if node.starts_with? "cf_" %}
+            # handle custom fields using accessors
+            when {{node.id}}
+            {% else %}
+            when {{node.id.stringify}}
+            {% end %}
+
+            if %content = child.content
               # extract the data
               {% resolved_type = variable.type.resolve %}
               {% variable_var = variable.var %}
-
               {% if resolved_type == Int32 %}
-                var_{{ variable_var }} = %content.to_i? || 0
+                var_{{ variable_var }} = %content.to_i?
               {% elsif resolved_type == Int64 %}
-                var_{{ variable_var }} = %content.to_i64? || 0_i64
+                var_{{ variable_var }} = %content.to_i64?
               {% elsif resolved_type == Bool %}
                 var_{{ variable_var }} = %content.downcase == "true"
               {% elsif resolved_type == Float64 %}
-                var_{{ variable_var }} = %content.to_f? || 0.0
+                var_{{ variable_var }} = %content.to_f?
               {% elsif resolved_type.superclass == IntegritiObject %}
                 var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
               {% else %}
                 var_{{ variable_var }} = %content
               {% end %}
-            {% end %}
-          {% for node, variable in keys %}
-          when {{node.id.stringify}}
-            %content = child.content || ""
-
-            # extract the data
-            {% resolved_type = variable.type.resolve %}
-            {% variable_var = variable.var %}
-            {% if resolved_type == Int32 %}
-              var_{{ variable_var }} = %content.to_i? || 0
-            {% elsif resolved_type == Int64 %}
-              var_{{ variable_var }} = %content.to_i64? || 0_i64
-            {% elsif resolved_type == Bool %}
-              var_{{ variable_var }} = %content.downcase == "true"
-            {% elsif resolved_type == Float64 %}
-              var_{{ variable_var }} = %content.to_f? || 0.0
-            {% elsif resolved_type.superclass == IntegritiObject %}
-              var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
-            {% else %}
-              var_{{ variable_var }} = %content
-            {% end %}
+            else
+              var_{{ variable_var }} = nil
+            end
           {% end %}
           end
         end
@@ -190,6 +211,8 @@ class InnerRange::Integriti < PlaceOS::Driver
         xml.element("OperatorType") { xml.text "And" }
         xml.element("SubExpressions") do
           filter.each do |key, value|
+            next if value.nil?
+
             xml.element("FilterExpression", {
               "xsi:type" => "PropertyExpression",
             }) do
@@ -326,27 +349,30 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  @[PlaceOS::Driver::Security(Level::Support)]
-  def modify_user_permission_groups(user_id : String, group_id : String, partition_id : String | Int32 = 0, add : Bool = true)
-    payload = XML.build_fragment(indent: "  ") do |xml|
-      xml.element("UserPermission") do
-        xml.element("What") do
-          xml.element("Ref", {
-            "Type"        => "PermissionGroup",
-            "PartitionID" => partition_id.to_s,
-            # group_id should look like: "QG2"
-            "ID" => group_id,
-          })
-        end
-      end
+  struct Ref
+    include JSON::Serializable
+
+    getter type : String
+    getter id : String
+    getter partition_id : String | Int32? = nil
+
+    def initialize(@type, @id, @partition_id = nil)
     end
 
-    modify_collection("User", user_id, "Permissions", payload, add: add)
+    def to_xml(xml)
+      xml.element("Ref", {
+        "Type"        => type,
+        "PartitionID" => partition_id,
+        "ID"          => id,
+      }.compact!)
+    end
   end
 
   # =======================
   # Add or Update DB entry
   # =======================
+
+  alias UpdateFields = Hash(String, String | Float64 | Int64 | Bool | Ref | Nil)
 
   # This is the only way to add or update a database entry...
   @[PlaceOS::Driver::Security(Level::Support)]
@@ -361,10 +387,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     add_or_update payload
   end
 
-  @[PlaceOS::Driver::Security(Level::Support)]
-  def add_entry(type : String, fields : Hash(String, String | Float64 | Int64 | Bool))
-    add(type) do |xml|
-      fields.each do |key, value|
+  protected def apply_fields(xml, fields)
+    fields.each do |key, value|
+      case value
+      when Nil
+        xml.element(key)
+      when Ref
+        xml.element(key) { value.to_xml(xml) }
+      else
         value_str = case value
                     when Bool
                       value ? "True" : "False"
@@ -374,6 +404,11 @@ class InnerRange::Integriti < PlaceOS::Driver
         xml.element(key) { xml.text value_str }
       end
     end
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def add_entry(type : String, fields : UpdateFields)
+    add(type) { |xml| apply_fields(xml, fields) }
   end
 
   protected def update(type : String, id : String, attribute : String = "Address", &)
@@ -386,18 +421,8 @@ class InnerRange::Integriti < PlaceOS::Driver
   # use this to update fields in various models, like:
   # update_entry(type: "User", id: "U5", fields: {cf_HasMobileCredential: true})
   @[PlaceOS::Driver::Security(Level::Support)]
-  def update_entry(type : String, id : String, fields : Hash(String, String | Float64 | Int64 | Bool), attribute : String = "Address")
-    update(type, id, attribute) do |xml|
-      fields.each do |key, value|
-        value_str = case value
-                    when Bool
-                      value ? "True" : "False"
-                    else
-                      value.to_s
-                    end
-        xml.element(key) { xml.text value_str }
-      end
-    end
+  def update_entry(type : String, id : String, fields : UpdateFields, attribute : String = "Address")
+    update(type, id, attribute) { |xml| apply_fields(xml, fields) }
   end
 
   # =================
@@ -515,21 +540,23 @@ class InnerRange::Integriti < PlaceOS::Driver
   # =====
 
   define_xml_type(User, {
-    "ID"               => id : Int64,
-    "Name"             => name : String,
-    "SiteID"           => site_id : Int32,
-    "SiteName"         => site_name : String,
-    "Address"          => address : String,
-    "attr_PartitionID" => partition_id : Int32,
-    "cf_EmailAddress"  => email : String,
+    "ID"                     => id : Int64,
+    "Name"                   => name : String,
+    "SiteID"                 => site_id : Int32,
+    "SiteName"               => site_name : String,
+    "Address"                => address : String,
+    "attr_PartitionID"       => partition_id : Int32,
+    "cf_phone"               => phone : String,
+    "cf_email"               => email : String,
+    "PrimaryPermissionGroup" => primary_permission_group : PermissionGroup,
   })
 
   # users in a site
   def users(site_id : Int32? = nil, email : String? = nil)
     users = [] of User
     filter = Filter{
-      "SiteID"          => site_id,
-      "cf_EmailAddress" => email,
+      "SiteID" => site_id,
+      cf_email => email,
     }
     paginate_request("BasicStatus", "User", filter) do |row|
       users << extract_user(row)
@@ -540,6 +567,65 @@ class InnerRange::Integriti < PlaceOS::Driver
   def user(id : Int64 | String)
     document = check get("/v2/BasicStatus/User/#{id}?#{prop_param "User"}")
     extract_user(document)
+  end
+
+  # ================
+  # User Permissions
+  # ================
+
+  define_xml_type(UserPermission, {
+    "ID" => id : String,
+    # returns PartitionID="0" Address="QG4"
+    "What"                     => group : PermissionGroup,
+    "ManagedByActiveDirectory" => externally_managed : Bool,
+    # returns PartitionID="0" Address="U20"
+    "User" => user : User,
+
+    "Deny"    => deny : Bool,
+    "Expired" => expired : Bool,
+  })
+
+  def user_permissions(user_id : String? = nil, group_id : String? = nil) : Array(UserPermission)
+    user_permissions = [] of UserPermission
+    filter = Filter{
+      "User.Address" => user_id,
+      "What.Address" => group_id,
+    }
+    paginate_request("User", "UserPermission", filter, summary_only: true) do |row|
+      user_permissions << extract_user_permission(row)
+    end
+    user_permissions
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def modify_user_permissions(user_id : String, group_id : String, partition_id : String | Int32? = nil, add : Bool = true, externally_managed : Bool = true)
+    payload = XML.build_fragment(indent: "  ") do |xml|
+      xml.element("UserPermission") do
+        xml.element("What") do
+          Ref.new("PermissionGroup", group_id, partition_id).to_xml(xml)
+        end
+
+        if add && externally_managed
+          xml.element("ManagedByActiveDirectory") { xml.text "True" }
+        end
+      end
+    end
+
+    modify_collection("User", user_id, "Permissions", payload, add: add)
+  end
+
+  # sets or unsets the Permission Group
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def set_user_primary_permission_group(user_id : String, permission_group_id : String?)
+    if permission_group_id
+      update_entry("User", user_id, UpdateFields{
+        "PrimaryPermissionGroup" => Ref.new("PermissionGroup", permission_group_id),
+      })
+    else
+      update_entry("User", user_id, UpdateFields{
+        "PrimaryPermissionGroup" => nil,
+      })
+    end
   end
 
   # =====
@@ -573,10 +659,18 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   def cards(site_id : Int32? = nil, user_id : String | Int64? = nil)
     cards = [] of Card
-    filter = Filter{
-      "Site.ID" => site_id,
-      "User.ID" => user_id,
-    }
+    case user_id
+    when String
+      filter = Filter{
+        "Site.ID"      => site_id,
+        "User.Address" => user_id,
+      }
+    else
+      filter = Filter{
+        "Site.ID" => site_id,
+        "User.ID" => user_id,
+      }
+    end
     paginate_request("VirtualCardBadge", "Card", filter) do |row|
       cards << extract_card(row)
     end

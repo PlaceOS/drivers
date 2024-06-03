@@ -139,6 +139,9 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
                   <Name>Card 12</Name>
                   <Notes></Notes>
                   <Address>U3</Address>
+                  <PrimaryPermissionGroup>
+                    <Ref Type="PermissionGroup" PartitionID="0" ID="QG4" />
+                  </PrimaryPermissionGroup>
                   <cf_EmailAddress>steve@place.tech</cf_EmailAddress>
               </User>
           </Rows>
@@ -164,13 +167,17 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "partition_id" => 0,
     },
     {
-      "id"           => 281474976710659,
-      "name"         => "Card 12",
-      "site_id"      => 2,
-      "site_name"    => "PlaceOS",
-      "address"      => "U3",
-      "partition_id" => 2,
-      "email"        => "steve@place.tech",
+      "id"                       => 281474976710659,
+      "name"                     => "Card 12",
+      "site_id"                  => 2,
+      "site_name"                => "PlaceOS",
+      "address"                  => "U3",
+      "partition_id"             => 2,
+      "email"                    => "steve@place.tech",
+      "primary_permission_group" => {
+        "partition_id" => 0,
+        "address"      => "QG4",
+      },
     },
   ])
 
@@ -252,15 +259,13 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "last_used"             => "2024-04-11T00:49:35.6588387+12:00",
       "cloud_credential_type" => "None",
       "active_directory"      => false,
-      "site"                  => {"id" => 1, "name" => "PlaceOS", "partition_id" => 0},
-      "user"                  => {
-        "id"           => 0,
-        "name"         => "",
-        "site_id"      => 0,
-        "site_name"    => "",
+      "site"                  => {
+        "id"   => 1,
+        "name" => "PlaceOS",
+      },
+      "user" => {
         "address"      => "U10",
         "partition_id" => 0,
-        "email"        => "",
       },
     },
   ])
