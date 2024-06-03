@@ -591,7 +591,7 @@ class InnerRange::Integriti < PlaceOS::Driver
       "User.Address" => user_id,
       "What.Address" => group_id,
     }
-    paginate_request("User", "UserPermission", filter, summary_only: true) do |row|
+    paginate_request("User", "UserPermission", filter) do |row|
       user_permissions << extract_user_permission(row)
     end
     user_permissions
