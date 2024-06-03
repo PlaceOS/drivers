@@ -14,6 +14,9 @@ class KontaktIO::SensorService < PlaceOS::Driver
   accessor kontakt_io : KontaktIO_1
   bind KontaktIO_1, :occupancy_cached_at, :update_cache
 
+  accessor staff_api : StaffAPI_1
+  accessor location_service : LocationServices_1
+
   default_settings({
     floor_mappings: {
       "KontaktIO_floor_id": {
@@ -61,6 +64,30 @@ class KontaktIO::SensorService < PlaceOS::Driver
     @occupancy_cache = Hash(Int64, RoomOccupancy).from_json kontakt_io.occupancy_cache.get.to_json
   end
 
+  # System id => Map ID
+  getter system_map_ids : Hash(String, String) do
+    building_zone = location_service.building_id.get.as_s
+    map_ids = {} of String => String
+    staff_api.systems(zone_id: building_zone).get.as_a.each do |sys|
+      map_id = sys["map_id"]?.try(&.as_s?)
+      next unless map_id
+      map_ids[sys["id"].as_s] = map_id
+    end
+    map_ids
+  end
+
+  # KIO room id => Map ID
+  getter map_ids : Hash(Int64, String) do
+    ids = {} of Int64 => String
+    system_map_ids.each do |sys_id, map_id|
+      resp = staff_api.system_settings(sys_id, "space_ref_id").get
+      value = resp.as_s?.try(&.to_i64?) || resp.as_i64?
+      next unless value
+      ids[value] = map_id
+    end
+    ids
+  end
+
   # ===================================
   # Locatable Interface functions
   # ===================================
@@ -79,14 +106,15 @@ class KontaktIO::SensorService < PlaceOS::Driver
     nil
   end
 
+  LOCATION = {"desk", "area"}
+
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "searching locatable in zone #{zone_id}" }
     floor_ids = @zone_lookup[zone_id]?
     return [] of Nil unless floor_ids && floor_ids.size > 0
+    return [] of Nil if location && !LOCATION.includes?(location)
 
-    loc_type = "desk"
-    return [] of Nil if location && location != loc_type
-
+    loc = LOCATION
     cache = @occupancy_cache
     cache.compact_map do |(room_id, space)|
       next unless space.floor_id.in?(floor_ids)
@@ -99,13 +127,21 @@ class KontaktIO::SensorService < PlaceOS::Driver
         #  temperature = env.temperature.value
         #  iaq = env.iaq.try &.value
         # end
+        if space.pir?
+          capacity = 1
+          loc_type = loc[1]
+        else
+          loc_type = loc[0]
+          capacity = nil
+        end
 
         {
           location:    loc_type,
           at_location: people_count,
-          map_id:      "room-#{space.room_id}",
+          map_id:      map_ids[space.room_id]? || "room-#{space.room_id}",
           level:       zone_id,
           building:    @floor_mappings[space.floor_id.to_s]?.try(&.[](:building_id)),
+          capacity:    capacity,
 
           kontakt_io_room: space.room_name,
         }
@@ -125,6 +161,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
 
     case id
     when "people"
+      return nil if room.pir?
       build_sensor_details(room, :people_count)
     when "presence"
       build_sensor_details(room, :presence)

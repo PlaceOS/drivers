@@ -141,6 +141,21 @@ class Place::StaffAPI < PlaceOS::Driver
     )
   end
 
+  record Setting, keys : Array(String), settings_string : String? do
+    include JSON::Serializable
+  end
+
+  @[Security(Level::Support)]
+  def system_settings(id : String, key : String)
+    response = get("/api/engine/v2/systems/#{id}/settings", headers: authentication)
+    raise "settings request failed for #{id}: #{response.status_code}" unless response.success?
+    setting = Array(Setting).from_json(response.body).select { |sub_setting|
+      sub_setting.settings_string && sub_setting.keys.includes?(key)
+    }.last?
+    return nil unless setting
+    YAML.parse(setting.settings_string.as(String))[key]
+  end
+
   def systems_in_building(zone_id : String, ids_only : Bool = true)
     levels = zones(parent: zone_id)
     if ids_only

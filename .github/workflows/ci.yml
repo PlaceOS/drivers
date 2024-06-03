@@ -67,6 +67,7 @@ jobs:
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+          BUILD_SERVICE_DISABLED: true
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
         if: ${{ failure() }}
@@ -119,6 +120,7 @@ jobs:
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
+          BUILD_SERVICE_DISABLED: false
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Show build container logs
         if: ${{ failure() }}

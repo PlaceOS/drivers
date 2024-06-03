@@ -172,16 +172,51 @@ module Place::CalendarCommon
     client &.get_groups(user_id)
   end
 
-  @[PlaceOS::Driver::Security(Level::Support)]
-  def get_members(group_id : String)
-    logger.debug { "listing members of group: #{group_id}" }
-    client &.get_members(group_id)
+  class PlaceCalendar::Member
+    property next_page : String? = nil
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def list_users(query : String? = nil, limit : Int32? = nil)
-    logger.debug { "listing user details, query #{query}" }
-    client &.list_users(query, limit)
+  def get_members(
+    group_id : String,
+    next_page : String? = nil
+  )
+    logger.debug { "listing members of group: #{group_id}" }
+
+    if group_id.includes?('@')
+      client do |_client|
+        if _client.client_id == :office365
+          logger.warn { "inefficient group members request. Recommended obtaining group.id versus using email" }
+        end
+      end
+    end
+    members = client &.get_members(group_id)
+
+    if member = members.first?
+      member.next_page = member.next_link
+    end
+    members
+  end
+
+  class PlaceCalendar::User
+    property next_page : String? = nil
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def list_users(
+    query : String? = nil,
+    limit : Int32? = nil,
+    filter : String? = nil,
+    next_page : String? = nil
+  )
+    logger.debug { "listing user details, query #{query || filter}, limit #{limit} (next: #{!!next_page})" }
+    users = client &.list_users(query, limit, filter: filter, next_link: next_page)
+    # next link is not returned to reduce payload size and used
+    # in the staff API for setting a header
+    if user = users.first?
+      user.next_page = user.next_link
+    end
+    users
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
