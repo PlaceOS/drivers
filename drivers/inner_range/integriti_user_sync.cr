@@ -79,7 +79,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
         user_id = email_to_user_id[email]
         integriti.modify_user_permissions(
           user_id: user_id,
-          group_id: user_group_id,
+          group_id: integriti_security_group,
           add: false,
           externally_managed: true
         ).get
