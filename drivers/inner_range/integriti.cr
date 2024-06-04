@@ -589,7 +589,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     user = extract_add_or_update_result(add_entry("User", UpdateFields{
       "FirstName"  => first_name,
       "SecondName" => second_name,
-      cf_email     => email,
+      cf_email     => email.strip.downcase,
       cf_phone     => phone,
     }.compact!))
     user.address.as(String)
