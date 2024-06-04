@@ -78,7 +78,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @[Security(Level::Support)]
   def enabled? : Bool
     if !@auto_release.resources.empty? &&
-       ((@auto_release.time_before > 0) || (@auto_release.time_after > 0))
+       (@auto_release.time_after > 0)
       true
     else
       false
@@ -153,11 +153,7 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings = Array(Booking).from_json self[:pending_release].to_json
 
     bookings.each do |booking|
-      if @auto_release.time_before > 0 && booking.booking_start - Time.utc.to_unix < @auto_release.time_before / 60
-        logger.debug { "rejecting booking #{booking.id} as it is within the time_before window" }
-        staff_api.reject(booking.id).get
-        released_bookings << booking
-      elsif @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start < @auto_release.time_after / 60
+      if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start < @auto_release.time_after / 60
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id).get
         released_bookings << booking
