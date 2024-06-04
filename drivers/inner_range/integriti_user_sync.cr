@@ -100,7 +100,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
         # check if the user exists (find by email)
         users = integriti.user_id_lookup(user_email).get.as_a.map(&.as_s)
         if users.empty?
-          users << integriti.create_user(user.name, user.email, user.phone).get.as_s
+          users << integriti.create_user(user.name, user_email, user.phone).get.as_s
         end
 
         # add the user permission group
