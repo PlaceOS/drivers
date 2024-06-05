@@ -188,8 +188,8 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
       @sync_mutex.synchronize do
         return if @sync_requests > 0
         @sync_requests += 1
-        sleep 1
       end
+      sleep 1
     else
       @sync_requests += 1
     end
