@@ -25,6 +25,10 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
 
   @time_zone : Time::Location = Time::Location.load("GMT")
 
+  @syncing : Bool = false
+  @sync_mutex : Mutex = Mutex.new
+  @sync_requests : Int32 = 0
+
   def on_load
     on_update
   end
@@ -67,7 +71,23 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
 
   alias DirUser = PlaceCalendar::Member
 
-  def sync_users
+  def perform_user_sync
+    return "already syncing" if @syncing
+
+    @sync_mutex.synchronize do
+      begin
+        @syncing = true
+        @sync_requests = 0
+        sync_users
+      ensure
+        @syncing = false
+      end
+    end
+
+    spawn { perform_user_sync } if @sync_requests > 0
+  end
+
+  protected def sync_users
     # get the list of users in the integriti permissions group: (i.e. QG2)
     email_to_user_id = integriti.managed_users_in_group(integriti_security_group).get.as_h.transform_values(&.as_s)
 
@@ -88,6 +108,10 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
 
       next_page = users.first?.try(&.next_page)
       break unless next_page
+
+      # ensure we don't blow any request limits
+      logger.debug { "fetching next page..." }
+      sleep 1
       users = Array(DirUser).from_json directory.get_members(user_group_id, next_page).get.to_json
     end
 
@@ -156,7 +180,11 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   # ===================
 
   # Create, update or delete of a member has occured
+  # TODO:: use delta links in the future so we don't have to parse the whole group membership
+  # https://learn.microsoft.com/en-us/graph/api/group-delta?view=graph-rest-1.0&tabs=http
   def subscription_on_crud(notification : NotifyEvent) : Nil
+    @sync_requests += 1
+    perform_user_sync
   end
 
   # Graph API failed to send us a notification or two, we can ignore this as nightly sync's will catch it
