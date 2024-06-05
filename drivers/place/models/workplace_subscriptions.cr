@@ -27,8 +27,8 @@ module Place::WorkplaceSubscription
     getter expiration_time : Time
   end
 
-  abstract protected def subscription_on_crud(notification : NotifyEvent) : Nil
-  abstract protected def subscription_on_missed : Nil
+  abstract def subscription_on_crud(notification : NotifyEvent) : Nil
+  abstract def subscription_on_missed : Nil
 
   enum ServiceName
     Google
@@ -36,13 +36,13 @@ module Place::WorkplaceSubscription
   end
 
   # should return the resource URI for monitoring, for example:
-  # 
+  #
   # case service_name
   # in .google?
   #   resource = "/calendars/#{calendar_id}/events"
   # in .office365?
   #   resource = "/users/#{calendar_id}/events"
-  abstract protected def subscription_resource(service_name : ServiceName) : String
+  abstract def subscription_resource(service_name : ServiceName) : String
 
   @subscription : PlaceCalendar::Subscription? = nil
   @push_notification_url : String? = nil
