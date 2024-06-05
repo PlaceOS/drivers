@@ -2,7 +2,11 @@ require "placeos-driver"
 require "place_calendar"
 require "xml"
 
+require "../place/models/workplace_subscriptions"
+
 class InnerRange::IntegritiUserSync < PlaceOS::Driver
+  include Place::WorkplaceSubscription
+
   descriptive_name "Integriti User Sync"
   generic_name :IntegritiUserSync
 
@@ -31,6 +35,10 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
 
     schedule.clear
     schedule.cron(@sync_cron, @time_zone) { sync_users }
+
+    if setting?(String, :push_notification_url).presence
+      push_notificaitons_configure
+    end
   end
 
   getter time_zone_string : String = "GMT"
@@ -127,5 +135,26 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     }
     logger.info { "integriti user sync results: #{result}" }
     result
+  end
+
+  # ===================
+  # Group subscriptions
+  # ===================
+
+  # Create, update or delete of a member has occured
+  def subscription_on_crud(notification : NotifyEvent) : Nil
+  end
+
+  # Graph API failed to send us a notification or two, we can ignore this as nightly sync's will catch it
+  def subscription_on_missed : Nil
+  end
+
+  def subscription_resource(service_name : ServiceName) : String
+    case service_name
+    in .office365?
+      "/groups/#{user_group_id}/members"
+    in .google?, Nil
+      raise "google is not supported"
+    end
   end
 end
