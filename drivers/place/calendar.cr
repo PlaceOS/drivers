@@ -3,7 +3,7 @@ require "./calendar_common"
 class Place::Calendar < PlaceOS::Driver
   include Place::CalendarCommon
 
-  # update to trigger build..
+  # update to trigger build.
   descriptive_name "PlaceOS Calendar"
   generic_name :Calendar
 

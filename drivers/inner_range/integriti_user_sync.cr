@@ -14,6 +14,10 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     user_group_id:            "building@org.com",
     sync_cron:                "0 21 * * *",
     integriti_security_group: "",
+
+    # use these for enabling push notifications
+    # push_authority: "authority-GAdySsf05mL"
+    # push_notification_url: "https://placeos-dev.aca.im/api/engine/v2/notifications/office365"
   })
 
   accessor directory : Calendar_1
@@ -33,11 +37,21 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     @user_group_id = setting(String, :user_group_id)
     @integriti_security_group = setting(String, :integriti_security_group)
 
+    @graph_group_id = nil
+
     schedule.clear
     schedule.cron(@sync_cron, @time_zone) { sync_users }
 
     if setting?(String, :push_notification_url).presence
       push_notificaitons_configure
+    end
+  end
+
+  getter graph_group_id : String do
+    if @user_group_id.includes?('@')
+      calendar.get_group(user_group_id).get["id"].as(String)
+    else
+      user_group_id
     end
   end
 
@@ -152,7 +166,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   def subscription_resource(service_name : ServiceName) : String
     case service_name
     in .office365?
-      "/groups/#{user_group_id}/members"
+      "/groups/#{graph_group_id}/members"
     in .google?, Nil
       raise "google is not supported"
     end
