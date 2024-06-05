@@ -244,11 +244,14 @@ module Place::CalendarCommon
 
   # NOTE:: GraphAPI Only! - here for use with configuration
   @[PlaceOS::Driver::Security(Level::Support)]
-  def list_groups(query : String? = nil)
-    logger.debug { "listing groups, filtering by #{query}, note: graphAPI only" }
+  def list_groups(
+    query : String? = nil,
+    filter : String? = nil
+  )
+    logger.debug { "listing groups, filtering by #{filter || query}, note: graphAPI only" }
     client do |_client|
       if _client.client_id == :office365
-        _client.calendar.as(PlaceCalendar::Office365).client.list_groups(query).value.map(&.to_place_group)
+        _client.calendar.as(PlaceCalendar::Office365).client.list_groups(query, filter: filter).value.map(&.to_place_group)
       end
     end
   end
@@ -259,7 +262,12 @@ module Place::CalendarCommon
     logger.debug { "getting group #{group_id}, note: graphAPI only" }
     client do |_client|
       if _client.client_id == :office365
-        _client.calendar.as(PlaceCalendar::Office365).client.get_group(group_id).to_place_group
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        if group_id.includes?('@')
+          group = office_client.list_groups(filter: "mail eq '#{group_id}'").value.first?
+          return group.to_place_group if group
+        end
+        office_client.get_group(group_id).to_place_group
       end
     end
   end
