@@ -251,7 +251,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.22.0
+    version: 4.22.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
