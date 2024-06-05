@@ -183,7 +183,16 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   # TODO:: use delta links in the future so we don't have to parse the whole group membership
   # https://learn.microsoft.com/en-us/graph/api/group-delta?view=graph-rest-1.0&tabs=http
   def subscription_on_crud(notification : NotifyEvent) : Nil
-    @sync_requests += 1
+    if !@syncing
+      # very simple debounce as we seem to get 2 notifications for each update
+      @sync_mutex.synchronize do
+        return if @sync_requests > 0
+        @sync_requests += 1
+        sleep 1
+      end
+    else
+      @sync_requests += 1
+    end
     perform_user_sync
   end
 
