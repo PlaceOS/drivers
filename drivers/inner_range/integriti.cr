@@ -21,8 +21,9 @@ class InnerRange::Integriti < PlaceOS::Driver
     default_unlock_time: 10,
     default_site_id:     1,
 
-    custom_field_email: "cf_EmailAddress",
-    custom_field_phone: "cf_Mobile",
+    custom_field_hid_origo: "cf_HasVirtualCard",
+    custom_field_email:     "cf_EmailAddress",
+    custom_field_phone:     "cf_Mobile",
   })
 
   def on_load
@@ -31,6 +32,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   def on_update
     api_key = setting?(String, :api_key) || ""
+    @cf_origo = setting?(String, :custom_field_hid_origo) || "cf_HasVirtualCard"
     @cf_email = setting?(String, :custom_field_email) || "cf_EmailAddress"
     @cf_phone = setting?(String, :custom_field_phone) || "cf_Mobile"
 
@@ -48,6 +50,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   getter default_site_id : Int32 = 1
   getter cf_email : String = "cf_EmailAddress"
   getter cf_phone : String = "cf_Mobile"
+  getter cf_origo : String = "cf_HasVirtualCard"
 
   macro check(response)
     begin
@@ -556,6 +559,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     "SiteName"               => site_name : String,
     "Address"                => address : String,
     "attr_PartitionID"       => partition_id : Int32,
+    "cf_origo"               => origo : Bool,
     "cf_phone"               => phone : String,
     "cf_email"               => email : String,
     "PrimaryPermissionGroup" => primary_permission_group : PermissionGroup,
