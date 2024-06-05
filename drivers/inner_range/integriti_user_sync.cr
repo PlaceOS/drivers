@@ -182,7 +182,12 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   # Create, update or delete of a member has occured
   # TODO:: use delta links in the future so we don't have to parse the whole group membership
   # https://learn.microsoft.com/en-us/graph/api/group-delta?view=graph-rest-1.0&tabs=http
-  def subscription_on_crud(notification : NotifyEvent) : Nil
+  protected def subscription_on_crud(notification : NotifyEvent) : Nil
+    subscription_on_missed
+  end
+
+  # Graph API failed to send us a notification or two
+  protected def subscription_on_missed : Nil
     if !@syncing
       # very simple debounce as we seem to get 2 notifications for each update
       @sync_mutex.synchronize do
@@ -196,11 +201,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     perform_user_sync
   end
 
-  # Graph API failed to send us a notification or two, we can ignore this as nightly sync's will catch it
-  def subscription_on_missed : Nil
-  end
-
-  def subscription_resource(service_name : ServiceName) : String
+  protected def subscription_resource(service_name : ServiceName) : String
     case service_name
     in .office365?
       "/groups/#{graph_group_id}/members"
