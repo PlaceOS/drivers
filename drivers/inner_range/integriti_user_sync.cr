@@ -48,8 +48,8 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   end
 
   getter graph_group_id : String do
-    if @user_group_id.includes?('@')
-      calendar.get_group(user_group_id).get["id"].as(String)
+    if user_group_id.includes?('@')
+      directory.get_group(user_group_id).get["id"].as_s
     else
       user_group_id
     end
