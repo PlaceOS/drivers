@@ -7,12 +7,18 @@ class Place::AutoRelease < PlaceOS::Driver
   generic_name :AutoRelease
   description %(emails visitors to confirm automatic release of their booking when they have indicated they are not on-site and releases the booking if they do not confirm)
 
+  # time_window_hours: The number of hours to check for bookings pending release
+  #
+  # release_locations: Locations to release bookings for
+  # available locations:
+  # - wfh: Work From Home
+  # - aol: Away on Leave
+  # - wfo: Work From Office
   default_settings({
-    timezone:       "GMT",
-    send_emails:    "15 */1 * * *",
-    email_template: "auto_release",
-    # release_url: "https://example.com/release",
-    time_window_hours: 2,
+    timezone:          "GMT",
+    send_emails:       "*/5 * * * *",
+    email_template:    "auto_release",
+    time_window_hours: 4,
     release_locations: ["wfh", "aol"],
   })
 
