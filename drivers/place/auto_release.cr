@@ -155,23 +155,31 @@ class Place::AutoRelease < PlaceOS::Driver
   end
 
   def release_bookings
-    released_bookings = [] of Booking
-    bookings = Array(Booking).from_json self[:pending_release].to_json
+    released_booking_ids = [] of Int64
+    bookings = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
+
+    previously_released = self[:released_booking_ids]? ? Array(Int64).from_json(self[:released_booking_ids].to_json) : [] of Int64
+    # remove previously released bookings that are no longer pending release
+    previously_released -= previously_released - bookings.map(&.id)
+    # add previously released bookings that are still pending release
+    released_booking_ids += previously_released
 
     bookings.each do |booking|
+      next if previously_released.includes? booking.id
+
       if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start > @auto_release.time_after / 60
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id).get
-        released_bookings << booking
+        released_booking_ids << booking.id
       end
     end
 
-    logger.debug { "released #{released_bookings.size} bookings" }
+    logger.debug { "released #{released_booking_ids.size} bookings" }
 
-    released_bookings
+    self[:released_booking_ids] = released_booking_ids
   rescue error
     logger.warn(exception: error) { "unable to release bookings" }
-    [] of Booking
+    self[:released_booking_ids] = [] of Int64
   end
 
   @[Security(Level::Support)]
