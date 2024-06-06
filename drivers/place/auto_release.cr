@@ -13,7 +13,7 @@ class Place::AutoRelease < PlaceOS::Driver
     email_template: "auto_release",
     # release_url: "https://example.com/release",
     time_window_hours: 2,
-    release_locations: ["wfh"],
+    release_locations: ["wfh", "aol"],
   })
 
   accessor staff_api : StaffAPI_1
