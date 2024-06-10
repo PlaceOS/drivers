@@ -7,13 +7,19 @@ class Place::AutoRelease < PlaceOS::Driver
   generic_name :AutoRelease
   description %(emails visitors to confirm automatic release of their booking when they have indicated they are not on-site and releases the booking if they do not confirm)
 
+  # time_window_hours: The number of hours to check for bookings pending release
+  #
+  # release_locations: Locations to release bookings for
+  # available locations:
+  # - wfh: Work From Home
+  # - aol: Away on Leave
+  # - wfo: Work From Office
   default_settings({
-    timezone:       "GMT",
-    send_emails:    "15 */1 * * *",
-    email_template: "auto_release",
-    # release_url: "https://example.com/release",
-    time_window_hours: 2,
-    release_locations: ["wfh"],
+    timezone:          "GMT",
+    send_emails:       "*/5 * * * *",
+    email_template:    "auto_release",
+    time_window_hours: 4,
+    release_locations: ["wfh", "aol"],
   })
 
   accessor staff_api : StaffAPI_1
@@ -149,45 +155,69 @@ class Place::AutoRelease < PlaceOS::Driver
   end
 
   def release_bookings
-    released_bookings = [] of Booking
-    bookings = Array(Booking).from_json self[:pending_release].to_json
+    released_booking_ids = [] of Int64
+    bookings = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
+
+    previously_released = self[:released_booking_ids]? ? Array(Int64).from_json(self[:released_booking_ids].to_json) : [] of Int64
+    # remove previously released bookings that are no longer pending release
+    previously_released -= previously_released - bookings.map(&.id)
+    # add previously released bookings that are still pending release
+    released_booking_ids += previously_released
 
     bookings.each do |booking|
-      if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start < @auto_release.time_after / 60
+      next if previously_released.includes? booking.id
+
+      if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start > @auto_release.time_after / 60
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id).get
-        released_bookings << booking
+        released_booking_ids << booking.id
       end
     end
 
-    logger.debug { "released #{released_bookings.size} bookings" }
+    logger.debug { "released #{released_booking_ids.size} bookings" }
 
-    released_bookings
+    self[:released_booking_ids] = released_booking_ids
   rescue error
     logger.warn(exception: error) { "unable to release bookings" }
-    [] of Booking
+    self[:released_booking_ids] = [] of Int64
   end
 
   @[Security(Level::Support)]
   def send_release_emails
-    bookings = Array(Booking).from_json self[:pending_release].to_json
+    emailed_booking_ids = [] of Int64
+    bookings = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
+
+    previously_emailed = self[:emailed_booking_ids]? ? Array(Int64).from_json(self[:emailed_booking_ids].to_json) : [] of Int64
+    # remove previously emailed bookings that are no longer pending release
+    previously_emailed -= previously_emailed - bookings.map(&.id)
+    # add previously emailed bookings that are still pending release
+    emailed_booking_ids += previously_emailed
 
     bookings.each do |booking|
-      begin
-        mailer.send_template(
-          to: booking.user_email,
-          template: {@email_template, "auto_release"},
-          args: {
-            booking_id:    booking.id,
-            user_email:    booking.user_email,
-            user_name:     booking.user_name,
-            booking_start: booking.booking_start,
-            booking_end:   booking.booking_end,
-          })
-      rescue error
-        logger.warn(exception: error) { "failed to send release email to #{booking.user_email}" }
+      next if previously_emailed.includes? booking.id
+
+      if @auto_release.time_before > 0 &&
+         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before / 60) &&
+         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after / 60)
+        logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
+        begin
+          mailer.send_template(
+            to: booking.user_email,
+            template: {@email_template, "auto_release"},
+            args: {
+              booking_id:    booking.id,
+              user_email:    booking.user_email,
+              user_name:     booking.user_name,
+              booking_start: booking.booking_start,
+              booking_end:   booking.booking_end,
+            })
+          emailed_booking_ids << booking.id
+        rescue error
+          logger.warn(exception: error) { "failed to send release email to #{booking.user_email}" }
+        end
       end
     end
+    self[:emailed_booking_ids] = emailed_booking_ids
   end
 
   # time_before and time_after are in minutes
