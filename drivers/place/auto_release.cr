@@ -127,6 +127,14 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
+  def in_preference_hours?(start_time : Float64, end_time : Float64, event_time : Float64) : Bool
+    if start_time < end_time
+      start_time < event_time && end_time > event_time
+    else
+      start_time < event_time || end_time > event_time
+    end
+  end
+
   @[Security(Level::Support)]
   def pending_release
     results = [] of Booking
@@ -138,11 +146,11 @@ class Place::AutoRelease < PlaceOS::Driver
         event_time = Time.unix(booking.booking_start).hour + (Time.unix(booking.booking_start).minute / 60.0)
 
         if (override = preferences[:work_overrides][Time.unix(booking.booking_start).to_s(format: "%F")]?) &&
-           (override.start_time < event_time && override.end_time > event_time) &&
+           in_preference_hours?(override.start_time, override.end_time, event_time) &&
            (@release_locations.includes? override.location)
           results << booking
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
-              (preference.start_time < event_time && preference.end_time > event_time) &&
+              in_preference_hours?(preference.start_time, preference.end_time, event_time) &&
               (@release_locations.includes? preference.location)
           results << booking
         end
