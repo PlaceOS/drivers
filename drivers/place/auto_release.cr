@@ -84,7 +84,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @[Security(Level::Support)]
   def enabled? : Bool
     if !@auto_release.resources.empty? &&
-       (@auto_release.time_after > 0)
+       (@auto_release.time_before > 0 || @auto_release.time_after > 0)
       true
     else
       false
