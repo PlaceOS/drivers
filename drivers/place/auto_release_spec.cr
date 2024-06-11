@@ -122,7 +122,7 @@ class StaffAPI < DriverSpecs::MockDriver
         user_id:         "user-wfo",
         user_email:      "user_two@example.com",
         user_name:       "User Two",
-        asset_id:        "desk_003",
+        asset_id:        "desk_005",
         zones:           ["zone-1234"],
         booking_type:    "desk",
         booking_start:   (Time.utc - 11.minutes).to_unix,
@@ -140,9 +140,69 @@ class StaffAPI < DriverSpecs::MockDriver
         last_changed:    Time.utc.to_unix,
         created:         Time.utc.to_unix,
       },
+      {
+        id:              6,
+        user_id:         "user-wfh",
+        user_email:      "user_one@example.com",
+        user_name:       "User One",
+        asset_id:        "desk_006",
+        zones:           ["zone-1234"],
+        booking_type:    "desk",
+        booking_start:   (Time.utc - 11.minutes).to_unix,
+        booking_end:     (Time.utc + 1.hour).to_unix,
+        timezone:        "Australia/Darwin",
+        title:           "ignore_last_minute_checkin",
+        description:     "",
+        checked_in:      false,
+        rejected:        false,
+        approved:        true,
+        booked_by_id:    "user-wfh",
+        booked_by_email: "user_one@example.com",
+        booked_by_name:  "User One",
+        process_state:   "approved",
+        last_changed:    Time.utc.to_unix,
+        created:         Time.utc.to_unix,
+      },
+      {
+        id:              7,
+        user_id:         "user-wfh",
+        user_email:      "user_one@example.com",
+        user_name:       "User One",
+        asset_id:        "desk_007",
+        zones:           ["zone-1234"],
+        booking_type:    "desk",
+        booking_start:   (Time.utc - 11.minutes).to_unix,
+        booking_end:     (Time.utc + 1.hour).to_unix,
+        timezone:        "Australia/Darwin",
+        title:           "ignore_last_minute_schedule_change",
+        description:     "",
+        checked_in:      false,
+        rejected:        false,
+        approved:        true,
+        booked_by_id:    "user-wfh",
+        booked_by_email: "user_one@example.com",
+        booked_by_name:  "User One",
+        process_state:   "approved",
+        last_changed:    Time.utc.to_unix,
+        created:         Time.utc.to_unix,
+      },
     ]
 
     JSON.parse(bookings.to_json)
+  end
+
+  def get_booking(booking_id : String | Int64)
+    booking = query_bookings.as_a.find { |b| b.as_h["id"] == booking_id }
+    return unless booking
+
+    case booking_id
+    when 6
+      booking.as_h["checked_in"] = JSON.parse(true.to_json)
+    when 7
+      booking.as_h["booking_start"] = JSON.parse((Time.utc + 1.hour).to_unix.to_json)
+      booking.as_h["booking_end"] = JSON.parse((Time.utc + 2.hours).to_unix.to_json)
+    end
+    booking
   end
 
   def user(id : String)
@@ -326,16 +386,52 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp.should eq true
 
   resp = exec(:get_pending_bookings).get
-  resp.not_nil!.as_a.size.should eq 5
+  resp.not_nil!.as_a.size.should eq 7
 
   resp = exec(:get_user_preferences?, "user-wfh").get
   resp.not_nil!.as_h.keys.should eq ["work_preferences", "work_overrides"]
 
-  # Should only have 3 pending releases (ignore, notify, reject)
+  # normal work hours, event in range
+  # start at 8am, end at 4pm, event at 3pm
+  resp = exec(:in_preference_hours?, 8.0, 16.0, 15.0).get
+  resp.should eq true
+
+  # normal work hours, event out of range (after)
+  # start at 8am, end at 4pm, event at 5pm
+  resp = exec(:in_preference_hours?, 8.0, 16.0, 17.0).get
+  resp.should eq nil
+
+  # normal work hours, event out of range (before)
+  # start at 8am, end at 4pm, event at 6am
+  resp = exec(:in_preference_hours?, 8.0, 16.0, 6.0).get
+  resp.should eq nil
+
+  # work hours crosses midnight, event in range
+  # start at 10pm, end at 6am, event at 3am
+  resp = exec(:in_preference_hours?, 22.0, 6.0, 3.0).get
+  resp.should eq true
+
+  # work hours crosses midnight, event out of range (after)
+  # start at 10pm, end at 6am, event at 7am
+  resp = exec(:in_preference_hours?, 22.0, 6.0, 7.0).get
+  resp.should eq nil
+
+  # work hours crosses midnight, event out of range (before)
+  # start at 10pm, end at 6am, event at 8pm
+  resp = exec(:in_preference_hours?, 22.0, 6.0, 20.0).get
+  resp.should eq nil
+
+  # this also tests #skip_release?
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 3
-  pending_release.should eq ["ignore", "notify", "reject"]
+  pending_release.size.should eq 5
+  pending_release.should eq [
+    "ignore",
+    "notify",
+    "reject",
+    "ignore_last_minute_checkin",
+    "ignore_last_minute_schedule_change",
+  ]
 
   # Should only reject one booking (booking_id: 3, title: reject)
   resp = exec(:release_bookings).get

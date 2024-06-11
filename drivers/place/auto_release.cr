@@ -127,6 +127,14 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
+  def in_preference_hours?(start_time : Float64, end_time : Float64, event_time : Float64) : Bool
+    if start_time < end_time
+      start_time < event_time && end_time > event_time
+    else
+      start_time < event_time || end_time > event_time
+    end
+  end
+
   @[Security(Level::Support)]
   def pending_release
     results = [] of Booking
@@ -134,15 +142,15 @@ class Place::AutoRelease < PlaceOS::Driver
 
     bookings.each do |booking|
       if preferences = get_user_preferences?(booking.user_id)
-        day_of_week = Time.unix(booking.booking_start).day_of_week.value + 1
+        day_of_week = Time.unix(booking.booking_start).day_of_week.value
+        day_of_week = 0 if day_of_week == 7 # Crystal uses 7 for Sunday, but we use 0 (all other days match up)
         event_time = Time.unix(booking.booking_start).hour + (Time.unix(booking.booking_start).minute / 60.0)
-
         if (override = preferences[:work_overrides][Time.unix(booking.booking_start).to_s(format: "%F")]?) &&
-           (override.start_time < event_time && override.end_time > event_time) &&
+           in_preference_hours?(override.start_time, override.end_time, event_time) &&
            (@release_locations.includes? override.location)
           results << booking
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
-              (preference.start_time < event_time && preference.end_time > event_time) &&
+              in_preference_hours?(preference.start_time, preference.end_time, event_time) &&
               (@release_locations.includes? preference.location)
           results << booking
         end
@@ -152,6 +160,15 @@ class Place::AutoRelease < PlaceOS::Driver
     logger.debug { "found #{results.size} bookings pending release" }
 
     self[:pending_release] = results
+  end
+
+  def skip_release?(cached_booking : Booking) : Bool
+    if (booking_json_any = staff_api.get_booking(cached_booking.id).get) &&
+       (booking = Booking.from_json(booking_json_any.to_json))
+      booking.checked_in || booking.booking_start != cached_booking.booking_start
+    else
+      true
+    end
   end
 
   def release_bookings
@@ -168,6 +185,9 @@ class Place::AutoRelease < PlaceOS::Driver
       next if previously_released.includes? booking.id
 
       if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start > @auto_release.time_after / 60
+        # skip if there's been changes to the cached bookings checked_in status or booking_start time
+        next if skip_release?(booking)
+
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id).get
         released_booking_ids << booking.id
