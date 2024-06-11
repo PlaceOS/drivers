@@ -370,6 +370,59 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     Mailer:   {Mailer},
   })
 
+  # test #enabled?
+  # disabled wehn both time_before and time_after are 0
+  settings({
+    auto_release: {
+      time_before: 0,
+      time_after:  0,
+      resources:   ["desk"],
+    },
+  })
+  resp = exec(:enabled?).get
+  resp.should eq nil
+  # enabled when time_before is set and time_after is 0
+  settings({
+    auto_release: {
+      time_before: 10,
+      time_after:  0,
+      resources:   ["desk"],
+    },
+  })
+  resp = exec(:enabled?).get
+  resp.should eq true
+  # enabled when time_before is 0 and time_after is set
+  settings({
+    auto_release: {
+      time_before: 0,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+  })
+  resp = exec(:enabled?).get
+  resp.should eq true
+  # enabled when both time_before and time_after are set
+  settings({
+    auto_release: {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+  })
+  # disabled when resources is empty
+  resp = exec(:enabled?).get
+  resp.should eq true
+  settings({
+    auto_release: {
+      time_before: 10,
+      time_after:  10,
+      resources:   [] of String,
+    },
+  })
+  resp = exec(:enabled?).get
+  resp.should eq nil
+
+  # Settings for remaining tests.
   settings({
     time_window_hours: 8,
     auto_release:      {
@@ -381,9 +434,6 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
 
   resp = exec(:get_building_id).get
   resp.should eq "zone-1234"
-
-  resp = exec(:enabled?).get
-  resp.should eq true
 
   resp = exec(:get_pending_bookings).get
   resp.not_nil!.as_a.size.should eq 7
