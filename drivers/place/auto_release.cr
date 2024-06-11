@@ -162,6 +162,15 @@ class Place::AutoRelease < PlaceOS::Driver
     self[:pending_release] = results
   end
 
+  def skip_release?(cached_booking : Booking) : Bool
+    if (booking_json_any = staff_api.get_booking(cached_booking.id).get) &&
+       (booking = Booking.from_json(booking_json_any.to_json))
+      booking.checked_in || booking.booking_start != cached_booking.booking_start
+    else
+      true
+    end
+  end
+
   def release_bookings
     released_booking_ids = [] of Int64
     bookings = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
@@ -176,6 +185,9 @@ class Place::AutoRelease < PlaceOS::Driver
       next if previously_released.includes? booking.id
 
       if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start > @auto_release.time_after / 60
+        # skip if there's been changes to the cached bookings checked_in status or booking_start time
+        next if skip_release?(booking)
+
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id).get
         released_booking_ids << booking.id
