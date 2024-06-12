@@ -184,7 +184,8 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings.each do |booking|
       next if previously_released.includes? booking.id
 
-      if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start > @auto_release.time_after / 60
+      # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
+      if enabled? && Time.utc.to_unix - booking.booking_start > @auto_release.time_after * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
         next if skip_release?(booking)
 
@@ -216,9 +217,10 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings.each do |booking|
       next if previously_emailed.includes? booking.id
 
-      if @auto_release.time_before > 0 &&
-         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before / 60) &&
-         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after / 60)
+      # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
+      if enabled? &&
+         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before * 60) &&
+         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
         begin
           mailer.send_template(
