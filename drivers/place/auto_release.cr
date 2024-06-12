@@ -211,6 +211,7 @@ class Place::AutoRelease < PlaceOS::Driver
   def send_release_emails
     emailed_booking_ids = [] of Int64
     bookings = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
+    previously_released = self[:released_booking_ids]? ? Array(Int64).from_json(self[:released_booking_ids].to_json) : [] of Int64
 
     previously_emailed = self[:emailed_booking_ids]? ? Array(Int64).from_json(self[:emailed_booking_ids].to_json) : [] of Int64
     # remove previously emailed bookings that are no longer pending release
@@ -219,6 +220,7 @@ class Place::AutoRelease < PlaceOS::Driver
     emailed_booking_ids += previously_emailed
 
     bookings.each do |booking|
+      next if previously_released.includes? booking.id
       next if previously_emailed.includes? booking.id
 
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
