@@ -147,7 +147,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
         # convert unix timestamp to float hours/minutes
         # e.g. 7:30AM = 7.5
-        event_time = Time.unix(booking.booking_start).hour + (Time.unix(booking.booking_start).minute / 60.0)
+        booking_start = Time.unix(booking.booking_start)
+        event_time = booking_start.hour + (booking_start.minute / 60.0)
 
         if (override = preferences[:work_overrides][Time.unix(booking.booking_start).to_s(format: "%F")]?) &&
            in_preference_hours?(override.start_time, override.end_time, event_time) &&
