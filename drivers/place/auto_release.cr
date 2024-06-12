@@ -34,7 +34,7 @@ class Place::AutoRelease < PlaceOS::Driver
     on_update
   end
 
-  @time_zone : Time::Location = Time::Location.load("GMT")
+  @email_timezone : Time::Location = Time::Location.load("GMT")
 
   @auto_release_emails_sent : UInt64 = 0_u64
   @auto_release_email_errors : UInt64 = 0_u64
@@ -52,8 +52,8 @@ class Place::AutoRelease < PlaceOS::Driver
     @email_schedule = setting?(String, :email_schedule).presence
     @email_template = setting?(String, :email_template) || "auto_release"
 
-    time_zone = setting?(String, :email_timezone).presence || "GMT"
-    @time_zone = Time::Location.load(time_zone)
+    email_timezone = setting?(String, :email_timezone).presence || "GMT"
+    @email_timezone = Time::Location.load(email_timezone)
 
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
@@ -68,7 +68,7 @@ class Place::AutoRelease < PlaceOS::Driver
     schedule.every(1.minute) { release_bookings }
 
     if emails = @email_schedule
-      schedule.cron(emails, @time_zone) { send_release_emails }
+      schedule.cron(emails, @email_timezone) { send_release_emails }
     end
   end
 
@@ -277,7 +277,7 @@ class Place::AutoRelease < PlaceOS::Driver
     property booking_start : Int64
     property booking_end : Int64
 
-    property email_timezone : String?
+    property timezone : String?
     property title : String?
     property description : String?
 
