@@ -142,10 +142,15 @@ class Place::AutoRelease < PlaceOS::Driver
 
     bookings.each do |booking|
       if preferences = get_user_preferences?(booking.user_id)
-        day_of_week = Time.unix(booking.booking_start).day_of_week.value
+        booking_start = Time.unix(booking.booking_start)
+        day_of_week = booking_start.day_of_week.value
         day_of_week = 0 if day_of_week == 7 # Crystal uses 7 for Sunday, but we use 0 (all other days match up)
-        event_time = Time.unix(booking.booking_start).hour + (Time.unix(booking.booking_start).minute / 60.0)
-        if (override = preferences[:work_overrides][Time.unix(booking.booking_start).to_s(format: "%F")]?) &&
+
+        # convert unix timestamp to float hours/minutes
+        # e.g. 7:30AM = 7.5
+        event_time = booking_start.hour + (booking_start.minute / 60.0)
+
+        if (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
            in_preference_hours?(override.start_time, override.end_time, event_time) &&
            (@release_locations.includes? override.location)
           results << booking
@@ -184,7 +189,8 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings.each do |booking|
       next if previously_released.includes? booking.id
 
-      if @auto_release.time_after > 0 && Time.utc.to_unix - booking.booking_start > @auto_release.time_after / 60
+      # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
+      if enabled? && Time.utc.to_unix - booking.booking_start > @auto_release.time_after * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
         next if skip_release?(booking)
 
@@ -206,6 +212,7 @@ class Place::AutoRelease < PlaceOS::Driver
   def send_release_emails
     emailed_booking_ids = [] of Int64
     bookings = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
+    previously_released = self[:released_booking_ids]? ? Array(Int64).from_json(self[:released_booking_ids].to_json) : [] of Int64
 
     previously_emailed = self[:emailed_booking_ids]? ? Array(Int64).from_json(self[:emailed_booking_ids].to_json) : [] of Int64
     # remove previously emailed bookings that are no longer pending release
@@ -214,11 +221,13 @@ class Place::AutoRelease < PlaceOS::Driver
     emailed_booking_ids += previously_emailed
 
     bookings.each do |booking|
+      next if previously_released.includes? booking.id
       next if previously_emailed.includes? booking.id
 
-      if @auto_release.time_before > 0 &&
-         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before / 60) &&
-         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after / 60)
+      # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
+      if enabled? &&
+         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before * 60) &&
+         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
         begin
           mailer.send_template(

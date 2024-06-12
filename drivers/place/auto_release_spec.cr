@@ -10,6 +10,194 @@ class StaffAPI < DriverSpecs::MockDriver
     self[:rejected] = self[:rejected].as_i + 1
   end
 
+  # Using a constant for bookings to ensure the times don't change during tests
+  BOOKINGS = [
+    {
+      id:              1,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_001",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc + 1.hour).to_unix,
+      booking_end:     (Time.utc + 2.hours).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+    {
+      id:              2,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_002",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc + 5.minutes).to_unix,
+      booking_end:     (Time.utc + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "notify",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+    {
+      id:              3,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_003",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc - 11.minutes).to_unix,
+      booking_end:     (Time.utc + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "reject",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+    {
+      id:              4,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_004",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc + 5.hours).to_unix,
+      booking_end:     (Time.utc + 6.hours).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore_after_hours",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+    {
+      id:              5,
+      user_id:         "user-wfo",
+      user_email:      "user_two@example.com",
+      user_name:       "User Two",
+      asset_id:        "desk_005",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc - 11.minutes).to_unix,
+      booking_end:     (Time.utc + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore_wfo",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfo",
+      booked_by_email: "user_two@example.com",
+      booked_by_name:  "User Two",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+    {
+      id:              6,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_006",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc - 11.minutes).to_unix,
+      booking_end:     (Time.utc + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore_last_minute_checkin",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+    {
+      id:              7,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_007",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc - 11.minutes).to_unix,
+      booking_end:     (Time.utc + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore_last_minute_schedule_change",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+    {
+      id:              8,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_008",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc - 2.minutes).to_unix,
+      booking_end:     (Time.utc + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "reject_on_start",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
+  ]
+
   def query_bookings(
     type : String? = nil,
     period_start : Int64? = nil,
@@ -24,171 +212,7 @@ class StaffAPI < DriverSpecs::MockDriver
     rejected : Bool? = nil,
     checked_in : Bool? = nil
   )
-    bookings = [
-      {
-        id:              1,
-        user_id:         "user-wfh",
-        user_email:      "user_one@example.com",
-        user_name:       "User One",
-        asset_id:        "desk_001",
-        zones:           ["zone-1234"],
-        booking_type:    "desk",
-        booking_start:   (Time.utc + 1.hour).to_unix,
-        booking_end:     (Time.utc + 2.hours).to_unix,
-        timezone:        "Australia/Darwin",
-        title:           "ignore",
-        description:     "",
-        checked_in:      false,
-        rejected:        false,
-        approved:        true,
-        booked_by_id:    "user-wfh",
-        booked_by_email: "user_one@example.com",
-        booked_by_name:  "User One",
-        process_state:   "approved",
-        last_changed:    Time.utc.to_unix,
-        created:         Time.utc.to_unix,
-      },
-      {
-        id:              2,
-        user_id:         "user-wfh",
-        user_email:      "user_one@example.com",
-        user_name:       "User One",
-        asset_id:        "desk_002",
-        zones:           ["zone-1234"],
-        booking_type:    "desk",
-        booking_start:   (Time.utc).to_unix,
-        booking_end:     (Time.utc + 1.hour).to_unix,
-        timezone:        "Australia/Darwin",
-        title:           "notify",
-        description:     "",
-        checked_in:      false,
-        rejected:        false,
-        approved:        true,
-        booked_by_id:    "user-wfh",
-        booked_by_email: "user_one@example.com",
-        booked_by_name:  "User One",
-        process_state:   "approved",
-        last_changed:    Time.utc.to_unix,
-        created:         Time.utc.to_unix,
-      },
-      {
-        id:              3,
-        user_id:         "user-wfh",
-        user_email:      "user_one@example.com",
-        user_name:       "User One",
-        asset_id:        "desk_003",
-        zones:           ["zone-1234"],
-        booking_type:    "desk",
-        booking_start:   (Time.utc - 11.minutes).to_unix,
-        booking_end:     (Time.utc + 1.hour).to_unix,
-        timezone:        "Australia/Darwin",
-        title:           "reject",
-        description:     "",
-        checked_in:      false,
-        rejected:        false,
-        approved:        true,
-        booked_by_id:    "user-wfh",
-        booked_by_email: "user_one@example.com",
-        booked_by_name:  "User One",
-        process_state:   "approved",
-        last_changed:    Time.utc.to_unix,
-        created:         Time.utc.to_unix,
-      },
-      {
-        id:              4,
-        user_id:         "user-wfh",
-        user_email:      "user_one@example.com",
-        user_name:       "User One",
-        asset_id:        "desk_004",
-        zones:           ["zone-1234"],
-        booking_type:    "desk",
-        booking_start:   (Time.utc + 5.hours).to_unix,
-        booking_end:     (Time.utc + 6.hours).to_unix,
-        timezone:        "Australia/Darwin",
-        title:           "ignore_after_hours",
-        description:     "",
-        checked_in:      false,
-        rejected:        false,
-        approved:        true,
-        booked_by_id:    "user-wfh",
-        booked_by_email: "user_one@example.com",
-        booked_by_name:  "User One",
-        process_state:   "approved",
-        last_changed:    Time.utc.to_unix,
-        created:         Time.utc.to_unix,
-      },
-      {
-        id:              5,
-        user_id:         "user-wfo",
-        user_email:      "user_two@example.com",
-        user_name:       "User Two",
-        asset_id:        "desk_005",
-        zones:           ["zone-1234"],
-        booking_type:    "desk",
-        booking_start:   (Time.utc - 11.minutes).to_unix,
-        booking_end:     (Time.utc + 1.hour).to_unix,
-        timezone:        "Australia/Darwin",
-        title:           "ignore_wfo",
-        description:     "",
-        checked_in:      false,
-        rejected:        false,
-        approved:        true,
-        booked_by_id:    "user-wfo",
-        booked_by_email: "user_two@example.com",
-        booked_by_name:  "User Two",
-        process_state:   "approved",
-        last_changed:    Time.utc.to_unix,
-        created:         Time.utc.to_unix,
-      },
-      {
-        id:              6,
-        user_id:         "user-wfh",
-        user_email:      "user_one@example.com",
-        user_name:       "User One",
-        asset_id:        "desk_006",
-        zones:           ["zone-1234"],
-        booking_type:    "desk",
-        booking_start:   (Time.utc - 11.minutes).to_unix,
-        booking_end:     (Time.utc + 1.hour).to_unix,
-        timezone:        "Australia/Darwin",
-        title:           "ignore_last_minute_checkin",
-        description:     "",
-        checked_in:      false,
-        rejected:        false,
-        approved:        true,
-        booked_by_id:    "user-wfh",
-        booked_by_email: "user_one@example.com",
-        booked_by_name:  "User One",
-        process_state:   "approved",
-        last_changed:    Time.utc.to_unix,
-        created:         Time.utc.to_unix,
-      },
-      {
-        id:              7,
-        user_id:         "user-wfh",
-        user_email:      "user_one@example.com",
-        user_name:       "User One",
-        asset_id:        "desk_007",
-        zones:           ["zone-1234"],
-        booking_type:    "desk",
-        booking_start:   (Time.utc - 11.minutes).to_unix,
-        booking_end:     (Time.utc + 1.hour).to_unix,
-        timezone:        "Australia/Darwin",
-        title:           "ignore_last_minute_schedule_change",
-        description:     "",
-        checked_in:      false,
-        rejected:        false,
-        approved:        true,
-        booked_by_id:    "user-wfh",
-        booked_by_email: "user_one@example.com",
-        booked_by_name:  "User One",
-        process_state:   "approved",
-        last_changed:    Time.utc.to_unix,
-        created:         Time.utc.to_unix,
-      },
-    ]
-
-    JSON.parse(bookings.to_json)
+    JSON.parse(BOOKINGS.to_json)
   end
 
   def get_booking(booking_id : String | Int64)
@@ -370,7 +394,145 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     Mailer:   {Mailer},
   })
 
-  # test #enabled?
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+  })
+
+  resp = exec(:get_building_id).get
+  resp.should eq "zone-1234"
+
+  resp = exec(:get_pending_bookings).get
+  resp.not_nil!.as_a.size.should eq 8
+
+  resp = exec(:get_user_preferences?, "user-wfh").get
+  resp.not_nil!.as_h.keys.should eq ["work_preferences", "work_overrides"]
+
+  # this also tests #skip_release?
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.size.should eq 6
+  pending_release.should eq [
+    "ignore",
+    "notify",
+    "reject",
+    "ignore_last_minute_checkin",
+    "ignore_last_minute_schedule_change",
+    "reject_on_start",
+  ]
+
+  # Start of tests for: #release_bookings
+  #######################################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+  })
+
+  # Should only reject one booking
+  # booking_id: 3, title: reject
+  resp = exec(:release_bookings).get
+  resp.should eq [3]
+  system(:StaffAPI_1)[:rejected].should eq 1
+
+  # Don't try to reject bookings that have already been rejected
+  resp = exec(:release_bookings).get
+  resp.should eq [3]
+  system(:StaffAPI_1)[:rejected].should eq 1
+
+  # Reject bookings immidiatly on start
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  0,
+      resources:   ["desk"],
+    },
+  })
+
+  # Should reject two bookings
+  # booking_id: [3,8], title: ["reject", "reject_on_start"]
+  resp = exec(:release_bookings).get
+  resp.should eq [3, 8]
+  system(:StaffAPI_1)[:rejected].should eq 2
+
+  #####################################
+  # End of tests for: #release_bookings
+
+  # Start of tests for: #send_release_emails
+  ##########################################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+  })
+
+  # Send email once booking is past the time_before window,
+  # but before the time_after window
+  # (booking_id: 2, title: notify)
+  resp = exec(:send_release_emails).get
+  resp.should eq [2]
+  system(:Mailer_1)[:sent].should eq 1
+
+  # Spam protection, should not send email again
+  resp = exec(:send_release_emails).get
+  resp.should eq [2]
+  system(:Mailer_1)[:sent].should eq 1
+
+  ########################################
+  # End of tests for: #send_release_emails
+
+  # Start of tests for: #in_preference_hours?
+  ###########################################
+
+  # normal work hours, event in range
+  # start at 8am, end at 4pm, event at 3pm
+  resp = exec(:in_preference_hours?, 8.0, 16.0, 15.0).get
+  resp.should eq true
+
+  # normal work hours, event out of range (after)
+  # start at 8am, end at 4pm, event at 5pm
+  resp = exec(:in_preference_hours?, 8.0, 16.0, 17.0).get
+  resp.should eq nil
+
+  # normal work hours, event out of range (before)
+  # start at 8am, end at 4pm, event at 6am
+  resp = exec(:in_preference_hours?, 8.0, 16.0, 6.0).get
+  resp.should eq nil
+
+  # work hours crosses midnight, event in range
+  # start at 10pm, end at 6am, event at 3am
+  resp = exec(:in_preference_hours?, 22.0, 6.0, 3.0).get
+  resp.should eq true
+
+  # work hours crosses midnight, event out of range (after)
+  # start at 10pm, end at 6am, event at 7am
+  resp = exec(:in_preference_hours?, 22.0, 6.0, 7.0).get
+  resp.should eq nil
+
+  # work hours crosses midnight, event out of range (before)
+  # start at 10pm, end at 6am, event at 8pm
+  resp = exec(:in_preference_hours?, 22.0, 6.0, 20.0).get
+  resp.should eq nil
+
+  #########################################
+  # End of tests for: #in_preference_hours?
+
+  # Start of tests for: #enabled?
+  ###############################
+
   # disabled wehn both time_before and time_after are 0
   settings({
     auto_release: {
@@ -422,88 +584,6 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp = exec(:enabled?).get
   resp.should eq nil
 
-  # Settings for remaining tests.
-  settings({
-    time_window_hours: 8,
-    auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
-    },
-  })
-
-  resp = exec(:get_building_id).get
-  resp.should eq "zone-1234"
-
-  resp = exec(:get_pending_bookings).get
-  resp.not_nil!.as_a.size.should eq 7
-
-  resp = exec(:get_user_preferences?, "user-wfh").get
-  resp.not_nil!.as_h.keys.should eq ["work_preferences", "work_overrides"]
-
-  # normal work hours, event in range
-  # start at 8am, end at 4pm, event at 3pm
-  resp = exec(:in_preference_hours?, 8.0, 16.0, 15.0).get
-  resp.should eq true
-
-  # normal work hours, event out of range (after)
-  # start at 8am, end at 4pm, event at 5pm
-  resp = exec(:in_preference_hours?, 8.0, 16.0, 17.0).get
-  resp.should eq nil
-
-  # normal work hours, event out of range (before)
-  # start at 8am, end at 4pm, event at 6am
-  resp = exec(:in_preference_hours?, 8.0, 16.0, 6.0).get
-  resp.should eq nil
-
-  # work hours crosses midnight, event in range
-  # start at 10pm, end at 6am, event at 3am
-  resp = exec(:in_preference_hours?, 22.0, 6.0, 3.0).get
-  resp.should eq true
-
-  # work hours crosses midnight, event out of range (after)
-  # start at 10pm, end at 6am, event at 7am
-  resp = exec(:in_preference_hours?, 22.0, 6.0, 7.0).get
-  resp.should eq nil
-
-  # work hours crosses midnight, event out of range (before)
-  # start at 10pm, end at 6am, event at 8pm
-  resp = exec(:in_preference_hours?, 22.0, 6.0, 20.0).get
-  resp.should eq nil
-
-  # this also tests #skip_release?
-  resp = exec(:pending_release).get
-  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 5
-  pending_release.should eq [
-    "ignore",
-    "notify",
-    "reject",
-    "ignore_last_minute_checkin",
-    "ignore_last_minute_schedule_change",
-  ]
-
-  # Should only reject one booking (booking_id: 3, title: reject)
-  resp = exec(:release_bookings).get
-  resp.should eq [3]
-  system(:StaffAPI_1)[:rejected].should eq 1
-
-  # Don't try to reject bookings that have already been rejected
-  resp = exec(:release_bookings).get
-  resp.should eq [3]
-  system(:StaffAPI_1)[:rejected].should eq 1
-
-  # Send email once booking is past the time_before window,
-  # but before the time_after window
-  # (booking_id: 2, title: notify)
-  resp = exec(:send_release_emails).get
-  resp.should eq [2]
-  system(:Mailer_1)[:sent].should eq 1
-
-  # Spam protection, should not send email again
-  resp = exec(:send_release_emails).get
-  resp.should eq [2]
-  system(:Mailer_1)[:sent].should eq 1
-
-  # TODO: test work_overrides
+  #############################
+  # End of tests for: #enabled?
 end
