@@ -142,15 +142,15 @@ class Place::AutoRelease < PlaceOS::Driver
 
     bookings.each do |booking|
       if preferences = get_user_preferences?(booking.user_id)
-        day_of_week = Time.unix(booking.booking_start).day_of_week.value
+        booking_start = Time.unix(booking.booking_start)
+        day_of_week = booking_start.day_of_week.value
         day_of_week = 0 if day_of_week == 7 # Crystal uses 7 for Sunday, but we use 0 (all other days match up)
 
         # convert unix timestamp to float hours/minutes
         # e.g. 7:30AM = 7.5
-        booking_start = Time.unix(booking.booking_start)
         event_time = booking_start.hour + (booking_start.minute / 60.0)
 
-        if (override = preferences[:work_overrides][Time.unix(booking.booking_start).to_s(format: "%F")]?) &&
+        if (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
            in_preference_hours?(override.start_time, override.end_time, event_time) &&
            (@release_locations.includes? override.location)
           results << booking
