@@ -15,8 +15,8 @@ class Place::AutoRelease < PlaceOS::Driver
   # - aol: Away on Leave
   # - wfo: Work From Office
   default_settings({
-    timezone:          "GMT",
-    send_emails:       "*/5 * * * *",
+    email_timezone:    "GMT",
+    email_schedule:    "*/5 * * * *",
     email_template:    "auto_release",
     time_window_hours: 4,
     release_locations: ["wfh", "aol"],
@@ -40,7 +40,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @auto_release_email_errors : UInt64 = 0_u64
 
   @email_template : String = "auto_release"
-  @send_emails : String? = nil
+  @email_schedule : String? = nil
 
   @time_window_hours : Int32 = 1
   @release_locations : Array(String) = ["wfh"]
@@ -49,10 +49,10 @@ class Place::AutoRelease < PlaceOS::Driver
   def on_update
     @building_id = nil
 
-    @send_emails = setting?(String, :send_emails).presence
+    @email_schedule = setting?(String, :email_schedule).presence
     @email_template = setting?(String, :email_template) || "auto_release"
 
-    time_zone = setting?(String, :timezone).presence || "GMT"
+    time_zone = setting?(String, :email_timezone).presence || "GMT"
     @time_zone = Time::Location.load(time_zone)
 
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
@@ -67,7 +67,7 @@ class Place::AutoRelease < PlaceOS::Driver
     # release bookings
     schedule.every(1.minute) { release_bookings }
 
-    if emails = @send_emails
+    if emails = @email_schedule
       schedule.cron(emails, @time_zone) { send_release_emails }
     end
   end
@@ -277,7 +277,7 @@ class Place::AutoRelease < PlaceOS::Driver
     property booking_start : Int64
     property booking_end : Int64
 
-    property timezone : String?
+    property email_timezone : String?
     property title : String?
     property description : String?
 
