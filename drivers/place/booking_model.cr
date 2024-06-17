@@ -4,7 +4,7 @@ class Place::Booking
   include JSON::Serializable
 
   # This is to support events
-  property action : String?
+  property action : String? = nil
 
   property id : Int64
   property booking_type : String
@@ -26,7 +26,6 @@ class Place::Booking
 
   property zones : Array(String)
 
-  property checked_in : Bool?
   property rejected : Bool?
   property approved : Bool?
   property process_state : String?
@@ -51,5 +50,32 @@ class Place::Booking
 
   def changed
     Time.unix(last_changed.not_nil!)
+  end
+
+  def initialize(
+    @id,
+    @booking_type,
+    @booking_start,
+    @booking_end,
+    @user_id,
+    @user_email,
+    @user_name,
+    @zones,
+    @booked_by_name,
+    @booked_by_email,
+    @action = nil,
+    @timezone = nil,
+    @asset_id = nil,
+    @resource_id = nil,
+    @checked_in = nil,
+    @rejected = nil,
+    @approved = nil,
+    @process_state = nil,
+    @last_changed = nil,
+    @approver_name = nil,
+    @approver_email = nil,
+    @title = nil,
+    @description = nil
+  )
   end
 end
