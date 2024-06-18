@@ -27,7 +27,6 @@ class Place::Parking::Locations < PlaceOS::Driver
 
   @timezone : Time::Location = Time::Location::UTC
   @expose_for_analytics : Hash(String, String) = {} of String => String
-  @zone_filter : Array(String) = [] of String
   @poll_rate : Time::Span = 60.seconds
 
   BOOKING_TYPE      = "parking"
@@ -45,7 +44,6 @@ class Place::Parking::Locations < PlaceOS::Driver
   end
 
   def on_update
-    @zone_filter = setting?(Array(String), :zone_filter) || [] of String
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
     @expose_for_analytics = setting?(Hash(String, String), :expose_for_analytics) || {} of String => String
 
@@ -64,12 +62,17 @@ class Place::Parking::Locations < PlaceOS::Driver
     hash
   end
 
+  getter zone_filter : Array(String) do
+    lvb = level_buildings
+    (lvb.keys + lvb.values).uniq
+  end
+
   # ===================================
   # Monitoring desk bookings
   # ===================================
   protected def booking_changed(event)
     return unless event.booking_type == BOOKING_TYPE
-    matching_zones = @zone_filter & event.zones
+    matching_zones = zone_filter & event.zones
     return if matching_zones.empty?
 
     logger.debug { "booking event is in a matching zone" }
@@ -232,18 +235,22 @@ class Place::Parking::Locations < PlaceOS::Driver
   @known_users : Hash(String, Tuple(String, String)) = Hash(String, Tuple(String, String)).new
 
   def parking_spaces : Hash(String, Array(ParkingSpace))
-    metadata = ChildMetadata.from_json(staff_api.metadata_children(
-      @zone_filter.first,
-      METADATA_KEY
-    ).get.to_json)
+    metadatas = level_buildings.values.uniq.map do |zone_id|
+      ChildMetadata.from_json(staff_api.metadata_children(
+        zone_id,
+        METADATA_KEY
+      ).get.to_json)
+    end
 
     zone_parking = Hash(String, Array(ParkingSpace)).new
 
-    metadata.each do |level|
-      zone = level[:zone]
-      spaces = level[:metadata][METADATA_KEY].details
-
-      zone_parking[zone.id] = spaces
+    metadatas.each do |metadata|
+      metadata.each do |level|
+        zone = level[:zone]
+        if spaces = level[:metadata][METADATA_KEY]?.try(&.details)
+          zone_parking[zone.id] = spaces
+        end
+      end
     end
 
     zone_parking
@@ -261,7 +268,7 @@ class Place::Parking::Locations < PlaceOS::Driver
 
     # bookings for general access spaces
     bookings = [] of JSON::Any
-    @zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: BOOKING_TYPE, zones: {zone}).get.as_a }
+    zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: BOOKING_TYPE, zones: {zone}).get.as_a }
     bookings = bookings.map do |booking|
       booking = Booking.from_json(booking.to_json)
       booking.user_email = booking.user_email.downcase
@@ -272,7 +279,7 @@ class Place::Parking::Locations < PlaceOS::Driver
 
     # check if any of the reserved spaces have been made available
     release_bookings = [] of JSON::Any
-    @zone_filter.each { |zone| release_bookings.concat staff_api.query_bookings(type: RESERVED_RELEASED, zones: {zone}).get.as_a }
+    zone_filter.each { |zone| release_bookings.concat staff_api.query_bookings(type: RESERVED_RELEASED, zones: {zone}).get.as_a }
     release_bookings = release_bookings.map do |booking|
       booking = Booking.from_json(booking.to_json)
       booking.user_email = booking.user_email.downcase
