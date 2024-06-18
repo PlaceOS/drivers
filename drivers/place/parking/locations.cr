@@ -266,9 +266,11 @@ class Place::Parking::Locations < PlaceOS::Driver
       "queried reserved spaces, found #{count}"
     end
 
+    parking_zones = reserved_spaces.keys
+
     # bookings for general access spaces
     bookings = [] of JSON::Any
-    zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: BOOKING_TYPE, zones: {zone}).get.as_a }
+    parking_zones.each { |zone| bookings.concat staff_api.query_bookings(type: BOOKING_TYPE, zones: {zone}).get.as_a }
     bookings = bookings.map do |booking|
       booking = Booking.from_json(booking.to_json)
       booking.user_email = booking.user_email.downcase
@@ -279,7 +281,7 @@ class Place::Parking::Locations < PlaceOS::Driver
 
     # check if any of the reserved spaces have been made available
     release_bookings = [] of JSON::Any
-    zone_filter.each { |zone| release_bookings.concat staff_api.query_bookings(type: RESERVED_RELEASED, zones: {zone}).get.as_a }
+    parking_zones.each { |zone| release_bookings.concat staff_api.query_bookings(type: RESERVED_RELEASED, zones: {zone}).get.as_a }
     release_bookings = release_bookings.map do |booking|
       booking = Booking.from_json(booking.to_json)
       booking.user_email = booking.user_email.downcase
