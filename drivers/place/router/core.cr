@@ -39,6 +39,8 @@ module Place::Router::Core
 
   private getter! resolver : Hash(String, NodeRef)
 
+  getter current_routes : Hash(String, String?) = {} of String => String?
+
   def on_update
     load_siggraph
   end
@@ -129,13 +131,19 @@ module Place::Router::Core
       key = to_name.call node.ref
 
       persist.call "output/#{key}", node
+      source_ref = node.source
+      current_routes[key] = source_ref ? to_name.call(source_ref.as(NodeRef)) : nil
       node["name"] ||= key
 
       # Discover inputs available to each output
       reachable = siggraph.inputs(node.ref).select &.in?(inputs)
       node["inputs"] = reachable.map(&.ref).map(&to_name).to_a
 
-      node.watch { self["output/#{key}"] = node }
+      node.watch do
+        source_ref = node.source
+        current_routes[key] = source_ref ? to_name.call(source_ref.as(NodeRef)) : nil
+        self["output/#{key}"] = node
+      end
       key
     end
 

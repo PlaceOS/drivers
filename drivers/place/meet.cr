@@ -108,6 +108,8 @@ class Place::Meet < PlaceOS::Driver
   @local_vidconf : String = "VidConf_1"
   @ignore_update : Int64 = 0_i64
 
+  # core includes: 'current_routes' hash
+
   def on_update
     return if (Time.utc.to_unix - @ignore_update) < 3
 
