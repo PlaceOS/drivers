@@ -18,7 +18,7 @@ class Place::Router::SignalGraph
       {% verbatim do %}
         macro finished
           {% for method in @type.methods.select &.name.ends_with? '=' %}
-            def {{method.name}}({{*method.args}})
+            def {{method.name}}({{method.args.splat}})
               previous_def.tap { notify }
             end
           {% end %}
