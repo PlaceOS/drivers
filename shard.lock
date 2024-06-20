@@ -85,10 +85,6 @@ shards:
     git: https://github.com/arcage/crystal-email.git
     version: 0.6.4
 
-  etcd:
-    git: https://github.com/place-labs/crystal-etcd.git
-    version: 1.2.5
-
   eventbus:
     git: https://github.com/spider-gazelle/eventbus.git
     version: 0.9.9+git.commit.ca8ef0c5e21ee15da079edd5bcea39bee7e07f26
@@ -120,10 +116,6 @@ shards:
   halite:
     git: https://github.com/icyleaf/halite.git
     version: 0.12.1
-
-  hound-dog:
-    git: https://github.com/place-labs/hound-dog.git
-    version: 2.9.1
 
   http-client-digest_auth:
     git: https://github.com/mamantoha/http-client-digest_auth.git
@@ -164,10 +156,6 @@ shards:
   link-header:
     git: https://github.com/spider-gazelle/link-header.git
     version: 1.0.2
-
-  log_helper:
-    git: https://github.com/spider-gazelle/log_helper.git
-    version: 1.0.3
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
@@ -267,7 +255,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 6.10.0
+    version: 7.1.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -308,6 +296,10 @@ shards:
   redis-cluster:
     git: https://github.com/caspiano/redis-cluster.cr.git
     version: 0.8.5
+
+  redis_service_manager:
+    git: https://github.com/place-labs/redis_service_manager.git
+    version: 3.1.1
 
   rendezvous-hash:
     git: https://github.com/caspiano/rendezvous-hash.git
