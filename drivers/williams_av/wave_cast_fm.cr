@@ -168,6 +168,16 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def set_random_join_code(size : Int32 = 4)
+    pin = String.build do |str|
+      size.times do
+        rand(9).to_s(str)
+      end
+    end
+    set_join_code(pin)
+  end
+
+  @[Security(Level::Support)]
   def reboot
     write(Command::TDU8_REBOOT, 1_u8)
   end
