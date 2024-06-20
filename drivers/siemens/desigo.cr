@@ -50,7 +50,7 @@ class Siemens::Desigo < PlaceOS::Driver
   end
 
   # Because of the introspect failing on generics,
-  # we can pass in the `command_inputs_for_execution` as a JSON string.
+  # we can pass in the `command_inputs_for_execution` as a JSON string
   # "[{\"Name\": \"Value\", \"DataType\": \"ExtendedEnum\", \"Value\": \"1\"}]"
   def execute(id : String, property_name : String, command_id : String, command_inputs_for_execution : String)
     return_value = @client.try(&.commands.execute(id: id, property_name: property_name, command_id: command_id, command_inputs_for_execution: JSON.parse(command_inputs_for_execution)))
