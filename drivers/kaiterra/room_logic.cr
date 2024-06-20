@@ -6,8 +6,8 @@ class Kaiterra::RoomLogic < PlaceOS::Driver
   description "Abstracts room sensors for Kaiterra"
 
   default_settings({
-    kaiterra_room_id: "Paste Kaiterra Room ID here",
-    kaiterra_status_poll_cron:  "*/5 * * * *",
+    kaiterra_room_id:          "Paste Kaiterra Room ID here",
+    kaiterra_status_poll_cron: "*/5 * * * *",
   })
 
   accessor kaiterra : Kaiterra
