@@ -1,14 +1,16 @@
+require "placeos-driver"
+require "placeos-driver/interface/lockers"
+require "placeos-driver/interface/desk_control"
 require "uri"
 require "jwt"
 require "./models"
-require "placeos-driver/interface/lockers"
-require "placeos-driver"
 
 # Documentation:
 # https://apiguide.smartalock.com/
 # https://documenter.getpostman.com/view/8843075/SVmwvctF?version=latest#3bfbb050-722d-4433-889a-8793fa90af9c
 
 class Floorsense::DesksWebsocket < PlaceOS::Driver
+  include Interface::DeskControl
   include Interface::Lockers
 
   alias PlaceLocker = PlaceOS::Driver::Interface::Lockers::PlaceLocker
@@ -781,6 +783,38 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
     check_success(response)
   end
+
+  # ======================
+  # Desk control interface
+  # ======================
+
+  def set_desk_height(desk_key : String, desk_height : Int32)
+    desk_control(desk_key, desk_height: desk_height)
+  end
+
+  def get_desk_height(desk_key : String) : Int32?
+    nil
+  end
+
+  def set_desk_power(desk_key : String, desk_power : Bool?)
+    power = case desk_power
+            when true
+              DeskPower::On
+            when false
+              DeskPower::Off
+            when nil
+              DeskPower::Policy
+            else
+              raise "unknown power state: #{desk_power}"
+            end
+    desk_control(desk_key, desk_power: power)
+  end
+
+  def get_desk_power(desk_key : String) : Bool?
+    nil
+  end
+
+  # ======================
 
   def user_groups_list(in_use : Bool = true)
     query = in_use ? "inuse=1" : ""
