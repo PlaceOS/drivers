@@ -167,6 +167,7 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
     write(Command::TDSTR_JOIN_CODE, pin)
   end
 
+  # creates a numeric pin size digits long
   @[Security(Level::Support)]
   def set_random_join_code(size : Int32 = 4)
     pin = String.build do |str|
