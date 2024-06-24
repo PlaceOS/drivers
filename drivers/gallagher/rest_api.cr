@@ -37,6 +37,10 @@ class Gallagher::RestAPI < PlaceOS::Driver
     # changes the channel when you want to isolate signals
     door_event_channel: "event",
 
+    # for client certificate authentication
+    # https_private_key: "PEM format",
+    # https_client_cert: "PEM format",
+
     # obtain the list of these at: /api/events/groups/
     event_mappings: [
       {
