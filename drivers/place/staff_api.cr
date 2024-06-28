@@ -452,8 +452,8 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON::Any.from_json(response.body)
   end
 
-  # search for metadata that exists on events to obtain the event information
-  # for response details see `EventMetadata__Assigner` in the OpenAPI docs
+  # Search for metadata that exists on events to obtain the event information.
+  # For response details see `EventMetadata__Assigner` in the OpenAPI docs
   # https://editor.swagger.io/?url=https://raw.githubusercontent.com/PlaceOS/staff-api/master/OPENAPI_DOC.yml
   def query_metadata(
     period_start : Int64? = nil,
