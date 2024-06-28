@@ -175,7 +175,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.13.0
+    version: 1.13.1
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -243,7 +243,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.10.0
+    version: 2.11.0
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
