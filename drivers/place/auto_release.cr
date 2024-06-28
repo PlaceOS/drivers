@@ -24,7 +24,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
   accessor staff_api : StaffAPI_1
 
-  getter building_id : String { get_building_id.not_nil! }
+  getter building_zone : Zone { get_building_zone?.not_nil! }
 
   def mailer
     system.implementing(Interface::Mailer)[0]
@@ -47,7 +47,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @auto_release : AutoReleaseConfig = AutoReleaseConfig.new
 
   def on_update
-    @building_id = nil
+    @building_zone = nil
 
     @email_schedule = setting?(String, :email_schedule).presence
     @email_template = setting?(String, :email_template) || "auto_release"
@@ -72,21 +72,28 @@ class Place::AutoRelease < PlaceOS::Driver
     end
   end
 
-  # Finds the building ID for the current location services object
-  def get_building_id
-    zone_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
-    (zone_ids & system.zones).first
+  # Finds the building zone for the current location services object
+  def get_building_zone? : Zone?
+    zones = Array(Zone).from_json staff_api.zones(tags: "building").get.to_json
+    zone_ids = zones.map(&.id)
+    zone_id = (zone_ids & system.zones).first
+    zones.find { |zone| zone.id == zone_id }
   rescue error
-    logger.warn(exception: error) { "unable to determine building zone id" }
+    logger.warn(exception: error) { "unable to determine building zone" }
     nil
   end
 
   @[Security(Level::Support)]
   def enabled? : Bool
     if !@auto_release.resources.empty? &&
-       (@auto_release.time_before > 0 || @auto_release.time_after > 0)
+       (@auto_release.time_before > 0 || @auto_release.time_after > 0) &&
+       !building_zone.time_location?.nil?
       true
     else
+      logger.notice { "auto release is not enabled on zone #{building_zone.id}" }
+      logger.debug { "auto release is not enabled on zone #{building_zone.id} due to auto_release.resources being empty" } if @auto_release.resources.empty?
+      logger.debug { "auto release is not enabled on zone #{building_zone.id} due to auto_release.time_before and auto_release.time_after being 0" } if @auto_release.time_before.zero? && @auto_release.time_after.zero?
+      logger.debug { "auto release is not enabled on zone #{building_zone.id} due to building_zone.time_location being nil" } if building_zone.time_location?.nil?
       false
     end
   end
@@ -100,7 +107,7 @@ class Place::AutoRelease < PlaceOS::Driver
         type: type,
         period_start: Time.utc.to_unix,
         period_end: (Time.utc + @time_window_hours.hours).to_unix,
-        zones: [building_id],
+        zones: [building_zone.id],
         checked_in: false,
       ).get.to_json
       results += bookings
@@ -138,11 +145,15 @@ class Place::AutoRelease < PlaceOS::Driver
   @[Security(Level::Support)]
   def pending_release
     results = [] of Booking
+    return results unless enabled?
+
     bookings = get_pending_bookings
 
     bookings.each do |booking|
       if preferences = get_user_preferences?(booking.user_id)
-        booking_start = Time.unix(booking.booking_start)
+        # get the booking start time in the building timezone
+        booking_start = Time.unix(booking.booking_start).in building_zone.time_location!
+
         day_of_week = booking_start.day_of_week.value
         day_of_week = 0 if day_of_week == 7 # Crystal uses 7 for Sunday, but we use 0 (all other days match up)
 
@@ -178,6 +189,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def release_bookings
     released_booking_ids = [] of Int64
+    return released_booking_ids unless enabled?
+
     bookings = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
 
     previously_released = self[:released_booking_ids]? ? Array(Int64).from_json(self[:released_booking_ids].to_json) : [] of Int64
@@ -190,7 +203,7 @@ class Place::AutoRelease < PlaceOS::Driver
       next if previously_released.includes? booking.id
 
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
-      if enabled? && Time.utc.to_unix - booking.booking_start > @auto_release.time_after * 60
+      if Time.utc.to_unix - booking.booking_start > @auto_release.time_after * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
         next if skip_release?(booking)
 
@@ -296,5 +309,33 @@ class Place::AutoRelease < PlaceOS::Driver
     property process_state : String?
     property last_changed : Int64?
     property created : Int64?
+  end
+
+  struct Zone
+    include JSON::Serializable
+
+    property id : String
+
+    property name : String
+    property description : String
+    property tags : Set(String)
+    property location : String?
+    property display_name : String?
+    property timezone : String?
+
+    property parent_id : String?
+
+    @[JSON::Field(ignore: true)]
+    @time_location : Time::Location?
+
+    def time_location? : Time::Location?
+      if tz = timezone.presence
+        @time_location ||= Time::Location.load(tz)
+      end
+    end
+
+    def time_location! : Time::Location
+      time_location?.not_nil!
+    end
   end
 end
