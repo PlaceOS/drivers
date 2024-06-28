@@ -247,8 +247,8 @@ class StaffAPI < DriverSpecs::MockDriver
       work_preferences: 7.times.map do |i|
         {
           day_of_week: i,
-          start_time:  (Time.utc - 4.hours).hour,
-          end_time:    (Time.utc + 4.hours).hour,
+          start_time:  (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
+          end_time:    (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
           location:    "wfh",
         }
       end,
@@ -287,8 +287,8 @@ class StaffAPI < DriverSpecs::MockDriver
       work_preferences: 7.times.map do |i|
         {
           day_of_week: i,
-          start_time:  (Time.utc - 4.hours).hour,
-          end_time:    (Time.utc + 4.hours).hour,
+          start_time:  (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
+          end_time:    (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
           location:    "wfo",
         }
       end,
@@ -346,6 +346,7 @@ class StaffAPI < DriverSpecs::MockDriver
         ],
         triggers:  [] of String,
         parent_id: "zone-0000",
+        timezone:  "Australia/Sydney",
       },
     ]
 
@@ -403,8 +404,8 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     },
   })
 
-  resp = exec(:get_building_id).get
-  resp.should eq "zone-1234"
+  resp = exec(:get_building_zone?).get
+  resp.not_nil!.as_h["id"].should eq "zone-1234"
 
   resp = exec(:get_pending_bookings).get
   resp.not_nil!.as_a.size.should eq 8
