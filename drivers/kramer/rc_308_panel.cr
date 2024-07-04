@@ -64,7 +64,6 @@ class Kramer::RC308Panel < PlaceOS::Driver
   end
 
   def button_state?(index : UInt8, priority : Int32 = 0)
-    send "#BTN? #{index}\r", priority: priority
     send "#RGB? #{index}\r", priority: priority
   end
 
