@@ -32,6 +32,10 @@ class Kramer::RC308Panel < PlaceOS::Driver
   def on_load
     transport.tokenizer = Tokenizer.new(DELIMITER)
     on_update
+
+    (0..@button_count).each do |idx|
+      self["button#{idx}_state"] = ButtonAction::Released
+    end
   end
 
   def on_update
@@ -60,6 +64,7 @@ class Kramer::RC308Panel < PlaceOS::Driver
   end
 
   def button_state?(index : UInt8, priority : Int32 = 0)
+    send "#BTN? #{index}\r", priority: priority
     send "#RGB? #{index}\r", priority: priority
   end
 
