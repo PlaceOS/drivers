@@ -7,6 +7,8 @@ class Place::Demo::Display < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Muteable
 
+  udp_port 6137
+
   enum Input
     DVI         =  1
     HDMI        = 10
