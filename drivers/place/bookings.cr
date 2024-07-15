@@ -515,6 +515,37 @@ class Place::Bookings < PlaceOS::Driver
     [] of Nil
   end
 
+  def people_count? : Float64?
+    drivers = system.implementing(Interface::Sensor)
+    count_data = drivers.sensors("people_count", @sensor_mac).get.flat_map(&.as_a).first?
+
+    return nil unless count_data
+    return nil if is_stale?(count_data["last_seen"]?.try &.as_i64)
+
+    data = count_data["value"]
+    (data.as_f? || data.as_i).to_f
+  rescue error
+    logger.warn(exception: error) { "error checking people count" }
+    nil
+  end
+
+  def people_present? : Bool?
+    count = people_count?
+    return count > 0.0 if count
+
+    drivers = system.implementing(Interface::Sensor)
+    presence_data = drivers.sensors("presence", @sensor_mac).get.flat_map(&.as_a).first?
+
+    return nil unless presence_data
+    return nil if is_stale?(presence_data["last_seen"]?.try &.as_i64)
+
+    data = presence_data["value"]
+    (data.as_f? || data.as_i).to_f > 0.0
+  rescue error
+    logger.warn(exception: error) { "error checking people presence" }
+    nil
+  end
+
   @sensor_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
 
   protected def check_for_sensors
