@@ -243,13 +243,13 @@ class Place::Bookings < PlaceOS::Driver
 
     if @application_permissions
       host_calendar = @calendar_id
-      attendees = [PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, true)]
-      attendees << PlaceCalendar::Event::Attendee.new(owner, owner) if owner && !owner.empty?
+      attendees = [::PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, true)]
+      attendees << ::PlaceCalendar::Event::Attendee.new(owner, owner) if owner && !owner.empty?
     else
       host_calendar = owner.presence || @calendar_id
       room_is_organizer = host_calendar == room_email
       attendees = [
-        PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer),
+        ::PlaceCalendar::Event::Attendee.new(room_email, room_email, "accepted", true, room_is_organizer),
       ]
     end
 
@@ -433,15 +433,15 @@ class Place::Bookings < PlaceOS::Driver
     self[:status] = (current_pending || next_pending) ? "pending" : (booked ? "busy" : "free")
   end
 
-  protected def current : PlaceCalendar::Event?
-    status?(PlaceCalendar::Event, :current_booking)
+  protected def current : ::PlaceCalendar::Event?
+    status?(::PlaceCalendar::Event, :current_booking)
   end
 
-  protected def upcoming : PlaceCalendar::Event?
-    status?(PlaceCalendar::Event, :next_booking)
+  protected def upcoming : ::PlaceCalendar::Event?
+    status?(::PlaceCalendar::Event, :next_booking)
   end
 
-  protected def pending : PlaceCalendar::Event?
+  protected def pending : ::PlaceCalendar::Event?
     if @current_pending
       current
     elsif @next_pending
@@ -452,7 +452,7 @@ class Place::Bookings < PlaceOS::Driver
   # ===================================
   # Locatable Interface functions
   # ===================================
-  protected def to_location_format(events : Enumerable(PlaceCalendar::Event))
+  protected def to_location_format(events : Enumerable(::PlaceCalendar::Event))
     sys = system.config
     events.map do |event|
       event_ends = event.all_day? ? event.event_start.in(@time_zone).at_end_of_day : event.event_end.not_nil!
@@ -474,7 +474,7 @@ class Place::Bookings < PlaceOS::Driver
 
     email = email.to_s.downcase
     username = username.to_s.downcase
-    matching_events = [] of PlaceCalendar::Event
+    matching_events = [] of ::PlaceCalendar::Event
 
     if event = current
       emails = event.attendees.map(&.email.downcase)
@@ -669,7 +669,7 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   # TODO:: remove in the future
-  struct PlaceCalendar::Subscription
+  struct ::PlaceCalendar::Subscription
     @client_secret : String | Int64?
 
     def client_secret
@@ -685,7 +685,7 @@ class Place::Bookings < PlaceOS::Driver
     end
   end
 
-  @subscription : PlaceCalendar::Subscription? = nil
+  @subscription : ::PlaceCalendar::Subscription? = nil
   @push_notification_url : String? = nil
   @push_authority : String? = nil
   @push_service_name : ServiceName? = nil
@@ -701,7 +701,7 @@ class Place::Bookings < PlaceOS::Driver
     @push_authority = setting?(String, :push_authority).presence
 
     # load any existing subscriptions
-    subscription = setting?(PlaceCalendar::Subscription, :push_subscription)
+    subscription = setting?(::PlaceCalendar::Subscription, :push_subscription)
 
     if @push_notification_url
       # clear the monitoring if authority changed
@@ -747,7 +747,7 @@ class Place::Bookings < PlaceOS::Driver
           logger.debug { "renewing subscription" }
           expires = SUBSCRIPTION_LENGTH.from_now
           sub = calendar.renew_notifier(subscription, expires.to_unix).get
-          @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
+          @subscription = ::PlaceCalendar::Subscription.from_json(sub.to_json)
 
           # save the subscription details for processing
           define_setting(:push_subscription, @subscription)
@@ -767,7 +767,7 @@ class Place::Bookings < PlaceOS::Driver
   end
 
   protected def configure_push_monitoring
-    subscription = @subscription.as(PlaceCalendar::Subscription)
+    subscription = @subscription.as(::PlaceCalendar::Subscription)
     channel_path = "#{subscription.id}/event"
 
     if old = @push_monitoring
@@ -855,7 +855,7 @@ class Place::Bookings < PlaceOS::Driver
       expires = SUBSCRIPTION_LENGTH.from_now
       push_secret = "a#{Random.new.hex(4)}"
       sub = calendar.create_notifier(resource, @push_notification_url, expires.to_unix, push_secret, @push_notification_url).get
-      @subscription = PlaceCalendar::Subscription.from_json(sub.to_json)
+      @subscription = ::PlaceCalendar::Subscription.from_json(sub.to_json)
 
       # save the subscription details for processing
       define_setting(:push_subscription, @subscription)
