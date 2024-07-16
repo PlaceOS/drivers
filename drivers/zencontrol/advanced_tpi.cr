@@ -125,7 +125,7 @@ class Zencontrol::AdvancedTPI < PlaceOS::Driver
     }
   end
 
-  class PlaceOS::Driver::Task
+  class ::PlaceOS::Driver::Task
     property request_payload : Zencontrol::AdvancedTPI::BasicRequest? = nil
   end
 

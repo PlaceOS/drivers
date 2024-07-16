@@ -23,7 +23,7 @@ module Place::CalendarCommon
   )
 
   macro included
-    @client : PlaceCalendar::Client? = nil
+    @client : ::PlaceCalendar::Client? = nil
     @service_account : String? = nil
     @rate_limit : Int32 = 10
     @channel : Channel(Nil) = Channel(Nil).new(9)
@@ -71,7 +71,7 @@ module Place::CalendarCommon
     # Work around crystal limitation of splatting a union
     @client = begin
       config = setting(GoogleParams, :calendar_config)
-      cli = PlaceCalendar::Client.new(**config)
+      cli = ::PlaceCalendar::Client.new(**config)
 
       # only google uses the rate limiter
       @channel = Channel(Nil).new(9)
@@ -80,7 +80,7 @@ module Place::CalendarCommon
       cli
     rescue
       config = setting(OfficeParams, :calendar_config)
-      PlaceCalendar::Client.new(**config)
+      ::PlaceCalendar::Client.new(**config)
     end
   end
 
@@ -172,7 +172,7 @@ module Place::CalendarCommon
     client &.get_groups(user_id)
   end
 
-  class PlaceCalendar::Member
+  class ::PlaceCalendar::Member
     property next_page : String? = nil
   end
 
@@ -198,7 +198,7 @@ module Place::CalendarCommon
     members
   end
 
-  class PlaceCalendar::User
+  class ::PlaceCalendar::User
     property next_page : String? = nil
   end
 
@@ -344,7 +344,7 @@ module Place::CalendarCommon
     event_start : Int64,
     event_end : Int64? = nil,
     description : String = "",
-    attendees : Array(PlaceCalendar::Event::Attendee) = [] of PlaceCalendar::Event::Attendee,
+    attendees : Array(::PlaceCalendar::Event::Attendee) = [] of ::PlaceCalendar::Event::Attendee,
     location : String? = nil,
     timezone : String? = nil,
     user_id : String? = nil,
@@ -361,7 +361,7 @@ module Place::CalendarCommon
 
     logger.debug { "creating event on #{calendar_id}" }
 
-    event = PlaceCalendar::Event.new(
+    event = ::PlaceCalendar::Event.new(
       host: calendar_id,
       title: title,
       body: description,
@@ -386,7 +386,7 @@ module Place::CalendarCommon
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def update_event(event : PlaceCalendar::Event, user_id : String? = nil, calendar_id : String? = nil)
+  def update_event(event : ::PlaceCalendar::Event, user_id : String? = nil, calendar_id : String? = nil)
     user_id = (user_id || @service_account.presence || calendar_id).not_nil!
     calendar_id = calendar_id || user_id
 
@@ -401,26 +401,26 @@ module Place::CalendarCommon
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def create_notifier(resource : String, notification_url : String, expiration_time : Int64, client_secret : String? = nil, lifecycle_notification_url : String? = nil) : PlaceCalendar::Subscription
+  def create_notifier(resource : String, notification_url : String, expiration_time : Int64, client_secret : String? = nil, lifecycle_notification_url : String? = nil) : ::PlaceCalendar::Subscription
     expires = Time.unix expiration_time
     client &.create_notifier(resource, notification_url, expires, client_secret, lifecycle_notification_url: lifecycle_notification_url)
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def renew_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Int64) : PlaceCalendar::Subscription
+  def renew_notifier(subscription : ::PlaceCalendar::Subscription, new_expiration_time : Int64) : ::PlaceCalendar::Subscription
     expires = Time.unix new_expiration_time
     client &.renew_notifier(subscription, expires)
   end
 
   # NOTE:: GraphAPI Only!
   @[PlaceOS::Driver::Security(Level::Support)]
-  def reauthorize_notifier(subscription : PlaceCalendar::Subscription, new_expiration_time : Int64? = nil) : PlaceCalendar::Subscription
+  def reauthorize_notifier(subscription : ::PlaceCalendar::Subscription, new_expiration_time : Int64? = nil) : ::PlaceCalendar::Subscription
     expires = new_expiration_time ? Time.unix(new_expiration_time) : nil
     client &.reauthorize_notifier(subscription, expires)
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def delete_notifier(subscription : PlaceCalendar::Subscription) : Nil
+  def delete_notifier(subscription : ::PlaceCalendar::Subscription) : Nil
     client &.delete_notifier(subscription)
   end
 

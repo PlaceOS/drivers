@@ -65,11 +65,11 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   getter! user_group_id : String
   getter! integriti_security_group : String
 
-  class PlaceCalendar::Member
+  class ::PlaceCalendar::Member
     property next_page : String? = nil
   end
 
-  alias DirUser = PlaceCalendar::Member
+  alias DirUser = ::PlaceCalendar::Member
 
   def perform_user_sync
     return "already syncing" if @syncing
