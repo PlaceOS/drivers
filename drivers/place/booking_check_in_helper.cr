@@ -251,8 +251,8 @@ STRING
       return
     end
 
-    present = (Bool | Nil).from_json(bookings.people_present?.get.to_json)
-    if present || present.nil?
+    present = (Float64 | Nil).from_json(bookings.people_present?.get.to_json)
+    if present.nil? || present > 0.0
       logger.debug { "not prompting as people present or presence is unknown: #{present.inspect}" }
       return
     end

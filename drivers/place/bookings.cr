@@ -529,9 +529,9 @@ class Place::Bookings < PlaceOS::Driver
     nil
   end
 
-  def people_present? : Bool?
+  def people_present? : Float64?
     count = people_count?
-    return count > 0.0 if count
+    return count > 0.0 ? 1.0 : 0.0 if count
 
     drivers = system.implementing(Interface::Sensor)
     presence_data = drivers.sensors("presence", @sensor_mac).get.flat_map(&.as_a).first?
@@ -540,7 +540,7 @@ class Place::Bookings < PlaceOS::Driver
     return nil if is_stale?(presence_data["last_seen"]?.try &.as_i64)
 
     data = presence_data["value"]
-    (data.as_f? || data.as_i).to_f > 0.0
+    (data.as_f? || data.as_i).to_f > 0.0 ? 1.0 : 0.0
   rescue error
     logger.warn(exception: error) { "error checking people presence" }
     nil
