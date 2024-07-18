@@ -3,7 +3,7 @@ require "placeos-driver"
 # Documentation: https://aca.im/driver_docs/WilliamsAV/WaveCAST-MAN-262D-WCFM.pdf
 
 class WilliamsAV::WaveCastFM < PlaceOS::Driver
-  # Discovery Information
+  # Discovery Information:
   generic_name :HearingAugmentation
   descriptive_name "WilliamsAV WaveCast / FM"
   uri_base "http://192.168.0.1"
