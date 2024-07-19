@@ -96,6 +96,10 @@ class KNX::TunnelDriver < PlaceOS::Driver
     schedule.clear
   end
 
+  # =========
+  # Callbacks
+  # =========
+
   protected def knx_connected_state(connected : Bool, error : KNX::ConnectionError)
     logger.debug { "<KNX> connection state: #{connected} (#{error})" }
     @knx_client_connected = connected
@@ -116,6 +120,10 @@ class KNX::TunnelDriver < PlaceOS::Driver
     logger.debug { "<KNX> received: #{cemi.inspect}" }
     self[cemi.destination_address.to_s] = cemi.data.hexstring
   end
+
+  # =========
+  # Interface
+  # =========
 
   def action(address : String, data : Bool | Int32 | Float32 | String) : Nil
     knx_client.action(address, data)
