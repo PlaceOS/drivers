@@ -76,11 +76,13 @@ class KNX::TunnelDriver < PlaceOS::Driver
 
   # this is called when we're connected to dispatcher and can receive messages
   def connected
+    logger.debug { "Websocket connected!" }
     @websocket_connected = true
 
     schedule.clear
     client = knx_client
     schedule.every(1.minute) do
+      logger.debug { "Polling KNX connection" }
       client.connected? ? client.query_state : client.connect
     end
 
@@ -92,6 +94,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
   end
 
   def disconnected
+    logger.debug { "Websocket disconnected!" }
     @websocket_connected = false
     schedule.clear
   end
@@ -112,7 +115,11 @@ class KNX::TunnelDriver < PlaceOS::Driver
   end
 
   protected def knx_transmit_request(payload : Bytes)
-    logger.debug { "<KNX> transmitting: #{payload.hexstring}" }
+    logger.debug do
+      io = IO::Memory.new(payload)
+      header = io.read_bytes(KNX::Header)
+      "<KNX> transmitting #{header.inspect}: #{payload.hexstring}"
+    end
     udp_socket.write payload
   end
 
