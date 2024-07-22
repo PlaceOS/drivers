@@ -85,12 +85,6 @@ class KNX::TunnelDriver < PlaceOS::Driver
       logger.debug { "Polling KNX connection" }
       client.connected? ? client.query_state : client.connect
     end
-
-    if @knx_client_connected
-      client.query_state
-    else
-      client.connect
-    end
   end
 
   def disconnected
@@ -118,7 +112,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
     logger.debug do
       io = IO::Memory.new(payload)
       header = io.read_bytes(KNX::Header)
-      "<KNX> transmitting #{header.inspect}: #{payload.hexstring}"
+      "<KNX> transmitting #{header.request_type}: #{payload.hexstring}"
     end
     udp_socket.write payload
   end
@@ -172,6 +166,15 @@ class KNX::TunnelDriver < PlaceOS::Driver
     return unless protocol.message.received?
 
     logger.debug { "received payload: 0x#{protocol.data.hexstring}" }
+    logger.debug do
+      begin
+        io = IO::Memory.new(data)
+        header = io.read_bytes(KNX::Header)
+        "received #{header.request_type} message"
+      rescue error
+        "received bad KNX message"
+      end
+    end
     knx_client.process(protocol.data)
 
     task.try &.success
