@@ -103,7 +103,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
   protected def knx_connected_state(connected : Bool, error : KNX::ConnectionError)
     logger.debug { "<KNX> connection state: #{connected} (#{error})" }
     @knx_client_connected = connected
-    set_connected_state(connected, status_only: true)
+    self[:connected] = connected
 
     # attempt to reconnect
     if !connected && websocket_connected?
@@ -112,7 +112,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
   end
 
   protected def knx_transmit_request(payload : Bytes)
-    logger.debug { "<KNX> transmitting: #{payload.size}" }
+    logger.debug { "<KNX> transmitting: #{payload.hexstring}" }
     udp_socket.write payload
   end
 
@@ -134,13 +134,37 @@ class KNX::TunnelDriver < PlaceOS::Driver
     knx_client.status(address)
   end
 
+  def status_direct(address : String, broadcast : Bool = true)
+    knx = ::KNX.new(broadcast: broadcast)
+    query = knx.status(address).to_slice
+    logger.debug { "writing #{query.hexstring}" }
+    udp_socket.write query
+    message = Bytes.new(512)
+    bytes_read, client_addr = udp_socket.receive(message)
+
+    logger.debug { "received (#{bytes_read} bytes) #{message[0..bytes_read].hexstring}" }
+    knx.read(message[0..bytes_read]).inspect
+  end
+
+  def action_direct(address : String, data : Bool | Int32 | Float32 | String, broadcast : Bool = true)
+    knx = ::KNX.new(broadcast: broadcast)
+    query = knx.action(address, data).to_slice
+    logger.debug { "writing #{query.hexstring}" }
+    udp_socket.write query
+    message = Bytes.new(512)
+    bytes_read, client_addr = udp_socket.receive(message)
+
+    logger.debug { "received (#{bytes_read} bytes) #{message[0..bytes_read].hexstring}" }
+    knx.read(message[0..bytes_read]).inspect
+  end
+
   def received(data, task)
     protocol = IO::Memory.new(data).read_bytes(DispatchProtocol)
     logger.debug { "received message: #{protocol.message}" }
 
     return unless protocol.message.received?
 
-    logger.debug { "dispatch sent: 0x#{protocol.data.hexstring}" }
+    logger.debug { "received payload: 0x#{protocol.data.hexstring}" }
     knx_client.process(protocol.data)
 
     task.try &.success
