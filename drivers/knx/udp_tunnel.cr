@@ -85,6 +85,8 @@ class KNX::TunnelDriver < PlaceOS::Driver
       logger.debug { "Polling KNX connection" }
       client.connected? ? client.query_state : client.connect
     end
+
+    spawn { client.connected? ? client.query_state : client.connect }
   end
 
   def disconnected
@@ -144,7 +146,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
     bytes_read, client_addr = udp_socket.receive(message)
 
     logger.debug { "received (#{bytes_read} bytes) #{message[0..bytes_read].hexstring}" }
-    knx.read(message[0..bytes_read]).inspect
+    knx.read(message[0, bytes_read]).inspect
   end
 
   def action_direct(address : String, data : Bool | Int32 | Float32 | String, broadcast : Bool = true)
@@ -156,7 +158,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
     bytes_read, client_addr = udp_socket.receive(message)
 
     logger.debug { "received (#{bytes_read} bytes) #{message[0..bytes_read].hexstring}" }
-    knx.read(message[0..bytes_read]).inspect
+    knx.read(message[0, bytes_read]).inspect
   end
 
   def received(data, task)
@@ -168,7 +170,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
     logger.debug { "received payload: 0x#{protocol.data.hexstring}" }
     logger.debug do
       begin
-        io = IO::Memory.new(data)
+        io = IO::Memory.new(protocol.data)
         header = io.read_bytes(KNX::Header)
         "received #{header.request_type} message"
       rescue error
