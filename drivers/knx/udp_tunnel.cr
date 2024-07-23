@@ -15,6 +15,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
     dispatcher_key:  "secret",
     dispatcher_ip:   "192.168.0.1",
     dispatcher_port: 3671,
+    broadcast:       false,
   })
 
   def websocket_headers
@@ -47,10 +48,12 @@ class KNX::TunnelDriver < PlaceOS::Driver
     interface_ip = params["accept"].strip.split(',').first
     @knx_interface = interface_ip = Socket::IPAddress.new(interface_ip, params["port"].to_i)
 
-    spawn { establish_comms(control_ip, interface_ip) }
+    broadcast = setting?(Bool, :broadcast) || false
+
+    spawn { establish_comms(control_ip, interface_ip, broadcast) }
   end
 
-  protected def establish_comms(control_ip, interface_ip)
+  protected def establish_comms(control_ip, interface_ip, broadcast)
     # cleanup old connections
     if old_client = @knx_client
       @knx_client = nil
@@ -69,10 +72,13 @@ class KNX::TunnelDriver < PlaceOS::Driver
     udp_socket.write_timeout = 200.milliseconds
 
     # client handles the UDP virtual connection state
-    @knx_client = client = KNX::TunnelClient.new(control_ip)
+    knx = ::KNX.new(broadcast: broadcast, no_repeat: true)
+    @knx_client = client = KNX::TunnelClient.new(control_ip, knx: knx)
     client.on_state_change(&->knx_connected_state(Bool, KNX::ConnectionError))
     client.on_transmit(&->knx_transmit_request(Bytes))
     client.on_message(&->knx_new_message(KNX::CEMI))
+
+    spawn { client.connect } if @websocket_connected
   end
 
   # this is called when we're connected to dispatcher and can receive messages
@@ -134,37 +140,12 @@ class KNX::TunnelDriver < PlaceOS::Driver
   end
 
   def status(address : String) : Nil
-    # TODO:: use promises to return responses to the client
     knx_client.status(address)
-  end
-
-  def status_direct(address : String, broadcast : Bool = true)
-    knx = ::KNX.new(broadcast: broadcast)
-    query = knx.status(address).to_slice
-    logger.debug { "writing #{query.hexstring}" }
-    udp_socket.write query
-    message = Bytes.new(512)
-    bytes_read, client_addr = udp_socket.receive(message)
-
-    logger.debug { "received (#{bytes_read} bytes) #{message[0..bytes_read].hexstring}" }
-    knx.read(message[0, bytes_read]).inspect
-  end
-
-  def action_direct(address : String, data : Bool | Int32 | Float32 | String, broadcast : Bool = true)
-    knx = ::KNX.new(broadcast: broadcast)
-    query = knx.action(address, data).to_slice
-    logger.debug { "writing #{query.hexstring}" }
-    udp_socket.write query
-    message = Bytes.new(512)
-    bytes_read, client_addr = udp_socket.receive(message)
-
-    logger.debug { "received (#{bytes_read} bytes) #{message[0..bytes_read].hexstring}" }
-    knx.read(message[0, bytes_read]).inspect
   end
 
   def received(data, task)
     protocol = IO::Memory.new(data).read_bytes(DispatchProtocol)
-    logger.debug { "received message: #{protocol.message}" }
+    logger.debug { "received message: #{protocol.message} from #{protocol.ip_address}" }
 
     return unless protocol.message.received?
 
