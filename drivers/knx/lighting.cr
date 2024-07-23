@@ -15,6 +15,12 @@ class KNX::Lighting < PlaceOS::Driver
     knx_scene_group:      "4/1/33",
     knx_brightness_group: "4/1/66",
     knx_brightness_max:   255,
+
+    # on and off switches like blinds
+    switch_groups: {
+      "Interactive Flat Blinds"      => "2/3/19",
+      "Interactive Classroom Blinds" => "2/1/53",
+    },
   })
 
   accessor knx : KNX_1
@@ -29,6 +35,8 @@ class KNX::Lighting < PlaceOS::Driver
     @brightness_max = setting?(Int32, :knx_brightness_max) || 255
     @level_percentage = @brightness_max / 100
 
+    @switch_groups = setting?(Hash(String, String), :switch_groups) || {} of String => String
+
     subscriptions.clear
     subscribe_datapoints
   end
@@ -40,6 +48,7 @@ class KNX::Lighting < PlaceOS::Driver
   getter scene_group : String? = nil
   getter brightness_group : String? = nil
   getter brightness_max : Int32 = 255
+  getter switch_groups : Hash(String, String) = {} of String => String
   @level_percentage : Float64 = 255.0 / 100.0
 
   protected def subscribe_datapoints
@@ -52,6 +61,13 @@ class KNX::Lighting < PlaceOS::Driver
     if b_group = @brightness_group
       knx.subscribe b_group do |_sub, payload|
         self[Area.new(component: b_group)] = data_scaled(String.from_json(payload))
+      end
+    end
+
+    @switch_groups.each_value do |address|
+      knx.subscribe address do |_sub, payload|
+        # will return a payload like: %{"01"}
+        self["switch_#{address}"] = payload[-2] == '1'
       end
     end
   end
@@ -115,5 +131,19 @@ class KNX::Lighting < PlaceOS::Driver
     else
       raise "no brightness area / group address provided"
     end
+  end
+
+  # helper for
+  def switch(name : String, state : Bool)
+    address = @switch_groups[name]? || name
+    knx.action(address, state)
+  end
+
+  def switch_on(name : String)
+    switch name, true
+  end
+
+  def switch_off(name : String)
+    switch name, false
   end
 end
