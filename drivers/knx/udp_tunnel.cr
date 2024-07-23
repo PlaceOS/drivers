@@ -44,7 +44,8 @@ class KNX::TunnelDriver < PlaceOS::Driver
     params = URI.parse(config.uri.as(String)).query_params
 
     @knx_control = control_ip = Socket::IPAddress.new(ip, port)
-    @knx_interface = interface_ip = Socket::IPAddress.new(params["accept"], params["port"].to_i)
+    interface_ip = params["accept"].strip.split(',').first
+    @knx_interface = interface_ip = Socket::IPAddress.new(interface_ip, params["port"].to_i)
 
     spawn { establish_comms(control_ip, interface_ip) }
   end
