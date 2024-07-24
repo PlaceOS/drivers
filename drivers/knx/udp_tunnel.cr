@@ -41,6 +41,8 @@ class KNX::TunnelDriver < PlaceOS::Driver
   getter? websocket_connected : Bool = false
   getter? knx_client_connected : Bool = false
 
+  @mutex : Mutex = Mutex.new
+
   def on_update
     ip = setting(String, :dispatcher_ip)
     port = setting(UInt16, :dispatcher_port)
@@ -55,14 +57,14 @@ class KNX::TunnelDriver < PlaceOS::Driver
     hop_count = setting?(UInt8, :hop_count) || 6_u8
     source = setting?(String, :source_address) || "0.0.0"
 
-    spawn { establish_comms(control_ip, interface_ip, broadcast, repeat, hop_count, source) }
+    spawn { @mutex.synchronize { establish_comms(control_ip, interface_ip, broadcast, repeat, hop_count, source) } }
   end
 
   protected def establish_comms(control_ip, interface_ip, broadcast, repeat, hop_count, source)
     # cleanup old connections
     if old_client = @knx_client
-      @knx_client = nil
       old_client.shutdown! rescue nil
+      @knx_client = nil
     end
 
     if old_socket = @udp_socket
