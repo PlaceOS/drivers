@@ -15,8 +15,8 @@ class KNX::TunnelDriver < PlaceOS::Driver
     dispatcher_key:  "secret",
     dispatcher_ip:   "192.168.0.1",
     dispatcher_port: 3671,
-    broadcast:       false,
-    repeat:          true,
+    broadcast:       true,
+    repeat:          false,
     hop_count:       6,
   })
 
