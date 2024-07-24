@@ -16,6 +16,8 @@ class KNX::TunnelDriver < PlaceOS::Driver
     dispatcher_ip:   "192.168.0.1",
     dispatcher_port: 3671,
     broadcast:       false,
+    repeat:          true,
+    hop_count:       6,
   })
 
   def websocket_headers
@@ -49,11 +51,14 @@ class KNX::TunnelDriver < PlaceOS::Driver
     @knx_interface = interface_ip = Socket::IPAddress.new(interface_ip, params["port"].to_i)
 
     broadcast = setting?(Bool, :broadcast) || false
+    repeat = setting?(Bool, :repeat) || false
+    hop_count = setting?(UInt8, :hop_count) || 6_u8
+    source = setting?(String, :source_address) || "0.0.0"
 
-    spawn { establish_comms(control_ip, interface_ip, broadcast) }
+    spawn { establish_comms(control_ip, interface_ip, broadcast, repeat, hop_count, source) }
   end
 
-  protected def establish_comms(control_ip, interface_ip, broadcast)
+  protected def establish_comms(control_ip, interface_ip, broadcast, repeat, hop_count, source)
     # cleanup old connections
     if old_client = @knx_client
       @knx_client = nil
@@ -72,7 +77,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
     udp_socket.write_timeout = 200.milliseconds
 
     # client handles the UDP virtual connection state
-    knx = ::KNX.new(broadcast: broadcast, no_repeat: true)
+    knx = ::KNX.new(broadcast: broadcast, no_repeat: !repeat, hop_count: hop_count, source: source)
     @knx_client = client = KNX::TunnelClient.new(control_ip, knx: knx)
     client.on_state_change(&->knx_connected_state(Bool, KNX::ConnectionError))
     client.on_transmit(&->knx_transmit_request(Bytes))
