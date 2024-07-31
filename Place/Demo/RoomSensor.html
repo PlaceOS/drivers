@@ -7060,6 +7060,8 @@
   </h2>
   <ul class="other-types-list">
     
+      <li class="other-type">PlaceOS::Driver::Interface::Locatable</li>
+    
       <li class="other-type">PlaceOS::Driver::Interface::Sensor</li>
     
   </ul>
@@ -7083,7 +7085,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L4" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L5" target="_blank">
         place/demo/room_sensor.cr
       </a>
     
@@ -7152,12 +7154,54 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
+        <a href="#building_id%3AString-instance-method" class="signature"><strong>#building_id</strong> : String</a>
+        
+          <div class="summary"><p>Finds the building ID for the current location services object</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#check_ownership_of%28mac_address%3AString%29%3AOwnershipMAC%7CNil-instance-method" class="signature"><strong>#check_ownership_of</strong>(mac_address : String) : OwnershipMAC | Nil</a>
+        
+          <div class="summary"><p>return <code>nil</code> or <code>{&quot;location&quot;: &quot;wireless&quot;, &quot;assigned_to&quot;: &quot;bob123&quot;, &quot;mac_address&quot;: &quot;abcd&quot;}</code></p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#count%3AInt32-instance-method" class="signature"><strong>#count</strong> : Int32</a>
         
       </li>
     
       <li class="entry-summary">
         <a href="#count%3F%3AInt32%7CNil-instance-method" class="signature"><strong>#count?</strong> : Int32 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#device_locations%28zone_id%3AString%2Clocation%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#device_locations</strong>(zone_id : String, location : String | Nil = <span class="n">nil</span>)</a>
+        
+          <div class="summary"><p>array of devices and their x, y coordinates</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#level_id%3AString-instance-method" class="signature"><strong>#level_id</strong> : String</a>
+        
+          <div class="summary"><p>Finds the level ID for the current location services object</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locate_user%28email%3AString%7CNil%3Dnil%2Cusername%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locate_user</strong>(email : String | Nil = <span class="n">nil</span>, username : String | Nil = <span class="n">nil</span>)</a>
+        
+          <div class="summary"><p>=================================== Locatable Interface functions ===================================</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#macs_assigned_to%28email%3AString%7CNil%3Dnil%2Cusername%3AString%7CNil%3Dnil%29%3AArray%28String%29-instance-method" class="signature"><strong>#macs_assigned_to</strong>(email : String | Nil = <span class="n">nil</span>, username : String | Nil = <span class="n">nil</span>) : Array(String)</a>
+        
+          <div class="summary"><p>return an array of MAC address strings lowercase with no seperation characters abcdeffd1234 etc</p></div>
         
       </li>
     
@@ -7195,6 +7239,19 @@
 
 
 <div class="methods-inherited">
+  
+    
+
+
+    
+
+
+    
+
+
+    
+
+
   
     
 
@@ -7290,6 +7347,52 @@
     Instance Method Detail
   </h2>
   
+    <div class="entry-detail" id="building_id:String-instance-method">
+      <div class="signature">
+        
+        def <strong>building_id</strong> : String
+
+        <a class="method-permalink" href="#building_id%3AString-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Finds the building ID for the current location services object</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L48" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="check_ownership_of(mac_address:String):OwnershipMAC|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>check_ownership_of</strong>(mac_address : String) : OwnershipMAC | Nil
+
+        <a class="method-permalink" href="#check_ownership_of%28mac_address%3AString%29%3AOwnershipMAC%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::Locatable
+            </div>
+          
+          <p>return <code>nil</code> or <code>{&quot;location&quot;: &quot;wireless&quot;, &quot;assigned_to&quot;: &quot;bob123&quot;, &quot;mac_address&quot;: &quot;abcd&quot;}</code></p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L151" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
     <div class="entry-detail" id="count:Int32-instance-method">
       <div class="signature">
         
@@ -7301,7 +7404,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L19" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L21" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7317,7 +7420,104 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L19" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L21" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="device_locations(zone_id:String,location:String|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>device_locations</strong>(zone_id : String, location : String | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#device_locations%28zone_id%3AString%2Clocation%3AString%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::Locatable
+            </div>
+          
+          <p>array of devices and their x, y coordinates</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L156" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="level_id:String-instance-method">
+      <div class="signature">
+        
+        def <strong>level_id</strong> : String
+
+        <a class="method-permalink" href="#level_id%3AString-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Finds the level ID for the current location services object</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L57" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locate_user(email:String|Nil=nil,username:String|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>locate_user</strong>(email : String | Nil = <span class="n">nil</span>, username : String | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#locate_user%28email%3AString%7CNil%3Dnil%2Cusername%3AString%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <h1><a id="locatable-interface-functions" class="anchor" href="#locatable-interface-functions">  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>===================================
+Locatable Interface functions</h1>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L141" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="macs_assigned_to(email:String|Nil=nil,username:String|Nil=nil):Array(String)-instance-method">
+      <div class="signature">
+        
+        def <strong>macs_assigned_to</strong>(email : String | Nil = <span class="n">nil</span>, username : String | Nil = <span class="n">nil</span>) : Array(String)
+
+        <a class="method-permalink" href="#macs_assigned_to%28email%3AString%7CNil%3Dnil%2Cusername%3AString%7CNil%3Dnil%29%3AArray%28String%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::Locatable
+            </div>
+          
+          <p>return an array of MAC address strings
+lowercase with no seperation characters abcdeffd1234 etc</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L146" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7333,7 +7533,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L22" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L24" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7349,7 +7549,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L26" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L28" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7374,7 +7574,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L71" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L91" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7401,7 +7601,7 @@ mac_address can be used to grab data from a single device (basic grouping)</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L52" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L72" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7417,7 +7617,7 @@ mac_address can be used to grab data from a single device (basic grouping)</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/792c13413a9c58e94143b474767e34fee1760520/src/place/demo/room_sensor.cr#L34" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/6db0c0ae7a9bc7228ab2606892b023f90696e774/src/place/demo/room_sensor.cr#L36" target="_blank">View source</a>]
         
       </div>
     </div>
