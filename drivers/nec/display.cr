@@ -126,6 +126,16 @@ class Nec::Display < PlaceOS::Driver
     send(MsgType::Command.build(Command::Save), name: "save", priority: 0)
   end
 
+  def volume_up
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume + 5.0)
+  end
+
+  def volume_down
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume - 5.0)
+  end
+
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
     logger.debug { "requested to update mute to #{state}" }
     data = MsgType::SetParameter.build(Command::MuteStatus, state ? 1 : 0)
