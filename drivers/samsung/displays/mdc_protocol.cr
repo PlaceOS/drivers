@@ -213,6 +213,16 @@ class Samsung::Displays::MDCProtocol < PlaceOS::Driver
     {% end %}
   end
 
+  def volume_up
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume + 5.0)
+  end
+
+  def volume_down
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume - 5.0)
+  end
+
   enum ResponseStatus
     Ack = 0x41 # A
     Nak = 0x4e # N

@@ -114,6 +114,16 @@ class Nec::Projector < PlaceOS::Driver
     do_send(command)
   end
 
+  def volume_up
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume + 5.0)
+  end
+
+  def volume_down
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume - 5.0)
+  end
+
   # Mutes both audio/video
   def mute(
     state : Bool = true,
