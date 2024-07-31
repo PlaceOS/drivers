@@ -1,8 +1,10 @@
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
+require "placeos-driver/interface/locatable"
 
 class Place::Demo::RoomSensor < PlaceOS::Driver
   include Interface::Sensor
+  include Interface::Locatable
 
   # Discovery Information
   descriptive_name "Demo Room Sensor"
@@ -26,7 +28,7 @@ class Place::Demo::RoomSensor < PlaceOS::Driver
   def on_update
     @capacity = setting?(Int32, :capacity) || 2
     @count ||= setting?(Int32, :default_count) || 0
-    @sensor_id = setting?(String, :sensor_id) || "1234"
+    @sensor_id = setting?(String, :sensor_id) || module_id
     @timestamp = Time.utc.to_unix
     update_state
   end
@@ -40,6 +42,24 @@ class Place::Demo::RoomSensor < PlaceOS::Driver
   protected def update_state
     self["people"] = count
     self["presence"] = count > 0
+  end
+
+  # Finds the building ID for the current location services object
+  getter building_id : String do
+    zone_ids = system["StaffAPI"].zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine building zone id" }
+    raise error
+  end
+
+  # Finds the level ID for the current location services object
+  getter level_id : String do
+    zone_ids = system["StaffAPI"].zones(tags: "level").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine building zone id" }
+    raise error
   end
 
   # ======================
@@ -113,5 +133,41 @@ class Place::Demo::RoomSensor < PlaceOS::Driver
       build_sensor_details(:people_count),
       build_sensor_details(:presence),
     ].compact
+  end
+
+  # ===================================
+  # Locatable Interface functions
+  # ===================================
+  def locate_user(email : String? = nil, username : String? = nil)
+    logger.debug { "sensor incapable of locating #{email} or #{username}" }
+    [] of Nil
+  end
+
+  def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
+    logger.debug { "sensor incapable of tracking #{email} or #{username}" }
+    [] of String
+  end
+
+  def check_ownership_of(mac_address : String) : OwnershipMAC?
+    logger.debug { "sensor incapable of tracking #{mac_address}" }
+    nil
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    logger.debug { "searching locatable in zone #{zone_id}" }
+    return [] of Nil unless {building_id, level_id}.includes?(zone_id)
+    return [] of Nil if location && location != "area"
+
+    [{
+      location:    "area",
+      at_location: count,
+      map_id:      system.map_id,
+      level:       level_id,
+      building:    building_id,
+      capacity:    @capacity,
+
+      module_id: module_id,
+
+    }]
   end
 end
