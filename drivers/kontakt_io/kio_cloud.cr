@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "simple_retry"
 require "./kio_cloud_models"
 
 class KontaktIO::KioCloud < PlaceOS::Driver
@@ -176,13 +177,15 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     # 3rd party motion sensors
     recent_motion = 180_i64
     sensor_to_room.keys.each_slice(20) do |keys|
-      telemetry_data = telemetry(keys)
-      telemetry_data.each do |sensor|
-        seconds_since = sensor.seconds_since_motion
-        next unless seconds_since
+      SimpleRetry.try_to(max_attempts: 3, base_interval: 200.milliseconds) do
+        telemetry_data = telemetry(keys)
+        telemetry_data.each do |sensor|
+          seconds_since = sensor.seconds_since_motion
+          next unless seconds_since
 
-        room = sensor_to_room[sensor.id]
-        self["room-#{room.id}"] = cache[room.id] = room.to_room_occupancy(seconds_since <= recent_motion, sensor.timestamp)
+          room = sensor_to_room[sensor.id]
+          self["room-#{room.id}"] = cache[room.id] = room.to_room_occupancy(seconds_since <= recent_motion, sensor.timestamp)
+        end
       end
     end
 
