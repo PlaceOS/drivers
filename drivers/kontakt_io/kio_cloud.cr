@@ -175,13 +175,15 @@ class KontaktIO::KioCloud < PlaceOS::Driver
 
     # 3rd party motion sensors
     recent_motion = 180_i64
-    telemetry_data = telemetry(sensor_to_room.keys)
-    telemetry_data.each do |sensor|
-      seconds_since = sensor.seconds_since_motion
-      next unless seconds_since
+    sensor_to_room.keys.each_slice(20) do |keys|
+      telemetry_data = telemetry(keys)
+      telemetry_data.each do |sensor|
+        seconds_since = sensor.seconds_since_motion
+        next unless seconds_since
 
-      room = sensor_to_room[sensor.id]
-      self["room-#{room.id}"] = cache[room.id] = room.to_room_occupancy(seconds_since <= recent_motion, sensor.timestamp)
+        room = sensor_to_room[sensor.id]
+        self["room-#{room.id}"] = cache[room.id] = room.to_room_occupancy(seconds_since <= recent_motion, sensor.timestamp)
+      end
     end
 
     # occupancy counters
