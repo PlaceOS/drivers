@@ -27,11 +27,15 @@ shards:
 
   bacnet:
     git: https://github.com/spider-gazelle/crystal-bacnet.git
-    version: 0.10.10
+    version: 0.11.0
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
-    version: 2.0.0
+    version: 2.1.0
+
+  bisect:
+    git: https://github.com/spider-gazelle/bisect.git
+    version: 1.2.1
 
   cmac:
     git: https://github.com/spider-gazelle/cmac.git
@@ -47,7 +51,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.3.13
+    version: 1.4.1
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -59,7 +63,7 @@ shards:
 
   csuuid:
     git: https://github.com/wyhaines/csuuid.cr.git
-    version: 1.0.1+git.commit.b71cf5c899dd5cde6aff8e922bdabd5e2dfab585
+    version: 1.0.1+git.commit.4cb8656a9214aede9c1840cad4acf8e55e658f2f
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
@@ -111,7 +115,7 @@ shards:
 
   habitat:
     git: https://github.com/luckyframework/habitat.git
-    version: 0.4.8
+    version: 0.4.9
 
   halite:
     git: https://github.com/icyleaf/halite.git
@@ -127,7 +131,7 @@ shards:
 
   http_proxy:
     git: https://github.com/mamantoha/http_proxy.git
-    version: 0.10.3
+    version: 0.12.0
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -151,7 +155,7 @@ shards:
 
   knx:
     git: https://github.com/spider-gazelle/knx.git
-    version: 1.0.3
+    version: 1.2.3
 
   link-header:
     git: https://github.com/spider-gazelle/link-header.git
@@ -163,7 +167,7 @@ shards:
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
-    version: 1.2.2
+    version: 1.2.3
 
   murmur3:
     git: https://github.com/aca-labs/murmur3.git
@@ -185,14 +189,6 @@ shards:
     git: https://github.com/placeos/office365.git
     version: 1.25.3
 
-  open_api:
-    git: https://github.com/elbywan/open_api.cr.git
-    version: 1.3.0
-
-  openapi-generator:
-    git: https://github.com/place-labs/openapi-generator.git
-    version: 2.1.0+git.commit.a65ffc2f7dcc6a393e7d1f9229650b520d9525be
-
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
     version: 2.4.4
@@ -203,7 +199,7 @@ shards:
 
   opentelemetry-instrumentation:
     git: https://github.com/wyhaines/opentelemetry-instrumentation.cr.git
-    version: 0.5.3+git.commit.cd3994b22d9f7a0d68752698974d3873a1b2fce2
+    version: 0.5.4+git.commit.9b26aabef208b9eb0bf4612788362fa41768790b
 
   opentelemetry-sdk:
     git: https://github.com/wyhaines/opentelemetry-sdk.cr.git
@@ -231,7 +227,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.1.0+git.commit.e35e4c535be1ab47b6afb821723ceafb637fa4e8
+    version: 1.1.1+git.commit.282c353b676806eef73786645f8cd852cdb60bc3
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -255,7 +251,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.2.0
+    version: 7.2.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -263,11 +259,15 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.48.0
+    version: 9.56.3
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
     version: 0.2.4
+
+  priority-queue:
+    git: https://github.com/spider-gazelle/priority-queue.git
+    version: 1.1.2
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
@@ -319,7 +319,7 @@ shards:
 
   s2_cells:
     git: https://github.com/spider-gazelle/s2_cells.git
-    version: 1.0.1
+    version: 2.0.0
 
   sabo:
     git: https://github.com/place-technology/sabo.git
@@ -331,7 +331,7 @@ shards:
 
   splay_tree_map:
     git: https://github.com/wyhaines/splay_tree_map.cr.git
-    version: 0.2.2
+    version: 0.3.0
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
