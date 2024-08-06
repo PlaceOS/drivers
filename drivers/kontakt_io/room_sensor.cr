@@ -2,7 +2,7 @@ require "placeos-driver"
 require "./kio_cloud_models"
 require "placeos-driver/interface/sensor"
 
-class KontaktIO::RoomSensor < PlaceOS::Driver
+class KontaktIO::RoomSensorDriver < PlaceOS::Driver
   include Interface::Sensor
 
   # Discovery Information

@@ -109,6 +109,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     booking = event[:booking]
     return unless booking
     return if booking.booking_type != "adhoc"
+    booking_key = booking.key
+    return unless booking_key
 
     floor_details = @floor_mappings[booking.planid.to_s]?
     return unless floor_details
@@ -132,7 +134,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       booking_end: booking.finish,
       time_zone: @time_zone.to_s,
       booking_type: @booking_type,
-      asset_id: to_place_asset_id(booking.key),
+      asset_id: to_place_asset_id(booking_key),
       user_id: user_id,
       user_email: user_email,
       user_name: user_name,
@@ -226,6 +228,9 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         floor_details = @floor_mappings[booking.planid.to_s]?
         next unless floor_details
 
+        booking_key = booking.key
+        next unless booking_key
+
         case event.code
         when 49 # BOOKING_CREATE (ad-hoc?)
           next if booking.booking_type != "adhoc"
@@ -248,7 +253,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
             booking_end: booking.finish,
             time_zone: @time_zone.to_s,
             booking_type: @booking_type,
-            asset_id: to_place_asset_id(booking.key),
+            asset_id: to_place_asset_id(booking_key),
             user_id: user_id,
             user_email: user_email,
             user_name: user_name,
@@ -495,6 +500,8 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     create_place_bookings.each do |booking|
       user_id = booking.user.not_nil!.desc
       user_email = booking.user.not_nil!.email.try &.downcase
+      booking_key = booking.key
+      next unless booking_key
 
       if user_id.presence.nil? && user_email.presence.nil?
         logger.warn { "no user id or email defined for floorsense user #{booking.user.not_nil!.name}" }
@@ -516,7 +523,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
         booking_end: booking.finish,
         time_zone: @time_zone.to_s,
         booking_type: @booking_type,
-        asset_id: to_place_asset_id(booking.key),
+        asset_id: to_place_asset_id(booking_key),
         user_id: user_id,
         user_email: user_email,
         user_name: user_name,
