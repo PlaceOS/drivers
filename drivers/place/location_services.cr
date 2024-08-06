@@ -27,6 +27,7 @@ class Place::LocationServices < PlaceOS::Driver
   @debug_webhook : Bool = false
   @emergency_contacts : Hash(String, String) = {} of String => String
   @search_building : Bool = true
+  @include_room_locations : Bool = false
 
   getter building_id : String { get_building_id.not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
@@ -35,13 +36,14 @@ class Place::LocationServices < PlaceOS::Driver
     @debug_webhook = setting?(Bool, :debug_webhook) || false
     @emergency_contacts = setting?(Hash(String, String), :emergency_contacts) || Hash(String, String).new
     @search_building = setting?(Bool, :search_building) || false
+    @include_room_locations = setting?(Bool, :include_room_locations) || false
     @building_id = nil
     @systems = nil
 
     schedule.clear
 
     # Keep mappings up to date
-    if @search_building
+    if @search_building || @include_room_locations
       schedule.every(1.hour) { @systems = get_systems_list.not_nil! if @systems }
     end
 
@@ -177,6 +179,21 @@ class Place::LocationServices < PlaceOS::Driver
     system.implementing(Interface::Locatable).device_locations(zone_id, location).get.each do |locations|
       located.concat locations.as_a
     end
+
+    if @include_room_locations
+      results = [] of PlaceOS::Driver::Proxy::Drivers::Responses
+
+      # Map
+      systems.each do |_level_id, system_ids|
+        system_ids.each do |system_id|
+          results << system(system_id).implementing(Interface::Locatable).device_locations(zone_id, location)
+        end
+      end
+
+      # reduce
+      results.each &.get.each { |locations| located.concat locations.as_a }
+    end
+
     located
   end
 

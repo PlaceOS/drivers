@@ -161,6 +161,16 @@ class Sharp::PnSeries < PlaceOS::Driver
     do_send("VOLM#{vol_actual.to_s.rjust(4, ' ')}")
   end
 
+  def volume_up
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume + 5.0)
+  end
+
+  def volume_down
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume - 5.0)
+  end
+
   # There seems to only be audio mute available
   def mute(
     state : Bool = true,

@@ -113,6 +113,16 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     query(Command::Volume, priority: 0)
   end
 
+  def volume_up
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume + 5.0)
+  end
+
+  def volume_down
+    current_volume = status?(Float64, :volume) || 50.0
+    volume(current_volume - 5.0)
+  end
+
   def do_poll
     if self[:power]?
       input?

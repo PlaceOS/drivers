@@ -1,7 +1,18 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "MessageMedia::SMS" do
-  # example response
+  # select channel
+  expect_http_request do |request, response|
+    data = request.body.try(&.gets_to_end)
+    if data == "type=TT_U8&id=TDU8_CURRENT_CHANNEL&value=0"
+      response.status_code = 201
+    else
+      response.status_code = 400
+      response << "badly formatted"
+    end
+  end
+
+  # request state
   expect_http_request do |request, response|
     response.status_code = 200
     response << %(TT_FLOAT, FLOAT_DATA_0, 0.0000
@@ -67,7 +78,7 @@ TT_STRING, TDSTR_LAST_LOGGED_ERROR, 981868965 ERR_WEB_404_RESPONSE
   retval = exec(:reboot)
   expect_http_request do |request, response|
     data = request.body.try(&.gets_to_end)
-    if data == "type=TT_U8&id=TDU8_REBOOT&value=1"
+    if data == "type=TT_U8&id=TDU8_CURRENT_CHANNEL&value=0&type=TT_U8&id=TDU8_REBOOT&value=1"
       response.status_code = 201
     else
       response.status_code = 400

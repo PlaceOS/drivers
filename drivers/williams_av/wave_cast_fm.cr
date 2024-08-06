@@ -3,7 +3,7 @@ require "placeos-driver"
 # Documentation: https://aca.im/driver_docs/WilliamsAV/WaveCAST-MAN-262D-WCFM.pdf
 
 class WilliamsAV::WaveCastFM < PlaceOS::Driver
-  # Discovery Information
+  # Discovery Information:
   generic_name :HearingAugmentation
   descriptive_name "WilliamsAV WaveCast / FM"
   uri_base "http://192.168.0.1"
@@ -11,6 +11,8 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
   default_settings({
     # only a single connection can be maintained at a time
     http_max_requests: 0,
+    # supports 0-7
+    channel_number: 0,
   })
 
   def on_load
@@ -18,13 +20,22 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
   end
 
   def on_update
+    @channel_number = setting?(Int32, :channel_number)
     schedule.clear
-    schedule.every(1.minute) { query_state }
+
+    # ensure query run at the same time for offset to work
+    schedule.cron("* * * * *") { connected }
+  end
+
+  def channel_offset
+    (3000 * (@channel_number || 0)) + rand(750)
   end
 
   def connected
-    query_state
+    schedule.in(channel_offset.milliseconds) { query_state }
   end
+
+  getter channel_number : Int32? = nil
 
   enum Command
     TDU8_REBOOT
@@ -90,6 +101,19 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
   }
 
   def query_state
+    if channel = channel_number
+      body_data = URI::Params.build { |form|
+        form.add "type", "TT_U8"
+        form.add "id", "TDU8_CURRENT_CHANNEL"
+        form.add "value", channel.to_s
+      }.to_s
+
+      logger.debug { "switching current channel to: #{channel}" }
+
+      response = post("/TBL-WRITE", body: body_data)
+      raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    end
+
     response = get("/TBL-READ?All")
     raise "request failed with #{response.status_code}\n#{response.body}" unless response.success?
 
@@ -144,6 +168,11 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
   @[Security(Level::Administrator)]
   def write(command : Command, value : UInt8 | UInt32 | String)
     body_data = URI::Params.build { |form|
+      if channel = channel_number
+        form.add "type", "TT_U8"
+        form.add "id", "TDU8_CURRENT_CHANNEL"
+        form.add "value", channel.to_s
+      end
       form.add "type", TYPES[command].to_s
       form.add "id", command.to_s
       form.add "value", value.to_s

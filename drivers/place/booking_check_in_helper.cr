@@ -251,6 +251,12 @@ STRING
       return
     end
 
+    present = (Float64 | Nil).from_json(bookings.people_present?.get.to_json)
+    if present.nil? || present > 0.0
+      logger.debug { "not prompting as people present or presence is unknown: #{present.inspect}" }
+      return
+    end
+
     unless @decline_message && @auto_cancel
       logger.debug { "prompting user about meeting room booking #{meeting.id}" }
       begin
