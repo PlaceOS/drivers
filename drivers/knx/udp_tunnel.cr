@@ -8,7 +8,7 @@ class KNX::TunnelDriver < PlaceOS::Driver
   descriptive_name "KNX Connector"
   description %(makes KNX data available to other drivers in PlaceOS)
 
-  # Hookup dispatch to accept incoming packets from the KNX interface
+  # Hookup dispatch to accept incoming packets from the KNX interface.
   uri_base "ws://dispatch/api/dispatch/v1/udp_dispatch?port=3671&accept=192.168.0.1"
 
   default_settings({

@@ -155,7 +155,7 @@ shards:
 
   knx:
     git: https://github.com/spider-gazelle/knx.git
-    version: 1.2.3
+    version: 1.2.4
 
   link-header:
     git: https://github.com/spider-gazelle/link-header.git
