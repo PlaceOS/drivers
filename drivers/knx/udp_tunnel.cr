@@ -142,7 +142,12 @@ class KNX::TunnelDriver < PlaceOS::Driver
   # Interface
   # =========
 
-  def action(address : String, data : Bool | Int32 | Float32 | String) : Nil
+  def action(address : String, data : Bool | Int32 | String) : Nil
+    knx_client.action(address, data)
+  end
+
+  # split out float to prevent type confusion parsing in JSON
+  def action_float(address : String, data : Float32) : Nil
     knx_client.action(address, data)
   end
 
