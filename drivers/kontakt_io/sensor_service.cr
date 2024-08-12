@@ -135,10 +135,17 @@ class KontaktIO::SensorService < PlaceOS::Driver
           capacity = nil
         end
 
+        if map_id = map_ids[space.room_id]?
+          capacity = 1
+          loc_type = loc[1]
+        else
+          map_id = "room-#{space.room_id}"
+        end
+
         {
           location:    loc_type,
           at_location: people_count,
-          map_id:      map_ids[space.room_id]? || "room-#{space.room_id}",
+          map_id:      map_id,
           level:       zone_id,
           building:    @floor_mappings[space.floor_id.to_s]?.try(&.[](:building_id)),
           capacity:    capacity,
