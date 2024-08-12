@@ -61,10 +61,10 @@ class KontaktIO::KioCloud < PlaceOS::Driver
       unless response.success?
         begin
           error = JSON.parse response.body
-          message = error["message"]?.try(&.as_s) || "request #{path} failed"
-          raise "failed with #{response.status_code}: #{message}"
+          message = error["message"]?.try(&.as_s) || response.body
+          raise "request #{path}#{params} failed with #{response.status_code}:\n#{message}"
         rescue
-          raise "request #{path} failed with status: #{response.status_code}"
+          raise "request #{path}#{params} failed with #{response.status_code}:\n#{response.body}"
         end
       end
 
