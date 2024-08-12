@@ -62,9 +62,9 @@ class KontaktIO::KioCloud < PlaceOS::Driver
         begin
           error = JSON.parse response.body
           message = error["message"]?.try(&.as_s) || response.body
-          raise "request #{path}#{params} failed with #{response.status_code}:\n#{message}"
+          raise "request #{path}?#{params} failed with #{response.status_code}:\n#{message}"
         rescue
-          raise "request #{path}#{params} failed with #{response.status_code}:\n#{response.body}"
+          raise "request #{path}?#{params} failed with #{response.status_code}:\n#{response.body}"
         end
       end
 
@@ -176,7 +176,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
 
     # 3rd party motion sensors
     recent_motion = 180_i64
-    sensor_to_room.keys.each_slice(20) do |keys|
+    sensor_to_room.keys.each_slice(10) do |keys|
       SimpleRetry.try_to(max_attempts: 3, base_interval: 200.milliseconds) do
         telemetry_data = telemetry(keys)
         telemetry_data.each do |sensor|
