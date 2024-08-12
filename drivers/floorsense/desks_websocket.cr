@@ -5,7 +5,7 @@ require "uri"
 require "jwt"
 require "./models"
 
-# Documentation:
+# Documentation
 # https://apiguide.smartalock.com/
 # https://documenter.getpostman.com/view/8843075/SVmwvctF?version=latest#3bfbb050-722d-4433-889a-8793fa90af9c
 
