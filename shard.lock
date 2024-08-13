@@ -41,9 +41,9 @@ shards:
     git: https://github.com/spider-gazelle/cmac.git
     version: 1.0.1
 
-  connect-proxy: # Overridden
+  connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
-    version: 2.0.0
+    version: 2.0.2
 
   crc16:
     git: https://github.com/maiha/crc16.cr.git
