@@ -93,7 +93,6 @@ class Place::Meet < PlaceOS::Driver
       str << "output volume and microphone fader controls are floats between 0.0 to 100.0\n"
       str << "query output volume to change it by a relative amount, if asked to increase or decrease volume, change it by 10.0\n"
       str << "audio can be muted and you unroute video to blank displays.\n"
-      str << "Make sure the system is powered on before performing actions, unless you're being asked to power the system off.\n"
       str << "some rooms may have lighting control, make sure to check what levels are available before changing state\n"
       str << "some rooms may have accessories such as blinds or projector screen controls. Check for available accessories when asked about something not explicitly controllable\n"
     end
@@ -327,6 +326,7 @@ class Place::Meet < PlaceOS::Driver
     output_actual = hash[output_id.downcase]?
     raise "invalid output #{output_id}, must be one of: #{keys.join(", ")}" unless output_actual
 
+    power true
     selected_input(input_actual)
     route(input_actual, output_actual)
   end
@@ -606,6 +606,7 @@ class Place::Meet < PlaceOS::Driver
 
   @[Description("change the room volume")]
   def set_volume(level : Int32 | Float64)
+    power true
     volume level, ""
     "volume set to #{level.to_f.clamp(0.0, 100.0)}"
   end
