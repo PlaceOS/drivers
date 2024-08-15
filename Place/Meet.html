@@ -7064,6 +7064,8 @@
     
       <li class="other-type"><a href="../Place/Router/Core.html">Place::Router::Core</a></li>
     
+      <li class="other-type">PlaceOS::Driver::Interface::ChatFunctions</li>
+    
       <li class="other-type"><a href="../PlaceOS/Driver/Interface/Muteable.html">PlaceOS::Driver::Interface::Muteable</a></li>
     
       <li class="other-type">PlaceOS::Driver::Interface::Powerable</li>
@@ -7089,7 +7091,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L10" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L11" target="_blank">
         place/meet.cr
       </a>
     
@@ -7180,7 +7182,39 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#audio_mute%28state%3ABool%29-instance-method" class="signature"><strong>#audio_mute</strong>(state : Bool)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#audio_muted%3F-instance-method" class="signature"><strong>#audio_muted?</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#capabilities%3AString-instance-method" class="signature"><strong>#capabilities</strong> : String</a>
+        
+          <div class="summary"><p>overall description of what this driver implements</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#current_routes%3AHash%28String%2CString%7CNil%29-instance-method" class="signature"><strong>#current_routes</strong> : Hash(String, String | Nil)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#function_descriptions-instance-method" class="signature"><strong>#function_descriptions</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#init_vidconf-instance-method" class="signature"><strong>#init_vidconf</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#inputs_and_outputs-instance-method" class="signature"><strong>#inputs_and_outputs</strong></a>
         
       </li>
     
@@ -7191,6 +7225,16 @@
     
       <li class="entry-summary">
         <a href="#lighting_independent%3ABool-instance-method" class="signature"><strong>#lighting_independent</strong> : Bool</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#lighting_scene%3F-instance-method" class="signature"><strong>#lighting_scene?</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#lighting_scenes-instance-method" class="signature"><strong>#lighting_scenes</strong></a>
         
       </li>
     
@@ -7254,12 +7298,22 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#power%3F%3ABool-instance-method" class="signature"><strong>#power?</strong> : Bool</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#remove_preset%28preset%3AString%2Ccamera%3AString%29-instance-method" class="signature"><strong>#remove_preset</strong>(preset : String, camera : String)</a>
         
       </li>
     
       <li class="entry-summary">
         <a href="#route%28input%3AString%2Coutput%3AString%2Cmax_dist%3AInt32%7CNil%3Dnil%2Csimulate%3ABool%3Dfalse%2Cfollow_additional_routes%3ABool%3Dtrue%29-instance-method" class="signature"><strong>#route</strong>(input : String, output : String, max_dist : Int32 | Nil = <span class="n">nil</span>, simulate : Bool = <span class="n">false</span>, follow_additional_routes : Bool = <span class="n">true</span>)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#route_input%28input_id%3AString%2Coutput_id%3AString%29-instance-method" class="signature"><strong>#route_input</strong>(input_id : String, output_id : String)</a>
         
       </li>
     
@@ -7283,9 +7337,24 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#set_lighting_scene%28scene%3AString%29-instance-method" class="signature"><strong>#set_lighting_scene</strong>(scene : String)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#set_microphone%28level%3AFloat64%2Cmute%3ABool%3Dfalse%29-instance-method" class="signature"><strong>#set_microphone</strong>(level : Float64, mute : Bool = <span class="n">false</span>)</a>
         
           <div class="summary"><p>level is a percentage 0.0-&gt;100.0</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#set_power_state%28state%3ABool%29-instance-method" class="signature"><strong>#set_power_state</strong>(state : Bool)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#set_volume%28level%3AInt32%7CFloat64%29-instance-method" class="signature"><strong>#set_volume</strong>(level : Int32 | Float64)</a>
         
       </li>
     
@@ -7310,6 +7379,11 @@
         <a href="#volume%28level%3AInt32%7CFloat64%2Cinput_or_output%3AString%29-instance-method" class="signature"><strong>#volume</strong>(level : Int32 | Float64, input_or_output : String)</a>
         
           <div class="summary"><p>Set the volume of a signal node within the system.</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#volume%3F-instance-method" class="signature"><strong>#volume?</strong></a>
         
       </li>
     
@@ -7479,6 +7553,19 @@
 
 
   
+    
+
+
+    
+
+
+    
+
+
+    
+
+
+  
 </div>
 
 
@@ -7532,7 +7619,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L828" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L954" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7553,7 +7640,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L801" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L927" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7569,7 +7656,94 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L253" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L285" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="audio_mute(state:Bool)-instance-method">
+      <div class="signature">
+        
+        def <strong>audio_mute</strong>(state : Bool)
+
+        <a class="method-permalink" href="#audio_mute%28state%3ABool%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L619" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="audio_muted?-instance-method">
+      <div class="signature">
+        
+        def <strong>audio_muted?</strong>
+
+        <a class="method-permalink" href="#audio_muted%3F-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L625" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="capabilities:String-instance-method">
+      <div class="signature">
+        
+        def <strong>capabilities</strong> : String
+
+        <a class="method-permalink" href="#capabilities%3AString-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::ChatFunctions
+            </div>
+          
+          <p>overall description of what this driver implements</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L89" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="current_routes:Hash(String,String|Nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>current_routes</strong> : Hash(String, String | Nil)
+
+        <a class="method-permalink" href="#current_routes%3AHash%28String%2CString%7CNil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L133" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="function_descriptions-instance-method">
+      <div class="signature">
+        
+        def <strong>function_descriptions</strong>
+
+        <a class="method-permalink" href="#function_descriptions-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
         
       </div>
     </div>
@@ -7585,7 +7759,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L795" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L921" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="inputs_and_outputs-instance-method">
+      <div class="signature">
+        
+        def <strong>inputs_and_outputs</strong>
+
+        <a class="method-permalink" href="#inputs_and_outputs-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L292" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7601,7 +7791,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L923" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L1049" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7617,7 +7807,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L574" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L676" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="lighting_scene?-instance-method">
+      <div class="signature">
+        
+        def <strong>lighting_scene?</strong>
+
+        <a class="method-permalink" href="#lighting_scene%3F-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L760" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="lighting_scenes-instance-method">
+      <div class="signature">
+        
+        def <strong>lighting_scenes</strong>
+
+        <a class="method-permalink" href="#lighting_scenes-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L753" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7633,7 +7855,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L671" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L797" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7649,7 +7871,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L97" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L116" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7665,7 +7887,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L573" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L675" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7681,7 +7903,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L692" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L818" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7697,7 +7919,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L102" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L121" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7713,7 +7935,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L105" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L124" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7729,7 +7951,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L98" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L117" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7750,7 +7972,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L550" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L652" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7766,8 +7988,6 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L89" target="_blank">View source</a>]
-        
       </div>
     </div>
   
@@ -7781,8 +8001,6 @@
       
       <br/>
       <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L113" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7803,7 +8021,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L176" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L203" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="power?:Bool-instance-method">
+      <div class="signature">
+        
+        def <strong>power?</strong> : Bool
+
+        <a class="method-permalink" href="#power%3F%3ABool-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L249" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7819,7 +8053,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L833" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L959" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7835,7 +8069,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L259" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L334" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="route_input(input_id:String,output_id:String)-instance-method">
+      <div class="signature">
+        
+        def <strong>route_input</strong>(input_id : String, output_id : String)
+
+        <a class="method-permalink" href="#route_input%28input_id%3AString%2Coutput_id%3AString%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L313" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7851,7 +8101,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L638" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L740" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7873,7 +8123,7 @@ different cameras</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L807" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L933" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7895,7 +8145,23 @@ if the user selects an output then this will be routed to it</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L289" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L365" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="set_lighting_scene(scene:String)-instance-method">
+      <div class="signature">
+        
+        def <strong>set_lighting_scene</strong>(scene : String)
+
+        <a class="method-permalink" href="#set_lighting_scene%28scene%3AString%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L769" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7916,7 +8182,39 @@ if the user selects an output then this will be routed to it</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L762" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L888" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="set_power_state(state:Bool)-instance-method">
+      <div class="signature">
+        
+        def <strong>set_power_state</strong>(state : Bool)
+
+        <a class="method-permalink" href="#set_power_state%28state%3ABool%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L198" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="set_volume(level:Int32|Float64)-instance-method">
+      <div class="signature">
+        
+        def <strong>set_volume</strong>(level : Int32 | Float64)
+
+        <a class="method-permalink" href="#set_volume%28level%3AInt32%7CFloat64%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L608" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7932,7 +8230,7 @@ if the user selects an output then this will be routed to it</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L1004" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L1130" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7948,7 +8246,7 @@ if the user selects an output then this will be routed to it</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L990" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L1116" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7970,7 +8268,7 @@ or if it's a direct connection, we want to mute the display</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L281" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L357" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7991,7 +8289,23 @@ or if it's a direct connection, we want to mute the display</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/f691177c27fc4d4a72a9dd213d847502c5f38ac8/src/place/meet.cr#L528" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L630" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="volume?-instance-method">
+      <div class="signature">
+        
+        def <strong>volume?</strong>
+
+        <a class="method-permalink" href="#volume%3F-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/ce2d5dc541c6eadb8dc8b1ad471b6b647dc58815/src/place/meet.cr#L614" target="_blank">View source</a>]
         
       </div>
     </div>
