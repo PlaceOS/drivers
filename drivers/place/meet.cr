@@ -317,15 +317,15 @@ class Place::Meet < PlaceOS::Driver
       memo[input.downcase] = input
     end
     input_actual = hash[input_id.downcase]?
-    raise "invalid input #{input_id}, must be one of #{keys}" unless input_actual
+    raise "invalid input #{input_id}, must be one of #{keys.join(", ")}" unless input_actual
 
     # obtain output ID
     keys = all_outputs
     hash = keys.each_with_object({} of String => String) do |output, memo|
       memo[output.downcase] = output
     end
-    output_actual = hash[input_id.downcase]?
-    raise "invalid output #{output_id}, must be one of #{keys}" unless output_actual
+    output_actual = hash[output_id.downcase]?
+    raise "invalid output #{output_id}, must be one of: #{keys.join(", ")}" unless output_actual
 
     selected_input(input_actual)
     route(input_actual, output_actual)
@@ -739,7 +739,7 @@ class Place::Meet < PlaceOS::Driver
 
   def select_lighting_scene(scene : String, push_to_remotes : Bool = true)
     scene_id = @light_scenes[scene.downcase]?
-    raise ArgumentError.new("invalid scene '#{scene}', valid scenes are: #{@light_scenes.keys}") unless scene_id
+    raise ArgumentError.new("invalid scene '#{scene}', valid scenes are: #{@light_scenes.keys.join(", ")}") unless scene_id
 
     system[@light_module].set_lighting_scene(scene_id, @light_area)
 
@@ -768,7 +768,7 @@ class Place::Meet < PlaceOS::Driver
   @[Description("set a new lighting scene. Remember to list available lighting scenes before calling")]
   def set_lighting_scene(scene : String)
     scenes = lighting_scenes
-    raise "invalid scene #{scene}, must be one of #{scenes}" unless scenes.includes?(scene.downcase)
+    raise "invalid scene #{scene}, must be one of: #{scenes.join(", ")}" unless scenes.includes?(scene.downcase)
     select_lighting_scene scene
     "current lighting scene: #{scene}"
   end
