@@ -93,6 +93,7 @@ class Place::Meet < PlaceOS::Driver
       str << "output volume and microphone fader controls are floats between 0.0 to 100.0\n"
       str << "query output volume to change it by a relative amount, if asked to increase or decrease volume, change it by 10.0\n"
       str << "audio can be muted and you unroute video to blank displays.\n"
+      str << "you can also shutdown, startup, power off, power on, start or end the meeting using the set_power_state function available in this capability.\n"
       str << "some rooms may have lighting control, make sure to check what levels are available before changing state\n"
       str << "some rooms may have accessories such as blinds or projector screen controls. Check for available accessories when asked about something not explicitly controllable\n"
     end
