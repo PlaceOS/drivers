@@ -214,7 +214,7 @@ class Clipsal::CBus < PlaceOS::Driver
     raise "area (cbus group) id required" unless group
     application = (area.try(&.channel) || app_default).to_u8
 
-    {application, (group & 0xFF).to_u8}
+    {application, group.to_u8 & 0xFF_u8}
   end
 
   protected def checksum(data : Bytes) : Bytes

@@ -13,6 +13,9 @@ class InnerRange::Integriti < PlaceOS::Driver
   uri_base "https://integriti-api.innerrange.com/restapi"
 
   default_settings({
+    # NOTE:: we need both the basic auth and API key
+    # the API key is provided by innerrange and is a
+    # the same for each client (one per-integrator)
     basic_auth: {
       username: "installer",
       password: "installer",
