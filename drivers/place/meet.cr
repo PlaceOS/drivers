@@ -89,7 +89,7 @@ class Place::Meet < PlaceOS::Driver
   getter capabilities : String do
     String.build do |str|
       str << "provides meeting room audio visual control such as controlling video source to be presented\n"
-      str << "check for available inputs and outputs before switching a source to a display.\n"
+      str << "check for available inputs and outputs before switching to present a source to a display.\n"
       str << "output volume and microphone fader controls are floats between 0.0 to 100.0\n"
       str << "query output volume to change it by a relative amount, if asked to increase or decrease volume, change it by 10.0\n"
       str << "audio can be muted and you unroute video to blank displays.\n"
@@ -309,7 +309,7 @@ class Place::Meet < PlaceOS::Driver
     results
   end
 
-  @[Description("route an input to an output / display. Don't guess, look up available input and output ids")]
+  @[Description("route to present an input to an output / display. Don't guess, look up available input and output ids")]
   def route_input(input_id : String, output_id : String)
     # obtain input ID
     keys = all_inputs
