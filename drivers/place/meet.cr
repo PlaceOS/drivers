@@ -608,8 +608,14 @@ class Place::Meet < PlaceOS::Driver
   @[Description("change the room volume")]
   def set_volume(level : Int32 | Float64)
     power true
-    volume level, ""
-    "volume set to #{level.to_f.clamp(0.0, 100.0)}"
+    if level.zero?
+      audio_mute true
+      "audio was muted"
+    else
+      audio_mute false
+      volume level, ""
+      "volume set to #{level.to_f.clamp(0.0, 100.0)}"
+    end
   end
 
   @[Description("query the current volume, useful to know when asked to change the volume relatively")]
