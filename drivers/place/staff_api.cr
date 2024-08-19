@@ -768,8 +768,9 @@ class Place::StaffAPI < PlaceOS::Driver
       new_bookings = JSON.parse(response.body).as_a
       bookings.concat new_bookings
 
+      last_req = next_request
       next_request = links["next"]?
-      break if next_request.nil? || new_bookings.empty?
+      break if next_request.nil? || new_bookings.empty? || last_req == next_request
     end
 
     logger.debug { "bookings count: #{bookings.size}" }
