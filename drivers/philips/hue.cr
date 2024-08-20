@@ -90,7 +90,8 @@ class Philips::Hue < PlaceOS::Driver
   end
 
   def resource_details(resource : Resource, id : String? = nil)
-    response = get("/clip/v2/resource/#{resource.to_s.underscore}/#{id}", headers: HTTP::Headers{
+    # NOTE:: HUE does not like trailing slashes, hence the weird check below
+    response = get("/clip/v2/resource/#{resource.to_s.underscore}#{id.presence ? "/#{id}" : ""}", headers: HTTP::Headers{
       "hue-application-key" => app_key,
     })
     JSON.parse response.body
@@ -98,6 +99,10 @@ class Philips::Hue < PlaceOS::Driver
 
   def device_list
     resource_details(Resource::Device)
+  end
+
+  def scene_list
+    resource_details(Resource::Scene)
   end
 
   # convert RGB to CIE which is used by Hue
