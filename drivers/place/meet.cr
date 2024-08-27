@@ -140,6 +140,7 @@ class Place::Meet < PlaceOS::Driver
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
+    self[:voice_control] = setting?(Bool, :voice_control) || false
     @shutdown_devices = setting?(Array(String), :shutdown_devices)
     @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
 
