@@ -195,7 +195,7 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
-  @[Description("power on or off the meeting room.")]
+  @[Description("power on or off the meeting room. Send true for power on (startup) or false for power off (shutdown)")]
   def set_power_state(state : Bool)
     power state
   end
