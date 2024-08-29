@@ -142,10 +142,17 @@ class Place::AutoRelease < PlaceOS::Driver
     end
   end
 
-  def in_preference?(preference : WorktimePreference, event_time : Float64, locations : Array(String)) : Bool
-    preference.blocks.any? do |block|
-      in_preference_hours?(block.start_time, block.end_time, event_time) &&
-        (locations.includes? block.location)
+  def in_preference?(preference : WorktimePreference, event_time : Float64, locations : Array(String), match_locations : Bool = true) : Bool
+    if match_locations
+      preference.blocks.any? do |block|
+        in_preference_hours?(block.start_time, block.end_time, event_time) &&
+          locations.includes? block.location
+      end
+    else
+      preference.blocks.any? do |block|
+        in_preference_hours?(block.start_time, block.end_time, event_time) &&
+          !locations.includes?(block.location)
+      end
     end
   end
 
@@ -171,6 +178,8 @@ class Place::AutoRelease < PlaceOS::Driver
         if (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
            in_preference?(override, event_time, @release_locations)
           results << booking
+        elsif (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
+              in_preference?(override, event_time, @release_locations, false)
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
           results << booking
