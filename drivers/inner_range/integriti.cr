@@ -293,7 +293,8 @@ class InnerRange::Integriti < PlaceOS::Driver
           when "PageSize"
             page_size = (child.content || "0").to_i
           when "NextPageUrl"
-            next_page = URI.decode(child.content || "")
+            uri = URI.parse URI.decode(child.content || "")
+            next_page = uri.request_target
           when "Rows"
             if rows = child.children.select(&.element?)
               rows_returned = rows.size
@@ -572,11 +573,15 @@ class InnerRange::Integriti < PlaceOS::Driver
   def users(site_id : Int32? = nil, email : String? = nil)
     users = [] of User
     filter = Filter{
-      "SiteID" => site_id,
+      # can't filter users by site id for some reason
+      # "SiteID" => site_id,
       cf_email => email,
     }
     paginate_request("BasicStatus", "User", filter) do |row|
       users << extract_user(row)
+    end
+    if site_id
+      users.select(&.site_id.==(site_id))
     end
     users
   end
@@ -591,11 +596,12 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def create_user(name : String, email : String, phone : String?) : String
+  def create_user(name : String, email : String, phone : String?, site_id : String | Int64? = nil) : String
     first_name, second_name = name.split(' ', 2)
     user = extract_add_or_update_result(add_entry("User", UpdateFields{
       "FirstName"  => first_name,
       "SecondName" => second_name,
+      "SiteID"     => site_id || default_site_id.to_i64,
       cf_email     => email.strip.downcase,
       cf_phone     => phone,
     }.compact!))
@@ -637,7 +643,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
 
     field = cf_email
-    email_user_id = Hash(String, String).new("", users.size)
+    email_user_id = Hash(String, String).new("", user_ids.size)
 
     user_ids.each do |user_id|
       document = check get("/v2/BasicStatus/User/#{user_id}?AdditionalProperties=#{field}")
