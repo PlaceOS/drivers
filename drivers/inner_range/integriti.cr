@@ -276,6 +276,8 @@ class InnerRange::Integriti < PlaceOS::Driver
                   "/v2/#{category}/GetFilteredEntities/#{type}?PageSize=1000&#{prop_param(type, summary_only)}"
                 end
 
+    next_uri = URI.parse(next_page)
+
     loop do
       document = if filter.empty?
                    check get(next_page)
@@ -294,7 +296,8 @@ class InnerRange::Integriti < PlaceOS::Driver
             page_size = (child.content || "0").to_i
           when "NextPageUrl"
             uri = URI.parse URI.decode(child.content || "")
-            next_page = uri.request_target
+            next_uri.query = uri.query
+            next_page = next_uri.request_target
           when "Rows"
             if rows = child.children.select(&.element?)
               rows_returned = rows.size
