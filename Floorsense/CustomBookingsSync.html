@@ -2052,6 +2052,11 @@
       
     </li>
   
+  <li class=" " data-id="drivers/Floorsense/Booking" data-name="floorsense::booking">
+      <a href="../Floorsense/Booking.html">Booking</a>
+      
+    </li>
+  
   <li class="parent " data-id="drivers/Floorsense/BookingsSync" data-name="floorsense::bookingssync">
       <a href="../Floorsense/BookingsSync.html">BookingsSync</a>
       
@@ -2082,13 +2087,8 @@
       
         <ul>
   
-  <li class=" " data-id="drivers/Floorsense/CustomBookingsSync/Booking" data-name="floorsense::custombookingssync::booking">
-      <a href="../Floorsense/CustomBookingsSync/Booking.html">Booking</a>
-      
-    </li>
-  
-  <li class=" " data-id="drivers/Floorsense/CustomBookingsSync/DeskMeta" data-name="floorsense::custombookingssync::deskmeta">
-      <a href="../Floorsense/CustomBookingsSync/DeskMeta.html">DeskMeta</a>
+  <li class=" " data-id="drivers/Floorsense/CustomBookingsSync/PlaceUser" data-name="floorsense::custombookingssync::placeuser">
+      <a href="../Floorsense/CustomBookingsSync/PlaceUser.html">PlaceUser</a>
       
     </li>
   
@@ -2099,6 +2099,11 @@
   
   <li class=" " data-id="drivers/Floorsense/DeskInfo" data-name="floorsense::deskinfo">
       <a href="../Floorsense/DeskInfo.html">DeskInfo</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Floorsense/DeskMeta" data-name="floorsense::deskmeta">
+      <a href="../Floorsense/DeskMeta.html">DeskMeta</a>
       
     </li>
   
@@ -7109,7 +7114,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L8" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L9" target="_blank">
         floorsense/custom_bookings_sync.cr
       </a>
     
@@ -7117,6 +7122,30 @@
   
 
 
+
+  
+    <h2>
+      <a id="constant-summary" class="anchor" href="#constant-summary">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+      Constant Summary
+    </h2>
+  
+  <dl>
+    
+      <dt class="entry-const" id="DESK_SOURCE_EXTENSION_DATA_MODIFICATION">
+        <strong>DESK_SOURCE_EXTENSION_DATA_MODIFICATION</strong> = <code><span class="s">&quot;floorsense&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="LOCKER_SOURCE_EXTENSION_DATA_MODIFICATION">
+        <strong>LOCKER_SOURCE_EXTENSION_DATA_MODIFICATION</strong> = <code><span class="s">&quot;smartalock&quot;</span></code>
+      </dt>
+      
+    
+  </dl>
 
 
 
@@ -7152,11 +7181,6 @@
     Instance Method Summary
   </h2>
   <ul class="list-summary">
-    
-      <li class="entry-summary">
-        <a href="#check_floorsense_log%3ANil-instance-method" class="signature"><strong>#check_floorsense_log</strong> : Nil</a>
-        
-      </li>
     
       <li class="entry-summary">
         <a href="#eui64_to_desk_id%28id%3AString%29-instance-method" class="signature"><strong>#eui64_to_desk_id</strong>(id : String)</a>
@@ -7201,7 +7225,22 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#sync_busy%3AHash%28String%2CBool%29-instance-method" class="signature"><strong>#sync_busy</strong> : Hash(String, Bool)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#sync_floor%28zone%3AString%29-instance-method" class="signature"><strong>#sync_floor</strong>(zone : String)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#sync_queue%3AHash%28String%2CInt32%29-instance-method" class="signature"><strong>#sync_queue</strong> : Hash(String, Int32)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#sync_times%3AHash%28String%2CArray%28Float64%29%29-instance-method" class="signature"><strong>#sync_times</strong> : Hash(String, Array(Float64))</a>
         
       </li>
     
@@ -7292,22 +7331,6 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="check_floorsense_log:Nil-instance-method">
-      <div class="signature">
-        
-        def <strong>check_floorsense_log</strong> : Nil
-
-        <a class="method-permalink" href="#check_floorsense_log%3ANil-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L239" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
     <div class="entry-detail" id="eui64_to_desk_id(id:String)-instance-method">
       <div class="signature">
         
@@ -7319,7 +7342,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L674" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L684" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7344,7 +7367,7 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L697" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L249" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7360,7 +7383,7 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L645" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L646" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7376,7 +7399,7 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L70" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L78" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7392,7 +7415,7 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L78" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L88" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7408,7 +7431,7 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L714" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L266" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7424,7 +7447,7 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L728" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L922" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7440,7 +7463,23 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L406" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L193" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="sync_busy:Hash(String,Bool)-instance-method">
+      <div class="signature">
+        
+        def <strong>sync_busy</strong> : Hash(String, Bool)
+
+        <a class="method-permalink" href="#sync_busy%3AHash%28String%2CBool%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L197" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7456,7 +7495,39 @@ Booking Queries</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L410" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L201" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="sync_queue:Hash(String,Int32)-instance-method">
+      <div class="signature">
+        
+        def <strong>sync_queue</strong> : Hash(String, Int32)
+
+        <a class="method-permalink" href="#sync_queue%3AHash%28String%2CInt32%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L198" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="sync_times:Hash(String,Array(Float64))-instance-method">
+      <div class="signature">
+        
+        def <strong>sync_times</strong> : Hash(String, Array(Float64))
+
+        <a class="method-permalink" href="#sync_times%3AHash%28String%2CArray%28Float64%29%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L199" target="_blank">View source</a>]
         
       </div>
     </div>
