@@ -247,17 +247,25 @@ class StaffAPI < DriverSpecs::MockDriver
       work_preferences: 7.times.map do |i|
         {
           day_of_week: i,
-          start_time:  (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-          end_time:    (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
-          location:    "wfh",
+          blocks:      [
+            {
+              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
+              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              location:   "wfh",
+            },
+          ],
         }
       end,
       work_overrides: {
         "2024-02-15": {
           day_of_week: 4,
-          start_time:  9,
-          end_time:    17,
-          location:    "wfo",
+          blocks:      [
+            {
+              start_time: 9,
+              end_time:   17,
+              location:   "wfo",
+            },
+          ],
         },
       },
       sys_admin:   false,
@@ -287,17 +295,25 @@ class StaffAPI < DriverSpecs::MockDriver
       work_preferences: 7.times.map do |i|
         {
           day_of_week: i,
-          start_time:  (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-          end_time:    (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
-          location:    "wfo",
+          blocks:      [
+            {
+              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
+              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              location:   "wfo",
+            },
+          ],
         }
       end,
       work_overrides: {
         "2024-02-15": {
           day_of_week: 4,
-          start_time:  9,
-          end_time:    17,
-          location:    "wfo",
+          blocks:      [
+            {
+              start_time: 9,
+              end_time:   17,
+              location:   "wfo",
+            },
+          ],
         },
       },
       sys_admin:   false,
