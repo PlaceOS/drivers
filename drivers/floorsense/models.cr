@@ -3,6 +3,19 @@ require "json"
 # Floorsense Data Models
 module Floorsense
   # Websocket payloads
+  struct DeskMeta
+    include JSON::Serializable
+
+    def initialize(@place_id, @floor_id, @building, @title, @ext_data)
+    end
+
+    property place_id : String
+    property floor_id : String
+    property building : String?
+    getter ext_data : Hash(String, JSON::Any)
+    getter title : String
+  end
+
   class Payload
     include JSON::Serializable
 
@@ -262,6 +275,82 @@ module Floorsense
 
     @[JSON::Field(ignore: true)]
     property! place_id : String
+  end
+
+  class Booking
+    include JSON::Serializable
+
+    # This is to support events
+    property action : String?
+
+    property id : Int64
+    property booking_type : String
+    property booking_start : Int64
+    property booking_end : Int64
+    property timezone : String?
+
+    # events use resource_id instead of asset_id
+    property asset_id : String?
+    property resource_id : String?
+
+    def asset_id : String
+      (@asset_id || @resource_id).not_nil!
+    end
+
+    property user_id : String
+    property user_email : String
+    property user_name : String
+    property deleted : Bool?
+    property deleted_at : Int64?
+
+    property zones : Array(String)
+
+    property checked_in : Bool?
+    property rejected : Bool?
+    property approved : Bool?
+    property process_state : String?
+    property last_changed : Int64?
+    property checked_in_at : Int64?
+    property checked_out_at : Int64?
+
+    property booked_by_name : String?
+    property booked_by_email : String?
+
+    property extension_data : JSON::Any?
+
+    @[JSON::Field(ignore: true)]
+    property! floor_id : String?
+
+    def in_progress?
+      now = Time.utc.to_unix
+      now >= @booking_start && now < @booking_end
+    end
+
+    def floorsense_booking_id : String?
+      ext_data = extension_data
+      return unless ext_data
+      ext_data["floorsense_booking_id"]?.try(&.as_s)
+    end
+
+    def released?
+      checked_out? || booking_end <= Time.local.to_unix
+    end
+
+    def checked_out?
+      !checked_out_at.nil?
+    end
+
+    def checked_in?
+      !checked_in.nil? && checked_in.not_nil!
+    end
+
+    def deleted?
+      action == "cancelled"
+    end
+
+    def is_deleted?
+      !!deleted && !deleted_at.nil?
+    end
   end
 
   class User

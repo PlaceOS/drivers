@@ -730,7 +730,9 @@ class Place::StaffAPI < PlaceOS::Driver
     created_after : Int64? = nil,
     approved : Bool? = nil,
     rejected : Bool? = nil,
-    checked_in : Bool? = nil
+    checked_in : Bool? = nil,
+    include_checked_out : Bool? = nil,
+    extension_data : JSON::Any? = nil
   )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
@@ -750,6 +752,12 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "approved", approved.to_s unless approved.nil?
       form.add "rejected", rejected.to_s unless rejected.nil?
       form.add "checked_in", checked_in.to_s unless checked_in.nil?
+      form.add "include_checked_out", include_checked_out.to_s unless include_checked_out.nil?
+
+      if extension_data
+        value = extension_data.as_h.map { |k, v| "#{k}:#{v}" }.join(",")
+        form.add "extension_data", "{#{value}}"
+      end
     end
 
     logger.debug { "requesting staff/v1/bookings: #{params}" }
