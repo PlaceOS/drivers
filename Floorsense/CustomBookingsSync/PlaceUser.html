@@ -14,7 +14,7 @@
 <script type="text/javascript" src="../../js/doc.js"></script>
 
   <meta name="repository-name" content="drivers">
-  <title>Floorsense::CustomBookingsSync::DeskMeta - drivers master</title>
+  <title>Floorsense::CustomBookingsSync::PlaceUser - drivers master</title>
   <script type="text/javascript">
     CrystalDocs.base_path = "../../";
   </script>
@@ -2052,6 +2052,11 @@
       
     </li>
   
+  <li class=" " data-id="drivers/Floorsense/Booking" data-name="floorsense::booking">
+      <a href="../../Floorsense/Booking.html">Booking</a>
+      
+    </li>
+  
   <li class="parent " data-id="drivers/Floorsense/BookingsSync" data-name="floorsense::bookingssync">
       <a href="../../Floorsense/BookingsSync.html">BookingsSync</a>
       
@@ -2082,13 +2087,8 @@
       
         <ul>
   
-  <li class=" " data-id="drivers/Floorsense/CustomBookingsSync/Booking" data-name="floorsense::custombookingssync::booking">
-      <a href="../../Floorsense/CustomBookingsSync/Booking.html">Booking</a>
-      
-    </li>
-  
-  <li class=" current" data-id="drivers/Floorsense/CustomBookingsSync/DeskMeta" data-name="floorsense::custombookingssync::deskmeta">
-      <a href="../../Floorsense/CustomBookingsSync/DeskMeta.html">DeskMeta</a>
+  <li class=" current" data-id="drivers/Floorsense/CustomBookingsSync/PlaceUser" data-name="floorsense::custombookingssync::placeuser">
+      <a href="../../Floorsense/CustomBookingsSync/PlaceUser.html">PlaceUser</a>
       
     </li>
   
@@ -2099,6 +2099,11 @@
   
   <li class=" " data-id="drivers/Floorsense/DeskInfo" data-name="floorsense::deskinfo">
       <a href="../../Floorsense/DeskInfo.html">DeskInfo</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Floorsense/DeskMeta" data-name="floorsense::deskmeta">
+      <a href="../../Floorsense/DeskMeta.html">DeskMeta</a>
       
     </li>
   
@@ -7076,49 +7081,29 @@
 <div class="main-content">
 <h1 class="type-name">
 
-  <span class="kind">struct</span> Floorsense::<wbr>CustomBookingsSync::<wbr>DeskMeta
+  <span class="kind">alias</span> Floorsense::<wbr>CustomBookingsSync::<wbr>PlaceUser
 
 </h1>
 
 
-  <ul class="superclass-hierarchy"><li class="superclass"><a href="../../Floorsense/CustomBookingsSync/DeskMeta.html">Floorsense::CustomBookingsSync::DeskMeta</a></li><li class="superclass">Struct</li><li class="superclass">Value</li><li class="superclass">Object</li></ul>
-
-
-
 
 
 
 
 
   <h2>
-    <a id="included-modules" class="anchor" href="#included-modules">
+    <a id="alias-definition" class="anchor" href="#alias-definition">
   <svg class="octicon-link" aria-hidden="true">
     <use href="#octicon-link"/>
   </svg>
 </a>
-    Included Modules
+    Alias Definition
   </h2>
-  <ul class="other-types-list">
-    
-      <li class="other-type">JSON::Serializable</li>
-    
-  </ul>
+  <code>PlaceOS::Client::API::Models::User</code>
 
 
 
-  <h2>
-    <a id="extended-modules" class="anchor" href="#extended-modules">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Extended Modules
-  </h2>
-  <ul class="other-types-list">
-    
-      <li class="other-type">JSON::Schema</li>
-    
-  </ul>
+
 
 
 
@@ -7137,7 +7122,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L768" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/d4ec55914117c20ea988df0355c2f8c0eb17c85f/src/floorsense/custom_bookings_sync.cr#L23" target="_blank">
         floorsense/custom_bookings_sync.cr
       </a>
     
@@ -7148,330 +7133,24 @@
 
 
 
-  <h2>
-    <a id="constructors" class="anchor" href="#constructors">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Constructors
-  </h2>
-  <ul class="list-summary">
-    
-      <li class="entry-summary">
-        <a href="#new%28place_id%3AString%2Cfloor_id%3AString%2Cbuilding%3ANil%7CString%2Ctitle%3AString%2Cext_data%3AHash%28String%2CJSON%3A%3AAny%29%29-class-method" class="signature"><strong>.new</strong>(place_id : String, floor_id : String, building : Nil | String, title : String, ext_data : Hash(String, JSON::Any))</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#new%28pull%3AJSON%3A%3APullParser%29-class-method" class="signature"><strong>.new</strong>(pull : JSON::PullParser)</a>
-        
-      </li>
-    
-  </ul>
 
 
 
 
 
-
-
-  <h2>
-    <a id="instance-method-summary" class="anchor" href="#instance-method-summary">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Instance Method Summary
-  </h2>
-  <ul class="list-summary">
-    
-      <li class="entry-summary">
-        <a href="#building%3AString%7CNil-instance-method" class="signature"><strong>#building</strong> : String | Nil</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#building%3D%28building%3AString%7CNil%29-instance-method" class="signature"><strong>#building=</strong>(building : String | Nil)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#ext_data%3AHash%28String%2CJSON%3A%3AAny%29-instance-method" class="signature"><strong>#ext_data</strong> : Hash(String, JSON::Any)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#floor_id%3AString-instance-method" class="signature"><strong>#floor_id</strong> : String</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#floor_id%3D%28floor_id%3AString%29-instance-method" class="signature"><strong>#floor_id=</strong>(floor_id : String)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#place_id%3AString-instance-method" class="signature"><strong>#place_id</strong> : String</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#place_id%3D%28place_id%3AString%29-instance-method" class="signature"><strong>#place_id=</strong>(place_id : String)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#title%3AString-instance-method" class="signature"><strong>#title</strong> : String</a>
-        
-      </li>
-    
-  </ul>
 
 
 
 <div class="methods-inherited">
-  
-    
-
-
-    
-
-
-    
-
-
-    
-
-
-  
-    
-
-
-    
-
-
-    
-
-
-    
-
-
-  
-    
-
-
-    
-
-
-    
-
-
-    
-
-
-  
-    
-
-
-    
-
-
-    
-
-
-    
-
-
   
 </div>
 
 
-  <h2>
-    <a id="constructor-detail" class="anchor" href="#constructor-detail">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Constructor Detail
-  </h2>
-  
-    <div class="entry-detail" id="new(place_id:String,floor_id:String,building:Nil|String,title:String,ext_data:Hash(String,JSON::Any))-class-method">
-      <div class="signature">
-        
-        def self.<strong>new</strong>(place_id : String, floor_id : String, building : Nil | String, title : String, ext_data : Hash(String, JSON::Any))
-
-        <a class="method-permalink" href="#new%28place_id%3AString%2Cfloor_id%3AString%2Cbuilding%3ANil%7CString%2Ctitle%3AString%2Cext_data%3AHash%28String%2CJSON%3A%3AAny%29%29-class-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L771" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="new(pull:JSON::PullParser)-class-method">
-      <div class="signature">
-        
-        def self.<strong>new</strong>(pull : JSON::PullParser)
-
-        <a class="method-permalink" href="#new%28pull%3AJSON%3A%3APullParser%29-class-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L769" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
 
 
 
 
 
-
-
-  <h2>
-    <a id="instance-method-detail" class="anchor" href="#instance-method-detail">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Instance Method Detail
-  </h2>
-  
-    <div class="entry-detail" id="building:String|Nil-instance-method">
-      <div class="signature">
-        
-        def <strong>building</strong> : String | Nil
-
-        <a class="method-permalink" href="#building%3AString%7CNil-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L776" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="building=(building:String|Nil)-instance-method">
-      <div class="signature">
-        
-        def <strong>building=</strong>(building : String | Nil)
-
-        <a class="method-permalink" href="#building%3D%28building%3AString%7CNil%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L776" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="ext_data:Hash(String,JSON::Any)-instance-method">
-      <div class="signature">
-        
-        def <strong>ext_data</strong> : Hash(String, JSON::Any)
-
-        <a class="method-permalink" href="#ext_data%3AHash%28String%2CJSON%3A%3AAny%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L777" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="floor_id:String-instance-method">
-      <div class="signature">
-        
-        def <strong>floor_id</strong> : String
-
-        <a class="method-permalink" href="#floor_id%3AString-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L775" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="floor_id=(floor_id:String)-instance-method">
-      <div class="signature">
-        
-        def <strong>floor_id=</strong>(floor_id : String)
-
-        <a class="method-permalink" href="#floor_id%3D%28floor_id%3AString%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L775" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="place_id:String-instance-method">
-      <div class="signature">
-        
-        def <strong>place_id</strong> : String
-
-        <a class="method-permalink" href="#place_id%3AString-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L774" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="place_id=(place_id:String)-instance-method">
-      <div class="signature">
-        
-        def <strong>place_id=</strong>(place_id : String)
-
-        <a class="method-permalink" href="#place_id%3D%28place_id%3AString%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L774" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="title:String-instance-method">
-      <div class="signature">
-        
-        def <strong>title</strong> : String
-
-        <a class="method-permalink" href="#title%3AString-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/6bfb01b17583d243009a41d5bb5fd8247ee9282e/src/floorsense/custom_bookings_sync.cr#L778" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
 
 
 </div>
