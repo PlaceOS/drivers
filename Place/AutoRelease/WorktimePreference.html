@@ -4307,6 +4307,11 @@
       
     </li>
   
+  <li class=" " data-id="drivers/Place/AutoRelease/WorktimeBlock" data-name="place::autorelease::worktimeblock">
+      <a href="../../Place/AutoRelease/WorktimeBlock.html">WorktimeBlock</a>
+      
+    </li>
+  
   <li class=" current" data-id="drivers/Place/AutoRelease/WorktimePreference" data-name="place::autorelease::worktimepreference">
       <a href="../../Place/AutoRelease/WorktimePreference.html">WorktimePreference</a>
       
@@ -7100,10 +7105,7 @@
     Overview
   </h2>
 
-  <p>day_of_week: Index of the day of the week. <code>0</code> being Sunday
-start_time: Start time of work hours. e.g. <code>7.5</code> being 7:30AM
-end_time: End time of work hours. e.g. <code>18.5</code> being 6:30PM
-location: Name of the location the work is being performed at</p>
+  <p>day_of_week: Index of the day of the week. <code>0</code> being Sunday</p>
 
 
 
@@ -7156,7 +7158,7 @@ location: Name of the location the work is being performed at</p>
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/e86f017d24e3955e7453ed1680dffcf50cf9a430/src/place/auto_release.cr#L274" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/524fb996c8d794047a866dcb02571e5c6a5e8513/src/place/auto_release.cr#L296" target="_blank">
         place/auto_release.cr
       </a>
     
@@ -7176,11 +7178,6 @@ location: Name of the location the work is being performed at</p>
     Constructors
   </h2>
   <ul class="list-summary">
-    
-      <li class="entry-summary">
-        <a href="#new%28day_of_week%3AInt64%2Cstart_time%3AFloat64%2Cend_time%3AFloat64%2Clocation%3AString%3D%22%22%29-class-method" class="signature"><strong>.new</strong>(day_of_week : Int64, start_time : Float64, end_time : Float64, location : String = <span class="s">&quot;&quot;</span>)</a>
-        
-      </li>
     
       <li class="entry-summary">
         <a href="#new%28pull%3AJSON%3A%3APullParser%29-class-method" class="signature"><strong>.new</strong>(pull : JSON::PullParser)</a>
@@ -7206,32 +7203,22 @@ location: Name of the location the work is being performed at</p>
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#clone-instance-method" class="signature"><strong>#clone</strong></a>
+        <a href="#blocks%3AArray%28WorktimeBlock%29-instance-method" class="signature"><strong>#blocks</strong> : Array(WorktimeBlock)</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#copy_with%28day_of_week_day_of_week%3D%40day_of_week%2Cstart_time_start_time%3D%40start_time%2Cend_time_end_time%3D%40end_time%2Clocation_location%3D%40location%29-instance-method" class="signature"><strong>#copy_with</strong>(day_of_week _day_of_week = @day_of_week, start_time _start_time = @start_time, end_time _end_time = @end_time, location _location = @location)</a>
+        <a href="#blocks%3D%28blocks%3AArray%28WorktimeBlock%29%29-instance-method" class="signature"><strong>#blocks=</strong>(blocks : Array(WorktimeBlock))</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#day_of_week%3AInt64-instance-method" class="signature"><strong>#day_of_week</strong> : Int64</a>
+        <a href="#day_of_week%3AInt32-instance-method" class="signature"><strong>#day_of_week</strong> : Int32</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#end_time%3AFloat64-instance-method" class="signature"><strong>#end_time</strong> : Float64</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#location%3AString-instance-method" class="signature"><strong>#location</strong> : String</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#start_time%3AFloat64-instance-method" class="signature"><strong>#start_time</strong> : Float64</a>
+        <a href="#day_of_week%3D%28day_of_week%3AInt32%29-instance-method" class="signature"><strong>#day_of_week=</strong>(day_of_week : Int32)</a>
         
       </li>
     
@@ -7305,22 +7292,6 @@ location: Name of the location the work is being performed at</p>
     Constructor Detail
   </h2>
   
-    <div class="entry-detail" id="new(day_of_week:Int64,start_time:Float64,end_time:Float64,location:String=&quot;&quot;)-class-method">
-      <div class="signature">
-        
-        def self.<strong>new</strong>(day_of_week : Int64, start_time : Float64, end_time : Float64, location : String = <span class="s">&quot;&quot;</span>)
-
-        <a class="method-permalink" href="#new%28day_of_week%3AInt64%2Cstart_time%3AFloat64%2Cend_time%3AFloat64%2Clocation%3AString%3D%22%22%29-class-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/e86f017d24e3955e7453ed1680dffcf50cf9a430/src/place/auto_release.cr#L274" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
     <div class="entry-detail" id="new(pull:JSON::PullParser)-class-method">
       <div class="signature">
         
@@ -7332,7 +7303,7 @@ location: Name of the location the work is being performed at</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e86f017d24e3955e7453ed1680dffcf50cf9a430/src/place/auto_release.cr#L275" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/524fb996c8d794047a866dcb02571e5c6a5e8513/src/place/auto_release.cr#L297" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7353,90 +7324,66 @@ location: Name of the location the work is being performed at</p>
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="clone-instance-method">
+    <div class="entry-detail" id="blocks:Array(WorktimeBlock)-instance-method">
       <div class="signature">
         
-        def <strong>clone</strong>
+        def <strong>blocks</strong> : Array(<a href="../../Place/AutoRelease/WorktimeBlock.html">WorktimeBlock</a>)
 
-        <a class="method-permalink" href="#clone-instance-method">#</a>
+        <a class="method-permalink" href="#blocks%3AArray%28WorktimeBlock%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e86f017d24e3955e7453ed1680dffcf50cf9a430/src/place/auto_release.cr#L274" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/524fb996c8d794047a866dcb02571e5c6a5e8513/src/place/auto_release.cr#L300" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="copy_with(day_of_week_day_of_week=@day_of_week,start_time_start_time=@start_time,end_time_end_time=@end_time,location_location=@location)-instance-method">
+    <div class="entry-detail" id="blocks=(blocks:Array(WorktimeBlock))-instance-method">
       <div class="signature">
         
-        def <strong>copy_with</strong>(day_of_week _day_of_week = @day_of_week, start_time _start_time = @start_time, end_time _end_time = @end_time, location _location = @location)
+        def <strong>blocks=</strong>(blocks : Array(<a href="../../Place/AutoRelease/WorktimeBlock.html">WorktimeBlock</a>))
 
-        <a class="method-permalink" href="#copy_with%28day_of_week_day_of_week%3D%40day_of_week%2Cstart_time_start_time%3D%40start_time%2Cend_time_end_time%3D%40end_time%2Clocation_location%3D%40location%29-instance-method">#</a>
+        <a class="method-permalink" href="#blocks%3D%28blocks%3AArray%28WorktimeBlock%29%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e86f017d24e3955e7453ed1680dffcf50cf9a430/src/place/auto_release.cr#L274" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/524fb996c8d794047a866dcb02571e5c6a5e8513/src/place/auto_release.cr#L300" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="day_of_week:Int64-instance-method">
+    <div class="entry-detail" id="day_of_week:Int32-instance-method">
       <div class="signature">
         
-        def <strong>day_of_week</strong> : Int64
+        def <strong>day_of_week</strong> : Int32
 
-        <a class="method-permalink" href="#day_of_week%3AInt64-instance-method">#</a>
+        <a class="method-permalink" href="#day_of_week%3AInt32-instance-method">#</a>
       </div>
       
       <br/>
       <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/524fb996c8d794047a866dcb02571e5c6a5e8513/src/place/auto_release.cr#L299" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="end_time:Float64-instance-method">
+    <div class="entry-detail" id="day_of_week=(day_of_week:Int32)-instance-method">
       <div class="signature">
         
-        def <strong>end_time</strong> : Float64
+        def <strong>day_of_week=</strong>(day_of_week : Int32)
 
-        <a class="method-permalink" href="#end_time%3AFloat64-instance-method">#</a>
+        <a class="method-permalink" href="#day_of_week%3D%28day_of_week%3AInt32%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="location:String-instance-method">
-      <div class="signature">
-        
-        def <strong>location</strong> : String
-
-        <a class="method-permalink" href="#location%3AString-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="start_time:Float64-instance-method">
-      <div class="signature">
-        
-        def <strong>start_time</strong> : Float64
-
-        <a class="method-permalink" href="#start_time%3AFloat64-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
+          [<a href="https://github.com/PlaceOS/drivers/blob/524fb996c8d794047a866dcb02571e5c6a5e8513/src/place/auto_release.cr#L299" target="_blank">View source</a>]
         
       </div>
     </div>
