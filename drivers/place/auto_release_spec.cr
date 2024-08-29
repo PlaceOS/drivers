@@ -219,6 +219,29 @@ class StaffAPI < DriverSpecs::MockDriver
       last_changed:    Time.utc.to_unix,
       created:         Time.utc.to_unix,
     },
+    {
+      id:              10,
+      user_id:         "user-wfh-override",
+      user_email:      "user_four@example.com",
+      user_name:       "User Four",
+      asset_id:        "desk_010",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (Time.utc - 11.minutes).to_unix,
+      booking_end:     (Time.utc + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore_override",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfo-override",
+      booked_by_email: "user_four@example.com",
+      booked_by_name:  "User Four",
+      process_state:   "approved",
+      last_changed:    Time.utc.to_unix,
+      created:         Time.utc.to_unix,
+    },
   ]
 
   NOW         = Time.local(location: Time::Location.load("Australia/Sydney"))
@@ -401,6 +424,54 @@ class StaffAPI < DriverSpecs::MockDriver
       card_number: "",
     }
 
+    user_wfh_override = {
+      created_at:       Time.utc.to_unix,
+      id:               id,
+      email_digest:     "not_real_digest",
+      name:             "User Four",
+      first_name:       "User",
+      last_name:        "Four",
+      groups:           [] of String,
+      country:          "Australia",
+      building:         "",
+      image:            "",
+      authority_id:     "authority-wfo-override",
+      deleted:          false,
+      department:       "",
+      work_preferences: 7.times.map do |i|
+        {
+          day_of_week: i,
+          blocks:      [
+            {
+              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
+              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              location:   "wfh",
+            },
+          ],
+        }
+      end,
+      work_overrides: {
+        DATE => {
+          day_of_week: DAY_OF_WEEK,
+          blocks:      [
+            {
+              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
+              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              location:   "wfo",
+            },
+          ],
+        },
+      },
+      sys_admin:   false,
+      support:     false,
+      email:       "user_four@example.com",
+      phone:       "",
+      ui_theme:    "light",
+      login_name:  "",
+      staff_id:    "",
+      card_number: "",
+    }
+
     case id
     when "user-wfh"
       JSON.parse(user_wfh.to_json)
@@ -408,6 +479,8 @@ class StaffAPI < DriverSpecs::MockDriver
       JSON.parse(user_wfo.to_json)
     when "user-aol"
       JSON.parse(user_aol.to_json)
+    when "user-wfh-override"
+      JSON.parse(user_wfh_override.to_json)
     else
       JSON.parse(user_wfh.to_json)
     end
@@ -500,7 +573,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp.not_nil!.as_h["id"].should eq "zone-1234"
 
   resp = exec(:get_pending_bookings).get
-  resp.not_nil!.as_a.size.should eq 9
+  resp.not_nil!.as_a.size.should eq 10
 
   resp = exec(:get_user_preferences?, "user-wfh").get
   resp.not_nil!.as_h.keys.should eq ["work_preferences", "work_overrides"]
