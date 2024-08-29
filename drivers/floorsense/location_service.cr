@@ -26,8 +26,8 @@ class Floorsense::LocationService < PlaceOS::Driver
     },
     include_bookings: false,
 
-    user_lookup:       "staff_id",
-    floorsense_filter: "description",
+    user_lookup:       "email",
+    floorsense_filter: "email",
   })
 
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
@@ -48,8 +48,8 @@ class Floorsense::LocationService < PlaceOS::Driver
   def on_update
     @include_bookings = setting?(Bool, :include_bookings) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)
-    @user_lookup = setting?(String, :user_lookup).presence || "staff_id"
-    @floorsense_filter = setting?(String, :floorsense_filter).presence || "description"
+    @user_lookup = setting?(String, :user_lookup).presence || "email"
+    @floorsense_filter = setting?(String, :floorsense_filter).presence || "email"
     @create_floorsense_users = setting?(Bool, :create_floorsense_users) || false
     @floor_mappings.each do |plan_id, details|
       level = details[:level_id]
@@ -66,8 +66,8 @@ class Floorsense::LocationService < PlaceOS::Driver
   # Get and set a users desk height
   # ===================================
 
-  @user_lookup : String = "staff_id"
-  @floorsense_filter : String = "description"
+  @user_lookup : String = "email"
+  @floorsense_filter : String = "email"
   @create_floorsense_users : Bool = true
 
   def get_floorsense_user(place_user_id : String) : String
