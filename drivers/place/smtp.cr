@@ -108,7 +108,6 @@ class Place::Smtp < PlaceOS::Driver
         TemplateField.new(name: "survey_id", description: "The ID of the survey"),
       ],
     ),
-
   }
 
   def on_load
