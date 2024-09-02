@@ -74,7 +74,6 @@ module Juniper
 
   class Client
     include JSON::Serializable
-    include JSON::Serializable::Unmapped
 
     property mac : String
     property last_seen : Int64
@@ -117,7 +116,6 @@ module Juniper
 
   struct ClientStats
     include JSON::Serializable
-    include JSON::Serializable::Unmapped
 
     property mac : String
     property last_seen : Int64
@@ -143,7 +141,6 @@ module Juniper
 
   struct ClientLocation
     include JSON::Serializable
-    include JSON::Serializable::Unmapped
 
     property mac : String
     property map_id : String

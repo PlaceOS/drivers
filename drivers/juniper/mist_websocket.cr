@@ -177,7 +177,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     location_data.size
   end
 
-  # batch update redis (don't want lots of websocket events to overload other services)
+  # batch update redis (lowering the number of writes)
   protected def update_client_locations
     location_data.each { |map_id, clients| self[map_id] = clients.values }
   end
