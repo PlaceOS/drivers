@@ -115,6 +115,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
       end
 
       # update details
+      client.last_seen = Time.utc.to_unix
       client.map_id = client_loc.map_id
       client.x = client_loc.x
       client.y = client_loc.y
