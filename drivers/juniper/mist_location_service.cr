@@ -23,7 +23,6 @@ class Juniper::MistLocationService < PlaceOS::Driver
     max_location_age: 6,
   })
 
-  # TODO:: notify dashboard of updates in the future?
   # accessor dashboard : Dashboard_1
   accessor mist : MistWebsocket_1
 
