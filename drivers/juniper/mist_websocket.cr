@@ -73,7 +73,9 @@ class Juniper::MistWebsocket < PlaceOS::Driver
 
     # We'll use this as the keepalive message
     schedule.every(45.seconds, immediate: true) do
-      transport.send({subscribe: "/sites/#{@site_id}/stats/clients"}.to_json)
+      maps.each do |map|
+        transport.send({subscribe: "/sites/#{@site_id}/stats/maps/#{map.id}/clients"}.to_json)
+      end
     end
     sync_clients
     schedule.every(3.seconds) { update_client_locations }
@@ -169,7 +171,9 @@ class Juniper::MistWebsocket < PlaceOS::Driver
 
     getter event : String
     getter channel : String
-    getter data : Client?
+
+    # data will be the Client class as a JSON string
+    getter data : String?
   end
 
   def received(data, task)
@@ -178,7 +182,8 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     event = WebsocketEvent.from_json(string)
 
     if event_data = event.data
-      update_location(client_data, location_data, event_data)
+      client_event = Client.from_json event_data
+      update_location(client_data, location_data, client_event)
     end
 
     task.try &.success

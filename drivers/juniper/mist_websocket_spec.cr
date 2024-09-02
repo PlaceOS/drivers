@@ -80,7 +80,7 @@ DriverSpecs.mock_driver "Juniper::MistWebsocket" do
   transmit %({
     "event": "data",
     "channel": "/sites/site_id/stats/clients",
-    "data": #{client_data}
+    "data": #{client_data.to_json}
   })
 
   sleep 3
