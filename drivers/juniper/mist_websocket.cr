@@ -148,6 +148,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   end
 
   def maps
+    # pixels_per_meter is optional
     request(Array(Map)) { |headers| get("/api/v1/sites/#{@site_id}/maps", headers: headers) }
   end
 
