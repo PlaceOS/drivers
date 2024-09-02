@@ -232,8 +232,8 @@ class Juniper::MistWebsocket < PlaceOS::Driver
         client_location = ClientLocation.from_json event_data
         update_location(client_data, location_data, client_location)
       else
-        # client stats update
-        update_stats(client_data, client_event)
+        client_stats = ClientStats.from_json event_data
+        update_stats(client_data, client_stats)
       end
     end
 
