@@ -50,7 +50,7 @@ class Juniper::MistLocationService < PlaceOS::Driver
     maps = {} of String => MapImage
     Array(Map).from_json(mist.maps.get.to_json).each do |map|
       unless map.is_a?(MapImage)
-        # TODO:: it might be possible to work out the size based on geo coordinates
+        # TODO:: it might be possible to work out the size based on geo coordinates.
         logger.warn { "mist map #{map.id} is not an image, cannot determine size" }
         next
       end

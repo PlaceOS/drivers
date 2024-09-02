@@ -36,7 +36,7 @@ module Juniper
     property org_id : String?
 
     @[JSON::Field(key: "ppm")]
-    property pixels_per_meter : Float32
+    property pixels_per_meter : Float32?
     property width : Int32
     property height : Int32
 
