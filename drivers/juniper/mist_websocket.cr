@@ -156,12 +156,16 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   end
 
   def sync_clients
-    clients_resp = clients
+    all_clients = [] of Client
+    maps.each do |map|
+      all_clients.concat(clients(map.id))
+    end
+
     loc_data = Hash(String, Hash(String, Client)).new { |hash, map_id| hash[map_id] = {} of String => Client }
     cli_data = {} of String => Client
 
     # build the internal representation
-    clients_resp.each do |client|
+    all_clients.each do |client|
       client_mac = format_mac client.mac
       client.mac = client_mac
       cli_data[client_mac] = client
