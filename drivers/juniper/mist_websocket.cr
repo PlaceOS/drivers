@@ -131,7 +131,6 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     client_data[client_mac] = client
     location_data[client.map_id][client_mac] = client
 
-    self[client_mac] = client
     if username = client.username
       user_mac_mappings { |storage| map_user_mac(client_mac, username, storage) }
     end
@@ -151,8 +150,6 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     client.ap_id = client_stats.ap_id
     client.username = client_stats.username
     client.hostname = client_stats.hostname
-
-    self[client_mac] = client
   end
 
   def sync_clients
@@ -176,7 +173,6 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     @location_data = loc_data
 
     # expose this to the world
-    cli_data.each_value { |client| self[client.mac] = client }
     loc_data.each { |map_id, clients| self[map_id] = clients.values }
     location_data.size
   end
