@@ -66,7 +66,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   # This command does nothing but is useful for making sure the socket is left open
   def no_op
-    do_send(cmd: :NoOp, priority: 0)
+    do_send(cmd: :NoOp, priority: 0, wait: false)
   end
 
   def get_status
