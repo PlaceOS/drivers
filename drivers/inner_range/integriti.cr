@@ -40,6 +40,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     @cf_phone = setting?(String, :custom_field_phone) || "cf_Mobile"
 
     transport.before_request do |request|
+      logger.debug { "requesting: #{request.method} #{request.path}?#{request.query}\n#{request.body}" }
       request.headers["API-KEY"] = api_key
       request.headers["Accept"] = "application/xml"
       request.headers["Content-Type"] = "application/xml"
