@@ -2752,6 +2752,11 @@
       
     </li>
   
+  <li class=" " data-id="drivers/InnerRange/Integriti/CardTemplate" data-name="innerrange::integriti::cardtemplate">
+      <a href="../../InnerRange/Integriti/CardTemplate.html">CardTemplate</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/InnerRange/Integriti/Filter" data-name="innerrange::integriti::filter">
       <a href="../../InnerRange/Integriti/Filter.html">Filter</a>
       
@@ -6902,6 +6907,31 @@
       
     </li>
   
+  <li class="parent " data-id="drivers/Wiegand" data-name="wiegand">
+      <a href="../../Wiegand.html">Wiegand</a>
+      
+        <ul>
+  
+  <li class=" " data-id="drivers/Wiegand/Base" data-name="wiegand::base">
+      <a href="../../Wiegand/Base.html">Base</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Wiegand/Wiegand26" data-name="wiegand::wiegand26">
+      <a href="../../Wiegand/Wiegand26.html">Wiegand26</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Wiegand/Wiegand35" data-name="wiegand::wiegand35">
+      <a href="../../Wiegand/Wiegand35.html">Wiegand35</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
   <li class="parent " data-id="drivers/WilliamsAV" data-name="williamsav">
       <a href="../../WilliamsAV.html">WilliamsAV</a>
       
@@ -7129,7 +7159,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/07d57b030e20c9c3abc48df754b92e41e705f636/src/inner_range/integriti.cr#L386" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/b1604f845b76472fd388971f92af7bb1aafa4e72/src/inner_range/integriti.cr#L387" target="_blank">
         inner_range/integriti.cr
       </a>
     
@@ -7156,7 +7186,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#new%28id%3AInt64%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cmessage%3ANil%7CString%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64 | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, message : Nil | String = <span class="n">nil</span>)</a>
+        <a href="#new%28id%3AInt64%7CString%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cmessage%3ANil%7CString%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64 | String | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, message : Nil | String = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7179,22 +7209,22 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#address%3AString-instance-method" class="signature"><strong>#address</strong> : String</a>
+        <a href="#address%3AString%7CNil-instance-method" class="signature"><strong>#address</strong> : String | Nil</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#address%3F%3AString%7CNil-instance-method" class="signature"><strong>#address?</strong> : String | Nil</a>
+        <a href="#address%3F%3AString%7CNil%7CNil-instance-method" class="signature"><strong>#address?</strong> : String | Nil | Nil</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#id%3AInt64-instance-method" class="signature"><strong>#id</strong> : Int64</a>
+        <a href="#id%3AInt64%7CString-instance-method" class="signature"><strong>#id</strong> : Int64 | String</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#id%3F%3AInt64%7CNil-instance-method" class="signature"><strong>#id?</strong> : Int64 | Nil</a>
+        <a href="#id%3F%3AInt64%7CString%7CNil-instance-method" class="signature"><strong>#id?</strong> : Int64 | String | Nil</a>
         
       </li>
     
@@ -7314,18 +7344,18 @@
       </div>
     </div>
   
-    <div class="entry-detail" id="new(id:Int64|Nil=nil,address:Nil|String=nil,message:Nil|String=nil)-class-method">
+    <div class="entry-detail" id="new(id:Int64|String|Nil=nil,address:Nil|String=nil,message:Nil|String=nil)-class-method">
       <div class="signature">
         
-        def self.<strong>new</strong>(id : Int64 | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, message : Nil | String = <span class="n">nil</span>)
+        def self.<strong>new</strong>(id : Int64 | String | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, message : Nil | String = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#new%28id%3AInt64%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cmessage%3ANil%7CString%3Dnil%29-class-method">#</a>
+        <a class="method-permalink" href="#new%28id%3AInt64%7CString%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cmessage%3ANil%7CString%3Dnil%29-class-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/07d57b030e20c9c3abc48df754b92e41e705f636/src/inner_range/integriti.cr#L386" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b1604f845b76472fd388971f92af7bb1aafa4e72/src/inner_range/integriti.cr#L387" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7346,12 +7376,12 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="address:String-instance-method">
+    <div class="entry-detail" id="address:String|Nil-instance-method">
       <div class="signature">
         
-        def <strong>address</strong> : String
+        def <strong>address</strong> : String | Nil
 
-        <a class="method-permalink" href="#address%3AString-instance-method">#</a>
+        <a class="method-permalink" href="#address%3AString%7CNil-instance-method">#</a>
       </div>
       
       <br/>
@@ -7360,12 +7390,12 @@
       </div>
     </div>
   
-    <div class="entry-detail" id="address?:String|Nil-instance-method">
+    <div class="entry-detail" id="address?:String|Nil|Nil-instance-method">
       <div class="signature">
         
-        def <strong>address?</strong> : String | Nil
+        def <strong>address?</strong> : String | Nil | Nil
 
-        <a class="method-permalink" href="#address%3F%3AString%7CNil-instance-method">#</a>
+        <a class="method-permalink" href="#address%3F%3AString%7CNil%7CNil-instance-method">#</a>
       </div>
       
       <br/>
@@ -7374,12 +7404,12 @@
       </div>
     </div>
   
-    <div class="entry-detail" id="id:Int64-instance-method">
+    <div class="entry-detail" id="id:Int64|String-instance-method">
       <div class="signature">
         
-        def <strong>id</strong> : Int64
+        def <strong>id</strong> : Int64 | String
 
-        <a class="method-permalink" href="#id%3AInt64-instance-method">#</a>
+        <a class="method-permalink" href="#id%3AInt64%7CString-instance-method">#</a>
       </div>
       
       <br/>
@@ -7388,12 +7418,12 @@
       </div>
     </div>
   
-    <div class="entry-detail" id="id?:Int64|Nil-instance-method">
+    <div class="entry-detail" id="id?:Int64|String|Nil-instance-method">
       <div class="signature">
         
-        def <strong>id?</strong> : Int64 | Nil
+        def <strong>id?</strong> : Int64 | String | Nil
 
-        <a class="method-permalink" href="#id%3F%3AInt64%7CNil-instance-method">#</a>
+        <a class="method-permalink" href="#id%3F%3AInt64%7CString%7CNil-instance-method">#</a>
       </div>
       
       <br/>
