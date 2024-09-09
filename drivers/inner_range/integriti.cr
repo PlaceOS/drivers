@@ -660,15 +660,33 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def modify_user_permissions(user_id : String, group_id : String, partition_id : String | Int32? = nil, add : Bool = true, externally_managed : Bool = true)
+  def modify_user_permissions(
+    user_id : String,
+    group_id : String,
+    partition_id : String | Int32? = nil,
+    add : Bool = true,
+    externally_managed : Bool = true,
+    expires_at : Int64? = nil,
+    valid_from : Int64? = nil
+  )
     payload = XML.build_fragment(indent: "  ") do |xml|
       xml.element("UserPermission") do
         xml.element("What") do
           Ref.new("PermissionGroup", group_id, partition_id).to_xml(xml)
         end
 
-        if add && externally_managed
-          xml.element("ManagedByActiveDirectory") { xml.text "True" }
+        if add
+          xml.element("ManagedByActiveDirectory") { xml.text "True" } if externally_managed
+
+          if expires_at
+            expiry = Time.unix(expires_at).to_rfc3339
+            xml.element("ExpiryDateTime") { xml.text expiry }
+          end
+
+          if valid_from
+            starting = Time.unix(valid_from).to_rfc3339
+            xml.element("StartDateTime") { xml.text starting }
+          end
         end
       end
     end
