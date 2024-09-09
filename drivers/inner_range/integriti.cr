@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/door_security"
+# require "../wiegand/models"
 
 require "xml"
 
@@ -384,8 +385,8 @@ class InnerRange::Integriti < PlaceOS::Driver
   # =======================
 
   define_xml_type(AddOrUpdateResult, {
-    "ID"      => id : Int64,
-    "Address" => address : String,
+    "ID"      => id : Int64 | String,
+    "Address" => address : String?,
     "Message" => message : String,
   })
 
@@ -676,6 +677,7 @@ class InnerRange::Integriti < PlaceOS::Driver
         end
 
         if add
+          xml.element("GrantAccess") { xml.text "True" }
           xml.element("ManagedByActiveDirectory") { xml.text "True" } if externally_managed
 
           if expires_at
@@ -712,6 +714,15 @@ class InnerRange::Integriti < PlaceOS::Driver
   # Cards
   # =====
 
+  define_xml_type(CardTemplate, {
+    "ID"             => id : Int64,
+    "Name"           => name : String,
+    "Notes"          => notes : String,
+    "Address"        => address : String,
+    "SiteCodeNumber" => site_code : Int64, # Facility Code
+    "Site"           => site : Site,
+  })
+
   define_xml_type(Card, {
     "ID"                => id : String,
     "Name"              => name : String,
@@ -733,8 +744,9 @@ class InnerRange::Integriti < PlaceOS::Driver
     "CloudCredentialCommunicationHandler" => cloud_credential_comms_handler : String,
     "ManagedByActiveDirectory"            => active_directory : Bool,
     # these are Ref types so won't be fully hydrated (id and name only)
-    "Site" => site : Site,
-    "User" => user : User,
+    "Site"     => site : Site,
+    "User"     => user : User,
+    "CardType" => template : CardTemplate,
   })
 
   def cards(site_id : Int32? = nil, user_id : String | Int64? = nil)
@@ -760,6 +772,55 @@ class InnerRange::Integriti < PlaceOS::Driver
   def card(id : Int64 | String)
     document = check get("/v2/VirtualCardBadge/Card/#{id}?#{prop_param "Card"}")
     extract_card(document)
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def create_card(
+    # facility : UInt32, is defined in the card template
+    card_number : String | Int64,
+    user_id : String? = nil,
+    partition_id : String | Int32? = nil,
+    site_id : String | Int64? = nil,
+    # card template defines the type of card + site code / facility
+    card_template : String? = nil, # TM2 for example
+    externally_managed : Bool? = nil
+  ) : String
+    # wiegand_card = Wiegand::Wiegand26.from_components(facility, card_number).wiegand.to_s
+
+    if user_id
+      user_ref = Ref.new("User", user_id, partition_id)
+    end
+
+    if site_id
+      site_ref = Ref.new("SiteKeyword", site_id.to_s)
+    end
+
+    if card_template
+      card_type = Ref.new("CardTemplate", card_template, partition_id)
+    end
+
+    card = extract_add_or_update_result(add_entry("Card", UpdateFields{
+      "CardNumber"               => card_number,
+      "Site"                     => site_ref,
+      "User"                     => user_ref,
+      "CardType"                 => card_type,
+      "ManagedByActiveDirectory" => externally_managed,
+    }.compact!))
+    card.id.as(String)
+  end
+
+  # sets or unsets the user associated with this card
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def set_card_user(card_id : String, user_id : String?, partition_id : String | Int32? = nil)
+    if user_id
+      update_entry("Card", card_id, UpdateFields{
+        "User" => Ref.new("User", user_id, partition_id),
+      })
+    else
+      update_entry("Card", card_id, UpdateFields{
+        "User" => nil,
+      })
+    end
   end
 
   # =====
