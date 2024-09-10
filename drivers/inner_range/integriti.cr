@@ -769,7 +769,13 @@ class InnerRange::Integriti < PlaceOS::Driver
     cards
   end
 
-  def card(id : Int64 | String)
+  def card(id : String)
+    document = check get("/v2/BasicStatus/Card/#{id}?#{prop_param "Card"}")
+    extract_card(document)
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def virtual_card_badge(id : Int64 | String)
     document = check get("/v2/VirtualCardBadge/Card/#{id}?#{prop_param "Card"}")
     extract_card(document)
   end
@@ -815,11 +821,11 @@ class InnerRange::Integriti < PlaceOS::Driver
     if user_id
       update_entry("Card", card_id, UpdateFields{
         "User" => Ref.new("User", user_id, partition_id),
-      })
+      }, attribute: "ID")
     else
       update_entry("Card", card_id, UpdateFields{
         "User" => nil,
-      })
+      }, attribute: "ID")
     end
   end
 
