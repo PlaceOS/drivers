@@ -4032,6 +4032,11 @@
       
         <ul>
   
+  <li class=" " data-id="drivers/Optergy/P864/Mapping" data-name="optergy::p864::mapping">
+      <a href="../Optergy/P864/Mapping.html">Mapping</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/Optergy/P864/TokenResponse" data-name="optergy::p864::tokenresponse">
       <a href="../Optergy/P864/TokenResponse.html">TokenResponse</a>
       
@@ -7145,6 +7150,20 @@
 
 
 
+  <h2>
+    <a id="included-modules" class="anchor" href="#included-modules">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Included Modules
+  </h2>
+  <ul class="other-types-list">
+    
+      <li class="other-type">PlaceOS::Driver::Interface::Sensor</li>
+    
+  </ul>
+
 
 
 
@@ -7164,7 +7183,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L6" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L8" target="_blank">
         optergy/p864.cr
       </a>
     
@@ -7184,6 +7203,11 @@
     </h2>
   
   <dl>
+    
+      <dt class="entry-const" id="NO_MATCH">
+        <strong>NO_MATCH</strong> = <code><span class="o">[]</span> <span class="k">of</span> <span class="t">Interface</span><span class="t">::</span><span class="t">Sensor</span><span class="t">::</span><span class="t">Detail</span></code>
+      </dt>
+      
     
       <dt class="entry-const" id="TYPES">
         <strong>TYPES</strong> = <code>{<span class="s">&quot;value&quot;</span>, <span class="s">&quot;input&quot;</span>, <span class="s">&quot;output&quot;</span>}</code>
@@ -7310,9 +7334,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#config-instance-method" class="signature"><strong>#config</strong></a>
-        
-          <div class="summary"><p>the modules database configuration</p></div>
+        <a href="#configuration-instance-method" class="signature"><strong>#configuration</strong></a>
         
       </li>
     
@@ -7328,6 +7350,20 @@
     
       <li class="entry-summary">
         <a href="#on_update-instance-method" class="signature"><strong>#on_update</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#sensor%28mac%3AString%2Cid%3AString%7CNil%3Dnil%29%3AInterface%3A%3ASensor%3A%3ADetail%7CNil-instance-method" class="signature"><strong>#sensor</strong>(mac : String, id : String | Nil = <span class="n">nil</span>) : Interface::Sensor::Detail | Nil</a>
+        
+          <div class="summary"><p>return the specified sensor details</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#sensors%28type%3AString%7CNil%3Dnil%2Cmac%3AString%7CNil%3Dnil%2Czone_id%3AString%7CNil%3Dnil%29%3AArray%28Interface%3A%3ASensor%3A%3ADetail%29-instance-method" class="signature"><strong>#sensors</strong>(type : String | Nil = <span class="n">nil</span>, mac : String | Nil = <span class="n">nil</span>, zone_id : String | Nil = <span class="n">nil</span>) : Array(Interface::Sensor::Detail)</a>
+        
+          <div class="summary"><p>return an array of sensor details zone_id can be ignored if location is unknown by the sensor provider mac_address can be used to grab data from a single device (basic grouping)</p></div>
         
       </li>
     
@@ -7371,6 +7407,19 @@
 
 
 <div class="methods-inherited">
+  
+    
+
+
+    
+
+
+    
+
+
+    
+
+
   
     
 
@@ -7462,7 +7511,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L187" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L201" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7490,7 +7539,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7506,7 +7555,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7522,7 +7571,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7538,7 +7587,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7554,7 +7603,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7570,7 +7619,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7586,7 +7635,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L179" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L193" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7602,7 +7651,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7618,7 +7667,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7634,7 +7683,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7650,7 +7699,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7666,7 +7715,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7682,32 +7731,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="config-instance-method">
+    <div class="entry-detail" id="configuration-instance-method">
       <div class="signature">
         
-        def <strong>config</strong>
+        def <strong>configuration</strong>
 
-        <a class="method-permalink" href="#config-instance-method">#</a>
+        <a class="method-permalink" href="#configuration-instance-method">#</a>
       </div>
-      
-        <div class="doc">
-          
-            <div class="doc-inherited">
-              Description copied from class <a href="../PlaceOS/Driver.html">PlaceOS::Driver</a>
-            </div>
-          
-          <p>the modules database configuration</p>
-        </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L42" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L56" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7723,7 +7763,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L144" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L158" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7739,7 +7779,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L23" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L36" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7755,7 +7795,59 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L32" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L45" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="sensor(mac:String,id:String|Nil=nil):Interface::Sensor::Detail|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>sensor</strong>(mac : String, id : String | Nil = <span class="n">nil</span>) : Interface::Sensor::Detail | Nil
+
+        <a class="method-permalink" href="#sensor%28mac%3AString%2Cid%3AString%7CNil%3Dnil%29%3AInterface%3A%3ASensor%3A%3ADetail%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::Sensor
+            </div>
+          
+          <p>return the specified sensor details</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L317" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="sensors(type:String|Nil=nil,mac:String|Nil=nil,zone_id:String|Nil=nil):Array(Interface::Sensor::Detail)-instance-method">
+      <div class="signature">
+        
+        def <strong>sensors</strong>(type : String | Nil = <span class="n">nil</span>, mac : String | Nil = <span class="n">nil</span>, zone_id : String | Nil = <span class="n">nil</span>) : Array(Interface::Sensor::Detail)
+
+        <a class="method-permalink" href="#sensors%28type%3AString%7CNil%3Dnil%2Cmac%3AString%7CNil%3Dnil%2Czone_id%3AString%7CNil%3Dnil%29%3AArray%28Interface%3A%3ASensor%3A%3ADetail%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::Sensor
+            </div>
+          
+          <p>return an array of sensor details
+zone_id can be ignored if location is unknown by the sensor provider
+mac_address can be used to grab data from a single device (basic grouping)</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L305" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7771,7 +7863,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L124" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L138" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7787,7 +7879,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L135" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L149" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7803,7 +7895,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L37" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L51" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7819,7 +7911,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7835,7 +7927,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L63" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7851,7 +7943,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7867,7 +7959,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/963afc3aa77359cb8d55307be96192719714c42f/src/optergy/p864.cr#L86" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/117bf221503b67f7d929ff4b862153d3bf8b5615/src/optergy/p864.cr#L100" target="_blank">View source</a>]
         
       </div>
     </div>
