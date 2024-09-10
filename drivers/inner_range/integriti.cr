@@ -741,6 +741,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     "Name"              => name : String,
     "CardNumberNumeric" => card_number_numeric : Int64,
     "CardNumber"        => card_number : String,
+    "CardDataHex"       => card_data_hex : String,
     "CardSerialNumber"  => card_serial_number : String,
     "IssueNumber"       => issue_number : Int32,
     # Active, ActiveExpiring, ActiveReplacement seem to be the only active states
@@ -762,16 +763,18 @@ class InnerRange::Integriti < PlaceOS::Driver
     "CardType" => template : CardTemplate,
   })
 
-  def cards(site_id : Int32? = nil, user_id : String | Int64? = nil)
+  def cards(site_id : Int32? = nil, user_id : String | Int64? = nil, card_id : String? = nil)
     cards = [] of Card
     case user_id
     when String
       filter = Filter{
+        "ID"           => card_id,
         "Site.ID"      => site_id,
         "User.Address" => user_id,
       }
     else
       filter = Filter{
+        "ID"      => card_id,
         "Site.ID" => site_id,
         "User.ID" => user_id,
       }
@@ -783,8 +786,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   def card(id : String)
-    document = check get("/v2/User/Card/#{id}?#{prop_param "Card"}")
-    extract_card(document)
+    cards(card_id: id).first?
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
