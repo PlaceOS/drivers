@@ -290,13 +290,14 @@ class Optergy::P864 < PlaceOS::Driver
     Interface::Sensor::Detail.new(
       type: sensor_type,
       value: value,
-      last_seen: object.out_of_service? ? 3.days.ago.to_unix : Time.utc.to_unix,
+      last_seen: Time.utc.to_unix,
       mac: mac,
       id: object.instance.to_s,
       name: object.name,
       module_id: module_id,
       # binding: object_binding(device_id, object),
-      unit: unit
+      unit: unit,
+      status: object.out_of_service? ? Interface::Sensor::Status::OutOfService : Interface::Sensor::Status::Normal
     )
   end
 
