@@ -763,18 +763,16 @@ class InnerRange::Integriti < PlaceOS::Driver
     "CardType" => template : CardTemplate,
   })
 
-  def cards(site_id : Int32? = nil, user_id : String | Int64? = nil, card_id : String? = nil)
+  def cards(site_id : Int32? = nil, user_id : String | Int64? = nil)
     cards = [] of Card
     case user_id
     when String
       filter = Filter{
-        "ID"           => card_id,
         "Site.ID"      => site_id,
         "User.Address" => user_id,
       }
     else
       filter = Filter{
-        "ID"      => card_id,
         "Site.ID" => site_id,
         "User.ID" => user_id,
       }
@@ -786,11 +784,6 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   def card(id : String)
-    cards(card_id: id).first?
-  end
-
-  @[PlaceOS::Driver::Security(Level::Support)]
-  def virtual_card_badge(id : Int64 | String)
     document = check get("/v2/VirtualCardBadge/Card/#{id}?#{prop_param "Card"}")
     extract_card(document)
   end
