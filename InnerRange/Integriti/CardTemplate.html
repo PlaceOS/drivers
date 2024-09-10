@@ -2752,6 +2752,11 @@
       
     </li>
   
+  <li class=" " data-id="drivers/InnerRange/Integriti/CardFormat" data-name="innerrange::integriti::cardformat">
+      <a href="../../InnerRange/Integriti/CardFormat.html">CardFormat</a>
+      
+    </li>
+  
   <li class=" current" data-id="drivers/InnerRange/Integriti/CardTemplate" data-name="innerrange::integriti::cardtemplate">
       <a href="../../InnerRange/Integriti/CardTemplate.html">CardTemplate</a>
       
@@ -7159,7 +7164,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/4202f1eafc7299104b7723fa56d711b7f0f0af8e/src/inner_range/integriti.cr#L717" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/76e33ab434967d794c7ce03e16a0f90495b8146c/src/inner_range/integriti.cr#L727" target="_blank">
         inner_range/integriti.cr
       </a>
     
@@ -7186,7 +7191,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Cnotes%3ANil%7CString%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Csite_code%3AInt64%7CNil%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, notes : Nil | String = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, site_code : Int64 | Nil = <span class="n">nil</span>, site : InnerRange::Integriti::Site | Nil = <span class="n">nil</span>)</a>
+        <a href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Csite_id%3AInt32%7CNil%3Dnil%2Csite_name%3ANil%7CString%3Dnil%2Cnotes%3ANil%7CString%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Csite_code%3AInt64%7CNil%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%2Cformat%3AInnerRange%3A%3AIntegriti%3A%3ACardFormat%7CNil%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, site_id : Int32 | Nil = <span class="n">nil</span>, site_name : Nil | String = <span class="n">nil</span>, notes : Nil | String = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, site_code : Int64 | Nil = <span class="n">nil</span>, site : InnerRange::Integriti::Site | Nil = <span class="n">nil</span>, format : InnerRange::Integriti::CardFormat | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7215,6 +7220,16 @@
     
       <li class="entry-summary">
         <a href="#address%3F%3AString%7CNil-instance-method" class="signature"><strong>#address?</strong> : String | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#format%3ACardFormat-instance-method" class="signature"><strong>#format</strong> : CardFormat</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#format%3F%3ACardFormat%7CNil-instance-method" class="signature"><strong>#format?</strong> : CardFormat | Nil</a>
         
       </li>
     
@@ -7265,6 +7280,26 @@
     
       <li class="entry-summary">
         <a href="#site_code%3F%3AInt64%7CNil-instance-method" class="signature"><strong>#site_code?</strong> : Int64 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#site_id%3AInt32-instance-method" class="signature"><strong>#site_id</strong> : Int32</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#site_id%3F%3AInt32%7CNil-instance-method" class="signature"><strong>#site_id?</strong> : Int32 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#site_name%3AString-instance-method" class="signature"><strong>#site_name</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#site_name%3F%3AString%7CNil-instance-method" class="signature"><strong>#site_name?</strong> : String | Nil</a>
         
       </li>
     
@@ -7374,18 +7409,18 @@
       </div>
     </div>
   
-    <div class="entry-detail" id="new(id:Int64|Nil=nil,name:Nil|String=nil,notes:Nil|String=nil,address:Nil|String=nil,site_code:Int64|Nil=nil,site:InnerRange::Integriti::Site|Nil=nil)-class-method">
+    <div class="entry-detail" id="new(id:Int64|Nil=nil,name:Nil|String=nil,site_id:Int32|Nil=nil,site_name:Nil|String=nil,notes:Nil|String=nil,address:Nil|String=nil,site_code:Int64|Nil=nil,site:InnerRange::Integriti::Site|Nil=nil,format:InnerRange::Integriti::CardFormat|Nil=nil)-class-method">
       <div class="signature">
         
-        def self.<strong>new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, notes : Nil | String = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, site_code : Int64 | Nil = <span class="n">nil</span>, site : <a href="../../InnerRange/Integriti/Site.html">InnerRange::Integriti::Site</a> | Nil = <span class="n">nil</span>)
+        def self.<strong>new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, site_id : Int32 | Nil = <span class="n">nil</span>, site_name : Nil | String = <span class="n">nil</span>, notes : Nil | String = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, site_code : Int64 | Nil = <span class="n">nil</span>, site : <a href="../../InnerRange/Integriti/Site.html">InnerRange::Integriti::Site</a> | Nil = <span class="n">nil</span>, format : <a href="../../InnerRange/Integriti/CardFormat.html">InnerRange::Integriti::CardFormat</a> | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Cnotes%3ANil%7CString%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Csite_code%3AInt64%7CNil%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%29-class-method">#</a>
+        <a class="method-permalink" href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Csite_id%3AInt32%7CNil%3Dnil%2Csite_name%3ANil%7CString%3Dnil%2Cnotes%3ANil%7CString%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Csite_code%3AInt64%7CNil%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%2Cformat%3AInnerRange%3A%3AIntegriti%3A%3ACardFormat%7CNil%3Dnil%29-class-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4202f1eafc7299104b7723fa56d711b7f0f0af8e/src/inner_range/integriti.cr#L717" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/76e33ab434967d794c7ce03e16a0f90495b8146c/src/inner_range/integriti.cr#L727" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7426,6 +7461,34 @@
         def <strong>address?</strong> : String | Nil
 
         <a class="method-permalink" href="#address%3F%3AString%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="format:CardFormat-instance-method">
+      <div class="signature">
+        
+        def <strong>format</strong> : <a href="../../InnerRange/Integriti/CardFormat.html">CardFormat</a>
+
+        <a class="method-permalink" href="#format%3ACardFormat-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="format?:CardFormat|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>format?</strong> : <a href="../../InnerRange/Integriti/CardFormat.html">CardFormat</a> | Nil
+
+        <a class="method-permalink" href="#format%3F%3ACardFormat%7CNil-instance-method">#</a>
       </div>
       
       <br/>
@@ -7566,6 +7629,62 @@
         def <strong>site_code?</strong> : Int64 | Nil
 
         <a class="method-permalink" href="#site_code%3F%3AInt64%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="site_id:Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>site_id</strong> : Int32
+
+        <a class="method-permalink" href="#site_id%3AInt32-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="site_id?:Int32|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>site_id?</strong> : Int32 | Nil
+
+        <a class="method-permalink" href="#site_id%3F%3AInt32%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="site_name:String-instance-method">
+      <div class="signature">
+        
+        def <strong>site_name</strong> : String
+
+        <a class="method-permalink" href="#site_name%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="site_name?:String|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>site_name?</strong> : String | Nil
+
+        <a class="method-permalink" href="#site_name%3F%3AString%7CNil-instance-method">#</a>
       </div>
       
       <br/>
