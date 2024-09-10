@@ -741,7 +741,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     "Name"              => name : String,
     "CardNumberNumeric" => card_number_numeric : Int64,
     "CardNumber"        => card_number : String,
-    "CardDataHex"       => card_data_hex : String,
+    "CardData"          => card_data_hex : String,
     "CardSerialNumber"  => card_serial_number : String,
     "IssueNumber"       => issue_number : Int32,
     # Active, ActiveExpiring, ActiveReplacement seem to be the only active states
