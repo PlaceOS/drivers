@@ -714,13 +714,26 @@ class InnerRange::Integriti < PlaceOS::Driver
   # Cards
   # =====
 
+  define_xml_type(CardFormat, {
+    "ID"       => id : Int64,
+    "Name"     => name : String,
+    "SiteID"   => site_id : Int32,
+    "SiteName" => site_name : String,
+    "Notes"    => notes : String,
+    "Address"  => address : String,
+    "Site"     => site : Site,
+  })
+
   define_xml_type(CardTemplate, {
     "ID"             => id : Int64,
     "Name"           => name : String,
+    "SiteID"         => site_id : Int32,
+    "SiteName"       => site_name : String,
     "Notes"          => notes : String,
     "Address"        => address : String,
     "SiteCodeNumber" => site_code : Int64, # Facility Code
     "Site"           => site : Site,
+    "Format"         => format : CardFormat,
   })
 
   define_xml_type(Card, {
@@ -770,7 +783,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   def card(id : String)
-    document = check get("/v2/BasicStatus/Card/#{id}?#{prop_param "Card"}")
+    document = check get("/v2/User/Card/#{id}?#{prop_param "Card"}")
     extract_card(document)
   end
 
@@ -827,6 +840,22 @@ class InnerRange::Integriti < PlaceOS::Driver
         "User" => nil,
       }, attribute: "ID")
     end
+  end
+
+  def card_templates(site_id : Int32? = nil)
+    templates = [] of CardTemplate
+    filter = Filter{
+      "Site.ID" => site_id,
+    }
+    paginate_request("User", "CardTemplate", filter) do |row|
+      templates << extract_card_template(row)
+    end
+    templates
+  end
+
+  def template(address : String)
+    document = check get("/v2/User/CardTemplate/#{address}?#{prop_param "CardTemplate"}")
+    extract_card_template(document)
   end
 
   # =====
