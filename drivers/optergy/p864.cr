@@ -306,7 +306,7 @@ class Optergy::P864 < PlaceOS::Driver
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
     logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
 
-    this_mac = config.ip.as(String)
+    this_mac = device_mac
     return NO_MATCH if mac && mac != this_mac
     filter = type ? Interface::Sensor::SensorType.parse?(type) : nil
     analog_values.compact_map { |obj| to_sensor(obj, this_mac, filter) }
@@ -318,7 +318,7 @@ class Optergy::P864 < PlaceOS::Driver
   def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
 
-    this_mac = config.ip.as(String)
+    this_mac = device_mac
     return nil if mac != this_mac
     return nil unless id
     instance = id.to_i?
@@ -328,5 +328,9 @@ class Optergy::P864 < PlaceOS::Driver
     return nil unless device
 
     to_sensor(device, this_mac)
+  end
+
+  protected def device_mac
+    URI.parse(config.uri.not_nil!).host.as(String)
   end
 end
