@@ -175,10 +175,13 @@ class Place::AutoRelease < PlaceOS::Driver
         # e.g. 7:30AM = 7.5
         event_time = booking_start.hour + (booking_start.minute / 60.0)
 
-        if (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
+        # exclude overrides with empty time blocks
+        overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
+
+        if (override = overrides[booking_start.to_s(format: "%F")]?) &&
            in_preference?(override, event_time, @release_locations)
           results << booking
-        elsif (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
+        elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
               in_preference?(override, event_time, @release_locations, false)
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
