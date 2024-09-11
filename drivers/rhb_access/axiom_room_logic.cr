@@ -50,6 +50,6 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
     logger.error { "AxiomXa: ERROR requesting STATUS of #{@door_ids}" }
   else
     result.map { |id, status| self[id] = status["Status"] }
-    self["doors_locked"] = result.count { |status| status.starts_with? "Locked" }
+    self["doors_locked"] = result.count { |id, status| status["Status"].starts_with? "Locked" }
   end
 end
