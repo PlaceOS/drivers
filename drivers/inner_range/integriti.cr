@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/door_security"
+require "placeos-driver/interface/guest_building_access"
 # require "../wiegand/models"
 
 require "xml"
@@ -21,13 +22,22 @@ class InnerRange::Integriti < PlaceOS::Driver
       username: "installer",
       password: "installer",
     },
-    api_key:             "api-access-key",
-    default_unlock_time: 10,
-    default_site_id:     1,
+    api_key:              "api-access-key",
+    default_unlock_time:  10,
+    default_site_id:      1,
+    default_partition_id: nil,
 
     custom_field_hid_origo: "cf_HasVirtualCard",
     custom_field_email:     "cf_EmailAddress",
     custom_field_phone:     "cf_Mobile",
+
+    # 16 bit card number in Wiegand 26
+    # Ideally guests have their own site id and the full range of card numbers
+    # this ensures there is little chance of a clash
+    guest_card_template: "TM2",
+    guest_access_group:  "QG36",
+    guest_card_start:    0,
+    guest_card_end:      65_536,
   })
 
   def on_load
@@ -39,6 +49,11 @@ class InnerRange::Integriti < PlaceOS::Driver
     @cf_origo = setting?(String, :custom_field_hid_origo) || "cf_HasVirtualCard"
     @cf_email = setting?(String, :custom_field_email) || "cf_EmailAddress"
     @cf_phone = setting?(String, :custom_field_phone) || "cf_Mobile"
+    @guest_card_template = setting?(String, :guest_card_template) || ""
+    guest_card_start = setting?(UInt16, :guest_card_start) || 0_u16
+    guest_card_end = setting?(UInt16, :guest_card_end) || UInt16::MAX
+    @guest_card_range = Range.new(guest_card_start, guest_card_end)
+    @guest_access_group = setting?(String, :guest_access_group) || ""
 
     transport.before_request do |request|
       logger.debug { "requesting: #{request.method} #{request.path}?#{request.query}\n#{request.body}" }
@@ -49,13 +64,18 @@ class InnerRange::Integriti < PlaceOS::Driver
 
     @default_unlock_time = setting?(Int32, :default_unlock_time) || 10
     @default_site_id = setting?(Int32, :default_site_id) || 1
+    @default_partition_id = setting?(Int32, :default_partition_id)
   end
 
   getter default_unlock_time : Int32 = 10
   getter default_site_id : Int32 = 1
+  getter default_partition_id : Int32? = nil
   getter cf_email : String = "cf_EmailAddress"
   getter cf_phone : String = "cf_Mobile"
   getter cf_origo : String = "cf_HasVirtualCard"
+  getter guest_card_template : String = ""
+  getter guest_access_group : String = ""
+  @guest_card_range : Range(UInt16, UInt16) = 0_u16..UInt16::MAX
 
   macro check(response)
     begin
@@ -601,7 +621,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def create_user(name : String, email : String, phone : String?, site_id : String | Int64? = nil) : String
+  def create_user(name : String, email : String, phone : String? = nil, site_id : String | Int64? = nil) : String
     first_name, second_name = name.split(' ', 2)
     user = extract_add_or_update_result(add_entry("User", UpdateFields{
       "FirstName"  => first_name,
@@ -693,7 +713,7 @@ class InnerRange::Integriti < PlaceOS::Driver
       end
     end
 
-    modify_collection("User", user_id, "Permissions", payload, add: add)
+    modify_collection("User", user_id, "Permissions", payload, add: add).to_xml
   end
 
   # sets or unsets the Permission Group
@@ -708,6 +728,16 @@ class InnerRange::Integriti < PlaceOS::Driver
         "PrimaryPermissionGroup" => nil,
       })
     end
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def delete_permission(user_id : String, permission_id : String)
+    payload = XML.build_fragment(indent: "  ") do |xml|
+      xml.element("UserPermission") do
+        xml.element("ID") { xml.text permission_id }
+      end
+    end
+    modify_collection("User", user_id, "Permissions", payload, add: false).to_xml
   end
 
   # =====
@@ -763,20 +793,19 @@ class InnerRange::Integriti < PlaceOS::Driver
     "CardType" => template : CardTemplate,
   })
 
-  def cards(site_id : Int32? = nil, user_id : String | Int64? = nil)
+  def cards(
+    site_id : Int32? = nil,
+    user_id : String? = nil,
+    template : String? = nil,
+    number : String? = nil,
+  )
     cards = [] of Card
-    case user_id
-    when String
-      filter = Filter{
-        "Site.ID"      => site_id,
-        "User.Address" => user_id,
-      }
-    else
-      filter = Filter{
-        "Site.ID" => site_id,
-        "User.ID" => user_id,
-      }
-    end
+    filter = Filter{
+      "CardNumber"       => number,
+      "Site.ID"          => site_id,
+      "User.Address"     => user_id,
+      "CardType.Address" => template,
+    }
     paginate_request("VirtualCardBadge", "Card", filter) do |row|
       cards << extract_card(row)
     end
@@ -903,5 +932,78 @@ class InnerRange::Integriti < PlaceOS::Driver
 
     response = post("/v2/BasicStatus/GrantAccess/#{door_id}", body: payload)
     response.success?
+  end
+
+  # ======================
+  # Guest Access Interface
+  # ======================
+
+  include Interface::GuestBuildingAccess
+
+  class Guest < AccessDetails
+    property user_id : String
+    property permission_id : String
+
+    def initialize(@user_id : String, @permission_id : String, @card_hex : String)
+    end
+  end
+
+  def grant_guest_access(name : String, email : String, starting : Int64, ending : Int64) : AccessDetails
+    # create a user in the access control system
+    email = email.downcase
+    user_id = user_id_lookup(email).first? || create_user(name: name, email: email)
+
+    # ensure the user has a card
+    card = cards(user_id: user_id).find { |card| card.template.try(&.address) == @guest_card_template }
+    card = create_guest_card(user_id) unless card
+
+    # grant the user access
+    modify_user_permissions(
+      user_id: user_id,
+      group_id: @guest_access_group,
+      partition_id: @default_partition_id,
+      add: true,
+      externally_managed: true,
+      expires_at: ending,
+      valid_from: starting
+    )
+
+    # TODO:: need to grab the permission
+    Guest.new(user_id, "todo", card.card_data_hex)
+  end
+
+  protected def revoke_access(details)
+    delete_permission(details.user_id, details.permission_id)
+  end
+
+  # interface helpers:
+
+  protected def create_guest_card(user_id : String) : Card
+    card = nil
+    template = @guest_card_template
+
+    loop do
+      number = @guest_card_range.sample.to_s
+      if candidate = cards(template: template, number: number).first?
+        if old_user_id = candidate.user.try(&.address)
+          # if user still using the card, look for another
+          next if user_permissions(old_user_id).any? { |permission| !permission.expired }
+        end
+
+        set_card_user(candidate.id, user_id)
+      else
+        card_id = create_card(
+          card_number: number,
+          user_id: user_id,
+          partition_id: @default_partition_id,
+          site_id: @default_site_id,
+          card_template: template,
+          externally_managed: true
+        )
+        candidate = card(card_id)
+      end
+
+      break candidate
+    end
   end
 end
