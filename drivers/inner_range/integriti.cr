@@ -38,6 +38,8 @@ class InnerRange::Integriti < PlaceOS::Driver
     guest_access_group:  "QG36",
     guest_card_start:    0,
     guest_card_end:      65_536,
+
+    timezone: "Australia/Sydney",
   })
 
   def on_load
@@ -65,6 +67,9 @@ class InnerRange::Integriti < PlaceOS::Driver
     @default_unlock_time = setting?(Int32, :default_unlock_time) || 10
     @default_site_id = setting?(Int32, :default_site_id) || 1
     @default_partition_id = setting?(Int32, :default_partition_id)
+
+    time_zone = setting?(String, :timezone).presence
+    @timezone = Time::Location.load(time_zone) if time_zone
   end
 
   getter default_unlock_time : Int32 = 10
@@ -76,6 +81,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   getter guest_card_template : String = ""
   getter guest_access_group : String = ""
   @guest_card_range : Range(UInt16, UInt16) = 0_u16..UInt16::MAX
+  @timezone : Time::Location = Time::Location.load("Australia/Sydney")
 
   macro check(response)
     begin
@@ -372,6 +378,16 @@ class InnerRange::Integriti < PlaceOS::Driver
   def remove_from_collection(type : String, id : String, property_name : String, payload : String)
     check patch("/v2/User/#{type}/#{id}/#{property_name}/removeFromCollection?IncludeObjectInResult=true", body: payload)
   end
+
+  define_xml_type(RemoveResult, {
+    "NumberOfItemsRemoved" => modified : Int32,
+    "Message"              => message : String,
+  })
+
+  define_xml_type(AddResult, {
+    "NumberOfItemsAdded" => modified : Int32,
+    "Message"            => message : String,
+  })
 
   protected def modify_collection(type : String, id : String, property_name : String, payload : String, *, add : Bool = true)
     if add
@@ -701,19 +717,21 @@ class InnerRange::Integriti < PlaceOS::Driver
           xml.element("ManagedByActiveDirectory") { xml.text "True" } if externally_managed
 
           if expires_at
-            expiry = Time.unix(expires_at).to_rfc3339
+            expiry = Time.unix(expires_at).in(@timezone).to_rfc3339(fraction_digits: 7)
             xml.element("ExpiryDateTime") { xml.text expiry }
           end
 
           if valid_from
-            starting = Time.unix(valid_from).to_rfc3339
+            starting = Time.unix(valid_from).in(@timezone).to_rfc3339(fraction_digits: 7)
             xml.element("StartDateTime") { xml.text starting }
           end
         end
       end
     end
 
-    modify_collection("User", user_id, "Permissions", payload, add: add).to_xml
+    response = modify_collection("User", user_id, "Permissions", payload, add: add)
+
+    add ? extract_remove_result(response) : extract_add_result(response)
   end
 
   # sets or unsets the Permission Group
@@ -733,7 +751,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   @[PlaceOS::Driver::Security(Level::Support)]
   def delete_permission(user_id : String, permission_id : String)
     payload = XML.build_fragment(indent: "  ") do |xml|
-      xml.element("UserPermission") do
+      xml.element("UserPermission", {"ID" => permission_id}) do
         xml.element("ID") { xml.text permission_id }
       end
     end
@@ -948,6 +966,8 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
+  PERMISSION_REGEX = /ID\:\s+(?<id>[a-f0-9\-]+)\s+added/
+
   def grant_guest_access(name : String, email : String, starting : Int64, ending : Int64) : AccessDetails
     # create a user in the access control system
     email = email.downcase
@@ -958,7 +978,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     card = create_guest_card(user_id) unless card
 
     # grant the user access
-    modify_user_permissions(
+    result = modify_user_permissions(
       user_id: user_id,
       group_id: @guest_access_group,
       partition_id: @default_partition_id,
@@ -966,10 +986,13 @@ class InnerRange::Integriti < PlaceOS::Driver
       externally_managed: true,
       expires_at: ending,
       valid_from: starting
-    )
+    ).as(AddResult)
 
-    # TODO:: need to grab the permission
-    Guest.new(user_id, "todo", card.card_data_hex)
+    raise result.message unless result.modified == 1
+    matching = PERMISSION_REGEX.match(result.message)
+    raise "unable to obtain permission ID from: #{result.message}" unless matching
+
+    Guest.new(user_id, matching["id"], card.card_data_hex)
   end
 
   protected def revoke_access(details)
