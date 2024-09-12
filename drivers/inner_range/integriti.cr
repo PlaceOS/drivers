@@ -731,7 +731,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
     response = modify_collection("User", user_id, "Permissions", payload, add: add)
 
-    add ? extract_remove_result(response) : extract_add_result(response)
+    add ? extract_add_result(response) : extract_remove_result(response)
   end
 
   # sets or unsets the Permission Group
@@ -755,7 +755,7 @@ class InnerRange::Integriti < PlaceOS::Driver
         xml.element("ID") { xml.text permission_id }
       end
     end
-    modify_collection("User", user_id, "Permissions", payload, add: false).to_xml
+    extract_remove_result modify_collection("User", user_id, "Permissions", payload, add: false)
   end
 
   # =====
