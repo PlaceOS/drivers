@@ -1023,7 +1023,8 @@ class InnerRange::Integriti < PlaceOS::Driver
           card_template: template,
           externally_managed: true
         )
-        candidate = card(card_id)
+        # we have to query this way to obtain the data we need
+        candidate = cards(template: template, number: number).first
       end
 
       break candidate
