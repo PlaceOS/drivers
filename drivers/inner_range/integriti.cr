@@ -717,12 +717,12 @@ class InnerRange::Integriti < PlaceOS::Driver
           xml.element("ManagedByActiveDirectory") { xml.text "True" } if externally_managed
 
           if expires_at
-            expiry = Time.unix(expires_at).in(@timezone).to_rfc3339(fraction_digits: 7)
+            expiry = Time.unix(expires_at).in(@timezone).to_s("%Y-%m-%dT%H:%M:%S%:z")
             xml.element("ExpiryDateTime") { xml.text expiry }
           end
 
           if valid_from
-            starting = Time.unix(valid_from).in(@timezone).to_rfc3339(fraction_digits: 7)
+            starting = Time.unix(valid_from).in(@timezone).to_s("%Y-%m-%dT%H:%M:%S%:z")
             xml.element("StartDateTime") { xml.text starting }
           end
         end
