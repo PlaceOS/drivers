@@ -108,9 +108,8 @@ class Place::AutoRelease < PlaceOS::Driver
         period_start: Time.utc.to_unix,
         period_end: (Time.utc + @time_window_hours.hours).to_unix,
         zones: [building_zone.id],
-        checked_in: false,
       ).get.to_json
-      results += bookings
+      results += bookings.select { |booking| !booking.checked_in }
     end
 
     logger.debug { "found #{results.size} pending bookings" }
