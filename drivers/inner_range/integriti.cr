@@ -37,7 +37,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     guest_card_template: "TM2",
     guest_access_group:  "QG36",
     guest_card_start:    0,
-    guest_card_end:      65_536,
+    guest_card_end:      (UInt16::MAX - 1),
 
     timezone: "Australia/Sydney",
   })
@@ -53,7 +53,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     @cf_phone = setting?(String, :custom_field_phone) || "cf_Mobile"
     @guest_card_template = setting?(String, :guest_card_template) || ""
     guest_card_start = setting?(UInt16, :guest_card_start) || 0_u16
-    guest_card_end = setting?(UInt16, :guest_card_end) || UInt16::MAX
+    guest_card_end = setting?(UInt16, :guest_card_end) || (UInt16::MAX - 1_u16)
     @guest_card_range = Range.new(guest_card_start, guest_card_end)
     @guest_access_group = setting?(String, :guest_access_group) || ""
 
