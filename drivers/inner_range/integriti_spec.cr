@@ -308,4 +308,21 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
       "address"      => "QG1",
     },
   ])
+
+  result = exec(:modify_user_permissions, "U54", "QG4")
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <AddToCollectionResult>
+        <Message>UserPermission with ID: 61a1c248-d62d-4485-a3e9-815918afac71 added to Permissions for User with ID U54</Message>
+        <NumberOfItemsAdded>1</NumberOfItemsAdded>
+      </AddToCollectionResult>
+    XML
+  end
+
+  result.get.should eq({
+    "message"  => "UserPermission with ID: 61a1c248-d62d-4485-a3e9-815918afac71 added to Permissions for User with ID U54",
+    "modified" => 1,
+  })
 end
