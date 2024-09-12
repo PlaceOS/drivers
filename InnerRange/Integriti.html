@@ -2767,6 +2767,11 @@
       
     </li>
   
+  <li class=" " data-id="drivers/InnerRange/Integriti/Guest" data-name="innerrange::integriti::guest">
+      <a href="../InnerRange/Integriti/Guest.html">Guest</a>
+      
+    </li>
+  
   <li class=" " data-id="drivers/InnerRange/Integriti/IntegritiDoor" data-name="innerrange::integriti::integritidoor">
       <a href="../InnerRange/Integriti/IntegritiDoor.html">IntegritiDoor</a>
       
@@ -7162,6 +7167,8 @@
     
       <li class="other-type">PlaceOS::Driver::Interface::DoorSecurity</li>
     
+      <li class="other-type">PlaceOS::Driver::Interface::GuestBuildingAccess</li>
+    
   </ul>
 
 
@@ -7183,14 +7190,14 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L9" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L10" target="_blank">
         inner_range/integriti.cr
       </a>
     
     <br/>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti_hid_virtual_pass.cr#L3" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti_hid_virtual_pass.cr#L3" target="_blank">
         inner_range/integriti_hid_virtual_pass.cr
       </a>
     
@@ -7261,6 +7268,11 @@
         
       </li>
     
+      <li class="entry-summary">
+        <a href="#finally-macro" class="signature"><strong>finally</strong></a>
+        
+      </li>
+    
   </ul>
 
 
@@ -7327,7 +7339,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#cards%28site_id%3AInt32%7CNil%3Dnil%2Cuser_id%3AString%7CInt64%7CNil%3Dnil%29-instance-method" class="signature"><strong>#cards</strong>(site_id : Int32 | Nil = <span class="n">nil</span>, user_id : String | Int64 | Nil = <span class="n">nil</span>)</a>
+        <a href="#cards%28site_id%3AInt32%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ctemplate%3AString%7CNil%3Dnil%2Cnumber%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#cards</strong>(site_id : Int32 | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, template : String | Nil = <span class="n">nil</span>, number : String | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7357,7 +7369,12 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#create_user%28name%3AString%2Cemail%3AString%2Cphone%3AString%7CNil%2Csite_id%3AString%7CInt64%7CNil%3Dnil%29%3AString-instance-method" class="signature"><strong>#create_user</strong>(name : String, email : String, phone : String | Nil, site_id : String | Int64 | Nil = <span class="n">nil</span>) : String</a>
+        <a href="#create_user%28name%3AString%2Cemail%3AString%2Cphone%3AString%7CNil%3Dnil%2Csite_id%3AString%7CInt64%7CNil%3Dnil%29%3AString-instance-method" class="signature"><strong>#create_user</strong>(name : String, email : String, phone : String | Nil = <span class="n">nil</span>, site_id : String | Int64 | Nil = <span class="n">nil</span>) : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#default_partition_id%3AInt32%7CNil-instance-method" class="signature"><strong>#default_partition_id</strong> : Int32 | Nil</a>
         
       </li>
     
@@ -7368,6 +7385,11 @@
     
       <li class="entry-summary">
         <a href="#default_unlock_time%3AInt32-instance-method" class="signature"><strong>#default_unlock_time</strong> : Int32</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#delete_permission%28user_id%3AString%2Cpermission_id%3AString%29-instance-method" class="signature"><strong>#delete_permission</strong>(user_id : String, permission_id : String)</a>
         
       </li>
     
@@ -7385,6 +7407,23 @@
         <a href="#doors%28site_id%3AInt32%7CNil%3Dnil%29-instance-method" class="signature"><strong>#doors</strong>(site_id : Int32 | Nil = <span class="n">nil</span>)</a>
         
           <div class="summary"><p>doors on a site</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#grant_guest_access%28name%3AString%2Cemail%3AString%2Cstarting%3AInt64%2Cending%3AInt64%29%3AAccessDetails-instance-method" class="signature"><strong>#grant_guest_access</strong>(name : String, email : String, starting : Int64, ending : Int64) : AccessDetails</a>
+        
+          <div class="summary"><p>a function for granting guests access to a building should return a payload that can be encoded into a QR code the response is expected to be hexstring</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#guest_access_group%3AString-instance-method" class="signature"><strong>#guest_access_group</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#guest_card_template%3AString-instance-method" class="signature"><strong>#guest_card_template</strong> : String</a>
         
       </li>
     
@@ -7580,6 +7619,19 @@
 
 
   
+    
+
+
+    
+
+
+    
+
+
+    
+
+
+  
 </div>
 
 
@@ -7631,7 +7683,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L60" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L80" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7647,7 +7699,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L81" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L101" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="finally-macro">
+      <div class="signature">
+        
+        macro <strong>finally</strong>
+
+        <a class="method-permalink" href="#finally-macro">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L941" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7675,7 +7743,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L432" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L452" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7696,7 +7764,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L397" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L417" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7712,7 +7780,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L347" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L367" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7733,7 +7801,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L319" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L339" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7749,7 +7817,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L526" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L546" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7770,7 +7838,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L515" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L535" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7786,7 +7854,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L211" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L231" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7802,7 +7870,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L786" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L815" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7818,23 +7886,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L840" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L869" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="cards(site_id:Int32|Nil=nil,user_id:String|Int64|Nil=nil)-instance-method">
+    <div class="entry-detail" id="cards(site_id:Int32|Nil=nil,user_id:String|Nil=nil,template:String|Nil=nil,number:String|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>cards</strong>(site_id : Int32 | Nil = <span class="n">nil</span>, user_id : String | Int64 | Nil = <span class="n">nil</span>)
+        def <strong>cards</strong>(site_id : Int32 | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, template : String | Nil = <span class="n">nil</span>, number : String | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#cards%28site_id%3AInt32%7CNil%3Dnil%2Cuser_id%3AString%7CInt64%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#cards%28site_id%3AInt32%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ctemplate%3AString%7CNil%3Dnil%2Cnumber%3AString%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L766" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L796" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7850,7 +7918,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L56" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L73" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7866,7 +7934,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L58" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L75" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7882,7 +7950,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L57" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L74" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7898,7 +7966,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti_hid_virtual_pass.cr#L22" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti_hid_virtual_pass.cr#L22" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7914,23 +7982,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L792" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L821" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="create_user(name:String,email:String,phone:String|Nil,site_id:String|Int64|Nil=nil):String-instance-method">
+    <div class="entry-detail" id="create_user(name:String,email:String,phone:String|Nil=nil,site_id:String|Int64|Nil=nil):String-instance-method">
       <div class="signature">
         
-        def <strong>create_user</strong>(name : String, email : String, phone : String | Nil, site_id : String | Int64 | Nil = <span class="n">nil</span>) : String
+        def <strong>create_user</strong>(name : String, email : String, phone : String | Nil = <span class="n">nil</span>, site_id : String | Int64 | Nil = <span class="n">nil</span>) : String
 
-        <a class="method-permalink" href="#create_user%28name%3AString%2Cemail%3AString%2Cphone%3AString%7CNil%2Csite_id%3AString%7CInt64%7CNil%3Dnil%29%3AString-instance-method">#</a>
+        <a class="method-permalink" href="#create_user%28name%3AString%2Cemail%3AString%2Cphone%3AString%7CNil%3Dnil%2Csite_id%3AString%7CInt64%7CNil%3Dnil%29%3AString-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L604" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L624" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="default_partition_id:Int32|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>default_partition_id</strong> : Int32 | Nil
+
+        <a class="method-permalink" href="#default_partition_id%3AInt32%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L72" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7946,7 +8030,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L55" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L71" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7962,7 +8046,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L54" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L70" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="delete_permission(user_id:String,permission_id:String)-instance-method">
+      <div class="signature">
+        
+        def <strong>delete_permission</strong>(user_id : String, permission_id : String)
+
+        <a class="method-permalink" href="#delete_permission%28user_id%3AString%2Cpermission_id%3AString%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L734" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7978,7 +8078,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L878" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L907" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7994,7 +8094,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L888" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L917" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8015,7 +8115,66 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L867" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L896" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="grant_guest_access(name:String,email:String,starting:Int64,ending:Int64):AccessDetails-instance-method">
+      <div class="signature">
+        
+        def <strong>grant_guest_access</strong>(name : String, email : String, starting : Int64, ending : Int64) : AccessDetails
+
+        <a class="method-permalink" href="#grant_guest_access%28name%3AString%2Cemail%3AString%2Cstarting%3AInt64%2Cending%3AInt64%29%3AAccessDetails-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::GuestBuildingAccess
+            </div>
+          
+          <p>a function for granting guests access to a building
+should return a payload that can be encoded into a QR code
+the response is expected to be hexstring</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L951" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="guest_access_group:String-instance-method">
+      <div class="signature">
+        
+        def <strong>guest_access_group</strong> : String
+
+        <a class="method-permalink" href="#guest_access_group%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L77" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="guest_card_template:String-instance-method">
+      <div class="signature">
+        
+        def <strong>guest_card_template</strong> : String
+
+        <a class="method-permalink" href="#guest_card_template%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L76" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8031,7 +8190,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti_hid_virtual_pass.cr#L46" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti_hid_virtual_pass.cr#L46" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8047,7 +8206,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L645" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L665" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8063,7 +8222,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L664" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L684" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8079,7 +8238,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti_hid_virtual_pass.cr#L14" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti_hid_virtual_pass.cr#L14" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8095,7 +8254,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti_hid_virtual_pass.cr#L18" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti_hid_virtual_pass.cr#L18" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8111,7 +8270,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L555" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L575" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8132,7 +8291,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L544" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L564" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8148,7 +8307,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L474" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L494" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8164,7 +8323,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L463" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L483" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8180,7 +8339,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L352" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L372" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8196,7 +8355,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti_hid_virtual_pass.cr#L41" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti_hid_virtual_pass.cr#L41" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8212,7 +8371,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti_hid_virtual_pass.cr#L36" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti_hid_virtual_pass.cr#L36" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8233,7 +8392,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L828" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L857" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8254,7 +8413,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L701" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L721" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8270,7 +8429,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L499" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L519" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8291,7 +8450,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L491" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L511" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8307,7 +8466,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L335" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L355" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8323,7 +8482,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L851" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L880" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8348,7 +8507,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L895" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L924" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8370,7 +8529,7 @@ update_entry(type: &quot;User&quot;, id: &quot;U5&quot;, fields: {cf_HasMobileCr
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L446" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L466" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8386,7 +8545,7 @@ update_entry(type: &quot;User&quot;, id: &quot;U5&quot;, fields: {cf_HasMobileCr
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L594" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L614" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8402,7 +8561,7 @@ update_entry(type: &quot;User&quot;, id: &quot;U5&quot;, fields: {cf_HasMobileCr
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L599" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L619" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8418,7 +8577,7 @@ update_entry(type: &quot;User&quot;, id: &quot;U5&quot;, fields: {cf_HasMobileCr
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L632" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L652" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8439,7 +8598,7 @@ update_entry(type: &quot;User&quot;, id: &quot;U5&quot;, fields: {cf_HasMobileCr
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/a31d07ebe7f237ae2d9f02a1a960f23e8928590d/src/inner_range/integriti.cr#L578" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e4a6d2cf885a15612f9e5c466d3f12c2a6e7dfbf/src/inner_range/integriti.cr#L598" target="_blank">View source</a>]
         
       </div>
     </div>
