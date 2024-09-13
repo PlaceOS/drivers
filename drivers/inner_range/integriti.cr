@@ -968,6 +968,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   PERMISSION_REGEX = /ID\:\s+(?<id>[a-f0-9\-]+)\s+added/
 
+  @[PlaceOS::Driver::Security(Level::Support)]
   def grant_guest_access(name : String, email : String, starting : Int64, ending : Int64) : AccessDetails
     # create a user in the access control system
     email = email.downcase
@@ -995,7 +996,10 @@ class InnerRange::Integriti < PlaceOS::Driver
     Guest.new(user_id, matching["id"], card.card_data_hex)
   end
 
-  protected def revoke_access(details)
+  # delete the permission from user
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def revoke_guest_access(details : JSON::Any)
+    details = Guest.from_json details.to_json
     delete_permission(details.user_id, details.permission_id)
   end
 
