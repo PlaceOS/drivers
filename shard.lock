@@ -109,6 +109,10 @@ shards:
     git: https://github.com/crystal-community/future.cr.git
     version: 1.0.0
 
+  goban:
+    git: https://github.com/soya-daizu/goban.git
+    version: 1.7.0+git.commit.c9fbf80018284b6204534e722bec2a35b09d2019
+
   google:
     git: https://github.com/placeos/google.git
     version: 3.5.0
@@ -251,7 +255,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.2.11
+    version: 7.2.12
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git

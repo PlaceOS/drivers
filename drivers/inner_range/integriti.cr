@@ -970,6 +970,8 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def grant_guest_access(name : String, email : String, starting : Int64, ending : Int64) : AccessDetails
+    raise "guest access is not configured" unless guest_access_configured?
+
     # create a user in the access control system
     email = email.downcase
     user_id = user_id_lookup(email).first? || create_user(name: name, email: email)
@@ -1001,6 +1003,10 @@ class InnerRange::Integriti < PlaceOS::Driver
   def revoke_guest_access(details : JSON::Any)
     details = Guest.from_json details.to_json
     delete_permission(details.user_id, details.permission_id)
+  end
+
+  def guest_access_configured? : Bool
+    !@guest_access_group.presence.nil? && !@guest_card_template.presence.nil?
   end
 
   # interface helpers:
