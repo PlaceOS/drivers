@@ -325,4 +325,21 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
     "message"  => "UserPermission with ID: 61a1c248-d62d-4485-a3e9-815918afac71 added to Permissions for User with ID U54",
     "modified" => 1,
   })
+
+  result = exec(:revoke_guest_access, {user_id: "U56", permission_id: "9ee6dfdd-9c01-4b67-b9f2-316ca7c9fdc5", card_hex: ""})
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <RemoveFromCollectionResult>
+        <Message>1 item/s removed from UserPermission for User with ID U56</Message>
+        <NumberOfItemsRemoved>1</NumberOfItemsRemoved>
+      </RemoveFromCollectionResult>
+    XML
+  end
+
+  result.get.should eq({
+    "message"  => "1 item/s removed from UserPermission for User with ID U56",
+    "modified" => 1,
+  })
 end
