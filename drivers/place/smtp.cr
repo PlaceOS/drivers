@@ -1,10 +1,12 @@
-require "qr-code"
-require "qr-code/export/png"
+require "placeos-driver"
+require "placeos-driver/interface/mailer"
+
+require "goban"
+require "goban/exporters/png"
+require "goban/exporters/svg"
 require "base64"
 require "email"
 require "uri"
-require "placeos-driver"
-require "placeos-driver/interface/mailer"
 
 class Place::Smtp < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
@@ -14,6 +16,11 @@ class Place::Smtp < PlaceOS::Driver
   uri_base "https://smtp.host.com"
   description %(sends emails via SMTP)
 
+  enum BinaryFormatQR
+    Hex
+    Base64
+  end
+
   default_settings({
     sender: "support@place.tech",
     # host:     "smtp.host",
@@ -22,6 +29,8 @@ class Place::Smtp < PlaceOS::Driver
     ssl_verify_ignore: false,
     username:          "", # Username/Password for SMTP servers with basic authorization
     password:          "",
+
+    qr_binary_format: BinaryFormatQR::Hex,
 
     email_templates: {visitor: {checkin: {
       subject: "%{name} has arrived",
@@ -43,6 +52,7 @@ class Place::Smtp < PlaceOS::Driver
   @tls_mode : EMail::Client::TLSMode = EMail::Client::TLSMode::STARTTLS
   @send_lock : Mutex = Mutex.new
   @ssl_verify_ignore : Bool = false
+  @qr_binary_format : BinaryFormatQR = BinaryFormatQR::Hex
 
   def on_load
     on_update
@@ -65,6 +75,7 @@ class Place::Smtp < PlaceOS::Driver
     @port = setting?(Int32, :port) || port
     @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || tls_mode
     @ssl_verify_ignore = setting?(Bool, :ssl_verify_ignore) || false
+    @qr_binary_format = setting?(BinaryFormatQR, :qr_binary_format) || BinaryFormatQR::Hex
 
     @smtp_client = new_smtp_client
 
@@ -88,11 +99,27 @@ class Place::Smtp < PlaceOS::Driver
   end
 
   def generate_svg_qrcode(text : String) : String
-    QRCode.new(text).as_svg
+    qr = Goban::QR.encode_string(text)
+    Goban::SVGExporter.svg_string(qr, 4)
   end
 
   def generate_png_qrcode(text : String, size : Int32 = 128) : String
-    Base64.strict_encode QRCode.new(text).as_png(size: size)
+    qr = Goban::QR.encode_string(text)
+    io = IO::Memory.new
+    Goban::PNGExporter.export(qr, io, size)
+    Base64.strict_encode io.to_slice
+  end
+
+  def generate_png_qrcode_hex(hex_text : String, size : Int32 = 128) : String
+    case @qr_binary_format
+    in .hex?
+    in .base64?
+      hex_text = Base64.strict_encode hex_text.hexbytes
+    end
+    qr = Goban::QR.encode_string(hex_text)
+    io = IO::Memory.new
+    Goban::PNGExporter.export(qr, io, size)
+    Base64.strict_encode io.to_slice
   end
 
   def send_mail(
