@@ -69,8 +69,14 @@ dependencies:
   s2_cells:
     github: spider-gazelle/s2_cells
 
+  # TODO:: deprecated, we should aim to remove at some point
   qr-code:
     github: spider-gazelle/qr-code
+
+  # A faster and better QR code implementation
+  goban:
+    github: soya-daizu/goban
+    branch: master
 
   # For QR .png file export
   stumpy_png:
