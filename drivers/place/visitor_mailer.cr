@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/guest_building_access"
 
 require "./password_generator_helper"
 
@@ -343,6 +344,10 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     attach = if @disable_qr_code
                [] of NamedTuple(file_name: String, content: String, content_id: String)
+             elsif (access_control = system.implementing(Interface::GuestBuildingAccess).first?) && access_control.guest_access_configured?.get.as_b
+               details = access_control.grant_guest_access(visitor_name || visitor_email.sub('@', ' '), visitor_email, event_start, event_start + 1.hour.total_seconds).get
+               data = details["card_hex"].as_s
+               qr_png = mailer.generate_png_qrcode_hex(hex_text: data, size: 256).get.as_s
              else
                qr_png = mailer.generate_png_qrcode(text: "VISIT:#{visitor_email},#{resource_id},#{event_id},#{host_email}", size: 256).get.as_s
                [
