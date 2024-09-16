@@ -108,9 +108,8 @@ class Place::AutoRelease < PlaceOS::Driver
         period_start: Time.utc.to_unix,
         period_end: (Time.utc + @time_window_hours.hours).to_unix,
         zones: [building_zone.id],
-        checked_in: false,
       ).get.to_json
-      results += bookings
+      results += bookings.select { |booking| !booking.checked_in }
     end
 
     logger.debug { "found #{results.size} pending bookings" }
@@ -175,10 +174,13 @@ class Place::AutoRelease < PlaceOS::Driver
         # e.g. 7:30AM = 7.5
         event_time = booking_start.hour + (booking_start.minute / 60.0)
 
-        if (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
+        # exclude overrides with empty time blocks
+        overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
+
+        if (override = overrides[booking_start.to_s(format: "%F")]?) &&
            in_preference?(override, event_time, @release_locations)
           results << booking
-        elsif (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
+        elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
               in_preference?(override, event_time, @release_locations, false)
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
