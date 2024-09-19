@@ -969,12 +969,79 @@ class InnerRange::Integriti < PlaceOS::Driver
   PERMISSION_REGEX = /ID\:\s+(?<id>[a-f0-9\-]+)\s+added/
 
   @[PlaceOS::Driver::Security(Level::Support)]
+  def grant_access(
+    name : String,
+    email : String,
+    group_id : String,
+    starting : Int64? = nil,
+    ending : Int64? = nil,
+    partition_id : Int32? = nil,
+    site_id : Int32? = nil,
+    externally_managed : Bool = true
+  ) : AccessDetails
+    site_id ||= @default_site_id
+    partition_id ||= @default_partition_id
+
+    # create a user in the access control system
+    email = email.downcase
+    user_id = user_id_lookup(email).first? || create_user(name: name, email: email, site_id: site_id)
+
+    # grant the user access
+    result = modify_user_permissions(
+      user_id: user_id,
+      group_id: group_id,
+      partition_id: partition_id,
+      add: true,
+      externally_managed: externally_managed,
+      expires_at: ending,
+      valid_from: starting
+    ).as(AddResult)
+
+    raise result.message unless result.modified == 1
+    matching = PERMISSION_REGEX.match(result.message)
+    raise "unable to obtain permission ID from: #{result.message}" unless matching
+
+    # returns the permission ID, can delete it using:
+    Guest.new(user_id, matching["id"], "")
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def assign_card_to_user(
+    user_id : String,
+    card_template : String,
+    card_number : String,
+    partition_id : Int32? = nil,
+    site_id : Int32? = nil,
+    externally_managed : Bool = true
+  )
+    site_id ||= @default_site_id
+    partition_id ||= @default_partition_id
+
+    if candidate = cards(template: card_template, number: card_number).first?
+      set_card_user(candidate.id, user_id)
+    else
+      card_id = create_card(
+        card_number: card_number,
+        user_id: user_id,
+        partition_id: partition_id,
+        site_id: site_id,
+        card_template: card_template,
+        externally_managed: externally_managed
+      )
+      # we have to query this way to obtain the data we need
+      candidate = cards(template: card_template, number: card_number).first
+    end
+
+    candidate
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
   def grant_guest_access(name : String, email : String, starting : Int64, ending : Int64) : AccessDetails
     raise "guest access is not configured" unless guest_access_configured?
 
     # create a user in the access control system
     email = email.downcase
-    user_id = user_id_lookup(email).first? || create_user(name: name, email: email)
+    user_id = user_id_lookup(email).first? || create_user(name: name, email: email, site_id: @default_site_id)
 
     # ensure the user has a card
     card = cards(user_id: user_id).find { |card| card.template.try(&.address) == @guest_card_template }
