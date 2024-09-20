@@ -1111,7 +1111,12 @@ class Place::Meet < PlaceOS::Driver
       # perform the custom actions
       mode.join_actions.each do |action|
         if master || !action.master_only?
-          system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
+          mod = system[action.module_id]
+          if mod.is_a?(PlaceOS::Driver::Proxy::Driver)
+            mod.__send__(action.function_name, action.arguments, action.named_args)
+          else
+            logger.warn { "Unable to perform join action '#{action.function_name}' on '#{action.module_id}' due to module being '#{mod.class}' instead of 'PlaceOS::Driver::Proxy::Driver'" }
+          end
         end
       end
 
