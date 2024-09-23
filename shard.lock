@@ -111,7 +111,7 @@ shards:
 
   goban:
     git: https://github.com/soya-daizu/goban.git
-    version: 1.7.0+git.commit.c9fbf80018284b6204534e722bec2a35b09d2019
+    version: 1.8.0+git.commit.b076fb4e91969efd5ee0b2be2ee4cbd74c983548
 
   google:
     git: https://github.com/placeos/google.git
@@ -255,7 +255,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.2.12
+    version: 7.2.14
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
