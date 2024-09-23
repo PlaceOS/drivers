@@ -1111,6 +1111,7 @@ class Place::Meet < PlaceOS::Driver
       # perform the custom actions
       mode.join_actions.each do |action|
         if master || !action.master_only?
+          # dynamic function invocation
           system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
         end
       end
