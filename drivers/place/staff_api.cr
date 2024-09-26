@@ -6,6 +6,8 @@ require "link-header"
 require "simple_retry"
 require "place_calendar"
 
+# This comment is to force a recompile of the driver with updated models.
+
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
   generic_name :StaffAPI
