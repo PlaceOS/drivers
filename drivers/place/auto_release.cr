@@ -179,11 +179,14 @@ class Place::AutoRelease < PlaceOS::Driver
 
         if (override = overrides[booking_start.to_s(format: "%F")]?) &&
            in_preference?(override, event_time, @release_locations)
+          logger.debug { "found override to release for booking #{booking.id}" }
           results << booking
         elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
               in_preference?(override, event_time, @release_locations, false)
+          logger.debug { "found override to keep for booking #{booking.id}" }
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
+          logger.debug { "found preference to release for booking #{booking.id}" }
           results << booking
         end
       end
