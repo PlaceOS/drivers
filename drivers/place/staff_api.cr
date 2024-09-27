@@ -545,6 +545,8 @@ class Place::StaffAPI < PlaceOS::Driver
     extension_data : JSON::Any? = nil,
     utm_source : String? = nil,
     limit_override : Int64? = nil,
+    event_id : String? = nil,
+    ical_uid : String? = nil,
     attendees : Array(PlaceCalendar::Event::Attendee)? = nil
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
@@ -558,6 +560,8 @@ class Place::StaffAPI < PlaceOS::Driver
     params = URI::Params.build do |form|
       form.add "utm_source", utm_source.to_s unless utm_source.nil?
       form.add "limit_override", limit_override.to_s unless limit_override.nil?
+      form.add "event_id", event_id.to_s unless event_id.nil?
+      form.add "ical_uid", ical_uid.to_s unless ical_uid.nil?
     end
 
     response = post("/api/staff/v1/bookings?#{params}", headers: authentication, body: {
@@ -726,6 +730,8 @@ class Place::StaffAPI < PlaceOS::Driver
     user : String? = nil,
     email : String? = nil,
     state : String? = nil,
+    event_id : String? = nil,
+    ical_uid : String? = nil,
     created_before : Int64? = nil,
     created_after : Int64? = nil,
     approved : Bool? = nil,
@@ -750,6 +756,8 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "approved", approved.to_s unless approved.nil?
       form.add "rejected", rejected.to_s unless rejected.nil?
       form.add "checked_in", checked_in.to_s unless checked_in.nil?
+      form.add "event_id", event_id.to_s if event_id.presence
+      form.add "ical_uid", ical_uid.to_s if ical_uid.presence
     end
 
     logger.debug { "requesting staff/v1/bookings: #{params}" }
