@@ -33,48 +33,49 @@ class Place::AttendeeScanner < PlaceOS::Driver
 
     systems.each do |level_id, system_ids|
       system_ids.each do |system_id|
-        sys = system(system_id)
-        if sys.exists?(:Booking)
-          bookings = sys[:Booking][:bookings].as_a
+        period_start = Time.local.to_unix
+        period_end = Time.local.to_unix + 86400
 
-          bookings.map do |booking|
-            domain = booking["host"].as_s.split("@").last
+        events = staff_api.query_events(period_start, period_end, systems: [system_id]).get
 
-            unless internal_domains.includes?(domain)
-              event_start = Time.unix(booking["event_start"].as_i)
-              current_date = Time.local
+        events.each do |event|
+          domain = event.as_h.["host"].as_s.split("@").last
 
-              if event_start.year == current_date.year &&
-                 event_start.month == current_date.month &&
-                 (event_start.day == current_date.day || event_start.day == current_date.day + 1)
-                booking_id = booking["id"].as_i64
-                event_id = booking["event_id"].as_s
-                
-                attendees = booking["attendees"].as_a
-                attendee_emails = attendees.map { |attendee| attendee.as_h.["email"].as_s }
-                
-                event = staff_api.get_event(event_id: event_id, system_id: system_id).get
-                ical_uid = event["ical_uid"].as_s
+          unless internal_domains.includes?(domain)
+            event_id = event.as_h.["id"].as_s
+            ical_uid = event.as_h.["ical_uid"].as_s
 
-                calendar_bookings = staff_api.query_bookings(event_id: event_id, ical_uid: ical_uid).get
+            bookings = staff_api.query_bookings(event_id: event_id, ical_uid: ical_uid).get
 
-                external_attendees = [] of JSON::Any
+            attendee_emails = event["attendees"].as_a.map do |attendee|
+              attendee.as_h.["email"].as_s
+            end
 
-                calendar_bookings.as_a.each do |calendar_booking|
-                  calendar_booking
-                    .as_h
-                    .["attendees"]
-                    .as_a
-                    .map do |attendee|
-                      unless attendee_emails.includes?(attendee.as_h.["email"].as_s)
-                        external_attendees.push(attendee)
-
-                        staff_api.create_booking(event_id: event_id, ical_uid: ical_uid)
-                      end
-                    end
+            bookings.as_a.each do |booking|
+              booking.as_h.["attendees"].as_a.each do |attendee|
+                unless attendee_emails.includes?(attendee.as_h.["email"].as_s)
+                  staff_api.create_booking(
+                    booking_type: "",
+                    asset_id: "",
+                    user_id: "",
+                    user_email: "",
+                    user_name: "",
+                    zones: [] of String,
+                    booking_start: nil,
+                    booking_end: nil,
+                    checked_in: false,
+                    approved: nil,
+                    title: nil,
+                    description: nil,
+                    time_zone: nil,
+                    extension_data: nil,
+                    utm_source: nil,
+                    limit_override: nil,
+                    event_id: nil,
+                    ical_uid: nil,
+                    attendees: nil
+                  ).get
                 end
-
-                meetings.push({"id" => booking["id"], "event_id" => booking["event_id"], "external_attendees" => JSON::Any.new(external_attendees)})
               end
             end
           end
