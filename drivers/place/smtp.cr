@@ -27,6 +27,7 @@ class Place::Smtp < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   getter org_zone_id : String { get_org_zone_id?.not_nil! }
+  getter building_zone_id : String { get_building_zone_id?.not_nil! }
 
   private def smtp_client : EMail::Client
     @smtp_client ||= new_smtp_client
@@ -265,8 +266,8 @@ class Place::Smtp < PlaceOS::Driver
     update_email_template_fields(@template_fields)
 
     migrate_email_templates
-    @templates = get_email_templates? || Templates.new
-    schedule.every(2.minute) { @templates = get_email_templates? || Templates.new }
+    @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates)
+    schedule.every(2.minute) { @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates) }
   end
 
   # Finds the org zone id for the current location services object
@@ -278,16 +279,52 @@ class Place::Smtp < PlaceOS::Driver
     nil
   end
 
-  def get_email_templates? : Templates?
-    Templates.from_json staff_api.metadata(org_zone_id, "email_templates").get.to_json
+  # Finds the building zone id for the current location services object
+  def get_building_zone_id? : String?
+    zone_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    (zone_ids & system.zones).first
   rescue error
-    logger.warn(exception: error) { "unable to get email templates from org metadata" }
+    logger.warn(exception: error) { "unable to determine building zone id" }
     nil
+  end
+
+  def get_email_templates?(zone_id : String) : Array(Template)?
+    metadata = Metadata.from_json staff_api.metadata(zone_id, "email_templates").get["email_templates"].to_json
+    metadata.details.as_a.map { |template| Template.from_json template.to_json }
+  rescue error
+    logger.warn(exception: error) { "unable to get email templates from zone #{zone_id} metadata" }
+    nil
+  end
+
+  # get and merge email templates from org and building zones
+  # building zone templates take precedence
+  def get_merged_email_templates : Array(Template)
+    org_templates = get_email_templates?(org_zone_id)
+    building_templates = get_email_templates?(building_zone_id)
+
+    return building_templates unless org_templates
+
+    merged_templates = building_templates.map do |building_template|
+      org_template = org_templates.find { |template| template["trigger"] == building_template["trigger"] }
+      org_template || building_template
+    end
+
+    remaining_templates = org_templates - merged_templates
+    merged_templates + remaining_templates
+  end
+
+  # convert new email templates to the old format
+  def convert_metadata_templates_to_mailer_templates(templates : Array(Template)) : Templates
+    templates.group_by { |template| template["trigger"].split(".").first }.transform_values do |group|
+      group.group_by { |template| template["trigger"].split(".").last }.transform_values do |group|
+        template
+      end
+    end
   end
 
   # Migrate email templates from settings to metadata
   def migrate_email_templates
-    return if get_email_templates?
+    return if get_email_templates?(org_zone_id)
 
     old_templates = setting?(Templates, :email_templates)
     default_templates = {visitor: {checkin: {
@@ -295,7 +332,19 @@ class Place::Smtp < PlaceOS::Driver
       text:    "for your meeting at %{time}",
     }}}
     email_templates = old_templates ? old_templates : default_templates
-    staff_api.write_metadata(id: org_zone_id, key: "email_templates", payload: email_templates, description: "Email templates for the SMTP driver").get
+    new_email_templates : Array(Template) = email_templates.map do |event_name, notify_who|
+      notify_who.map do |notify, template|
+        # html, text, and subject is already in the template
+        template["trigger"] = "#{event_name}.#{notify}"
+        template["zone_id"] = org_zone_id
+        template["created_at"] = Time.utc.to_unix.to_s
+        template["updated_at"] = Time.utc.to_unix.to_s
+        template["id"] = %(template-#{Digest::MD5.hexdigest("#{template["trigger"]}#{template["created_at"]}")})
+        template
+      end
+    end.flatten
+
+    staff_api.write_metadata(id: org_zone_id, key: "email_templates", payload: new_email_templates, description: "Email templates for the SMTP driver").get
   end
 
   def get_email_template_fields? : Hash(String, TemplateFields)?
@@ -401,6 +450,20 @@ class Place::Smtp < PlaceOS::Driver
     end
 
     sent
+  end
+
+  alias Template = Hash(String, String)
+
+  struct Metadata
+    include JSON::Serializable
+
+    property name : String
+    property description : String = ""
+    property details : JSON::Any
+    property parent_id : String
+    property schema_id : String? = nil
+    property editors : Set(String) = Set(String).new
+    property modified_by_id : String? = nil
   end
 
   record TemplateFields, name : String, fields : Array(TemplateField) do
