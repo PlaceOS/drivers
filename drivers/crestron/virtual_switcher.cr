@@ -79,9 +79,9 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
         {input, nil}
       end
     end
-  rescue ex : KeyError
+  rescue ex
     logger.warn { "could not find Encoder_#{input}, due to '#{ex.message}'" }
-    nil
+    {input, nil}
   end
 
   # only support muting the outputs, no unmuting
