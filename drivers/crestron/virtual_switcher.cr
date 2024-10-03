@@ -73,7 +73,7 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
       end
     else
       return {input, nil} if layer.video?
-      if tx = transmitters.find { |sender| sender[:stream_name] == input }
+      if tx = transmitters.find { |sender| sender[:stream_name]? == input }
         {input, tx[:nax_address]?}
       else
         {input, nil}
