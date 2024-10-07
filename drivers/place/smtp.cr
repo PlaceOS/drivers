@@ -18,11 +18,12 @@ class Place::Smtp < PlaceOS::Driver
     sender: "support@place.tech",
     # host:     "smtp.host",
     # port:     587,
-    tls_mode:          EMail::Client::TLSMode::STARTTLS.to_s,
-    ssl_verify_ignore: false,
-    username:          "", # Username/Password for SMTP servers with basic authorization
-    password:          "",
-    migrate_templates: true,
+    tls_mode:               EMail::Client::TLSMode::STARTTLS.to_s,
+    ssl_verify_ignore:      false,
+    username:               "", # Username/Password for SMTP servers with basic authorization
+    password:               "",
+    use_metadata_templates: false,
+    migrate_templates:      true,
   })
 
   accessor staff_api : StaffAPI_1
@@ -44,6 +45,7 @@ class Place::Smtp < PlaceOS::Driver
   @tls_mode : EMail::Client::TLSMode = EMail::Client::TLSMode::STARTTLS
   @send_lock : Mutex = Mutex.new
   @ssl_verify_ignore : Bool = false
+  @use_metadata_templates : Bool = false
   @migrate_templates : Bool = true
 
   # Improvement: Store this on the specific mailers
@@ -265,16 +267,20 @@ class Place::Smtp < PlaceOS::Driver
     @port = setting?(Int32, :port) || port
     @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || tls_mode
     @ssl_verify_ignore = setting?(Bool, :ssl_verify_ignore) || false
+    @use_metadata_templates = setting?(Bool, :metadata_templates) || false
     @migrate_templates = setting?(Bool, :migrate_templates) || true
 
     @smtp_client = new_smtp_client
 
     update_email_template_fields(@template_fields)
-
     migrate_email_templates if @migrate_templates
 
-    @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates)
-    schedule.every(2.minute) { @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates) }
+    if @use_metadata_templates
+      @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates)
+      schedule.every(2.minute) { @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates) }
+    else
+      @templates = setting?(Templates, :email_templates) || Templates.new
+    end
   end
 
   # Finds the org zone id for the current location services object
