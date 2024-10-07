@@ -299,25 +299,19 @@ class Place::Smtp < PlaceOS::Driver
   # get and merge email templates from org and building zones
   # building zone templates take precedence
   def get_merged_email_templates : Array(Template)
-    org_templates = get_email_templates?(org_zone_id)
-    building_templates = get_email_templates?(building_zone_id)
+    org_templates = get_email_templates?(org_zone_id) || [] of Template
+    building_templates = get_email_templates?(building_zone_id) || [] of Template
 
-    return building_templates unless org_templates
-
-    merged_templates = building_templates.map do |building_template|
-      org_template = org_templates.find { |template| template["trigger"] == building_template["trigger"] }
-      org_template || building_template
-    end
-
-    remaining_templates = org_templates - merged_templates
-    merged_templates + remaining_templates
+    _merged_templates = building_templates.concat(org_templates.reject do |template|
+      building_templates.any? { |t| t["trigger"] == template["trigger"] }
+    end)
   end
 
   # convert new email templates to the old format
   def convert_metadata_templates_to_mailer_templates(templates : Array(Template)) : Templates
     templates.group_by { |template| template["trigger"].split(".").first }.transform_values do |group|
-      group.group_by { |template| template["trigger"].split(".").last }.transform_values do |group|
-        template
+      group.group_by { |template| template["trigger"].split(".").last }.transform_values do |template|
+        template.first
       end
     end
   end
@@ -327,9 +321,9 @@ class Place::Smtp < PlaceOS::Driver
     return if get_email_templates?(org_zone_id)
 
     old_templates = setting?(Templates, :email_templates)
-    default_templates = {visitor: {checkin: {
-      subject: "%{name} has arrived",
-      text:    "for your meeting at %{time}",
+    default_templates = Templates{"visitor" => {"checkin" => {
+      "subject" => "%{name} has arrived",
+      "text"    => "for your meeting at %{time}",
     }}}
     email_templates = old_templates ? old_templates : default_templates
     new_email_templates : Array(Template) = email_templates.map do |event_name, notify_who|
