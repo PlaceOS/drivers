@@ -322,11 +322,13 @@ class Place::Smtp < PlaceOS::Driver
 
   # convert new email templates to the old format
   def convert_metadata_templates_to_mailer_templates(templates : Array(Template)) : Templates
-    templates.group_by { |template| template["trigger"].split(".").first }.transform_values do |group|
-      group.group_by { |template| template["trigger"].split(".").last }.transform_values do |template|
-        template.first
-      end
+    mailer_templates = Templates.new
+    templates.each do |template|
+      trigger = template["trigger"].split(".")
+      mailer_templates[trigger[0]] ||= {} of String => Hash(String, String)
+      mailer_templates[trigger[0]][trigger[1]] = template.to_h
     end
+    mailer_templates
   end
 
   # Migrate email templates from settings to metadata
