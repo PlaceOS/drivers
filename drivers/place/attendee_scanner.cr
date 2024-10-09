@@ -29,7 +29,7 @@ class Place::AttendeeScanner < PlaceOS::Driver
 
   # Lists external guests based on email domains
   def list_external_guests
-    meetings = [] of Hash(String, JSON::Any)
+    values = [] of Hash(String, JSON::Any)
 
     systems.each do |level_id, system_ids|
       system_ids.each do |system_id|
@@ -38,7 +38,7 @@ class Place::AttendeeScanner < PlaceOS::Driver
 
         events = staff_api.query_events(period_start, period_end, systems: [system_id]).get
 
-        events.each do |event|
+        events.as_a.each do |event|
           domain = event.as_h.["host"].as_s.split("@").last
 
           unless internal_domains.includes?(domain)
@@ -52,29 +52,39 @@ class Place::AttendeeScanner < PlaceOS::Driver
             end
 
             bookings.as_a.each do |booking|
-              booking.as_h.["attendees"].as_a.each do |attendee|
-                unless attendee_emails.includes?(attendee.as_h.["email"].as_s)
+              booking = booking.as_h
+
+              booking.["attendees"].as_a.each do |attendee|
+                attendee_email = attendee.as_h.["email"].as_s
+
+                unless attendee_emails.includes?(attendee_email)
                   staff_api.create_booking(
-                    booking_type: "",
-                    asset_id: "",
-                    user_id: "",
-                    user_email: "",
-                    user_name: "",
-                    zones: [] of String,
-                    booking_start: nil,
-                    booking_end: nil,
-                    checked_in: false,
-                    approved: nil,
-                    title: nil,
-                    description: nil,
-                    time_zone: nil,
-                    extension_data: nil,
+                    booking_type: "visitor",
+                    asset_id: attendee_email,
+                    user_id: attendee_email,
+                    user_email: attendee_email,
+                    user_name: booking["user_name"].as_s,
+                    zones: booking["zones"].as_a?,
+                    booking_start: booking["booking_start"].as_s?,
+                    booking_end: booking["booking_end"].as_s?,
+                    checked_in: booking["checked_in"].as_bool?,
+                    approved: booking["approved"].as_bool?,
+                    title: booking["title"].as_s?,
+                    description: booking["description"].as_s?,
+                    time_zone: booking["time_zone"].as_s?,
+                    extension_data: booking["extension_data"]?,
                     utm_source: nil,
                     limit_override: nil,
-                    event_id: nil,
-                    ical_uid: nil,
+                    event_id: event_id,
+                    ical_uid: ical_uid,
                     attendees: nil
                   ).get
+
+                  values.push({
+                    "event_id" => event.as_h.["id"],
+                    "ical_uid" => event.as_h.["ical_uid"],
+                    "booking" => JSON::Any.new(booking)
+                  })
                 end
               end
             end
@@ -83,6 +93,6 @@ class Place::AttendeeScanner < PlaceOS::Driver
       end
     end
 
-    meetings
+    values
   end
 end
