@@ -26,6 +26,9 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     password:    "password!",
     ws_username: "srvc_acct",
     ws_password: "password!",
+
+    # if the websocket is on a different port
+    # http_uri_override: "https://ip"
   })
 
   @username : String = ""
@@ -54,6 +57,12 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     @password = setting(String, :password)
     @ws_username = setting?(String, :ws_username) || @username
     @ws_password = setting?(String, :ws_password) || @password
+
+    if uri_override = setting?(String, :http_uri_override)
+      transport.http_uri_override = URI.parse uri_override
+    else
+      transport.http_uri_override = nil
+    end
 
     schedule.clear
     schedule.every(1.hour) { sync_locker_list }

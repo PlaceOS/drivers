@@ -6,6 +6,8 @@ require "link-header"
 require "simple_retry"
 require "place_calendar"
 
+# This comment is to force a recompile of the driver with updated models.
+
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
   generic_name :StaffAPI
@@ -736,7 +738,9 @@ class Place::StaffAPI < PlaceOS::Driver
     created_after : Int64? = nil,
     approved : Bool? = nil,
     rejected : Bool? = nil,
-    checked_in : Bool? = nil
+    checked_in : Bool? = nil,
+    include_checked_out : Bool? = nil,
+    extension_data : JSON::Any? = nil
   )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
@@ -758,6 +762,12 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "checked_in", checked_in.to_s unless checked_in.nil?
       form.add "event_id", event_id.to_s if event_id.presence
       form.add "ical_uid", ical_uid.to_s if ical_uid.presence
+      form.add "include_checked_out", include_checked_out.to_s unless include_checked_out.nil?
+
+      if extension_data
+        value = extension_data.as_h.map { |k, v| "#{k}:#{v}" }.join(",")
+        form.add "extension_data", "{#{value}}"
+      end
     end
 
     logger.debug { "requesting staff/v1/bookings: #{params}" }
@@ -776,8 +786,9 @@ class Place::StaffAPI < PlaceOS::Driver
       new_bookings = JSON.parse(response.body).as_a
       bookings.concat new_bookings
 
+      last_req = next_request
       next_request = links["next"]?
-      break if next_request.nil? || new_bookings.empty?
+      break if next_request.nil? || new_bookings.empty? || last_req == next_request
     end
 
     logger.debug { "bookings count: #{bookings.size}" }

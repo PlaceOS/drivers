@@ -36,7 +36,7 @@ module Juniper
     property org_id : String?
 
     @[JSON::Field(key: "ppm")]
-    property pixels_per_meter : Float32
+    property pixels_per_meter : Float32?
     property width : Int32
     property height : Int32
 
@@ -74,7 +74,6 @@ module Juniper
 
   class Client
     include JSON::Serializable
-    include JSON::Serializable::Unmapped
 
     property mac : String
     property last_seen : Int64
@@ -113,6 +112,54 @@ module Juniper
 
     property is_guest : Bool?
     property guest : Guest?
+  end
+
+  struct ClientStats
+    include JSON::Serializable
+
+    property mac : String
+    property last_seen : Int64
+
+    property username : String?
+    property hostname : String?
+    property os : String?
+    property manufacture : String?
+    property family : String?
+    property model : String?
+
+    @[JSON::Field(key: "ip")]
+    property ip_address : String
+    property ap_mac : String
+    property ap_id : String
+    property ssid : String
+    property wlan_id : String
+    property psk_id : String?
+
+    property is_guest : Bool?
+    property guest : Guest?
+  end
+
+  struct ClientLocation
+    include JSON::Serializable
+
+    property mac : String
+    property map_id : String
+
+    # pixels
+    property x : Float64
+    property y : Float64
+    property x_m : Float64?
+    property y_m : Float64?
+    property num_locating_aps : Int32
+
+    # meters
+    @[JSON::Field(key: "accuracy")]
+    property raw_accuracy : Int32?
+
+    def accuracy
+      return raw_accuracy if raw_accuracy
+      15 // num_locating_aps
+    end
   end
 
   class Guest

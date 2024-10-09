@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "placeos-driver/interface/chat_functions"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/lighting"
@@ -8,6 +9,7 @@ require "./meet/tab"
 require "./router/core"
 
 class Place::Meet < PlaceOS::Driver
+  include Interface::ChatFunctions
   include Interface::Muteable
   include Interface::Powerable
   include Router::Core
@@ -80,6 +82,23 @@ class Place::Meet < PlaceOS::Driver
     ],
   })
 
+  # =========================
+  # The LLM Interface
+  # =========================
+
+  getter capabilities : String do
+    String.build do |str|
+      str << "provides meeting room audio visual control such as controlling video source to be presented\n"
+      str << "check for available inputs and outputs before switching to present a source to a display.\n"
+      str << "output volume and microphone fader controls are floats between 0.0 to 100.0\n"
+      str << "query output volume to change it by a relative amount, if asked to increase or decrease volume, change it by 10.0\n"
+      str << "audio can be muted and you unroute video to blank displays.\n"
+      str << "you can also shutdown, startup, power off, power on, start or end the meeting using the set_power_state function available in this capability.\n"
+      str << "some rooms may have lighting control, make sure to check what levels are available before changing state\n"
+      str << "some rooms may have accessories such as blinds or projector screen controls. Check for available accessories when asked about something not explicitly controllable\n"
+    end
+  end
+
   EXT_INIT  = [] of Symbol
   EXT_POWER = [] of Symbol
 
@@ -109,6 +128,9 @@ class Place::Meet < PlaceOS::Driver
   @ignore_update : Int64 = 0_i64
 
   # core includes: 'current_routes' hash
+  # but we override it here for LLM integration
+  @[Description("obtain the current routes, output => input")]
+  getter current_routes : Hash(String, String?) = {} of String => String?
 
   def on_update
     return if (Time.utc.to_unix - @ignore_update) < 3
@@ -118,6 +140,7 @@ class Place::Meet < PlaceOS::Driver
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
+    self[:voice_control] = setting?(Bool, :voice_control) || false
     @shutdown_devices = setting?(Array(String), :shutdown_devices)
     @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
 
@@ -172,6 +195,11 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  @[Description("power on or off the meeting room. Send true for power on (startup) or false for power off (shutdown)")]
+  def set_power_state(state : Bool)
+    power state
+  end
+
   # Sets the overall room power state.
   def power(state : Bool, unlink : Bool = false)
     return if state == self[:active]?
@@ -218,6 +246,11 @@ class Place::Meet < PlaceOS::Driver
     state
   end
 
+  @[Description("query the system power state?")]
+  def power? : Bool
+    status?(Bool, :active) || false
+  end
+
   # =====================
   # System IO management
   # ====================
@@ -256,6 +289,50 @@ class Place::Meet < PlaceOS::Driver
     logger.warn(exception: error) { "error applying default routes" }
   end
 
+  @[Description("available inputs and outputs. Route using id keys")]
+  def inputs_and_outputs
+    inps = all_inputs
+    outs = all_outputs
+
+    results = [] of NamedTuple(type: Symbol, name: String, id: String)
+    inps.each do |input|
+      name = status?(NamedTuple(name: String), "input/#{input}")
+      if name
+        results << {type: :input, name: name[:name], id: input}
+      end
+    end
+    outs.each do |output|
+      name = status?(NamedTuple(name: String), "output/#{output}")
+      if name
+        results << {type: :output, name: name[:name], id: output}
+      end
+    end
+    results
+  end
+
+  @[Description("route to present an input to an output / display. Don't guess, look up available input and output ids")]
+  def route_input(input_id : String, output_id : String)
+    # obtain input ID
+    keys = all_inputs
+    hash = keys.each_with_object({} of String => String) do |input, memo|
+      memo[input.downcase] = input
+    end
+    input_actual = hash[input_id.downcase]?
+    raise "invalid input #{input_id}, must be one of #{keys.join(", ")}" unless input_actual
+
+    # obtain output ID
+    keys = all_outputs
+    hash = keys.each_with_object({} of String => String) do |output, memo|
+      memo[output.downcase] = output
+    end
+    output_actual = hash[output_id.downcase]?
+    raise "invalid output #{output_id}, must be one of: #{keys.join(", ")}" unless output_actual
+
+    power true
+    selected_input(input_actual)
+    route(input_actual, output_actual)
+  end
+
   def route(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false, follow_additional_routes : Bool = true)
     route_signal(input, output, max_dist, simulate, follow_additional_routes)
 
@@ -278,6 +355,7 @@ class Place::Meet < PlaceOS::Driver
 
   # we want to unroute any signal going to the display
   # or if it's a direct connection, we want to mute the display
+  @[Description("blank a display / output, sometimes called a video mute")]
   def unroute(output : String)
     route("MUTE", output)
   rescue error
@@ -314,6 +392,10 @@ class Place::Meet < PlaceOS::Driver
 
   protected def all_outputs
     status(Array(String), :outputs)
+  end
+
+  protected def all_inputs
+    status(Array(String), :inputs)
   end
 
   protected def update_available_help
@@ -524,6 +606,35 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  @[Description("change the room volume")]
+  def set_volume(level : Int32 | Float64)
+    power true
+    if level.zero?
+      audio_mute true
+      "audio was muted"
+    else
+      audio_mute false
+      volume level, ""
+      "volume set to #{level.to_f.clamp(0.0, 100.0)}"
+    end
+  end
+
+  @[Description("query the current volume, useful to know when asked to change the volume relatively")]
+  def volume?
+    status?(Float64, :volume) || 0.0
+  end
+
+  @[Description("mute or unmute the room audio")]
+  def audio_mute(state : Bool)
+    mute state
+    state ? "audio is muted" : "audio is unmuted"
+  end
+
+  @[Description("check if the room audio is muted")]
+  def audio_muted?
+    status?(Bool, :mute) || false
+  end
+
   # Set the volume of a signal node within the system.
   def volume(level : Int32 | Float64, input_or_output : String)
     audio = @master_audio
@@ -637,7 +748,7 @@ class Place::Meet < PlaceOS::Driver
 
   def select_lighting_scene(scene : String, push_to_remotes : Bool = true)
     scene_id = @light_scenes[scene.downcase]?
-    raise ArgumentError.new("invalid scene '#{scene}', valid scenes are: #{@light_scenes.keys}") unless scene_id
+    raise ArgumentError.new("invalid scene '#{scene}', valid scenes are: #{@light_scenes.keys.join(", ")}") unless scene_id
 
     system[@light_module].set_lighting_scene(scene_id, @light_area)
 
@@ -645,6 +756,30 @@ class Place::Meet < PlaceOS::Driver
     if push_to_remotes && lighting_independent
       remote_rooms.each { |room| room.select_lighting_scene(scene, false) }
     end
+  end
+
+  @[Description("returns the list of available lighting scenes")]
+  def lighting_scenes
+    scenes = status?(Array(NamedTuple(name: String)), :lighting_scenes)
+    raise "no lighting control available" unless scenes
+    scenes.map { |scene| scene[:name].downcase }
+  end
+
+  @[Description("query the current lighting scene")]
+  def lighting_scene?
+    scenes = status?(Array(NamedTuple(name: String, id: Int32)), :lighting_scenes)
+    raise "no lighting control available" unless scenes
+    current = status?(Int32, :lighting_scene)
+    scene = scenes.find { |available| available[:id] == current }
+    scene ? "current lighting scene: #{scene[:name]}" : "lights in unknown state"
+  end
+
+  @[Description("set a new lighting scene. Remember to list available lighting scenes before calling")]
+  def set_lighting_scene(scene : String)
+    scenes = lighting_scenes
+    raise "invalid scene #{scene}, must be one of: #{scenes.join(", ")}" unless scenes.includes?(scene.downcase)
+    select_lighting_scene scene
+    "current lighting scene: #{scene}"
   end
 
   # ================
@@ -976,6 +1111,7 @@ class Place::Meet < PlaceOS::Driver
       # perform the custom actions
       mode.join_actions.each do |action|
         if master || !action.master_only?
+          # dynamic function invocation
           system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
         end
       end
