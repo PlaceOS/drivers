@@ -22,8 +22,6 @@ class Place::Smtp < PlaceOS::Driver
     ssl_verify_ignore:      false,
     username:               "", # Username/Password for SMTP servers with basic authorization
     password:               "",
-    use_metadata_templates: false,
-    migrate_templates:      true,
   })
 
   accessor staff_api : StaffAPI_1
@@ -45,8 +43,6 @@ class Place::Smtp < PlaceOS::Driver
   @tls_mode : EMail::Client::TLSMode = EMail::Client::TLSMode::STARTTLS
   @send_lock : Mutex = Mutex.new
   @ssl_verify_ignore : Bool = false
-  @use_metadata_templates : Bool = false
-  @migrate_templates : Bool = true
 
   # Improvement: Store this on the specific mailers
   # and either have them update the metadata themselves,
@@ -267,20 +263,13 @@ class Place::Smtp < PlaceOS::Driver
     @port = setting?(Int32, :port) || port
     @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || tls_mode
     @ssl_verify_ignore = setting?(Bool, :ssl_verify_ignore) || false
-    @use_metadata_templates = setting?(Bool, :metadata_templates) || false
-    @migrate_templates = setting?(Bool, :migrate_templates) || true
 
     @smtp_client = new_smtp_client
 
     update_email_template_fields(@template_fields)
-    migrate_email_templates if @migrate_templates
 
-    if @use_metadata_templates
-      @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates)
-      schedule.every(2.minute) { @templates = convert_metadata_templates_to_mailer_templates(get_merged_email_templates) }
-    else
-      @templates = setting?(Templates, :email_templates) || Templates.new
-    end
+    @templates = get_templates
+    schedule.every(2.minute) { @templates = get_templates }
   end
 
   # Finds the org zone id for the current location services object
@@ -301,59 +290,26 @@ class Place::Smtp < PlaceOS::Driver
     nil
   end
 
-  def get_email_templates?(zone_id : String) : Array(Template)?
+  def get_templates : Templates
+    # fetch templates
+    setting_templates = get_templates_from_settings? || Templates.new
+    org_templates = convert_templates(get_templates_from_metadata?(org_zone_id) || [] of Template)
+    building_templates = convert_templates(get_templates_from_metadata?(building_zone_id) || [] of Template)
+
+    # merge templates (settings < org < building)
+    merged_templates = setting_templates.merge(org_templates).merge(building_templates)
+  end
+
+  def get_templates_from_settings? : Templates?
+    setting?(Templates, :email_templates)
+  end
+
+  def get_templates_from_metadata?(zone_id : String) : Array(Template)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_templates").get["email_templates"].to_json
     metadata.details.as_a.map { |template| Template.from_json template.to_json }
   rescue error
     logger.warn(exception: error) { "unable to get email templates from zone #{zone_id} metadata" }
     nil
-  end
-
-  # get and merge email templates from org and building zones
-  # building zone templates take precedence
-  def get_merged_email_templates : Array(Template)
-    org_templates = get_email_templates?(org_zone_id) || [] of Template
-    building_templates = get_email_templates?(building_zone_id) || [] of Template
-
-    _merged_templates = building_templates.concat(org_templates.reject do |template|
-      building_templates.any? { |t| t["trigger"] == template["trigger"] }
-    end)
-  end
-
-  # convert new email templates to the old format
-  def convert_metadata_templates_to_mailer_templates(templates : Array(Template)) : Templates
-    mailer_templates = Templates.new
-    templates.each do |template|
-      trigger = template["trigger"].split(".")
-      mailer_templates[trigger[0]] ||= {} of String => Hash(String, String)
-      mailer_templates[trigger[0]][trigger[1]] = template.to_h
-    end
-    mailer_templates
-  end
-
-  # Migrate email templates from settings to metadata
-  def migrate_email_templates
-    return if get_email_templates?(org_zone_id)
-
-    old_templates = setting?(Templates, :email_templates)
-    default_templates = Templates{"visitor" => {"checkin" => {
-      "subject" => "%{name} has arrived",
-      "text"    => "for your meeting at %{time}",
-    }}}
-    email_templates = old_templates ? old_templates : default_templates
-    new_email_templates : Array(Template) = email_templates.map do |event_name, notify_who|
-      notify_who.map do |notify, template|
-        # html, text, and subject is already in the template
-        template["trigger"] = "#{event_name}.#{notify}"
-        template["zone_id"] = org_zone_id
-        template["created_at"] = Time.utc.to_unix.to_s
-        template["updated_at"] = Time.utc.to_unix.to_s
-        template["id"] = %(template-#{Digest::MD5.hexdigest("#{template["trigger"]}#{template["created_at"]}")})
-        template
-      end
-    end.flatten
-
-    staff_api.write_metadata(id: org_zone_id, key: "email_templates", payload: new_email_templates, description: "Email templates for the SMTP driver").get
   end
 
   def get_email_template_fields? : Hash(String, TemplateFields)?
@@ -462,6 +418,31 @@ class Place::Smtp < PlaceOS::Driver
   end
 
   alias Template = Hash(String, String)
+
+  # convert metadata templates to mailer templates
+  def convert_templates(templates : Array(Template)) : Templates
+    mailer_templates = Templates.new
+    templates.each do |template|
+      trigger = template["trigger"].split(".")
+      mailer_templates[trigger[0]] ||= {} of String => Hash(String, String)
+      mailer_templates[trigger[0]][trigger[1]] = template.to_h
+    end
+    mailer_templates
+  end
+
+  # convert mailer templates to metadata templates
+  def convert_templates(templates : Templates) : Array(Template)
+    templates.flat_map do |event_name, notify_who|
+      notify_who.map do |notify, template|
+        template["trigger"] = "#{event_name}.#{notify}"
+        template["zone_id"] = org_zone_id unless template["zone_id"]?
+        template["created_at"] = Time.utc.to_unix.to_s unless template["created_at"]?
+        template["updated_at"] = Time.utc.to_unix.to_s unless template["updated_at"]?
+        template["id"] = %(template-#{Digest::MD5.hexdigest("#{template["trigger"]}#{template["created_at"]}")}) unless template["id"]?
+        template
+      end
+    end
+  end
 
   struct Metadata
     include JSON::Serializable
