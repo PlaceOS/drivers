@@ -18,10 +18,10 @@ class Place::Smtp < PlaceOS::Driver
     sender: "support@place.tech",
     # host:     "smtp.host",
     # port:     587,
-    tls_mode:               EMail::Client::TLSMode::STARTTLS.to_s,
-    ssl_verify_ignore:      false,
-    username:               "", # Username/Password for SMTP servers with basic authorization
-    password:               "",
+    tls_mode:          EMail::Client::TLSMode::STARTTLS.to_s,
+    ssl_verify_ignore: false,
+    username:          "", # Username/Password for SMTP servers with basic authorization
+    password:          "",
   })
 
   accessor staff_api : StaffAPI_1
@@ -292,12 +292,12 @@ class Place::Smtp < PlaceOS::Driver
 
   def get_templates : Templates
     # fetch templates
-    setting_templates = get_templates_from_settings? || Templates.new
-    org_templates = convert_templates(get_templates_from_metadata?(org_zone_id) || [] of Template)
-    building_templates = convert_templates(get_templates_from_metadata?(building_zone_id) || [] of Template)
+    templates = get_templates_from_settings? || Templates.new
+    org_templates = templates_to_mailer(get_templates_from_metadata?(org_zone_id) || [] of Template)
+    building_templates = templates_to_mailer(get_templates_from_metadata?(building_zone_id) || [] of Template)
 
     # merge templates (settings < org < building)
-    merged_templates = setting_templates.merge(org_templates).merge(building_templates)
+    templates.merge(org_templates).merge(building_templates)
   end
 
   def get_templates_from_settings? : Templates?
@@ -420,7 +420,7 @@ class Place::Smtp < PlaceOS::Driver
   alias Template = Hash(String, String)
 
   # convert metadata templates to mailer templates
-  def convert_templates(templates : Array(Template)) : Templates
+  def templates_to_mailer(templates : Array(Template)) : Templates
     mailer_templates = Templates.new
     templates.each do |template|
       trigger = template["trigger"].split(".")
@@ -431,7 +431,7 @@ class Place::Smtp < PlaceOS::Driver
   end
 
   # convert mailer templates to metadata templates
-  def convert_templates(templates : Templates) : Array(Template)
+  def templates_to_metadata(templates : Templates) : Array(Template)
     templates.flat_map do |event_name, notify_who|
       notify_who.map do |notify, template|
         template["trigger"] = "#{event_name}.#{notify}"
