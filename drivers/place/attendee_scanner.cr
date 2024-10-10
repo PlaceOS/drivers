@@ -83,7 +83,7 @@ class Place::AttendeeScanner < PlaceOS::Driver
                   values.push({
                     "event_id" => event.as_h.["id"],
                     "ical_uid" => event.as_h.["ical_uid"],
-                    "booking" => JSON::Any.new(booking)
+                    "booking"  => JSON::Any.new(booking),
                   })
                 end
               end
