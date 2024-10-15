@@ -267,7 +267,7 @@ class Place::Smtp < PlaceOS::Driver
 
     @smtp_client = new_smtp_client
 
-    update_email_template_fields(@template_fields)
+    update_email_template_fields
 
     @templates = get_templates
     schedule.every(2.minute) { @templates = get_templates }
@@ -321,8 +321,8 @@ class Place::Smtp < PlaceOS::Driver
     nil
   end
 
-  def update_email_template_fields(template_fields : Hash(String, TemplateFields))
-    staff_api.write_metadata(id: org_zone_id, key: "email_template_fields", payload: template_fields, description: "Available fields for use in email templates").get
+  def update_email_template_fields
+    staff_api.write_metadata(id: org_zone_id, key: "email_template_fields", payload: @template_fields, description: "Available fields for use in email templates").get
   end
 
   # Create and configure an SMTP client
