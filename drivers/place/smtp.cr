@@ -246,6 +246,7 @@ class Place::Smtp < PlaceOS::Driver
 
   def on_update
     @org_zone_id = nil
+    @building_zone_id = nil
 
     defaults = URI.parse(config.uri.not_nil!)
     tls_mode = if scheme = defaults.scheme
