@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Crystal Docs 1.12.2">
+<meta name="generator" content="Crystal Docs 1.13.3">
 <meta name="crystal_docs.project_version" content="master">
 <meta name="crystal_docs.project_name" content="drivers">
 
@@ -2132,8 +2132,8 @@
       
     </li>
   
-  <li class=" " data-id="drivers/PlaceOS/Driver/Interface/Lockers/PlaceLocker" data-name="placeos::driver::interface::lockers::placelocker">
-      <a href="../../PlaceOS/Driver/Interface/Lockers/PlaceLocker.html">PlaceLocker</a>
+  <li class=" " data-id="drivers/Floorsense/Desks/PlaceLocker" data-name="floorsense::desks::placelocker">
+      <a href="../../Floorsense/Desks/PlaceLocker.html">PlaceLocker</a>
       
     </li>
   
@@ -2177,8 +2177,8 @@
       
     </li>
   
-  <li class=" " data-id="drivers/PlaceOS/Driver/Interface/Lockers/PlaceLocker" data-name="placeos::driver::interface::lockers::placelocker">
-      <a href="../../PlaceOS/Driver/Interface/Lockers/PlaceLocker.html">PlaceLocker</a>
+  <li class=" " data-id="drivers/Floorsense/DesksWebsocket/PlaceLocker" data-name="floorsense::deskswebsocket::placelocker">
+      <a href="../../Floorsense/DesksWebsocket/PlaceLocker.html">PlaceLocker</a>
       
     </li>
   
@@ -6822,8 +6822,8 @@
       
     </li>
   
-  <li class=" " data-id="drivers/PlaceOS/Driver/Interface/Lockers/PlaceLocker" data-name="placeos::driver::interface::lockers::placelocker">
-      <a href="../../PlaceOS/Driver/Interface/Lockers/PlaceLocker.html">PlaceLocker</a>
+  <li class=" " data-id="drivers/Vecos/ReleezmeLocations/PlaceLocker" data-name="vecos::releezmelocations::placelocker">
+      <a href="../../Vecos/ReleezmeLocations/PlaceLocker.html">PlaceLocker</a>
       
     </li>
   
@@ -7212,7 +7212,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L162" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L162" target="_blank">
         cisco/meraki/scanning_api.cr
       </a>
     
@@ -7269,10 +7269,14 @@
       <li class="entry-summary">
         <a href="#client%3AClient%7CNil-instance-method" class="signature"><strong>#client</strong> : Client | Nil</a>
         
+          <div class="summary"><p><span class="flag purple">NOTE</span> : this is not part of the location response, it is here to speed up processing</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#client%3D%28client%3AClient%7CNil%29-instance-method" class="signature"><strong>#client=</strong>(client : Client | Nil)</a>
+        
+          <div class="summary"><p><span class="flag purple">NOTE</span> : this is not part of the location response, it is here to speed up processing</p></div>
         
       </li>
     
@@ -7329,10 +7333,14 @@
       <li class="entry-summary">
         <a href="#mac%3AString%7CNil-instance-method" class="signature"><strong>#mac</strong> : String | Nil</a>
         
+          <div class="summary"><p><span class="flag purple">NOTE</span> : This is not part of the location response, it is here to simplify processing</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#mac%3D%28mac%3AString%7CNil%29-instance-method" class="signature"><strong>#mac=</strong>(mac : String | Nil)</a>
+        
+          <div class="summary"><p><span class="flag purple">NOTE</span> : This is not part of the location response, it is here to simplify processing</p></div>
         
       </li>
     
@@ -7498,7 +7506,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L173" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L173" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7514,7 +7522,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L165" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L165" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7530,7 +7538,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L163" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L163" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7559,10 +7567,16 @@
         <a class="method-permalink" href="#client%3AClient%7CNil-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p><span class="flag purple">NOTE</span> : this is not part of the location response,
+it is here to speed up processing</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L186" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L186" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7575,10 +7589,16 @@
         <a class="method-permalink" href="#client%3D%28client%3AClient%7CNil%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p><span class="flag purple">NOTE</span> : this is not part of the location response,
+it is here to speed up processing</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L186" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L186" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7594,7 +7614,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L202" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L202" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7610,7 +7630,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L202" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L202" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7626,7 +7646,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L237" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L237" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7642,7 +7662,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L241" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L241" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7658,7 +7678,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L221" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L221" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7674,7 +7694,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L229" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L229" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7690,7 +7710,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L192" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L192" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7706,7 +7726,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L192" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L192" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7722,7 +7742,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L191" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L191" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7738,7 +7758,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L191" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L191" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7751,10 +7771,16 @@
         <a class="method-permalink" href="#mac%3AString%7CNil-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p><span class="flag purple">NOTE</span> : This is not part of the location response,
+it is here to simplify processing</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L181" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L181" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7767,10 +7793,16 @@
         <a class="method-permalink" href="#mac%3D%28mac%3AString%7CNil%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p><span class="flag purple">NOTE</span> : This is not part of the location response,
+it is here to simplify processing</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L181" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L181" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7786,7 +7818,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L208" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L208" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7802,7 +7834,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L208" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L208" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7818,7 +7850,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L211" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L211" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7834,7 +7866,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L211" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L211" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7850,7 +7882,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L205" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L205" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7866,7 +7898,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L205" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L205" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7882,7 +7914,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L193" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L193" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7898,7 +7930,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L193" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L193" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7914,7 +7946,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L196" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L196" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7930,7 +7962,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L196" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L196" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7946,7 +7978,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L199" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L199" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7962,7 +7994,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L199" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L199" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7983,7 +8015,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L189" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L189" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7999,7 +8031,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L213" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L213" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8020,7 +8052,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L189" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L189" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8036,7 +8068,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L190" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L190" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8052,7 +8084,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L217" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L217" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8068,7 +8100,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/meraki/scanning_api.cr#L190" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/meraki/scanning_api.cr#L190" target="_blank">View source</a>]
         
       </div>
     </div>

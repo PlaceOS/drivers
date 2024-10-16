@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Crystal Docs 1.12.2">
+<meta name="generator" content="Crystal Docs 1.13.3">
 <meta name="crystal_docs.project_version" content="master">
 <meta name="crystal_docs.project_name" content="drivers">
 
@@ -2132,8 +2132,8 @@
       
     </li>
   
-  <li class=" " data-id="drivers/PlaceOS/Driver/Interface/Lockers/PlaceLocker" data-name="placeos::driver::interface::lockers::placelocker">
-      <a href="../../../PlaceOS/Driver/Interface/Lockers/PlaceLocker.html">PlaceLocker</a>
+  <li class=" " data-id="drivers/Floorsense/Desks/PlaceLocker" data-name="floorsense::desks::placelocker">
+      <a href="../../../Floorsense/Desks/PlaceLocker.html">PlaceLocker</a>
       
     </li>
   
@@ -2177,8 +2177,8 @@
       
     </li>
   
-  <li class=" " data-id="drivers/PlaceOS/Driver/Interface/Lockers/PlaceLocker" data-name="placeos::driver::interface::lockers::placelocker">
-      <a href="../../../PlaceOS/Driver/Interface/Lockers/PlaceLocker.html">PlaceLocker</a>
+  <li class=" " data-id="drivers/Floorsense/DesksWebsocket/PlaceLocker" data-name="floorsense::deskswebsocket::placelocker">
+      <a href="../../../Floorsense/DesksWebsocket/PlaceLocker.html">PlaceLocker</a>
       
     </li>
   
@@ -6822,8 +6822,8 @@
       
     </li>
   
-  <li class=" " data-id="drivers/PlaceOS/Driver/Interface/Lockers/PlaceLocker" data-name="placeos::driver::interface::lockers::placelocker">
-      <a href="../../../PlaceOS/Driver/Interface/Lockers/PlaceLocker.html">PlaceLocker</a>
+  <li class=" " data-id="drivers/Vecos/ReleezmeLocations/PlaceLocker" data-name="vecos::releezmelocations::placelocker">
+      <a href="../../../Vecos/ReleezmeLocations/PlaceLocker.html">PlaceLocker</a>
       
     </li>
   
@@ -7212,7 +7212,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L4" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L4" target="_blank">
         cisco/webex/models/room.cr
       </a>
     
@@ -7259,90 +7259,126 @@
       <li class="entry-summary">
         <a href="#created%3AString-instance-method" class="signature"><strong>#created</strong> : String</a>
         
+          <div class="summary"><p>The date and time the room was created.</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#created%3D%28created%3AString%29-instance-method" class="signature"><strong>#created=</strong>(created : String)</a>
+        
+          <div class="summary"><p>The date and time the room was created.</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#creator_id%3AString-instance-method" class="signature"><strong>#creator_id</strong> : String</a>
         
+          <div class="summary"><p>The ID of the person who created this room.</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#creator_id%3D%28creator_id%3AString%29-instance-method" class="signature"><strong>#creator_id=</strong>(creator_id : String)</a>
+        
+          <div class="summary"><p>The ID of the person who created this room.</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#id%3AString-instance-method" class="signature"><strong>#id</strong> : String</a>
         
+          <div class="summary"><p>A unique identifier for the room.</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#id%3D%28id%3AString%29-instance-method" class="signature"><strong>#id=</strong>(id : String)</a>
+        
+          <div class="summary"><p>A unique identifier for the room.</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#is_locked%3ABool-instance-method" class="signature"><strong>#is_locked</strong> : Bool</a>
         
+          <div class="summary"><p>Whether the room is moderated (locked) or not.</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#is_locked%3D%28is_locked%3ABool%29-instance-method" class="signature"><strong>#is_locked=</strong>(is_locked : Bool)</a>
+        
+          <div class="summary"><p>Whether the room is moderated (locked) or not.</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#last_activity%3AString-instance-method" class="signature"><strong>#last_activity</strong> : String</a>
         
+          <div class="summary"><p>The date and time of the room&quot;s last activity..</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#last_activity%3D%28last_activity%3AString%29-instance-method" class="signature"><strong>#last_activity=</strong>(last_activity : String)</a>
+        
+          <div class="summary"><p>The date and time of the room&quot;s last activity..</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#owner_id%3AString-instance-method" class="signature"><strong>#owner_id</strong> : String</a>
         
+          <div class="summary"><p>The ID of the organization which owns this room.</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#owner_id%3D%28owner_id%3AString%29-instance-method" class="signature"><strong>#owner_id=</strong>(owner_id : String)</a>
+        
+          <div class="summary"><p>The ID of the organization which owns this room.</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#team_id%3AString%7CNil-instance-method" class="signature"><strong>#team_id</strong> : String | Nil</a>
         
+          <div class="summary"><p>The ID for the team with which this room is associated..</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#team_id%3D%28team_id%3AString%7CNil%29-instance-method" class="signature"><strong>#team_id=</strong>(team_id : String | Nil)</a>
+        
+          <div class="summary"><p>The ID for the team with which this room is associated..</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#title%3AString-instance-method" class="signature"><strong>#title</strong> : String</a>
         
+          <div class="summary"><p>The name of the room.</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#title%3D%28title%3AString%29-instance-method" class="signature"><strong>#title=</strong>(title : String)</a>
+        
+          <div class="summary"><p>The name of the room.</p></div>
         
       </li>
     
       <li class="entry-summary">
         <a href="#type%3AString-instance-method" class="signature"><strong>#type</strong> : String</a>
         
+          <div class="summary"><p>The room type.</p></div>
+        
       </li>
     
       <li class="entry-summary">
         <a href="#type%3D%28type%3AString%29-instance-method" class="signature"><strong>#type=</strong>(type : String)</a>
+        
+          <div class="summary"><p>The room type.</p></div>
         
       </li>
     
@@ -7414,7 +7450,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L5" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L5" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7443,10 +7479,15 @@
         <a class="method-permalink" href="#created%3AString-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The date and time the room was created.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L37" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L37" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7459,10 +7500,15 @@
         <a class="method-permalink" href="#created%3D%28created%3AString%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The date and time the room was created.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L37" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L37" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7475,10 +7521,15 @@
         <a class="method-permalink" href="#creator_id%3AString-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The ID of the person who created this room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L33" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L33" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7491,10 +7542,15 @@
         <a class="method-permalink" href="#creator_id%3D%28creator_id%3AString%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The ID of the person who created this room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L33" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L33" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7507,10 +7563,15 @@
         <a class="method-permalink" href="#id%3AString-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>A unique identifier for the room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L9" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L9" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7523,10 +7584,15 @@
         <a class="method-permalink" href="#id%3D%28id%3AString%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>A unique identifier for the room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L9" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L9" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7539,10 +7605,15 @@
         <a class="method-permalink" href="#is_locked%3ABool-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>Whether the room is moderated (locked) or not.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L21" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L21" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7555,10 +7626,15 @@
         <a class="method-permalink" href="#is_locked%3D%28is_locked%3ABool%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>Whether the room is moderated (locked) or not.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L21" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L21" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7571,10 +7647,15 @@
         <a class="method-permalink" href="#last_activity%3AString-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The date and time of the room&quot;s last activity..</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L29" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L29" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7587,10 +7668,15 @@
         <a class="method-permalink" href="#last_activity%3D%28last_activity%3AString%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The date and time of the room&quot;s last activity..</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L29" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L29" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7603,10 +7689,15 @@
         <a class="method-permalink" href="#owner_id%3AString-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The ID of the organization which owns this room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L41" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L41" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7619,10 +7710,15 @@
         <a class="method-permalink" href="#owner_id%3D%28owner_id%3AString%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The ID of the organization which owns this room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L41" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L41" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7635,10 +7731,15 @@
         <a class="method-permalink" href="#team_id%3AString%7CNil-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The ID for the team with which this room is associated..</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L25" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L25" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7651,10 +7752,15 @@
         <a class="method-permalink" href="#team_id%3D%28team_id%3AString%7CNil%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The ID for the team with which this room is associated..</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L25" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L25" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7667,10 +7773,15 @@
         <a class="method-permalink" href="#title%3AString-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The name of the room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L13" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L13" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7683,10 +7794,15 @@
         <a class="method-permalink" href="#title%3D%28title%3AString%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The name of the room.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L13" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L13" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7699,10 +7815,15 @@
         <a class="method-permalink" href="#type%3AString-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The room type.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L17" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L17" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7715,10 +7836,15 @@
         <a class="method-permalink" href="#type%3D%28type%3AString%29-instance-method">#</a>
       </div>
       
+        <div class="doc">
+          
+          <p>The room type.</p>
+        </div>
+      
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/6322f1671af748cacb31cdfd0332257a08d6d909/src/cisco/webex/models/room.cr#L17" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/99aa319ee29b5ffe53b7510951be19cac7d282ac/src/cisco/webex/models/room.cr#L17" target="_blank">View source</a>]
         
       </div>
     </div>
