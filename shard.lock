@@ -19,7 +19,7 @@ shards:
 
   axio:
     git: https://github.com/place-technology/axio.git
-    version: 0.1.0+git.commit.c3c23a73f45da075ad4ebc1e8be46a7348c68c46
+    version: 0.1.1+git.commit.56579f3e7e04cfa743cc298de2c7a213ac68d0cc
 
   backtracer:
     git: https://github.com/sija/backtracer.cr.git
