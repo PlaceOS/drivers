@@ -2,7 +2,7 @@ require "placeos-driver"
 require "axio"
 
 class RHBAccess::Axiomxa < PlaceOS::Driver
-  descriptive_name "RHB Access Axiomxa"
+  descriptive_name "RHB Access AxiomXA"
   generic_name :AxiomXa
   uri_base "http://127.0.0.1:60001"
 
