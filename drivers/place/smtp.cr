@@ -276,33 +276,7 @@ class Place::Smtp < PlaceOS::Driver
   ###################
   # TMP DEBUG METHODS
 
-  def debug_get_org_zones
-    staff_api.zones(tags: "org").get
-  end
 
-  def debug_get_building_zones
-    staff_api.zones(tags: "building").get
-  end
-
-  def debug_get_system_zones
-    system.zones
-  end
-
-  def debug_get_org_zones2
-    system["STAFF_API_1"] #.zones(tags: "org").get
-  end
-
-  def debug_get_org_zones3
-    system("STAFF_API_1") #.zones(tags: "org").get
-  end
-
-  def debug_type_of_system
-    typeof(system)
-  end
-
-  def debug_system_class
-    system.class
-  end
 
   # END TMP DEBUG METHODS
   #######################
