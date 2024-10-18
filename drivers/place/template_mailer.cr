@@ -261,6 +261,10 @@ class Place::TemplateMailer < PlaceOS::Driver
     end
   end
 
+  def clear_cache
+    @template_cache = TemplateCache.new
+  end
+
   # get templates from metadata
   def get_templates?(zone_id : String) : Array(Template)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_templates").get["email_templates"].to_json
