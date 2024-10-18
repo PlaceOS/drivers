@@ -28,8 +28,9 @@ class Place::TemplateMailer < PlaceOS::Driver
 
   @seperator : String = "."
 
-  @template_fields : Hash(String, TemplateFields) = {
-    "visitor_invited#{seperator}visitor" => TemplateFields.new(
+  def template_fields : Hash(String, TemplateFields)
+    {
+    "visitor_invited#{@seperator}visitor" => TemplateFields.new(
       name: "Visitor Invited",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
@@ -46,7 +47,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "visitor_invited#{seperator}event" => TemplateFields.new(
+    "visitor_invited#{@seperator}event" => TemplateFields.new(
       name: "Visitor Invited",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
@@ -63,7 +64,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "visitor_invited#{seperator}booking" => TemplateFields.new(
+    "visitor_invited#{@seperator}booking" => TemplateFields.new(
       name: "Visitor Invited",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
@@ -80,7 +81,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "visitor_invited#{seperator}notify_checkin" => TemplateFields.new(
+    "visitor_invited#{@seperator}notify_checkin" => TemplateFields.new(
       name: "Visitor Invited",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
@@ -97,7 +98,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "visitor_invited#{seperator}group_event" => TemplateFields.new(
+    "visitor_invited#{@seperator}group_event" => TemplateFields.new(
       name: "Visitor Invited",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
@@ -114,7 +115,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "bookings#{seperator}booked_by_notify" => TemplateFields.new(
+    "bookings#{@seperator}booked_by_notify" => TemplateFields.new(
       name: "Bookings",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
@@ -143,7 +144,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "bookings#{seperator}booking_notify" => TemplateFields.new(
+    "bookings#{@seperator}booking_notify" => TemplateFields.new(
       name: "Bookings",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
@@ -172,7 +173,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "bookings#{seperator}cancelled" => TemplateFields.new(
+    "bookings#{@seperator}cancelled" => TemplateFields.new(
       name: "Bookings",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
@@ -201,7 +202,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "network_password", description: "The network password"),
       ],
     ),
-    "auto_release#{seperator}auto_release" => TemplateFields.new(
+    "auto_release#{@seperator}auto_release" => TemplateFields.new(
       name: "Auto Release",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
@@ -211,7 +212,7 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "booking_end", description: "The end time of the booking"),
       ],
     ),
-    "survey#{seperator}invite" => TemplateFields.new(
+    "survey#{@seperator}invite" => TemplateFields.new(
       name: "Survey Invite",
       fields: [
         TemplateField.new(name: "email", description: "The email of the recipient"),
@@ -220,6 +221,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
   }
+end
 
   def on_load
     on_update
@@ -233,7 +235,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     end
   end
 
-  def get_zone_ids?(tag : String) : String?
+  def get_zone_ids?(tag : String) : Array(String)?
     staff_api.zones(tags: tag).get.as_a.map(&.[]("id").as_s)
   rescue error
     logger.warn(exception: error) { "unable to determine #{tag} zone ids" }
@@ -249,7 +251,7 @@ class Place::TemplateMailer < PlaceOS::Driver
   end
 
   def update_email_template_fields(zone_id : String)
-    staff_api.write_metadata(id: zone_id, key: "email_template_fields", payload: @template_fields, description: "Available fields for use in email templates").get
+    staff_api.write_metadata(id: zone_id, key: "email_template_fields", payload: template_fields, description: "Available fields for use in email templates").get
   end
 
   def get_templates?(zone_id : String) : Array(Template)?
@@ -338,30 +340,30 @@ class Place::TemplateMailer < PlaceOS::Driver
 
   alias Template = Hash(String, String)
 
-  # convert metadata templates to mailer templates
-  def templates_to_mailer(templates : Array(Template)) : Templates
-    mailer_templates = Templates.new
-    templates.each do |template|
-      trigger = template["trigger"].split(".")
-      mailer_templates[trigger[0]] ||= {} of String => Hash(String, String)
-      mailer_templates[trigger[0]][trigger[1]] = template.to_h
-    end
-    mailer_templates
-  end
+  # # convert metadata templates to mailer templates
+  # def templates_to_mailer(templates : Array(Template)) : Templates
+  #   mailer_templates = Templates.new
+  #   templates.each do |template|
+  #     trigger = template["trigger"].split(".")
+  #     mailer_templates[trigger[0]] ||= {} of String => Hash(String, String)
+  #     mailer_templates[trigger[0]][trigger[1]] = template.to_h
+  #   end
+  #   mailer_templates
+  # end
 
-  # convert mailer templates to metadata templates
-  def templates_to_metadata(templates : Templates) : Array(Template)
-    templates.flat_map do |event_name, notify_who|
-      notify_who.map do |notify, template|
-        template["trigger"] = "#{event_name}.#{notify}"
-        template["zone_id"] = org_zone_id unless template["zone_id"]?
-        template["created_at"] = Time.utc.to_unix.to_s unless template["created_at"]?
-        template["updated_at"] = Time.utc.to_unix.to_s unless template["updated_at"]?
-        template["id"] = %(template-#{Digest::MD5.hexdigest("#{template["trigger"]}#{template["created_at"]}")}) unless template["id"]?
-        template
-      end
-    end
-  end
+  # # convert mailer templates to metadata templates
+  # def templates_to_metadata(templates : Templates) : Array(Template)
+  #   templates.flat_map do |event_name, notify_who|
+  #     notify_who.map do |notify, template|
+  #       template["trigger"] = "#{event_name}.#{notify}"
+  #       template["zone_id"] = org_zone_id unless template["zone_id"]?
+  #       template["created_at"] = Time.utc.to_unix.to_s unless template["created_at"]?
+  #       template["updated_at"] = Time.utc.to_unix.to_s unless template["updated_at"]?
+  #       template["id"] = %(template-#{Digest::MD5.hexdigest("#{template["trigger"]}#{template["created_at"]}")}) unless template["id"]?
+  #       template
+  #     end
+  #   end
+  # end
 
   struct Metadata
     include JSON::Serializable
