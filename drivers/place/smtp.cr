@@ -289,7 +289,7 @@ class Place::Smtp < PlaceOS::Driver
   end
 
   def debug_get_org_zones2
-    system.implementing(Place::StaffAPI)[0].zones(tags: "org").get
+    system[:STAFF_API_1]
   end
 
   def debug_type_of_system
