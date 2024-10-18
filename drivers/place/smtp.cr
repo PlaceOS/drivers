@@ -292,6 +292,14 @@ class Place::Smtp < PlaceOS::Driver
     system.implementing(Place::StaffAPI)[0].zones(tags: "org").get
   end
 
+  def debug_type_of_system
+    typeof(system)
+  end
+
+  def debug_system_class
+    system.class
+  end
+
   # END TMP DEBUG METHODS
   #######################
 
