@@ -331,11 +331,11 @@ class Place::Smtp < PlaceOS::Driver
     nil
   end
 
-  def get_email_template_fields? : Hash(String, TemplateFields)?
-    metadata = Metadata.from_json staff_api.metadata(org_zone_id, "email_template_fields").get["email_template_fields"].to_json
+  def get_email_template_fields?(zone_id : String) : Hash(String, TemplateFields)?
+    metadata = Metadata.from_json staff_api.metadata(zone_id, "email_template_fields").get["email_template_fields"].to_json
     Hash(String, TemplateFields).from_json metadata.details.to_json
   rescue error
-    logger.warn(exception: error) { "unable to get email template fields from org metadata" }
+    logger.warn(exception: error) { "unable to get email template fields from zone #{zone_id} metadata" }
     nil
   end
 
