@@ -13,8 +13,9 @@ class Place::TemplateMailer < PlaceOS::Driver
   generic_name :TemplateMailer
   description %(uses metadata templates to send emails via the SMTP mailer)
 
-  # default_settings({
-  # })
+  default_settings({
+    cache_timeout: 300,
+  })
 
   accessor staff_api : StaffAPI_1
 
@@ -220,11 +221,16 @@ class Place::TemplateMailer < PlaceOS::Driver
     ),
   }
 
+  @template_cache : TemplateCache = TemplateCache.new
+  @cache_timeout : Int64 = 300
+
   def on_load
     on_update
   end
 
   def on_update
+    @cache_timeout = setting?(Int64, :cache_timeout) || 300_i64
+
     org_zone_ids.each do |zone_id|
       update_template_fields(zone_id)
     end
@@ -249,6 +255,16 @@ class Place::TemplateMailer < PlaceOS::Driver
     staff_api.write_metadata(id: zone_id, key: "email_template_fields", payload: TEMPLATE_FIELDS, description: "Available fields for use in email templates").get
   end
 
+  def fetch_templates?(zone_id : String) : Array(Template)?
+    if (cache = @template_cache[zone_id]?) && cache[0] > Time.utc.to_unix
+      cache[1]
+    else
+      templates = get_templates?(zone_id)
+      @template_cache[zone_id] = {Time.utc.to_unix + @cache_timeout, templates} if templates
+      templates
+    end
+  end
+
   def get_templates?(zone_id : String) : Array(Template)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_templates").get["email_templates"].to_json
     metadata.details.as_a.map { |template| Template.from_json template.to_json }
@@ -261,8 +277,8 @@ class Place::TemplateMailer < PlaceOS::Driver
     org_id = (zone_ids & org_zone_ids).first
     building_id = (zone_ids & building_zone_ids).first
 
-    org_templates = get_templates?(org_id) || [] of Template
-    building_templates = get_templates?(building_id) || [] of Template
+    org_templates = fetch_templates?(org_id) || [] of Template
+    building_templates = fetch_templates?(building_id) || [] of Template
 
     # find the requested template
     # building templates take precedence
@@ -309,6 +325,9 @@ class Place::TemplateMailer < PlaceOS::Driver
   end
 
   alias Template = Hash(String, String)
+
+  #                         zone_id,     timeout, templates
+  alias TemplateCache = Hash(String, Tuple(Int64, Array(Template)))
 
   # # convert metadata templates to mailer templates
   # def templates_to_mailer(templates : Array(Template)) : Templates
