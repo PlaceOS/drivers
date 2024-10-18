@@ -273,6 +273,20 @@ class Place::Smtp < PlaceOS::Driver
     schedule.every(2.minute) { @templates = get_templates }
   end
 
+  ###################
+  # TMP DEBUG METHODS
+
+  def debug_get_org_zones : Array(String)
+    staff_api.zones(tags: "org").get.as_a.map(&.[]("id").as_s)
+  end
+
+  def debug_get_system_zones : Array(String)
+    system.zones
+  end
+
+  # END TMP DEBUG METHODS
+  #######################
+
   # Finds the org zone id for the current location services object
   def get_org_zone_id? : String?
     zone_ids = staff_api.zones(tags: "org").get.as_a.map(&.[]("id").as_s)
