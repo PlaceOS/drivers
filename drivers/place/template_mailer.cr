@@ -48,7 +48,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     "visitor_invited#{@seperator}event" => TemplateFields.new(
-      name: "Visitor Invited",
+      name: "Visitor Invited to Event",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
         TemplateField.new(name: "visitor_name", description: "The name of the visitor"),
@@ -65,7 +65,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     "visitor_invited#{@seperator}booking" => TemplateFields.new(
-      name: "Visitor Invited",
+      name: "Visitor Invited to Booking",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
         TemplateField.new(name: "visitor_name", description: "The name of the visitor"),
@@ -82,7 +82,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     "visitor_invited#{@seperator}notify_checkin" => TemplateFields.new(
-      name: "Visitor Invited",
+      name: "Visitor Notify Checkin",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
         TemplateField.new(name: "visitor_name", description: "The name of the visitor"),
@@ -99,7 +99,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     "visitor_invited#{@seperator}group_event" => TemplateFields.new(
-      name: "Visitor Invited",
+      name: "Visitor Invited to Group Event",
       fields: [
         TemplateField.new(name: "visitor_email", description: "The email of the visitor"),
         TemplateField.new(name: "visitor_name", description: "The name of the visitor"),
@@ -116,7 +116,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     "bookings#{@seperator}booked_by_notify" => TemplateFields.new(
-      name: "Bookings",
+      name: "Booking Booked By",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
         TemplateField.new(name: "start_time", description: "The start time of the booking"),
@@ -145,7 +145,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     "bookings#{@seperator}booking_notify" => TemplateFields.new(
-      name: "Bookings",
+      name: "Booking Notify",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
         TemplateField.new(name: "start_time", description: "The start time of the booking"),
@@ -174,7 +174,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     "bookings#{@seperator}cancelled" => TemplateFields.new(
-      name: "Bookings",
+      name: "Booking Cancelled",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
         TemplateField.new(name: "start_time", description: "The start time of the booking"),
@@ -231,7 +231,7 @@ end
     @seperator = setting?(String, :seperator) || "."
 
     org_zone_ids.each do |zone_id|
-      update_email_template_fields(zone_id)
+      update_template_fields(zone_id)
     end
   end
 
@@ -242,7 +242,7 @@ end
     nil
   end
 
-  def get_email_template_fields?(zone_id : String) : Hash(String, TemplateFields)?
+  def get_template_fields?(zone_id : String) : Hash(String, TemplateFields)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_template_fields").get["email_template_fields"].to_json
     Hash(String, TemplateFields).from_json metadata.details.to_json
   rescue error
@@ -250,7 +250,7 @@ end
     nil
   end
 
-  def update_email_template_fields(zone_id : String)
+  def update_template_fields(zone_id : String)
     staff_api.write_metadata(id: zone_id, key: "email_template_fields", payload: template_fields, description: "Available fields for use in email templates").get
   end
 
