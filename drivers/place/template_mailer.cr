@@ -255,6 +255,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     staff_api.write_metadata(id: zone_id, key: "email_template_fields", payload: TEMPLATE_FIELDS, description: "Available fields for use in email templates").get
   end
 
+  # fetch templates from cache or metadata
   def fetch_templates?(zone_id : String) : Array(Template)?
     if (cache = @template_cache[zone_id]?) && cache[0] > Time.utc.to_unix
       cache[1]
@@ -265,6 +266,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     end
   end
 
+  # get templates from metadata
   def get_templates?(zone_id : String) : Array(Template)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_templates").get["email_templates"].to_json
     metadata.details.as_a.map { |template| Template.from_json template.to_json }
