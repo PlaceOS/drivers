@@ -73,12 +73,15 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
       end
     else
       return {input, nil} if layer.video?
-      if tx = transmitters.find { |sender| sender[:stream_name] == input }
+      if tx = transmitters.find { |sender| sender[:stream_name]? == input }
         {input, tx[:nax_address]?}
       else
         {input, nil}
       end
     end
+  rescue ex
+    logger.warn { "could not find Encoder_#{input}, due to '#{ex.message}'" }
+    {input, nil}
   end
 
   # only support muting the outputs, no unmuting
