@@ -33,7 +33,6 @@ class Place::Bookings < PlaceOS::Driver
     application_permissions:    true,
     include_cancelled_bookings: false,
     show_qr_code:               false,
-    hide_qr_code:               false,
     custom_qr_url:              "https://domain.com/path",
     custom_qr_color:            "black",
 
