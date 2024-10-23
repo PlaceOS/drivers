@@ -11,8 +11,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
   include Interface::Sensor
 
   # Discovery Information
-  descriptive_name "Cisco DNA Spaces"
-  generic_name :DNA_Spaces
+  descriptive_name "Cisco Spaces"
+  generic_name :Cisco_Spaces
   uri_base "https://partners.dnaspaces.io"
 
   default_settings({
