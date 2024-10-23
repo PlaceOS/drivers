@@ -1,7 +1,7 @@
-# require "placeos-driver/spec"
-# require "email"
+require "placeos-driver/spec"
+require "email"
 
-# class StaffAPI < DriverSpecs::MockDriver
+class StaffAPI < DriverSpecs::MockDriver
 #   ZONES = [
 #     {
 #       created_at:   1660537814,
@@ -103,14 +103,53 @@
 #       nil
 #     end
 #   end
-# end
+end
 
-# # for local testing use: http://nilhcem.com/FakeSMTP/download.html
+class Mailer < DriverSpecs::MockDriver
+    include PlaceOS::Driver::Interface::Mailer
+  
+    def on_load
+      self[:sent] = 0
+    end
+  
+    def send_template(
+      to : String | Array(String),
+      template : Tuple(String, String),
+      args : TemplateItems,
+      resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
+      attachments : Array(Attachment) = [] of Attachment,
+      cc : String | Array(String) = [] of String,
+      bcc : String | Array(String) = [] of String,
+      from : String | Array(String) | Nil = nil
+    )
+      self[:sent] = self[:sent].as_i + 1
+    end
+  
+    def send_mail(
+      to : String | Array(String),
+      subject : String,
+      message_plaintext : String? = nil,
+      message_html : String? = nil,
+      resource_attachments : Array(ResourceAttachment) = [] of ResourceAttachment,
+      attachments : Array(Attachment) = [] of Attachment,
+      cc : String | Array(String) = [] of String,
+      bcc : String | Array(String) = [] of String,
+      from : String | Array(String) | Nil = nil
+    ) : Bool
+      true
+    end
+end
+  
+DriverSpecs.mock_driver "Place::TemplateMailer" do
+    system({
+      StaffAPI: {StaffAPI},
+      Mailer:   {Mailer},
+    })
+  
+    # _resp = exec(:send_survey_emails).get
+    # system(:Mailer_1)[:sent].should eq 3
+end
 
-# DriverSpecs.mock_driver "Place::Smtp" do
-#   system({
-#     StaffAPI: {StaffAPI},
-#   })
 
 #   settings({
 #     sender:   "support@place.tech",
@@ -210,4 +249,4 @@
 
 #   # Merge setting and metadata templates
 #   response = exec(:get_templates).get
-# end
+
