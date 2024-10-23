@@ -5,7 +5,7 @@ class Place::TemplateMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
 
   descriptive_name "Template Mailer"
-  generic_name :TemplateMailer
+  generic_name :Mailer
   description %(uses metadata templates to send emails via the SMTP mailer)
 
   default_settings({
@@ -261,8 +261,16 @@ class Place::TemplateMailer < PlaceOS::Driver
     end
   end
 
-  def clear_cache
-    @template_cache = TemplateCache.new
+  def template_cache
+    @template_cache
+  end
+
+  def clear_template_cache(zone_id : String? = nil)
+    if zone_id && !zone_id.blank?
+      @template_cache.delete(zone_id)
+    else
+      @template_cache = TemplateCache.new
+    end
   end
 
   # get templates from metadata
