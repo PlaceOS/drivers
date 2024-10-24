@@ -15,7 +15,9 @@ class Place::TemplateMailer < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   getter org_zone_ids : Array(String) { get_zone_ids?("org").not_nil! }
+  getter region_zone_ids : Array(String) { get_zone_ids?("region").not_nil! }
   getter building_zone_ids : Array(String) { get_zone_ids?("building").not_nil! }
+  getter level_zone_ids : Array(String) { get_zone_ids?("level").not_nil! }
 
   def mailer
     system.implementing(Interface::Mailer)[1]
@@ -25,7 +27,8 @@ class Place::TemplateMailer < PlaceOS::Driver
 
   # Improvement 1: Move this to the respective drivers,
   # then make the template_mailer discover the template fields from the other drivers.
-  # 
+  # This would solve the problem of names being configurable.
+  #
   # Improvement 2: When a driver has multiple templates using the same fields,
   # then use a loop instead of repeating the fields.
   # (it was just easier to copy/paste the fields while going over all the code)
@@ -439,14 +442,14 @@ class Place::TemplateMailer < PlaceOS::Driver
     # BEGIN place/visitor_mailer.cr
     # This driver uses configurable template names.
     # The variable name is used in the SECOND part of the template name.
-    # 
+    #
     # defaults:
     # - reminder_template        (#send_visitor_qr_email): "visitor"
     # - event_templat            (#send_visitor_qr_email): "event"
     # - booking_template         (#send_visitor_qr_email): "booking"
     # - group_event_template     (#send_visitor_qr_email): "group_event"
     # - notify_checkin_template  (#send_checkedin_email):  "notify_checkin"
-    # 
+    #
     "visitor_invited#{SEPERATOR}visitor" => TemplateFields.new(
       name: "VisitorMailer: Visitor invited",
       fields: [
@@ -534,10 +537,10 @@ class Place::TemplateMailer < PlaceOS::Driver
     # BEGIN place/survey_mailer.cr
     # This driver uses configurable template names.
     # The variable name is used in the FIRST part of the template name.
-    # 
+    #
     # defaults:
     # - email_template (#send_survey_emails): "survey"
-    # 
+    #
     "survey#{SEPERATOR}invite" => TemplateFields.new(
       name: "SurveyMailer: Survey invite",
       fields: [
@@ -547,14 +550,14 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     # END place/survey_mailer.cr
-    
+
     # BEGIN place/auto_release.cr
     # This driver uses configurable template names.
     # The variable name is used in the FIRST part of the template name.
-    # 
+    #
     # defaults:
     # - email_template (#send_release_emails): "auto_release"
-    # 
+    #
     "auto_release#{SEPERATOR}auto_release" => TemplateFields.new(
       name: "AutoRelease: Auto release booking",
       fields: [
@@ -566,7 +569,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       ],
     ),
     # END place/auto_release.cr
-    
+
   }
 
   @template_cache : TemplateCache = TemplateCache.new
@@ -604,12 +607,12 @@ class Place::TemplateMailer < PlaceOS::Driver
   end
 
   # fetch templates from cache or metadata
-  def fetch_templates?(zone_id : String) : Array(Template)?
+  def fetch_templates(zone_id : String) : Array(Template)
     if (cache = @template_cache[zone_id]?) && cache[0] > Time.utc.to_unix
       cache[1]
     else
-      templates = get_templates?(zone_id)
-      @template_cache[zone_id] = {Time.utc.to_unix + @cache_timeout, templates} if templates
+      templates = get_templates?(zone_id) || [] of Template
+      @template_cache[zone_id] = {Time.utc.to_unix + @cache_timeout, templates}
       templates
     end
   end
@@ -637,14 +640,21 @@ class Place::TemplateMailer < PlaceOS::Driver
 
   def find_template(template : String, zone_ids : Array(String)) : Template?
     org_id = (zone_ids & org_zone_ids).first
+    region_id = (zone_ids & region_zone_ids).first
     building_id = (zone_ids & building_zone_ids).first
+    level_id = (zone_ids & level_zone_ids).first
 
-    org_templates = fetch_templates?(org_id) || [] of Template
-    building_templates = fetch_templates?(building_id) || [] of Template
+    org_templates = fetch_templates(org_id)
+    region_templates = fetch_templates(region_id)
+    building_templates = fetch_templates(building_id)
+    level_templates = fetch_templates(level_id)
 
     # find the requested template
-    # building templates take precedence
-    building_templates.find { |t| t["trigger"] == template } || org_templates.find { |t| t["trigger"] == template }
+    # order of precedence: level, building, region, org
+    level_templates.find { |t| t["trigger"] == template } ||
+      building_templates.find { |t| t["trigger"] == template } ||
+      region_templates.find { |t| t["trigger"] == template } ||
+      org_templates.find { |t| t["trigger"] == template }
   end
 
   def send_mail(
