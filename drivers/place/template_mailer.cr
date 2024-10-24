@@ -734,8 +734,9 @@ class Place::TemplateMailer < PlaceOS::Driver
       subject = build_template(metadata_template["subject"], args)
       text = build_template(metadata_template["text"]?, args)
       html = build_template(metadata_template["html"]?, args)
+      reply_to = metadata_template["reply_to"] if metadata_template["reply_to"]?
 
-      mailer.send_mail(to, subject, text || "", html || "", resource_attachments, attachments, cc, bcc, from)
+      mailer.send_mail(to, subject, text || "", html || "", resource_attachments, attachments, cc, bcc, from, reply_to)
     else
       mailer.send_template(to, template, args, resource_attachments, attachments, cc, bcc, from)
     end
