@@ -570,6 +570,49 @@ class Place::TemplateMailer < PlaceOS::Driver
     ),
     # END place/auto_release.cr
 
+    # BEGIN place/event_mailer.cr
+    # This driver uses configurable template names.
+    # Both the FIRST and SECOND part of the template name is configurable.
+    #
+    # defaults:
+    # - email_template_group: "events"
+    # - email_template (#send_event_email): "welcome"
+    #
+    "events#{SEPERATOR}welcome" => TemplateFields.new(
+      name: "EventMailer: ",
+      fields: [
+        TemplateField.new(name: "host_name", description: "The name of the host"),
+        TemplateField.new(name: "host_email", description: "The email of the host"),
+        TemplateField.new(name: "room_name", description: "The name of the room"),
+        TemplateField.new(name: "event_title", description: "The title of the event"),
+        TemplateField.new(name: "event_start", description: "The start time of the event"),
+        TemplateField.new(name: "event_date", description: "The date of the event"),
+        TemplateField.new(name: "network_username", description: "The network username"),
+        TemplateField.new(name: "network_password", description: "The network password"),
+      ],
+    ),
+    # END place/event_mailer.cr
+
+    # BEGIN place/booking_check_in_helper.cr
+    "bookings#{SEPERATOR}check_in_prompt" => TemplateFields.new(
+      name: "CheckInHelper: Check in prompt",
+      fields: [
+        TemplateField.new(name: "jwt", description: "The JWT token"),
+        TemplateField.new(name: "host_email", description: "The email of the host"),
+        TemplateField.new(name: "host_name", description: "The name of the host"),
+        TemplateField.new(name: "event_id", description: "The ID of the event"),
+        TemplateField.new(name: "system_id", description: "The ID of the system"),
+        TemplateField.new(name: "meeting_room_name", description: "The name of the meeting room"),
+        TemplateField.new(name: "meeting_summary", description: "The summary of the meeting"),
+        TemplateField.new(name: "meeting_datetime", description: "The date and time of the meeting"),
+        TemplateField.new(name: "meeting_time", description: "The time of the meeting"),
+        TemplateField.new(name: "meeting_date", description: "The date of the meeting"),
+        TemplateField.new(name: "check_in_url", description: "The URL for check-in"),
+        TemplateField.new(name: "no_show_url", description: "The URL for no-show"),
+      ],
+    ),
+    # END place/booking_check_in_helper.cr
+
   }
 
   @template_cache : TemplateCache = TemplateCache.new
