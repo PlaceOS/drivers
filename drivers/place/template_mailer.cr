@@ -681,7 +681,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     nil
   end
 
-  def find_template(template : String, zone_ids : Array(String)) : Template?
+  def find_template?(template : String, zone_ids : Array(String)) : Template?
     org_id = (zone_ids & org_zone_ids).first
     region_id = (zone_ids & region_zone_ids).first
     building_id = (zone_ids & building_zone_ids).first
@@ -697,7 +697,8 @@ class Place::TemplateMailer < PlaceOS::Driver
     level_templates.find { |t| t["trigger"] == template } ||
       building_templates.find { |t| t["trigger"] == template } ||
       region_templates.find { |t| t["trigger"] == template } ||
-      org_templates.find { |t| t["trigger"] == template }
+      org_templates.find { |t| t["trigger"] == template } ||
+      nil
   end
 
   def send_mail(
@@ -709,9 +710,10 @@ class Place::TemplateMailer < PlaceOS::Driver
     attachments : Array(Attachment) = [] of Attachment,
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
-    from : String | Array(String) | Nil = nil
+    from : String | Array(String) | Nil = nil,
+    reply_to : String | Array(String) | Nil = nil
   )
-    mailer.send_mail(to, subject, message_plaintext, message_html, resource_attachments, attachments, cc, bcc, from)
+    mailer.send_mail(to, subject, message_plaintext, message_html, resource_attachments, attachments, cc, bcc, from, reply_to)
   end
 
   def send_template(
@@ -725,7 +727,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     from : String | Array(String) | Nil = nil
   )
     metadata_template = if (zone_ids = args["zone_ids"]?) && zone_ids.is_a?(Array(String))
-                          find_template(template.join(SEPERATOR), zone_ids)
+                          find_template?(template.join(SEPERATOR), zone_ids)
                         end
 
     if metadata_template
