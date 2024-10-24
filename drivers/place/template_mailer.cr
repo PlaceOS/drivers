@@ -438,7 +438,7 @@ class Place::TemplateMailer < PlaceOS::Driver
 
     # BEGIN place/visitor_mailer.cr
     # This driver uses configurable template names.
-    # The variable name is used in the second part of the template name.
+    # The variable name is used in the SECOND part of the template name.
     # 
     # defaults:
     # - reminder_template        (#send_visitor_qr_email): "visitor"
@@ -531,8 +531,30 @@ class Place::TemplateMailer < PlaceOS::Driver
     ),
     # END place/visitor_mailer.cr
 
+    # BEGIN place/survey_mailer.cr
+    # This driver uses configurable template names.
+    # The variable name is used in the FIRST part of the template name.
+    # 
+    # defaults:
+    # - email_template (#send_survey_emails): "survey"
+    # 
+    "survey#{SEPERATOR}invite" => TemplateFields.new(
+      name: "Survey Invite",
+      fields: [
+        TemplateField.new(name: "email", description: "The email of the recipient"),
+        TemplateField.new(name: "token", description: "The token for the survey"),
+        TemplateField.new(name: "survey_id", description: "The ID of the survey"),
+      ],
+    ),
+    # END place/survey_mailer.cr
     
-    
+    # BEGIN place/auto_release.cr
+    # This driver uses configurable template names.
+    # The variable name is used in the FIRST part of the template name.
+    # 
+    # defaults:
+    # - email_template (#send_release_emails): "auto_release"
+    # 
     "auto_release#{SEPERATOR}auto_release" => TemplateFields.new(
       name: "Auto Release",
       fields: [
@@ -543,14 +565,8 @@ class Place::TemplateMailer < PlaceOS::Driver
         TemplateField.new(name: "booking_end", description: "The end time of the booking"),
       ],
     ),
-    "survey#{SEPERATOR}invite" => TemplateFields.new(
-      name: "Survey Invite",
-      fields: [
-        TemplateField.new(name: "email", description: "The email of the recipient"),
-        TemplateField.new(name: "token", description: "The token for the survey"),
-        TemplateField.new(name: "survey_id", description: "The ID of the survey"),
-      ],
-    ),
+    # END place/auto_release.cr
+    
   }
 
   @template_cache : TemplateCache = TemplateCache.new
