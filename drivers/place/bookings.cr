@@ -406,7 +406,8 @@ class Place::Bookings < PlaceOS::Driver
           booked = true
         end
       end
-      self[:next_booking] = booking
+      # don't display upcoming bookings if they are a long way off
+      self[:next_booking] = start_time < 10.hours.from_now.to_unix ? booking : nil
     else
       self[:next_booking] = nil
     end
