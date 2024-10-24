@@ -539,7 +539,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     # - email_template (#send_survey_emails): "survey"
     # 
     "survey#{SEPERATOR}invite" => TemplateFields.new(
-      name: "Survey Invite",
+      name: "SurveyMailer: Survey invite",
       fields: [
         TemplateField.new(name: "email", description: "The email of the recipient"),
         TemplateField.new(name: "token", description: "The token for the survey"),
@@ -556,7 +556,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     # - email_template (#send_release_emails): "auto_release"
     # 
     "auto_release#{SEPERATOR}auto_release" => TemplateFields.new(
-      name: "Auto Release",
+      name: "AutoRelease: Auto release booking",
       fields: [
         TemplateField.new(name: "booking_id", description: "The ID of the booking"),
         TemplateField.new(name: "user_email", description: "The email of the user"),
