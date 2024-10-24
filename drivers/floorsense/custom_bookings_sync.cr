@@ -341,9 +341,14 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
       asset_id = booking.asset_id
       booking.floor_id = configured_desk_ids[asset_id]?.try(&.floor_id) || asset_id
     end
-    sense_bookings.each do |booking|
+    sense_bookings.select! do |booking|
       desk_key = booking.key.as(String)
-      booking.place_id = configured_desk_ids[desk_key]?.try(&.place_id) || desk_key
+      if place_id = configured_desk_ids[desk_key]?.try(&.place_id)
+        booking.place_id = place_id
+      else
+        logger.debug { "unmapped floorsense desk id #{desk_key} in floor zone #{zone}, plan-id #{plan_id}" }
+        nil
+      end
     end
 
     adhoc = [] of BookingStatus
