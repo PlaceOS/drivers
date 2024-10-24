@@ -579,7 +579,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     # - email_template (#send_event_email): "welcome"
     #
     "events#{SEPERATOR}welcome" => TemplateFields.new(
-      name: "EventMailer: ",
+      name: "EventMailer: Event welcome",
       fields: [
         TemplateField.new(name: "host_name", description: "The name of the host"),
         TemplateField.new(name: "host_email", description: "The email of the host"),
