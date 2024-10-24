@@ -724,7 +724,8 @@ class Place::TemplateMailer < PlaceOS::Driver
     attachments : Array(Attachment) = [] of Attachment,
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
-    from : String | Array(String) | Nil = nil
+    from : String | Array(String) | Nil = nil,
+    reply_to : String | Array(String) | Nil = nil
   )
     metadata_template = if (zone_ids = args["zone_ids"]?) && zone_ids.is_a?(Array(String))
                           find_template?(template.join(SEPERATOR), zone_ids)
@@ -732,13 +733,14 @@ class Place::TemplateMailer < PlaceOS::Driver
 
     if metadata_template
       subject = build_template(metadata_template["subject"], args)
-      text = build_template(metadata_template["text"]?, args)
-      html = build_template(metadata_template["html"]?, args)
+      text = build_template(metadata_template["text"]?, args) || ""
+      html = build_template(metadata_template["html"]?, args) || ""
+      from = metadata_template["from"] if metadata_template["from"]?
       reply_to = metadata_template["reply_to"] if metadata_template["reply_to"]?
 
-      mailer.send_mail(to, subject, text || "", html || "", resource_attachments, attachments, cc, bcc, from, reply_to)
+      mailer.send_mail(to, subject, text, html, resource_attachments, attachments, cc, bcc, from, reply_to)
     else
-      mailer.send_template(to, template, args, resource_attachments, attachments, cc, bcc, from)
+      mailer.send_template(to, template, args, resource_attachments, attachments, cc, bcc, from, reply_to)
     end
   end
 
