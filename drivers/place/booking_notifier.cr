@@ -127,50 +127,51 @@ class Place::BookingNotifier < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
+    time_now = Time.now.in(@timezone)
     common_fields = [
-      {name: "booking_id", description: "The ID of the booking"},
-      {name: "start_time", description: "The start time of the booking"},
-      {name: "start_date", description: "The start date of the booking"},
-      {name: "start_datetime", description: "The start date and time of the booking"},
-      {name: "end_time", description: "The end time of the booking"},
-      {name: "end_date", description: "The end date of the booking"},
-      {name: "end_datetime", description: "The end date and time of the booking"},
-      {name: "starting_unix", description: "The starting time of the booking in Unix timestamp"},
-      {name: "asset_id", description: "The ID of the asset"},
-      {name: "user_id", description: "The ID of the user"},
-      {name: "user_email", description: "The email of the user"},
-      {name: "user_name", description: "The name of the user"},
-      {name: "reason", description: "The reason for the booking"},
-      {name: "level_zone", description: "The level zone of the booking"},
-      {name: "building_zone", description: "The building zone of the booking"},
-      {name: "building_name", description: "The name of the building"},
-      {name: "approver_name", description: "The name of the approver"},
-      {name: "approver_email", description: "The email of the approver"},
-      {name: "booked_by_name", description: "The name of the person who booked"},
-      {name: "booked_by_email", description: "The email of the person who booked"},
-      {name: "attachment_name", description: "The name of the attachment"},
-      {name: "attachment_url", description: "The URL of the attachment"},
-      {name: "network_username", description: "The network username"},
-      {name: "network_password", description: "The network password"},
+      {name: "booking_id", description: "Unique identifier for the booking"},
+      {name: "start_time", description: "Booking start time (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "start_date", description: "Booking start date (e.g., #{time_now.to_s(@date_format)})"},
+      {name: "start_datetime", description: "Booking start date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+      {name: "end_time", description: "Booking end time (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "end_date", description: "Booking end date (e.g., #{time_now.to_s(@date_format)})"},
+      {name: "end_datetime", description: "Booking end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+      {name: "starting_unix", description: "Booking start time as Unix timestamp"},
+      {name: "asset_id", description: "Identifier of the booked asset (e.g., desk)"},
+      {name: "user_id", description: "Identifier of the person the booking is for"},
+      {name: "user_email", description: "Email of the person the booking is for"},
+      {name: "user_name", description: "Name of the person the booking is for"},
+      {name: "reason", description: "Purpose or title of the booking"},
+      {name: "level_zone", description: "Zone identifier for the specific floor level"},
+      {name: "building_zone", description: "Zone identifier for the building"},
+      {name: "building_name", description: "Name of the building"},
+      {name: "approver_name", description: "Name of the person who approved/rejected the booking"},
+      {name: "approver_email", description: "Email of the person who approved/rejected the booking"},
+      {name: "booked_by_name", description: "Name of the person who made the booking"},
+      {name: "booked_by_email", description: "Email of the person who made the booking"},
+      {name: "attachment_name", description: "Name of any attached files"},
+      {name: "attachment_url", description: "URL to download any attachments"},
+      {name: "network_username", description: "Network access username (if configured)"},
+      {name: "network_password", description: "Generated network access password (if configured)"},
     ]
 
     [
       TemplateFields.new(
         trigger: {"bookings", "booked_by_notify"},
         name: "Booking booked by notification",
-        description: nil,
+        description: "Notification when someone books on behalf of another person",
         fields: common_fields
       ),
       TemplateFields.new(
         trigger: {"bookings", "booking_notify"},
         name: "Booking booked notification",
-        description: nil,
+        description: "Notification when a booking is created for yourself",
         fields: common_fields
       ),
       TemplateFields.new(
         trigger: {"bookings", "cancelled"},
         name: "Booking cancelled",
-        description: nil,
+        description: "Notification when a booking is cancelled",
         fields: common_fields
       ),
     ]
