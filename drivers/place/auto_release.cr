@@ -229,13 +229,13 @@ class Place::AutoRelease < PlaceOS::Driver
       TemplateFields.new(
         trigger: {@email_template, "auto_release"},
         name: "Auto release booking",
-        description: nil,
+        description: "Notification when a booking is pending automatic release due to user's work location preferences",
         fields: [
-          {name: "booking_id", description: "The ID of the booking"},
-          {name: "user_email", description: "The email of the user"},
-          {name: "user_name", description: "The name of the user"},
-          {name: "booking_start", description: "The start time of the booking"},
-          {name: "booking_end", description: "The end time of the booking"},
+          {name: "booking_id", description: "Unique identifier for the booking that may be released"},
+          {name: "user_email", description: "Email address of the person who made the booking"},
+          {name: "user_name", description: "Full name of the person who made the booking"},
+          {name: "booking_start", description: "Unix timestamp of when the booking begins"},
+          {name: "booking_end", description: "Unix timestamp of when the booking ends"},
         ]
       ),
     ]
