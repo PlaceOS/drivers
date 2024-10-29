@@ -51,11 +51,11 @@ class Place::SurveyMailer < PlaceOS::Driver
       TemplateFields.new(
         trigger: {@email_template, "invite"},
         name: "Survey invite",
-        description: nil,
+        description: "Email invitation sent to participants to complete a survey",
         fields: [
-          {name: "email", description: "The email of the recipient"},
-          {name: "token", description: "The token for the survey"},
-          {name: "survey_id", description: "The ID of the survey"},
+          {name: "email", description: "Email address of the survey recipient"},
+          {name: "token", description: "Unique authentication token for accessing the survey"},
+          {name: "survey_id", description: "Unique identifier of the survey to be completed"},
         ]
       ),
     ]
