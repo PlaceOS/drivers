@@ -77,7 +77,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       driver_template_fields.each do |field_list|
         template_fields["#{field_list[:trigger].join(SEPERATOR)}"] = MetadataTemplateFields.new(
           module_name: driver.module_name,
-          name: "#{driver.module_name}: #{field_list[:name]}",
+          name: field_list[:name],
           description: field_list[:description],
           fields: field_list[:fields],
         )
