@@ -1,8 +1,10 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 
 class Place::TemplateMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
+  include PlaceOS::Driver::Interface::MailerTemplates
 
   descriptive_name "Template Mailer"
   generic_name :Mailer
@@ -47,16 +49,35 @@ class Place::TemplateMailer < PlaceOS::Driver
     nil
   end
 
-  def get_template_fields?(zone_id : String) : Hash(String, TemplateFields)?
+  def get_template_fields?(zone_id : String) : Hash(String, MetadataTemplateFields)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_template_fields").get["email_template_fields"].to_json
-    Hash(String, TemplateFields).from_json metadata.details.to_json
+    Hash(String, MetadataTemplateFields).from_json metadata.details.to_json
   rescue error
     logger.warn(exception: error) { "unable to get email template fields from zone #{zone_id} metadata" }
     nil
   end
 
   def update_template_fields(zone_id : String)
-    staff_api.write_metadata(id: zone_id, key: "email_template_fields", payload: TEMPLATE_FIELDS, description: "Available fields for use in email templates").get
+    template_fields : Hash(String, MetadataTemplateFields) = Hash(String, MetadataTemplateFields).new
+
+    system.implementing(Interface::MailerTemplates).each do |driver|
+      # TODO: next if the driver is not turned on
+      driver_template_fields = Array(TemplateFields).from_json driver.template_fields.get.to_json
+      driver_template_fields.each do |field_list|
+        template_fields["#{field_list[:trigger].join(SEPERATOR)}"] = MetadataTemplateFields.new(
+          module_name: driver.module_name,
+          name: "#{driver.module_name}: #{field_list[:name]}",
+          description: field_list[:description],
+          fields: field_list[:fields],
+        )
+      end
+    end
+
+    self[:template_fields] = template_fields
+
+    unless template_fields.empty?
+      staff_api.write_metadata(id: zone_id, key: "email_template_fields", payload: template_fields, description: "Available fields for use in email templates").get
+    end
   end
 
   # fetch templates from cache or metadata
@@ -154,35 +175,16 @@ class Place::TemplateMailer < PlaceOS::Driver
     end
   end
 
+  # This driver does not have any templates of it's own.
+  # It uses the TemplateFields from Interface::MailerTemplates.
+  def template_fields : Array(TemplateFields)
+    [] of TemplateFields
+  end
+
   alias Template = Hash(String, String)
 
   #                         zone_id,     timeout, templates
   alias TemplateCache = Hash(String, Tuple(Int64, Array(Template)))
-
-  # # convert metadata templates to mailer templates
-  # def templates_to_mailer(templates : Array(Template)) : Templates
-  #   mailer_templates = Templates.new
-  #   templates.each do |template|
-  #     trigger = template["trigger"].split(".")
-  #     mailer_templates[trigger[0]] ||= {} of String => Hash(String, String)
-  #     mailer_templates[trigger[0]][trigger[1]] = template.to_h
-  #   end
-  #   mailer_templates
-  # end
-
-  # # convert mailer templates to metadata templates
-  # def templates_to_metadata(templates : Templates) : Array(Template)
-  #   templates.flat_map do |event_name, notify_who|
-  #     notify_who.map do |notify, template|
-  #       template["trigger"] = "#{event_name}#{SEPERATOR}#{notify}"
-  #       # template["zone_id"] = org_zone_id unless template["zone_id"]?
-  #       template["created_at"] = Time.utc.to_unix.to_s unless template["created_at"]?
-  #       template["updated_at"] = Time.utc.to_unix.to_s unless template["updated_at"]?
-  #       template["id"] = %(template-#{Digest::MD5.hexdigest("#{template["trigger"]}#{template["created_at"]}")}) unless template["id"]?
-  #       template
-  #     end
-  #   end
-  # end
 
   struct Metadata
     include JSON::Serializable
@@ -196,11 +198,20 @@ class Place::TemplateMailer < PlaceOS::Driver
     property modified_by_id : String? = nil
   end
 
-  record TemplateFields, name : String, fields : Array(TemplateField) do
+  struct MetadataTemplateFields
     include JSON::Serializable
-  end
 
-  record TemplateField, name : String, description : String do
-    include JSON::Serializable
+    property module_name : String = ""
+    property name : String = ""
+    property description : String? = nil
+    property fields : Array(NamedTuple(name: String, description: String)) = [] of NamedTuple(name: String, description: String)
+
+    def initialize(
+      @module_name : String,
+      @name : String,
+      @description : String? = nil,
+      @fields : Array(NamedTuple(name: String, description: String)) = [] of NamedTuple(name: String, description: String)
+    )
+    end
   end
 end
