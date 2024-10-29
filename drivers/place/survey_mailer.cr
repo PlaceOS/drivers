@@ -1,7 +1,10 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 
 class Place::SurveyMailer < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Survey Mailer"
   generic_name :SurveyMailer
   description %(emails survey invites)
@@ -41,6 +44,21 @@ class Place::SurveyMailer < PlaceOS::Driver
     if invites = @send_invites
       schedule.cron(invites, @time_zone) { send_survey_emails }
     end
+  end
+
+  def template_fields : Array(TemplateFields)
+    [
+      TemplateFields.new(
+        trigger: {@email_template, "invite"},
+        name: "Survey invite",
+        description: nil,
+        fields: [
+          {name: "email", description: "The email of the recipient"},
+          {name: "token", description: "The token for the survey"},
+          {name: "survey_id", description: "The ID of the survey"},
+        ]
+      ),
+    ]
   end
 
   @[Security(Level::Support)]
