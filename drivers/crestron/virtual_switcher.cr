@@ -42,6 +42,11 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
     @audio = setting?(AudioSink, :audio_sink)
   end
 
+  # dummy to supress errors in routing
+  def power(state : Bool)
+    state
+  end
+
   protected def switch_audio_to(address : JSON::Any?)
     return unless address
     if sink = @audio
