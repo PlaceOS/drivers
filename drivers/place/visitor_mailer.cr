@@ -316,53 +316,54 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
+    time_now = Time.now.in(@time_zone)
     common_fields = [
-      {name: "visitor_email", description: "The email of the visitor"},
-      {name: "visitor_name", description: "The name of the visitor"},
-      {name: "host_name", description: "The name of the host"},
-      {name: "host_email", description: "The email of the host"},
-      {name: "building_name", description: "The name of the building"},
-      {name: "event_title", description: "The title of the event"},
-      {name: "event_start", description: "The start time of the event"},
-      {name: "event_date", description: "The date of the event"},
-      {name: "event_time", description: "The time of the event"},
+      {name: "visitor_email", description: "Email address of the visiting guest"},
+      {name: "visitor_name", description: "Full name of the visiting guest"},
+      {name: "host_name", description: "Name of the person hosting the visitor"},
+      {name: "host_email", description: "Email address of the host"},
+      {name: "building_name", description: "Name of the building where the visit occurs"},
+      {name: "event_title", description: "Title or purpose of the visit"},
+      {name: "event_start", description: "Start time (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "event_date", description: "Date of the visit (e.g., #{time_now.to_s(@date_format)})"},
+      {name: "event_time", description: "Time of the visit (or 'all day' for 24-hour events)"},
     ]
 
     invitation_fields = common_fields + [
-      {name: "room_name", description: "The name of the room"},
-      {name: "network_username", description: "The network username"},
-      {name: "network_password", description: "The network password"},
+      {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "network_username", description: "Network access username (if network credentials enabled)"},
+      {name: "network_password", description: "Generated network access password (if network credentials enabled)"},
     ]
 
     [
       TemplateFields.new(
         trigger: {"visitor_invited", @reminder_template},
         name: "Visitor invited",
-        description: nil,
+        description: "Reminder email for upcoming visitor appointments",
         fields: invitation_fields
       ),
       TemplateFields.new(
         trigger: {"visitor_invited", @event_template},
         name: "Visitor invited to event",
-        description: nil,
+        description: "Initial invitation for a visitor attending a calendar event",
         fields: invitation_fields
       ),
       TemplateFields.new(
         trigger: {"visitor_invited", @booking_template},
         name: "Visitor invited to booking",
-        description: nil,
+        description: "Initial invitation for a visitor with a space booking",
         fields: invitation_fields
       ),
       TemplateFields.new(
         trigger: {"visitor_invited", @group_event_template},
         name: "Visitor invited to group event booking",
-        description: nil,
+        description: "Initial invitation for a visitor attending a group event",
         fields: invitation_fields
       ),
       TemplateFields.new(
         trigger: {"visitor_invited", @notify_checkin_template},
         name: "Visitor check in notification",
-        description: nil,
+        description: "Notification to host when their visitor checks in",
         fields: common_fields
       ),
     ]
