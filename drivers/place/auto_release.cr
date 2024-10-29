@@ -1,8 +1,11 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 require "place_calendar"
 
 class Place::AutoRelease < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Auto Release"
   generic_name :AutoRelease
   description %(emails visitors to confirm automatic release of their booking when they have indicated they are not on-site and releases the booking if they do not confirm)
@@ -219,6 +222,23 @@ class Place::AutoRelease < PlaceOS::Driver
   rescue error
     logger.warn(exception: error) { "unable to release bookings" }
     self[:released_booking_ids] = [] of Int64
+  end
+
+  def template_fields : Array(TemplateFields)
+    [
+      TemplateFields.new(
+        trigger: {@email_template, "auto_release"},
+        name: "Auto release booking",
+        description: nil,
+        fields: [
+          {name: "booking_id", description: "The ID of the booking"},
+          {name: "user_email", description: "The email of the user"},
+          {name: "user_name", description: "The name of the user"},
+          {name: "booking_start", description: "The start time of the booking"},
+          {name: "booking_end", description: "The end time of the booking"},
+        ]
+      ),
+    ]
   end
 
   @[Security(Level::Support)]
