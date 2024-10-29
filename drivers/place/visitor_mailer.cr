@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 
 require "./password_generator_helper"
 
@@ -7,6 +8,8 @@ require "uuid"
 require "oauth2"
 
 class Place::VisitorMailer < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Visitor Mailer"
   generic_name :VisitorMailer
   description %(emails visitors when they are invited and notifies hosts when they check in)
@@ -310,6 +313,59 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_time:    local_start_time.to_s(@time_format),
     }
     )
+  end
+
+  def template_fields : Array(TemplateFields)
+    common_fields = [
+      {name: "visitor_email", description: "The email of the visitor"},
+      {name: "visitor_name", description: "The name of the visitor"},
+      {name: "host_name", description: "The name of the host"},
+      {name: "host_email", description: "The email of the host"},
+      {name: "building_name", description: "The name of the building"},
+      {name: "event_title", description: "The title of the event"},
+      {name: "event_start", description: "The start time of the event"},
+      {name: "event_date", description: "The date of the event"},
+      {name: "event_time", description: "The time of the event"},
+    ]
+
+    invitation_fields = common_fields + [
+      {name: "room_name", description: "The name of the room"},
+      {name: "network_username", description: "The network username"},
+      {name: "network_password", description: "The network password"},
+    ]
+
+    [
+      TemplateFields.new(
+        trigger: {"visitor_invited", @reminder_template},
+        name: "Visitor invited",
+        description: nil,
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @event_template},
+        name: "Visitor invited to event",
+        description: nil,
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @booking_template},
+        name: "Visitor invited to booking",
+        description: nil,
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @group_event_template},
+        name: "Visitor invited to group event booking",
+        description: nil,
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_checkin_template},
+        name: "Visitor check in notification",
+        description: nil,
+        fields: common_fields
+      ),
+    ]
   end
 
   @[Security(Level::Support)]
