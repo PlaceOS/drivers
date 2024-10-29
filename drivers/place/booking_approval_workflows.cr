@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 require "digest/md5"
 require "placeos"
 require "file"
@@ -7,6 +8,8 @@ require "file"
 require "./booking_model"
 
 class Place::BookingApprovalWorkflows < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "Desk Booking Approval Workflows"
   generic_name :BookingApproval
   description %(picks an approval strategy based on configuration)
@@ -114,6 +117,103 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         end
       end
     end
+  end
+
+  def template_fields : Array(TemplateFields)
+    common_fields = [
+      {name: "booking_id", description: "The ID of the booking"},
+      {name: "start_time", description: "The start time of the booking"},
+      {name: "start_date", description: "The start date of the booking"},
+      {name: "start_datetime", description: "The start date and time of the booking"},
+      {name: "end_time", description: "The end time of the booking"},
+      {name: "end_date", description: "The end date of the booking"},
+      {name: "end_datetime", description: "The end date and time of the booking"},
+      {name: "starting_unix", description: "The starting time of the booking in Unix timestamp"},
+      {name: "desk_id", description: "The ID of the desk"},
+      {name: "user_id", description: "The ID of the user"},
+      {name: "user_email", description: "The email of the user"},
+      {name: "user_name", description: "The name of the user"},
+      {name: "reason", description: "The reason for the booking"},
+      {name: "level_zone", description: "The level zone of the booking"},
+      {name: "building_zone", description: "The building zone of the booking"},
+      {name: "building_name", description: "The name of the building"},
+      {name: "support_email", description: "The support email"},
+      {name: "approver_name", description: "The name of the approver"},
+      {name: "approver_email", description: "The email of the approver"},
+      {name: "booked_by_name", description: "The name of the person who booked"},
+      {name: "booked_by_email", description: "The email of the person who booked"},
+      {name: "attachment_name", description: "The name of the attachment"},
+      {name: "attachment_url", description: "The URL of the attachment"},
+    ]
+
+    [
+      TemplateFields.new(
+        trigger: {"bookings", "group_booking_sent"},
+        name: "Group booking sent",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "approved_by"},
+        name: "Booking approved by",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "approved"},
+        name: "Booking approved",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "rejected"},
+        name: "Booking rejected",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "checked_in"},
+        name: "Booking checked in",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "cancelled_by"},
+        name: "Booking cancelled by",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "cancelled"},
+        name: "Booking cancelled",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "manager_notify_cancelled"},
+        name: "Booking cancelled manager notification",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "manager_approval"},
+        name: "Booking manager approval",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "manager_contacted"},
+        name: "Booking manager contacted",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "notify_manager"},
+        name: "Booking manager notification",
+        description: nil,
+        fields: common_fields
+      ),
+    ]
   end
 
   # Booking id => event, timestamp
