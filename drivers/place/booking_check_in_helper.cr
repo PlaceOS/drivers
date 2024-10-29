@@ -248,24 +248,25 @@ STRING
   end
 
   def template_fields : Array(TemplateFields)
+    time_now = Time.now.in(@timezone)
     [
       TemplateFields.new(
         trigger: {"bookings", "check_in_prompt"},
         name: "Check in prompt",
-        description: nil,
+        description: "Email template for prompting meeting hosts to check in or cancel their booking",
         fields: [
-          {name: "jwt", description: "The JWT token"},
-          {name: "host_email", description: "The email of the host"},
-          {name: "host_name", description: "The name of the host"},
-          {name: "event_id", description: "The ID of the event"},
-          {name: "system_id", description: "The ID of the system"},
-          {name: "meeting_room_name", description: "The name of the meeting room"},
-          {name: "meeting_summary", description: "The summary of the meeting"},
-          {name: "meeting_datetime", description: "The date and time of the meeting"},
-          {name: "meeting_time", description: "The time of the meeting"},
-          {name: "meeting_date", description: "The date of the meeting"},
-          {name: "check_in_url", description: "The URL for check-in"},
-          {name: "no_show_url", description: "The URL for no-show"},
+          {name: "jwt", description: "Authentication token for secure responses"},
+          {name: "host_email", description: "Email address of the meeting organizer"},
+          {name: "host_name", description: "Full name of the meeting organizer"},
+          {name: "event_id", description: "Unique identifier for the calendar event"},
+          {name: "system_id", description: "Unique identifier for the room/space"},
+          {name: "meeting_room_name", description: "Display name of the meeting room"},
+          {name: "meeting_summary", description: "Title or subject of the meeting"},
+          {name: "meeting_datetime", description: "Formatted date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+          {name: "meeting_time", description: "Formatted time (e.g., #{time_now.to_s(@time_format)})"},
+          {name: "meeting_date", description: "Formatted date (e.g., #{time_now.to_s(@date_format)})"},
+          {name: "check_in_url", description: "URL for confirming attendance"},
+          {name: "no_show_url", description: "URL for cancelling the booking"},
         ]
       ),
     ]
