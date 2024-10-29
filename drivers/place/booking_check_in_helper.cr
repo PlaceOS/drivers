@@ -1,8 +1,11 @@
 require "placeos-driver"
 require "place_calendar"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 
 class Place::BookingCheckInHelper < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Check-in helper"
   generic_name :CheckInHelper
   description "works in conjunction with the Bookings driver to help automate check-in"
@@ -242,6 +245,30 @@ STRING
         end
       end
     end
+  end
+
+  def template_fields : Array(TemplateFields)
+    [
+      TemplateFields.new(
+        trigger: {"bookings", "check_in_prompt"},
+        name: "Check in prompt",
+        description: nil,
+        fields: [
+          {name: "jwt", description: "The JWT token"},
+          {name: "host_email", description: "The email of the host"},
+          {name: "host_name", description: "The name of the host"},
+          {name: "event_id", description: "The ID of the event"},
+          {name: "system_id", description: "The ID of the system"},
+          {name: "meeting_room_name", description: "The name of the meeting room"},
+          {name: "meeting_summary", description: "The summary of the meeting"},
+          {name: "meeting_datetime", description: "The date and time of the meeting"},
+          {name: "meeting_time", description: "The time of the meeting"},
+          {name: "meeting_date", description: "The date of the meeting"},
+          {name: "check_in_url", description: "The URL for check-in"},
+          {name: "no_show_url", description: "The URL for no-show"},
+        ]
+      ),
+    ]
   end
 
   # decides whether to decline the event now or sends the templated email to the host asking them to end or keep it
