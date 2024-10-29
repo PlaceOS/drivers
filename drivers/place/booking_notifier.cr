@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 require "digest/md5"
 require "placeos"
 require "file"
@@ -9,6 +10,8 @@ require "./booking_model"
 require "./password_generator_helper"
 
 class Place::BookingNotifier < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "Booking Notifier"
   generic_name :BookingNotifier
   description %(notifies users when a booking takes place)
@@ -121,6 +124,56 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     schedule.clear
     schedule.every(@poll_every_minutes.minutes) { check_bookings } if @poll_bookings
+  end
+
+  def template_fields : Array(TemplateFields)
+    common_fields = [
+      {name: "booking_id", description: "The ID of the booking"},
+      {name: "start_time", description: "The start time of the booking"},
+      {name: "start_date", description: "The start date of the booking"},
+      {name: "start_datetime", description: "The start date and time of the booking"},
+      {name: "end_time", description: "The end time of the booking"},
+      {name: "end_date", description: "The end date of the booking"},
+      {name: "end_datetime", description: "The end date and time of the booking"},
+      {name: "starting_unix", description: "The starting time of the booking in Unix timestamp"},
+      {name: "asset_id", description: "The ID of the asset"},
+      {name: "user_id", description: "The ID of the user"},
+      {name: "user_email", description: "The email of the user"},
+      {name: "user_name", description: "The name of the user"},
+      {name: "reason", description: "The reason for the booking"},
+      {name: "level_zone", description: "The level zone of the booking"},
+      {name: "building_zone", description: "The building zone of the booking"},
+      {name: "building_name", description: "The name of the building"},
+      {name: "approver_name", description: "The name of the approver"},
+      {name: "approver_email", description: "The email of the approver"},
+      {name: "booked_by_name", description: "The name of the person who booked"},
+      {name: "booked_by_email", description: "The email of the person who booked"},
+      {name: "attachment_name", description: "The name of the attachment"},
+      {name: "attachment_url", description: "The URL of the attachment"},
+      {name: "network_username", description: "The network username"},
+      {name: "network_password", description: "The network password"},
+    ]
+
+    [
+      TemplateFields.new(
+        trigger: {"bookings", "booked_by_notify"},
+        name: "Booking booked by notification",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "booking_notify"},
+        name: "Booking booked notification",
+        description: nil,
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "cancelled"},
+        name: "Booking cancelled",
+        description: nil,
+        fields: common_fields
+      ),
+    ]
   end
 
   # Booking id => event, timestamp
