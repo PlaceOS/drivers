@@ -128,20 +128,21 @@ class Place::EventMailer < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
+    time_now = Time.now.in(Time::Location.local)
     [
       TemplateFields.new(
         trigger: {@email_template_group, @email_template},
         name: "Event welcome",
-        description: nil,
+        description: "Welcome email sent to event organizers when their event is coming up today",
         fields: [
-          {name: "host_name", description: "The name of the host"},
-          {name: "host_email", description: "The email of the host"},
-          {name: "room_name", description: "The name of the room"},
-          {name: "event_title", description: "The title of the event"},
-          {name: "event_start", description: "The start time of the event"},
-          {name: "event_date", description: "The date of the event"},
-          {name: "network_username", description: "The network username"},
-          {name: "network_password", description: "The network password"},
+          {name: "host_name", description: "Name of the event organizer"},
+          {name: "host_email", description: "Email address of the event organizer"},
+          {name: "room_name", description: "Location or room where the event is being held"},
+          {name: "event_title", description: "Title or subject of the event"},
+          {name: "event_start", description: "Start time of the event (e.g., #{time_now.to_s(@time_format)})"},
+          {name: "event_date", description: "Date of the event (e.g., #{time_now.to_s(@date_format)})"},
+          {name: "network_username", description: "Username for network access (only if network credentials enabled)"},
+          {name: "network_password", description: "Generated password for network access (only if network credentials enabled)"},
         ]
       ),
     ]
