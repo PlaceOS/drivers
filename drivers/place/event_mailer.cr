@@ -128,7 +128,7 @@ class Place::EventMailer < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
-    time_now = Time.now.in(Time::Location.local)
+    time_now = Time.utc.in(Time::Location.local)
     [
       TemplateFields.new(
         trigger: {@email_template_group, @email_template},

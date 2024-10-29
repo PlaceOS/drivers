@@ -248,7 +248,7 @@ STRING
   end
 
   def template_fields : Array(TemplateFields)
-    time_now = Time.now.in(@timezone)
+    time_now = Time.utc.in(@timezone)
     [
       TemplateFields.new(
         trigger: {"bookings", "check_in_prompt"},

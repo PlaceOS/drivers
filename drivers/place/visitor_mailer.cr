@@ -316,7 +316,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
-    time_now = Time.now.in(@time_zone)
+    time_now = Time.utc.in(@time_zone)
     common_fields = [
       {name: "visitor_email", description: "Email address of the visiting guest"},
       {name: "visitor_name", description: "Full name of the visiting guest"},
