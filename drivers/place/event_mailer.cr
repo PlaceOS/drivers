@@ -1,9 +1,12 @@
 require "placeos-driver"
 require "place_calendar"
+require "placeos-driver/interface/mailer_templates"
 
 require "./password_generator_helper"
 
 class Place::EventMailer < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Event Mailer"
   generic_name :EventMailer
   description %(Subscribe to Events and send emails to attendees)
@@ -122,6 +125,26 @@ class Place::EventMailer < PlaceOS::Driver
 
     logger.debug { "Sending emails for #{new_events.size} events in #{system_id}" }
     new_events.each { |event| send_event_email(event, system_id) }
+  end
+
+  def template_fields : Array(TemplateFields)
+    [
+      TemplateFields.new(
+        trigger: {@email_template_group, @email_template},
+        name: "Event welcome",
+        description: nil,
+        fields: [
+          {name: "host_name", description: "The name of the host"},
+          {name: "host_email", description: "The email of the host"},
+          {name: "room_name", description: "The name of the room"},
+          {name: "event_title", description: "The title of the event"},
+          {name: "event_start", description: "The start time of the event"},
+          {name: "event_date", description: "The date of the event"},
+          {name: "network_username", description: "The network username"},
+          {name: "network_password", description: "The network password"},
+        ]
+      ),
+    ]
   end
 
   private def send_event_email(event : PlaceCalendar::Event, system_id : String)
