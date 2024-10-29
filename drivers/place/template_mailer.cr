@@ -2,6 +2,10 @@ require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 
+# This driver uses metadata templates to send emails via the SMTP mailer.
+# It should be configured as Mailer_1 with the next mailer in the chain as Mailer_2.
+# 
+# It also updates metadata in the staff API with available fields for use in email templates.
 class Place::TemplateMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
   include PlaceOS::Driver::Interface::MailerTemplates
