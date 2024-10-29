@@ -225,6 +225,7 @@ class Place::AutoRelease < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
+    # TODO: add more fields to be consistent with other templates
     [
       TemplateFields.new(
         trigger: {@email_template, "auto_release"},
