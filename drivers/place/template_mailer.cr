@@ -16,6 +16,8 @@ class Place::TemplateMailer < PlaceOS::Driver
 
   default_settings({
     cache_timeout: 300, # timeout for the template cache
+    timezone:    "GMT",
+    update_schedule:    "*/20 * * * *", # cron schedule for updating template fields
   })
 
   accessor staff_api : StaffAPI_1
@@ -34,6 +36,9 @@ class Place::TemplateMailer < PlaceOS::Driver
   @template_cache : TemplateCache = TemplateCache.new
   @cache_timeout : Int64 = 300
 
+  @timezone : Time::Location = Time::Location.load("GMT")
+  @update_schedule : String? = nil
+
   def on_load
     on_update
   end
@@ -41,9 +46,19 @@ class Place::TemplateMailer < PlaceOS::Driver
   def on_update
     @cache_timeout = setting?(Int64, :cache_timeout) || 300_i64
 
-    org_zone_ids.each do |zone_id|
-      update_template_fields(zone_id)
+    timezone = setting?(String, :timezone).presence || "GMT"
+    @timezone = Time::Location.load(timezone)
+    @update_schedule = setting?(String, :update_schedule).presence
+    
+    schedule.clear
+
+    if update_schedule = @update_schedule
+      schedule.cron(update_schedule, @timezone) do
+        org_zone_ids.each { |zone_id| update_template_fields(zone_id) }
+      end
     end
+
+    org_zone_ids.each { |zone_id| update_template_fields(zone_id) }
   end
 
   def get_zone_ids?(tag : String) : Array(String)?
