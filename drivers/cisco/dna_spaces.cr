@@ -183,9 +183,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   # MAC Address => Location (including user)
-  @locations : Hash(String, DeviceLocationUpdate | IotTelemetry) = {} of String => DeviceLocationUpdate | IotTelemetry
+  @locations : Hash(String, DeviceLocationUpdate | IotTelemetry | WebexTelemetryUpdate) = {} of String => DeviceLocationUpdate | IotTelemetry | WebexTelemetryUpdate
   @loc_lock : Mutex = Mutex.new
-  @devices : Hash(String, IotTelemetry) = {} of String => IotTelemetry
+  @devices : Hash(String, IotTelemetry | WebexTelemetryUpdate) = {} of String => IotTelemetry | WebexTelemetryUpdate
   @dev_lock : Mutex = Mutex.new
 
   def locations
@@ -292,14 +292,14 @@ class Cisco::DNASpaces < PlaceOS::Driver
           when DeviceEntry
             # This is used entirely for
             @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
-          when DeviceLocationUpdate, IotTelemetry
+          when DeviceLocationUpdate, IotTelemetry, WebexTelemetryUpdate
             device_mac = format_mac(payload.device.mac_address)
 
             # we want timestamps in seconds
             payload.last_seen = payload.last_seen // 1000
 
-            if payload.is_a?(IotTelemetry)
-              iot_payload = payload.as(IotTelemetry)
+            if payload.is_a?(IotTelemetry) || payload.is_a?(WebexTelemetryUpdate)
+              iot_payload = payload.as(IotTelemetry | WebexTelemetryUpdate)
               self[device_mac] = iot_payload
               devices { |dev| dev[device_mac] = iot_payload }
 
@@ -436,6 +436,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
       macs.compact_map { |mac|
         if location = locate_mac(mac)
+          next if location.is_a?(WebexTelemetryUpdate)
           if location.last_seen > location_max_age
             # we update the mac_address to a formatted version
             location.device.mac_address = mac
@@ -455,7 +456,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
           "y"                => location.y_pos,
           "lon"              => lon,
           "lat"              => lat,
-          "s2_cell_id"       => S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
+          "s2_cell_id"       => S2Cells::CellId.from_lat_lng(lat, lon).parent(@s2_level).to_token,
           "mac"              => location.device.mac_address,
           "variance"         => location.unc,
           "last_seen"        => location.last_seen,
@@ -592,7 +593,8 @@ class Cisco::DNASpaces < PlaceOS::Driver
         end
       end
 
-      locations.map do |loc|
+      locations.compact_map do |loc|
+        next if loc.is_a?(WebexTelemetryUpdate)
         lat = loc.latitude
         lon = loc.longitude
 
@@ -603,7 +605,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
           y:                loc.y_pos - offset_y,
           lon:              lon,
           lat:              lat,
-          s2_cell_id:       S2Cells::LatLon.new(lat, lon).to_token(@s2_level),
+          s2_cell_id:       S2Cells::CellId.from_lat_lng(lat, lon).parent(@s2_level).to_token,
           mac:              loc.device.mac_address,
           variance:         loc.unc,
           last_seen:        loc.last_seen,

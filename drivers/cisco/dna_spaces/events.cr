@@ -23,6 +23,7 @@ abstract class Cisco::DNASpaces::Events
     "DEVICE_COUNT"           => DeviceCountWrapper,
     "BLE_RSSI_UPDATE"        => BleRssiUpdateWrapper,
     "IOT_TELEMETRY"          => IotTelemetryWrapper,
+    "WEBEX_TELEMETRY"        => WebexTelemetryUpdateWrapper,
   }
 
   @[JSON::Field(key: "recordUid")]
@@ -131,4 +132,11 @@ class Cisco::DNASpaces::IotTelemetryWrapper < Cisco::DNASpaces::Events
 
   @[JSON::Field(key: "iotTelemetry")]
   getter payload : IotTelemetry
+end
+
+class Cisco::DNASpaces::WebexTelemetryUpdateWrapper < Cisco::DNASpaces::Events
+  getter eventType : String = "WEBEX_TELEMETRY"
+
+  @[JSON::Field(key: "webexTelemetryUpdate")]
+  getter payload : WebexTelemetryUpdate
 end
