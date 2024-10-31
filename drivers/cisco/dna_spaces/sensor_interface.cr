@@ -26,7 +26,7 @@ class Cisco::DNASpaces
 
       unit = nil
       value = nil
-      binding = nil
+      binding = device.binding(type, formatted_mac)
 
       case type
       when SensorType::Presence
@@ -37,23 +37,19 @@ class Cisco::DNASpaces
         if humidity = device.humidity
           value = humidity
           unit = "%"
-          binding = "#{formatted_mac}->humidity->humidityInPercentage"
         end
       when SensorType::AirQuality
         if air_quality = device.air_quality
           value = air_quality
-          binding = "#{formatted_mac}->airQuality->airQualityIndex"
         end
       when SensorType::PeopleCount
         if count = device.people_count
           value = count.to_f
-          binding = "#{formatted_mac}->tpData->peopleCount"
         end
       when SensorType::Temperature
         if temp = device.temperature
           value = temp
           unit = "Cel"
-          binding = "#{formatted_mac}->temperature->temperatureInCelsius"
         end
       when SensorType::SoundPressure
         if noise = device.ambient_noise

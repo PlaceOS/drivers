@@ -41,33 +41,110 @@ struct Cisco::DNASpaces::WebexTelemetry
 
   @[JSON::Field(key: "peopleCount")]
   getter count : Int32?
+
+  @[JSON::Field(key: "soundLevel")]
+  getter sound_level : Float64?
+
+  @[JSON::Field(key: "airQuality")]
+  getter air_quality : Float64?
+
+  @[JSON::Field(key: "ambientTemp")]
+  getter ambient_temp : Float64?
+
+  @[JSON::Field(key: "ambientNoise")]
+  getter ambient_noise : Float64?
+
+  @[JSON::Field(key: "relativeHumidity")]
+  getter relative_humidity : Float64?
 end
 
 class Cisco::DNASpaces::WebexTelemetryUpdate
   include JSON::Serializable
 
   @[JSON::Field(key: "deviceInfo")]
-  getter device : WebexDeviceInfo
-  getter location : Location
-  getter telemetries : Array(WebexTelemetry) { [] of WebexTelemetry }
+  property device : WebexDeviceInfo
+  property location : Location
 
-  @[JSON::Field(ignore: true)]
+  @[JSON::Field(ignore_serialize: true)]
+  property telemetries : Array(WebexTelemetry) { [] of WebexTelemetry }
+
   getter people_count : Int32 do
     telemetries.compact_map(&.count).first? || 0
   end
 
-  @[JSON::Field(ignore: true)]
   getter presence : Bool do
     telemetries.compact_map(&.presence).first? || (people_count > 0)
+  end
+
+  getter humidity : Float64? do
+    telemetries.compact_map(&.relative_humidity).first?
+  end
+
+  getter air_quality : Float64? do
+    telemetries.compact_map(&.air_quality).first?
+  end
+
+  getter temperature : Float64? do
+    telemetries.compact_map(&.ambient_temp).first?
+  end
+
+  getter ambient_noise : Float64? do
+    telemetries.compact_map(&.ambient_noise).first?
+  end
+
+  def update_telemetry
+    telemetries.each do |telemetry|
+      if !telemetry.presence.nil?
+        @presence = telemetry.presence
+        next
+      end
+
+      if count = telemetry.count
+        @people_count = count
+        next
+      end
+
+      if float = telemetry.relative_humidity
+        @humidity = float
+        next
+      end
+
+      if float = telemetry.air_quality
+        @air_quality = float
+        next
+      end
+
+      if float = telemetry.ambient_temp
+        @temperature = float
+        next
+      end
+
+      if float = telemetry.ambient_noise
+        @ambient_noise = float
+      end
+    end
+  end
+
+  def binding(type : SensorType, mac : String)
+    case type
+    when .presence?
+      "#{mac}->presence"
+    when .humidity?
+      "#{mac}->humidity"
+    when .air_quality?
+      "#{mac}->air_quality"
+    when .people_count?
+      "#{mac}->people_count"
+    when .temperature?
+      "#{mac}->temperature"
+    when .sound_pressure?
+      "#{mac}->ambient_noise"
+    end
   end
 
   @[JSON::Field(ignore: true)]
   property last_seen : Int64 do
     Time.utc.to_unix_ms
-  end
-
-  def has_position?
-    true
   end
 
   @[JSON::Field(ignore: true)]
@@ -93,22 +170,5 @@ class Cisco::DNASpaces::WebexTelemetryUpdate
       @location_mappings = mappings
       mappings
     end
-  end
-
-  # these are unused but here for compilation reasons
-  def humidity
-    nil
-  end
-
-  def air_quality
-    nil
-  end
-
-  def temperature
-    nil
-  end
-
-  def ambient_noise
-    nil
   end
 end

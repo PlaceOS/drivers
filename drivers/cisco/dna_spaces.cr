@@ -298,12 +298,24 @@ class Cisco::DNASpaces < PlaceOS::Driver
             # we want timestamps in seconds
             payload.last_seen = payload.last_seen // 1000
 
-            if payload.is_a?(IotTelemetry) || payload.is_a?(WebexTelemetryUpdate)
-              iot_payload = payload.as(IotTelemetry | WebexTelemetryUpdate)
-              self[device_mac] = iot_payload
-              devices { |dev| dev[device_mac] = iot_payload }
+            case payload
+            when IotTelemetry
+              self[device_mac] = payload
+              devices { |dev| dev[device_mac] = payload }
 
-              next unless iot_payload.has_position?
+              next unless payload.has_position?
+            when WebexTelemetryUpdate
+              if webex_obj = devices { |dev| dev[device_mac]? }
+                webex_obj = webex_obj.as(WebexTelemetryUpdate)
+                webex_obj.device = payload.device
+                webex_obj.location = payload.location
+                webex_obj.last_seen = payload.last_seen
+                webex_obj.telemetries = payload.telemetries
+                payload = webex_obj
+              else
+                devices { |dev| dev[device_mac] = payload }
+              end
+              payload.update_telemetry
             end
 
             # Keep track of device location
