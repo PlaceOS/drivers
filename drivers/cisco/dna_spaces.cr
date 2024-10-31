@@ -316,6 +316,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
                 devices { |dev| dev[device_mac] = payload }
               end
               payload.update_telemetry
+              self[device_mac] = payload
             end
 
             # Keep track of device location
