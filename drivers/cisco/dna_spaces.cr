@@ -313,6 +313,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
                 webex_obj.telemetries = payload.telemetries
                 payload = webex_obj
               else
+                @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
                 devices { |dev| dev[device_mac] = payload }
               end
               payload.update_telemetry
