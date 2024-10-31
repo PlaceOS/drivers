@@ -7232,7 +7232,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L46" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L61" target="_blank">
         cisco/dna_spaces/webex_telemetry.cr
       </a>
     
@@ -7277,12 +7277,17 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#air_quality-instance-method" class="signature"><strong>#air_quality</strong></a>
+        <a href="#air_quality%3AFloat64%7CNil-instance-method" class="signature"><strong>#air_quality</strong> : Float64 | Nil</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#ambient_noise-instance-method" class="signature"><strong>#ambient_noise</strong></a>
+        <a href="#ambient_noise%3AFloat64%7CNil-instance-method" class="signature"><strong>#ambient_noise</strong> : Float64 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#binding%28type%3ASensorType%2Cmac%3AString%29-instance-method" class="signature"><strong>#binding</strong>(type : SensorType, mac : String)</a>
         
       </li>
     
@@ -7292,14 +7297,12 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#has_position%3F-instance-method" class="signature"><strong>#has_position?</strong></a>
+        <a href="#device%3D%28device%3AWebexDeviceInfo%29-instance-method" class="signature"><strong>#device=</strong>(device : WebexDeviceInfo)</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#humidity-instance-method" class="signature"><strong>#humidity</strong></a>
-        
-          <div class="summary"><p>these are unused but here for compilation reasons</p></div>
+        <a href="#humidity%3AFloat64%7CNil-instance-method" class="signature"><strong>#humidity</strong> : Float64 | Nil</a>
         
       </li>
     
@@ -7315,6 +7318,11 @@
     
       <li class="entry-summary">
         <a href="#location%3ALocation-instance-method" class="signature"><strong>#location</strong> : Location</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#location%3D%28location%3ALocation%29-instance-method" class="signature"><strong>#location=</strong>(location : Location)</a>
         
       </li>
     
@@ -7356,7 +7364,17 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#temperature-instance-method" class="signature"><strong>#temperature</strong></a>
+        <a href="#telemetries%3D%28telemetries%3AArray%28WebexTelemetry%29%29-instance-method" class="signature"><strong>#telemetries=</strong>(telemetries : Array(WebexTelemetry))</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#temperature%3AFloat64%7CNil-instance-method" class="signature"><strong>#temperature</strong> : Float64 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#update_telemetry-instance-method" class="signature"><strong>#update_telemetry</strong></a>
         
       </li>
     
@@ -7433,7 +7451,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L47" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L62" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7454,34 +7472,50 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="air_quality-instance-method">
+    <div class="entry-detail" id="air_quality:Float64|Nil-instance-method">
       <div class="signature">
         
-        def <strong>air_quality</strong>
+        def <strong>air_quality</strong> : Float64 | Nil
 
-        <a class="method-permalink" href="#air_quality-instance-method">#</a>
+        <a class="method-permalink" href="#air_quality%3AFloat64%7CNil-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L103" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L83" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="ambient_noise-instance-method">
+    <div class="entry-detail" id="ambient_noise:Float64|Nil-instance-method">
       <div class="signature">
         
-        def <strong>ambient_noise</strong>
+        def <strong>ambient_noise</strong> : Float64 | Nil
 
-        <a class="method-permalink" href="#ambient_noise-instance-method">#</a>
+        <a class="method-permalink" href="#ambient_noise%3AFloat64%7CNil-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L111" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L91" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="binding(type:SensorType,mac:String)-instance-method">
+      <div class="signature">
+        
+        def <strong>binding</strong>(type : SensorType, mac : String)
+
+        <a class="method-permalink" href="#binding%28type%3ASensorType%2Cmac%3AString%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L128" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7497,44 +7531,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L50" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L65" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="has_position?-instance-method">
+    <div class="entry-detail" id="device=(device:WebexDeviceInfo)-instance-method">
       <div class="signature">
         
-        def <strong>has_position?</strong>
+        def <strong>device=</strong>(device : <a href="../../Cisco/DNASpaces/WebexDeviceInfo.html">WebexDeviceInfo</a>)
 
-        <a class="method-permalink" href="#has_position%3F-instance-method">#</a>
+        <a class="method-permalink" href="#device%3D%28device%3AWebexDeviceInfo%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L69" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L65" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="humidity-instance-method">
+    <div class="entry-detail" id="humidity:Float64|Nil-instance-method">
       <div class="signature">
         
-        def <strong>humidity</strong>
+        def <strong>humidity</strong> : Float64 | Nil
 
-        <a class="method-permalink" href="#humidity-instance-method">#</a>
+        <a class="method-permalink" href="#humidity%3AFloat64%7CNil-instance-method">#</a>
       </div>
-      
-        <div class="doc">
-          
-          <p>these are unused but here for compilation reasons</p>
-        </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L99" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L79" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7550,7 +7579,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L65" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L146" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7566,7 +7595,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L65" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L146" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7582,7 +7611,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L51" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L66" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="location=(location:Location)-instance-method">
+      <div class="signature">
+        
+        def <strong>location=</strong>(location : <a href="../../Cisco/DNASpaces/Location.html">Location</a>)
+
+        <a class="method-permalink" href="#location%3D%28location%3ALocation%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L66" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7603,7 +7648,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L88" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L165" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7619,7 +7664,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L74" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L151" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7635,7 +7680,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L74" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L151" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7651,7 +7696,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L55" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L71" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7667,7 +7712,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L60" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L75" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7683,7 +7728,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L80" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L157" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7699,23 +7744,55 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L52" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L69" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="temperature-instance-method">
+    <div class="entry-detail" id="telemetries=(telemetries:Array(WebexTelemetry))-instance-method">
       <div class="signature">
         
-        def <strong>temperature</strong>
+        def <strong>telemetries=</strong>(telemetries : Array(<a href="../../Cisco/DNASpaces/WebexTelemetry.html">WebexTelemetry</a>))
 
-        <a class="method-permalink" href="#temperature-instance-method">#</a>
+        <a class="method-permalink" href="#telemetries%3D%28telemetries%3AArray%28WebexTelemetry%29%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L107" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L69" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="temperature:Float64|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>temperature</strong> : Float64 | Nil
+
+        <a class="method-permalink" href="#temperature%3AFloat64%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L87" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="update_telemetry-instance-method">
+      <div class="signature">
+        
+        def <strong>update_telemetry</strong>
+
+        <a class="method-permalink" href="#update_telemetry-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L95" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7731,7 +7808,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/5f02268916e1ebc4367170dd77ad7d2f01349655/src/cisco/dna_spaces/webex_telemetry.cr#L76" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/b9345456a656fb856ef8277afb0b04c7d0d1b55a/src/cisco/dna_spaces/webex_telemetry.cr#L153" target="_blank">View source</a>]
         
       </div>
     </div>
