@@ -5,7 +5,7 @@ class Cisco::DNASpaces
   }
   NO_MATCH = [] of Interface::Sensor::Detail
 
-  protected def to_sensors(zone_id, filter, device : IotTelemetry)
+  protected def to_sensors(zone_id, filter, device : IotTelemetry | WebexTelemetryUpdate)
     if level_loc = device.location_mappings["FLOOR"]?
       if floorplan = @floorplan_mappings[level_loc]?
         building = floorplan["building"]?.as(String?)
@@ -22,10 +22,11 @@ class Cisco::DNASpaces
 
     IOT_SENSORS.each do |type|
       next if filter && filter != type
+      # next if device.is_a?(WebexTelemetryUpdate) && !filter.in?({SensorType::PeopleCount, SensorType::Presence})
 
       unit = nil
       value = nil
-      binding = nil
+      binding = device.binding(type, formatted_mac)
 
       case type
       when SensorType::Presence
@@ -36,23 +37,19 @@ class Cisco::DNASpaces
         if humidity = device.humidity
           value = humidity
           unit = "%"
-          binding = "#{formatted_mac}->humidity->humidityInPercentage"
         end
       when SensorType::AirQuality
         if air_quality = device.air_quality
           value = air_quality
-          binding = "#{formatted_mac}->airQuality->airQualityIndex"
         end
       when SensorType::PeopleCount
         if count = device.people_count
           value = count.to_f
-          binding = "#{formatted_mac}->tpData->peopleCount"
         end
       when SensorType::Temperature
         if temp = device.temperature
           value = temp
           unit = "Cel"
-          binding = "#{formatted_mac}->temperature->temperatureInCelsius"
         end
       when SensorType::SoundPressure
         if noise = device.ambient_noise
@@ -96,7 +93,7 @@ class Cisco::DNASpaces
       device = devices { |dev| dev[mac]? }
       return NO_MATCH unless device
       return case device
-      in IotTelemetry
+      in IotTelemetry, WebexTelemetryUpdate
         to_sensors(zone_id, filter, device)
       in DeviceLocationUpdate
         NO_MATCH
@@ -106,7 +103,7 @@ class Cisco::DNASpaces
     device_values = devices &.values
     device_values.flat_map do |device|
       case device
-      in IotTelemetry
+      in IotTelemetry, WebexTelemetryUpdate
         to_sensors(zone_id, filter, device)
       in DeviceLocationUpdate
         NO_MATCH
@@ -124,7 +121,7 @@ class Cisco::DNASpaces
 
     filter = SensorType.parse(id)
     case device
-    in IotTelemetry
+    in IotTelemetry, WebexTelemetryUpdate
       to_sensors(nil, filter, device).first?
     in DeviceLocationUpdate
     end

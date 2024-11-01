@@ -132,7 +132,7 @@ inputs:
     icon: video_camera_front
     type: cam
     mod: Camera_1
-    index: 1
+    index: 1 # only use this index on VC systems, single mod, mutliple cameras
 
   # Inputs that have `presentable: false` are ignored as possible inputs for VC presenations
   VidConf_1:

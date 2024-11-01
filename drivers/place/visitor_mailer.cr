@@ -80,7 +80,10 @@ class Place::VisitorMailer < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
 
-  getter! building_zone : ZoneDetails
+  getter building_zone : ZoneDetails do
+    find_building(control_system_zone_list)
+  end
+
   getter parent_zone_ids : Array(String) = [] of String
   @booking_space_name : String = "Client Floor"
   @invite_zone_tag : String = "building"
@@ -138,10 +141,21 @@ class Place::VisitorMailer < PlaceOS::Driver
     if reminders = @send_reminders
       schedule.cron(reminders, @time_zone) { send_reminder_emails }
     end
-    spawn(same_thread: true) { find_building(zones) }
+    spawn { ensure_building_zone(zones) }
   end
 
-  protected def find_building(zones : Array(String)) : Nil
+  def control_system_zone_list
+    config.control_system.not_nil!.zones
+  end
+
+  protected def ensure_building_zone(zones) : Nil
+    find_building(zones)
+  rescue error
+    logger.warn(exception: error) { "error looking up building zone" }
+    schedule.in(5.seconds) { ensure_building_zone(zones) }
+  end
+
+  protected def find_building(zones : Array(String)) : ZoneDetails
     zones.each do |zone_id|
       zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
       if zone.tags.includes?(@invite_zone_tag)
@@ -155,9 +169,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
     raise "no building zone found in System" unless @building_zone
-  rescue error
-    logger.warn(exception: error) { "error looking up building zone" }
-    schedule.in(5.seconds) { find_building(zones) }
+    @building_zone.as(ZoneDetails)
   end
 
   abstract class GuestNotification

@@ -120,9 +120,8 @@ class Place::AutoRelease < PlaceOS::Driver
         period_start: Time.utc.to_unix,
         period_end: (Time.utc + @time_window_hours.hours).to_unix,
         zones: [building_zone.id],
-        checked_in: false,
       ).get.to_json
-      results += bookings
+      results += bookings.select { |booking| !booking.checked_in }
     end
 
     logger.debug { "found #{results.size} pending bookings" }
@@ -154,6 +153,20 @@ class Place::AutoRelease < PlaceOS::Driver
     end
   end
 
+  def in_preference?(preference : WorktimePreference, event_time : Float64, locations : Array(String), match_locations : Bool = true) : Bool
+    if match_locations
+      preference.blocks.any? do |block|
+        in_preference_hours?(block.start_time, block.end_time, event_time) &&
+          locations.includes? block.location
+      end
+    else
+      preference.blocks.any? do |block|
+        in_preference_hours?(block.start_time, block.end_time, event_time) &&
+          !locations.includes?(block.location)
+      end
+    end
+  end
+
   @[Security(Level::Support)]
   def pending_release
     results = [] of Booking
@@ -173,13 +186,16 @@ class Place::AutoRelease < PlaceOS::Driver
         # e.g. 7:30AM = 7.5
         event_time = booking_start.hour + (booking_start.minute / 60.0)
 
-        if (override = preferences[:work_overrides][booking_start.to_s(format: "%F")]?) &&
-           in_preference_hours?(override.start_time, override.end_time, event_time) &&
-           (@release_locations.includes? override.location)
+        # exclude overrides with empty time blocks
+        overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
+
+        if (override = overrides[booking_start.to_s(format: "%F")]?) &&
+           in_preference?(override, event_time, @release_locations)
           results << booking
+        elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
+              in_preference?(override, event_time, @release_locations, false)
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
-              in_preference_hours?(preference.start_time, preference.end_time, event_time) &&
-              (@release_locations.includes? preference.location)
+              in_preference?(preference, event_time, @release_locations)
           results << booking
         end
       end
@@ -336,12 +352,23 @@ class Place::AutoRelease < PlaceOS::Driver
     include JSON::Serializable
   end
 
-  # day_of_week: Index of the day of the week. `0` being Sunday
   # start_time: Start time of work hours. e.g. `7.5` being 7:30AM
   # end_time: End time of work hours. e.g. `18.5` being 6:30PM
   # location: Name of the location the work is being performed at
-  record WorktimePreference, day_of_week : Int64, start_time : Float64, end_time : Float64, location : String = "" do
+  struct WorktimeBlock
     include JSON::Serializable
+
+    property start_time : Float64
+    property end_time : Float64
+    property location : String = ""
+  end
+
+  # day_of_week: Index of the day of the week. `0` being Sunday
+  struct WorktimePreference
+    include JSON::Serializable
+
+    property day_of_week : Int32
+    property blocks : Array(WorktimeBlock) = [] of WorktimeBlock
   end
 
   struct Booking

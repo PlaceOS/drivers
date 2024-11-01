@@ -13,7 +13,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   default_settings({
     user_group_id:            "building@org.com",
     sync_cron:                "0 21 * * *",
-    integriti_security_group: "",
+    integriti_security_group: "QG15",
 
     # use these for enabling push notifications
     # push_authority: "authority-GAdySsf05mL"

@@ -36,7 +36,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   getter client_data : Hash(String, Client) { {} of String => Client }
 
   def on_load
-    # We want to store our user => mac_address mappings in redis
+    # We want to store our user => mac_address mappings in redis.
     @user_mac_mappings = PlaceOS::Driver::RedisStorage.new(module_id, "user_macs")
 
     # debug HTTP requests
@@ -74,6 +74,9 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     # We'll use this as the keepalive message
     schedule.every(45.seconds, immediate: true) do
       transport.send({subscribe: "/sites/#{@site_id}/stats/clients"}.to_json)
+      maps.each do |map|
+        transport.send({subscribe: "/sites/#{@site_id}/stats/maps/#{map.id}/clients"}.to_json)
+      end
     end
     sync_clients
     schedule.every(3.seconds) { update_client_locations }
@@ -103,37 +106,78 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     end
   end
 
-  protected def update_location(client_data, location_data, client) : Nil
-    if old_details = client_data[client.mac]?
-      if old_details.map_id != client.map_id
-        location_data[old_details.map_id].delete(old_details.mac)
+  protected def update_location(client_data, location_data, client_loc) : Nil
+    client_mac = format_mac client_loc.mac
+
+    if client = client_data[client_mac]?
+      if client.map_id != client_loc.map_id
+        location_data[client.map_id].delete(client_mac)
       end
+
+      # update details
+      client.last_seen = Time.utc.to_unix
+      client.map_id = client_loc.map_id
+      client.x = client_loc.x
+      client.y = client_loc.y
+      client.x_m = client_loc.x_m
+      client.y_m = client_loc.y_m
+      client.num_locating_aps = client_loc.num_locating_aps
+      client.raw_accuracy = client_loc.raw_accuracy
+    else
+      client = client(client_mac)
+      client.mac = client_mac
     end
 
-    client_mac = format_mac client.mac
-    location_data[client.map_id][client_mac] = client
     client_data[client_mac] = client
+    location_data[client.map_id][client_mac] = client
 
-    self[client_mac] = client
     if username = client.username
       user_mac_mappings { |storage| map_user_mac(client_mac, username, storage) }
     end
   end
 
+  protected def update_stats(client_data, client_stats) : Nil
+    client_mac = format_mac client_stats.mac
+    client = client_data[client_mac]?
+
+    # we only care about clients with locations
+    return unless client
+
+    # update client
+    client.last_seen = client_stats.last_seen
+    client.ip_address = client_stats.ip_address
+    client.ap_mac = client_stats.ap_mac
+    client.ap_id = client_stats.ap_id
+    client.username = client_stats.username
+    client.hostname = client_stats.hostname
+  end
+
   def sync_clients
-    clients_resp = clients
-    loc_data = location_data
-    cli_data = client_data
+    all_clients = [] of Client
+    maps.each do |map|
+      all_clients.concat(clients(map.id).map(&.as(Client)))
+    end
+
+    loc_data = Hash(String, Hash(String, Client)).new { |hash, map_id| hash[map_id] = {} of String => Client }
+    cli_data = {} of String => Client
 
     # build the internal representation
-    clients_resp.each { |client| update_location(cli_data, loc_data, client) }
+    all_clients.each do |client|
+      client_mac = format_mac client.mac
+      client.mac = client_mac
+      cli_data[client_mac] = client
+      loc_data[client.map_id][client_mac] = client
+    end
+
+    @client_data = cli_data
+    @location_data = loc_data
 
     # expose this to the world
     loc_data.each { |map_id, clients| self[map_id] = clients.values }
     location_data.size
   end
 
-  # batch update redis (don't want lots of websocket events to overload other services)
+  # batch update redis (lowering the number of writes)
   protected def update_client_locations
     location_data.each { |map_id, clients| self[map_id] = clients.values }
   end
@@ -148,6 +192,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   end
 
   def maps
+    # pixels_per_meter is optional
     request(Array(Map)) { |headers| get("/api/v1/sites/#{@site_id}/maps", headers: headers) }
   end
 
@@ -155,7 +200,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     if map_id.presence
       request(Array(Client)) { |headers| get("/api/v1/sites/#{@site_id}/stats/maps/#{map_id}/clients", headers: headers) }
     else
-      request(Array(Client)) { |headers| get("/api/v1/sites/#{@site_id}/stats/clients", headers: headers) }
+      request(Array(ClientStats)) { |headers| get("/api/v1/sites/#{@site_id}/stats/clients", headers: headers) }
     end
   end
 
@@ -168,7 +213,9 @@ class Juniper::MistWebsocket < PlaceOS::Driver
 
     getter event : String
     getter channel : String
-    getter data : Client?
+
+    # data will be the Client class as a JSON string
+    getter data : String?
   end
 
   def received(data, task)
@@ -177,7 +224,13 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     event = WebsocketEvent.from_json(string)
 
     if event_data = event.data
-      update_location(client_data, location_data, event_data)
+      if event.channel.includes?("/maps/")
+        client_location = ClientLocation.from_json event_data
+        update_location(client_data, location_data, client_location)
+      else
+        client_stats = ClientStats.from_json event_data
+        update_stats(client_data, client_stats)
+      end
     end
 
     task.try &.success

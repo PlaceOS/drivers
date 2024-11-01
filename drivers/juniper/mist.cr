@@ -110,7 +110,7 @@ class Juniper::Mist < PlaceOS::Driver
     if map_id.presence
       request(Array(Client)) { |headers| get("/api/v1/sites/#{site_id}/stats/maps/#{map_id}/clients", headers: headers) }
     else
-      request(Array(Client)) { |headers| get("/api/v1/sites/#{site_id}/stats/clients", headers: headers) }
+      request(Array(ClientStats)) { |headers| get("/api/v1/sites/#{site_id}/stats/clients", headers: headers) }
     end
   end
 
