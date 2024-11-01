@@ -23,11 +23,10 @@ class Juniper::MistLocationService < PlaceOS::Driver
     max_location_age: 6,
   })
 
-  # TODO:: notify dashboard of updates in the future?
   # accessor dashboard : Dashboard_1
   accessor mist : MistWebsocket_1
 
-  # Map_ids => data
+  # map_ids => data
   @floorplan_mappings : Hash(String, Hash(String, String | Int32)) = Hash(String, Hash(String, String | Int32)).new
   @floorplan_sizes = {} of String => MapImage
 
@@ -50,7 +49,7 @@ class Juniper::MistLocationService < PlaceOS::Driver
     maps = {} of String => MapImage
     Array(Map).from_json(mist.maps.get.to_json).each do |map|
       unless map.is_a?(MapImage)
-        # TODO:: it might be possible to work out the size based on geo coordinates
+        # TODO:: it might be possible to work out the size based on geo coordinates.
         logger.warn { "mist map #{map.id} is not an image, cannot determine size" }
         next
       end

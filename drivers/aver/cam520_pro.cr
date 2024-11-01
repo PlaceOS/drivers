@@ -179,6 +179,9 @@ class Aver::Cam520Pro < PlaceOS::Driver
   end
 
   def save_position(name : String, index : Int32 | String = 0)
+    pan?
+    tilt?
+    zoom?
     @presets[name] = {@pan_pos, @tilt_pos, @zoom_pos}
     save_presets
   end

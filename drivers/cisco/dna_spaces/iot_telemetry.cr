@@ -174,6 +174,19 @@ class Cisco::DNASpaces::IotTelemetry
     end
   end
 
+  def binding(type : SensorType, mac : String)
+    case type
+    when .humidity?
+      "#{mac}->humidity->humidityInPercentage"
+    when .air_quality?
+      "#{mac}->airQuality->airQualityIndex"
+    when .people_count?
+      "#{mac}->tpData->peopleCount"
+    when .temperature?
+      "#{mac}->temperature->temperatureInCelsius"
+    end
+  end
+
   @[JSON::Field(ignore: true)]
   @location_mappings : Hash(String, String)? = nil
 

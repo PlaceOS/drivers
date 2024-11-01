@@ -191,7 +191,7 @@ module Place::CalendarCommon
         end
       end
     end
-    members = client &.get_members(group_id)
+    members = client &.get_members(group_id, next_link: next_page)
 
     if member = members.first?
       member.next_page = member.next_link

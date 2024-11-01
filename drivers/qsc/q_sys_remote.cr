@@ -66,7 +66,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
   # This command does nothing but is useful for making sure the socket is left open
   def no_op
-    do_send(cmd: :NoOp, priority: 0)
+    do_send(cmd: :NoOp, priority: 0, wait: false)
   end
 
   def get_status
@@ -381,16 +381,15 @@ class Qsc::QSysRemote < PlaceOS::Driver
           next
         end
 
-        # TODO:: we should just use pos if available?
-        if pos && (pos = pos.as_i? || pos.as_f?)
+        if pos && (pos = pos.as_f?)
           self["fader#{name}#{component}_pos"] = pos
+          self["fader#{name}#{component}"] = pos * 100.0
         end
 
         if val.as_s?
           self["#{name}#{component}"] = val
         elsif val = (val.as_i? || val.as_f?)
-          vol_percent = ((val.to_f - DB_RANGE.begin.to_f) / (DB_RANGE.size - 1).to_f) * 100.0
-          self["fader#{name}#{component}_val"] = vol_percent
+          self["fader#{name}#{component}_val"] = val
         end
       end
     end

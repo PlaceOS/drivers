@@ -2,11 +2,20 @@
 
 PlaceOS implements the following webhook methods for Rhombus initiated interactions.
 
-A webhook will be create in backoffice on PlaceOS that is unique for each client that will look something like this: https://instance.placeos.com/api/engine/v2/webhook/trig-DHgkU1~p/notify?secret=kfwu5WYc3a1suZ&exec=true&mod=Rhombus&method=request
+A webhook will be create in backoffice on PlaceOS that is unique for each client that will look something like this: https://instance.placeos.com/api/engine/v2/webhook/trig-DHgkU1~p/notify?secret=kfwu5WYc3a1suZ&exec=true&mod=RhombusSecurity&method=request
 
 or
 
 https://instance.placeos.com/api/engine/v2/webhook/trig-DHgkU1~p/notify/{secret}/{mod}/{index}/{request}
+
+## Creating the Webhook
+
+1. Add a new webhook
+   * enable webhook
+   * add supported methods: GET, POST, PUT, PATCH, DELETE
+2. Add the trigger to the system
+   * edit it to enable execute
+3. Copy the webhook link and add `exec=true&mod=RhombusSecurity&method=request` to the end of the URL
 
 ## Supported methods
 

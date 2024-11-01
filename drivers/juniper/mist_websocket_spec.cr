@@ -7,10 +7,39 @@ private macro respond_with(code, body)
 end
 
 DriverSpecs.mock_driver "Juniper::MistWebsocket" do
+  expect_http_request do |req, res|
+    req.method.should eq("GET")
+    req.path.should eq("/api/v1/sites/site_id/maps")
+    req.headers["Authorization"]?.should eq("Token token")
+    respond_with(200, %([]))
+  end
+
   # sync on connect
   expect_http_request do |req, res|
     req.method.should eq("GET")
-    req.path.should eq("/api/v1/sites/site_id/stats/clients")
+    req.path.should eq("/api/v1/sites/site_id/maps")
+    req.headers["Authorization"]?.should eq("Token token")
+    respond_with(200, %([{
+      "name": "Level 8",
+      "id": "map_id",
+      "type": "image",
+      "url": "https://api.mist.com/api/v1/forward/download?jwt=eyJ0eXAo",
+      "thumbnail_url": "https://api.mist.com/api/v1/forward/download?jwt=ey6k",
+      "site_id": "site_id",
+      "org_id": "org_id",
+      "width": 1040,
+      "height": 1804,
+      "width_m": 20.8,
+      "height_m": 36.08,
+      "created_time": 1718259348,
+      "modified_time": 1718751847
+    }]))
+  end
+
+  # sync on connect
+  expect_http_request do |req, res|
+    req.method.should eq("GET")
+    req.path.should eq("/api/v1/sites/site_id/stats/maps/map_id/clients")
     req.headers["Authorization"]?.should eq("Token token")
     respond_with 200, "[]"
   end
@@ -79,11 +108,19 @@ DriverSpecs.mock_driver "Juniper::MistWebsocket" do
 
   transmit %({
     "event": "data",
-    "channel": "/sites/site_id/stats/clients",
-    "data": #{client_data}
+    "channel": "/sites/site_id/stats/maps/map_id/clients",
+    "data": #{client_data.to_json}
   })
 
-  sleep 3
+  expect_http_request do |req, res|
+    req.method.should eq("GET")
+    req.path.should eq("/api/v1/sites/site_id/stats/clients/5684dae9ac8b")
+    req.headers["Authorization"]?.should eq("Token token")
+    respond_with 200, client_data
+  end
+
+  # wait for the 3 second sync to complete
+  sleep 3.5
 
   status["63eda950-c6da-11e4-a628-60f81dd250cc"].should eq(JSON.parse("[#{client_data}]"))
 end

@@ -63,12 +63,18 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
   def on_load
     transport.tokenizer = Tokenizer.new do |io|
       bytes = io.peek
+      logger.debug { "Received: #{bytes.hexstring}" }
+
       # Ensure message indicator is well-formed
-      disconnect unless bytes.first == INDICATOR
-      logger.debug { "Received: #{bytes}" }
-      # [header, command, id, data.size, [data], checksum]
-      # return 0 if the message is incomplete
-      bytes.size < 4 ? 0 : bytes[3].to_i + 5
+      if bytes.first == INDICATOR
+        # [header, command, id, data.size, [data], checksum]
+        # return 0 if the message is incomplete
+        bytes.size < 4 ? 0 : bytes[3].to_i + 5
+      else
+        logger.debug { "Ignoring unexpected message" }
+        io.clear
+        0
+      end
     end
 
     on_update

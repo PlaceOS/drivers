@@ -79,7 +79,7 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
       },
     ],
   }.to_json + "\0")
-  status[:faderMainGain_val].should eq(90)
+  status[:faderMainGain_val].should eq(8)
 
   exec(:component_get, "My APM", ["ent.xfade.gain", "ent.xfade.gain2"])
   should_send({
@@ -109,15 +109,15 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
           "Name"     => "ent.xfade.gain2",
           "Value"    => 8.0,
           "String"   => "8.0dB",
-          "Position" => 90,
+          "Position" => 0.9,
         },
       ],
     },
   }.to_json + "\0")
   status["faderent.xfade.gain_My APM_pos"].should eq(0)
-  status["faderent.xfade.gain_My APM_val"].should eq(0)
-  status["faderent.xfade.gain2_My APM_pos"].should eq(90)
-  status["faderent.xfade.gain2_My APM_val"].should eq(90)
+  status["faderent.xfade.gain_My APM"].should eq(0)
+  status["faderent.xfade.gain2_My APM_pos"].should eq(0.9)
+  status["faderent.xfade.gain2_My APM"].should eq(90.0)
 
   exec(:change_group_add_controls, "my change group", ["some control", "another control"])
   should_send({

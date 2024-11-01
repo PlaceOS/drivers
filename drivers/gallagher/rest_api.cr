@@ -116,6 +116,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   end
 
   @access_groups_endpoint : String = "/api/access_groups"
+  @access_zones_endpoint : String = "/api/access_zones"
   @cardholders_endpoint : String = "/api/cardholders"
   @divisions_endpoint : String = "/api/divisions"
   @card_types_endpoint : String = "/api/card_types"
@@ -139,6 +140,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     @cardholders_endpoint = get_path payload["features"]["cardholders"]["cardholders"]["href"].as_s
     @divisions_endpoint = @cardholders_endpoint.sub("cardholders", "divisions")
     @access_groups_endpoint = get_path payload["features"]["accessGroups"]["accessGroups"]["href"].as_s
+    @access_zones_endpoint = get_path payload["features"]["accessZones"]["accessZones"]["href"].as_s
     @events_endpoint = get_path payload["features"]["events"]["events"]["href"].as_s
 
     # not sure what version of Gallagher this was added
@@ -395,6 +397,35 @@ class Gallagher::RestAPI < PlaceOS::Driver
     response = get(@divisions_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
     raise "divisions request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(JSON::Any, response.body)
+  end
+
+  def get_zones(name : String? = nil, exact_match : Bool = true)
+    # surround the parameter with double quotes for an exact match
+    name = %("#{name}") if name && exact_match
+    response = get(@access_zones_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    raise "zones request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    get_results(JSON::Any, response.body)
+  end
+
+  # forces a zone to be free, that is doors are unlocked
+  @[Security(Level::Support)]
+  def free_zone(zone_id : String | Int32) : Bool?
+    response = post("#{@access_zones_endpoint}/#{zone_id}/free", headers: @headers)
+    response.success?
+  end
+
+  # forces a zone to be secure and require a swipe card to access
+  @[Security(Level::Support)]
+  def secure_zone(zone_id : String | Int32) : Bool?
+    response = post("#{@access_zones_endpoint}/#{zone_id}/secure", headers: @headers)
+    response.success?
+  end
+
+  # returns the zone to it's default scheduled state, removing any overrides
+  @[Security(Level::Support)]
+  def reset_zone(zone_id : String | Int32) : Bool?
+    response = post("#{@access_zones_endpoint}/#{zone_id}/cancel", headers: @headers)
+    response.success?
   end
 
   @[Security(Level::Support)]
