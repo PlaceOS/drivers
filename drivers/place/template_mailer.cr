@@ -4,7 +4,7 @@ require "placeos-driver/interface/mailer_templates"
 
 # This driver uses metadata templates to send emails via the SMTP mailer.
 # It should be configured as Mailer_1 with the next mailer in the chain as Mailer_2.
-# 
+#
 # It also updates metadata in the staff API with available fields for use in email templates.
 class Place::TemplateMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
@@ -15,9 +15,9 @@ class Place::TemplateMailer < PlaceOS::Driver
   description %(uses metadata templates to send emails via the SMTP mailer)
 
   default_settings({
-    cache_timeout: 300, # timeout for the template cache
-    timezone:    "GMT",
-    update_schedule:    "*/20 * * * *", # cron schedule for updating template fields
+    cache_timeout:   300, # timeout for the template cache
+    timezone:        "GMT",
+    update_schedule: "*/20 * * * *", # cron schedule for updating template fields
   })
 
   accessor staff_api : StaffAPI_1
@@ -49,7 +49,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     timezone = setting?(String, :timezone).presence || "GMT"
     @timezone = Time::Location.load(timezone)
     @update_schedule = setting?(String, :update_schedule).presence
-    
+
     schedule.clear
 
     if update_schedule = @update_schedule
