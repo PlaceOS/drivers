@@ -234,7 +234,7 @@ class Place::AutoRelease < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
-    time_now = Time.now.in(@timezone)
+    time_now = Time.utc.in(@timezone)
     [
       TemplateFields.new(
         trigger: {@email_template, "auto_release"},
@@ -286,8 +286,11 @@ class Place::AutoRelease < PlaceOS::Driver
          (Time.utc.to_unix - booking.booking_start < @auto_release.time_after * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
 
-        starting = Time.unix(booking_details.booking_start).in(location)
-        ending = Time.unix(booking_details.booking_end).in(location)
+        timezone = booking.timezone.presence || @timezone.name
+        location = Time::Location.load(timezone)
+
+        starting = Time.unix(booking.booking_start).in(location)
+        ending = Time.unix(booking.booking_end).in(location)
 
         args = {
           booking_id:    booking.id,
