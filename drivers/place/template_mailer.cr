@@ -15,9 +15,10 @@ class Place::TemplateMailer < PlaceOS::Driver
   description %(uses metadata templates to send emails via the SMTP mailer)
 
   default_settings({
-    cache_timeout:   300, # timeout for the template cache
-    timezone:        "GMT",
-    update_schedule: "*/20 * * * *", # cron schedule for updating template fields
+    cache_timeout:    300, # timeout for the template cache
+    keep_if_not_seen: 6,   # keep fields for x updates if not seen, -1 to keep forever, 0 to never keep
+    timezone:         "Australia/Sydney",
+    update_schedule:  "*/20 * * * *", # cron schedule for updating template fields
   })
 
   accessor staff_api : StaffAPI_1
@@ -26,6 +27,8 @@ class Place::TemplateMailer < PlaceOS::Driver
   getter region_zone_ids : Array(String) { get_zone_ids?("region").not_nil! }
   getter building_zone_ids : Array(String) { get_zone_ids?("building").not_nil! }
   getter level_zone_ids : Array(String) { get_zone_ids?("level").not_nil! }
+
+  getter org_zone_id : String { get_local_zone_id(org_zone_ids).not_nil! }
 
   def mailer
     system.implementing(Interface::Mailer)[1]
@@ -36,7 +39,14 @@ class Place::TemplateMailer < PlaceOS::Driver
   @template_cache : TemplateCache = TemplateCache.new
   @cache_timeout : Int64 = 300
 
-  @timezone : Time::Location = Time::Location.load("GMT")
+  # keep fields for x updates if not seen
+  # -1 to keep forever
+  # 0 to never keep
+  # 1 to keep for 1 update
+  @keep_if_not_seen : Int64 = 6
+  @not_seen_tims : Hash(String, Int64) = Hash(String, Int64).new
+
+  @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @update_schedule : String? = nil
 
   def on_load
@@ -44,9 +54,17 @@ class Place::TemplateMailer < PlaceOS::Driver
   end
 
   def on_update
-    @cache_timeout = setting?(Int64, :cache_timeout) || 300_i64
+    @org_zone_ids = nil
+    @region_zone_ids = nil
+    @building_zone_ids = nil
+    @level_zone_ids = nil
 
-    timezone = setting?(String, :timezone).presence || "GMT"
+    @org_zone_id = nil
+
+    @cache_timeout = setting?(Int64, :cache_timeout) || 300_i64
+    @keep_if_not_seen = setting?(Int64, :keep_if_not_seen) || 6_i64
+
+    timezone = setting?(String, :timezone).presence || "Australia/Sydney"
     @timezone = Time::Location.load(timezone)
     @update_schedule = setting?(String, :update_schedule).presence
 
@@ -54,17 +72,24 @@ class Place::TemplateMailer < PlaceOS::Driver
 
     if update_schedule = @update_schedule
       schedule.cron(update_schedule, @timezone) do
-        org_zone_ids.each { |zone_id| update_template_fields(zone_id) }
+        update_template_fields(org_zone_id)
       end
     end
 
-    org_zone_ids.each { |zone_id| update_template_fields(zone_id) }
+    update_template_fields(org_zone_id)
   end
 
   def get_zone_ids?(tag : String) : Array(String)?
     staff_api.zones(tags: tag).get.as_a.map(&.[]("id").as_s)
   rescue error
     logger.warn(exception: error) { "unable to determine #{tag} zone ids" }
+    nil
+  end
+
+  def get_local_zone_id(zone_ids : Array(String)) : String?
+    (zone_ids & system.zones).first
+  rescue error
+    logger.warn(exception: error) { "unable to determine local zone id" }
     nil
   end
 
@@ -76,8 +101,30 @@ class Place::TemplateMailer < PlaceOS::Driver
     nil
   end
 
+  def sticky_template_fields(zone_id : String) : Hash(String, MetadataTemplateFields)
+    # keep nothing
+    return Hash(String, MetadataTemplateFields).new if @keep_if_not_seen == 0
+
+    current_fields = get_template_fields?(zone_id) || Hash(String, MetadataTemplateFields).new
+    return current_fields if current_fields.empty?
+
+    # keep forever
+    return current_fields if @keep_if_not_seen == -1
+
+    sticky_fields = Hash(String, MetadataTemplateFields).new
+
+    current_fields.keys.each do |key|
+      not_seen = @not_seen_tims[key] += 1
+      if not_seen <= @keep_if_not_seen
+        sticky_fields[key] = current_fields[key]
+      end
+    end
+
+    sticky_fields
+  end
+
   def update_template_fields(zone_id : String)
-    template_fields : Hash(String, MetadataTemplateFields) = Hash(String, MetadataTemplateFields).new
+    template_fields : Hash(String, MetadataTemplateFields) = sticky_template_fields(zone_id)
 
     system.implementing(Interface::MailerTemplates).each do |driver|
       # next if the driver is turned off, or anything else goes wrong
