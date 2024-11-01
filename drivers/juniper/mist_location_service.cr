@@ -26,7 +26,7 @@ class Juniper::MistLocationService < PlaceOS::Driver
   # accessor dashboard : Dashboard_1
   accessor mist : MistWebsocket_1
 
-  # Map_ids => data
+  # map_ids => data
   @floorplan_mappings : Hash(String, Hash(String, String | Int32)) = Hash(String, Hash(String, String | Int32)).new
   @floorplan_sizes = {} of String => MapImage
 

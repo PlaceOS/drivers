@@ -36,7 +36,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   getter client_data : Hash(String, Client) { {} of String => Client }
 
   def on_load
-    # We want to store our user => mac_address mappings in redis
+    # We want to store our user => mac_address mappings in redis.
     @user_mac_mappings = PlaceOS::Driver::RedisStorage.new(module_id, "user_macs")
 
     # debug HTTP requests
