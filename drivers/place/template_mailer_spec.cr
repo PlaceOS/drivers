@@ -3,48 +3,48 @@ require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 
 class StaffAPI < DriverSpecs::MockDriver
-    ZONES = [
-      {
-        created_at:   1660537814,
-        updated_at:   1681800971,
-        id:           "zone-org-1234",
-        name:         "Test Org Zone",
-        display_name: "Test Org Zone",
-        location:     "",
-        description:  "",
-        code:         "",
-        type:         "",
-        count:        0,
-        capacity:     0,
-        map_id:       "",
-        tags:         [
-          "org",
-        ],
-        triggers:  [] of String,
-        parent_id: "zone-0000",
-        timezone:  "Australia/Sydney",
-      },
-      {
-        created_at:   1660537814,
-        updated_at:   1681800971,
-        id:           "zone-bld-1234",
-        name:         "Test Building Zone",
-        display_name: "Test Building Zone",
-        location:     "",
-        description:  "",
-        code:         "",
-        type:         "",
-        count:        0,
-        capacity:     0,
-        map_id:       "",
-        tags:         [
-          "building",
-        ],
-        triggers:  [] of String,
-        parent_id: "zone-0000",
-        timezone:  "Australia/Sydney",
-      },
-    ]
+  ZONES = [
+    {
+      created_at:   1660537814,
+      updated_at:   1681800971,
+      id:           "zone-org-1234",
+      name:         "Test Org Zone",
+      display_name: "Test Org Zone",
+      location:     "",
+      description:  "",
+      code:         "",
+      type:         "",
+      count:        0,
+      capacity:     0,
+      map_id:       "",
+      tags:         [
+        "org",
+      ],
+      triggers:  [] of String,
+      parent_id: "zone-0000",
+      timezone:  "Australia/Sydney",
+    },
+    {
+      created_at:   1660537814,
+      updated_at:   1681800971,
+      id:           "zone-bld-1234",
+      name:         "Test Building Zone",
+      display_name: "Test Building Zone",
+      location:     "",
+      description:  "",
+      code:         "",
+      type:         "",
+      count:        0,
+      capacity:     0,
+      map_id:       "",
+      tags:         [
+        "building",
+      ],
+      triggers:  [] of String,
+      parent_id: "zone-0000",
+      timezone:  "Australia/Sydney",
+    },
+  ]
 
   #   METADATA_TEMPLATES = {
   #     email_templates = {
@@ -84,15 +84,15 @@ class StaffAPI < DriverSpecs::MockDriver
   #     },
   #   }
 
-    def zones(q : String? = nil,
-              limit : Int32 = 1000,
-              offset : Int32 = 0,
-              parent : String? = nil,
-              tags : Array(String) | String? = nil)
-      zones = ZONES
-      zones = zones.select { |zone| zone["tags"].includes?(tags) } if tags.is_a?(String)
-      JSON.parse(zones.to_json)
-    end
+  def zones(q : String? = nil,
+            limit : Int32 = 1000,
+            offset : Int32 = 0,
+            parent : String? = nil,
+            tags : Array(String) | String? = nil)
+    zones = ZONES
+    zones = zones.select { |zone| zone["tags"].includes?(tags) } if tags.is_a?(String)
+    JSON.parse(zones.to_json)
+  end
 
   #   def metadata(id : String, key : String? = nil)
   #     case key
