@@ -44,7 +44,7 @@ class Place::TemplateMailer < PlaceOS::Driver
   # 0 to never keep
   # 1 to keep for 1 update
   @keep_if_not_seen : Int64 = 6
-  @not_seen_tims : Hash(String, Int64) = Hash(String, Int64).new
+  @not_seen_times : Hash(String, Int64) = Hash(String, Int64).new
 
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @update_schedule : String? = nil
@@ -114,8 +114,9 @@ class Place::TemplateMailer < PlaceOS::Driver
     sticky_fields = Hash(String, MetadataTemplateFields).new
 
     current_fields.keys.each do |key|
-      not_seen = @not_seen_tims[key] += 1
-      if not_seen <= @keep_if_not_seen
+      @not_seen_times[key] = @not_seen_times[key]? ? @not_seen_times[key] + 1 : 1_i64
+
+      if @not_seen_times[key] <= @keep_if_not_seen
         sticky_fields[key] = current_fields[key]
       end
     end
@@ -144,6 +145,10 @@ class Place::TemplateMailer < PlaceOS::Driver
           fields: field_list[:fields],
         )
       end
+    end
+
+    template_fields.keys.each do |key|
+      @not_seen_times[key] = 0_i64
     end
 
     self[:template_fields] = template_fields
