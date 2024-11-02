@@ -166,7 +166,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
 
     hide_qr_code = setting?(Bool, :hide_qr_code) || false
-    show_qr_code = setting?(Bool, :show_qr_code) || false
+    show_qr_code = setting?(Bool, :show_qr_code)
 
     self[:show_qr_code] = !hide_qr_code || show_qr_code
 
