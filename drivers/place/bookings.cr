@@ -168,7 +168,7 @@ class Place::Bookings < PlaceOS::Driver
     hide_qr_code = setting?(Bool, :hide_qr_code) || false
     show_qr_code = setting?(Bool, :show_qr_code)
 
-    self[:show_qr_code] = !hide_qr_code || show_qr_code
+    self[:show_qr_code] = show_qr_code.nil? ? !hide_qr_code : show_qr_code
 
     self[:sensor_mac] = @sensor_mac = setting?(String, :sensor_mac)
 
