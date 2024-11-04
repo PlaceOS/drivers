@@ -400,6 +400,7 @@ module Cisco::Meraki
   enum PortState
     Connected
     Disconnected
+    Disabled
   end
 
   class PortStatusResponse

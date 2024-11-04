@@ -1017,7 +1017,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   # grab all the client data we have (applies to all ports)
   # grab the port information
   # check we have a desk mapping for the port
-  # see if we can find the client information for the port
+  # see if we can find the client information for the port.
   protected def get_port_status(devices : Iterable(String))
     all_clients = poll_clients(@default_network, connection: :wired)
     devices.each do |serial|
