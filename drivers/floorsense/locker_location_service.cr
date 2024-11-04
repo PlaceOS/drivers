@@ -54,10 +54,10 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
   @controllers : Hash(Int32, ControllerInfo) = {} of Int32 => ControllerInfo
 
   # controller id => Locker bank ids
-  @locker_banks : Hash(Int32, Array(Int32)) = {} of Int32 => Array(Int32)
+  @locker_banks : Hash(Int32, Array(Int64)) = {} of Int32 => Array(Int64)
 
   # Locker bank id => controller id
-  @bank_controller : Hash(Int32, Int32) = {} of Int32 => Int32
+  @bank_controller : Hash(Int64, Int32) = {} of Int64 => Int32
 
   # level zone_id => controller ids
   @zone_mappings : Hash(String, Array(Int32)) = {} of String => Array(Int32)
@@ -72,10 +72,10 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     end
 
     # map the locker banks to these controllers
-    bank_map = {} of Int32 => Int32
+    bank_map = {} of Int64 => Int32
     @locker_banks = locker_banks.transform_values do |locker_banks, controller_id|
       locker_banks.map do |bank|
-        bid = bank["bid"].as_i
+        bid = bank["bid"].as_i64
         bank_map[bid] = controller_id
         bid
       end
@@ -270,8 +270,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
 
       # if we can find the level then we are interested in this booking
       if level
-        bank_id = floorsense.locker_info(floor_booking.key).get["bid"].as_i
-        PlaceLocker.new(bank_id, floor_booking, @zone_building, level)
+        PlaceLocker.new(get_locker_bank(floor_booking.key), floor_booking, @zone_building, level)
       end
     end
   end
@@ -404,6 +403,18 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     nil
   end
 
+  # locker bank ids
+  @locker_key_to_bank = {} of String => String | Int64
+
+  def get_locker_bank(locker_key : String)
+    if bank_id = @locker_key_to_bank[locker_key]?
+      return bank_id
+    end
+
+    bank_id = floorsense.locker_info(locker_key).get["bid"].as_i64
+    @locker_key_to_bank[locker_key] = bank_id
+  end
+
   def device_locations(zone_id : String, location : String? = nil)
     logger.debug { "searching lockers in zone #{zone_id}" }
     return [] of Nil if location && location != "locker"
@@ -415,17 +426,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     controller_list.flat_map do |controller_id|
       bookings = Array(LockerBooking).from_json(floorsense.locker_reservations(active: true, controller_id: controller_id).get.to_json)
       bookings.map do |booking|
-        {
-          location:    :locker,
-          at_location: 1,
-          map_id:      booking.key,
-          level:       zone_id,
-          building:    building,
-          capacity:    1,
-
-          # So we can look up who is at a desk at some point in the future
-          mac: "lc=#{booking.controller_id}&lk=#{booking.key}",
-        }
+        PlaceLocker.new(get_locker_bank(booking.key), booking, @zone_building, zone_id)
       end
     end
   end
