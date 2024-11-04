@@ -239,8 +239,17 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
     mappings = {} of Int32 => ControllerInfo
     controllers.each { |ctrl| mappings[ctrl.controller_id] = ctrl }
-    self[:controllers] = mappings
+    self[:controllers] = mappings if locker.nil? && desks.nil?
     @controllers = mappings
+  end
+
+  def bank_list(controller_id : String | Int32)
+    query = URI::Params.build do |form|
+      form.add("cid", controller_id.to_s)
+    end
+
+    response = get("/restapi/bank-list?#{query}", headers: default_headers)
+    parse response, Array(JSON::Any)
   end
 
   def settings_list(
@@ -294,6 +303,10 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, LockerInfo
   end
 
+  def locker_info(locker_key : String)
+    @lockers[locker_key]
+  end
+
   enum LedState
     Off
     On
@@ -343,21 +356,22 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def locker_reservation(
-    locker_key : String,
+    locker_key : String?,
     user_id : String,
     type : String? = nil,
     duration : Int32? = nil,
-    restype : String = "adhoc" # also supports fixed
+    restype : String = "adhoc", # also supports fixed
+    controller_id : String | Int64 | Nil = nil,
   )
-    lock = @lockers[locker_key]
+    controller_id ||= @lockers[locker_key].controller_id
 
     response = post("/restapi/res-create", headers: {
       "Accept"        => "application/json",
       "Authorization" => get_token,
       "Content-Type"  => "application/x-www-form-urlencoded",
     }, body: URI::Params.build { |form|
-      form.add("cid", lock.controller_id.to_s)
-      form.add("key", locker_key)
+      form.add("cid", controller_id.to_s)
+      form.add("key", locker_key.to_s) if locker_key.presence
       form.add("uid", user_id)
 
       form.add("type", type) if type
@@ -368,11 +382,12 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, LockerBooking
   end
 
-  def locker_reservations(active : Bool? = nil, user_id : String? = nil, controller_id : String? = nil)
+  def locker_reservations(active : Bool? = nil, user_id : String? = nil, controller_id : String? = nil, shared : Bool? = nil)
     query = URI::Params.build { |form|
       form.add("uid", user_id) if user_id
       form.add("active", "1") if active
       form.add("cid", controller_id) if controller_id
+      form.add("shared", "1") if shared
     }
 
     response = get("/restapi/res-list?#{query}", headers: default_headers)
@@ -409,7 +424,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   @[Security(Level::Support)]
   def locker_unlock(
     locker_key : String,
-    user_id : String
+    user_id : String? = nil,
+    pin : String? = nil
   )
     lock = @lockers[locker_key]
 
@@ -420,7 +436,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     }, body: URI::Params.build { |form|
       form.add("cid", lock.controller_id.to_s)
       form.add("key", locker_key)
-      form.add("uid", user_id)
+      form.add("uid", user_id.to_s) if user_id.presence
+      form.add("pin", pin.to_s) if pin.presence
     })
 
     check_success(response)

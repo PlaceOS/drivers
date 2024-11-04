@@ -368,7 +368,6 @@ module Floorsense
     property uidtoken : String?
     property extid : String?
     property usertype : String?
-    property desc : String?
     property privacy : Int32?
   end
 
@@ -419,6 +418,10 @@ module Floorsense
     property location4 : String
 
     property mode : String
+
+    def locations
+      {location1, location2, location3, location4}
+    end
   end
 
   class Voucher
