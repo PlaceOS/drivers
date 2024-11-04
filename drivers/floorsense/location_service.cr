@@ -152,6 +152,7 @@ class Floorsense::LocationService < PlaceOS::Driver
   end
 
   def check_ownership_of(mac_address : String) : OwnershipMAC?
+    return nil unless mac_address.starts_with?("cid=")
     floor_mac = URI::Params.parse mac_address
     user = floorsense.at_location(floor_mac["cid"], floor_mac["key"]).get
     {
