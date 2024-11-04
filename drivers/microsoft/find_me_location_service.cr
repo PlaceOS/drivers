@@ -175,7 +175,7 @@ class Microsoft::FindMeLocationService < PlaceOS::Driver
         # map_height:       100,
         lon:        lon,
         lat:        lat,
-        s2_cell_id: lat ? S2Cells::LatLon.new(lat.not_nil!, lon.not_nil!).to_token(@s2_level) : nil,
+        s2_cell_id: lat ? S2Cells.at(lat.not_nil!, lon.not_nil!).parent(@s2_level).to_token : nil,
 
         mac:      location.username,
         variance: variance,
