@@ -2192,8 +2192,18 @@
       
     </li>
   
-  <li class=" current" data-id="drivers/Floorsense/LockerLocationService" data-name="floorsense::lockerlocationservice">
+  <li class="parent open current" data-id="drivers/Floorsense/LockerLocationService" data-name="floorsense::lockerlocationservice">
       <a href="../Floorsense/LockerLocationService.html">LockerLocationService</a>
+      
+        <ul>
+  
+  <li class=" " data-id="drivers/Floorsense/LockerLocationService/PlaceLocker" data-name="floorsense::lockerlocationservice::placelocker">
+      <a href="../Floorsense/LockerLocationService/PlaceLocker.html">PlaceLocker</a>
+      
+    </li>
+  
+</ul>
+
       
     </li>
   
@@ -7150,7 +7160,7 @@
   </h2>
   <ul class="other-types-list">
     
-      <li class="other-type">PlaceOS::Driver::Interface::Locatable</li>
+      <li class="other-type">PlaceOS::Driver::Interface::Lockers</li>
     
   </ul>
 
@@ -7173,7 +7183,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L8" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L8" target="_blank">
         floorsense/locker_location_service.cr
       </a>
     
@@ -7218,11 +7228,6 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#bus_id_to_locker_id%28id%3AInt32%29-instance-method" class="signature"><strong>#bus_id_to_locker_id</strong>(id : Int32)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
         <a href="#check_ownership_of%28mac_address%3AString%29%3AOwnershipMAC%7CNil-instance-method" class="signature"><strong>#check_ownership_of</strong>(mac_address : String) : OwnershipMAC | Nil</a>
         
           <div class="summary"><p>return <code>nil</code> or <code>{&quot;location&quot;: &quot;wireless&quot;, &quot;assigned_to&quot;: &quot;bob123&quot;, &quot;mac_address&quot;: &quot;abcd&quot;}</code></p></div>
@@ -7237,9 +7242,72 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#get_floorsense_user%28place_user_id%3AString%29%3AString-instance-method" class="signature"><strong>#get_floorsense_user</strong>(place_user_id : String) : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_place_user_id%28floorsense_id%3AString%7CInt64%29%3AString-instance-method" class="signature"><strong>#get_place_user_id</strong>(floorsense_id : String | Int64) : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_user_email%28floorsense_id%3AString%7CInt64%29%3AString-instance-method" class="signature"><strong>#get_user_email</strong>(floorsense_id : String | Int64) : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#locate_user%28email%3AString%7CNil%3Dnil%2Cusername%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locate_user</strong>(email : String | Nil = <span class="n">nil</span>, username : String | Nil = <span class="n">nil</span>)</a>
         
           <div class="summary"><p>=================================== Locatable Interface functions ===================================</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locker_allocate%28user_id%3AString%2Cbank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%7CNil%3Dnil%2Cexpires_at%3AInt64%7CNil%3Dnil%29%3APlaceLocker-instance-method" class="signature"><strong>#locker_allocate</strong>(user_id : String, bank_id : String | Int64, locker_id : String | Int64 | Nil = <span class="n">nil</span>, expires_at : Int64 | Nil = <span class="n">nil</span>) : PlaceLocker</a>
+        
+          <div class="summary"><p>allocates a locker now, the allocation may expire</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locker_banks-instance-method" class="signature"><strong>#locker_banks</strong></a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locker_release%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%7CNil%3Dnil%29%3ANil-instance-method" class="signature"><strong>#locker_release</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String | Nil = <span class="n">nil</span>) : Nil</a>
+        
+          <div class="summary"><p>return the locker to the pool</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locker_share%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%2Cshare_with%3AString%29%3ANil-instance-method" class="signature"><strong>#locker_share</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String, share_with : String) : Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locker_shared_with%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%29%3AArray%28String%29-instance-method" class="signature"><strong>#locker_shared_with</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String) : Array(String)</a>
+        
+          <div class="summary"><p>a list of user-ids that the locker is shared with.</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locker_unlock%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%7CNil%3Dnil%2Copen_time%3AInt32%3D60%2Cpin_code%3AString%7CNil%3Dnil%29%3ANil-instance-method" class="signature"><strong>#locker_unlock</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String | Nil = <span class="n">nil</span>, open_time : Int32 = <span class="n">60</span>, pin_code : String | Nil = <span class="n">nil</span>) : Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#locker_unshare%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%2Cshared_with_id%3AString%7CNil%3Dnil%29%3ANil-instance-method" class="signature"><strong>#locker_unshare</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String, shared_with_id : String | Nil = <span class="n">nil</span>) : Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#lockers_allocated_to%28user_id%3AString%29%3AArray%28PlaceLocker%29-instance-method" class="signature"><strong>#lockers_allocated_to</strong>(user_id : String) : Array(PlaceLocker)</a>
+        
+          <div class="summary"><p>a list of lockers that are allocated to the user</p></div>
         
       </li>
     
@@ -7265,6 +7333,19 @@
 
 
 <div class="methods-inherited">
+  
+    
+
+
+    
+
+
+    
+
+
+    
+
+
   
     
 
@@ -7360,22 +7441,6 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="bus_id_to_locker_id(id:Int32)-instance-method">
-      <div class="signature">
-        
-        def <strong>bus_id_to_locker_id</strong>(id : Int32)
-
-        <a class="method-permalink" href="#bus_id_to_locker_id%28id%3AInt32%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L53" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
     <div class="entry-detail" id="check_ownership_of(mac_address:String):OwnershipMAC|Nil-instance-method">
       <div class="signature">
         
@@ -7396,7 +7461,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L70" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L389" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7421,7 +7486,55 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L82" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L407" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_floorsense_user(place_user_id:String):String-instance-method">
+      <div class="signature">
+        
+        def <strong>get_floorsense_user</strong>(place_user_id : String) : String
+
+        <a class="method-permalink" href="#get_floorsense_user%28place_user_id%3AString%29%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L115" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_place_user_id(floorsense_id:String|Int64):String-instance-method">
+      <div class="signature">
+        
+        def <strong>get_place_user_id</strong>(floorsense_id : String | Int64) : String
+
+        <a class="method-permalink" href="#get_place_user_id%28floorsense_id%3AString%7CInt64%29%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L153" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_user_email(floorsense_id:String|Int64):String-instance-method">
+      <div class="signature">
+        
+        def <strong>get_user_email</strong>(floorsense_id : String | Int64) : String
+
+        <a class="method-permalink" href="#get_user_email%28floorsense_id%3AString%7CInt64%29%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L166" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7446,7 +7559,156 @@ Locatable Interface functions</h1>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L60" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L377" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locker_allocate(user_id:String,bank_id:String|Int64,locker_id:String|Int64|Nil=nil,expires_at:Int64|Nil=nil):PlaceLocker-instance-method">
+      <div class="signature">
+        
+        def <strong>locker_allocate</strong>(user_id : String, bank_id : String | Int64, locker_id : String | Int64 | Nil = <span class="n">nil</span>, expires_at : Int64 | Nil = <span class="n">nil</span>) : <a href="../Floorsense/LockerLocationService/PlaceLocker.html">PlaceLocker</a>
+
+        <a class="method-permalink" href="#locker_allocate%28user_id%3AString%2Cbank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%7CNil%3Dnil%2Cexpires_at%3AInt64%7CNil%3Dnil%29%3APlaceLocker-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>allocates a locker now, the allocation may expire</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L197" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locker_banks-instance-method">
+      <div class="signature">
+        
+        def <strong>locker_banks</strong>
+
+        <a class="method-permalink" href="#locker_banks-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L99" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locker_release(bank_id:String|Int64,locker_id:String|Int64,owner_id:String|Nil=nil):Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>locker_release</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String | Nil = <span class="n">nil</span>) : Nil
+
+        <a class="method-permalink" href="#locker_release%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%7CNil%3Dnil%29%3ANil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>return the locker to the pool</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L233" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locker_share(bank_id:String|Int64,locker_id:String|Int64,owner_id:String,share_with:String):Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>locker_share</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String, share_with : String) : Nil
+
+        <a class="method-permalink" href="#locker_share%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%2Cshare_with%3AString%29%3ANil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L280" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locker_shared_with(bank_id:String|Int64,locker_id:String|Int64,owner_id:String):Array(String)-instance-method">
+      <div class="signature">
+        
+        def <strong>locker_shared_with</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String) : Array(String)
+
+        <a class="method-permalink" href="#locker_shared_with%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%29%3AArray%28String%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>a list of user-ids that the locker is shared with.
+this can be placeos user ids or emails</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L331" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locker_unlock(bank_id:String|Int64,locker_id:String|Int64,owner_id:String|Nil=nil,open_time:Int32=60,pin_code:String|Nil=nil):Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>locker_unlock</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String | Nil = <span class="n">nil</span>, open_time : Int32 = <span class="n">60</span>, pin_code : String | Nil = <span class="n">nil</span>) : Nil
+
+        <a class="method-permalink" href="#locker_unlock%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%7CNil%3Dnil%2Copen_time%3AInt32%3D60%2Cpin_code%3AString%7CNil%3Dnil%29%3ANil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L354" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="locker_unshare(bank_id:String|Int64,locker_id:String|Int64,owner_id:String,shared_with_id:String|Nil=nil):Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>locker_unshare</strong>(bank_id : String | Int64, locker_id : String | Int64, owner_id : String, shared_with_id : String | Nil = <span class="n">nil</span>) : Nil
+
+        <a class="method-permalink" href="#locker_unshare%28bank_id%3AString%7CInt64%2Clocker_id%3AString%7CInt64%2Cowner_id%3AString%2Cshared_with_id%3AString%7CNil%3Dnil%29%3ANil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L300" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="lockers_allocated_to(user_id:String):Array(PlaceLocker)-instance-method">
+      <div class="signature">
+        
+        def <strong>lockers_allocated_to</strong>(user_id : String) : Array(<a href="../Floorsense/LockerLocationService/PlaceLocker.html">PlaceLocker</a>)
+
+        <a class="method-permalink" href="#lockers_allocated_to%28user_id%3AString%29%3AArray%28PlaceLocker%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>a list of lockers that are allocated to the user</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L257" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7472,7 +7734,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L65" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L382" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7488,7 +7750,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L39" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L40" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7504,7 +7766,7 @@ lowercase with no seperation characters abcdeffd1234 etc</p>
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/c2bd5531a92b7aa81d233ea9e3648369d823db25/src/floorsense/locker_location_service.cr#L43" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/eb3b42b506d3641072236d8aec6df68e288d7621/src/floorsense/locker_location_service.cr#L44" target="_blank">View source</a>]
         
       </div>
     </div>
