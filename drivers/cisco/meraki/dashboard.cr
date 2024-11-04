@@ -14,7 +14,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
       * Dashboard API: https://documentation.meraki.com/zGeneral_Administration/Other_Topics/The_Cisco_Meraki_Dashboard_API
       * Scanning API: https://developer.cisco.com/meraki/scanning-api/#!introduction/scanning-api
 
-    NOTE:: API Call volume is rate limited to 5 calls per second per organization
+    NOTE:: API Call volume is rate limited to 5 calls per second per organization.
   )
 
   default_settings({
