@@ -10,13 +10,13 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
   alias PlaceLocker = PlaceOS::Driver::Interface::Lockers::PlaceLocker
 
   descriptive_name "Floorsense Locker Location Service"
-  generic_name :FloorsenseLockerLocationService
+  generic_name :FloorsenseLockers
   description %(collects locker booking data from the staff API and overlays Floorsense data for visualising on a map)
 
   accessor floorsense : Floorsense_1
   accessor staff_api : StaffAPI_1
 
-  bind Bookings_1, :controllers, :controllers_changed
+  bind Floorsense_1, :controllers, :controllers_changed
 
   default_settings({
     # execute Floorsense.controller_list to define these mappings
