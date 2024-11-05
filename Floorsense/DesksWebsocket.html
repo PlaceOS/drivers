@@ -7183,7 +7183,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L12" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L12" target="_blank">
         floorsense/desks_websocket.cr
       </a>
     
@@ -7245,7 +7245,7 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#activate_booking%28booking_id%3AString%7CInt64%2Ccontroller_id%3AString%7CInt64%7CNil%3Dnil%2Ckey%3AString%7CNil%3Dnil%2Ceui64%3AString%7CNil%3Dnil%2Cuserpresent%3ABool%7CNil%3Dnil%29-instance-method" class="signature"><strong>#activate_booking</strong>(booking_id : String | Int64, controller_id : String | Int64 | Nil = <span class="n">nil</span>, key : String | Nil = <span class="n">nil</span>, eui64 : String | Nil = <span class="n">nil</span>, userpresent : Bool | Nil = <span class="n">nil</span>)</a>
+        <a href="#activate_booking%28booking_id%3AString%7CInt64%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%2Ckey%3AString%7CNil%3Dnil%2Ceui64%3AString%7CNil%3Dnil%2Cuserpresent%3ABool%7CNil%3Dnil%29-instance-method" class="signature"><strong>#activate_booking</strong>(booking_id : String | Int64, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>, key : String | Nil = <span class="n">nil</span>, eui64 : String | Nil = <span class="n">nil</span>, userpresent : Bool | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7255,12 +7255,12 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#at_location%28controller_id%3AString%2Cdesk_key%3AString%29-instance-method" class="signature"><strong>#at_location</strong>(controller_id : String, desk_key : String)</a>
+        <a href="#at_location%28controller_id%3AString%7CInt32%7CInt64%2Cdesk_key%3AString%29-instance-method" class="signature"><strong>#at_location</strong>(controller_id : String | Int32 | Int64, desk_key : String)</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#bank_list%28controller_id%3AString%7CInt32%29-instance-method" class="signature"><strong>#bank_list</strong>(controller_id : String | Int32)</a>
+        <a href="#bank_list%28controller_id%3AString%7CInt32%7CInt64%29-instance-method" class="signature"><strong>#bank_list</strong>(controller_id : String | Int32 | Int64)</a>
         
       </li>
     
@@ -7327,7 +7327,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#desk_list%28controller_id%3AString%7CInt32%29-instance-method" class="signature"><strong>#desk_list</strong>(controller_id : String | Int32)</a>
+        <a href="#desk_list%28controller_id%3AString%7CInt32%7CInt64%29-instance-method" class="signature"><strong>#desk_list</strong>(controller_id : String | Int32 | Int64)</a>
         
       </li>
     
@@ -7401,7 +7401,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#locate%28key%3AString%2Ccontroller_id%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locate</strong>(key : String, controller_id : String | Nil = <span class="n">nil</span>)</a>
+        <a href="#locate%28key%3AString%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locate</strong>(key : String, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7431,12 +7431,12 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#locker_reservation%28locker_key%3AString%7CNil%2Cuser_id%3AString%2Ctype%3AString%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%2Crestype%3AString%3D%22adhoc%22%2Ccontroller_id%3AString%7CInt64%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locker_reservation</strong>(locker_key : String | Nil, user_id : String, type : String | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>, restype : String = <span class="s">&quot;adhoc&quot;</span>, controller_id : String | Int64 | Nil = <span class="n">nil</span>)</a>
+        <a href="#locker_reservation%28locker_key%3AString%7CNil%2Cuser_id%3AString%2Ctype%3AString%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%2Crestype%3AString%3D%22adhoc%22%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locker_reservation</strong>(locker_key : String | Nil, user_id : String, type : String | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>, restype : String = <span class="s">&quot;adhoc&quot;</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#locker_reservations%28active%3ABool%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CNil%3Dnil%2Cshared%3ABool%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locker_reservations</strong>(active : Bool | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, controller_id : String | Nil = <span class="n">nil</span>, shared : Bool | Nil = <span class="n">nil</span>)</a>
+        <a href="#locker_reservations%28active%3ABool%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%2Cshared%3ABool%7CNil%3Dnil%29-instance-method" class="signature"><strong>#locker_reservations</strong>(active : Bool | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>, shared : Bool | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7467,7 +7467,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#lockers%28controller_id%3AString%7CInt32%29-instance-method" class="signature"><strong>#lockers</strong>(controller_id : String | Int32)</a>
+        <a href="#lockers%28controller_id%3AString%7CInt32%7CInt64%29-instance-method" class="signature"><strong>#lockers</strong>(controller_id : String | Int32 | Int64)</a>
         
       </li>
     
@@ -7513,7 +7513,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#settings_list%28group_id%3AInt32%7CNil%3Dnil%2Cuser_group_id%3AInt32%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CNil%3Dnil%29-instance-method" class="signature"><strong>#settings_list</strong>(group_id : Int32 | Nil = <span class="n">nil</span>, user_group_id : Int32 | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Nil = <span class="n">nil</span>)</a>
+        <a href="#settings_list%28group_id%3AInt32%7CNil%3Dnil%2Cuser_group_id%3AInt32%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%29-instance-method" class="signature"><strong>#settings_list</strong>(group_id : Int32 | Nil = <span class="n">nil</span>, user_group_id : Int32 | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7553,7 +7553,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#voucher_create%28template_key%3AString%2Cuser_name%3AString%2Cuser_email%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Creservation_id%3AString%7CNil%3Dnil%2Clocker_key%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CNil%3Dnil%2Cnotes%3AString%7CNil%3Dnil%2Cvalidfrom%3AInt64%7CNil%3Dnil%2Cvalidto%3AInt64%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%29-instance-method" class="signature"><strong>#voucher_create</strong>(template_key : String, user_name : String, user_email : String, user_id : String | Nil = <span class="n">nil</span>, reservation_id : String | Nil = <span class="n">nil</span>, locker_key : String | Nil = <span class="n">nil</span>, controller_id : String | Nil = <span class="n">nil</span>, notes : String | Nil = <span class="n">nil</span>, validfrom : Int64 | Nil = <span class="n">nil</span>, validto : Int64 | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>)</a>
+        <a href="#voucher_create%28template_key%3AString%2Cuser_name%3AString%2Cuser_email%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Creservation_id%3AString%7CNil%3Dnil%2Clocker_key%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%2Cnotes%3AString%7CNil%3Dnil%2Cvalidfrom%3AInt64%7CNil%3Dnil%2Cvalidto%3AInt64%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%29-instance-method" class="signature"><strong>#voucher_create</strong>(template_key : String, user_name : String, user_email : String, user_id : String | Nil = <span class="n">nil</span>, reservation_id : String | Nil = <span class="n">nil</span>, locker_key : String | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>, notes : String | Nil = <span class="n">nil</span>, validfrom : Int64 | Nil = <span class="n">nil</span>, validto : Int64 | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7686,7 +7686,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L176" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L176" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7703,18 +7703,18 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="activate_booking(booking_id:String|Int64,controller_id:String|Int64|Nil=nil,key:String|Nil=nil,eui64:String|Nil=nil,userpresent:Bool|Nil=nil)-instance-method">
+    <div class="entry-detail" id="activate_booking(booking_id:String|Int64,controller_id:String|Int32|Int64|Nil=nil,key:String|Nil=nil,eui64:String|Nil=nil,userpresent:Bool|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>activate_booking</strong>(booking_id : String | Int64, controller_id : String | Int64 | Nil = <span class="n">nil</span>, key : String | Nil = <span class="n">nil</span>, eui64 : String | Nil = <span class="n">nil</span>, userpresent : Bool | Nil = <span class="n">nil</span>)
+        def <strong>activate_booking</strong>(booking_id : String | Int64, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>, key : String | Nil = <span class="n">nil</span>, eui64 : String | Nil = <span class="n">nil</span>, userpresent : Bool | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#activate_booking%28booking_id%3AString%7CInt64%2Ccontroller_id%3AString%7CInt64%7CNil%3Dnil%2Ckey%3AString%7CNil%3Dnil%2Ceui64%3AString%7CNil%3Dnil%2Cuserpresent%3ABool%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#activate_booking%28booking_id%3AString%7CInt64%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%2Ckey%3AString%7CNil%3Dnil%2Ceui64%3AString%7CNil%3Dnil%2Cuserpresent%3ABool%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L643" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L643" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7730,39 +7730,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L290" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L290" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="at_location(controller_id:String,desk_key:String)-instance-method">
+    <div class="entry-detail" id="at_location(controller_id:String|Int32|Int64,desk_key:String)-instance-method">
       <div class="signature">
         
-        def <strong>at_location</strong>(controller_id : String, desk_key : String)
+        def <strong>at_location</strong>(controller_id : String | Int32 | Int64, desk_key : String)
 
-        <a class="method-permalink" href="#at_location%28controller_id%3AString%2Cdesk_key%3AString%29-instance-method">#</a>
+        <a class="method-permalink" href="#at_location%28controller_id%3AString%7CInt32%7CInt64%2Cdesk_key%3AString%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L952" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L952" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="bank_list(controller_id:String|Int32)-instance-method">
+    <div class="entry-detail" id="bank_list(controller_id:String|Int32|Int64)-instance-method">
       <div class="signature">
         
-        def <strong>bank_list</strong>(controller_id : String | Int32)
+        def <strong>bank_list</strong>(controller_id : String | Int32 | Int64)
 
-        <a class="method-permalink" href="#bank_list%28controller_id%3AString%7CInt32%29-instance-method">#</a>
+        <a class="method-permalink" href="#bank_list%28controller_id%3AString%7CInt32%7CInt64%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L246" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L246" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7778,7 +7778,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L610" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L610" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7799,7 +7799,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L91" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L91" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7815,7 +7815,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L960" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L960" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7831,7 +7831,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L631" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L631" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7847,7 +7847,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L70" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L70" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7863,7 +7863,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L231" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L231" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7879,7 +7879,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L683" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L683" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7895,7 +7895,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L874" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L874" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7911,7 +7911,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L848" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L848" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7927,7 +7927,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L193" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L193" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7943,7 +7943,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L892" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L892" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7959,23 +7959,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L778" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L778" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="desk_list(controller_id:String|Int32)-instance-method">
+    <div class="entry-detail" id="desk_list(controller_id:String|Int32|Int64)-instance-method">
       <div class="signature">
         
-        def <strong>desk_list</strong>(controller_id : String | Int32)
+        def <strong>desk_list</strong>(controller_id : String | Int32 | Int64)
 
-        <a class="method-permalink" href="#desk_list%28controller_id%3AString%7CInt32%29-instance-method">#</a>
+        <a class="method-permalink" href="#desk_list%28controller_id%3AString%7CInt32%7CInt64%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L750" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L750" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7996,7 +7996,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L664" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L664" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8012,7 +8012,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L605" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L605" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8028,7 +8028,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L933" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L933" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8044,7 +8044,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L129" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L129" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8060,7 +8060,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L600" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L600" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8076,7 +8076,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L624" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L624" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8101,7 +8101,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L818" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L818" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8117,7 +8117,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L836" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L836" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8133,7 +8133,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L349" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L349" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8149,7 +8149,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L904" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L904" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8165,7 +8165,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L270" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L270" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8181,7 +8181,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L138" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L138" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8197,23 +8197,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L909" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L909" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="locate(key:String,controller_id:String|Nil=nil)-instance-method">
+    <div class="entry-detail" id="locate(key:String,controller_id:String|Int32|Int64|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>locate</strong>(key : String, controller_id : String | Nil = <span class="n">nil</span>)
+        def <strong>locate</strong>(key : String, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#locate%28key%3AString%2Ccontroller_id%3AString%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#locate%28key%3AString%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L964" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L964" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8229,7 +8229,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L300" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L300" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8245,7 +8245,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L411" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L411" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8261,7 +8261,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L318" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L318" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8277,7 +8277,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L306" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L306" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8293,39 +8293,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L398" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L398" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="locker_reservation(locker_key:String|Nil,user_id:String,type:String|Nil=nil,duration:Int32|Nil=nil,restype:String=&quot;adhoc&quot;,controller_id:String|Int64|Nil=nil)-instance-method">
+    <div class="entry-detail" id="locker_reservation(locker_key:String|Nil,user_id:String,type:String|Nil=nil,duration:Int32|Nil=nil,restype:String=&quot;adhoc&quot;,controller_id:String|Int32|Int64|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>locker_reservation</strong>(locker_key : String | Nil, user_id : String, type : String | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>, restype : String = <span class="s">&quot;adhoc&quot;</span>, controller_id : String | Int64 | Nil = <span class="n">nil</span>)
+        def <strong>locker_reservation</strong>(locker_key : String | Nil, user_id : String, type : String | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>, restype : String = <span class="s">&quot;adhoc&quot;</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#locker_reservation%28locker_key%3AString%7CNil%2Cuser_id%3AString%2Ctype%3AString%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%2Crestype%3AString%3D%22adhoc%22%2Ccontroller_id%3AString%7CInt64%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#locker_reservation%28locker_key%3AString%7CNil%2Cuser_id%3AString%2Ctype%3AString%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%2Crestype%3AString%3D%22adhoc%22%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L358" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L358" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="locker_reservations(active:Bool|Nil=nil,user_id:String|Nil=nil,controller_id:String|Nil=nil,shared:Bool|Nil=nil)-instance-method">
+    <div class="entry-detail" id="locker_reservations(active:Bool|Nil=nil,user_id:String|Nil=nil,controller_id:String|Int32|Int64|Nil=nil,shared:Bool|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>locker_reservations</strong>(active : Bool | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, controller_id : String | Nil = <span class="n">nil</span>, shared : Bool | Nil = <span class="n">nil</span>)
+        def <strong>locker_reservations</strong>(active : Bool | Nil = <span class="n">nil</span>, user_id : String | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>, shared : Bool | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#locker_reservations%28active%3ABool%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CNil%3Dnil%2Cshared%3ABool%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#locker_reservations%28active%3ABool%7CNil%3Dnil%2Cuser_id%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%2Cshared%3ABool%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L385" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L385" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8346,7 +8346,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L453" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L453" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8367,7 +8367,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L447" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L447" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8383,7 +8383,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L425" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L425" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8404,23 +8404,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L472" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L472" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="lockers(controller_id:String|Int32)-instance-method">
+    <div class="entry-detail" id="lockers(controller_id:String|Int32|Int64)-instance-method">
       <div class="signature">
         
-        def <strong>lockers</strong>(controller_id : String | Int32)
+        def <strong>lockers</strong>(controller_id : String | Int32 | Int64)
 
-        <a class="method-permalink" href="#lockers%28controller_id%3AString%7CInt32%29-instance-method">#</a>
+        <a class="method-permalink" href="#lockers%28controller_id%3AString%7CInt32%7CInt64%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L295" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L295" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8436,7 +8436,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L47" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L47" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8452,7 +8452,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L52" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L52" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8468,7 +8468,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L95" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L95" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8484,7 +8484,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L722" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L722" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8509,7 +8509,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L814" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L814" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8534,7 +8534,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L822" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L822" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8555,23 +8555,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L280" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L280" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="settings_list(group_id:Int32|Nil=nil,user_group_id:Int32|Nil=nil,controller_id:String|Int32|Nil=nil)-instance-method">
+    <div class="entry-detail" id="settings_list(group_id:Int32|Nil=nil,user_group_id:Int32|Nil=nil,controller_id:String|Int32|Int64|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>settings_list</strong>(group_id : Int32 | Nil = <span class="n">nil</span>, user_group_id : Int32 | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Nil = <span class="n">nil</span>)
+        def <strong>settings_list</strong>(group_id : Int32 | Nil = <span class="n">nil</span>, user_group_id : Int32 | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#settings_list%28group_id%3AInt32%7CNil%3Dnil%2Cuser_group_id%3AInt32%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#settings_list%28group_id%3AInt32%7CNil%3Dnil%2Cuser_group_id%3AInt32%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L255" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L255" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8587,7 +8587,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L200" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L200" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8603,7 +8603,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L133" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L133" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8619,7 +8619,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L732" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L732" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8635,7 +8635,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L842" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L842" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8651,7 +8651,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L919" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L919" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8667,7 +8667,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L592" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L592" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8683,23 +8683,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L577" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L577" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="voucher_create(template_key:String,user_name:String,user_email:String,user_id:String|Nil=nil,reservation_id:String|Nil=nil,locker_key:String|Nil=nil,controller_id:String|Nil=nil,notes:String|Nil=nil,validfrom:Int64|Nil=nil,validto:Int64|Nil=nil,duration:Int32|Nil=nil)-instance-method">
+    <div class="entry-detail" id="voucher_create(template_key:String,user_name:String,user_email:String,user_id:String|Nil=nil,reservation_id:String|Nil=nil,locker_key:String|Nil=nil,controller_id:String|Int32|Int64|Nil=nil,notes:String|Nil=nil,validfrom:Int64|Nil=nil,validto:Int64|Nil=nil,duration:Int32|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>voucher_create</strong>(template_key : String, user_name : String, user_email : String, user_id : String | Nil = <span class="n">nil</span>, reservation_id : String | Nil = <span class="n">nil</span>, locker_key : String | Nil = <span class="n">nil</span>, controller_id : String | Nil = <span class="n">nil</span>, notes : String | Nil = <span class="n">nil</span>, validfrom : Int64 | Nil = <span class="n">nil</span>, validto : Int64 | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>)
+        def <strong>voucher_create</strong>(template_key : String, user_name : String, user_email : String, user_id : String | Nil = <span class="n">nil</span>, reservation_id : String | Nil = <span class="n">nil</span>, locker_key : String | Nil = <span class="n">nil</span>, controller_id : String | Int32 | Int64 | Nil = <span class="n">nil</span>, notes : String | Nil = <span class="n">nil</span>, validfrom : Int64 | Nil = <span class="n">nil</span>, validto : Int64 | Nil = <span class="n">nil</span>, duration : Int32 | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#voucher_create%28template_key%3AString%2Cuser_name%3AString%2Cuser_email%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Creservation_id%3AString%7CNil%3Dnil%2Clocker_key%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CNil%3Dnil%2Cnotes%3AString%7CNil%3Dnil%2Cvalidfrom%3AInt64%7CNil%3Dnil%2Cvalidto%3AInt64%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#voucher_create%28template_key%3AString%2Cuser_name%3AString%2Cuser_email%3AString%2Cuser_id%3AString%7CNil%3Dnil%2Creservation_id%3AString%7CNil%3Dnil%2Clocker_key%3AString%7CNil%3Dnil%2Ccontroller_id%3AString%7CInt32%7CInt64%7CNil%3Dnil%2Cnotes%3AString%7CNil%3Dnil%2Cvalidfrom%3AInt64%7CNil%3Dnil%2Cvalidto%3AInt64%7CNil%3Dnil%2Cduration%3AInt32%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L542" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L542" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8715,7 +8715,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L493" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L493" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8731,7 +8731,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L488" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L488" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8747,7 +8747,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L84" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L84" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8763,7 +8763,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/ee5de05c04181832b448721bdb85754088b38839/src/floorsense/desks_websocket.cr#L77" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/3471978b03fa8a14ddd95e9fbb6ef1b4fda06fda/src/floorsense/desks_websocket.cr#L77" target="_blank">View source</a>]
         
       </div>
     </div>
