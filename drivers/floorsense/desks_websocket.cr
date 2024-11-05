@@ -243,7 +243,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     @controllers = mappings
   end
 
-  def bank_list(controller_id : String | Int32)
+  def bank_list(controller_id : String | Int32 | Int64)
     query = URI::Params.build do |form|
       form.add("cid", controller_id.to_s)
     end
@@ -255,7 +255,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   def settings_list(
     group_id : Int32? = nil,
     user_group_id : Int32? = nil,
-    controller_id : String | Int32? = nil
+    controller_id : String | Int32 | Int64? = nil
   )
     query = URI::Params.build { |form|
       form.add("cid", controller_id.to_s) if controller_id
@@ -292,7 +292,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     sync_locker_list.values
   end
 
-  def lockers(controller_id : String | Int32)
+  def lockers(controller_id : String | Int32 | Int64)
     response = get("/restapi/locker-list?cid=#{controller_id}", headers: default_headers)
     parse response, Array(LockerInfo)
   end
@@ -361,7 +361,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     type : String? = nil,
     duration : Int32? = nil,
     restype : String = "adhoc", # also supports fixed
-    controller_id : String | Int64 | Nil = nil,
+    controller_id : String | Int32 | Int64 | Nil = nil,
   )
     controller_id ||= @lockers[locker_key].controller_id
 
@@ -382,11 +382,11 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, LockerBooking
   end
 
-  def locker_reservations(active : Bool? = nil, user_id : String? = nil, controller_id : String? = nil, shared : Bool? = nil)
+  def locker_reservations(active : Bool? = nil, user_id : String? = nil, controller_id : String | Int32 | Int64? = nil, shared : Bool? = nil)
     query = URI::Params.build { |form|
       form.add("uid", user_id) if user_id
       form.add("active", "1") if active
-      form.add("cid", controller_id) if controller_id
+      form.add("cid", controller_id.to_s) if controller_id
       form.add("shared", "1") if shared
     }
 
@@ -546,7 +546,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     user_id : String? = nil,        # if the user already exists
     reservation_id : String? = nil, # if a reservation already exists
     locker_key : String? = nil,
-    controller_id : String? = nil,
+    controller_id : String | Int32 | Int64? = nil,
     notes : String? = nil,
     validfrom : Int64? = nil,
     validto : Int64? = nil,
@@ -642,7 +642,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
   def activate_booking(
     booking_id : String | Int64,
-    controller_id : String | Int64 | Nil = nil,
+    controller_id : String | Int32 | Int64 | Nil = nil,
     key : String | Nil = nil,
     eui64 : String | Nil = nil,
     userpresent : Bool? = nil
@@ -747,7 +747,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     booking
   end
 
-  def desk_list(controller_id : String | Int32)
+  def desk_list(controller_id : String | Int32 | Int64)
     response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
     parse response, Array(DeskInfo)
   end
@@ -949,7 +949,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     end
   end
 
-  def at_location(controller_id : String, desk_key : String)
+  def at_location(controller_id : String | Int32 | Int64, desk_key : String)
     response = get("/restapi/user-locate?cid=#{controller_id}&desk_key=#{desk_key}", headers: default_headers)
     logger.debug { "at_location response: #{response.body}" }
     users = parse response, Array(User)
@@ -961,7 +961,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     @user_cache.clear
   end
 
-  def locate(key : String, controller_id : String? = nil)
+  def locate(key : String, controller_id : String | Int32 | Int64? = nil)
     uri = if controller_id
             "/restapi/user-locate?cid=#{controller_id}&key=#{URI.encode_www_form key}"
           else
