@@ -99,7 +99,9 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
   def locker_banks
     banks = {} of Int32 => Array(JSON::Any)
     @controllers.each_key do |controller_id|
-      banks[controller_id] = floorsense.bank_list(controller_id).get.as_a
+      if json = (floorsense.bank_list(controller_id).get rescue nil)
+        banks[controller_id] = json.as_a
+      end
     end
     banks
   end
@@ -116,6 +118,8 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     place_user = staff_api.user(place_user_id).get
     placeos_staff_id = place_user[@user_lookup].as_s
 
+    logger.debug { "found place id: #{placeos_staff_id}" }
+
     user_query = case @floorsense_filter
                  when "name"
                    floorsense.user_list(name: placeos_staff_id)
@@ -125,6 +129,8 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
                    floorsense.user_list(description: placeos_staff_id)
                  end
     floorsense_users = user_query.get.as_a
+
+    logger.debug { "found #{floorsense_users.size} matching floorsense users" }
 
     user_id = floorsense_users.first?.try(&.[]("uid").as_s)
     user_id ||= floorsense.create_user(place_user["name"].as_s, place_user["email"].as_s, placeos_staff_id).get["uid"].as_s if @create_floorsense_users
