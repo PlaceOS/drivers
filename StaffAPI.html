@@ -5262,6 +5262,36 @@
       
     </li>
   
+  <li class="parent " data-id="drivers/Place/TemplateMailer" data-name="place::templatemailer">
+      <a href="Place/TemplateMailer.html">TemplateMailer</a>
+      
+        <ul>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/Metadata" data-name="place::templatemailer::metadata">
+      <a href="Place/TemplateMailer/Metadata.html">Metadata</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/MetadataTemplateFields" data-name="place::templatemailer::metadatatemplatefields">
+      <a href="Place/TemplateMailer/MetadataTemplateFields.html">MetadataTemplateFields</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/Template" data-name="place::templatemailer::template">
+      <a href="Place/TemplateMailer/Template.html">Template</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/TemplateCache" data-name="place::templatemailer::templatecache">
+      <a href="Place/TemplateMailer/TemplateCache.html">TemplateCache</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
   <li class=" " data-id="drivers/Place/TODOs" data-name="place::todos">
       <a href="Place/TODOs.html">TODOs</a>
       
@@ -7169,15 +7199,22 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L4" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L4" target="_blank">
         place/auto_release_spec.cr
       </a>
     
     <br/>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/survey_mailer_spec.cr#L4" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/survey_mailer_spec.cr#L4" target="_blank">
         place/survey_mailer_spec.cr
+      </a>
+    
+    <br/>
+  
+    
+      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/template_mailer_spec.cr#L5" target="_blank">
+        place/template_mailer_spec.cr
       </a>
     
     <br/>
@@ -7218,6 +7255,11 @@
     
       <dt class="entry-const" id="NOW">
         <strong>NOW</strong> = <code><span class="t">Time</span>.local(location: <span class="t">Time</span><span class="t">::</span><span class="t">Location</span>.load(<span class="s">&quot;Australia/Sydney&quot;</span>))</code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="ZONES">
+        <strong>ZONES</strong> = <code>[{created_at: <span class="n">1660537814</span>, updated_at: <span class="n">1681800971</span>, id: <span class="s">&quot;zone-org-1234&quot;</span>, name: <span class="s">&quot;Test Org Zone&quot;</span>, display_name: <span class="s">&quot;Test Org Zone&quot;</span>, location: <span class="s">&quot;&quot;</span>, description: <span class="s">&quot;&quot;</span>, code: <span class="s">&quot;&quot;</span>, <span class="k">type</span>: <span class="s">&quot;&quot;</span>, count: <span class="n">0</span>, capacity: <span class="n">0</span>, map_id: <span class="s">&quot;&quot;</span>, tags: [<span class="s">&quot;org&quot;</span>], triggers: <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, parent_id: <span class="s">&quot;zone-0000&quot;</span>, timezone: <span class="s">&quot;Australia/Sydney&quot;</span>}, {created_at: <span class="n">1660537814</span>, updated_at: <span class="n">1681800971</span>, id: <span class="s">&quot;zone-bld-1234&quot;</span>, name: <span class="s">&quot;Test Building Zone&quot;</span>, display_name: <span class="s">&quot;Test Building Zone&quot;</span>, location: <span class="s">&quot;&quot;</span>, description: <span class="s">&quot;&quot;</span>, code: <span class="s">&quot;&quot;</span>, <span class="k">type</span>: <span class="s">&quot;&quot;</span>, count: <span class="n">0</span>, capacity: <span class="n">0</span>, map_id: <span class="s">&quot;&quot;</span>, tags: [<span class="s">&quot;building&quot;</span>], triggers: <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, parent_id: <span class="s">&quot;zone-0000&quot;</span>, timezone: <span class="s">&quot;Australia/Sydney&quot;</span>}]</code>
       </dt>
       
     
@@ -7306,6 +7348,11 @@
     
       <li class="entry-summary">
         <a href="#user%28id%3AString%29-instance-method" class="signature"><strong>#user</strong>(id : String)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#zones%28q%3AString%7CNil%3Dnil%2Climit%3AInt32%3D1000%2Coffset%3AInt32%3D0%2Cparent%3AString%7CNil%3Dnil%2Ctags%3AArray%28String%29%7CString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#zones</strong>(q : String | Nil = <span class="n">nil</span>, limit : Int32 = <span class="n">1000</span>, offset : Int32 = <span class="n">0</span>, parent : String | Nil = <span class="n">nil</span>, tags : Array(String) | String | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7458,7 +7505,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L291" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L291" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7474,7 +7521,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/survey_mailer_spec.cr#L5" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/survey_mailer_spec.cr#L5" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7499,7 +7546,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L5" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L5" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7515,7 +7562,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L274" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L274" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7531,7 +7578,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L9" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L9" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7547,7 +7594,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/survey_mailer_spec.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/survey_mailer_spec.cr#L49" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7563,7 +7610,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L305" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L305" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7579,7 +7626,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L512" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L512" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="zones(q:String|Nil=nil,limit:Int32=1000,offset:Int32=0,parent:String|Nil=nil,tags:Array(String)|String|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>zones</strong>(q : String | Nil = <span class="n">nil</span>, limit : Int32 = <span class="n">1000</span>, offset : Int32 = <span class="n">0</span>, parent : String | Nil = <span class="n">nil</span>, tags : Array(String) | String | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#zones%28q%3AString%7CNil%3Dnil%2Climit%3AInt32%3D1000%2Coffset%3AInt32%3D0%2Cparent%3AString%7CNil%3Dnil%2Ctags%3AArray%28String%29%7CString%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/template_mailer_spec.cr#L87" target="_blank">View source</a>]
         
       </div>
     </div>

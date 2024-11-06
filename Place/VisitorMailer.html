@@ -5262,6 +5262,36 @@
       
     </li>
   
+  <li class="parent " data-id="drivers/Place/TemplateMailer" data-name="place::templatemailer">
+      <a href="../Place/TemplateMailer.html">TemplateMailer</a>
+      
+        <ul>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/Metadata" data-name="place::templatemailer::metadata">
+      <a href="../Place/TemplateMailer/Metadata.html">Metadata</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/MetadataTemplateFields" data-name="place::templatemailer::metadatatemplatefields">
+      <a href="../Place/TemplateMailer/MetadataTemplateFields.html">MetadataTemplateFields</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/Template" data-name="place::templatemailer::template">
+      <a href="../Place/TemplateMailer/Template.html">Template</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/TemplateCache" data-name="place::templatemailer::templatecache">
+      <a href="../Place/TemplateMailer/TemplateCache.html">TemplateCache</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
   <li class=" " data-id="drivers/Place/TODOs" data-name="place::todos">
       <a href="../Place/TODOs.html">TODOs</a>
       
@@ -7150,6 +7180,20 @@
 
 
 
+  <h2>
+    <a id="included-modules" class="anchor" href="#included-modules">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Included Modules
+  </h2>
+  <ul class="other-types-list">
+    
+      <li class="other-type">PlaceOS::Driver::Interface::MailerTemplates</li>
+    
+  </ul>
+
 
 
 
@@ -7169,7 +7213,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L9" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L10" target="_blank">
         place/visitor_mailer.cr
       </a>
     
@@ -7264,6 +7308,13 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#template_fields%3AArray%28TemplateFields%29-instance-method" class="signature"><strong>#template_fields</strong> : Array(TemplateFields)</a>
+        
+          <div class="summary"><p>[     TemplateFields.new(       trigger: {&quot;bookings&quot;, &quot;booked_by_notify&quot;},       name: &quot;Booking booked by notification&quot;,       description: nil,       fields: common_fields     ),     TemplateFields.new(       trigger: {&quot;bookings&quot;, &quot;booking_notify&quot;},       name: &quot;Booking notification&quot;,       description: &quot;This template is used for booking notifications&quot;,       fields: common_fields + [         {name: &quot;start_time&quot;, description: &quot;The start time of the booking&quot;},       ]     ),   ] end</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#update_network_user_password%28user_email%3AString%2Cpassword%3AString%2Cnetwork_group_ids%3AArray%28String%29%3D%5B%5DofString%29-instance-method" class="signature"><strong>#update_network_user_password</strong>(user_email : String, password : String, network_group_ids : Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>)</a>
         
       </li>
@@ -7273,6 +7324,19 @@
 
 
 <div class="methods-inherited">
+  
+    
+
+
+    
+
+
+    
+
+
+    
+
+
   
     
 
@@ -7366,7 +7430,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L80" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L83" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7382,7 +7446,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L144" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L147" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7398,7 +7462,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L512" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L569" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7414,7 +7478,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L49" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L52" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7430,7 +7494,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L53" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L56" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7446,7 +7510,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L105" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L108" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7462,7 +7526,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L84" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L87" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7478,7 +7542,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L300" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L303" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7494,7 +7558,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L399" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L456" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7510,7 +7574,48 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L328" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L385" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="template_fields:Array(TemplateFields)-instance-method">
+      <div class="signature">
+        
+        def <strong>template_fields</strong> : Array(TemplateFields)
+
+        <a class="method-permalink" href="#template_fields%3AArray%28TemplateFields%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+            <div class="doc-inherited">
+              Description copied from module PlaceOS::Driver::Interface::MailerTemplates
+            </div>
+          
+          <p>[
+TemplateFields.new(
+trigger: {&quot;bookings&quot;, &quot;booked_by_notify&quot;},
+name: &quot;Booking booked by notification&quot;,
+description: nil,
+fields: common_fields
+),
+TemplateFields.new(
+trigger: {&quot;bookings&quot;, &quot;booking_notify&quot;},
+name: &quot;Booking notification&quot;,
+description: &quot;This template is used for booking notifications&quot;,
+fields: common_fields + [
+{name: &quot;start_time&quot;, description: &quot;The start time of the booking&quot;},
+]
+),
+]
+end</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L330" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7526,7 +7631,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/visitor_mailer.cr#L501" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/visitor_mailer.cr#L558" target="_blank">View source</a>]
         
       </div>
     </div>

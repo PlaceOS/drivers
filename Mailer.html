@@ -5262,6 +5262,36 @@
       
     </li>
   
+  <li class="parent " data-id="drivers/Place/TemplateMailer" data-name="place::templatemailer">
+      <a href="Place/TemplateMailer.html">TemplateMailer</a>
+      
+        <ul>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/Metadata" data-name="place::templatemailer::metadata">
+      <a href="Place/TemplateMailer/Metadata.html">Metadata</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/MetadataTemplateFields" data-name="place::templatemailer::metadatatemplatefields">
+      <a href="Place/TemplateMailer/MetadataTemplateFields.html">MetadataTemplateFields</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/Template" data-name="place::templatemailer::template">
+      <a href="Place/TemplateMailer/Template.html">Template</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/TemplateMailer/TemplateCache" data-name="place::templatemailer::templatecache">
+      <a href="Place/TemplateMailer/TemplateCache.html">TemplateCache</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
   <li class=" " data-id="drivers/Place/TODOs" data-name="place::todos">
       <a href="Place/TODOs.html">TODOs</a>
       
@@ -7183,15 +7213,22 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L544" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L544" target="_blank">
         place/auto_release_spec.cr
       </a>
     
     <br/>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/survey_mailer_spec.cr#L54" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/survey_mailer_spec.cr#L54" target="_blank">
         place/survey_mailer_spec.cr
+      </a>
+    
+    <br/>
+  
+    
+      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/template_mailer_spec.cr#L109" target="_blank">
+        place/template_mailer_spec.cr
       </a>
     
     <br/>
@@ -7256,22 +7293,32 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method" class="signature"><strong>#send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>) : Bool</a>
+        <a href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method" class="signature"><strong>#send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>) : Bool</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method" class="signature"><strong>#send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>) : Bool</a>
+        <a href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method" class="signature"><strong>#send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>) : Bool</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method" class="signature"><strong>#send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>)</a>
+        <a href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method" class="signature"><strong>#send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>) : Bool</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method" class="signature"><strong>#send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>)</a>
+        <a href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method" class="signature"><strong>#send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method" class="signature"><strong>#send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method" class="signature"><strong>#send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7441,71 +7488,103 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/survey_mailer_spec.cr#L57" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/template_mailer_spec.cr#L112" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="send_mail(to:String|Array(String),subject:String,message_plaintext:String|Nil=nil,message_html:String|Nil=nil,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil):Bool-instance-method">
+    <div class="entry-detail" id="send_mail(to:String|Array(String),subject:String,message_plaintext:String|Nil=nil,message_html:String|Nil=nil,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil,reply_to:String|Array(String)|Nil=nil):Bool-instance-method">
       <div class="signature">
         
-        def <strong>send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>) : Bool
+        def <strong>send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>) : Bool
 
-        <a class="method-permalink" href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method">#</a>
+        <a class="method-permalink" href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L564" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L565" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="send_mail(to:String|Array(String),subject:String,message_plaintext:String|Nil=nil,message_html:String|Nil=nil,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil):Bool-instance-method">
+    <div class="entry-detail" id="send_mail(to:String|Array(String),subject:String,message_plaintext:String|Nil=nil,message_html:String|Nil=nil,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil,reply_to:String|Array(String)|Nil=nil):Bool-instance-method">
       <div class="signature">
         
-        def <strong>send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>) : Bool
+        def <strong>send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>) : Bool
 
-        <a class="method-permalink" href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method">#</a>
+        <a class="method-permalink" href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/survey_mailer_spec.cr#L74" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/survey_mailer_spec.cr#L75" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="send_template(to:String|Array(String),template:Tuple(String,String),args:TemplateItems,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil)-instance-method">
+    <div class="entry-detail" id="send_mail(to:String|Array(String),subject:String,message_plaintext:String|Nil=nil,message_html:String|Nil=nil,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil,reply_to:String|Array(String)|Nil=nil):Bool-instance-method">
       <div class="signature">
         
-        def <strong>send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>)
+        def <strong>send_mail</strong>(to : String | Array(String), subject : String, message_plaintext : String | Nil = <span class="n">nil</span>, message_html : String | Nil = <span class="n">nil</span>, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>) : Bool
 
-        <a class="method-permalink" href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#send_mail%28to%3AString%7CArray%28String%29%2Csubject%3AString%2Cmessage_plaintext%3AString%7CNil%3Dnil%2Cmessage_html%3AString%7CNil%3Dnil%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29%3ABool-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/auto_release_spec.cr#L551" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/template_mailer_spec.cr#L131" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="send_template(to:String|Array(String),template:Tuple(String,String),args:TemplateItems,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil)-instance-method">
+    <div class="entry-detail" id="send_template(to:String|Array(String),template:Tuple(String,String),args:TemplateItems,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil,reply_to:String|Array(String)|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>)
+        def <strong>send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/4e429e19b1781e79866a92880a513e2d697c43d5/src/place/survey_mailer_spec.cr#L61" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/auto_release_spec.cr#L551" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="send_template(to:String|Array(String),template:Tuple(String,String),args:TemplateItems,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil,reply_to:String|Array(String)|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/survey_mailer_spec.cr#L61" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="send_template(to:String|Array(String),template:Tuple(String,String),args:TemplateItems,resource_attachments:Array(ResourceAttachment)=[]ofResourceAttachment,attachments:Array(Attachment)=[]ofAttachment,cc:String|Array(String)=[]ofString,bcc:String|Array(String)=[]ofString,from:String|Array(String)|Nil=nil,reply_to:String|Array(String)|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>send_template</strong>(to : String | Array(String), template : Tuple(String, String), args : TemplateItems, resource_attachments : Array(ResourceAttachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">ResourceAttachment</span>, attachments : Array(Attachment) = <span class="o">[]</span> <span class="k">of</span> <span class="t">Attachment</span>, cc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, bcc : String | Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, from : String | Array(String) | Nil = <span class="n">nil</span>, reply_to : String | Array(String) | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#send_template%28to%3AString%7CArray%28String%29%2Ctemplate%3ATuple%28String%2CString%29%2Cargs%3ATemplateItems%2Cresource_attachments%3AArray%28ResourceAttachment%29%3D%5B%5DofResourceAttachment%2Cattachments%3AArray%28Attachment%29%3D%5B%5DofAttachment%2Ccc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cbcc%3AString%7CArray%28String%29%3D%5B%5DofString%2Cfrom%3AString%7CArray%28String%29%7CNil%3Dnil%2Creply_to%3AString%7CArray%28String%29%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/template_mailer_spec.cr#L116" target="_blank">View source</a>]
         
       </div>
     </div>
