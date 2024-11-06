@@ -66,7 +66,8 @@ class Mailer < DriverSpecs::MockDriver
     attachments : Array(Attachment) = [] of Attachment,
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
-    from : String | Array(String) | Nil = nil
+    from : String | Array(String) | Nil = nil,
+    reply_to : String | Array(String) | Nil = nil
   )
     self[:sent] = self[:sent].as_i + 1
   end
@@ -80,7 +81,8 @@ class Mailer < DriverSpecs::MockDriver
     attachments : Array(Attachment) = [] of Attachment,
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
-    from : String | Array(String) | Nil = nil
+    from : String | Array(String) | Nil = nil,
+    reply_to : String | Array(String) | Nil = nil
   ) : Bool
     true
   end

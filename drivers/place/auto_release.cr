@@ -1,8 +1,11 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 require "place_calendar"
 
 class Place::AutoRelease < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Auto Release"
   generic_name :AutoRelease
   description %(emails visitors to confirm automatic release of their booking when they have indicated they are not on-site and releases the booking if they do not confirm)
@@ -15,7 +18,10 @@ class Place::AutoRelease < PlaceOS::Driver
   # - aol: Away on Leave
   # - wfo: Work From Office
   default_settings({
-    email_timezone:    "GMT",
+    timezone:          "Australia/Sydney",
+    date_time_format:  "%c",
+    time_format:       "%l:%M%p",
+    date_format:       "%A, %-d %B",
     email_schedule:    "*/5 * * * *",
     email_template:    "auto_release",
     time_window_hours: 4,
@@ -34,7 +40,10 @@ class Place::AutoRelease < PlaceOS::Driver
     on_update
   end
 
-  @email_timezone : Time::Location = Time::Location.load("GMT")
+  @timezone : Time::Location = Time::Location.load("Australia/Sydney")
+  @date_time_format : String = "%c"
+  @time_format : String = "%l:%M%p"
+  @date_format : String = "%A, %-d %B"
 
   @auto_release_emails_sent : UInt64 = 0_u64
   @auto_release_email_errors : UInt64 = 0_u64
@@ -52,8 +61,11 @@ class Place::AutoRelease < PlaceOS::Driver
     @email_schedule = setting?(String, :email_schedule).presence
     @email_template = setting?(String, :email_template) || "auto_release"
 
-    email_timezone = setting?(String, :email_timezone).presence || "GMT"
-    @email_timezone = Time::Location.load(email_timezone)
+    timezone = setting?(String, :timezone).presence || "Australia/Sydney"
+    @timezone = Time::Location.load(timezone)
+    @date_time_format = setting?(String, :date_time_format) || "%c"
+    @time_format = setting?(String, :time_format) || "%l:%M%p"
+    @date_format = setting?(String, :date_format) || "%A, %-d %B"
 
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
@@ -68,7 +80,7 @@ class Place::AutoRelease < PlaceOS::Driver
     schedule.every(1.minute) { release_bookings }
 
     if emails = @email_schedule
-      schedule.cron(emails, @email_timezone) { send_release_emails }
+      schedule.cron(emails, @timezone) { send_release_emails }
     end
   end
 
@@ -237,6 +249,37 @@ class Place::AutoRelease < PlaceOS::Driver
     self[:released_booking_ids] = [] of Int64
   end
 
+  def template_fields : Array(TemplateFields)
+    time_now = Time.utc.in(@timezone)
+    [
+      TemplateFields.new(
+        trigger: {@email_template, "auto_release"},
+        name: "Auto release booking",
+        description: "Notification when a booking is pending automatic release due to user's work location preferences",
+        fields: [
+          {name: "booking_id", description: "Unique identifier for the booking that may be released"},
+          {name: "booking_start", description: "Unix timestamp of when the booking begins"},
+          {name: "booking_end", description: "Unix timestamp of when the booking ends"},
+          {name: "start_time", description: "Formatted start time (e.g., #{time_now.to_s(@time_format)})"},
+          {name: "start_date", description: "Formatted start date (e.g., #{time_now.to_s(@date_format)})"},
+          {name: "start_datetime", description: "Formatted start date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+          {name: "end_time", description: "Formatted end time (e.g., #{time_now.to_s(@time_format)})"},
+          {name: "end_date", description: "Formatted end date (e.g., #{time_now.to_s(@date_format)})"},
+          {name: "end_datetime", description: "Formatted end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+          {name: "asset_id", description: "Identifier of the booked resource"},
+          {name: "user_id", description: "Identifier of the person who has the booking"},
+          {name: "user_email", description: "Email address of the person who has the booking"},
+          {name: "user_name", description: "Full name of the person who has the booking"},
+          {name: "reason", description: "Title or purpose of the booking"},
+          {name: "approver_name", description: "Name of the person who approved the booking"},
+          {name: "approver_email", description: "Email of the person who approved the booking"},
+          {name: "booked_by_name", description: "Name of the person who made the booking"},
+          {name: "booked_by_email", description: "Email of the person who made the booking"},
+        ]
+      ),
+    ]
+  end
+
   @[Security(Level::Support)]
   def send_release_emails
     emailed_booking_ids = [] of Int64
@@ -258,17 +301,43 @@ class Place::AutoRelease < PlaceOS::Driver
          (booking.booking_start - Time.utc.to_unix < @auto_release.time_before * 60) &&
          (Time.utc.to_unix - booking.booking_start < @auto_release.time_after * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
+
+        timezone = booking.timezone.presence || @timezone.name
+        location = Time::Location.load(timezone)
+
+        starting = Time.unix(booking.booking_start).in(location)
+        ending = Time.unix(booking.booking_end).in(location)
+
+        args = {
+          booking_id:    booking.id,
+          booking_start: booking.booking_start,
+          booking_end:   booking.booking_end,
+
+          start_time:     starting.to_s(@time_format),
+          start_date:     starting.to_s(@date_format),
+          start_datetime: starting.to_s(@date_time_format),
+          end_time:       ending.to_s(@time_format),
+          end_date:       ending.to_s(@date_format),
+          end_datetime:   ending.to_s(@date_time_format),
+
+          asset_id:   booking.asset_id,
+          user_id:    booking.user_id,
+          user_email: booking.user_email,
+          user_name:  booking.user_name,
+          reason:     booking.title,
+
+          approver_name:  booking.approver_name,
+          approver_email: booking.approver_email,
+
+          booked_by_name:  booking.booked_by_name,
+          booked_by_email: booking.booked_by_email,
+        }
+
         begin
           mailer.send_template(
             to: booking.user_email,
             template: {@email_template, "auto_release"},
-            args: {
-              booking_id:    booking.id,
-              user_email:    booking.user_email,
-              user_name:     booking.user_name,
-              booking_start: booking.booking_start,
-              booking_end:   booking.booking_end,
-            })
+            args: args)
           emailed_booking_ids << booking.id
         rescue error
           logger.warn(exception: error) { "failed to send release email to #{booking.user_email}" }

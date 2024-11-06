@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 
 require "./password_generator_helper"
 
@@ -7,6 +8,8 @@ require "uuid"
 require "oauth2"
 
 class Place::VisitorMailer < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Visitor Mailer"
   generic_name :VisitorMailer
   description %(emails visitors when they are invited and notifies hosts when they check in)
@@ -322,6 +325,60 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_time:    local_start_time.to_s(@time_format),
     }
     )
+  end
+
+  def template_fields : Array(TemplateFields)
+    time_now = Time.utc.in(@time_zone)
+    common_fields = [
+      {name: "visitor_email", description: "Email address of the visiting guest"},
+      {name: "visitor_name", description: "Full name of the visiting guest"},
+      {name: "host_name", description: "Name of the person hosting the visitor"},
+      {name: "host_email", description: "Email address of the host"},
+      {name: "building_name", description: "Name of the building where the visit occurs"},
+      {name: "event_title", description: "Title or purpose of the visit"},
+      {name: "event_start", description: "Start time (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "event_date", description: "Date of the visit (e.g., #{time_now.to_s(@date_format)})"},
+      {name: "event_time", description: "Time of the visit (or 'all day' for 24-hour events)"},
+    ]
+
+    invitation_fields = common_fields + [
+      {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "network_username", description: "Network access username (if network credentials enabled)"},
+      {name: "network_password", description: "Generated network access password (if network credentials enabled)"},
+    ]
+
+    [
+      TemplateFields.new(
+        trigger: {"visitor_invited", @reminder_template},
+        name: "Visitor invited",
+        description: "Reminder email for upcoming visitor appointments",
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @event_template},
+        name: "Visitor invited to event",
+        description: "Initial invitation for a visitor attending a calendar event",
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @booking_template},
+        name: "Visitor invited to booking",
+        description: "Initial invitation for a visitor with a space booking",
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @group_event_template},
+        name: "Visitor invited to group event booking",
+        description: "Initial invitation for a visitor attending a group event",
+        fields: invitation_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_checkin_template},
+        name: "Visitor check in notification",
+        description: "Notification to host when their visitor checks in",
+        fields: common_fields
+      ),
+    ]
   end
 
   @[Security(Level::Support)]
