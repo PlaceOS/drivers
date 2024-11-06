@@ -5222,11 +5222,6 @@
       
         <ul>
   
-  <li class=" " data-id="drivers/Place/StaffAPI/Booking" data-name="place::staffapi::booking">
-      <a href="../Place/StaffAPI/Booking.html">Booking</a>
-      
-    </li>
-  
   <li class=" " data-id="drivers/Place/StaffAPI/PushEvent" data-name="place::staffapi::pushevent">
       <a href="../Place/StaffAPI/PushEvent.html">PushEvent</a>
       
@@ -7227,7 +7222,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L3" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L3" target="_blank">
         place/booking_model.cr
       </a>
     
@@ -7249,7 +7244,7 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#new%28id%3AInt64%2Cbooking_type%3AString%2Cbooking_start%3AInt64%2Cbooking_end%3AInt64%2Cuser_id%3AString%2Cuser_email%3AString%2Cuser_name%3AString%2Czones%3AArray%28String%29%2Cbooked_by_name%3AString%2Cbooked_by_email%3AString%2Caction%3ANil%7CString%3Dnil%2Ctimezone%3ANil%7CString%3Dnil%2Casset_id%3ANil%7CString%3Dnil%2Cresource_id%3ANil%7CString%3Dnil%2Cchecked_in%3ABool%7CNil%3Dnil%2Crejected%3ABool%7CNil%3Dnil%2Capproved%3ABool%7CNil%3Dnil%2Cprocess_state%3ANil%7CString%3Dnil%2Clast_changed%3AInt64%7CNil%3Dnil%2Capprover_name%3ANil%7CString%3Dnil%2Capprover_email%3ANil%7CString%3Dnil%2Ctitle%3ANil%7CString%3Dnil%2Cdescription%3ANil%7CString%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64, booking_type : String, booking_start : Int64, booking_end : Int64, user_id : String, user_email : String, user_name : String, zones : Array(String), booked_by_name : String, booked_by_email : String, action : Nil | String = <span class="n">nil</span>, timezone : Nil | String = <span class="n">nil</span>, asset_id : Nil | String = <span class="n">nil</span>, resource_id : Nil | String = <span class="n">nil</span>, checked_in : Bool | Nil = <span class="n">nil</span>, rejected : Bool | Nil = <span class="n">nil</span>, approved : Bool | Nil = <span class="n">nil</span>, process_state : Nil | String = <span class="n">nil</span>, last_changed : Int64 | Nil = <span class="n">nil</span>, approver_name : Nil | String = <span class="n">nil</span>, approver_email : Nil | String = <span class="n">nil</span>, title : Nil | String = <span class="n">nil</span>, description : Nil | String = <span class="n">nil</span>)</a>
+        <a href="#new%28id%3AInt64%2Cbooking_type%3AString%2Cbooking_start%3AInt64%2Cbooking_end%3AInt64%2Cuser_id%3AString%2Cuser_email%3AString%2Cuser_name%3AString%2Czones%3AArray%28String%29%2Cbooked_by_name%3AString%2Cbooked_by_email%3AString%2Caction%3ANil%7CString%3Dnil%2Ctimezone%3ANil%7CString%3Dnil%2Casset_id%3ANil%7CString%3Dnil%2Cresource_id%3ANil%7CString%3Dnil%2Cchecked_in%3ABool%7CNil%3Dnil%2Crejected%3ABool%7CNil%3Dnil%2Capproved%3ABool%7CNil%3Dnil%2Cprocess_state%3ANil%7CString%3Dnil%2Clast_changed%3AInt64%7CNil%3Dnil%2Capprover_name%3ANil%7CString%3Dnil%2Capprover_email%3ANil%7CString%3Dnil%2Ctitle%3ANil%7CString%3Dnil%2Cdescription%3ANil%7CString%3Dnil%2Casset_ids%3AArray%28String%29%3D%5B%5DofString%2Ccreated%3AInt64%7CNil%3Dnil%2Capprover_id%3ANil%7CString%3Dnil%2Cbooked_by_id%3ANil%7CString%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64, booking_type : String, booking_start : Int64, booking_end : Int64, user_id : String, user_email : String, user_name : String, zones : Array(String), booked_by_name : String, booked_by_email : String, action : Nil | String = <span class="n">nil</span>, timezone : Nil | String = <span class="n">nil</span>, asset_id : Nil | String = <span class="n">nil</span>, resource_id : Nil | String = <span class="n">nil</span>, checked_in : Bool | Nil = <span class="n">nil</span>, rejected : Bool | Nil = <span class="n">nil</span>, approved : Bool | Nil = <span class="n">nil</span>, process_state : Nil | String = <span class="n">nil</span>, last_changed : Int64 | Nil = <span class="n">nil</span>, approver_name : Nil | String = <span class="n">nil</span>, approver_email : Nil | String = <span class="n">nil</span>, title : Nil | String = <span class="n">nil</span>, description : Nil | String = <span class="n">nil</span>, asset_ids : Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, created : Int64 | Nil = <span class="n">nil</span>, approver_id : Nil | String = <span class="n">nil</span>, booked_by_id : Nil | String = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7311,6 +7306,16 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#approver_id%3AString%7CNil-instance-method" class="signature"><strong>#approver_id</strong> : String | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#approver_id%3D%28approver_id%3AString%7CNil%29-instance-method" class="signature"><strong>#approver_id=</strong>(approver_id : String | Nil)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#approver_name%3AString%7CNil-instance-method" class="signature"><strong>#approver_name</strong> : String | Nil</a>
         
       </li>
@@ -7335,12 +7340,32 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#asset_ids%3AArray%28String%29-instance-method" class="signature"><strong>#asset_ids</strong> : Array(String)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#asset_ids%3D%28asset_ids%3AArray%28String%29%29-instance-method" class="signature"><strong>#asset_ids=</strong>(asset_ids : Array(String))</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#booked_by_email%3AString-instance-method" class="signature"><strong>#booked_by_email</strong> : String</a>
         
       </li>
     
       <li class="entry-summary">
         <a href="#booked_by_email%3D%28booked_by_email%3AString%29-instance-method" class="signature"><strong>#booked_by_email=</strong>(booked_by_email : String)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#booked_by_id%3AString%7CNil-instance-method" class="signature"><strong>#booked_by_id</strong> : String | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#booked_by_id%3D%28booked_by_id%3AString%7CNil%29-instance-method" class="signature"><strong>#booked_by_id=</strong>(booked_by_id : String | Nil)</a>
         
       </li>
     
@@ -7400,12 +7425,27 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#created%3AInt64%7CNil-instance-method" class="signature"><strong>#created</strong> : Int64 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#created%3D%28created%3AInt64%7CNil%29-instance-method" class="signature"><strong>#created=</strong>(created : Int64 | Nil)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#description%3AString%7CNil-instance-method" class="signature"><strong>#description</strong> : String | Nil</a>
         
       </li>
     
       <li class="entry-summary">
         <a href="#description%3D%28description%3AString%7CNil%29-instance-method" class="signature"><strong>#description=</strong>(description : String | Nil)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#expand-instance-method" class="signature"><strong>#expand</strong></a>
         
       </li>
     
@@ -7591,18 +7631,18 @@
     Constructor Detail
   </h2>
   
-    <div class="entry-detail" id="new(id:Int64,booking_type:String,booking_start:Int64,booking_end:Int64,user_id:String,user_email:String,user_name:String,zones:Array(String),booked_by_name:String,booked_by_email:String,action:Nil|String=nil,timezone:Nil|String=nil,asset_id:Nil|String=nil,resource_id:Nil|String=nil,checked_in:Bool|Nil=nil,rejected:Bool|Nil=nil,approved:Bool|Nil=nil,process_state:Nil|String=nil,last_changed:Int64|Nil=nil,approver_name:Nil|String=nil,approver_email:Nil|String=nil,title:Nil|String=nil,description:Nil|String=nil)-class-method">
+    <div class="entry-detail" id="new(id:Int64,booking_type:String,booking_start:Int64,booking_end:Int64,user_id:String,user_email:String,user_name:String,zones:Array(String),booked_by_name:String,booked_by_email:String,action:Nil|String=nil,timezone:Nil|String=nil,asset_id:Nil|String=nil,resource_id:Nil|String=nil,checked_in:Bool|Nil=nil,rejected:Bool|Nil=nil,approved:Bool|Nil=nil,process_state:Nil|String=nil,last_changed:Int64|Nil=nil,approver_name:Nil|String=nil,approver_email:Nil|String=nil,title:Nil|String=nil,description:Nil|String=nil,asset_ids:Array(String)=[]ofString,created:Int64|Nil=nil,approver_id:Nil|String=nil,booked_by_id:Nil|String=nil)-class-method">
       <div class="signature">
         
-        def self.<strong>new</strong>(id : Int64, booking_type : String, booking_start : Int64, booking_end : Int64, user_id : String, user_email : String, user_name : String, zones : Array(String), booked_by_name : String, booked_by_email : String, action : Nil | String = <span class="n">nil</span>, timezone : Nil | String = <span class="n">nil</span>, asset_id : Nil | String = <span class="n">nil</span>, resource_id : Nil | String = <span class="n">nil</span>, checked_in : Bool | Nil = <span class="n">nil</span>, rejected : Bool | Nil = <span class="n">nil</span>, approved : Bool | Nil = <span class="n">nil</span>, process_state : Nil | String = <span class="n">nil</span>, last_changed : Int64 | Nil = <span class="n">nil</span>, approver_name : Nil | String = <span class="n">nil</span>, approver_email : Nil | String = <span class="n">nil</span>, title : Nil | String = <span class="n">nil</span>, description : Nil | String = <span class="n">nil</span>)
+        def self.<strong>new</strong>(id : Int64, booking_type : String, booking_start : Int64, booking_end : Int64, user_id : String, user_email : String, user_name : String, zones : Array(String), booked_by_name : String, booked_by_email : String, action : Nil | String = <span class="n">nil</span>, timezone : Nil | String = <span class="n">nil</span>, asset_id : Nil | String = <span class="n">nil</span>, resource_id : Nil | String = <span class="n">nil</span>, checked_in : Bool | Nil = <span class="n">nil</span>, rejected : Bool | Nil = <span class="n">nil</span>, approved : Bool | Nil = <span class="n">nil</span>, process_state : Nil | String = <span class="n">nil</span>, last_changed : Int64 | Nil = <span class="n">nil</span>, approver_name : Nil | String = <span class="n">nil</span>, approver_email : Nil | String = <span class="n">nil</span>, title : Nil | String = <span class="n">nil</span>, description : Nil | String = <span class="n">nil</span>, asset_ids : Array(String) = <span class="o">[]</span> <span class="k">of</span> <span class="t">String</span>, created : Int64 | Nil = <span class="n">nil</span>, approver_id : Nil | String = <span class="n">nil</span>, booked_by_id : Nil | String = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#new%28id%3AInt64%2Cbooking_type%3AString%2Cbooking_start%3AInt64%2Cbooking_end%3AInt64%2Cuser_id%3AString%2Cuser_email%3AString%2Cuser_name%3AString%2Czones%3AArray%28String%29%2Cbooked_by_name%3AString%2Cbooked_by_email%3AString%2Caction%3ANil%7CString%3Dnil%2Ctimezone%3ANil%7CString%3Dnil%2Casset_id%3ANil%7CString%3Dnil%2Cresource_id%3ANil%7CString%3Dnil%2Cchecked_in%3ABool%7CNil%3Dnil%2Crejected%3ABool%7CNil%3Dnil%2Capproved%3ABool%7CNil%3Dnil%2Cprocess_state%3ANil%7CString%3Dnil%2Clast_changed%3AInt64%7CNil%3Dnil%2Capprover_name%3ANil%7CString%3Dnil%2Capprover_email%3ANil%7CString%3Dnil%2Ctitle%3ANil%7CString%3Dnil%2Cdescription%3ANil%7CString%3Dnil%29-class-method">#</a>
+        <a class="method-permalink" href="#new%28id%3AInt64%2Cbooking_type%3AString%2Cbooking_start%3AInt64%2Cbooking_end%3AInt64%2Cuser_id%3AString%2Cuser_email%3AString%2Cuser_name%3AString%2Czones%3AArray%28String%29%2Cbooked_by_name%3AString%2Cbooked_by_email%3AString%2Caction%3ANil%7CString%3Dnil%2Ctimezone%3ANil%7CString%3Dnil%2Casset_id%3ANil%7CString%3Dnil%2Cresource_id%3ANil%7CString%3Dnil%2Cchecked_in%3ABool%7CNil%3Dnil%2Crejected%3ABool%7CNil%3Dnil%2Capproved%3ABool%7CNil%3Dnil%2Cprocess_state%3ANil%7CString%3Dnil%2Clast_changed%3AInt64%7CNil%3Dnil%2Capprover_name%3ANil%7CString%3Dnil%2Capprover_email%3ANil%7CString%3Dnil%2Ctitle%3ANil%7CString%3Dnil%2Cdescription%3ANil%7CString%3Dnil%2Casset_ids%3AArray%28String%29%3D%5B%5DofString%2Ccreated%3AInt64%7CNil%3Dnil%2Capprover_id%3ANil%7CString%3Dnil%2Cbooked_by_id%3ANil%7CString%3Dnil%29-class-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L55" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L95" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7618,7 +7658,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L4" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L4" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7655,7 +7695,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L7" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L7" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7676,7 +7716,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L7" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L7" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7692,7 +7732,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L30" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L31" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7708,7 +7748,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L30" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L31" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7724,7 +7764,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L35" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L38" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7740,7 +7780,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L35" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L38" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="approver_id:String|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>approver_id</strong> : String | Nil
+
+        <a class="method-permalink" href="#approver_id%3AString%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L36" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="approver_id=(approver_id:String|Nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>approver_id=</strong>(approver_id : String | Nil)
+
+        <a class="method-permalink" href="#approver_id%3D%28approver_id%3AString%7CNil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L36" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7756,7 +7828,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L34" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L37" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7772,7 +7844,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L34" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L37" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7793,7 +7865,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L19" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L20" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7814,7 +7886,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L16" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L16" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="asset_ids:Array(String)-instance-method">
+      <div class="signature">
+        
+        def <strong>asset_ids</strong> : Array(String)
+
+        <a class="method-permalink" href="#asset_ids%3AArray%28String%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L17" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="asset_ids=(asset_ids:Array(String))-instance-method">
+      <div class="signature">
+        
+        def <strong>asset_ids=</strong>(asset_ids : Array(String))
+
+        <a class="method-permalink" href="#asset_ids%3D%28asset_ids%3AArray%28String%29%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L17" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7830,7 +7934,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L38" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L42" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7846,7 +7950,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L38" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L42" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="booked_by_id:String|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>booked_by_id</strong> : String | Nil
+
+        <a class="method-permalink" href="#booked_by_id%3AString%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L40" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="booked_by_id=(booked_by_id:String|Nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>booked_by_id=</strong>(booked_by_id : String | Nil)
+
+        <a class="method-permalink" href="#booked_by_id%3D%28booked_by_id%3AString%7CNil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L40" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7862,7 +7998,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L37" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L41" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7878,7 +8014,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L37" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L41" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7894,7 +8030,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L12" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L12" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7910,7 +8046,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L12" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L12" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7926,7 +8062,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L11" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L11" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7942,7 +8078,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L11" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L11" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7958,7 +8094,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L10" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L10" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7974,7 +8110,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L10" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L10" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7990,7 +8126,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L51" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L55" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8006,7 +8142,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L40" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L44" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8022,7 +8158,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L40" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L44" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="created:Int64|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>created</strong> : Int64 | Nil
+
+        <a class="method-permalink" href="#created%3AInt64%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L34" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="created=(created:Int64|Nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>created=</strong>(created : Int64 | Nil)
+
+        <a class="method-permalink" href="#created%3D%28created%3AInt64%7CNil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L34" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8038,7 +8206,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L42" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L46" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8054,7 +8222,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L42" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L46" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="expand-instance-method">
+      <div class="signature">
+        
+        def <strong>expand</strong>
+
+        <a class="method-permalink" href="#expand-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L59" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8070,7 +8254,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L44" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L48" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8086,7 +8270,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L44" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L48" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8102,7 +8286,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L9" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L9" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8118,7 +8302,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L9" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L9" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8134,7 +8318,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L46" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L50" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8150,7 +8334,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L32" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L33" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8166,7 +8350,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L32" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L33" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8182,7 +8366,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L31" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L32" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8198,7 +8382,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L31" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L32" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8214,7 +8398,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L29" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L30" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8230,7 +8414,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L29" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L30" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8246,7 +8430,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L17" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L18" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8262,7 +8446,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L17" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L18" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8278,7 +8462,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L13" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L13" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8294,7 +8478,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L13" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L13" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8310,7 +8494,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L41" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L45" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8326,7 +8510,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L41" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L45" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8342,7 +8526,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L24" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L25" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8358,7 +8542,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L24" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L25" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8374,7 +8558,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L23" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L24" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8390,7 +8574,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L23" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L24" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8406,7 +8590,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L25" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L26" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8422,7 +8606,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L25" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L26" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8438,7 +8622,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L27" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L28" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8454,7 +8638,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/e6d36b2d74c34fc6e2f83e96a9e8395e270d25e1/src/place/booking_model.cr#L27" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/477fb009d082e04a99dbbbc7805c3410e6b7a866/src/place/booking_model.cr#L28" target="_blank">View source</a>]
         
       </div>
     </div>
