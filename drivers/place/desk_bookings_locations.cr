@@ -2,6 +2,7 @@ require "placeos-driver"
 require "placeos-driver/interface/locatable"
 require "./booking_model"
 require "json"
+require "set"
 
 class Place::DeskBookingsLocations < PlaceOS::Driver
   include Interface::Locatable
@@ -202,12 +203,16 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   @known_users : Hash(String, Tuple(String, String)) = Hash(String, Tuple(String, String)).new
 
   def query_desk_bookings : Nil
+    ids = Set(Int64).new
     bookings = [] of JSON::Any
     @zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a }
-    bookings = bookings.map do |booking|
+    bookings = bookings.flat_map do |booking|
       booking = Booking.from_json(booking.to_json)
+      next [] of Booking if ids.includes?(booking.id)
+      ids << booking.id
+
       booking.user_email = booking.user_email.downcase
-      booking
+      booking.expand
     end
 
     logger.debug { "queried desk bookings, found #{bookings.size}" }
