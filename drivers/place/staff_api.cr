@@ -5,6 +5,7 @@ require "placeos"
 require "link-header"
 require "simple_retry"
 require "place_calendar"
+require "./booking_model"
 
 # This comment is to force a recompile of the driver with updated models.
 
@@ -684,42 +685,6 @@ class Place::StaffAPI < PlaceOS::Driver
   # ===================================
   # BOOKINGS QUERY
   # ===================================
-  class Booking
-    include JSON::Serializable
-
-    property id : Int64
-
-    property user_id : String
-    property user_email : String
-    property user_name : String
-    property asset_id : String
-    property zones : Array(String)
-    property booking_type : String
-
-    property booking_start : Int64
-    property booking_end : Int64
-
-    property timezone : String?
-    property title : String?
-    property description : String?
-
-    property checked_in : Bool
-    property rejected : Bool
-    property approved : Bool
-
-    property approver_id : String?
-    property approver_email : String?
-    property approver_name : String?
-
-    property booked_by_id : String
-    property booked_by_email : String
-    property booked_by_name : String
-
-    property process_state : String?
-    property last_changed : Int64?
-    property created : Int64?
-  end
-
   def query_bookings(
     type : String? = nil,
     period_start : Int64? = nil,
