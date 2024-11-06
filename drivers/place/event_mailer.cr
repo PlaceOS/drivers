@@ -1,9 +1,12 @@
 require "placeos-driver"
 require "place_calendar"
+require "placeos-driver/interface/mailer_templates"
 
 require "./password_generator_helper"
 
 class Place::EventMailer < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Event Mailer"
   generic_name :EventMailer
   description %(Subscribe to Events and send emails to attendees)
@@ -122,6 +125,27 @@ class Place::EventMailer < PlaceOS::Driver
 
     logger.debug { "Sending emails for #{new_events.size} events in #{system_id}" }
     new_events.each { |event| send_event_email(event, system_id) }
+  end
+
+  def template_fields : Array(TemplateFields)
+    time_now = Time.utc.in(Time::Location.local)
+    [
+      TemplateFields.new(
+        trigger: {@email_template_group, @email_template},
+        name: "Event welcome",
+        description: "Welcome email sent to event organizers when their event is coming up today",
+        fields: [
+          {name: "host_name", description: "Name of the event organizer"},
+          {name: "host_email", description: "Email address of the event organizer"},
+          {name: "room_name", description: "Location or room where the event is being held"},
+          {name: "event_title", description: "Title or subject of the event"},
+          {name: "event_start", description: "Start time of the event (e.g., #{time_now.to_s(@time_format)})"},
+          {name: "event_date", description: "Date of the event (e.g., #{time_now.to_s(@date_format)})"},
+          {name: "network_username", description: "Username for network access (only if network credentials enabled)"},
+          {name: "network_password", description: "Generated password for network access (only if network credentials enabled)"},
+        ]
+      ),
+    ]
   end
 
   private def send_event_email(event : PlaceCalendar::Event, system_id : String)

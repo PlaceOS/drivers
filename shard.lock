@@ -19,7 +19,7 @@ shards:
 
   axio:
     git: https://github.com/place-technology/axio.git
-    version: 0.1.1+git.commit.56579f3e7e04cfa743cc298de2c7a213ac68d0cc
+    version: 0.1.2+git.commit.746ec20191e9b1dade912d08dd50366ddcb22c7d
 
   backtracer:
     git: https://github.com/sija/backtracer.cr.git
@@ -63,7 +63,7 @@ shards:
 
   csuuid:
     git: https://github.com/wyhaines/csuuid.cr.git
-    version: 1.0.1+git.commit.4cb8656a9214aede9c1840cad4acf8e55e658f2f
+    version: 1.0.2
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
@@ -95,7 +95,7 @@ shards:
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
-    version: 0.4.1
+    version: 0.5.0
 
   exec_from:
     git: https://github.com/place-labs/exec_from.git
@@ -167,7 +167,7 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.5.2
+    version: 0.6.0
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
@@ -179,7 +179,7 @@ shards:
 
   nbchannel:
     git: https://github.com/wyhaines/nbchannel.cr.git
-    version: 0.1.0+git.commit.a8f5be6aa198abfa9f1893e1156640b8ea526094
+    version: 0.1.0
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
@@ -199,7 +199,7 @@ shards:
 
   opentelemetry-api:
     git: https://github.com/wyhaines/opentelemetry-api.cr.git
-    version: 0.5.0
+    version: 0.5.1
 
   opentelemetry-instrumentation:
     git: https://github.com/wyhaines/opentelemetry-instrumentation.cr.git
@@ -207,7 +207,7 @@ shards:
 
   opentelemetry-sdk:
     git: https://github.com/wyhaines/opentelemetry-sdk.cr.git
-    version: 0.6.1
+    version: 0.6.2
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
@@ -231,7 +231,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.1.1+git.commit.b64df7fb114f391a4010bac5f337d5ac2c088992
+    version: 1.1.2+git.commit.a4110821aa18c3971a1f06b0598192ac90145693
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -255,7 +255,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.2.14
+    version: 7.2.16
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -263,7 +263,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.59.0
+    version: 9.60.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -275,7 +275,7 @@ shards:
 
   promise:
     git: https://github.com/spider-gazelle/promise.git
-    version: 3.1.0
+    version: 3.2.0
 
   protobuf:
     git: https://github.com/jeromegn/protobuf.cr.git
@@ -303,7 +303,7 @@ shards:
 
   redis_service_manager:
     git: https://github.com/place-labs/redis_service_manager.git
-    version: 3.1.1
+    version: 3.2.0
 
   rendezvous-hash:
     git: https://github.com/caspiano/rendezvous-hash.git
@@ -367,7 +367,7 @@ shards:
 
   time-ext:
     git: https://github.com/wyhaines/time-ext.cr.git
-    version: 0.1.0+git.commit.175f658235fb6cdc9c804cb96da510fec27f4cd6
+    version: 1.0.1
 
   tokenizer:
     git: https://github.com/spider-gazelle/tokenizer.git
@@ -375,7 +375,7 @@ shards:
 
   tracer:
     git: https://github.com/wyhaines/tracer.cr.git
-    version: 0.3.1
+    version: 0.3.2
 
   ulid: # Overridden
     git: https://github.com/place-labs/ulid.git

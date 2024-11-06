@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 require "digest/md5"
 require "placeos"
 require "file"
@@ -9,6 +10,8 @@ require "./booking_model"
 require "./password_generator_helper"
 
 class Place::BookingNotifier < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "Booking Notifier"
   generic_name :BookingNotifier
   description %(notifies users when a booking takes place)
@@ -121,6 +124,57 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     schedule.clear
     schedule.every(@poll_every_minutes.minutes) { check_bookings } if @poll_bookings
+  end
+
+  def template_fields : Array(TemplateFields)
+    time_now = Time.utc.in(@timezone)
+    common_fields = [
+      {name: "booking_id", description: "Unique identifier for the booking"},
+      {name: "start_time", description: "Booking start time (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "start_date", description: "Booking start date (e.g., #{time_now.to_s(@date_format)})"},
+      {name: "start_datetime", description: "Booking start date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+      {name: "end_time", description: "Booking end time (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "end_date", description: "Booking end date (e.g., #{time_now.to_s(@date_format)})"},
+      {name: "end_datetime", description: "Booking end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+      {name: "starting_unix", description: "Booking start time as Unix timestamp"},
+      {name: "asset_id", description: "Identifier of the booked asset (e.g., desk)"},
+      {name: "user_id", description: "Identifier of the person the booking is for"},
+      {name: "user_email", description: "Email of the person the booking is for"},
+      {name: "user_name", description: "Name of the person the booking is for"},
+      {name: "reason", description: "Purpose or title of the booking"},
+      {name: "level_zone", description: "Zone identifier for the specific floor level"},
+      {name: "building_zone", description: "Zone identifier for the building"},
+      {name: "building_name", description: "Name of the building"},
+      {name: "approver_name", description: "Name of the person who approved/rejected the booking"},
+      {name: "approver_email", description: "Email of the person who approved/rejected the booking"},
+      {name: "booked_by_name", description: "Name of the person who made the booking"},
+      {name: "booked_by_email", description: "Email of the person who made the booking"},
+      {name: "attachment_name", description: "Name of any attached files"},
+      {name: "attachment_url", description: "URL to download any attachments"},
+      {name: "network_username", description: "Network access username (if configured)"},
+      {name: "network_password", description: "Generated network access password (if configured)"},
+    ]
+
+    [
+      TemplateFields.new(
+        trigger: {"bookings", "booked_by_notify"},
+        name: "Booking booked by notification",
+        description: "Notification when someone books on behalf of another person",
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "booking_notify"},
+        name: "Booking booked notification",
+        description: "Notification when a booking is created for yourself",
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "cancelled"},
+        name: "Booking cancelled",
+        description: "Notification when a booking is cancelled",
+        fields: common_fields
+      ),
+    ]
   end
 
   # Booking id => event, timestamp
