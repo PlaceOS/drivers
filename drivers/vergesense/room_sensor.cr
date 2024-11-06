@@ -117,7 +117,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
   end
 
   protected def build_sensor_details(sensor : SensorType) : Detail?
-    time = space.timestamp
+    time = space.timestamp || space.environment.try(&.timestamp) || Time.utc
     id = "people"
     limit_high = nil
     value = case sensor
@@ -129,15 +129,12 @@ class Vergesense::RoomSensor < PlaceOS::Driver
               space.people.try &.count.try { |count| count > 0 ? 1.0 : 0.0 } || 0.0
             when .humidity?
               id = "humidity"
-              time = space.environment.try &.timestamp
               space.environment.try &.humidity.value
             when .temperature?
               id = "temperature"
-              time = space.environment.try &.timestamp
               space.environment.try &.temperature.value
             when .air_quality?
               id = "air_quality"
-              time = space.environment.try &.timestamp
               space.environment.try(&.iaq.try(&.value))
             else
               raise "sensor type unavailable: #{sensor}"
@@ -147,7 +144,7 @@ class Vergesense::RoomSensor < PlaceOS::Driver
     Detail.new(
       type: sensor,
       value: value,
-      last_seen: (time || Time.utc).to_unix,
+      last_seen: time.to_unix,
       mac: "verg-#{@space_id}",
       id: id,
       name: "#{floor_name} #{space.name} (#{space.space_type})",
