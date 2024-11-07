@@ -39,7 +39,7 @@ shards:
 
   cmac:
     git: https://github.com/spider-gazelle/cmac.git
-    version: 1.0.1
+    version: 1.0.2
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
@@ -91,7 +91,7 @@ shards:
 
   eventbus:
     git: https://github.com/spider-gazelle/eventbus.git
-    version: 0.9.9+git.commit.ca8ef0c5e21ee15da079edd5bcea39bee7e07f26
+    version: 1.0.0+git.commit.af63536d718348885a553dc4aa6debccc2946289
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
@@ -159,7 +159,7 @@ shards:
 
   knx:
     git: https://github.com/spider-gazelle/knx.git
-    version: 1.2.4
+    version: 1.2.5
 
   link-header:
     git: https://github.com/spider-gazelle/link-header.git
@@ -227,11 +227,11 @@ shards:
 
   pg:
     git: https://github.com/will/crystal-pg.git
-    version: 0.28.0
+    version: 0.29.0
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.1.2+git.commit.a4110821aa18c3971a1f06b0598192ac90145693
+    version: 1.1.2+git.commit.9b340ee269cd4a10ed6c5b51235cbaf45fc380e1
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -255,7 +255,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.2.16
+    version: 7.2.17
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -343,7 +343,7 @@ shards:
 
   stomp:
     git: https://github.com/spider-gazelle/stomp.git
-    version: 1.0.1
+    version: 1.0.2
 
   stripetease:
     git: https://github.com/place-technology/stripetease.git
