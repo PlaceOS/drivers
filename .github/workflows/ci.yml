@@ -124,10 +124,10 @@ jobs:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Show build container logs
         if: ${{ failure() }}
-        run: docker-compose logs build
+        run: docker compose logs build
       - name: Show drivers container logs
         if: ${{ failure() }}
-        run: docker-compose logs drivers
+        run: docker compose logs drivers
       - name: Upload failure logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v3
