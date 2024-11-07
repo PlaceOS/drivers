@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 4.10.1
+    version: 7.4.4
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -124,6 +124,10 @@ shards:
   halite:
     git: https://github.com/icyleaf/halite.git
     version: 0.12.1
+
+  hot_topic:
+    git: https://github.com/jgaskins/hot_topic.git
+    version: 0.1.0+git.commit.3c901e77b6e000930398738260a2944b6f5785dc
 
   http-client-digest_auth:
     git: https://github.com/mamantoha/http-client-digest_auth.git
