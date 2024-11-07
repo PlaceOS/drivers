@@ -1,7 +1,9 @@
 require "placeos-driver"
+require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/lighting"
 
 class KNX::Lighting < PlaceOS::Driver
+  include Interface::Sensor
   include Interface::Lighting::Scene
   include Interface::Lighting::Level
   alias Area = Interface::Lighting::Area
@@ -15,6 +17,8 @@ class KNX::Lighting < PlaceOS::Driver
     knx_scene_group:      "4/1/33",
     knx_brightness_group: "4/1/66",
     knx_brightness_max:   255,
+
+    knx_motion: "1.8.110",
 
     # on and off switches like blinds
     switch_groups: {
@@ -30,8 +34,9 @@ class KNX::Lighting < PlaceOS::Driver
   end
 
   def on_update
-    @scene_group = setting?(String, :knx_scene_group)
-    @brightness_group = setting?(String, :knx_brightness_group)
+    @knx_motion = setting?(String, :knx_motion).presence
+    @scene_group = setting?(String, :knx_scene_group).presence
+    @brightness_group = setting?(String, :knx_brightness_group).presence
     @brightness_max = setting?(Int32, :knx_brightness_max) || 255
     @level_percentage = @brightness_max / 100
 
@@ -41,10 +46,9 @@ class KNX::Lighting < PlaceOS::Driver
     subscribe_datapoints
   end
 
-  def disconnected
-    schedule.clear
-  end
-
+  getter last_occupied : Int64 = 0_i64
+  getter occupied : Bool = false
+  getter knx_motion : String? = nil
   getter scene_group : String? = nil
   getter brightness_group : String? = nil
   getter brightness_max : Int32 = 255
@@ -62,6 +66,17 @@ class KNX::Lighting < PlaceOS::Driver
       knx.subscribe b_group do |_sub, payload|
         self[Area.new(component: b_group)] = data_scaled(String.from_json(payload))
       end
+    end
+
+    if motion = @knx_motion
+      knx.subscribe motion do |_sub, payload|
+        @last_occupied = Time.utc.to_unix
+        @occupied = data_to_int(String.from_json(payload)) > 0
+        self[:motion] = @occupied ? 1.0 : 0.0
+      end
+
+      schedule.clear
+      schedule.every(10.seconds) { knx.status(motion) }
     end
 
     @switch_groups.each_value do |address|
@@ -145,5 +160,44 @@ class KNX::Lighting < PlaceOS::Driver
 
   def switch_off(name : String)
     switch name, false
+  end
+
+  # ======================
+  # Sensor interface
+  # ======================
+
+  SENSOR_TYPES = {SensorType::Presence}
+  NO_MATCH     = [] of Interface::Sensor::Detail
+
+  def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
+    logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
+
+    return NO_MATCH unless @knx_motion
+    return NO_MATCH if mac && mac != @knx_motion
+    if type
+      sensor_type = SensorType.parse(type)
+      return NO_MATCH unless SENSOR_TYPES.includes?(sensor_type)
+    end
+
+    [get_sensor_details]
+  end
+
+  def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
+    logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
+    return nil unless @knx_motion && @knx_motion == mac
+    get_sensor_details
+  end
+
+  def get_sensor_details
+    Detail.new(
+      type: SensorType::Presence,
+      value: @occupied ? 1.0 : 0.0,
+      last_seen: @last_occupied,
+      mac: @knx_motion.as(String),
+      id: nil,
+      name: "KNX motion sensor",
+      module_id: module_id,
+      binding: "motion",
+    )
   end
 end
