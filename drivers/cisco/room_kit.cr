@@ -202,7 +202,7 @@ class Cisco::RoomKit < PlaceOS::Driver
   command({"Video Input SetMainVideoSource" => :camera_select},
     connector_id_: 1..3,  # Source can either be specified as the
     layout_: VideoLayout, # physical connector...
-    source_id_: 1..3)     # ...or the logical source ID
+    source_id_: 1..3)     # ...or the logical source ID.
 
   enum LayoutFamily
     Auto
