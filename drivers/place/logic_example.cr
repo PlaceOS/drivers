@@ -1,5 +1,6 @@
 require "placeos-driver"
 
+# use for testing some basic functionality
 class Place::LogicExample < PlaceOS::Driver
   descriptive_name "Example Logic"
   generic_name :ExampleLogic
