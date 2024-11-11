@@ -450,10 +450,9 @@ class Place::Meet < PlaceOS::Driver
         remote_outputs.each_with_index do |remote_out, index|
           if join_mode.merge_outputs? && (local_out = available_outputs[index]?)
             new_linked_outputs[local_out][remote_system_id] = remote_out
-          elsif seen_outputs.includes? remote_out
-            next
           end
 
+          next if seen_outputs.includes?(remote_out)
           available_outputs << remote_out
           seen_outputs << remote_out
         end
