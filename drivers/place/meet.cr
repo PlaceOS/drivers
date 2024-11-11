@@ -448,14 +448,14 @@ class Place::Meet < PlaceOS::Driver
         # merge in outputs from remote rooms
         remote_outputs = room.local_outputs.get.as_a.map(&.as_s)
         remote_outputs.each_with_index do |remote_out, index|
-          next if seen_outputs.includes? remote_out
-          seen_outputs << remote_out
-
           if join_mode.merge_outputs? && (local_out = available_outputs[index]?)
             new_linked_outputs[local_out][remote_system_id] = remote_out
-          else
-            available_outputs << remote_out
+          elsif seen_outputs.includes? remote_out
+            next
           end
+
+          available_outputs << remote_out
+          seen_outputs << remote_out
         end
       end
     end
