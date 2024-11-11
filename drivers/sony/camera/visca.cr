@@ -100,7 +100,7 @@ class Sony::Camera::VISCA < PlaceOS::Driver
 
     # query the current position after we've stopped moving
     if pan_zero && tilt_zero
-      spawn(same_thread: true) do
+      spawn do
         resp.get
         schedule.in(1.seconds) { pantilt? }
       end

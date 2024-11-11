@@ -104,7 +104,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
   def on_load
     spawn { rate_limiter }
-    spawn(same_thread: true) { update_scheduler }
+    spawn { update_scheduler }
 
     on_update
   end

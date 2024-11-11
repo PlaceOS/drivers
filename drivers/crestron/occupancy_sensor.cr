@@ -92,7 +92,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     logger.warn(exception: error) { "during long polling" }
   ensure
     if @connected
-      spawn(same_thread: true) { long_poll }
+      spawn { long_poll }
     else
       @long_polling = false
     end

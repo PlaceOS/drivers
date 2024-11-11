@@ -100,7 +100,7 @@ class Cisco::UIExtender < PlaceOS::Driver
 
     # The device does not raise an event when a widget state is changed via
     # the API. In these cases, ensure locally tracked state remains valid.
-    Promise.defer(same_thread: true) do
+    Promise.defer do
       update.get
       self[id] = Cisco::CollaborationEndpoint::XAPI.value_convert(value)
       value.as(String | Nil)
@@ -127,7 +127,7 @@ class Cisco::UIExtender < PlaceOS::Driver
     update = codec.xcommand "UserInterface Extensions Widget UnsetValue",
       hash_args: {WidgetId: id}
 
-    Promise.defer(same_thread: true) do
+    Promise.defer do
       update.get
       self[id] = nil
       nil.as(String | Nil)

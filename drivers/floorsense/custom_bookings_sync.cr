@@ -667,7 +667,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     raise "Floorsense user not found for #{placeos_staff_id}" unless user_id
 
     card_number = place_user["card_number"]?.try(&.as_s)
-    spawn(same_thread: true) { ensure_card_synced(card_number, user_id) } if user_id && card_number && !card_number.empty?
+    spawn { ensure_card_synced(card_number, user_id) } if user_id && card_number && !card_number.empty?
     user_id
   end
 

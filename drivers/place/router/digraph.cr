@@ -200,7 +200,7 @@ class Place::Router::Digraph(N, E)
     @ch = Channel(UInt64).new
 
     def initialize(g, id)
-      spawn(same_thread: true) do
+      spawn do
         g.breadth_first_search id do |node|
           begin
             @ch.send node

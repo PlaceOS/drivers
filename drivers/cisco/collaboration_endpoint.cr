@@ -111,7 +111,7 @@ module Cisco::CollaborationEndpoint
       # Always returns an empty response, nothing special to handle
       do_send(request, priority: 0, name: path)
     end
-    spawn(same_thread: true) do
+    spawn do
       success = 0
       results.each do |task|
         begin
@@ -219,7 +219,7 @@ module Cisco::CollaborationEndpoint
       end
     end
 
-    spawn(same_thread: true) do
+    spawn do
       task.get
       promise.reject(RuntimeError.new "failed to set configuration: #{path} #{setting}: #{value}") if task.state == :abort
     end
@@ -254,7 +254,7 @@ module Cisco::CollaborationEndpoint
       end
     end
 
-    spawn(same_thread: true) do
+    spawn do
       task.get
       promise.reject(RuntimeError.new "failed to obtain status: #{path}") if task.state == :abort
     end
@@ -339,7 +339,7 @@ module Cisco::CollaborationEndpoint
       sleep 500.milliseconds
       transport.send "xPreferences OutputMode JSON\n"
       logger.info { "initializing connection" }
-      spawn(same_thread: true) { init_connection }
+      spawn { init_connection }
       return
     end
 
