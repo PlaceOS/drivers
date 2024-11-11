@@ -250,7 +250,7 @@ class Ashrae::BACnet < PlaceOS::Driver
   end
 
   protected def spawn_action(task, &block : -> Nil)
-    spawn(same_thread: true) { task.success block.call }
+    spawn { task.success block.call }
     Fiber.yield
   end
 

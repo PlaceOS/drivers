@@ -93,7 +93,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @description_lock.synchronize do
       if !@streaming && !@api_key.empty?
         @streaming = true
-        spawn(same_thread: true) { start_streaming_events }
+        spawn { start_streaming_events }
       end
     end
   end
@@ -152,7 +152,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
     @description_lock.synchronize do
       if !@streaming
         @streaming = true
-        spawn(same_thread: true) { start_streaming_events }
+        spawn { start_streaming_events }
       end
     end
   end
@@ -414,7 +414,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
       # We use a channel for event processing so we can make use of timeouts
       @channel = Channel(String).new
-      spawn(same_thread: true) { process_events(client) }
+      spawn { process_events(client) }
 
       begin
         loop do

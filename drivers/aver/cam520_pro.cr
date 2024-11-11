@@ -142,7 +142,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
     end
 
     # stop any previous move
-    spawn(same_thread: true) do
+    spawn do
       post("/camera_move", body: {
         method: "SetPtzf",
         axis:   stop.to_i,
@@ -312,7 +312,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   def stop(index : Int32 | String = 0, emergency : Bool = false)
     # tilt
-    spawn(same_thread: true) do
+    spawn do
       post("/camera_move", body: {
         method: "SetPtzf",
         axis:   AxisSelect::Tilt.to_i,
@@ -322,7 +322,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
     end
 
     # pan
-    spawn(same_thread: true) do
+    spawn do
       post("/camera_move", body: {
         method: "SetPtzf",
         axis:   AxisSelect::Pan.to_i,

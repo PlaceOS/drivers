@@ -29,7 +29,7 @@ end
 # :nodoc:
 class VidConfMock < DriverSpecs::MockDriver
   def on_load
-    spawn(same_thread: true) {
+    spawn {
       sleep 0.5
       self[:ready] = self[:connected] = true
     }

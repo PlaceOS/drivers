@@ -166,7 +166,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     end
 
     zones = config.control_system.not_nil!.zones
-    spawn(same_thread: true) { find_building(zones) }
+    spawn { find_building(zones) }
 
     # Grab desk data from the MQTT connection
     if system.exists? :MerakiMQTT
@@ -993,7 +993,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     @wired_desks = desk_mappings
     @level_serials = level_serials
 
-    spawn(same_thread: true) { get_port_status(@wired_desks.keys) }
+    spawn { get_port_status(@wired_desks.keys) }
 
     if (serials = @wired_desks.keys) && !serials.empty?
       schedule.in(5.seconds) { get_port_status(serials) }

@@ -97,7 +97,7 @@ class TvOne::CorioMaster < PlaceOS::Driver
       windows.map { |id| window(id, "Input", slot) }
     end
 
-    spawn(same_thread: true) do
+    spawn do
       # wait for operations to complete
       results.each(&.get)
 

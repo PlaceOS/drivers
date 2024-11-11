@@ -201,7 +201,7 @@ module Place::Router::Core
       in SignalGraph::Edge::Static
         nil
       in SignalGraph::Edge::Active
-        Promise.defer(same_thread: true, timeout: 1.second) do
+        Promise.defer(timeout: 1.second) do
           next_node.source = siggraph[src].source
 
           # OPTIMIZE: split this to perform an inital pass to build a hash
@@ -247,7 +247,7 @@ module Place::Router::Core
         additional_routes.each { |ad_output, ad_input| routes[ad_output] = {ad_input.as_s, ad_output, max_dist, simulate, false} }
       end
 
-      spawn(same_thread: true) {
+      spawn {
         routes.each_value { |route| route_signal(*route) }
       }
     end

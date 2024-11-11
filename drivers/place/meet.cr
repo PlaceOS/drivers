@@ -117,7 +117,7 @@ class Place::Meet < PlaceOS::Driver
   getter local_tabs : Array(Tab) = [] of Tab
 
   @outputs : Array(String) = [] of String
-  @linked_outputs = {} of String => Hash(String, String)
+  getter linked_outputs = {} of String => Hash(String, String)
   getter local_outputs : Array(String) = [] of String
 
   @preview_outputs : Array(String) = [] of String
@@ -435,7 +435,7 @@ class Place::Meet < PlaceOS::Driver
 
     preview_outputs = @local_preview_outputs.dup
 
-    linked_outputs = Hash(String, Hash(String, String)).new { |hash, key| hash[key] = {} of String => String }
+    new_linked_outputs = Hash(String, Hash(String, String)).new { |hash, key| hash[key] = {} of String => String }
 
     # Grab the join mode if any
     if join_mode = @join_modes[@join_selected]?
@@ -452,7 +452,7 @@ class Place::Meet < PlaceOS::Driver
           seen_outputs << remote_out
 
           if join_mode.merge_outputs? && (local_out = available_outputs[index]?)
-            linked_outputs[local_out][remote_system_id] = remote_out
+            new_linked_outputs[local_out][remote_system_id] = remote_out
           else
             available_outputs << remote_out
           end
@@ -460,7 +460,7 @@ class Place::Meet < PlaceOS::Driver
       end
     end
 
-    @linked_outputs = linked_outputs
+    @linked_outputs = new_linked_outputs
     self[:preview_outputs] = @preview_outputs = preview_outputs
 
     if available_outputs.empty?
