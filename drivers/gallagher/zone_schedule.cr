@@ -61,19 +61,32 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
 
     logger.debug { "mapping #{new_status} => #{apply_zone_state} in #{zone_id}" }
 
-    case apply_zone_state
-    when "free"
-      gallagher.free_zone(zone_id)
-    when "secure"
-      gallagher.secure_zone(zone_id)
-    when "default", "reset"
-      gallagher.reset_zone(zone_id)
-    else
-      logger.warn { "unknown zone state #{apply_zone_state}" }
-      false
+    begin
+      SimpleRetry.try_to(
+        max_attempts: 5,
+        base_interval: 500.milliseconds,
+        max_interval: 1.seconds,
+        randomise: 100.milliseconds
+      ) do
+        case apply_zone_state
+        when "free"
+          gallagher.free_zone(zone_id).get
+        when "secure"
+          gallagher.secure_zone(zone_id).get
+        when "default", "reset"
+          gallagher.reset_zone(zone_id).get
+        else
+          logger.warn { "unknown zone state #{apply_zone_state}" }
+          false
+        end
+      end
+      @count += 1
+    rescue error
+      self[:last_error] = {
+        message: error.message,
+        at:      Time.utc.to_s,
+      }
     end
-
-    @count += 1
   end
 
   private def gallagher
