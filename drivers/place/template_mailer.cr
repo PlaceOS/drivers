@@ -210,11 +210,11 @@ class Place::TemplateMailer < PlaceOS::Driver
       nil
   end
 
-  def generate_svg_qrcode(text : String) : String
+  def generate_svg_qrcode(text : String)
     mailer.generate_svg_qrcode(text)
   end
 
-  def generate_png_qrcode(text : String, size : Int32 = 128) : String
+  def generate_png_qrcode(text : String, size : Int32 = 128)
     mailer.generate_png_qrcode(text, size)
   end
 
