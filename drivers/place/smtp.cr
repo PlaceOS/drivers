@@ -6,6 +6,8 @@ require "uri"
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 
+# comment to force a recompile with updated dependencies
+
 class Place::Smtp < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
 
