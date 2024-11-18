@@ -84,7 +84,7 @@ class Place::AreaManagement < PlaceOS::Driver
   getter level_details : Hash(String, LevelCapacity) = {} of String => LevelCapacity
 
   # PlaceOS client config
-  getter building_id : String { get_building_id.not_nil! }
+  getter building_id : String { get_building_id.as(String) }
 
   @poll_rate : Time::Span = 60.seconds
   @location_service : String = "LocationServices"
@@ -483,8 +483,8 @@ class Place::AreaManagement < PlaceOS::Driver
       # adjust sensor x,y so we check if they are in areas
       sensors.each do |_type, array|
         array.map! do |sensor|
-          sensor.x = sensor.x.not_nil! * map_width
-          sensor.y = sensor.y.not_nil! * map_height
+          sensor.x = sensor.x.as(Float64) * map_width
+          sensor.y = sensor.y.as(Float64) * map_height
           sensor
         end
       end
@@ -511,7 +511,7 @@ class Place::AreaManagement < PlaceOS::Driver
         area_sensors = Hash(String, Array(SensorDetail)).new { |h, k| h[k] = [] of SensorDetail }
         sensors.each do |type, array|
           array.each do |sensor|
-            area_sensors[type] << sensor if polygon.contains(sensor.x.not_nil!, sensor.y.not_nil!)
+            area_sensors[type] << sensor if polygon.contains(sensor.x.as(Float64), sensor.y.as(Float64))
           end
         end
 
