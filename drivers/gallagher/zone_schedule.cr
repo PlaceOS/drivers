@@ -17,7 +17,8 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
       "free"    => "default",
     },
 
-    strict_presence: false,
+    # max time in minutes that presence can prevent a lock
+    presence_timeout: 30,
   })
 
   getter system_id : String = ""
@@ -28,7 +29,6 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   getter state_mappings : Hash(String, String) = {} of String => String
 
   @update_mutex = Mutex.new
-  @strict_presence : Bool = false
 
   def on_load
     on_update
@@ -38,7 +38,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     @system_id = setting?(String, :gallagher_system).presence || config.control_system.not_nil!.id
     @state_mappings = setting(Hash(String, String), :state_mappings)
     @zone_id = setting?(String | Int64, :zone_id) || setting(String | Int64, :door_zone_id)
-    @strict_presence = setting?(Bool, :strict_presence) || false
+    @presence_timeout = (setting?(Int32, :presence_timeout) || 30).minutes
   end
 
   bind Bookings_1, :status, :status_changed
@@ -46,6 +46,9 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
 
   getter last_status : String? = nil
   getter last_presence : Bool? = nil
+
+  @presence_relevant : Bool = false
+  @presence_timeout : Time::Span = 30.minutes
 
   private def status_changed(_subscription, new_value)
     logger.debug { "new room status: #{new_value}" }
@@ -80,11 +83,19 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
       return
     end
 
+    schedule.clear
+
     # This is checking if want to lock the room (not free)
-    # and if someone is possibly present
-    # then change zone state to unlock unless we are unsure about presence and the strict flag is set
-    if apply_zone_state != "free" && presence != false
-      apply_zone_state = "free" unless @strict_presence && presence.nil?
+    # and if someone is present and presence matters
+    # then change zone state to unlock
+    if apply_zone_state == "free"
+      @presence_relevant = true
+    elsif presence && @presence_relevant
+      apply_zone_state = "free"
+      @presence_relevant = false
+      schedule.in(@presence_timeout) do
+        @update_mutex.synchronize { apply_new_state(@last_status, @last_presence) }
+      end
     end
 
     self[:zone_state] = apply_zone_state rescue nil
