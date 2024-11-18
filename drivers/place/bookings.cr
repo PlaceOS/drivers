@@ -38,7 +38,7 @@ class Place::Bookings < PlaceOS::Driver
 
     # This image is displayed along with the capacity when the room is not bookable
     room_image: "https://domain.com/room_image.svg",
-    sensor_mac: "device-mac",
+    _sensor_mac: "device-mac",
 
     hide_meeting_details:      false,
     hide_meeting_title:        false,
