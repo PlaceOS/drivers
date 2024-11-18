@@ -213,7 +213,7 @@ class Place::AreaManagement < PlaceOS::Driver
     building_id_local = level_buildings[level_id]? || building_id
     locs = sensor_locations(level_id)
 
-    details.each do |sensor|
+    details = details.select! do |sensor|
       id = sensor.id ? "#{sensor.mac}-#{sensor.id}" : sensor.mac
       @sensor_discovery[building_id_local][id] = SensorMeta.new(
         sensor.name,
@@ -254,6 +254,9 @@ class Place::AreaManagement < PlaceOS::Driver
             logger.warn(exception: error) { "failed to convert #{sensor.value} #{curr_unit} => #{desired_unit}" }
           end
         end
+
+        # only select sensors that have a location
+        sensor
       end
     end
 
