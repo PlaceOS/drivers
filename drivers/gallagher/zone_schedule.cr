@@ -16,6 +16,8 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
       "busy"    => "free",
       "free"    => "default",
     },
+
+    strict_presence: false,
   })
 
   getter system_id : String = ""
@@ -26,6 +28,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   getter state_mappings : Hash(String, String) = {} of String => String
 
   @update_mutex = Mutex.new
+  @strict_presence : Bool = false
 
   def on_load
     on_update
@@ -35,29 +38,56 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     @system_id = setting?(String, :gallagher_system).presence || config.control_system.not_nil!.id
     @state_mappings = setting(Hash(String, String), :state_mappings)
     @zone_id = setting(String | Int32, :zone_id)
+    @strict_presence = setting?(Bool, :strict_presence) || false
   end
 
   bind Bookings_1, :status, :status_changed
+  bind Bookings_1, :presence, :presence_changed
+
+  getter last_status : String? = nil
+  getter last_presence : Bool? = nil
 
   private def status_changed(_subscription, new_value)
     logger.debug { "new room status: #{new_value}" }
     new_status = (String?).from_json(new_value) rescue new_value.to_s
-    @update_mutex.synchronize { apply_new_state(new_status) }
+    @last_status = new_status
+    @update_mutex.synchronize { apply_new_state(new_status, @last_presence) }
   end
 
-  private def apply_new_state(new_status : String?)
+  private def presence_changed(_subscription, new_value)
+    logger.debug { "new room status: #{new_value}" }
+    new_presence = (Bool?).from_json(new_value) rescue nil
+    @last_presence = new_presence
+    @update_mutex.synchronize { apply_new_state(@last_status, new_presence) }
+  end
+
+  private def apply_new_state(new_status : String?, presence : Bool?)
     logger.debug { "#apply_new_state called with new_status: #{new_status}" }
 
     # we'll ignore nil values, most likely only when drivers are updated or starting
     return unless new_status
-    self[:booking_status] = new_status
-    apply_zone_state = state_mappings[new_status]?
 
+    # ignore redis errors as this is a critical system component
+    begin
+      self[:booking_status] = new_status
+      self[:people_present] = presence
+    rescue
+    end
+
+    apply_zone_state = state_mappings[new_status]?
     if apply_zone_state.nil?
       logger.debug { "no mapping for booking status #{new_status}, ignoring" }
       return
     end
-    self[:zone_state] = apply_zone_state
+
+    # This is checking if want to lock the room (not free)
+    # and if someone is possibly present
+    # then change zone state to unlock unless we are unsure about presence and the strict flag is set
+    if apply_zone_state != "free" && presence != false
+      apply_zone_state = "free" unless @strict_presence && presence.nil?
+    end
+
+    self[:zone_state] = apply_zone_state rescue nil
 
     logger.debug { "mapping #{new_status} => #{apply_zone_state} in #{zone_id}" }
 
