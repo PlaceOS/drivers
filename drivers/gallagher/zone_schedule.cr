@@ -24,7 +24,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   getter count : UInt64 = 0_u64
 
   # Tracking meeting details
-  getter zone_id : String | Int32 = ""
+  getter zone_id : String | Int64 = ""
   getter state_mappings : Hash(String, String) = {} of String => String
 
   @update_mutex = Mutex.new
@@ -37,7 +37,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   def on_update
     @system_id = setting?(String, :gallagher_system).presence || config.control_system.not_nil!.id
     @state_mappings = setting(Hash(String, String), :state_mappings)
-    @zone_id = setting(String | Int32, :zone_id)
+    @zone_id = setting?(String | Int64, :zone_id) || setting(String | Int64, :door_zone_id)
     @strict_presence = setting?(Bool, :strict_presence) || false
   end
 
