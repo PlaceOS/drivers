@@ -1,5 +1,5 @@
 require "placeos-driver"
-require "simple_retry"
+require "placeos-driver/interface/sensor"
 
 class Cisco::SpacesRoom < PlaceOS::Driver
   include Interface::Sensor
