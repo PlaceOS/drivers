@@ -50,7 +50,7 @@ class Cisco::SpacesRoom < PlaceOS::Driver
     end
     return NO_MATCH if zone_id && !system.zones.includes?(zone_id)
 
-    Array(Interface::Sensor::Detail).from_json cisco_spaces.sensors(type, mac, zone_id).get.to_json
+    Array(Interface::Sensor::Detail).from_json cisco_spaces.sensors(type, @room_id, zone_id).get.to_json
   end
 
   def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
@@ -58,6 +58,6 @@ class Cisco::SpacesRoom < PlaceOS::Driver
     return nil unless id
     return nil unless mac == @room_id
 
-    Interface::Sensor::Detail?.from_json(cisco_spaces.sensors(mac, id).get.to_json)
+    Interface::Sensor::Detail?.from_json(cisco_spaces.sensors(@room_id, id).get.to_json)
   end
 end
