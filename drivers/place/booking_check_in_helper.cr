@@ -11,10 +11,17 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   description "works in conjunction with the Bookings driver to help automate check-in"
 
   accessor bookings : Bookings_1
-  accessor staff_api : StaffAPI_1
 
   def mailer
-    system.implementing(Interface::Mailer)[0]
+    sys_id = @mailer_system.presence
+    sys = sys_id ? system(sys_id) : system
+    sys.implementing(Interface::Mailer)[0]
+  end
+
+  def staff_api
+    sys_id = @mailer_system.presence
+    sys = sys_id ? system(sys_id) : system
+    sys[:StaffAPI_1]
   end
 
   default_settings({
@@ -35,6 +42,8 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
     # URIs for confirming or denying a meeting
     check_in_url: "https://domain.com/meeting/check-in",
     no_show_url:  "https://domain.com/meeting/no-show",
+
+    _mailer_system: "sys-12345",
 
     jwt_private_key: <<-STRING
 -----BEGIN RSA PRIVATE KEY-----
@@ -68,6 +77,7 @@ STRING
   })
 
   @sensor_stale : Bool = false
+  @mailer_system : String? = nil
 
   def on_load
     on_update
@@ -102,6 +112,7 @@ STRING
   def on_update
     @jwt_private_key = setting?(String, :jwt_private_key) || ""
     @decline_message = setting?(String, :decline_message)
+    @mailer_system = setting?(String, :mailer_system)
 
     @ignore_longer_than = setting?(Int32, :ignore_longer_than).try &.minutes
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
