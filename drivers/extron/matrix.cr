@@ -258,6 +258,8 @@ class Extron::Matrix < PlaceOS::Driver
       update_io response
     in Error, Response::ParseError
       logger.error { response }
+      task.try(&.abort) # task most likely nil here
+      return
     in Time
       # End of unsolicited comms on connect
       query_device_info
@@ -267,7 +269,7 @@ class Extron::Matrix < PlaceOS::Driver
     in Nil
       # Empty line
     end
-    response
+    task.try(&.success)
   end
 
   private def update_io(input : Input, output : Output, layer : MatrixLayer)

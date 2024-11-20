@@ -44,6 +44,7 @@ DriverSpecs.mock_driver "Extron::Matrix" do
 
   expect_raises PlaceOS::Driver::RemoteException do
     invalid = exec :switch_to, input: 999
+    should_send "999!"
     responds "E01\r\n"
     invalid.get
   end
