@@ -187,25 +187,29 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
     response.status_code = 200
     response << <<-XML
       <User PartitionID="2" ID="U3">
-          <SiteName>PlaceOS</SiteName>
-          <SiteID>2</SiteID>
+          <Site>
+            <Ref Type="SiteKeyword" ID="2" Name="PlaceOS"/>
+          </Site>
           <ID>281474976710659</ID>
           <Name>Card 12</Name>
           <Notes></Notes>
           <Address>U3</Address>
           <cf_EmailAddress>steve@place.tech</cf_EmailAddress>
+          <PrimaryPermissionGroup>
+            <Ref Type="PermissionGroup" PartitionID="0" ID="QG4"/>
+          </PrimaryPermissionGroup>
       </User>
     XML
   end
 
   result.get.should eq({
-    "id"           => 281474976710659,
-    "name"         => "Card 12",
-    "site_id"      => 2,
-    "site_name"    => "PlaceOS",
-    "address"      => "U3",
-    "partition_id" => 2,
-    "email"        => "steve@place.tech",
+    "id"                       => 281474976710659,
+    "name"                     => "Card 12",
+    "site"                     => {"id" => 2, "name" => "PlaceOS"},
+    "address"                  => "U3",
+    "partition_id"             => 2,
+    "email"                    => "steve@place.tech",
+    "primary_permission_group" => {"partition_id" => 0, "address" => "QG4"},
   })
 
   # =====
