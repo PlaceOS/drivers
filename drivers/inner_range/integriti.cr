@@ -104,7 +104,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     include JSON::Serializable
   end
 
-  macro define_xml_type(klass, keys, lookup = nil)
+  macro define_xml_type(klass, keys, lookup = nil, &block)
     struct {{klass}} < IntegritiObject
       {% for _node, variable in keys %}
         getter! {{ variable.var }} : {{ variable.type }}
@@ -116,6 +116,10 @@ class InnerRange::Integriti < PlaceOS::Driver
         {% end %}
       )
       end
+
+      {% if block %}
+        {{block.body}}
+      {% end %}
     end
 
     {% PROPS[lookup || klass.stringify] = keys.keys.join(",") %}
@@ -610,6 +614,26 @@ class InnerRange::Integriti < PlaceOS::Driver
     "PrimaryPermissionGroup" => primary_permission_group : PermissionGroup,
   })
 
+  define_xml_type(FullUser, {
+    "ID"                     => id : Int64,
+    "Name"                   => name : String,
+    "Site"                   => site : Site, # ref only
+    "Address"                => address : String,
+    "attr_PartitionID"       => partition_id : Int32,
+    "cf_origo"               => origo : Bool,
+    "cf_phone"               => phone : String,
+    "cf_email"               => email : String,
+    "PrimaryPermissionGroup" => primary_permission_group : PermissionGroup, # ref only
+  }) do
+    def site_id
+      site.id
+    end
+
+    def site_name
+      site.name
+    end
+  end
+
   # users in a site
   def users(site_id : Int32? = nil, email : String? = nil)
     users = [] of User
@@ -628,8 +652,8 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   def user(id : Int64 | String)
-    document = check get("/v2/BasicStatus/User/#{id}?#{prop_param "User"}")
-    extract_user(document)
+    document = check get("/v2/BasicStatus/User/#{id}?FullObject=true")
+    extract_full_user(document)
   end
 
   def user_id_lookup(email : String) : Array(String)
@@ -642,7 +666,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     user = extract_add_or_update_result(add_entry("User", UpdateFields{
       "FirstName"  => first_name,
       "SecondName" => second_name,
-      "SiteID"     => site_id || default_site_id.to_i64,
+      "Site"       => Ref.new("SiteKeyword", (site_id || default_site_id).to_s),
       cf_email     => email.strip.downcase,
       cf_phone     => phone,
     }.compact!))
