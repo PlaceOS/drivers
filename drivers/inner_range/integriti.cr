@@ -475,7 +475,10 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   protected def update(type : String, id : String, attribute : String = "Address", return_object : Bool = false, &)
     payload = XML.build_fragment(indent: "  ") do |xml|
-      xml.element(type, {attribute => id}) { yield xml }
+      xml.element(type, {
+        "PartitionID" => @default_partition_id.to_s,
+        attribute     => id,
+      }) { yield xml }
     end
     add_or_update payload, return_object: return_object
   end
