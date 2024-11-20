@@ -66,7 +66,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
     @default_unlock_time = setting?(Int32, :default_unlock_time) || 10
     @default_site_id = setting?(Int32, :default_site_id) || 1
-    @default_partition_id = setting?(Int32, :default_partition_id)
+    @default_partition_id = setting?(Int32, :default_partition_id) || 0
 
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
@@ -74,7 +74,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   getter default_unlock_time : Int32 = 10
   getter default_site_id : Int32 = 1
-  getter default_partition_id : Int32? = nil
+  getter default_partition_id : Int32 = 0
   getter cf_email : String = "cf_EmailAddress"
   getter cf_phone : String = "cf_Mobile"
   getter cf_origo : String = "cf_HasVirtualCard"
@@ -444,7 +444,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   protected def add(type : String, return_object : Bool = false, &)
     payload = XML.build_fragment(indent: "  ") do |xml|
-      xml.element(type) { yield xml }
+      xml.element(type, {"PartitionID" => @default_partition_id.to_s}) { yield xml }
     end
     add_or_update payload, return_object: return_object
   end
