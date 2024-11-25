@@ -11,6 +11,7 @@ class Place::Bookings < PlaceOS::Driver
 
   default_settings({
     calendar_id:            nil,
+    calendar_ids:           [] of String,
     calendar_time_zone:     "Australia/Sydney",
     book_now_default_title: "Ad Hoc booking",
     disable_book_now_host:  false,
@@ -37,7 +38,7 @@ class Place::Bookings < PlaceOS::Driver
     custom_qr_color:            "black",
 
     # This image is displayed along with the capacity when the room is not bookable
-    room_image: "https://domain.com/room_image.svg",
+    room_image:  "https://domain.com/room_image.svg",
     _sensor_mac: "device-mac",
 
     hide_meeting_details:      false,
@@ -57,6 +58,7 @@ class Place::Bookings < PlaceOS::Driver
   accessor calendar : Calendar_1
 
   getter calendar_id : String = ""
+  getter calendar_ids : Array(String) = [] of String
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
   @default_title : String = "Ad Hoc booking"
   @disable_book_now : Bool = false
@@ -86,6 +88,9 @@ class Place::Bookings < PlaceOS::Driver
   def on_update
     schedule.clear
     @calendar_id = (setting?(String, :calendar_id).presence || system.email.not_nil!).downcase
+    ids = (setting?(Array(String), :calendar_ids) || [] of String).map!(&.downcase)
+    ids.unshift @calendar_id
+    @calendar_ids = ids.uniq!
 
     @perform_sensor_search = true
     schedule.in(Random.rand(30).seconds + Random.rand(30_000).milliseconds) { poll_events }
@@ -281,15 +286,17 @@ class Place::Bookings < PlaceOS::Driver
     start_of_day = now.at_beginning_of_day.to_unix
     cache_period = start_of_day + @cache_days.to_i
 
-    logger.debug { "polling events #{@calendar_id}, from #{start_of_day}, to #{cache_period}, in #{@time_zone.name}" }
+    events = @calendar_ids.flat_map { |cal_id|
+      logger.debug { "polling events #{cal_id}, from #{start_of_day}, to #{cache_period}, in #{@time_zone.name}" }
 
-    events = calendar.list_events(
-      @calendar_id,
-      start_of_day,
-      cache_period,
-      @time_zone.name,
-      include_cancelled: @include_cancelled_bookings
-    ).get.as_a.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
+      calendar.list_events(
+        cal_id,
+        start_of_day,
+        cache_period,
+        @time_zone.name,
+        include_cancelled: @include_cancelled_bookings
+      ).get.as_a
+    }.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
 
     self[:bookings] = events
     check_current_booking(events)
