@@ -34,7 +34,6 @@ class Place::Smtp < PlaceOS::Driver
   end
 
   @smtp_client : EMail::Client?
-
   @sender : String = "support@place.tech"
   @username : String = ""
   @password : String = ""

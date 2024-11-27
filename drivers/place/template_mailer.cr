@@ -8,7 +8,8 @@ require "placeos-driver/interface/mailer_templates"
 # It also updates metadata in the staff API with available fields for use in email templates.
 class Place::TemplateMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::Mailer
-  include PlaceOS::Driver::Interface::MailerTemplates
+
+  alias TemplateFields = PlaceOS::Driver::Interface::MailerTemplates::TemplateFields
 
   descriptive_name "Template Mailer"
   generic_name :Mailer
@@ -259,12 +260,6 @@ class Place::TemplateMailer < PlaceOS::Driver
     else
       mailer.send_template(to, template, args, resource_attachments, attachments, cc, bcc, from, reply_to)
     end
-  end
-
-  # This driver does not have any templates of it's own.
-  # It uses the TemplateFields from Interface::MailerTemplates.
-  def template_fields : Array(TemplateFields)
-    [] of TemplateFields
   end
 
   alias Template = Hash(String, String)
