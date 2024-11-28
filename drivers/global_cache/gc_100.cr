@@ -30,10 +30,17 @@ class GlobalCache::Gc100 < PlaceOS::Driver
     schedule.clear
     schedule.every(10.seconds, true) do
       logger.debug { "-- Polling GC100" }
-      get_devices unless self[:config_indexed].as_bool
 
-      # Low priority sent to maintain the connection
-      do_send("get_NET,0:1", priority: 0)
+      if status?(Bool, :config_indexed)
+        # Low priority sent to maintain the connection
+        if @relay_config["relaysensor"]?
+          relay_status?(0, priority: 0, retries: 0)
+        else
+          do_send("get_NET,0:1", priority: 0, wait: false)
+        end
+      else
+        get_devices
+      end
     end
   end
 
