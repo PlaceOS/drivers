@@ -18,7 +18,6 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   def on_load
     transport.tokenizer = Tokenizer.new(DELIMITER)
-    queue.wait = false
     self[:num_relays] = 0
     self[:num_ir] = 0
   end
@@ -32,7 +31,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
       logger.debug { "-- Polling GC100" }
 
       if status?(Bool, :config_indexed)
-        relay_status?(0, priority: 0, retries: 0)
+        do_send("get_NET,0:1", priority: 0, wait: false)
       else
         get_devices
       end
