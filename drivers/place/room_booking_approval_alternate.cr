@@ -11,8 +11,7 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
     notify_host_on_decline:                  true,
     default_accept_message:                  "Request accepted",
     default_decline_message:                 "Request not accepted",
-    events_requiring_approval_are_tentative: true,
-    always_poll_ms_graph:           true,
+    events_requiring_approval_are_tentative: true
   })
 
   accessor calendar : Calendar_1
@@ -25,7 +24,6 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
   @default_accept_message : String = "Request accepted"
   @default_decline_message : String = "Request not accepted"
   @events_requiring_approval_are_tentative : Bool = true
-  @always_poll_ms_graph : Bool = true
 
   def on_load
     on_update
@@ -47,7 +45,6 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
     @default_accept_message = setting?(String, :default_accept_message) || "Request accepted"
     @default_decline_message = setting?(String, :default_decline_message) || "Request not accepted"
     @events_requiring_approval_are_tentative = setting?(Bool, :events_requiring_approval_are_tentative) || true
-    @always_poll_ms_graph = setting?(Bool, :always_poll_ms_graph) || true
   end
 
   # Finds the building ID for the current location services object
@@ -74,12 +71,7 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
       system_ids.each do |system_id|
         sys = system(system_id)
         if sys.exists?("Bookings", 1)
-          bookings_module = sys.get("Bookings", 1)
-          if @always_poll_ms_graph
-            bookings_module.poll_events 
-            sleep 1.seconds
-          end
-          if bookings = bookings_module.status?(Array(PlaceCalendar::Event), "bookings")
+          if bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "bookings")
             @events_requiring_approval_are_tentative ? bookings.select! { |event| event.status == "tentative" } : bookings.select! { |booking| room_attendee(booking).try(&.response_status).in?({"needsAction", "tentative"}) }
             results[system_id] = bookings unless bookings.empty?
           end
@@ -92,11 +84,13 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
 
   def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = nil, comment : String? = nil)
     calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify || @notify_host_on_accept, comment: comment || @default_accept_message)
+    sleep 2.seconds
     find_bookings_for_approval
   end
 
   def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = nil, comment : String? = nil)
     calendar.decline_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify || @notify_host_on_decline, comment: comment || @default_decline_message)
+    sleep 2.seconds
     find_bookings_for_approval
   end
 
