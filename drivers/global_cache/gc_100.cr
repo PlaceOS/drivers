@@ -18,6 +18,7 @@ class GlobalCache::Gc100 < PlaceOS::Driver
 
   def on_load
     transport.tokenizer = Tokenizer.new(DELIMITER)
+    queue.wait = false
     self[:num_relays] = 0
     self[:num_ir] = 0
   end
