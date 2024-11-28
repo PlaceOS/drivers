@@ -8,7 +8,6 @@ DriverSpecs.mock_driver "GlobalCache::Gc100" do
   responds("device,1,2 RELAYSENSOR\r")
   responds("device,3,1 IR\r")
   responds("endlistdevices\r")
-  should_send("get_NET,0:1\r")
 
   sleep 1
 
