@@ -1,30 +1,66 @@
 require "placeos-driver"
-require "json"
+require "place_calendar"
 
 class Place::AttendeeScanner < PlaceOS::Driver
   descriptive_name "PlaceOS Room Events"
   generic_name :AttendeeScanner
 
   accessor staff_api : StaffAPI_1
+  accessor locations : LocationServices_1
 
   default_settings({
-    internal_domains: [] of String,
+    internal_domains: ["comment.out", "use authority / domain email_domains by preference"],
   })
 
-  getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
   getter internal_domains : Array(String) = [] of String
 
   def on_update
-    @internal_domains = setting(Array(String), :internal_domains)
+    # TODO:: use authority email_domains by
+    @internal_domains = setting(Array(String), :internal_domains).map!(&.strip.downcase)
   end
 
   # Grabs the list of systems in the building
-  def get_systems_list
-    building_id = system[:Location].building_id.get
-    system["StaffAPI"].systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
-  rescue error
-    logger.warn(exception: error) { "unable to obtain list of systems in the building" }
-    nil
+  def systems
+    locations.systems.get.as_h.transform_values(&.as_a.map(&.as_s))
+  end
+
+  def building_id
+    locations.building_id.get.as_s
+  end
+
+  alias Event = PlaceCalendar::Event
+  alias Attendee = PlaceCalendar::Event::Attendee
+
+  record Guest, zones : Tuple(String, String), system_id : String, details : Attendee, event : Event do
+    include JSON::Serializable
+  end
+
+  def externals_in_bookings
+    building = building_id
+    externals = [] of Guest
+
+    now = Time.utc
+
+    # Find all the guests
+    systems.each do |level_id, system_ids|
+      zones = {building, level_id}
+
+      system_ids.each do |system_id|
+        sys = system(system_id)
+        if sys.exists?("Bookings", 1)
+          events = sys.get("Bookings", 1).status(Array(Event), :bookings) rescue [] of Event
+          events.each do |event|
+            externals.concat(event.attendees.reject { |attendee|
+              internal_domains.find { |domain| attendee.email.ends_with? domain }
+            }.map { |attendee|
+              Guest.new(zones, system_id, attendee, event)
+            })
+          end
+        end
+      end
+    end
+
+    externals
   end
 
   # Lists external guests based on email domains
