@@ -645,7 +645,7 @@ class InnerRange::Integriti < PlaceOS::Driver
       # "SiteID" => site_id,
       cf_email => email,
     }
-    paginate_request("BasicStatus", "User", filter) do |row|
+    paginate_request("User", "User", filter) do |row|
       users << extract_user(row)
     end
     if site_id
@@ -655,7 +655,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   def user(id : Int64 | String)
-    document = check get("/v2/BasicStatus/User/#{id}?FullObject=true")
+    document = check get("/v2/User/User/#{id}?FullObject=true")
     extract_full_user(document)
   end
 
@@ -714,7 +714,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     email_user_id = Hash(String, String).new("", user_ids.size)
 
     user_ids.each do |user_id|
-      document = check get("/v2/BasicStatus/User/#{user_id}?AdditionalProperties=#{field}")
+      document = check get("/v2/User/User/#{user_id}?AdditionalProperties=#{field}")
       if email = extract_user(document).email
         email_user_id[email.downcase] = user_id
       end
