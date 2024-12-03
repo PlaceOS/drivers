@@ -71,7 +71,7 @@ shards:
 
   debug:
     git: https://github.com/sija/debug.cr.git
-    version: 2.0.3
+    version: 2.0.4
 
   defined:
     git: https://github.com/wyhaines/defined.cr.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.2.18
+    version: 7.3.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -267,7 +267,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.60.0
+    version: 9.60.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
