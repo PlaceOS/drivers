@@ -14,6 +14,10 @@ class Place::AttendeeScanner < PlaceOS::Driver
 
   getter internal_domains : Array(String) = [] of String
 
+  def on_load
+    on_update
+  end
+
   def on_update
     # TODO:: use authority email_domains so this setting isn't required
     @internal_domains = setting(Array(String), :internal_domains).map!(&.strip.downcase)
