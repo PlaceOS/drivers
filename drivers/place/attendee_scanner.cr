@@ -77,6 +77,8 @@ class Place::AttendeeScanner < PlaceOS::Driver
           events = sys.get("Bookings", 1).status(Array(Event), :bookings) rescue [] of Event
           events.each do |event|
             # all bookings are sorted in this array
+            event_end = event.event_end || end_of_day
+            next if event_end <= now
             break if event.event_start >= end_of_day
 
             externals.concat(event.attendees.reject { |attendee|
