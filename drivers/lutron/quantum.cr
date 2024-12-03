@@ -15,10 +15,6 @@ class Lutron::Quantum < PlaceOS::Driver
 
   protected getter! client : Client
 
-  def on_load
-    on_update
-  end
-
   def on_update
     host_name = URI.parse(config.uri.not_nil!).host
     api_key = setting(String, :api_key)

@@ -46,10 +46,6 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
   TYPE_HEADER = "application/json"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
 
-  def on_load
-    on_update
-  end
-
   def on_update
     username = setting?(String, :username)
     password = setting?(String, :password)

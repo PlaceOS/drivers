@@ -50,10 +50,6 @@ class Place::TemplateMailer < PlaceOS::Driver
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @update_schedule : String? = nil
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @org_zone_ids = nil
     @region_zone_ids = nil

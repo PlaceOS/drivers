@@ -20,10 +20,6 @@ class Cisco::Webex::InstantConnect < PlaceOS::Driver
   @webex_guest_issuer : String = ""
   @webex_guest_secret : String = ""
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @webex_guest_issuer = setting?(String, :webex_guest_issuer) || ""
     @webex_guest_secret = setting?(String, :webex_guest_secret) || ""

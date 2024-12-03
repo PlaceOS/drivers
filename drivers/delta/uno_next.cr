@@ -24,10 +24,6 @@ class Delta::UNOnext < PlaceOS::Driver
 
   accessor delta_api : Delta_1
 
-  def on_load
-    on_update
-  end
-
   record ManMap, building_zone : String, level_zone : String, managers : Array(UInt32) do
     include JSON::Serializable
   end

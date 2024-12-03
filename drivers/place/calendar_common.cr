@@ -42,10 +42,6 @@ module Place::CalendarCommon
     @channel.close
   end
 
-  def on_load
-    on_update
-  end
-
   def on_update
     if proxy_config = setting?(NamedTuple(host: String, port: Int32, auth: NamedTuple(username: String, password: String)?), :proxy)
       ConnectProxy.proxy_uri = "http://#{proxy_config[:host]}:#{proxy_config[:port]}"

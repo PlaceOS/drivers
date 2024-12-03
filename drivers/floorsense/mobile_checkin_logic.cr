@@ -21,10 +21,6 @@ class Floorsense::MobileCheckinLogic < PlaceOS::Driver
   @booking_period : Time::Span? = nil
   @meta_ext_mappings : Hash(String, String) = {} of String => String
 
-  def on_load
-    on_update
-  end
-
   def on_update
     time_zone = setting?(String, :time_zone).presence || config.control_system.not_nil!.timezone.presence
     @time_zone = Time::Location.load(time_zone) if time_zone

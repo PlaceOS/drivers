@@ -15,10 +15,6 @@ class RHBAccess::Axiomxa < PlaceOS::Driver
 
   protected getter! client : Client
 
-  def on_load
-    on_update
-  end
-
   def on_update
     host_name = config.uri.not_nil!.to_s
     @client = Client.new(base_url: host_name.to_s, username: setting(String, :username), password: setting(String, :password))

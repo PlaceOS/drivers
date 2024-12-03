@@ -17,10 +17,6 @@ class Place::RbpRemoteLogger < PlaceOS::Driver
   @debug : Bool = false
   @entries : Hash(String, Array(JSON::Any)) = {} of String => Array(JSON::Any)
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @logging_enabled = setting?(Bool, "enabled") || true
     @max_log_entries = setting?(Int32, "max_log_entries") || 1000

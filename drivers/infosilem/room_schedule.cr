@@ -22,10 +22,6 @@ class Infosilem::RoomSchedule < PlaceOS::Driver
   @request_lock : Mutex = Mutex.new
   @request_running : Bool = false
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @debug = setting(Bool, :debug) || false
     @building_id = setting(String, :infosilem_building_id)

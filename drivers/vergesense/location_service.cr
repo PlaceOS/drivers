@@ -35,10 +35,6 @@ class Vergesense::LocationService < PlaceOS::Driver
   @desk_space_types : Array(String) = ["desk"]
   @notify_updates : Bool = false
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @notify_updates = setting?(Bool, :notify_updates) || false

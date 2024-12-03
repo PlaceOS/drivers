@@ -28,10 +28,6 @@ end with follow up questions where applicable),
                "How can I help?",
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @prompt = setting(String, :prompt)
     @user_hint = setting?(String, :user_hint) || "Hi! I'm your workplace assistant."

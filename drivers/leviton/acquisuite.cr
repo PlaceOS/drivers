@@ -21,10 +21,6 @@ class Leviton::Acquisuite < PlaceOS::Driver
   @manifest_list : Array(String) = [] of String
   @config_list : Hash(String, Array(Hash(String, Float64 | String | Nil))) = {} of String => Array(Hash(String, Float64 | String | Nil))
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @debug_webhook = setting?(Bool, :debug_webhook) || false
     @device_list = setting(Hash(String, Tuple(String, String)), :device_list)

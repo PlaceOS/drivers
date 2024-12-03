@@ -15,10 +15,6 @@ class RHBAccess::AxiomRoomLogic < PlaceOS::Driver
   @door_ids = [] of String
   @cron_string : String = "*/5 * * * *"
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @door_ids = setting(Array(String), :axiom_door_ids)
     @cron_string = setting(String, :axiom_status_poll_cron)

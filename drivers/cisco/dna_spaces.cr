@@ -45,10 +45,6 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @last_received = 0_i64
   @stream_active = false
 
-  def on_load
-    on_update
-  end
-
   def on_unload
     @channel.close
     @stream_active = false

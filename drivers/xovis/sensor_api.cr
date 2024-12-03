@@ -21,10 +21,6 @@ class Xovis::SensorAPI < PlaceOS::Driver
     poll_rate: 15,
   })
 
-  def on_load
-    on_update
-  end
-
   @poll_rate : Time::Span = 15.seconds
   @mac : String = ""
   @state : Hash(String, Array(SensorDetail)) = {} of String => Array(SensorDetail)

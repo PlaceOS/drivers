@@ -29,10 +29,6 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   @sync_mutex : Mutex = Mutex.new
   @sync_requests : Int32 = 0
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @time_zone_string = setting?(String, :time_zone).presence || config.control_system.not_nil!.timezone.presence || "GMT"
     @time_zone = Time::Location.load(@time_zone_string)

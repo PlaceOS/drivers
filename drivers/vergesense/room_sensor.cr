@@ -21,10 +21,6 @@ class Vergesense::RoomSensor < PlaceOS::Driver
   getter! space : Space
   getter! floor_name : String
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @space_id = setting(String, :space_ref_id)
     subscriptions.clear

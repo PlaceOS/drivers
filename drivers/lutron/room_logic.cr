@@ -16,10 +16,6 @@ class Lutron::RoomLogic < PlaceOS::Driver
   @area_id : Int32 = 0
   @cron_string : String = "*/5 * * * *"
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @area_id = setting(Int32, :lutron_area_id)
     @cron_string = setting(String, :lutron_status_poll_cron)

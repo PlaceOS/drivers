@@ -15,10 +15,6 @@ class Delta::API < PlaceOS::Driver
     debug:      false,
   })
 
-  def on_load
-    on_update
-  end
-
   @user_agent : String = "PlaceOS"
   @debug : Bool = false
 

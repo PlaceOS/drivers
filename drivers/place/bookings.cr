@@ -81,10 +81,6 @@ class Place::Bookings < PlaceOS::Driver
   @perform_sensor_search : Bool = true
   @sensor_mac : String? = nil
 
-  def on_load
-    on_update
-  end
-
   def on_update
     schedule.clear
     @calendar_id = (setting?(String, :calendar_id).presence || system.email.not_nil!).downcase

@@ -24,10 +24,6 @@ class Vergesense::MqttExport < PlaceOS::Driver
   @subscriptions : Int32 = 0
   @previous_counts = Hash(String, UInt32).new
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @mqtt_root_topic = setting(String, :mqtt_root_topic) || "/t/root-topic"
     @floors_to_export = setting(Array(String), :floors_to_export) || [] of String

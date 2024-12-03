@@ -30,10 +30,6 @@ class Steinel::HPD2 < PlaceOS::Driver
     people_zones: Array(Interface::Sensor::Detail),
   )
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @mac = URI.parse(config.uri.not_nil!).hostname.not_nil!
     schedule.every(5.seconds) { get_status }

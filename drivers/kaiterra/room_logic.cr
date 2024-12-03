@@ -15,10 +15,6 @@ class Kaiterra::RoomLogic < PlaceOS::Driver
   @room_id : String = ""
   @cron_string : String = "*/5 * * * *"
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @room_id = setting(String, :kaiterra_room_id)
     @cron_string = setting(String, :kaiterra_status_poll_cron)

@@ -18,10 +18,6 @@ class AWS::SnsSms < PlaceOS::Driver
     aws_secret:     "random",
   })
 
-  def on_load
-    on_update
-  end
-
   getter! signer : Awscr::Signer::Signers::V4
 
   def on_update

@@ -22,10 +22,6 @@ class Microsoft::GraphAPIAdvanced < PlaceOS::Driver
     client_secret: String,
   )
 
-  def on_load
-    on_update
-  end
-
   def on_update
     credentials = setting(GraphParams, :credentials)
     @client = Office365::Client.new(**credentials)

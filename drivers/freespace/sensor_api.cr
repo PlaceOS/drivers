@@ -28,10 +28,6 @@ class Freespace::SensorAPI < PlaceOS::Driver
     },
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @username = setting(String, :username)
     @password = setting(String, :password)

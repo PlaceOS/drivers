@@ -27,10 +27,6 @@ class Crestron::NvxAddressManager < PlaceOS::Driver
   @base_address : UInt32 = 0_u32
   @block_size : Int32 = 8
 
-  def on_load
-    on_update
-  end
-
   def on_update
     addr = setting(String, :base_address)
     base_addr = ::IPAddress::IPv4.new addr

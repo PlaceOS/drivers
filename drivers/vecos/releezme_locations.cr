@@ -27,10 +27,6 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     door_number_lookup: false,
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @door_number_lookup = setting?(Bool, :door_number_lookup) || false
     @user_id_key = setting?(String, :user_id_key) || "email"

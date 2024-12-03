@@ -24,10 +24,6 @@ class TvOne::CorioMaster < PlaceOS::Driver
   @ready : Bool = false
   @window_cache : Hash(UInt32, JSON::Any) = {} of UInt32 => JSON::Any
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @username = setting(String, :username)
     @password = setting(String, :password)

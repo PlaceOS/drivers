@@ -9,6 +9,8 @@ class Place::LocationServices < PlaceOS::Driver
   generic_name :LocationServices
   description %(collects location data from compatible services and combines the data)
 
+  accessor staff_api : StaffAPI_1
+
   default_settings({
     debug_webhook:   false,
     search_building: false,
@@ -19,10 +21,6 @@ class Place::LocationServices < PlaceOS::Driver
       "First Aid"    => "ed9f7608-488f-aeef",
     },
   })
-
-  def on_load
-    on_update
-  end
 
   @debug_webhook : Bool = false
   @emergency_contacts : Hash(String, String) = {} of String => String
@@ -56,7 +54,7 @@ class Place::LocationServices < PlaceOS::Driver
   def get_building_id
     building_setting = setting?(String, :building_zone_override)
     return building_setting if building_setting.presence
-    zone_ids = system["StaffAPI"].zones(tags: "building").get.as_a.map(&.[]("id").as_s)
+    zone_ids = staff_api.zones(tags: "building").get.as_a.map(&.[]("id").as_s)
     (zone_ids & system.zones).first
   rescue error
     logger.warn(exception: error) { "unable to determine building zone id" }
@@ -65,7 +63,7 @@ class Place::LocationServices < PlaceOS::Driver
 
   # Grabs the list of systems in the building
   def get_systems_list
-    system["StaffAPI"].systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
+    staff_api.systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
   rescue error
     logger.warn(exception: error) { "unable to obtain list of systems in the building" }
     nil

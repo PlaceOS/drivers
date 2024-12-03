@@ -25,10 +25,6 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
   @default_decline_message : String = "Request not accepted"
   @events_requiring_approval_are_tentative : Bool = true
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @building_id = nil
     @systems = nil

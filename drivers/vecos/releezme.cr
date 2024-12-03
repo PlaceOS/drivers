@@ -17,10 +17,6 @@ class Vecos::Releezme < PlaceOS::Driver
     releezme_authentication_domain: "acc-identity.releezme.net",
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     client_id = setting(String, :client_id)
     client_secret = setting(String, :client_secret)

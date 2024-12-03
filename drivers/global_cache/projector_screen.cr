@@ -28,10 +28,6 @@ class GlobalCache::ProjectorScreen < PlaceOS::Driver
   @relay_method : String = "pulse"
   @relay_pulse_milliseconds : Int32 = 1000
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @globalcache_module = setting(String, :globalcache_module) || "DigitalIO_1"
     @relay_method = setting(String, :globalcache_relay_method) || "pulse"

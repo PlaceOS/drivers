@@ -25,10 +25,6 @@ class GoBright::LocationService < PlaceOS::Driver
     space_cache_cron:    "0 5 * * *",
   })
 
-  def on_load
-    on_update
-  end
-
   # place_zone_id => gobright_location_id
   @floor_mappings : Hash(String, String) = {} of String => String
   @zone_filter : Array(String) = [] of String

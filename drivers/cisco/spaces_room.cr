@@ -19,10 +19,6 @@ class Cisco::SpacesRoom < PlaceOS::Driver
   getter module_name : String = ""
   getter room_id : String = ""
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @system_id = setting?(String, :cisco_spaces_system).presence || config.control_system.not_nil!.id
     @module_name = setting?(String, :cisco_spaces_module).presence || "Cisco_Spaces"

@@ -20,10 +20,6 @@ class Lutron::ViveBacnet < PlaceOS::Driver
   @last_updated : Int64 = 0_i64
   @occupancy : Bool? = nil
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @device_id = setting(UInt32, :device_id)
     subscriptions.clear

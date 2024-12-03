@@ -14,10 +14,6 @@ class Kaiterra::API < PlaceOS::Driver
 
   @api_key : String = ""
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @api_key = setting(String, :api_key)
   end

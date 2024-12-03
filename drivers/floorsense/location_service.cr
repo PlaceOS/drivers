@@ -41,10 +41,6 @@ class Floorsense::LocationService < PlaceOS::Driver
   # eui64 => floorsense desk id
   @eui64_to_desk_id : Hash(String, String) = {} of String => String
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @include_bookings = setting?(Bool, :include_bookings) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)

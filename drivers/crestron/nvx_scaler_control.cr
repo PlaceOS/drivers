@@ -38,10 +38,6 @@ class Crestron::NvxScalerControl < PlaceOS::Driver
   # slightly off-shape windows
   SCALE_TO_FIT_BOUNDS = (16 / 9 * 0.95)..(16 / 9 * 1.05)
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @links = setting?(Hash(String, String), :link_scalers) || {} of String => String
   end

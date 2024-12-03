@@ -11,10 +11,6 @@ class OpenAI::GPT < PlaceOS::Driver
     openai_org: "856b5b85d3eb4697369",
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     openai_key = setting(String, :openai_key)
     openai_org = setting?(String, :openai_org)

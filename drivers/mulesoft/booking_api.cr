@@ -33,10 +33,6 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
   @basic_auth_enabled : Bool = false
   @runing_a_spec : Bool = false
 
-  def on_load
-    on_update
-  end
-
   def on_update
     schedule.clear
     @running_a_spec = !!setting(Bool, :running_a_spec)

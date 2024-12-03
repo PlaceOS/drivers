@@ -14,10 +14,6 @@ class Ashrae::BACnetDataPoints < PlaceOS::Driver
 
   accessor bacnet : BACnet_1
 
-  def on_load
-    on_update
-  end
-
   def on_update
     subscriptions.clear
     points = setting(Hash(String, String), :points)

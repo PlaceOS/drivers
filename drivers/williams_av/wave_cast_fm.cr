@@ -15,10 +15,6 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
     channel_number: 0,
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @channel_number = setting?(Int32, :channel_number)
     schedule.clear

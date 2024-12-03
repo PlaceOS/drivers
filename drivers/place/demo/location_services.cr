@@ -15,10 +15,6 @@ class Place::Demo::LocationServices < PlaceOS::Driver
   @level_zone : String = ""
   @system_id : String = ""
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @building_zone = setting(String, :building_zone)
     @level_zone = setting(String, :level_zone)

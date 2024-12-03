@@ -16,10 +16,6 @@ class Echo360::DeviceCapture < PlaceOS::Driver
     },
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     schedule.clear
     schedule.every(15.seconds) do
