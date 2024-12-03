@@ -17,41 +17,70 @@ class Place::AttendeeScanner < PlaceOS::Driver
   def on_update
     # TODO:: use authority email_domains by
     @internal_domains = setting(Array(String), :internal_domains).map!(&.strip.downcase)
+
+    @building_id = nil
+    @timezone = nil
+    @systems = nil
+    @org_id = nil
   end
 
   # Grabs the list of systems in the building
-  def systems
+  getter systems : Hash(String, Array(String)) do
     locations.systems.get.as_h.transform_values(&.as_a.map(&.as_s))
   end
 
-  def building_id
+  getter building_id : String do
     locations.building_id.get.as_s
+  end
+
+  getter org_id : String do
+    building_details = staff_api.zone(building_id).get
+
+    if tz = building_details["timezone"].as_s?
+      @timezone = Time::Location.load(tz)
+    end
+
+    building_details["parent_id"].as_s
+  end
+
+  protected getter timezone : Time::Location do
+    building_details = staff_api.zone(building_id).get
+    @org_id = building_details["parent_id"].as_s?
+
+    tz = building_details["timezone"].as_s
+    Time::Location.load(tz)
   end
 
   alias Event = PlaceCalendar::Event
   alias Attendee = PlaceCalendar::Event::Attendee
 
-  record Guest, zones : Tuple(String, String), system_id : String, details : Attendee, event : Event do
+  record Guest, zones : Tuple(String, String, String), system_id : String, details : Attendee, event : Event do
     include JSON::Serializable
   end
 
-  def externals_in_bookings
+  # extract the list of externals invited to meetings in the building today
+  def externals_in_events
     building = building_id
     externals = [] of Guest
 
-    now = Time.utc
+    # get the current time
+    now = Time.local(timezone)
+    end_of_day = now.at_end_of_day
 
     # Find all the guests
     systems.each do |level_id, system_ids|
-      zones = {building, level_id}
+      zones = {org_id, building, level_id}
 
       system_ids.each do |system_id|
         sys = system(system_id)
         if sys.exists?("Bookings", 1)
           events = sys.get("Bookings", 1).status(Array(Event), :bookings) rescue [] of Event
           events.each do |event|
+            # all bookings are sorted in this array
+            break if event.event_start >= end_of_day
+
             externals.concat(event.attendees.reject { |attendee|
-              internal_domains.find { |domain| attendee.email.ends_with? domain }
+              internal_domains.find { |domain| attendee.email.downcase.ends_with? domain }
             }.map { |attendee|
               Guest.new(zones, system_id, attendee, event)
             })
@@ -63,72 +92,81 @@ class Place::AttendeeScanner < PlaceOS::Driver
     externals
   end
 
-  # Lists external guests based on email domains
-  def list_external_guests
-    values = [] of Hash(String, JSON::Any)
+  record Booking, visitor_email : String, booking_start : Time, booking_end : Time do
+    include JSON::Serializable
+  end
 
-    systems.each do |level_id, system_ids|
-      system_ids.each do |system_id|
-        period_start = Time.local.to_unix
-        period_end = Time.local.to_unix + 86400
+  # Find the list of external guests expected in the building today
+  def externals_booked_to_visit
+    building = building_id
+    now = Time.local(timezone)
+    end_of_day = now.at_end_of_day
 
-        events = staff_api.query_events(period_start, period_end, systems: [system_id]).get
+    staff_api.query_bookings(now, end_of_day, zones: {building}, type: "visitor").get.as_a.map do |booking|
+      Booking.new(booking["asset_id"].as_s.downcase, Time.unix(booking["booking_start"].as_i64), Time.unix(booking["booking_end"].as_i64))
+    end
+  end
 
-        events.as_a.each do |event|
-          domain = event.as_h.["host"].as_s.split("@").last
+  # invite missing guests
+  def invite_external_guests
+    externals = externals_in_events
+    checked = externals.size
+    bookings = externals_booked_to_visit
 
-          unless internal_domains.includes?(domain)
-            event_id = event.as_h.["id"].as_s
-            ical_uid = event.as_h.["ical_uid"].as_s
+    externals.reject! do |guest|
+      guest_email = guest.details.email.downcase
+      bookings.find { |booking| booking.visitor_email == guest_email }
+    end
 
-            bookings = staff_api.query_bookings(event_id: event_id, ical_uid: ical_uid).get
+    now = Time.local(timezone)
+    end_of_day = now.at_end_of_day
 
-            attendee_emails = event["attendees"].as_a.map do |attendee|
-              attendee.as_h.["email"].as_s
-            end
+    externals.each do |guest|
+      begin
+        host = guest.event.attendees.find!(&.organizer)
+        host_email = host.email.downcase
+        guest_email = guest.details.email.downcase
+        guest_name = guest.details.name
+        event = guest.event
 
-            bookings.as_a.each do |booking|
-              booking = booking.as_h
+        system = staff_api.get_system(guest.system_id).get
 
-              booking.["attendees"].as_a.each do |attendee|
-                attendee_email = attendee.as_h.["email"].as_s
-
-                unless attendee_emails.includes?(attendee_email)
-                  staff_api.create_booking(
-                    booking_type: "visitor",
-                    asset_id: attendee_email,
-                    user_id: attendee_email,
-                    user_email: attendee_email,
-                    user_name: booking["user_name"].as_s,
-                    zones: booking["zones"].as_a?,
-                    booking_start: booking["booking_start"].as_s?,
-                    booking_end: booking["booking_end"].as_s?,
-                    checked_in: booking["checked_in"].as_bool?,
-                    approved: booking["approved"].as_bool?,
-                    title: booking["title"].as_s?,
-                    description: booking["description"].as_s?,
-                    time_zone: booking["time_zone"].as_s?,
-                    extension_data: booking["extension_data"]?,
-                    utm_source: nil,
-                    limit_override: nil,
-                    event_id: event_id,
-                    ical_uid: ical_uid,
-                    attendees: nil
-                  ).get
-
-                  values.push({
-                    "event_id" => event.as_h.["id"],
-                    "ical_uid" => event.as_h.["ical_uid"],
-                    "booking"  => JSON::Any.new(booking),
-                  })
-                end
-              end
-            end
-          end
-        end
+        staff_api.create_booking(
+          booking_type: "visitor",
+          asset_id: guest_email,
+          user_id: host_email,
+          user_email: host_email,
+          user_name: host.name,
+          zones: guest.zones,
+          booking_start: event.event_start.to_unix,
+          booking_end: event.event_end.try(&.to_unix) || end_of_day.to_unix,
+          checked_in: false,
+          approved: true,
+          title: guest_name,
+          description: event.title,
+          time_zone: timezone.name,
+          extension_data: {
+            name: guest_name,
+            parent_id: event.id,
+            location_id: system["name"]
+          },
+          utm_source: "attendee_scanner",
+          limit_override: 999,
+          event_id: event.id,
+          ical_uid: event.ical_uid,
+          attendees: [{
+            name: guest_name,
+            email: guest_email
+          }]
+        ).get
+      rescue error
+        logger.warn(exception: error) { "failed to invite guest: #{guest.details.email}" }
       end
     end
 
-    values
+    {
+      invited: externals.size,
+      checked: checked
+    }
   end
 end
