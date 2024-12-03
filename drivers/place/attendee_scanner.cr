@@ -146,17 +146,17 @@ class Place::AttendeeScanner < PlaceOS::Driver
           description: event.title,
           time_zone: timezone.name,
           extension_data: {
-            name: guest_name,
-            parent_id: event.id,
-            location_id: system["name"]
+            name:        guest_name,
+            parent_id:   event.id,
+            location_id: system["name"],
           },
           utm_source: "attendee_scanner",
           limit_override: 999,
           event_id: event.id,
           ical_uid: event.ical_uid,
           attendees: [{
-            name: guest_name,
-            email: guest_email
+            name:  guest_name,
+            email: guest_email,
           }]
         ).get
       rescue error
@@ -166,7 +166,7 @@ class Place::AttendeeScanner < PlaceOS::Driver
 
     {
       invited: externals.size,
-      checked: checked
+      checked: checked,
     }
   end
 end

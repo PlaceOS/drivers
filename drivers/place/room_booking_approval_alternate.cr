@@ -11,7 +11,7 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
     notify_host_on_decline:                  true,
     default_accept_message:                  "Request accepted",
     default_decline_message:                 "Request not accepted",
-    events_requiring_approval_are_tentative: true
+    events_requiring_approval_are_tentative: true,
   })
 
   accessor calendar : Calendar_1
