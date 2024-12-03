@@ -116,21 +116,25 @@ class Place::AttendeeScanner < PlaceOS::Driver
     checked = externals.size
     failed = 0
 
+    logger.debug { "found bookings #{bookings.size} and #{externals.size} externals" }
+
     externals.reject! do |guest|
       guest_email = guest.details.email.downcase
       bookings.find { |booking| booking.visitor_email == guest_email }
     end
+
+    logger.debug { "found #{externals.size} guests without bookings" }
 
     now = Time.local(timezone)
     end_of_day = now.at_end_of_day
 
     externals.each do |guest|
       begin
-        host = guest.event.attendees.find!(&.organizer)
-        host_email = host.email.downcase
+        event = guest.event
+        host_email = event.host.as(String).downcase
+        host = guest.event.attendees.find! { |attend| attend.email.downcase == host_email }
         guest_email = guest.details.email.downcase
         guest_name = guest.details.name
-        event = guest.event
 
         sys_info = staff_api.get_system(guest.system_id).get
 
