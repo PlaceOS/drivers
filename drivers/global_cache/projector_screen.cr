@@ -34,10 +34,10 @@ class GlobalCache::ProjectorScreen < PlaceOS::Driver
 
   def on_update
     @globalcache_module = setting(String, :globalcache_module) || "DigitalIO_1"
-    @globalcache_relay_method = setting(String, :globalcache_relay_method) || "pulse"
-    @globalcache_relay_index_down = setting(Int32, :globalcache_relay_index_down) || 0
-    @globalcache_relay_index_up = setting(Int32, :globalcache_relay_index_up) || 1
-    @globalcache_relay_pulse_milliseconds = setting(Int32, :globalcache_relay_pulse_milliseconds) || 1000
+    @relay_method = setting(String, :globalcache_relay_method) || "pulse"
+    @relay_index_down = setting(Int32, :globalcache_relay_index_down) || 0
+    @relay_index_up = setting(Int32, :globalcache_relay_index_up) || 1
+    @relay_pulse_milliseconds = setting(Int32, :globalcache_relay_pulse_milliseconds) || 1000
   end
 
   def up
