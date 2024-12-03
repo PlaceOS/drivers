@@ -102,7 +102,7 @@ class Place::AttendeeScanner < PlaceOS::Driver
     now = Time.local(timezone)
     end_of_day = now.at_end_of_day
 
-    staff_api.query_bookings(now, end_of_day, zones: {building}, type: "visitor").get.as_a.map do |booking|
+    staff_api.query_bookings(now.to_unix, end_of_day.to_unix, zones: {building}, type: "visitor").get.as_a.map do |booking|
       Booking.new(booking["asset_id"].as_s.downcase, Time.unix(booking["booking_start"].as_i64), Time.unix(booking["booking_end"].as_i64))
     end
   end
