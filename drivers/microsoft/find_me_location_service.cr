@@ -34,10 +34,6 @@ class Microsoft::FindMeLocationService < PlaceOS::Driver
   @map_id_prefix : String = "table-"
   @s2_level : Int32 = 21
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @map_id_prefix = setting?(String, :map_id_prefix).presence || "table-"
 

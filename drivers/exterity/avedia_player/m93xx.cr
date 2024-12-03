@@ -32,10 +32,6 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
   @ready : Bool = false
   @channel_lookup : Hash(String, ChannelDetail) = {} of String => ChannelDetail
 
-  def on_load
-    on_update
-  end
-
   def on_update
     channel_lookup = {} of String => ChannelDetail
     if channel_details = setting?(Array(ChannelDetail), :channel_details)

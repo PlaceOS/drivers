@@ -116,10 +116,6 @@ PASTE_FROM_GLOBALCACHE_IR_DATABASE
   #   ...
   # }
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @globalcache = setting(String, :globalcache_module)
     @default_ir_set = setting(String, :default_ir_set)

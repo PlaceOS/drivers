@@ -21,10 +21,6 @@ class Cisco::Meraki::CaptivePortal < PlaceOS::Driver
     success_url: "https://company.com/welcome",
   })
 
-  def on_load
-    on_update
-  end
-
   @wifi_secret : String = ""
   @date_format : String = "%Y%m%d"
   @success_url : String = "https://place.technology/"

@@ -32,10 +32,6 @@ class KontaktIO::SensorService < PlaceOS::Driver
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
   @zone_lookup : Hash(String, Array(Int64)) = {} of String => Array(Int64)
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @return_empty_spaces = setting?(Bool, :return_empty_spaces) || false
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :floor_mappings)

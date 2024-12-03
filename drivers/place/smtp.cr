@@ -43,10 +43,6 @@ class Place::Smtp < PlaceOS::Driver
   @send_lock : Mutex = Mutex.new
   @ssl_verify_ignore : Bool = false
 
-  def on_load
-    on_update
-  end
-
   def on_update
     defaults = URI.parse(config.uri.not_nil!)
     tls_mode = if scheme = defaults.scheme

@@ -13,10 +13,6 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     poll_every:  2,
   })
 
-  def on_load
-    on_update
-  end
-
   @api_key : String = %()
 
   def on_update

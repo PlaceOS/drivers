@@ -15,10 +15,6 @@ class Place::SensorShutdown < PlaceOS::Driver
 
   @sensor_stale : Bool = false
 
-  def on_load
-    on_update
-  end
-
   getter? event_in_progress : Bool = false
   getter? people_present : Bool = false
   getter? sensor_stale : Bool = false

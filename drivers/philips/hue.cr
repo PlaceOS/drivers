@@ -23,10 +23,6 @@ class Philips::Hue < PlaceOS::Driver
     scenes: [""],
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @app_key = setting(String, :app_key)
     @client_key = setting(String, :client_key)

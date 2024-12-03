@@ -19,10 +19,6 @@ class Keycloak::RestAPI < PlaceOS::Driver
   @api_key : String = ""
   @place_domain : String = ""
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @realm = setting(String, :realm) || ""
     @api_key = setting(String, :place_api_key) || ""

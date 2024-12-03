@@ -8,10 +8,6 @@ class Microsoft::FindMe < PlaceOS::Driver
   descriptive_name "Microsoft FindMe Service"
   generic_name :FindMe
 
-  def on_load
-    on_update
-  end
-
   @username : String = ""
   @password : String = ""
   @domain : String = ""

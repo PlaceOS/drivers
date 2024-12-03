@@ -12,10 +12,6 @@ class Stripe::API < PlaceOS::Driver
 
   protected getter! client : Client
 
-  def on_load
-    on_update
-  end
-
   def on_update
     host_name = config.uri.not_nil!.to_s
     api_key = setting(String, :api_key)

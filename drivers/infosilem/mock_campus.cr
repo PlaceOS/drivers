@@ -219,10 +219,6 @@ class Infosilem::MockCampus < PlaceOS::Driver
 
   @response = [] of JSON::Any
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @response = setting?(Array(JSON::Any), :response) || [] of JSON::Any
   end

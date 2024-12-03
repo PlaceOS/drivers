@@ -19,10 +19,6 @@ class KontaktIO::RoomSensorDriver < PlaceOS::Driver
 
   getter! space : RoomOccupancy
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @space_id = setting(String, :space_ref_id)
     subscriptions.clear

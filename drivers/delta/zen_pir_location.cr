@@ -27,10 +27,6 @@ class Delta::ZenPIRLocation < PlaceOS::Driver
     poll_every: 10,
   })
 
-  def on_load
-    on_update
-  end
-
   record PIR, pir : UInt32, map : String do
     include JSON::Serializable
   end

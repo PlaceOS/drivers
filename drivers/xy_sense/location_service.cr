@@ -26,10 +26,6 @@ class XYSense::LocationService < PlaceOS::Driver
   @floor_mappings : Hash(String, NamedTuple(zone_id: String)) = {} of String => NamedTuple(zone_id: String)
   @zone_filter : Array(String) = [] of String
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @floor_mappings = setting(Hash(String, NamedTuple(zone_id: String)), :floor_mappings)
     @zone_filter = @floor_mappings.map { |_, detail| detail[:zone_id] }

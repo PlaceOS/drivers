@@ -30,10 +30,6 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
 
   @update_mutex = Mutex.new
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @system_id = setting?(String, :gallagher_system).presence || config.control_system.not_nil!.id
     @state_mappings = setting(Hash(String, String), :state_mappings)

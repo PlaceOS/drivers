@@ -16,10 +16,6 @@ class OpenAI::VoiceControlInterface < PlaceOS::Driver
     custom_prompts: [] of OpenAI::Message,
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @llm_model_id = setting(String, :llm_model_id)
     @custom_prompts = setting?(Array(OpenAI::Message), :custom_prompts) || [] of OpenAI::Message

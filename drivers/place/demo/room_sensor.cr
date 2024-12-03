@@ -21,10 +21,6 @@ class Place::Demo::RoomSensor < PlaceOS::Driver
   getter! count : Int32
   @timestamp : Int64 = 0_i64
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @capacity = setting?(Int32, :capacity) || 2
     @count ||= setting?(Int32, :default_count) || 0

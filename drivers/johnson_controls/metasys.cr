@@ -19,10 +19,6 @@ class JohnsonControls::Metasys < PlaceOS::Driver
   @count : Int32 = 0
   @averages = {} of String => Float64
 
-  def on_load
-    on_update
-  end
-
   def on_update
     schedule.clear
     @username = setting?(String, :username) || ""

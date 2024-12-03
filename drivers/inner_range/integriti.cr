@@ -42,10 +42,6 @@ class InnerRange::Integriti < PlaceOS::Driver
     timezone: "Australia/Sydney",
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     api_key = setting?(String, :api_key) || ""
     @cf_origo = setting?(String, :custom_field_hid_origo) || "cf_HasVirtualCard"

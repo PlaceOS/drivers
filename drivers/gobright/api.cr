@@ -13,10 +13,6 @@ class GoBright::API < PlaceOS::Driver
     user_agent: "PlaceOS",
   })
 
-  def on_load
-    on_update
-  end
-
   @api_key : String = ""
   @user_agent : String = "PlaceOS"
 

@@ -29,10 +29,6 @@ class KNX::Lighting < PlaceOS::Driver
 
   accessor knx : KNX_1
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @knx_motion = setting?(String, :knx_motion).presence
     @scene_group = setting?(String, :knx_scene_group).presence

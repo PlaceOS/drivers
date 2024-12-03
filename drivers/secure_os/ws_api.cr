@@ -29,10 +29,6 @@ class SecureOS::WsApi < PlaceOS::Driver
 
   getter! basic_auth : NamedTuple(username: String, password: String)
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @rest_api_host = setting String, :rest_api_host
     @basic_auth = setting NamedTuple(username: String, password: String), :basic_auth

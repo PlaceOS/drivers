@@ -37,10 +37,6 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
   @building_location : String = ""
   @floor_mappings : Hash(String, NamedTuple(building_id: String?, level_id: String)) = {} of String => NamedTuple(building_id: String?, level_id: String)
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @building_location = setting(String, :locker_building_location)
     @floor_mappings = setting(Hash(String, NamedTuple(building_id: String?, level_id: String)), :locker_floor_mappings)

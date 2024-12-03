@@ -32,10 +32,6 @@ class Juniper::MistLocationService < PlaceOS::Driver
 
   @max_location_age : Time::Span = 6.minutes
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @floorplan_mappings = setting?(Hash(String, Hash(String, String | Int32)), :floorplan_mappings) || @floorplan_mappings
     @max_location_age = (setting?(UInt32, :max_location_age) || 6).minutes

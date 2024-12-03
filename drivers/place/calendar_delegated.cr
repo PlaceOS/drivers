@@ -50,10 +50,6 @@ STRING
 
   private getter! limiter : RateLimiter::Limiter
 
-  def on_load
-    on_update
-  end
-
   def on_update
     rate_limit = setting?(Float64, :rate_limit) || 3.0
     @limiter = RateLimiter.new(rate: rate_limit, max_burst: rate_limit.to_i)

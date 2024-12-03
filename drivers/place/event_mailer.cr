@@ -59,10 +59,6 @@ class Place::EventMailer < PlaceOS::Driver
   @debug = false
   @events = {} of String => Array(PlaceCalendar::Event) # {sys_id: [event]}
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @target_zones = setting?(Array(String), :zone_ids_to_target) || [] of String
     @target_module = setting?(String, :module_to_target) || "Bookings_1"

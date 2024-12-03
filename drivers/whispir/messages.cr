@@ -20,10 +20,6 @@ class Whispir::Messages < PlaceOS::Driver
     api_key: "12345",
   })
 
-  def on_load
-    on_update
-  end
-
   @api_key : String = ""
 
   def on_update

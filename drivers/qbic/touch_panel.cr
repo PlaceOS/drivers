@@ -19,10 +19,6 @@ class Qbic::TouchPanel < PlaceOS::Driver
   @refresh_token : String? = nil
   @expired : Bool = true
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @password = URI.encode_www_form setting(String, :password)
 

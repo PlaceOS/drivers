@@ -13,10 +13,6 @@ class Place::Pinger < PlaceOS::Driver
     ping_every: 60,
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     # Use quite a large random value to spread load
     period = setting?(Int32, :ping_every) || 60

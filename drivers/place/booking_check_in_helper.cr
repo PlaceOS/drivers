@@ -79,10 +79,6 @@ STRING
   @sensor_stale : Bool = false
   @mailer_system : String? = nil
 
-  def on_load
-    on_update
-  end
-
   # See: https://crystal-lang.org/api/latest/Time/Format.html
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"

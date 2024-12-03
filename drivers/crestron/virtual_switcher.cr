@@ -34,10 +34,6 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
 
   @audio : AudioSink? = nil
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @audio = setting?(AudioSink, :audio_sink)
   end

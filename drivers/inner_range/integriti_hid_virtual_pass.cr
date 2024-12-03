@@ -11,10 +11,6 @@ class InnerRange::Integriti < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
   accessor integriti : Integriti_1
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @cf_virtual_card = setting?(String, :custom_field_hid_origo) || "cf_HasVirtualCard"
   end

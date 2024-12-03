@@ -16,10 +16,6 @@ class Infosilem::Campus < PlaceOS::Driver
   protected getter! integration : Client
   protected getter! booking : Client
 
-  def on_load
-    on_update
-  end
-
   def on_update
     host_name = config.uri.not_nil!.to_s
 

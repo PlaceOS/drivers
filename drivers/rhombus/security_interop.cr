@@ -16,10 +16,6 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
   @subscriptions : Array(Subscription) = [] of Subscription
   @event_count : UInt64 = 0_u64
 
-  def on_load
-    on_update
-  end
-
   def on_update
     subscriptions.clear
     org_id = setting?(String, :organization_id) || "event"

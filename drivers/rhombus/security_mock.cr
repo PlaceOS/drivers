@@ -15,10 +15,6 @@ class Rhombus::SecurityMock < PlaceOS::Driver
     swipe_event_every: 30,
   })
 
-  def on_load
-    on_update
-  end
-
   record CardUser, card_id : String, user_name : String, user_email : String do
     include JSON::Serializable
   end

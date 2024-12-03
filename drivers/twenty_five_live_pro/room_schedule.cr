@@ -21,10 +21,6 @@ class TwentyFiveLivePro::RoomSchedule < PlaceOS::Driver
   @request_lock : Mutex = Mutex.new
   @request_running : Bool = false
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @debug = setting(Bool, :debug) || false
     @space_id = setting(String, :twenty_five_live_pro_space_id)

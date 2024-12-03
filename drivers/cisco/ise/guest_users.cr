@@ -34,10 +34,6 @@ class Cisco::Ise::Guests < PlaceOS::Driver
   TYPE_HEADER = "application/vnd.com.cisco.ise.identity.guestuser.2.0+xml"
   TIME_FORMAT = "%m/%d/%Y %H:%M"
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @basic_auth = "Basic #{Base64.strict_encode("#{setting?(String, :username)}:#{setting?(String, :password)}")}"
     @portal_id = setting?(String, :portal_id) || "portal101"

@@ -21,10 +21,6 @@ class Place::SurveyMailer < PlaceOS::Driver
     system.implementing(Interface::Mailer)[0]
   end
 
-  def on_load
-    on_update
-  end
-
   @time_zone : Time::Location = Time::Location.load("GMT")
 
   @visitor_emails_sent : UInt64 = 0_u64

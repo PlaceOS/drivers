@@ -13,10 +13,6 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   getter building_id : String { get_building_id.not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @building_id = nil
     @systems = nil

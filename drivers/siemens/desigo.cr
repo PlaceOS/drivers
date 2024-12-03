@@ -15,10 +15,6 @@ class Siemens::Desigo < PlaceOS::Driver
 
   protected getter! client : Client
 
-  def on_load
-    on_update
-  end
-
   def on_update
     base_url = config.uri.not_nil!.to_s
     username = setting(String, :username)

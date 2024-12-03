@@ -37,10 +37,6 @@ class Crestron::Fusion < PlaceOS::Driver
   @api_pass_code : String = ""
   @content_type : String = ""
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @security_level = setting(Int32, :security_level)
     @user_id = setting(String, :user_id)

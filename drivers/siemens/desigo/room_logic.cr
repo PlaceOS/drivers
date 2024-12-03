@@ -15,10 +15,6 @@ class Siemens::Desigo::RoomLogic < PlaceOS::Driver
   @queries = [] of Query
   @cron_string : String = "*/5 * * * *"
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @queries = setting(Array(Query), :desigo_queries)
     @cron_string = setting(String, :desigo_status_poll_cron)

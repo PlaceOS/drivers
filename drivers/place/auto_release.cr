@@ -36,10 +36,6 @@ class Place::AutoRelease < PlaceOS::Driver
     system.implementing(Interface::Mailer)[0]
   end
 
-  def on_load
-    on_update
-  end
-
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"

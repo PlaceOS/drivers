@@ -18,10 +18,6 @@ class MessageMedia::SMS < PlaceOS::Driver
     },
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
   end
 

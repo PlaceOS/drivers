@@ -13,10 +13,6 @@ class Place::AutoDeskCheckin < PlaceOS::Driver
     booking_category:           "desk",
   })
 
-  def on_load
-    on_update
-  end
-
   @time_period : Time::Span = 1.hour
   @booking_category : String = "desk"
   @zones : Array(String) = [] of String

@@ -19,10 +19,6 @@ class PointGrab::CogniPoint < PlaceOS::Driver
   @auth_token : String = ""
   @auth_expiry : Time = 1.minute.ago
 
-  def on_load
-    on_update
-  end
-
   def on_update
     @user_id = setting(String, :user_id)
     @app_key = setting(String, :app_key)
