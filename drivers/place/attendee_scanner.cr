@@ -111,9 +111,10 @@ class Place::AttendeeScanner < PlaceOS::Driver
 
   # invite missing guests
   def invite_external_guests
+    bookings = externals_booked_to_visit
     externals = externals_in_events
     checked = externals.size
-    bookings = externals_booked_to_visit
+    failed = 0
 
     externals.reject! do |guest|
       guest_email = guest.details.email.downcase
@@ -131,7 +132,7 @@ class Place::AttendeeScanner < PlaceOS::Driver
         guest_name = guest.details.name
         event = guest.event
 
-        system = staff_api.get_system(guest.system_id).get
+        sys_info = staff_api.get_system(guest.system_id).get
 
         staff_api.create_booking(
           booking_type: "visitor",
@@ -150,7 +151,7 @@ class Place::AttendeeScanner < PlaceOS::Driver
           extension_data: {
             name:        guest_name,
             parent_id:   event.id,
-            location_id: system["name"],
+            location_id: sys_info["name"].as_s,
           },
           utm_source: "attendee_scanner",
           limit_override: 999,
@@ -162,13 +163,15 @@ class Place::AttendeeScanner < PlaceOS::Driver
           }]
         ).get
       rescue error
+        failed += 1
         logger.warn(exception: error) { "failed to invite guest: #{guest.details.email}" }
       end
     end
 
     {
-      invited: externals.size,
+      invited: externals.size - failed,
       checked: checked,
+      failure: failed,
     }
   end
 end
