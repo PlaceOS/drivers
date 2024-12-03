@@ -124,7 +124,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   def save_position(name : String, index : Int32 | String = 0)
     do_poll
-    @presets[name] = {pan: @pan, tilt: @tilt, zoom: @zoom_raw}
+    @presets[name] = {pan: @pan, tilt: @tilt, zoom: self[:zoom].as_f}
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
   end
