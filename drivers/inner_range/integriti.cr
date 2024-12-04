@@ -529,14 +529,14 @@ class InnerRange::Integriti < PlaceOS::Driver
   # roughly analogous to buildings
   def sites : Array(Site)
     sites = [] of Site
-    paginate_request("BasicStatus", "SiteKeyword") do |row|
+    paginate_request("User", "SiteKeyword") do |row|
       sites << extract_site(row)
     end
     sites
   end
 
   def site(id : Int64 | String)
-    document = check get("/v2/BasicStatus/SiteKeyword/#{id}?#{prop_param "SiteKeyword"}")
+    document = check get("/v2/User/SiteKeyword/#{id}?#{prop_param "SiteKeyword"}")
     extract_site(document)
   end
 
@@ -556,14 +556,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     filter = Filter{
       "Site.ID" => site_id,
     }
-    paginate_request("BasicStatus", "Area", filter) do |row|
+    paginate_request("User", "Area", filter) do |row|
       areas << extract_area(row)
     end
     areas
   end
 
   def area(id : Int64 | String)
-    document = check get("/v2/BasicStatus/Area/#{id}?#{prop_param "Area"}")
+    document = check get("/v2/User/Area/#{id}?#{prop_param "Area"}")
     extract_area(document)
   end
 
@@ -585,14 +585,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     filter = Filter{
       "ParentId" => parent_id,
     }
-    paginate_request("BasicStatus", "Partition", filter) do |row|
+    paginate_request("User", "Partition", filter) do |row|
       partitions << extract_partition(row)
     end
     partitions
   end
 
   def partition(id : Int64 | String)
-    document = check get("/v2/BasicStatus/Partition/#{id}?#{prop_param "Partition"}")
+    document = check get("/v2/User/Partition/#{id}?#{prop_param "Partition"}")
     extract_partition(document)
   end
 
@@ -849,14 +849,14 @@ class InnerRange::Integriti < PlaceOS::Driver
       "User.Address"     => user_id,
       "CardType.Address" => template,
     }
-    paginate_request("VirtualCardBadge", "Card", filter) do |row|
+    paginate_request("User", "Card", filter) do |row|
       cards << extract_card(row)
     end
     cards
   end
 
   def card(id : String)
-    document = check get("/v2/VirtualCardBadge/Card/#{id}?#{prop_param "Card"}")
+    document = check get("/v2/User/Card/#{id}?#{prop_param "Card"}")
     extract_card(document)
   end
 
@@ -941,14 +941,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     filter = Filter{
       "Site.ID" => site_id,
     }
-    paginate_request("BasicStatus", "Door", filter) do |row|
+    paginate_request("User", "Door", filter) do |row|
       doors << extract_integriti_door(row)
     end
     doors
   end
 
   def door(id : Int64 | String)
-    document = check get("/v2/BasicStatus/Door/#{id}?#{prop_param "Door"}")
+    document = check get("/v2/User/Door/#{id}?#{prop_param "Door"}")
     extract_integriti_door(document)
   end
 
