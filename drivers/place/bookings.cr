@@ -33,7 +33,7 @@ class Place::Bookings < PlaceOS::Driver
 
     application_permissions:    true,
     include_cancelled_bookings: false,
-    hide_qr_code:               false,
+    show_qr_code:               false,
     custom_qr_url:              "https://domain.com/path",
     custom_qr_color:            "black",
 
@@ -165,7 +165,11 @@ class Place::Bookings < PlaceOS::Driver
 
     self[:custom_qr_color] = setting?(String, :custom_qr_color)
     self[:custom_qr_url] = setting?(String, :custom_qr_url)
-    self[:show_qr_code] = !(setting?(Bool, :hide_qr_code) || false)
+
+    hide_qr_code = setting?(Bool, :hide_qr_code) || false
+    show_qr_code = setting?(Bool, :show_qr_code)
+
+    self[:show_qr_code] = show_qr_code.nil? ? !hide_qr_code : show_qr_code
 
     self[:sensor_mac] = @sensor_mac = setting?(String, :sensor_mac)
 
