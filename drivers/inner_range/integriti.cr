@@ -706,12 +706,11 @@ class InnerRange::Integriti < PlaceOS::Driver
       permission.user.address.as(String)
     end
 
-    field = cf_email
     email_user_id = Hash(String, String).new("", user_ids.size)
 
+    # annoyingly we need to N+1 to get all the user email addresses
     user_ids.each do |user_id|
-      document = check get("/v2/User/User/#{user_id}?AdditionalProperties=#{field}")
-      if email = extract_user(document).email
+      if email = user(user_id).email
         email_user_id[email.downcase] = user_id
       end
     end
