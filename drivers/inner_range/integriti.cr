@@ -709,12 +709,15 @@ class InnerRange::Integriti < PlaceOS::Driver
     email_user_id = Hash(String, String).new("", user_ids.size)
 
     # annoyingly we need to N+1 to get all the user email addresses
+    # the default user response includes custom fields
     user_ids.each do |user_id|
-      if email = user(user_id).email
+      document = check get("/v2/User/User/#{user_id}")
+      if email = extract_user(document).@email
         email_user_id[email.downcase] = user_id
       end
     end
 
+    logger.debug { "found #{email_user_id.size} user to email mappings" }
     email_user_id
   end
 
