@@ -189,7 +189,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
     case direction
     in .in?
-      move_zoom(@default_movement_speed // 3)
+      move_zoom(@default_movement_speed // 2)
     in .out?
       move_zoom(-@default_movement_speed)
     in .stop?
