@@ -877,11 +877,10 @@ class Place::Meet < PlaceOS::Driver
 
       case mic.default_muted
       in Bool
-        mute_id = mic.mute_id.presence || mic.level_id
         if mute_index = mic.mute_index
-          mixer.mute(mute_id, mic.default_muted, mute_index)
+          mixer.mute(mic.mute_id, mic.default_muted, mute_index)
         else
-          mixer.mute(mute_id, mic.default_muted)
+          mixer.mute(mic.mute_id, mic.default_muted)
         end
       in Nil
         mixer.query_mutes(mic.level_id)
