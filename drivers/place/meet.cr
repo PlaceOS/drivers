@@ -45,6 +45,8 @@ class Place::Meet < PlaceOS::Driver
     preview_outputs:        ["Display_2"],
     vc_camera_in:           "switch_camera_output_id",
     join_lockout_secondary: true,
+    unjoin_on_shutdown: false,
+    mute_on_unlink: true,
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
@@ -126,6 +128,8 @@ class Place::Meet < PlaceOS::Driver
   @shutdown_devices : Array(String)? = nil
   @local_vidconf : String = "VidConf_1"
   @ignore_update : Int64 = 0_i64
+  @unjoin_on_shutdown : Bool? = nil
+  @mute_on_unlink : Bool = true
 
   # core includes: 'current_routes' hash
   # but we override it here for LLM integration
@@ -143,6 +147,8 @@ class Place::Meet < PlaceOS::Driver
     self[:voice_control] = setting?(Bool, :voice_control) || false
     @shutdown_devices = setting?(Array(String), :shutdown_devices)
     @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
+    @unjoin_on_shutdown = setting?(Bool, :unjoin_on_shutdown)
+    @mute_on_unlink = setting?(Bool, :mute_on_unlink) || false
 
     @join_lock.synchronize do
       subscriptions.clear
@@ -202,9 +208,10 @@ class Place::Meet < PlaceOS::Driver
 
   # Sets the overall room power state.
   def power(state : Bool, unlink : Bool = false)
-    return if state == self[:active]?
+    return if state == status?(Bool, :active)
     logger.debug { "Powering #{state ? "up" : "down"}" }
     self[:active] = state
+    unlink = @unjoin_on_shutdown.nil? ? unlink : !!@unjoin_on_shutdown
 
     remotes_before = remote_rooms
     sys = system
@@ -1149,6 +1156,12 @@ class Place::Meet < PlaceOS::Driver
       update_available_ui
 
       self[:join_confirmed] = @join_confirmed = true
+    end
+
+    # only mute on unlink if we're not powering off
+    if @mute_on_unlink && status?(Bool, :active)
+      @local_outputs.each { |output| unroute(output) }
+      @local_preview_outputs.each { |output| unroute(output) }
     end
   rescue error
     logger.error(exception: error) { "ui state failed to be applied unjoining room" }
