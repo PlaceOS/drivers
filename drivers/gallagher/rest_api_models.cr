@@ -134,7 +134,7 @@ module Gallagher
     end
 
     property href : String?
-    property type : NamedTuple(href: String, name: String?)? = nil
+    property type : NamedTuple(href: String?, name: String?)? = nil
     property number : String? = nil
     property status : NamedTuple(value: String, type: String?)? = nil
 
