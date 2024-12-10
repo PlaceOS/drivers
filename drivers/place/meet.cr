@@ -45,8 +45,8 @@ class Place::Meet < PlaceOS::Driver
     preview_outputs:        ["Display_2"],
     vc_camera_in:           "switch_camera_output_id",
     join_lockout_secondary: true,
-    unjoin_on_shutdown: false,
-    mute_on_unlink: true,
+    unjoin_on_shutdown:     false,
+    mute_on_unlink:         true,
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
