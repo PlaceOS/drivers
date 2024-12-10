@@ -458,8 +458,13 @@ local_microphones:
 Where systems can be merged you can define the various modes that are supported between the rooms.
 
 * there are two types `fully_aware` or `independent` (default)
-  * fully_aware: rooms that are not technically part of the join are aware of the join
-  * independent: only rooms part of the join are notified of the join
+  * fully_aware: (typically something like 4 rooms where you can have independent, 1:3, 2:2 or all 4 etc)
+    * rooms that are not technically part of the join are aware of the join (1:3 combination for example)
+    * this might be because the DSP has a preset for each join combination (to combine microphones)
+  * independent: (typically something like 3 rooms that share a video switcher)
+    * only rooms part of the join are notified of the join
+    * this makes sense where audio and video come off an output of a shared switch
+    * so if room1 wants to present in room2 all it has to do is present to both outputs and keep audio levels in sync
 
 ```yaml
 
