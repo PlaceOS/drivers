@@ -146,8 +146,9 @@ class Place::Bookings < PlaceOS::Driver
     push_notificaitons_configure
 
     # Write to redis last on the off chance there is a connection issue
-    self[:room_name] = setting?(String, :room_name).presence || config.control_system.not_nil!.display_name.presence || config.control_system.not_nil!.name
-    self[:room_capacity] = setting?(Int32, :room_capacity) || config.control_system.not_nil!.capacity
+    control_sys = config.control_system.not_nil!
+    self[:room_name] = setting?(String, :room_name).presence || control_sys.display_name.presence || control_sys.name
+    self[:room_capacity] = setting?(Int32, :room_capacity) || control_sys.capacity
     self[:default_title] = @default_title
     self[:disable_book_now_host] = @disable_book_now_host
     self[:disable_book_now] = @disable_book_now
@@ -156,7 +157,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:pending_before] = pending_before
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
-    self[:room_image] = setting?(String, :room_image) || config.control_system.try(&.images.try(&.first?))
+    self[:room_image] = setting?(String, :room_image) || control_sys.images.try(&.first?)
     self[:hide_meeting_details] = setting?(Bool, :hide_meeting_details) || false
     self[:hide_meeting_title] = setting?(Bool, :hide_meeting_title) || false
 
@@ -164,7 +165,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:offline_image] = setting?(String, :offline_image)
 
     self[:custom_qr_color] = setting?(String, :custom_qr_color)
-    self[:custom_qr_url] = setting?(String, :custom_qr_url)
+    self[:custom_qr_url] = setting?(String, :custom_qr_url).try(&.gsub("{system_id}", control_sys.id))
 
     hide_qr_code = setting?(Bool, :hide_qr_code) || false
     show_qr_code = setting?(Bool, :show_qr_code)
