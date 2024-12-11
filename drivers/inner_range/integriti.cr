@@ -995,7 +995,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
     params = URI::Params.build do |form|
       form.add "UTCTimeGenerated", after_param.to_s(TIME_FORMAT)
-      form.add "SortProperty", "UTCTimeInserted"
+      form.add "SortProperty", "UTCTimeGenerated"
       form.add "SortOrder", "Descending"
 
       if long_poll
@@ -1029,7 +1029,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
     params = URI::Params.build do |form|
       form.add "UTCTimeGenerated", after_param.to_s(TIME_FORMAT)
-      form.add "SortProperty", "UTCTimeInserted"
+      form.add "SortProperty", "UTCTimeGenerated"
       form.add "SortOrder", "Descending"
 
       if long_poll
