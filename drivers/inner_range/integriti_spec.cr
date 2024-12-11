@@ -346,4 +346,56 @@ DriverSpecs.mock_driver "InnerRange::Integriti" do
     "message"  => "1 item/s removed from UserPermission for User with ID U56",
     "modified" => 1,
   })
+
+  # ==============
+  # Review History
+  # ==============
+
+  result = exec(:review_access, {} of Nil => Nil)
+
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << <<-XML
+      <PagedQueryResult>
+        <TotalRecords>1</TotalRecords>
+        <Page>1</Page>
+        <PageSize>25</PageSize>
+        <RowVersion>-1</RowVersion>
+        <NextPageUrl>http://20.213.104.2:80/restapi/v2/Review/Review?Page=1&amp;PageSize=25&amp;SortProperty=UTCTimeGenerated&amp;SortOrder=Descending&amp;FullObject=true&amp;LongPoll=true&amp;UTCTimeGenerated=12/11/2024 5:52:54 AM&amp;</NextPageUrl>
+        <Rows>
+            <Review ID="0b36c0d0-ab54-49d0-9681-2db34e0b6f4b">
+                <ID>0b36c0d0-ab54-49d0-9681-2db34e0b6f4b</ID>
+                <Text>test - Stopped</Text>
+                <Actor_ID>1</Actor_ID>
+                <Controller_ID>0</Controller_ID>
+                <SourceName>Application Server@outlook-test</SourceName>
+                <Record>0</Record>
+                <LocalTimeGenerated>2024-12-11T18:52:54.6086141</LocalTimeGenerated>
+                <UTCTimeGenerated>2024-12-11T05:52:54.6086141</UTCTimeGenerated>
+                <UTCTimeInserted>2024-12-11T05:52:54.8427098</UTCTimeInserted>
+                <Classification>0</Classification>
+                <Level>InstallerDetailed</Level>
+                <Priority>None</Priority>
+                <Type>CommunicationHandler</Type>
+                <Entity_1_ID>0</Entity_1_ID>
+                <Entity_2_ID>0</Entity_2_ID>
+                <Entity_3_ID>0</Entity_3_ID>
+                <Entity_4_ID>0</Entity_4_ID>
+                <Entity_5_ID>0</Entity_5_ID>
+                <Transition>CommunicationHandlerStopped</Transition>
+                <AnalogValue>0</AnalogValue>
+            </Review>
+        </Rows>
+      </PagedQueryResult>
+    XML
+  end
+
+  result.get.should eq([{
+    "id"             => "0b36c0d0-ab54-49d0-9681-2db34e0b6f4b",
+    "text"           => "test - Stopped",
+    "time_generated" => "2024-12-11T05:52:54Z",
+    "event_type"     => "CommunicationHandler",
+    "transition"     => "CommunicationHandlerStopped",
+    "time_gen_ms"    => "2024-12-11T05:52:54.608614100",
+  }])
 end

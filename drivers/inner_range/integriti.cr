@@ -39,7 +39,8 @@ class InnerRange::Integriti < PlaceOS::Driver
     guest_card_start:    0,
     guest_card_end:      (UInt16::MAX - 1),
 
-    timezone: "Australia/Sydney",
+    timezone:          "Australia/Sydney",
+    long_poll_seconds: 10,
   })
 
   def on_update
@@ -52,6 +53,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     guest_card_end = setting?(UInt16, :guest_card_end) || (UInt16::MAX - 1_u16)
     @guest_card_range = Range.new(guest_card_start, guest_card_end)
     @guest_access_group = setting?(String, :guest_access_group) || ""
+    @long_poll_seconds = setting?(Int32, :long_poll_seconds) || 10
 
     transport.before_request do |request|
       logger.debug { "requesting: #{request.method} #{request.path}?#{request.query}\n#{request.body}" }
@@ -68,6 +70,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     @timezone = Time::Location.load(time_zone) if time_zone
   end
 
+  getter long_poll_seconds : Int32 = 10
   getter default_unlock_time : Int32 = 10
   getter default_site_id : Int32 = 1
   getter default_partition_id : Int32 = 0
@@ -94,7 +97,8 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  PROPS = {} of String => String
+  TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%9N"
+  PROPS       = {} of String => String
 
   abstract struct IntegritiObject
     include JSON::Serializable
@@ -142,6 +146,8 @@ class InnerRange::Integriti < PlaceOS::Driver
                 var_{{ variable_var }} = %content.downcase == "true"
               {% elsif resolved_type == Float64 %}
                 var_{{ variable_var }} = %content.to_f?
+              {% elsif resolved_type == Time %}
+                var_{{ variable_var }} = Time.parse(%content, TIME_FORMAT, Time::Location::UTC)
               {% elsif resolved_type.superclass == IntegritiObject %}
                 var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
               {% else %}
@@ -182,6 +188,8 @@ class InnerRange::Integriti < PlaceOS::Driver
                   var_{{ variable_var }} = %content.downcase == "true"
                 {% elsif resolved_type == Float64 %}
                   var_{{ variable_var }} = %content.to_f?
+                {% elsif resolved_type == Time %}
+                  var_{{ variable_var }} = Time.parse(%content, TIME_FORMAT, Time::Location::UTC)
                 {% elsif resolved_type.superclass == IntegritiObject %}
                   var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
                 {% else %}
@@ -211,6 +219,8 @@ class InnerRange::Integriti < PlaceOS::Driver
                 var_{{ variable_var }} = %content.downcase == "true"
               {% elsif resolved_type == Float64 %}
                 var_{{ variable_var }} = %content.to_f?
+              {% elsif resolved_type == Time %}
+                var_{{ variable_var }} = Time.parse(%content, TIME_FORMAT, Time::Location::UTC)
               {% elsif resolved_type.superclass == IntegritiObject %}
                 var_{{ variable_var }} = extract_{{variable.type.stringify.underscore.id}}(child)
               {% else %}
@@ -294,14 +304,17 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
   end
 
-  protected def paginate_request(category : String, type : String, filter : Filter = Filter.new, summary_only : Bool = false, &)
+  protected def paginate_request(category : String, type : String, filter : Filter = Filter.new, summary_only : Bool = false, query : URI::Params | String? = nil, page_limit : Int64? = nil, &)
+    query_params = "#{query}&"
+    query_params = "" if query_params.size == 1
     filter.compact!
+    page_count = 0_i64
 
     next_page = if filter.empty?
-                  "/v2/#{category}/#{type}?PageSize=1000&#{prop_param(type, summary_only)}"
+                  "/v2/#{category}/#{type}?PageSize=1000&#{query_params}#{prop_param(type, summary_only)}"
                 else
                   body = build_filter(filter)
-                  "/v2/#{category}/GetFilteredEntities/#{type}?PageSize=1000&#{prop_param(type, summary_only)}"
+                  "/v2/#{category}/GetFilteredEntities/#{type}?PageSize=1000&#{query_params}#{prop_param(type, summary_only)}"
                 end
 
     next_uri = URI.parse(next_page)
@@ -337,7 +350,8 @@ class InnerRange::Integriti < PlaceOS::Driver
         end
       end
 
-      break if next_page.empty? || rows_returned < page_size
+      page_count += 1_i64
+      break if next_page.empty? || rows_returned < page_size || (page_limit && page_count >= page_limit)
     end
   end
 
@@ -950,6 +964,88 @@ class InnerRange::Integriti < PlaceOS::Driver
   def door(id : Int64 | String)
     document = check get("/v2/User/Door/#{id}?#{prop_param "Door"}")
     extract_integriti_door(document)
+  end
+
+  # =========
+  # Review IO
+  # =========
+
+  define_xml_type(Review, {
+    "ID"               => id : String,
+    "Text"             => text : String,
+    "UTCTimeGenerated" => time_generated : Time,
+    "Type"             => event_type : String,
+    "Transition"       => transition : String,
+  }, "Review") do
+    getter time_gen_ms : String { time_generated.to_s(TIME_FORMAT) }
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def review_predefined_access(query_id : String | Int64, long_poll : Bool = false, after : String | Int64 | Time? = nil, page_limit : Int64? = nil) : Array(Review)
+    after_param = case after
+                  in Int64
+                    Time.unix(after)
+                  in String
+                    Time.parse(after, TIME_FORMAT, Time::Location::UTC)
+                  in Time
+                    after
+                  in Nil
+                    long_poll ? Time.utc : 10.minutes.ago
+                  end
+
+    params = URI::Params.build do |form|
+      form.add "UTCTimeGenerated", after_param.to_s(TIME_FORMAT)
+      form.add "SortProperty", "UTCTimeInserted"
+      form.add "SortOrder", "Descending"
+
+      if long_poll
+        form.add "LongPoll", "true"
+        form.add "LongPollTime", @long_poll_seconds.to_s
+      end
+    end
+
+    review = [] of Review
+    paginate_request("Review", "PredefinedFilter/#{query_id}", page_limit: page_limit, query: params) do |row|
+      entry = extract_review(row)
+      entry.time_gen_ms
+      review << entry
+      entry
+    end
+    review
+  end
+
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def review_access(filter : Filter, long_poll : Bool = false, after : String | Int64 | Time? = nil, page_limit : Int64? = nil) : Array(Review)
+    after_param = case after
+                  in Int64
+                    Time.unix(after)
+                  in String
+                    Time.parse(after, TIME_FORMAT, Time::Location::UTC)
+                  in Time
+                    after
+                  in Nil
+                    long_poll ? Time.utc : 10.minutes.ago
+                  end
+
+    params = URI::Params.build do |form|
+      form.add "UTCTimeGenerated", after_param.to_s(TIME_FORMAT)
+      form.add "SortProperty", "UTCTimeInserted"
+      form.add "SortOrder", "Descending"
+
+      if long_poll
+        form.add "LongPoll", "true"
+        form.add "LongPollTime", @long_poll_seconds.to_s
+      end
+    end
+
+    review = [] of Review
+    paginate_request("Review", "Review", filter, page_limit: page_limit, query: params) do |row|
+      entry = extract_review(row)
+      entry.time_gen_ms
+      review << entry
+      entry
+    end
+    review
   end
 
   # =======================
