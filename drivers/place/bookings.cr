@@ -50,9 +50,9 @@ class Place::Bookings < PlaceOS::Driver
     # expose_for_analytics: {"binding" => "key->subkey"},
 
     # use these for enabling push notifications
-    # push_authority: "authority-GAdySsf05mL"
-    # push_notification_url: "https://placeos-dev.aca.im/api/engine/v2/notifications/office365"
-    # push_notification_url: "https://placeos-dev.aca.im/api/engine/v2/notifications/google"
+    _push_authority: "authority-GAdySsf05",
+    # push_notification_url: "https://your.domain/api/engine/v2/notifications/google"
+    _push_notification_url: "https://your.domain/api/engine/v2/notifications/office365",
   })
 
   accessor calendar : Calendar_1
