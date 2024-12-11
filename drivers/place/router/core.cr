@@ -248,7 +248,13 @@ module Place::Router::Core
       end
 
       spawn {
-        routes.each_value { |route| route_signal(*route) }
+        routes.each_value do |route|
+          begin
+            route_signal(*route)
+          rescue error
+            logger.warn(exception: error) { "issue routing: #{route[0]}=>#{route[1]}" }
+          end
+        end
       }
     end
 
