@@ -7269,7 +7269,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L168" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L168" target="_blank">
         gallagher/rest_api_models.cr
       </a>
     
@@ -7314,12 +7314,12 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#access_group%3ANamedTuple%28href%3AString%29-instance-method" class="signature"><strong>#access_group</strong> : NamedTuple(href: String)</a>
+        <a href="#access_group%3ANamedTuple%28href%3AString%7CNil%2Cname%3AString%7CNil%29-instance-method" class="signature"><strong>#access_group</strong> : NamedTuple(href: String | Nil, name: String | Nil)</a>
         
       </li>
     
       <li class="entry-summary">
-        <a href="#access_group%3D%28access_group%3ANamedTuple%28href%3AString%29%29-instance-method" class="signature"><strong>#access_group=</strong>(access_group : NamedTuple(href: String))</a>
+        <a href="#access_group%3D%28access_group%3ANamedTuple%28href%3AString%7CNil%2Cname%3AString%7CNil%29%29-instance-method" class="signature"><strong>#access_group=</strong>(access_group : NamedTuple(href: String | Nil, name: String | Nil))</a>
         
       </li>
     
@@ -7340,6 +7340,16 @@
     
       <li class="entry-summary">
         <a href="#href%3D%28href%3AString%7CNil%29-instance-method" class="signature"><strong>#href=</strong>(href : String | Nil)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#status%3ANamedTuple%28value%3AString%2Ctype%3AString%7CNil%29%7CNil-instance-method" class="signature"><strong>#status</strong> : NamedTuple(value: String, type: String | Nil) | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#status%3D%28status%3ANamedTuple%28value%3AString%2Ctype%3AString%7CNil%29%7CNil%29-instance-method" class="signature"><strong>#status=</strong>(status : NamedTuple(value: String, type: String | Nil) | Nil)</a>
         
       </li>
     
@@ -7434,7 +7444,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L169" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L169" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7455,34 +7465,34 @@
     Instance Method Detail
   </h2>
   
-    <div class="entry-detail" id="access_group:NamedTuple(href:String)-instance-method">
+    <div class="entry-detail" id="access_group:NamedTuple(href:String|Nil,name:String|Nil)-instance-method">
       <div class="signature">
         
-        def <strong>access_group</strong> : NamedTuple(href: String)
+        def <strong>access_group</strong> : NamedTuple(href: String | Nil, name: String | Nil)
 
-        <a class="method-permalink" href="#access_group%3ANamedTuple%28href%3AString%29-instance-method">#</a>
+        <a class="method-permalink" href="#access_group%3ANamedTuple%28href%3AString%7CNil%2Cname%3AString%7CNil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L175" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L175" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="access_group=(access_group:NamedTuple(href:String))-instance-method">
+    <div class="entry-detail" id="access_group=(access_group:NamedTuple(href:String|Nil,name:String|Nil))-instance-method">
       <div class="signature">
         
-        def <strong>access_group=</strong>(access_group : NamedTuple(href: String))
+        def <strong>access_group=</strong>(access_group : NamedTuple(href: String | Nil, name: String | Nil))
 
-        <a class="method-permalink" href="#access_group%3D%28access_group%3ANamedTuple%28href%3AString%29%29-instance-method">#</a>
+        <a class="method-permalink" href="#access_group%3D%28access_group%3ANamedTuple%28href%3AString%7CNil%2Cname%3AString%7CNil%29%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L175" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L175" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7498,7 +7508,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L177" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L178" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7514,7 +7524,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L177" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L178" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7530,7 +7540,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L172" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L172" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7546,7 +7556,39 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L172" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L172" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="status:NamedTuple(value:String,type:String|Nil)|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>status</strong> : NamedTuple(value: String, type: String | Nil) | Nil
+
+        <a class="method-permalink" href="#status%3ANamedTuple%28value%3AString%2Ctype%3AString%7CNil%29%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L177" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="status=(status:NamedTuple(value:String,type:String|Nil)|Nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>status=</strong>(status : NamedTuple(value: String, type: String | Nil) | Nil)
+
+        <a class="method-permalink" href="#status%3D%28status%3ANamedTuple%28value%3AString%2Ctype%3AString%7CNil%29%7CNil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L177" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7562,7 +7604,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L178" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L179" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7578,7 +7620,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/999edd493553e34c04da5a7fb5340ff09ab8aa06/src/gallagher/rest_api_models.cr#L178" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/968901ca215a995fe1f449b60c4cc117fdac759a/src/gallagher/rest_api_models.cr#L179" target="_blank">View source</a>]
         
       </div>
     </div>
