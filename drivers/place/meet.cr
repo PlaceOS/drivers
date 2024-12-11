@@ -361,7 +361,7 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # we want to unroute any signal going to the display
-  # or if it's a direct connection, we want to mute the display
+  # or if it's a direct connection, we want to mute the display.
   @[Description("blank a display / output, sometimes called a video mute")]
   def unroute(output : String)
     route("MUTE", output)
