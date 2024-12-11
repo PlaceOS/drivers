@@ -205,7 +205,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   #      }
   #    }
   def get_pdfs(name : String? = nil, exact_match : Bool = true)
-    # surround the parameter with double quotes for an exact match.
+    # surround the parameter with double quotes for an exact match
     name = %("#{name}") if name && exact_match
     response = get(@pdfs_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
     raise "PDFS request failed with #{response.status_code}\n#{response.body}" unless response.success?

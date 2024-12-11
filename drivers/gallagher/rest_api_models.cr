@@ -172,8 +172,9 @@ module Gallagher
     property href : String?
 
     @[JSON::Field(key: "accessGroup")]
-    property access_group : NamedTuple(href: String)
+    property access_group : NamedTuple(href: String?, name: String?)
 
+    property status : NamedTuple(value: String, type: String?)? = nil
     property from : Time?
     property until : Time?
   end
