@@ -202,6 +202,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     # attempts to create a booking that expires at the time specified
     expires_at : Int64? = nil
   ) : PlaceLocker
+    bank_id = get_locker_bank(locker_id.to_s)
     floorsense_user_id = get_floorsense_user(user_id)
     duration = (expires_at - Time.local.to_unix) // 60 if expires_at
     booking = LockerBooking.from_json floorsense.locker_reservation(
@@ -231,6 +232,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     # release / unshare just this user - otherwise release the whole locker
     owner_id : String? = nil
   ) : Nil
+    bank_id = get_locker_bank(locker_id.to_s)
     if place_id = owner_id.presence
       floorsense_user_id = get_floorsense_user(place_id)
     end
@@ -274,6 +276,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     owner_id : String,
     share_with : String
   ) : Nil
+    bank_id = get_locker_bank(locker_id.to_s)
     floorsense_user_id = get_floorsense_user(owner_id)
     share_with = get_floorsense_user(share_with)
 
@@ -295,6 +298,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     shared_with_id : String? = nil
   ) : Nil
     floorsense_user_id = get_floorsense_user(owner_id)
+    bank_id = get_locker_bank(locker_id.to_s)
 
     if reservation = Array(LockerBooking).from_json(floorsense.locker_reservations(
          active: true,
@@ -323,6 +327,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     owner_id : String
   ) : Array(String)
     floorsense_user_id = get_floorsense_user(owner_id)
+    bank_id = get_locker_bank(locker_id.to_s)
 
     if reservation = Array(LockerBooking).from_json(floorsense.locker_reservations(
          active: true,
