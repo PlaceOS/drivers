@@ -39,10 +39,10 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   @controllers : Hash(Int32, ControllerInfo) = {} of Int32 => ControllerInfo
 
   # Locker key => controller id
-  @lockers : Hash(String, LockerInfo) = {} of String => LockerInfo
+  getter locker_controllers : Hash(String, LockerInfo) = {} of String => LockerInfo
 
   # Desk key => controller id
-  @desks : Hash(String, DeskInfo) = {} of String => DeskInfo
+  getter desk_controllers : Hash(String, DeskInfo) = {} of String => DeskInfo
 
   def on_load
     transport.tokenizer = Tokenizer.new("\r\n")
@@ -59,6 +59,10 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
       transport.http_uri_override = URI.parse uri_override
     else
       transport.http_uri_override = nil
+    end
+
+    transport.before_request do |request|
+      logger.debug { "requesting: #{request.method} #{request.path}?#{request.query}\n#{request.body}" }
     end
 
     schedule.clear
@@ -168,6 +172,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   protected def check_success(response) : Bool
+    logger.debug { "responed with #{response.status_code}\n#{response.body}" }
     return true if response.success?
     expire_token! if response.status_code == 401
     raise "unexpected response #{response.status_code}\n#{response.body}"
@@ -224,8 +229,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
         logger.warn(exception: error) { "obtaining desk list for controller #{controller.name} - #{controller_id}, possibly offline" }
       end
     end
-    @desks = desks
-    @lockers = lockers
+    @desk_controllers = desks
+    @locker_controllers = lockers
   end
 
   def controller_list(locker : Bool? = nil, desks : Bool? = nil)
@@ -288,7 +293,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def all_lockers
-    return @lockers.values unless @lockers.empty?
+    return @locker_controllers.values unless @locker_controllers.empty?
     sync_locker_list.values
   end
 
@@ -298,13 +303,13 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def locker(locker_key : String)
-    lock = @lockers[locker_key]
+    lock = @locker_controllers[locker_key]
     response = get("/restapi/locker-status?cid=#{lock.controller_id}&bid=#{lock.bus_id}&lid=#{lock.locker_id}", headers: default_headers)
     parse response, LockerInfo
   end
 
   def locker_info(locker_key : String)
-    @lockers[locker_key]
+    @locker_controllers[locker_key]
   end
 
   enum LedState
@@ -324,7 +329,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     usb_charging : String? = nil,
     detect : Bool? = nil
   )
-    lock = @lockers[locker_key]
+    lock = @locker_controllers[locker_key]
 
     response = post("/restapi/locker-control", headers: {
       "Accept"        => "application/json",
@@ -363,7 +368,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     restype : String = "adhoc", # also supports fixed
     controller_id : String | Int32 | Int64 | Nil = nil,
   )
-    controller_id ||= @lockers[locker_key].controller_id
+    controller_id ||= @locker_controllers[locker_key].controller_id
 
     response = post("/restapi/res-create", headers: {
       "Accept"        => "application/json",
@@ -427,7 +432,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     user_id : String? = nil,
     pin : String? = nil
   )
-    lock = @lockers[locker_key]
+    lock = @locker_controllers[locker_key]
 
     response = post("/restapi/locker-unlock", headers: {
       "Accept"        => "application/json",
@@ -752,6 +757,13 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, Array(DeskInfo)
   end
 
+  def desk_info(desk_key : String)
+    controller_id = @desk_controllers[desk_key].controller_id
+    response = get("/restapi/desk-status?cid=#{controller_id}&key=#{desk_key}", headers: default_headers)
+    desk_info = parse response, DeskInfo
+    desk_info
+  end
+
   enum LedColour
     Red
     Green
@@ -785,7 +797,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     reboot : Bool = false,
     clean : Bool = false
   )
-    controller_id = @desks[desk_key].controller_id
+    controller_id = @desk_controllers[desk_key].controller_id
 
     response = post("/restapi/desk-control", headers: {
       "Accept"        => "application/json",
@@ -816,7 +828,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def get_desk_height(desk_key : String) : Int32?
-    nil
+    desk_info(desk_key).deskheight
   end
 
   def set_desk_power(desk_key : String, desk_power : Bool?)
