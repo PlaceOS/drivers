@@ -174,10 +174,12 @@ module Floorsense
 
   class DeskInfo
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     property eui64 : String
     property key : String?
     property planid : Int32?
+    property deskheight : Int32?
 
     @[JSON::Field(key: "type")]
     property desk_type : String?
