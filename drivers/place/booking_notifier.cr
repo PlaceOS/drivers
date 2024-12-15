@@ -127,7 +127,7 @@ class Place::BookingNotifier < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
-    time_now = Time.utc.in(@timezone)
+    time_now = Time.utc.in(@time_zone)
     common_fields = [
       {name: "booking_id", description: "Unique identifier for the booking"},
       {name: "start_time", description: "Booking start time (e.g., #{time_now.to_s(@time_format)})"},
