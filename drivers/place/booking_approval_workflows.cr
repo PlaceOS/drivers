@@ -120,7 +120,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
-    time_now = Time.utc.in(@timezone)
+    time_now = Time.utc.in(@time_zone)
 
     common_fields = [
       {name: "booking_id", description: "Unique identifier for the booking"},
