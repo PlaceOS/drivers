@@ -258,7 +258,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     end
   end
 
-  alias Template = Hash(String, String)
+  alias Template = Hash(String, String | Int64)
 
   #                         zone_id,     timeout, templates
   alias TemplateCache = Hash(String, Tuple(Int64, Array(Template)))
