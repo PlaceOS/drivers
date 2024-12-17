@@ -30,6 +30,7 @@ class Place::TemplateMailer < PlaceOS::Driver
   getter level_zone_ids : Array(String) { get_zone_ids?("level").not_nil! }
 
   getter org_zone_id : String { get_local_zone_id(org_zone_ids).not_nil! }
+  getter building_zone_id : String { get_local_zone_id(building_zone_ids).not_nil! }
 
   def mailer
     system.implementing(Interface::Mailer)[1]
@@ -57,6 +58,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     @level_zone_ids = nil
 
     @org_zone_id = nil
+    @building_zone_id = nil
 
     @cache_timeout = setting?(Int64, :cache_timeout) || 300_i64
     @keep_if_not_seen = setting?(Int64, :keep_if_not_seen) || 6_i64
@@ -156,7 +158,9 @@ class Place::TemplateMailer < PlaceOS::Driver
   end
 
   # fetch templates from cache or metadata
-  def fetch_templates(zone_id : String) : Array(Template)
+  def fetch_templates(zone_id : String?) : Array(Template)
+    return [] of Template unless zone_id
+
     if (cache = @template_cache[zone_id]?) && cache[0] > Time.utc.to_unix
       cache[1]
     else
@@ -188,10 +192,10 @@ class Place::TemplateMailer < PlaceOS::Driver
   end
 
   def find_template?(template : String, zone_ids : Array(String)) : Template?
-    org_id = (zone_ids & org_zone_ids).first
-    region_id = (zone_ids & region_zone_ids).first
-    building_id = (zone_ids & building_zone_ids).first
-    level_id = (zone_ids & level_zone_ids).first
+    org_id = (zone_ids & org_zone_ids)[0]?
+    region_id = (zone_ids & region_zone_ids)[0]?
+    building_id = (zone_ids & building_zone_ids)[0]?
+    level_id = (zone_ids & level_zone_ids)[0]?
 
     org_templates = fetch_templates(org_id)
     region_templates = fetch_templates(region_id)
@@ -241,19 +245,24 @@ class Place::TemplateMailer < PlaceOS::Driver
     from : String | Array(String) | Nil = nil,
     reply_to : String | Array(String) | Nil = nil
   )
-    metadata_template = if (zone_ids = args["zone_ids"]?) && zone_ids.is_a?(Array(String))
-                          find_template?(template.join(SEPERATOR), zone_ids)
-                        end
+    zone_ids = if (zones = args["zone_ids"]?) && zones.is_a?(Array(String))
+                 zones
+               else
+                 [org_zone_id, building_zone_id]
+               end
+
+    metadata_template = find_template?(template.join(SEPERATOR), zone_ids)
 
     if metadata_template
-      subject = build_template(metadata_template["subject"], args)
-      text = build_template(metadata_template["text"]?, args) || ""
-      html = build_template(metadata_template["html"]?, args) || ""
-      from = metadata_template["from"] if metadata_template["from"]?
-      reply_to = metadata_template["reply_to"] if metadata_template["reply_to"]?
+      subject = build_template(metadata_template["subject"].to_s, args)
+      text = build_template(metadata_template["text"]?.try &.to_s, args) || ""
+      html = build_template(metadata_template["html"]?.try &.to_s, args) || ""
+      from = metadata_template["from"].to_s if (from_template = metadata_template["from"]?) && from_template.to_s.presence
+      reply_to = metadata_template["reply_to"].to_s if (reply_to_template = metadata_template["reply_to"]?) && reply_to_template.to_s.presence
 
       mailer.send_mail(to, subject, text, html, resource_attachments, attachments, cc, bcc, from, reply_to)
     else
+      logger.info { "unable to find template #{template.join(SEPERATOR)} from zones #{zone_ids} metadata, forwarding to Mailer_2" }
       mailer.send_template(to, template, args, resource_attachments, attachments, cc, bcc, from, reply_to)
     end
   end
