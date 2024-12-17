@@ -254,11 +254,11 @@ class Place::TemplateMailer < PlaceOS::Driver
     metadata_template = find_template?(template.join(SEPERATOR), zone_ids)
 
     if metadata_template
-      subject = build_template(metadata_template["subject"], args)
-      text = build_template(metadata_template["text"]?, args) || ""
-      html = build_template(metadata_template["html"]?, args) || ""
-      from = metadata_template["from"] if metadata_template["from"]?
-      reply_to = metadata_template["reply_to"] if metadata_template["reply_to"]?
+      subject = build_template(metadata_template["subject"].to_s, args)
+      text = build_template(metadata_template["text"]?.try &.to_s, args) || ""
+      html = build_template(metadata_template["html"]?.try &.to_s, args) || ""
+      from = metadata_template["from"].to_s if metadata_template["from"]?
+      reply_to = metadata_template["reply_to"].to_s if metadata_template["reply_to"]?
 
       mailer.send_mail(to, subject, text, html, resource_attachments, attachments, cc, bcc, from, reply_to)
     else
