@@ -162,19 +162,19 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     [
       TemplateFields.new(
-        trigger: {"bookings", "booked_by_notify"},
+        trigger: {"bookings", "booked_by_notify#{@template_suffix}"},
         name: "Booking booked by notification",
         description: "Notification when someone books on behalf of another person",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "booking_notify"},
+        trigger: {"bookings", "booking_notify#{@template_suffix}"},
         name: "Booking booked notification",
         description: "Notification when a booking is created for yourself",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "cancelled"},
+        trigger: {"bookings", "cancelled#{@template_suffix}"},
         name: "Booking cancelled",
         description: "Notification when a booking is cancelled",
         fields: common_fields
