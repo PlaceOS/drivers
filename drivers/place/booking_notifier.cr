@@ -81,6 +81,7 @@ class Place::BookingNotifier < PlaceOS::Driver
   @booking_type : String = "desk"
   @unique_templates : Bool = false
   @template_suffix : String = ""
+  @template_fields_suffix : String = ""
   @bookings_checked : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
@@ -113,6 +114,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     @booking_type = setting?(String, :booking_type).presence || "desk"
     @unique_templates = setting?(Bool, :unique_templates) || false
     @template_suffix = @unique_templates ? "_#{@booking_type}" : ""
+    @template_fields_suffix = @unique_templates ? " (#{@booking_type})" : ""
 
     time_zone = setting?(String, :calendar_time_zone).presence || "Australia/Sydney"
     @time_zone = Time::Location.load(time_zone)
@@ -163,19 +165,19 @@ class Place::BookingNotifier < PlaceOS::Driver
     [
       TemplateFields.new(
         trigger: {"bookings", "booked_by_notify#{@template_suffix}"},
-        name: "Booking booked by notification",
+        name: "Booking booked by notification#{@template_fields_suffix}",
         description: "Notification when someone books on behalf of another person",
         fields: common_fields
       ),
       TemplateFields.new(
         trigger: {"bookings", "booking_notify#{@template_suffix}"},
-        name: "Booking booked notification",
+        name: "Booking booked notification#{@template_fields_suffix}",
         description: "Notification when a booking is created for yourself",
         fields: common_fields
       ),
       TemplateFields.new(
         trigger: {"bookings", "cancelled#{@template_suffix}"},
-        name: "Booking cancelled",
+        name: "Booking cancelled#{@template_fields_suffix}",
         description: "Notification when a booking is cancelled",
         fields: common_fields
       ),
