@@ -24,6 +24,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     debug:            false,
 
     booking_type:        "desk",
+    unique_templates:    false, # This appends the booking type to the template name
     disable_attachments: true,
     poll_bookings:       false,
     poll_every_minutes:  5,
@@ -78,6 +79,8 @@ class Place::BookingNotifier < PlaceOS::Driver
   @debug : Bool = false
 
   @booking_type : String = "desk"
+  @unique_templates : Bool = false
+  @template_suffix : String = ""
   @bookings_checked : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
@@ -108,6 +111,8 @@ class Place::BookingNotifier < PlaceOS::Driver
 
   def on_update
     @booking_type = setting?(String, :booking_type).presence || "desk"
+    @unique_templates = setting?(Bool, :unique_templates) || false
+    @template_suffix = @unique_templates ? "_#{@booking_type}" : ""
 
     time_zone = setting?(String, :calendar_time_zone).presence || "Australia/Sydney"
     @time_zone = Time::Location.load(time_zone)
@@ -273,14 +278,14 @@ class Place::BookingNotifier < PlaceOS::Driver
     if booking_details.action == "approved"
       mailer.send_template(
         to: send_to,
-        template: {"bookings", third_party ? "booked_by_notify" : "booking_notify"},
+        template: {"bookings", third_party ? "booked_by_notify#{@template_suffix}" : "booking_notify#{@template_suffix}"},
         args: args,
         attachments: attachments
       )
     else
       mailer.send_template(
         to: send_to,
-        template: {"bookings", "cancelled"},
+        template: {"bookings", "cancelled#{@template_suffix}"},
         args: args,
         attachments: attachments
       )
@@ -464,7 +469,7 @@ class Place::BookingNotifier < PlaceOS::Driver
 
         mailer.send_template(
           to: send_to,
-          template: {"bookings", third_party ? "booked_by_notify" : "booking_notify"},
+          template: {"bookings", third_party ? "booked_by_notify#{@template_suffix}" : "booking_notify#{@template_suffix}"},
           args: args,
           attachments: attachments
         )
