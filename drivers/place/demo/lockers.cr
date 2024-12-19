@@ -50,6 +50,24 @@ class Place::Demo::Lockers < PlaceOS::Driver
       @allocated_until = nil
       @shared_with = [] of String
     end
+
+    def allocated? : Bool
+      if time = self.allocated_until
+        if time > Time.utc
+          true
+        else
+          false
+        end
+      elsif allocated_to = self.allocated_to
+        true
+      else
+        false
+      end
+    end
+
+    def not_allocated? : Bool
+      !allocated?
+    end
   end
 
   class LockerBank
@@ -124,10 +142,14 @@ class Place::Demo::Lockers < PlaceOS::Driver
     # attempts to create a booking that expires at the time specified
     expires_at : Int64? = nil
   ) : PlaceLocker
-    locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
+    bank = locker_banks[bank_id.to_s]
+    locker_id = locker_id ? locker_id : bank.locker_hash.values.select(&.not_allocated?).sample.id
+    locker = bank.locker_hash[locker_id.to_s]
     locker.allocated_to = user_id
     locker.allocated_until = Time.unix(expires_at) if expires_at
     PlaceLocker.new(bank_id, locker, building_id)
+  rescue
+    raise "no available lockers"
   end
 
   # return the locker to the pool
