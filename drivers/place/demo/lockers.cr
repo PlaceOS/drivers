@@ -78,8 +78,9 @@ class Place::Demo::Lockers < PlaceOS::Driver
     begin
       Array(LockerBank).from_json(lockers.to_json)
     rescue error
-      logger.warn(exception: error) { "error parsing locker json on level #{level_id}:\n#{lockers.to_pretty_json}" }
-      [] of LockerBank
+      message = "error parsing locker json on level #{level_id}:\n#{lockers.to_pretty_json}"
+      logger.warn(exception: error) { message }
+      raise message
     end
   end
 
