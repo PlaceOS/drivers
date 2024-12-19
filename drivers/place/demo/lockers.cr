@@ -75,7 +75,12 @@ class Place::Demo::Lockers < PlaceOS::Driver
   def lockers_details(level_id : String) : Array(LockerBank)
     lockers = staff_api.metadata(level_id, "lockers").get.dig?("lockers", "details")
     return [] of LockerBank unless lockers
-    Array(LockerBank).from_json(lockers.to_json)
+    begin
+      Array(LockerBank).from_json(lockers.to_json)
+    rescue error
+      logger.warn(exception: error) { "error parsing locker json on level #{level_id}:\n#{lockers.to_pretty_json}" }
+      [] of LockerBank
+    end
   end
 
   class ::PlaceOS::Driver::Interface::Lockers::PlaceLocker
