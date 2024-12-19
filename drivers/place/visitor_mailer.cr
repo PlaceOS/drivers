@@ -253,7 +253,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   class BookingInduction < GuestNotification
     include JSON::Serializable
 
-    property induction: Induction = Induction::TENTATIVE
+    property induction : Induction = Induction::TENTATIVE
     property booking_id : Int64
     property resource_id : String
     property resource_ids : Array(String)
@@ -307,7 +307,7 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.induction
         )
         self[:users_accepted_induction] = @users_accepted_induction += 1
-        elseif guest_details.induction.declined?
+      elsif guest_details.induction.declined?
         send_induction_email(
           @notify_induction_declined_template,
           guest_details.attendee_email,
