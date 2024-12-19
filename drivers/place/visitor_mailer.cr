@@ -632,7 +632,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     SystemDetails.from_json staff_api.get_system(system_id).get.to_json
   rescue error
     raise "issue loading system details #{system_id}" if retries > 3
-    sleep 1
+    sleep 1.second
     get_room_details(system_id, retries + 1)
   end
 
@@ -654,7 +654,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       logger.error { "issue loading host details #{host_email}" }
       return "your host"
     end
-    sleep 1
+    sleep 1.second
     get_host_name_from_staff_api_driver(host_email, retries + 1)
   end
 
