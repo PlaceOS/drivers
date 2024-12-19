@@ -24,13 +24,13 @@ class Place::AttendeeScanner < PlaceOS::Driver
     @org_id = nil
   end
 
-  # Grabs the list of systems in the building
-  getter systems : Hash(String, Array(String)) do
-    locations.systems.get.as_h.transform_values(&.as_a.map(&.as_s))
-  end
-
   getter building_id : String do
     locations.building_id.get.as_s
+  end
+
+  # Grabs the list of systems in the building
+  getter systems : Hash(String, Array(String)) do
+    staff_api.systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
   end
 
   getter org_id : String do
