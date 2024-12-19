@@ -27,6 +27,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_template:                     "event",
     booking_template:                   "booking",
     notify_checkin_template:            "notify_checkin",
+    notify_induction_accepted_template: "induction_accepted",
+    notify_induction_declined_template: "induction_declined",
     group_event_template:               "group_event",
     disable_qr_code:                    false,
     send_network_credentials:           false,
@@ -60,6 +62,10 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Guest has arrived in the lobby
     monitor("staff/guest/checkin") { |_subscription, payload| guest_event(payload.gsub(/[^[:print:]]/, "")) }
 
+    # Booking induction status has been updated
+    monitor("staff/guest/induction_accepted") { |_subscription, payload| guest_event(payload.gsub(/[^[:print:]]/, "")) }
+    monitor("staff/guest/induction_declined") { |_subscription, payload| guest_event(payload.gsub(/[^[:print:]]/, "")) }
+
     on_update
   end
 
@@ -68,6 +74,8 @@ class Place::VisitorMailer < PlaceOS::Driver
   @debug : Bool = false
   @is_parent_zone : Bool = false
   @users_checked_in : UInt64 = 0_u64
+  @users_accepted_induction : UInt64 = 0_u64
+  @users_declined_induction : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
   @visitor_emails_sent : UInt64 = 0_u64
@@ -93,6 +101,8 @@ class Place::VisitorMailer < PlaceOS::Driver
   @event_template : String = "event"
   @booking_template : String = "booking"
   @notify_checkin_template : String = "notify_checkin"
+  @notify_induction_accepted_template : String = "induction_accepted"
+  @notify_induction_declined_template : String = "induction_declined"
   @group_event_template : String = "group_event"
   @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
@@ -115,6 +125,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     @event_template = setting?(String, :event_template) || "event"
     @booking_template = setting?(String, :booking_template) || "booking"
     @notify_checkin_template = setting?(String, :notify_checkin_template) || "notify_checkin"
+    @notify_induction_accepted_template = setting?(String, :induction_accepted) || "induction_accepted"
+    @notify_induction_declined_template = setting?(String, :induction_declined) || "induction_declined"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
@@ -172,15 +184,23 @@ class Place::VisitorMailer < PlaceOS::Driver
     @building_zone.as(ZoneDetails)
   end
 
+  enum Induction
+    TENTATIVE
+    ACCEPTED
+    DECLINED
+  end
+
   abstract class GuestNotification
     include JSON::Serializable
 
     use_json_discriminator "action", {
-      "booking_created" => BookingGuest,
-      "booking_updated" => BookingGuest,
-      "meeting_created" => EventGuest,
-      "meeting_update"  => EventGuest,
-      "checkin"         => GuestCheckin,
+      "booking_created"    => BookingGuest,
+      "booking_updated"    => BookingGuest,
+      "meeting_created"    => EventGuest,
+      "meeting_update"     => EventGuest,
+      "checkin"            => GuestCheckin,
+      "induction_accepted" => BookingInduction,
+      "induction_declined" => BookingInduction,
     }
 
     property action : String
@@ -230,6 +250,19 @@ class Place::VisitorMailer < PlaceOS::Driver
     property resource_id : String = ""
   end
 
+  class BookingInduction < GuestNotification
+    include JSON::Serializable
+
+    property induction: Induction = Induction::TENTATIVE
+    property booking_id : Int64
+    property resource_id : String
+    property resource_ids : Array(String)
+
+    def event_id
+      booking_id.to_s
+    end
+  end
+
   protected def guest_event(payload)
     logger.debug { "received guest event payload: #{payload}" }
     guest_details = GuestNotification.from_json payload
@@ -261,6 +294,32 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.event_starting
       )
       self[:users_checked_in] = @users_checked_in += 1
+      return
+    in BookingInduction
+      if guest_details.induction.accepted?
+        send_induction_email(
+          @notify_induction_accepted_template,
+          guest_details.attendee_email,
+          guest_details.attendee_name,
+          guest_details.host,
+          guest_details.event_summary,
+          guest_details.event_starting,
+          guest_details.induction
+        )
+        self[:users_accepted_induction] = @users_accepted_induction += 1
+        elseif guest_details.induction.declined?
+        send_induction_email(
+          @notify_induction_declined_template,
+          guest_details.attendee_email,
+          guest_details.attendee_name,
+          guest_details.host,
+          guest_details.event_summary,
+          guest_details.event_starting,
+          guest_details.induction
+        )
+        self[:users_declined_induction] = @users_declined_induction += 1
+      end
+
       return
     in EventGuest
       return if @disable_event_visitors
@@ -327,6 +386,36 @@ class Place::VisitorMailer < PlaceOS::Driver
     )
   end
 
+  @[Security(Level::Support)]
+  def send_induction_email(
+    template : String,
+    visitor_email : String,
+    visitor_name : String?,
+    host_email : String?,
+    event_title : String?,
+    event_start : Int64,
+    induction_status : Induction
+  )
+    local_start_time = Time.unix(event_start).in(@time_zone)
+
+    mailer.send_template(
+      host_email,
+      {"visitor_invited", template}, # Template selection: "visitor_invited" "notify_checkin"
+      {
+      visitor_email:    visitor_email,
+      visitor_name:     visitor_name,
+      host_name:        get_host_name(host_email),
+      host_email:       host_email,
+      building_name:    building_zone.display_name.presence || building_zone.name,
+      event_title:      event_title,
+      event_start:      local_start_time.to_s(@time_format),
+      event_date:       local_start_time.to_s(@date_format),
+      event_time:       local_start_time.to_s(@time_format),
+      induction_status: induction_status.to_s,
+    }
+    )
+  end
+
   def template_fields : Array(TemplateFields)
     time_now = Time.utc.in(@time_zone)
     common_fields = [
@@ -345,6 +434,10 @@ class Place::VisitorMailer < PlaceOS::Driver
       {name: "room_name", description: "Name of the room or area being visited"},
       {name: "network_username", description: "Network access username (if network credentials enabled)"},
       {name: "network_password", description: "Generated network access password (if network credentials enabled)"},
+    ]
+
+    induction_fields = common_fields + [
+      {name: "induction_status", description: "Status of the induction (e.g., accepted or declined)"},
     ]
 
     [
@@ -377,6 +470,18 @@ class Place::VisitorMailer < PlaceOS::Driver
         name: "Visitor check in notification",
         description: "Notification to host when their visitor checks in",
         fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_induction_accepted_template},
+        name: "Visitor induction accepted notification",
+        description: "Notification to host when their visitor accepts the induction",
+        fields: induction_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_induction_declined_template},
+        name: "Visitor induction declined notification",
+        description: "Notification to host when their visitor declines the induction",
+        fields: induction_fields
       ),
     ]
   end
