@@ -10,15 +10,6 @@ class LocationServices < DriverSpecs::MockDriver
     self[:building_id_requested] = true
     "zone-building"
   end
-
-  def systems
-    self[:systems_requested] = true
-    {
-      "zone-level1": [
-        "spec_runner_system",
-      ],
-    }
-  end
 end
 
 # :nodoc:
@@ -30,6 +21,15 @@ class StaffAPI < DriverSpecs::MockDriver
       id:        "zone-building",
       timezone:  "Australia/Sydney",
       parent_id: "zone-org",
+    }
+  end
+
+  def systems_in_building(zone_id : String, ids_only : Bool = true)
+    self[:systems_requested] = zone_id
+    {
+      "zone-level1": [
+        "spec_runner_system",
+      ],
     }
   end
 
