@@ -156,4 +156,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
     JSON.parse(zones.to_json)
   end
+
+  def update_booking(booking_id : String | Int64, booking_end : Int64, checked_in : Bool)
+    true
+  end
 end

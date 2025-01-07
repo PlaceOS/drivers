@@ -68,7 +68,7 @@ class Place::AutoReleaseLocker < PlaceOS::Driver
     bookings.each do |booking|
       logger.debug { "releasing booking #{booking.id} as it is within the time_after window" }
       begin
-        staff_api.update_booking(booking_id: booking.id, booking_end: Time.utc.to_unix, checked_in: false)
+        staff_api.update_booking(booking_id: booking.id, booking_end: Time.utc.to_unix, checked_in: false).get
         released += 1
       rescue error
         logger.warn(exception: error) { "unable to release #{@booking_type} with booking id #{booking.id}" }

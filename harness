@@ -27,7 +27,7 @@ trap "trap_ctrlc" 2
 up() {
   echo '░░░ PlaceOS Driver Harness'
   echo '░░░ -> Pulling latest code...'
-  git pull
+  #git pull
   echo '░░░ -> Pulling latest images...'
   docker compose pull
   echo '░░░ -> Starting environment...'
