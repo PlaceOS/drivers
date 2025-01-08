@@ -71,7 +71,7 @@ jobs:
           CRYSTAL_VERSION: ${{ matrix.crystal }}
       - name: Upload failure logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs/*.log
@@ -130,7 +130,7 @@ jobs:
         run: docker compose logs drivers
       - name: Upload failure logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: logs-${{ matrix.crystal }}-${{ github.sha }}
           path: .logs/*.log
