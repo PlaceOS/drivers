@@ -1,8 +1,8 @@
+require "placeos-driver"
+require "placeos-driver/interface/lockers"
 require "uri"
 require "json"
 require "oauth2"
-require "placeos-driver"
-require "placeos-driver/interface/lockers"
 require "./models"
 
 class Floorsense::LockerLocationService < PlaceOS::Driver
