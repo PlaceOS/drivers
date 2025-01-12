@@ -16,7 +16,7 @@ class Place::LogicExample < PlaceOS::Driver
   end
 
   def power(state : Bool)
-    main_lcd.power(state)
+    system.all(:Display).power(state)
   end
 
   def display_count
