@@ -15,7 +15,7 @@ class Place::LogicExample < PlaceOS::Driver
     main_lcd[:power]
   end
 
-  def power(state : Bool)
+  def power(state : Bool = true)
     system.all(:Display).power(state)
   end
 
