@@ -15,8 +15,14 @@ class Place::LogicExample < PlaceOS::Driver
     main_lcd[:power]
   end
 
-  def power(state : Bool = true)
+  def power(state : Bool)
     system.all(:Display).power(state)
+  end
+
+  def webhook(method : String, headers : Hash(String, Array(String)), body : String)
+    logger.debug { "webhook executed" }
+    power(true)
+    {HTTP::Status::OK.to_i, {} of String => String, ""}
   end
 
   def display_count
