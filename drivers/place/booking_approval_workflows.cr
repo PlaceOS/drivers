@@ -21,6 +21,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
     date_format:      "%A, %-d %B",
 
     booking_type:        "desk",
+    unique_templates:    false, # This appends the booking type to the template name
     remind_after:        24,
     escalate_after:      48,
     disable_attachments: true,
@@ -73,6 +74,9 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
 
   @booking_type : String = "desk"
+  @unique_templates : Bool = false
+  @template_suffix : String = ""
+  @template_fields_suffix : String = ""
   @bookings_checked : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
@@ -89,6 +93,9 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
   def on_update
     @booking_type = setting?(String, :booking_type).presence || "desk"
+    @unique_templates = setting?(Bool, :unique_templates) || false
+    @template_suffix = @unique_templates ? "_#{@booking_type}" : ""
+    @template_fields_suffix = @unique_templates ? " (#{@booking_type})" : ""
 
     time_zone = setting?(String, :calendar_time_zone).presence || "Australia/Sydney"
     @time_zone = Time::Location.load(time_zone)
@@ -150,68 +157,68 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
     [
       TemplateFields.new(
-        trigger: {"bookings", "group_booking_sent"},
-        name: "Group booking sent",
+        trigger: {"bookings", "group_booking_sent#{@template_suffix}"},
+        name: "Group booking sent#{@template_fields_suffix}",
         description: "Notification when a group booking has been created",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "approved_by"},
-        name: "Booking approved by",
+        trigger: {"bookings", "approved_by#{@template_suffix}"},
+        name: "Booking approved by#{@template_fields_suffix}",
         description: "Notification when booking is approved by someone other than the requester",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "approved"},
-        name: "Booking approved",
+        trigger: {"bookings", "approved#{@template_suffix}"},
+        name: "Booking approved#{@template_fields_suffix}",
         description: "Notification when booking is approved",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "rejected"},
-        name: "Booking rejected",
+        trigger: {"bookings", "rejected#{@template_suffix}"},
+        name: "Booking rejected#{@template_fields_suffix}",
         description: "Notification when booking is rejected",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "checked_in"},
-        name: "Booking checked in",
+        trigger: {"bookings", "checked_in#{@template_suffix}"},
+        name: "Booking checked in#{@template_fields_suffix}",
         description: "Notification when user checks in to their booking",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "cancelled_by"},
-        name: "Booking cancelled by",
+        trigger: {"bookings", "cancelled_by#{@template_suffix}"},
+        name: "Booking cancelled by#{@template_fields_suffix}",
         description: "Notification when booking is cancelled by someone other than the booker",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "cancelled"},
-        name: "Booking cancelled",
+        trigger: {"bookings", "cancelled#{@template_suffix}"},
+        name: "Booking cancelled#{@template_fields_suffix}",
         description: "Notification when booking is cancelled by the booker",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "manager_notify_cancelled"},
-        name: "Booking cancelled manager notification",
+        trigger: {"bookings", "manager_notify_cancelled#{@template_suffix}"},
+        name: "Booking cancelled manager notification#{@template_fields_suffix}",
         description: "Notification to manager when their team member's booking is cancelled",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "manager_approval"},
-        name: "Booking manager approval",
-        description: "Request for manager to approve a booking",
+        trigger: {"bookings", "manager_approval#{@template_suffix}"},
+        name: "Booking manager approval#{@template_fields_suffix}",
+        description: "Request for manager to approve a booking#{@template_suffix}",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "manager_contacted"},
-        name: "Booking manager contacted",
+        trigger: {"bookings", "manager_contacted#{@template_suffix}"},
+        name: "Booking manager contacted#{@template_fields_suffix}",
         description: "Notification to user that their manager has been contacted for approval",
         fields: common_fields
       ),
       TemplateFields.new(
-        trigger: {"bookings", "notify_manager"},
-        name: "Booking manager notification",
+        trigger: {"bookings", "notify_manager#{@template_suffix}"},
+        name: "Booking manager notification#{@template_fields_suffix}",
         description: "Notification to manager about their team member's booking",
         fields: common_fields
       ),
@@ -295,7 +302,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
         mailer.send_template(
           to: booking_details.booked_by_email,
-          template: {"bookings", "group_booking_sent"},
+          template: {"bookings", "group_booking_sent#{@template_suffix}"},
           args: args
         )
       end
@@ -313,7 +320,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
       third_party = approval_type == "manager_approval" && booking_details.user_email != booking_details.booked_by_email
       mailer.send_template(
         to: booking_details.user_email,
-        template: {"bookings", third_party ? "approved_by" : "approved"},
+        template: {"bookings", third_party ? "approved_by#{@template_suffix}" : "approved#{@template_suffix}"},
         args: args,
         attachments: attachments
       ).get
@@ -324,7 +331,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
       user_email = booking_details.user_email
       mailer.send_template(
         to: user_email,
-        template: {"bookings", booking_details.action},
+        template: {"bookings", "#{booking_details.action}#{@template_suffix}"},
         args: args
       )
     when "cancelled"
@@ -334,14 +341,14 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
       user_email = booking_details.user_email
       mailer.send_template(
         to: user_email,
-        template: {"bookings", third_party ? "cancelled_by" : "cancelled"},
+        template: {"bookings", third_party ? "cancelled_by#{@template_suffix}" : "cancelled#{@template_suffix}"},
         args: args
       )
 
       if @notify_managers && (manager_email = get_manager(user_email).try(&.at(0)))
         mailer.send_template(
           to: manager_email,
-          template: {"bookings", "manager_notify_cancelled"},
+          template: {"bookings", "manager_notify_cancelled#{@template_suffix}"},
           args: args
         )
       end
@@ -397,7 +404,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
           mailer.send_template(
             to: manager_email,
-            template: {"bookings", "manager_approval"},
+            template: {"bookings", "manager_approval#{@template_suffix}"},
             args: args
           ).get
 
@@ -406,7 +413,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
           mailer.send_template(
             to: user_email,
-            template: {"bookings", "manager_contacted"},
+            template: {"bookings", "manager_contacted#{@template_suffix}"},
             args: args.merge({
               manager_email: manager_email,
               manager_name:  manager_name,
@@ -425,7 +432,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
           if manager_email = get_manager(user_email).try(&.at(0))
             mailer.send_template(
               to: manager_email,
-              template: {"bookings", "manager_approval"},
+              template: {"bookings", "manager_approval#{@template_suffix}"},
               args: args
             ).get
 
@@ -446,7 +453,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
               mailer.send_template(
                 to: manager_email,
-                template: {"bookings", "manager_approval"},
+                template: {"bookings", "manager_approval#{@template_suffix}"},
                 args: args
               ).get
 
@@ -480,7 +487,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
       if @notify_managers && (manager_email = get_manager(user_email).try(&.at(0)))
         mailer.send_template(
           to: manager_email,
-          template: {"bookings", "notify_manager"},
+          template: {"bookings", "notify_manager#{@template_suffix}"},
           args: args
         )
       end
@@ -625,7 +632,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
 
             mailer.send_template(
               to: booking_details.user_email,
-              template: {"bookings", third_party ? "approved_by" : "approved"},
+              template: {"bookings", third_party ? "approved_by#{@template_suffix}" : "approved#{@template_suffix}"},
               args: args,
               attachments: attachments
             )
@@ -788,7 +795,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
       attachments.clear if @disable_attachments
       mailer.send_template(
         to: booking_details.user_email,
-        template: {"bookings", "checkin_reminder"},
+        template: {"bookings", "checkin_reminder#{@template_suffix}"},
         args: args,
         attachments: attachments
       )
