@@ -7298,7 +7298,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L11" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L11" target="_blank">
         gallagher/rest_api.cr
       </a>
     
@@ -7358,6 +7358,16 @@
     Instance Method Summary
   </h2>
   <ul class="list-summary">
+    
+      <li class="entry-summary">
+        <a href="#access_group_member%3F%28group_id%3AString%7CInt32%2Ccardholder_id%3AString%7CInt32%29%3AString%7CNil-instance-method" class="signature"><strong>#access_group_member?</strong>(group_id : String | Int32, cardholder_id : String | Int32) : String | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#add_access_group_member%28group_id%3AString%7CInt32%2Ccardholder_id%3AString%7CInt32%2Cfrom_unix%3AInt64%7CNil%3Dnil%2Cuntil_unix%3AInt64%7CNil%3Dnil%29-instance-method" class="signature"><strong>#add_access_group_member</strong>(group_id : String | Int32, cardholder_id : String | Int32, from_unix : Int64 | Nil = <span class="n">nil</span>, until_unix : Int64 | Nil = <span class="n">nil</span>)</a>
+        
+      </li>
     
       <li class="entry-summary">
         <a href="#cardholder_exists%3F%28filter%3AString%29-instance-method" class="signature"><strong>#cardholder_exists?</strong>(filter : String)</a>
@@ -7437,7 +7447,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#get_cardholder%28id%3AString%29-instance-method" class="signature"><strong>#get_cardholder</strong>(id : String)</a>
+        <a href="#get_cardholder%28id%3AString%7CInt32%29-instance-method" class="signature"><strong>#get_cardholder</strong>(id : String | Int32)</a>
         
       </li>
     
@@ -7517,6 +7527,11 @@
       </li>
     
       <li class="entry-summary">
+        <a href="#remove_access_group_member%28group_id%3AString%7CInt32%2Ccardholder_id%3AString%7CInt32%29%3ABool-instance-method" class="signature"><strong>#remove_access_group_member</strong>(group_id : String | Int32, cardholder_id : String | Int32) : Bool</a>
+        
+      </li>
+    
+      <li class="entry-summary">
         <a href="#remove_cardholder_access%28id%3AString%7CNil%3Dnil%2Chref%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#remove_cardholder_access</strong>(id : String | Nil = <span class="n">nil</span>, href : String | Nil = <span class="n">nil</span>)</a>
         
       </li>
@@ -7543,7 +7558,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#update_cardholder%28id%3AString%7CNil%3Dnil%2Chref%3AString%7CNil%3Dnil%2Cfirst_name%3AString%7CNil%3Dnil%2Clast_name%3AString%7CNil%3Dnil%2Cdescription%3AString%7CNil%3Dnil%2Cauthorised%3ABool%3Dtrue%2Cpdfs%3AHash%28String%2CString%29%7CNil%3Dnil%2Ccards%3AArray%28Card%29%7CNil%3Dnil%2Cremove_cards%3AArray%28Card%29%7CNil%3Dnil%2Cupdate_cards%3AArray%28Card%29%7CNil%3Dnil%2Caccess_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cremove_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cupdate_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cshort_name%3AString%7CNil%3Dnil%2Cdivision_href%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#update_cardholder</strong>(id : String | Nil = <span class="n">nil</span>, href : String | Nil = <span class="n">nil</span>, first_name : String | Nil = <span class="n">nil</span>, last_name : String | Nil = <span class="n">nil</span>, description : String | Nil = <span class="n">nil</span>, authorised : Bool = <span class="n">true</span>, pdfs : Hash(String, String) | Nil = <span class="n">nil</span>, cards : Array(Card) | Nil = <span class="n">nil</span>, remove_cards : Array(Card) | Nil = <span class="n">nil</span>, update_cards : Array(Card) | Nil = <span class="n">nil</span>, access_groups : Array(CardholderAccessGroup) | Nil = <span class="n">nil</span>, remove_access_groups : Array(CardholderAccessGroup) | Nil = <span class="n">nil</span>, update_access_groups : Array(CardholderAccessGroup) | Nil = <span class="n">nil</span>, short_name : String | Nil = <span class="n">nil</span>, division_href : String | Nil = <span class="n">nil</span>)</a>
+        <a href="#update_cardholder%28id%3AString%7CInt32%7CNil%3Dnil%2Chref%3AString%7CNil%3Dnil%2Cfirst_name%3AString%7CNil%3Dnil%2Clast_name%3AString%7CNil%3Dnil%2Cdescription%3AString%7CNil%3Dnil%2Cauthorised%3ABool%3Dtrue%2Cpdfs%3AHash%28String%2CString%29%7CNil%3Dnil%2Ccards%3AArray%28Card%29%7CNil%3Dnil%2Cremove_cards%3AArray%28Card%29%7CNil%3Dnil%2Cupdate_cards%3AArray%28Card%29%7CNil%3Dnil%2Caccess_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cremove_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cupdate_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cshort_name%3AString%7CNil%3Dnil%2Cdivision_href%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#update_cardholder</strong>(id : String | Int32 | Nil = <span class="n">nil</span>, href : String | Nil = <span class="n">nil</span>, first_name : String | Nil = <span class="n">nil</span>, last_name : String | Nil = <span class="n">nil</span>, description : String | Nil = <span class="n">nil</span>, authorised : Bool = <span class="n">true</span>, pdfs : Hash(String, String) | Nil = <span class="n">nil</span>, cards : Array(Card) | Nil = <span class="n">nil</span>, remove_cards : Array(Card) | Nil = <span class="n">nil</span>, update_cards : Array(Card) | Nil = <span class="n">nil</span>, access_groups : Array(CardholderAccessGroup) | Nil = <span class="n">nil</span>, remove_access_groups : Array(CardholderAccessGroup) | Nil = <span class="n">nil</span>, update_access_groups : Array(CardholderAccessGroup) | Nil = <span class="n">nil</span>, short_name : String | Nil = <span class="n">nil</span>, division_href : String | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7656,7 +7671,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L444" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L482" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7673,6 +7688,38 @@
     Instance Method Detail
   </h2>
   
+    <div class="entry-detail" id="access_group_member?(group_id:String|Int32,cardholder_id:String|Int32):String|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>access_group_member?</strong>(group_id : String | Int32, cardholder_id : String | Int32) : String | Nil
+
+        <a class="method-permalink" href="#access_group_member%3F%28group_id%3AString%7CInt32%2Ccardholder_id%3AString%7CInt32%29%3AString%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L388" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="add_access_group_member(group_id:String|Int32,cardholder_id:String|Int32,from_unix:Int64|Nil=nil,until_unix:Int64|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>add_access_group_member</strong>(group_id : String | Int32, cardholder_id : String | Int32, from_unix : Int64 | Nil = <span class="n">nil</span>, until_unix : Int64 | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#add_access_group_member%28group_id%3AString%7CInt32%2Ccardholder_id%3AString%7CInt32%2Cfrom_unix%3AInt64%7CNil%3Dnil%2Cuntil_unix%3AInt64%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L419" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
     <div class="entry-detail" id="cardholder_exists?(filter:String)-instance-method">
       <div class="signature">
         
@@ -7684,7 +7731,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L357" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L357" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7700,7 +7747,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L114" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L114" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7733,7 +7780,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L269" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L269" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7749,7 +7796,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L352" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L352" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7765,7 +7812,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L468" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L506" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7781,7 +7828,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L345" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L345" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7797,7 +7844,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L508" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L546" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7813,7 +7860,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L498" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L536" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7834,7 +7881,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L412" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L450" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7850,7 +7897,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L368" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L368" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7866,7 +7913,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L382" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L382" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7882,7 +7929,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L374" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L374" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7898,7 +7945,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L221" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L221" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7914,23 +7961,23 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L252" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L252" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="get_cardholder(id:String)-instance-method">
+    <div class="entry-detail" id="get_cardholder(id:String|Int32)-instance-method">
       <div class="signature">
         
-        def <strong>get_cardholder</strong>(id : String)
+        def <strong>get_cardholder</strong>(id : String | Int32)
 
-        <a class="method-permalink" href="#get_cardholder%28id%3AString%29-instance-method">#</a>
+        <a class="method-permalink" href="#get_cardholder%28id%3AString%7CInt32%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L228" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L228" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7946,7 +7993,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L388" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L426" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7962,7 +8009,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L394" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L432" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7978,7 +8025,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L438" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L476" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7994,7 +8041,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L432" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L470" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8010,7 +8057,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L462" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L500" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8026,7 +8073,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L215" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L215" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8074,7 +8121,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L207" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L207" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8090,7 +8137,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L402" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L440" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8106,7 +8153,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L67" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L67" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8122,7 +8169,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L77" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L77" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8138,7 +8185,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L89" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L89" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8154,7 +8201,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L246" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L246" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8170,7 +8217,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L234" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L234" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8186,7 +8233,23 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L132" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L132" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="remove_access_group_member(group_id:String|Int32,cardholder_id:String|Int32):Bool-instance-method">
+      <div class="signature">
+        
+        def <strong>remove_access_group_member</strong>(group_id : String | Int32, cardholder_id : String | Int32) : Bool
+
+        <a class="method-permalink" href="#remove_access_group_member%28group_id%3AString%7CInt32%2Ccardholder_id%3AString%7CInt32%29%3ABool-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L409" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8202,7 +8265,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L361" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L361" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8223,7 +8286,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L426" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L464" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8244,7 +8307,7 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L419" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L457" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -8269,23 +8332,23 @@ Allows retrieval of the PDFs used in the Gallagher instance, primarily so we can
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L512" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L550" target="_blank">View source</a>]
         
       </div>
     </div>
   
-    <div class="entry-detail" id="update_cardholder(id:String|Nil=nil,href:String|Nil=nil,first_name:String|Nil=nil,last_name:String|Nil=nil,description:String|Nil=nil,authorised:Bool=true,pdfs:Hash(String,String)|Nil=nil,cards:Array(Card)|Nil=nil,remove_cards:Array(Card)|Nil=nil,update_cards:Array(Card)|Nil=nil,access_groups:Array(CardholderAccessGroup)|Nil=nil,remove_access_groups:Array(CardholderAccessGroup)|Nil=nil,update_access_groups:Array(CardholderAccessGroup)|Nil=nil,short_name:String|Nil=nil,division_href:String|Nil=nil)-instance-method">
+    <div class="entry-detail" id="update_cardholder(id:String|Int32|Nil=nil,href:String|Nil=nil,first_name:String|Nil=nil,last_name:String|Nil=nil,description:String|Nil=nil,authorised:Bool=true,pdfs:Hash(String,String)|Nil=nil,cards:Array(Card)|Nil=nil,remove_cards:Array(Card)|Nil=nil,update_cards:Array(Card)|Nil=nil,access_groups:Array(CardholderAccessGroup)|Nil=nil,remove_access_groups:Array(CardholderAccessGroup)|Nil=nil,update_access_groups:Array(CardholderAccessGroup)|Nil=nil,short_name:String|Nil=nil,division_href:String|Nil=nil)-instance-method">
       <div class="signature">
         
-        def <strong>update_cardholder</strong>(id : String | Nil = <span class="n">nil</span>, href : String | Nil = <span class="n">nil</span>, first_name : String | Nil = <span class="n">nil</span>, last_name : String | Nil = <span class="n">nil</span>, description : String | Nil = <span class="n">nil</span>, authorised : Bool = <span class="n">true</span>, pdfs : Hash(String, String) | Nil = <span class="n">nil</span>, cards : Array(<a href="../Gallagher/Card.html">Card</a>) | Nil = <span class="n">nil</span>, remove_cards : Array(<a href="../Gallagher/Card.html">Card</a>) | Nil = <span class="n">nil</span>, update_cards : Array(<a href="../Gallagher/Card.html">Card</a>) | Nil = <span class="n">nil</span>, access_groups : Array(<a href="../Gallagher/CardholderAccessGroup.html">CardholderAccessGroup</a>) | Nil = <span class="n">nil</span>, remove_access_groups : Array(<a href="../Gallagher/CardholderAccessGroup.html">CardholderAccessGroup</a>) | Nil = <span class="n">nil</span>, update_access_groups : Array(<a href="../Gallagher/CardholderAccessGroup.html">CardholderAccessGroup</a>) | Nil = <span class="n">nil</span>, short_name : String | Nil = <span class="n">nil</span>, division_href : String | Nil = <span class="n">nil</span>)
+        def <strong>update_cardholder</strong>(id : String | Int32 | Nil = <span class="n">nil</span>, href : String | Nil = <span class="n">nil</span>, first_name : String | Nil = <span class="n">nil</span>, last_name : String | Nil = <span class="n">nil</span>, description : String | Nil = <span class="n">nil</span>, authorised : Bool = <span class="n">true</span>, pdfs : Hash(String, String) | Nil = <span class="n">nil</span>, cards : Array(<a href="../Gallagher/Card.html">Card</a>) | Nil = <span class="n">nil</span>, remove_cards : Array(<a href="../Gallagher/Card.html">Card</a>) | Nil = <span class="n">nil</span>, update_cards : Array(<a href="../Gallagher/Card.html">Card</a>) | Nil = <span class="n">nil</span>, access_groups : Array(<a href="../Gallagher/CardholderAccessGroup.html">CardholderAccessGroup</a>) | Nil = <span class="n">nil</span>, remove_access_groups : Array(<a href="../Gallagher/CardholderAccessGroup.html">CardholderAccessGroup</a>) | Nil = <span class="n">nil</span>, update_access_groups : Array(<a href="../Gallagher/CardholderAccessGroup.html">CardholderAccessGroup</a>) | Nil = <span class="n">nil</span>, short_name : String | Nil = <span class="n">nil</span>, division_href : String | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#update_cardholder%28id%3AString%7CNil%3Dnil%2Chref%3AString%7CNil%3Dnil%2Cfirst_name%3AString%7CNil%3Dnil%2Clast_name%3AString%7CNil%3Dnil%2Cdescription%3AString%7CNil%3Dnil%2Cauthorised%3ABool%3Dtrue%2Cpdfs%3AHash%28String%2CString%29%7CNil%3Dnil%2Ccards%3AArray%28Card%29%7CNil%3Dnil%2Cremove_cards%3AArray%28Card%29%7CNil%3Dnil%2Cupdate_cards%3AArray%28Card%29%7CNil%3Dnil%2Caccess_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cremove_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cupdate_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cshort_name%3AString%7CNil%3Dnil%2Cdivision_href%3AString%7CNil%3Dnil%29-instance-method">#</a>
+        <a class="method-permalink" href="#update_cardholder%28id%3AString%7CInt32%7CNil%3Dnil%2Chref%3AString%7CNil%3Dnil%2Cfirst_name%3AString%7CNil%3Dnil%2Clast_name%3AString%7CNil%3Dnil%2Cdescription%3AString%7CNil%3Dnil%2Cauthorised%3ABool%3Dtrue%2Cpdfs%3AHash%28String%2CString%29%7CNil%3Dnil%2Ccards%3AArray%28Card%29%7CNil%3Dnil%2Cremove_cards%3AArray%28Card%29%7CNil%3Dnil%2Cupdate_cards%3AArray%28Card%29%7CNil%3Dnil%2Caccess_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cremove_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cupdate_access_groups%3AArray%28CardholderAccessGroup%29%7CNil%3Dnil%2Cshort_name%3AString%7CNil%3Dnil%2Cdivision_href%3AString%7CNil%3Dnil%29-instance-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/be0b4b357a0654a6405f4985c81d162b3e29b64d/src/gallagher/rest_api.cr#L296" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/2605f3204c73a2c26dcfb1397f7fa0514a43a68c/src/gallagher/rest_api.cr#L296" target="_blank">View source</a>]
         
       </div>
     </div>
