@@ -185,7 +185,7 @@ module Gallagher
   class AccessGroup
     include JSON::Serializable
 
-    property href : String
+    property href : String?
     property id : String
     property name : String
     property description : String?

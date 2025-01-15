@@ -480,15 +480,22 @@ class Gallagher::RestAPI < PlaceOS::Driver
   end
 
   macro get_results(klass, response)
-    %results = Results({{klass}}).from_json {{response}}
-    %result_array = %results.results
-    loop do
-      %next_uri = %results.next_uri
-      break unless %next_uri
-      %results = Results({{klass}}).from_json(get_raw(%next_uri[:href]))
-      %result_array.concat %results.results
+    %body = {{response}}
+    begin
+      %results = Results({{klass}}).from_json %body
+      %result_array = %results.results
+      loop do
+        %next_uri = %results.next_uri
+        break unless %next_uri
+        %body = get_raw(%next_uri[:href])
+        %results = Results({{klass}}).from_json(%body)
+        %result_array.concat %results.results
+      end
+      %result_array
+    rescue error
+      logger.debug { "failed to parse response body:\n#{%body}\n" }
+      raise error
     end
-    %result_array
   end
 
   protected def get_raw(href : String)
