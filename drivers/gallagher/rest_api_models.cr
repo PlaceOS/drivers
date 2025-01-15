@@ -177,6 +177,9 @@ module Gallagher
     property status : NamedTuple(value: String, type: String?)? = nil
     property from : Time?
     property until : Time?
+
+    def initialize(@access_group, @from = nil, @until = nil)
+    end
   end
 
   class AccessGroup

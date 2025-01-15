@@ -225,7 +225,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     Base64.strict_encode(response.body)
   end
 
-  def get_cardholder(id : String)
+  def get_cardholder(id : String | Int32)
     response = get("#{@cardholders_endpoint}/#{id}", headers: @headers)
     raise "cardholder request failed with #{response.status_code}\n#{response.body}" unless response.success?
     Cardholder.from_json(response.body)
@@ -294,7 +294,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   end
 
   def update_cardholder(
-    id : String? = nil,
+    id : String | Int32? = nil,
     href : String? = nil,
     first_name : String? = nil,
     last_name : String? = nil,
@@ -383,6 +383,44 @@ class Gallagher::RestAPI < PlaceOS::Driver
     response = get("#{@access_groups_endpoint}/#{id}/cardholders", headers: @headers)
     raise "access group members request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(AccessGroupMembership, response.body)
+  end
+
+  def access_group_member?(group_id : String | Int32, cardholder_id : String | Int32) : String?
+    group_id = group_id.to_s
+    details = get_cardholder(cardholder_id).access_groups
+    access_groups = case details
+                    in Array(CardholderAccessGroup)
+                      details
+                    in Hash(String, Array(CardholderAccessGroup))
+                      details.values.flatten
+                    in Nil
+                      return nil
+                    end
+
+    access = access_groups.find do |group|
+      if href = group.access_group[:href]
+        href.ends_with?(group_id)
+      end
+    end
+
+    access.try(&.href)
+  end
+
+  def remove_access_group_member(group_id : String | Int32, cardholder_id : String | Int32) : Bool
+    if href = access_group_member?(group_id, cardholder_id)
+      response = delete(href, headers: @headers)
+      raise "remove access group member request failed with #{response.status_code}\n#{response.body}" unless response.success?
+      true
+    else
+      false
+    end
+  end
+
+  def add_access_group_member(group_id : String | Int32, cardholder_id : String | Int32, from_unix : Int64? = nil, until_unix : Int64? = nil)
+    from_time = Time.unix(from_unix) if from_unix
+    until_time = Time.unix(until_unix) if until_unix
+    group = CardholderAccessGroup.new({href: "#{@access_groups_endpoint}/#{group_id}".as(String?), name: nil.as(String?)})
+    update_cardholder(cardholder_id, access_groups: [group])
   end
 
   def get_division(id : String)
