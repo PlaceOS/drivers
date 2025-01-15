@@ -191,11 +191,12 @@ module Gallagher
     property description : String?
 
     property parent : NamedTuple(
-      href: String,
+      href: String?,
       name: String,
     )?
 
     property division : NamedTuple(
+      id: String,
       href: String,
     )
 

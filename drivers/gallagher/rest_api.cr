@@ -11,7 +11,7 @@ require "base64"
 class Gallagher::RestAPI < PlaceOS::Driver
   include Interface::DoorSecurity
 
-  # Discovery Information
+  # Discovery Information:
   generic_name :Gallagher
   descriptive_name "Gallagher Security System"
   uri_base "https://gallagher.your.org"
