@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/door_security"
+require "placeos-driver/interface/zone_access_security"
 require "uri"
 require "semantic_version"
 require "./rest_api_models"
@@ -10,6 +11,7 @@ require "base64"
 
 class Gallagher::RestAPI < PlaceOS::Driver
   include Interface::DoorSecurity
+  include Interface::ZoneAccessSecurity
 
   # Discovery Information:
   generic_name :Gallagher
@@ -614,5 +616,34 @@ class Gallagher::RestAPI < PlaceOS::Driver
         last_event = 1.second.from_now
       end
     end
+  end
+
+  # ==============================
+  # Zone Access Security Interface
+  # ==============================
+  
+  # using an email address, lookup the security system id for a user
+  def card_holder_id_lookup(email : String) : String | Int64 | Nil
+    query_cardholders(email, @unique_pdf_name).first?.try(&.id)
+  end
+
+  # using a name, lookup the access zone id
+  def zone_access_id_lookup(name : String, exact_match : Bool = true) : String | Int64 | Nil
+    get_access_groups(name, exact_match).first?.try(&.id)
+  end
+
+  # return the id that represents the access permission (truthy indicates access)
+  def zone_access_member?(zone_id : String | Int64, card_holder_id : String | Int64) : String | Int64 | Nil
+    access_group_member?(zone_id.to_s, card_holder_id.to_s)
+  end
+
+  # add a member to the zone
+  def zone_access_add_member(zone_id : String | Int64, card_holder_id : String | Int64, from_unix : Int64? = nil, until_unix : Int64? = nil)
+    add_access_group_member(zone_id.to_s, card_holder_id.to_s, from_unix, until_unix)
+  end
+
+  # remove a member from the zone
+  def zone_access_remove_member(zone_id : String | Int64, card_holder_id : String | Int64)
+    remove_access_group_member zone_id.to_s, card_holder_id.to_s
   end
 end
