@@ -117,13 +117,13 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   # returns desk_id => security zone name / id
   def desks(level_id : String) : Hash(String, String)
-    desks = staff_api.metadata(building_id, "desks").get.dig?("desks", "details")
+    desks = staff_api.metadata(level_id, "desks").get.dig?("desks", "details")
     security = {} of String => String
     return security unless desks
 
     Array(Desk).from_json(desks.to_json).each do |desk|
-      sec = desk.security
-      next unless sec && sec.presence
+      sec = desk.security.presence
+      next unless sec
       security[desk.id] = sec
     end
     security
@@ -138,9 +138,11 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
       # calculate who needs access
       levels.each do |level_id|
+        desks = desks(level_id)
+        next if desks.empty?
+
         desk_bookings = staff_api.query_bookings(now.to_unix, end_of_day.to_unix, zones: {level_id}, type: "desk").get.as_a
         next if desk_bookings.empty?
-        desks = desks(level_id)
 
         desk_bookings.each do |booking|
           desk = booking["asset_id"].as_s
