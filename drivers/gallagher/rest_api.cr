@@ -563,6 +563,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     doors.map { |d| Door.new(d.id, d.name) }
   end
 
+  @[Security(Level::Support)]
   def unlock(door_id : String) : Bool?
     response = post("#{@doors_endpoint}/#{door_id}/open", headers: @headers)
     response.success?
@@ -628,28 +629,67 @@ class Gallagher::RestAPI < PlaceOS::Driver
   # ==============================
   # Zone Access Security Interface
   # ==============================
-  
+
+  alias CardHolderDetails = PlaceOS::Driver::Interface::ZoneAccessSecurity::CardHolderDetails
+  alias ZoneDetails = PlaceOS::Driver::Interface::ZoneAccessSecurity::ZoneDetails
+
+  struct CardHolder < CardHolderDetails
+    def initialize(@id, @name, @email)
+    end
+  end
+
+  struct ZoneInfo < ZoneDetails
+    def initialize(@id, @name, @description)
+    end
+  end
+
   # using an email address, lookup the security system id for a user
+  @[Security(Level::Support)]
   def card_holder_id_lookup(email : String) : String | Int64 | Nil
     query_cardholders(email, @unique_pdf_name).first?.try(&.id)
   end
 
+  # given a card holder id, lookup the details of the card holder
+  def card_holder_lookup(id : String | Int64) : CardHolderDetails
+    details = get_cardholder(id.to_s)
+    first_name = details.first_name
+    last_name = details.last_name
+    short_name = details.short_name
+    name = if first_name.presence && last_name.presence
+             "#{first_name} #{last_name}"
+           else
+             short_name || ""
+           end
+    email_key = "@#{@unique_pdf_name}"
+    CardHolder.new(id, name, details.json_unmapped[email_key]?.try(&.as_s))
+  end
+
   # using a name, lookup the access zone id
+  @[Security(Level::Support)]
   def zone_access_id_lookup(name : String, exact_match : Bool = true) : String | Int64 | Nil
     get_access_groups(name, exact_match).first?.try(&.id)
   end
 
+  # given an access zone id, lookup the details of the zone
+  def zone_access_lookup(id : String | Int64) : ZoneDetails
+    details = get_access_group(id.to_s)
+    ZoneInfo.new(id, details.name, details.description)
+  end
+
   # return the id that represents the access permission (truthy indicates access)
+  @[Security(Level::Support)]
   def zone_access_member?(zone_id : String | Int64, card_holder_id : String | Int64) : String | Int64 | Nil
     access_group_member?(zone_id.to_s, card_holder_id.to_s)
   end
 
   # add a member to the zone
+  @[Security(Level::Support)]
   def zone_access_add_member(zone_id : String | Int64, card_holder_id : String | Int64, from_unix : Int64? = nil, until_unix : Int64? = nil)
     add_access_group_member(zone_id.to_s, card_holder_id.to_s, from_unix, until_unix)
   end
 
   # remove a member from the zone
+  @[Security(Level::Support)]
   def zone_access_remove_member(zone_id : String | Int64, card_holder_id : String | Int64)
     remove_access_group_member zone_id.to_s, card_holder_id.to_s
   end
