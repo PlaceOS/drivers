@@ -89,6 +89,8 @@ class Gallagher::RestAPI < PlaceOS::Driver
   @event_map : Hash(String, EventMap) = {} of String => EventMap
 
   def on_update
+    uri = URI.parse(config.uri.not_nil!)
+    @uri_base ||= "#{uri.scheme}://#{uri.host}"
     api_key = setting(String, :api_key)
     @api_key = "GGL-API-KEY #{api_key}"
     @door_event_channel = setting?(String, :door_event_channel) || "event"
@@ -117,14 +119,16 @@ class Gallagher::RestAPI < PlaceOS::Driver
     query_endpoints
   end
 
-  @access_groups_endpoint : String = "/api/access_groups"
-  @access_zones_endpoint : String = "/api/access_zones"
-  @cardholders_endpoint : String = "/api/cardholders"
-  @divisions_endpoint : String = "/api/divisions"
-  @card_types_endpoint : String = "/api/card_types"
-  @events_endpoint : String = "/api/events"
-  @pdfs_endpoint : String = "/api/personal_data_fields"
-  @doors_endpoint : String = "/api/doors"
+  getter! uri_base : String
+  getter access_groups_endpoint : String = "/api/access_groups"
+  getter access_zones_endpoint : String = "/api/access_zones"
+  getter cardholders_endpoint : String = "/api/cardholders"
+  getter divisions_endpoint : String = "/api/divisions"
+  getter card_types_endpoint : String = "/api/card_types"
+  getter events_endpoint : String = "/api/events"
+  getter pdfs_endpoint : String = "/api/personal_data_fields"
+  getter doors_endpoint : String = "/api/doors"
+
   @fixed_pdf_id : String = ""
   @default_division : String? = nil
   @default_facility_code : String? = nil
@@ -139,7 +143,10 @@ class Gallagher::RestAPI < PlaceOS::Driver
     logger.debug { "endpoints query returned:\n#{payload.inspect}" }
 
     api_version = SemanticVersion.parse(payload["version"].as_s.split('.')[0..2].join('.'))
-    @cardholders_endpoint = get_path payload["features"]["cardholders"]["cardholders"]["href"].as_s
+    raw_uri = payload["features"]["cardholders"]["cardholders"]["href"].as_s
+    uri = URI.parse(raw_uri)
+    @uri_base = "#{uri.scheme}://#{uri.host}"
+    @cardholders_endpoint = get_path raw_uri
     @divisions_endpoint = @cardholders_endpoint.sub("cardholders", "divisions")
     @access_groups_endpoint = get_path payload["features"]["accessGroups"]["accessGroups"]["href"].as_s
     @access_zones_endpoint = get_path payload["features"]["accessZones"]["accessZones"]["href"].as_s
@@ -410,7 +417,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
   def remove_access_group_member(group_id : String | Int32, cardholder_id : String | Int32) : Bool
     if href = access_group_member?(group_id, cardholder_id)
-      response = delete(href, headers: @headers)
+      response = delete(get_path(href), headers: @headers)
       raise "remove access group member request failed with #{response.status_code}\n#{response.body}" unless response.success?
       true
     else
@@ -421,7 +428,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   def add_access_group_member(group_id : String | Int32, cardholder_id : String | Int32, from_unix : Int64? = nil, until_unix : Int64? = nil)
     from_time = Time.unix(from_unix) if from_unix
     until_time = Time.unix(until_unix) if until_unix
-    group = CardholderAccessGroup.new({href: "#{@access_groups_endpoint}/#{group_id}".as(String?), name: nil.as(String?)})
+    group = CardholderAccessGroup.new({href: "#{@uri_base}#{@access_groups_endpoint}/#{group_id}".as(String?), name: nil.as(String?)})
     update_cardholder(cardholder_id, access_groups: [group])
   end
 
