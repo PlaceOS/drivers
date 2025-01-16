@@ -347,14 +347,12 @@ class Place::Meet < PlaceOS::Driver
       links.each { |_sys_id, remote_out| route_signal(input, remote_out, max_dist, simulate, follow_additional_routes) }
     end
 
-    if !simulate
-      remote_systems.each do |remote_system|
-        room = remote_system.room_logic
-        sys_id = remote_system.system_id
-        if links = @linked_outputs[output]?
-          if remote_out = links[sys_id]?
-            room.route(input, remote_out, max_dist, false, follow_additional_routes)
-          end
+    remote_systems.each do |remote_system|
+      room = remote_system.room_logic
+      sys_id = remote_system.system_id
+      if links = @linked_outputs[output]?
+        if remote_out = links[sys_id]?
+          room.route(input, remote_out, max_dist, simulate, follow_additional_routes)
         end
       end
     end
