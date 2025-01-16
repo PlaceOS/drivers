@@ -655,7 +655,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     first_name = details.first_name
     last_name = details.last_name
     short_name = details.short_name
-    name = if first_name.presence && last_name.presence
+    name = if first_name.presence
              "#{first_name} #{last_name}"
            else
              short_name || ""
