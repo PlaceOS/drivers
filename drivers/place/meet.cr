@@ -1114,6 +1114,9 @@ class Place::Meet < PlaceOS::Driver
     ensure
       update_available_ui
 
+      # ensure the system is powered on
+      power(true) if mode.linked? && !power?
+
       # perform the custom actions
       mode.join_actions.each do |action|
         if master || !action.master_only?
