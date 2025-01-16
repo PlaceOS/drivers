@@ -353,7 +353,7 @@ class Place::Meet < PlaceOS::Driver
         sys_id = remote_system.system_id
         if links = @linked_outputs[output]?
           if remote_out = links[sys_id]?
-            room.route(input, remote_out, max_dist, true, follow_additional_routes)
+            room.route(input, remote_out, max_dist, false, follow_additional_routes)
           end
         end
       end
