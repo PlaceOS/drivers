@@ -340,19 +340,21 @@ class Place::Meet < PlaceOS::Driver
     route(input_actual, output_actual)
   end
 
-  def route(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false, follow_additional_routes : Bool = true)
+  def route(input : String, output : String, max_dist : Int32? = nil, simulate : Bool = false, follow_additional_routes : Bool = true, called_from_join : Bool = false)
     route_signal(input, output, max_dist, simulate, follow_additional_routes)
 
     if links = @linked_outputs[output]?
       links.each { |_sys_id, remote_out| route_signal(input, remote_out, max_dist, simulate, follow_additional_routes) }
     end
 
-    remote_systems.each do |remote_system|
-      room = remote_system.room_logic
-      sys_id = remote_system.system_id
-      if links = @linked_outputs[output]?
-        if remote_out = links[sys_id]?
-          room.route(input, remote_out, max_dist, simulate, follow_additional_routes)
+    if !called_from_join
+      remote_systems.each do |remote_system|
+        room = remote_system.room_logic
+        sys_id = remote_system.system_id
+        if links = @linked_outputs[output]?
+          if remote_out = links[sys_id]?
+            room.route(input, remote_out, max_dist, simulate, follow_additional_routes, true)
+          end
         end
       end
     end
