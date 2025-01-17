@@ -55,6 +55,7 @@ class Place::StaffAPI < PlaceOS::Driver
     old_id = @authority_id
     @authority_id = NamedTuple(id: String).from_json(response.body)[:id]
     monitor_event_changes unless old_id == @authority_id
+    @authority_id
   rescue error
     logger.warn(exception: error) { "failed to lookup authority id" }
     sleep rand(3)
@@ -156,7 +157,7 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def systems_in_building(zone_id : String, ids_only : Bool = true)
-    levels = zones(parent: zone_id)
+    levels = zones(parent: zone_id, tags: ["level"])
     if ids_only
       hash = {} of String => Array(String)
       levels.each { |level| hash[level.id] = systems(zone_id: level.id).map(&.id) }
