@@ -78,13 +78,13 @@ class Place::RoomBookingApprovalAltnerative < PlaceOS::Driver
     self[:approval_required] = results
   end
 
-  def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = nil, comment : String? = nil)
+  def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = true, comment : String? = nil)
     calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify || @notify_host_on_accept, comment: comment || @default_accept_message)
     sleep 2.seconds
     find_bookings_for_approval
   end
 
-  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = nil, comment : String? = nil)
+  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool? = true, comment : String? = nil)
     calendar.decline_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify || @notify_host_on_decline, comment: comment || @default_decline_message)
     sleep 2.seconds
     find_bookings_for_approval
