@@ -16,7 +16,7 @@ class Place::LocationServices < PlaceOS::Driver
     search_building: false,
 
     # various groups of people one might be interested in contacting
-    emergency_contacts: {
+    _emergency_contacts: {
       "Fire Wardens" => "5542c9f-eaa7-4e74",
       "First Aid"    => "ed9f7608-488f-aeef",
     },
