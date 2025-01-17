@@ -14,7 +14,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
   default_settings({
     # time in seconds
-    poll_rate: 60,
+    poll_rate: 20,
 
     # How many decimal places area summaries should be rounded to
     rounding_precision: 2,
@@ -26,7 +26,7 @@ class Place::AreaManagement < PlaceOS::Driver
     location_service: "LocationServices",
     include_sensors:  true,
 
-    areas: {
+    _areas: {
       "zone-1234" => [
         {
           id:          "lobby1",

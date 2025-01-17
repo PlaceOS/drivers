@@ -1,6 +1,19 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Place::AreaCount" do
+  settings({
+    areas: {
+      "zone-1234" => [
+        {
+          id:          "lobby1",
+          name:        "George St Lobby",
+          building:    "building-zone-id",
+          coordinates: [{3, 5}, {5, 6}, {6, 1}],
+        },
+      ],
+    },
+  })
+
   # Used this tool to work out coordinates: https://www.mathsisfun.com/geometry/polygons-interactive.html
   exec(:is_inside?, 4, 5, "lobby1").get.should eq(true)
   exec(:is_inside?, 4, 4, "lobby1").get.should eq(true)
