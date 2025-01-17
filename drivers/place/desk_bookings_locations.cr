@@ -13,15 +13,16 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
   accessor area_manager : AreaManagement_1
   accessor staff_api : StaffAPI_1
+  accessor location_service : LocationServices_1
 
   default_settings({
-    zone_filter: ["placeos-zone-id"],
+    zone_filter: [] of String,
 
     # time in seconds
-    poll_rate:    60,
+    poll_rate:    20,
     booking_type: "desk",
 
-    # expose_for_analytics: {"output_key" => "booking_key->subkey"},
+    _expose_for_analytics: {"output_key" => "booking_key->subkey"},
   })
 
   @expose_for_analytics : Hash(String, String) = {} of String => String
@@ -41,6 +42,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
   def on_update
     @zone_filter = setting?(Array(String), :zone_filter) || [] of String
+    @zones = nil
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
 
     @booking_type = setting?(String, :booking_type).presence || "desk"
@@ -52,12 +54,21 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     schedule.in(5.seconds) { query_desk_bookings }
   end
 
+  getter zones : Array(String) do
+    filtered = @zone_filter
+    if filtered.empty?
+      location_service.systems.get.as_h.keys
+    else
+      filtered
+    end
+  end
+
   # ===================================
   # Monitoring desk bookings
   # ===================================
   protected def booking_changed(event)
     return unless event.booking_type == @booking_type
-    matching_zones = @zone_filter & event.zones
+    matching_zones = zones & event.zones
     return if matching_zones.empty?
 
     logger.debug { "booking event is in a matching zone" }
@@ -205,7 +216,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def query_desk_bookings : Nil
     ids = Set(Int64).new
     bookings = [] of JSON::Any
-    @zone_filter.each { |zone| bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a }
+    zones.each { |zone| bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a }
     bookings = bookings.flat_map do |booking|
       booking = Booking.from_json(booking.to_json)
       next [] of Booking if ids.includes?(booking.id)

@@ -6,6 +6,10 @@ DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
     AreaManagement: {AreaManagementMock},
   })
 
+  settings({
+    zone_filter: ["placeos-zone-id"],
+  })
+
   now = Time.local
   start = now.at_beginning_of_day.to_unix
   ending = now.at_end_of_day.to_unix
