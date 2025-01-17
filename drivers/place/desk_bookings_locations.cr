@@ -216,7 +216,11 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def query_desk_bookings : Nil
     ids = Set(Int64).new
     bookings = [] of JSON::Any
-    zones.each { |zone| bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a }
+    zones.each do |zone|
+      bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a
+    rescue error
+      logger.warn(exception: error) { "failed to query bookings in zone: #{zone}" }
+    end
     bookings = bookings.flat_map do |booking|
       booking = Booking.from_json(booking.to_json)
       next [] of Booking if ids.includes?(booking.id)
