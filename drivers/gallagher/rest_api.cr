@@ -391,7 +391,12 @@ class Gallagher::RestAPI < PlaceOS::Driver
   def get_access_group_members(id : String)
     response = get("#{@access_groups_endpoint}/#{id}/cardholders", headers: @headers)
     raise "access group members request failed with #{response.status_code}\n#{response.body}" unless response.success?
-    get_results(AccessGroupMembership, response.body)
+    json = response.body
+    begin
+      NamedTuple(cardholders: Array(NamedTuple(href: String?, cardholder: NamedTuple(name: String, href: String?)))).from_json(json)
+    rescue error
+      logger.warn(exception: error) { "#get_access_group_members failed to parse:\n#{json}" }
+    end
   end
 
   def access_group_member?(group_id : String | Int32, cardholder_id : String | Int32) : String?
