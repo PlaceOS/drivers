@@ -129,8 +129,22 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     security
   end
 
+  @check_mutex : Mutex = Mutex.new
+  @performing_check : Bool = false
+  @check_queued : Bool = false
+
   def ensure_booking_access
     errors = [] of String
+
+    @check_mutex.synchronize do
+      if @performing_check
+        @check_queued = true
+        return
+      end
+
+      @performing_check = true
+      @check_queued = false
+    end
 
     @mutex.synchronize do
       now = Time.local(timezone).at_beginning_of_day
@@ -158,12 +172,15 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
       # apply access this access to the system, need to find the differences
       allocations = @allocations
-      return if allocations == access_required
+      logger.debug { "found #{allocations.size} users that need access" }
+
+      if allocations == access_required
+        logger.debug { "no access changes are required" }
+        return
+      end
 
       remove = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
       add = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
-
-      logger.debug { "found #{allocations.size} users that need access changes" }
 
       # Collect all keys from both hashes
       all_keys = allocations.keys.concat(access_required.keys)
@@ -242,6 +259,11 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
       # save the newly applied access permissions
       define_setting(:permissions_allocated, access_required)
+    ensure
+      @check_mutex.synchronize do
+        @performing_check = false
+        spawn { ensure_booking_access } if @check_queued
+      end
     end
 
     self[:sync_errors] = errors
