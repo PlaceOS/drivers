@@ -19,6 +19,8 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
   uri_base "wss://192.168.0.5/websockify"
 
   def connected
+    super
+
     # NVX hardware can be confiured a either a RX or TX unit - check this
     # device is in the correct mode.
     query("/DeviceSpecific/DeviceMode") do |mode|

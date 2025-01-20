@@ -19,12 +19,15 @@ abstract class Crestron::CresNext < PlaceOS::Driver
     transport.cookies.add_request_headers(headers)
     headers["CREST-XSRF-TOKEN"] = @xsrf_token unless @xsrf_token.empty?
     headers["User-Agent"] = "advanced-rest-client"
-
-    # This is just to maintain our session at HTTP level
-    schedule.clear
-    schedule.every(10.minutes) { maintain_session }
-
     headers
+  end
+
+  def connected
+    schedule.every(10.minutes) { maintain_session }
+  end
+
+  def disconnected
+    schedule.clear
   end
 
   def tokenize(path : String)
@@ -41,13 +44,10 @@ abstract class Crestron::CresNext < PlaceOS::Driver
 
     send(request_path, **options) do |data, task|
       raw_json = String.new(data)
+      logger.debug { "Crestron sent: #{raw_json}" }
 
       # check if the response path is included
-      if parts.map(&.in?(raw_json)).includes?(false)
-        # process as an out of band update (not the response)
-        received(data, nil)
-      else
-        logger.debug { "Crestron sent: #{raw_json}" }
+      unless parts.map(&.in?(raw_json)).includes?(false)
         # Just grab the relevant data as the response is deeply nested
         json = JSON.parse(raw_json)
         tokens.each { |key| json = json[key] }
@@ -64,13 +64,16 @@ abstract class Crestron::CresNext < PlaceOS::Driver
     components = tokenize(request_path).map { |part| %({"#{part}") }
     payload = %(#{components.join(':')}:#{value.to_json}#{"}" * components.size})
 
+    apply_ws_changes(payload, **options)
+  end
+
+  private def apply_ws_changes(payload : String, **options)
     send(payload, **options) do |data, task|
       raw_json = String.new(data)
       logger.debug { "Crestron sent: #{raw_json}" }
 
       if raw_json.includes? %("Results":)
-        json = JSON.parse(raw_json)
-        task.success json
+        task.success JSON.parse(raw_json)
       end
     end
   end
@@ -93,20 +96,22 @@ abstract class Crestron::CresNext < PlaceOS::Driver
   def maintain_session
     response = get("/Device/DeviceInfo")
     return logout unless response.success?
-
-    # we can parse this value as if it came in via the websocket
-    received response.body.to_slice, nil
+    logger.debug { "Maintaining Session:\n#{response.body}" }
   end
 
   # payload is expected to be a hash or named tuple
   protected def update(path : String, value, **options)
+    request_path = Path["/Device"].join(path).to_s
+
+    # expands into object that we need to post
+    components = tokenize(request_path).map { |part| %({"#{part}") }
+    payload = %(#{components.join(':')}:#{value.to_json}#{"}" * components.size})
+
+    apply_http_changes(request_path, payload, **options)
+  end
+
+  private def apply_http_changes(request_path : String, payload : String, **options)
     queue(**options) do |task|
-      request_path = Path["/Device"].join(path).to_s
-
-      # expands into object that we need to post
-      components = tokenize(request_path).map { |part| %({"#{part}") }
-      payload = %(#{components.join(':')}:#{value.to_json}#{"}" * components.size})
-
       response = post request_path, body: payload, headers: HTTP::Headers{"CREST-XSRF-TOKEN" => @xsrf_token}
       logger.debug { "updated requested for #{request_path}, response was #{response.body}" }
 
@@ -114,7 +119,7 @@ abstract class Crestron::CresNext < PlaceOS::Driver
       if response.success?
         task.success JSON.parse(response.body)
       else
-        task.abort "crestron failed to apply changes to: #{path}\n#{response.body}"
+        task.abort "crestron failed to apply changes to: #{request_path}\n#{response.body}"
       end
     end
   end
