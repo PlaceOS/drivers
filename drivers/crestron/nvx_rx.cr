@@ -25,6 +25,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   @audio_follows_video : Bool = true
 
   def connected
+    super
     audio_follows_video = setting?(Bool, :audio_follows_video)
     @audio_follows_video = audio_follows_video.nil? ? true : audio_follows_video
 

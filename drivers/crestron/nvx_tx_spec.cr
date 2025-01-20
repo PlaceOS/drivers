@@ -9,6 +9,9 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
   should_send "/Device/Localization/Name"
   responds %({"Device": {"Localization": {"Name": "pc-in-rack"}}})
 
+  should_send "/Device/NaxAudio/NaxTx/NaxTxStreams/Stream01/SessionNameStatus"
+  responds %({"Device": {"NaxAudio": {"NaxTx": {"NaxTxStreams": {"Stream01": {"SessionNameStatus": "pc-in-rack"}}}}}})
+
   should_send "/Device/StreamTransmit/Streams"
   responds %({"Device": {"StreamTransmit": {"Streams": [{"MulticastAddress": "192.168.0.2"}]}}})
 
