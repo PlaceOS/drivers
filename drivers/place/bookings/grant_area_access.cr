@@ -130,9 +130,11 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   end
 
   def ensure_booking_access
+    errors = [] of String
+
     @mutex.synchronize do
-      now = Time.local(timezone)
-      end_of_day = now.at_end_of_day
+      now = Time.local(timezone).at_beginning_of_day
+      end_of_day = 3.days.from_now.in(timezone).at_end_of_day
 
       access_required = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
 
@@ -147,7 +149,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
         desk_bookings.each do |booking|
           desk = booking["asset_id"].as_s
           if security = desks[desk]?
-            access_required[booking["user_email"].as_s.downcase] << security
+            user_access = access_required[booking["user_email"].as_s.downcase]
+            user_access << security
+            user_access.uniq!
           end
         end
       end
@@ -158,6 +162,8 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
       remove = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
       add = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
+
+      logger.debug { "found #{allocations.size} users that need access changes" }
 
       # Collect all keys from both hashes
       all_keys = allocations.keys.concat(access_required.keys)
@@ -176,6 +182,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
         add[key] = to_add unless to_add.empty?
       end
 
+      logger.debug { "deleting permissions: #{remove.size}" }
+      logger.debug { "granting permissions: #{add.size}" }
+
       # apply the differences
       security = security_system
       remove.each do |user_email, zones|
@@ -191,13 +200,17 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             rescue error
               # add the user back to the zone so it can be removed in a later sync
               access_required[user_email] << zone
-              logger.warn(exception: error) { "failed to remove #{user_email} from security zone: #{zone}" }
+              msg = "failed to remove #{user_email} from security zone: #{zone}"
+              errors << msg
+              logger.warn(exception: error) { msg }
             end
           end
         rescue error
           access_required[user_email] = allocations[user_email]
           add.delete(user_email)
-          logger.warn(exception: error) { "failed to remove #{user_email} from security zones" }
+          msg = "failed to remove #{user_email} from security zones"
+          errors << msg
+          logger.warn(exception: error) { msg }
         end
       end
 
@@ -214,17 +227,23 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             rescue error
               # remove the user from the recorded zone so it can be added in a later sync
               access_required[user_email].delete zone
-              logger.warn(exception: error) { "failed to add #{user_email} to security zone: #{zone}" }
+              msg = "failed to add #{user_email} to security zone: #{zone}"
+              errors << msg
+              logger.warn(exception: error) { msg }
             end
           end
         rescue error
           access_required.delete(user_email)
-          logger.warn(exception: error) { "failed to add #{user_email} to security zones" }
+          msg = "failed to add #{user_email} to security zones"
+          errors << msg
+          logger.warn(exception: error) { msg }
         end
       end
 
       # save the newly applied access permissions
       define_setting(:permissions_allocated, access_required)
     end
+
+    self[:sync_errors] = errors
   end
 end
