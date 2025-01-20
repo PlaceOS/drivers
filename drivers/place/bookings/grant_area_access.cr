@@ -21,6 +21,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     end
 
     schedule.every(30.minutes) { ensure_booking_access }
+    on_update
   end
 
   @mutex = Mutex.new
@@ -129,6 +130,11 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     security
   end
 
+  protected def has_access?(security, zone_id, user_id) : Bool
+    has_access = (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id, user_id).get.to_json)
+    !!has_access
+  end
+
   @check_mutex : Mutex = Mutex.new
   @performing_check : Bool = false
   @check_queued : Bool = false
@@ -172,7 +178,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
       # apply access this access to the system, need to find the differences
       allocations = @allocations
-      logger.debug { "found #{allocations.size} users that need access" }
+      logger.debug { "found #{access_required.size} users that need access" }
 
       if allocations == access_required
         logger.debug { "no access changes are required" }
@@ -213,7 +219,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             begin
               zone_id = lookup_zone_id(security, zone)
               raise "unable to find zone_id for: #{zone}" unless zone_id
-              security.zone_access_remove_member(zone_id, user_id).get
+              security.zone_access_remove_member(zone_id, user_id).get if has_access?(security, zone_id, user_id)
             rescue error
               # add the user back to the zone so it can be removed in a later sync
               access_required[user_email] << zone
@@ -240,7 +246,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             begin
               zone_id = lookup_zone_id(security, zone)
               raise "unable to find zone_id for: #{zone}" unless zone_id
-              security.zone_access_add_member(zone_id, user_id).get
+              security.zone_access_add_member(zone_id, user_id).get unless has_access?(security, zone_id, user_id)
             rescue error
               # remove the user from the recorded zone so it can be added in a later sync
               access_required[user_email].delete zone
