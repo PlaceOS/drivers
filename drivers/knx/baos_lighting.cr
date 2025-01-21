@@ -168,7 +168,7 @@ class KNX::BaosLighting < PlaceOS::Driver
     items.each do |item|
       value_id = item.id
       if area = @area_lookup[value_id]?
-        @triggers[:"area_#{area}"].each_with_index do |trigger, index|
+        @triggers[area].each_with_index do |trigger, index|
           if value_id == trigger[0]
             # We need to coerce the value
             check = trigger[1]
