@@ -564,6 +564,24 @@ class Gallagher::RestAPI < PlaceOS::Driver
   # Door Security Interface
   # =======================
 
+  # user id => email
+  @user_email_cache : Hash(String, String?) = {} of String => String?
+
+  def get_cardholder_email(user_id : String?) : String?
+    return nil unless user_id
+
+    if @user_email_cache.has_key? user_id
+      return @user_email_cache[user_id]
+    end
+
+    details = get_cardholder(user_id)
+    email_key = "@#{@unique_pdf_name}"
+    @user_email_cache[user_id] = details.json_unmapped[email_key]?.try(&.as_s)
+  rescue error
+    logger.warn(exception: error) { "failed to lookup email for user: #{user_id}" }
+    nil
+  end
+
   def door_list : Array(Door)
     doors.map { |d| Door.new(d.id, d.name) }
   end
@@ -608,7 +626,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
                   action: mapped.action,
                   card_id: event.card.try &.number,
                   user_name: event.cardholder.try &.name,
-                  user_email: nil
+                  user_email: get_cardholder_email(event.cardholder.try &.id)
                 ).to_json)
               end
             end
