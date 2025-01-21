@@ -128,7 +128,7 @@ class Place::StaffAPI < PlaceOS::Driver
     bookable : Bool? = nil,
     features : String? = nil,
     limit : Int32 = 1000,
-    offset : Int32 = 0
+    offset : Int32 = 0,
   )
     placeos_client.systems.search(
       q: q,
@@ -251,7 +251,7 @@ class Place::StaffAPI < PlaceOS::Driver
     limit : Int32 = 20,
     offset : Int32 = 0,
     authority_id : String? = nil,
-    include_deleted : Bool = false
+    include_deleted : Bool = false,
   )
     placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
@@ -355,7 +355,7 @@ class Place::StaffAPI < PlaceOS::Driver
     capacity : Int32? = nil,
     features : String? = nil,
     bookable : Bool? = nil,
-    include_cancelled : Bool? = nil
+    include_cancelled : Bool? = nil,
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s
@@ -461,7 +461,7 @@ class Place::StaffAPI < PlaceOS::Driver
     field_name : String? = nil,
     value : String? = nil,
     system_id : String? = nil,
-    event_ref : Array(String)? = nil
+    event_ref : Array(String)? = nil,
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s if period_start
@@ -547,7 +547,7 @@ class Place::StaffAPI < PlaceOS::Driver
     limit_override : Int64? = nil,
     event_id : String? = nil,
     ical_uid : String? = nil,
-    attendees : Array(PlaceCalendar::Event::Attendee)? = nil
+    attendees : Array(PlaceCalendar::Event::Attendee)? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -598,7 +598,7 @@ class Place::StaffAPI < PlaceOS::Driver
     extension_data : JSON::Any? = nil,
     approved : Bool? = nil,
     checked_in : Bool? = nil,
-    limit_override : Int64? = nil
+    limit_override : Int64? = nil,
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -702,7 +702,7 @@ class Place::StaffAPI < PlaceOS::Driver
     rejected : Bool? = nil,
     checked_in : Bool? = nil,
     include_checked_out : Bool? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
   )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
@@ -765,6 +765,64 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
+  # lists asset IDs based on the parameters provided
+  #
+  # booking_type is required unless event_id or ical_uid is present
+  def booked(
+    type : String? = nil,
+    period_start : Int64? = nil,
+    period_end : Int64? = nil,
+    zones : Array(String) = [] of String,
+    user : String? = nil,
+    email : String? = nil,
+    state : String? = nil,
+    event_id : String? = nil,
+    ical_uid : String? = nil,
+    created_before : Int64? = nil,
+    created_after : Int64? = nil,
+    approved : Bool? = nil,
+    checked_in : Bool? = nil,
+    include_booked_by : Bool? = nil,
+    extension_data : String? = nil,
+    department : String? = nil,
+    limit : Int32? = nil,
+    offset : Int32? = nil,
+    permission : String? = nil,
+  )
+    params = URI::Params.build do |form|
+      form.add "period_start", period_start.to_s if period_start
+      form.add "period_end", period_end.to_s if period_end
+      form.add "type", type.to_s if type.presence
+
+      form.add "zones", zones.join(",") unless zones.empty?
+      form.add "user", user.to_s if user.presence
+      form.add "email", email.to_s if email.presence
+      form.add "state", state.to_s if state.presence
+      form.add "created_before", created_before.to_s if created_before
+      form.add "created_after", created_after.to_s if created_after
+      form.add "approved", approved.to_s unless approved.nil?
+      form.add "checked_in", checked_in.to_s unless checked_in.nil?
+      form.add "event_id", event_id.to_s if event_id.presence
+      form.add "ical_uid", ical_uid.to_s if ical_uid.presence
+      form.add "include_checked_out", include_checked_out.to_s unless include_checked_out.nil?
+      form.add "include_booked_by", include_booked_by.to_s unless include_booked_by.nil?
+      form.add "department", department.to_s if department.presence
+      form.add "limit", limit.to_s if limit
+      form.add "offset", offset.to_s if offset
+      form.add "permission", permission.to_s if permission.presence
+
+      if extension_data
+        value = extension_data.as_h.map { |k, v| "#{k}:#{v}" }.join(",")
+        form.add "extension_data", "{#{value}}"
+      end
+    end
+
+    logger.debug { "requesting staff/v1/bookings/booked: #{params}" }
+    response = get("/api/staff/v1/bookings/booked?#{params}", headers: authentication)
+    raise "issue getting booked assets: #{response.status_code}" unless response.success?
+    JSON.parse(response.body)
+  end
+
   # ===================================
   # SURVEYS
   # ===================================
@@ -783,7 +841,7 @@ class Place::StaffAPI < PlaceOS::Driver
   def update_survey_invite(
     token : String,
     email : String? = nil,
-    sent : Bool? = nil
+    sent : Bool? = nil,
   )
     logger.debug { "updating survey invite #{token}" }
     response = patch("/api/staff/v1/surveys/invitations/#{token}", headers: authentication, body: {
