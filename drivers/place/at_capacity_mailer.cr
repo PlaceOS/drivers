@@ -102,22 +102,25 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     end
   end
 
-  def get_asset_ids : Array(String)
+  def get_asset_ids : Hash(String, Array(String))
     assets_ids = {} of String => Array(String)
 
     @zones.each do |zone_id|
-      assets_ids[zone_id] = get_assets_from_metadata(@booking_type, zone_id).map { |asset| asset.id }
+      begin
+        assets_ids[zone_id] = get_assets_from_metadata(@booking_type, zone_id).map { |asset| asset.id }.uniq!
+      rescue error
+        logger.warn(exception: error) { "unable to get #{@booking_type} assets from zone #{zone_id} metadata" }
+      end
     end
 
     # MAYBE: get assets from DB (staff-api) if it's not an asset type stored in metadata
 
-    self[:assets_ids] = assets_ids.unique
-  rescue error
-    logger.warn(exception: error) { "unable to get #{type} assets from zone #{zone_id} metadata" }
-    self[:assets_ids][zone_id] = [] of String
+    self[:assets_ids] = assets_ids
   end
 
-  def get_assets_from_metadata(type : String, zone_id : String) : Array(Asset?)
+  def get_assets_from_metadata(type : String, zone_id : String) : Array(Asset)
+    assets = [] of Asset
+
     metadata_field = case type
                      when "desk"
                        "desks"
@@ -130,14 +133,16 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     if metadata_field
       metadata = Metadata.from_json staff_api.metadata(zone_id, metadata_field).get[metadata_field].to_json
       if "lockers"
-        metadata.details.flat_map { |locker_bank| locker_bank.as_h["lockers"].as_a.map { |locker| Asset.from_json locker.to_json } }
+        assets = metadata.details.as_a.flat_map { |locker_bank| locker_bank.as_h["lockers"].as_a.map { |locker| Asset.from_json locker.to_json } }
       else
-        metadata.details.as_a.map { |asset| Asset.from_json asset.to_json }
+        assets = metadata.details.as_a.map { |asset| Asset.from_json asset.to_json }
       end
     end
+
+    assets
   rescue error
     logger.warn(exception: error) { "unable to get #{type} assets from zone #{zone_id} metadata" }
-    nil
+    [] of Asset
   end
 
   def get_booked_asset_ids : Array(String)
