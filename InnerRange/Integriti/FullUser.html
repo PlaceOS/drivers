@@ -7319,7 +7319,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/7f91a5d0149714db95158874d437eece92c6ca9b/src/inner_range/integriti.cr#L630" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/241a25fce2881e92b02f325ebee01c67055c26f5/src/inner_range/integriti.cr#L634" target="_blank">
         inner_range/integriti.cr
       </a>
     
@@ -7346,7 +7346,7 @@
       </li>
     
       <li class="entry-summary">
-        <a href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cpartition_id%3AInt32%7CNil%3Dnil%2Corigo%3ABool%7CNil%3Dnil%2Cphone%3ANil%7CString%3Dnil%2Cemail%3ANil%7CString%3Dnil%2Cprimary_permission_group%3AInnerRange%3A%3AIntegriti%3A%3APermissionGroup%7CNil%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, site : InnerRange::Integriti::Site | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, partition_id : Int32 | Nil = <span class="n">nil</span>, origo : Bool | Nil = <span class="n">nil</span>, phone : Nil | String = <span class="n">nil</span>, email : Nil | String = <span class="n">nil</span>, primary_permission_group : InnerRange::Integriti::PermissionGroup | Nil = <span class="n">nil</span>)</a>
+        <a href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cpartition_id%3AInt32%7CNil%3Dnil%2Corigo%3ABool%7CNil%3Dnil%2Cphone%3ANil%7CString%3Dnil%2Cemail%3ANil%7CString%3Dnil%2Ccsv%3ANil%7CString%3Dnil%2Cprimary_permission_group%3AInnerRange%3A%3AIntegriti%3A%3APermissionGroup%7CNil%3Dnil%29-class-method" class="signature"><strong>.new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, site : InnerRange::Integriti::Site | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, partition_id : Int32 | Nil = <span class="n">nil</span>, origo : Bool | Nil = <span class="n">nil</span>, phone : Nil | String = <span class="n">nil</span>, email : Nil | String = <span class="n">nil</span>, csv : Nil | String = <span class="n">nil</span>, primary_permission_group : InnerRange::Integriti::PermissionGroup | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7375,6 +7375,16 @@
     
       <li class="entry-summary">
         <a href="#address%3F%3AString%7CNil-instance-method" class="signature"><strong>#address?</strong> : String | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#csv%3AString-instance-method" class="signature"><strong>#csv</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#csv%3F%3AString%7CNil-instance-method" class="signature"><strong>#csv?</strong> : String | Nil</a>
         
       </li>
     
@@ -7574,18 +7584,18 @@
       </div>
     </div>
   
-    <div class="entry-detail" id="new(id:Int64|Nil=nil,name:Nil|String=nil,site:InnerRange::Integriti::Site|Nil=nil,address:Nil|String=nil,partition_id:Int32|Nil=nil,origo:Bool|Nil=nil,phone:Nil|String=nil,email:Nil|String=nil,primary_permission_group:InnerRange::Integriti::PermissionGroup|Nil=nil)-class-method">
+    <div class="entry-detail" id="new(id:Int64|Nil=nil,name:Nil|String=nil,site:InnerRange::Integriti::Site|Nil=nil,address:Nil|String=nil,partition_id:Int32|Nil=nil,origo:Bool|Nil=nil,phone:Nil|String=nil,email:Nil|String=nil,csv:Nil|String=nil,primary_permission_group:InnerRange::Integriti::PermissionGroup|Nil=nil)-class-method">
       <div class="signature">
         
-        def self.<strong>new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, site : <a href="../../InnerRange/Integriti/Site.html">InnerRange::Integriti::Site</a> | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, partition_id : Int32 | Nil = <span class="n">nil</span>, origo : Bool | Nil = <span class="n">nil</span>, phone : Nil | String = <span class="n">nil</span>, email : Nil | String = <span class="n">nil</span>, primary_permission_group : <a href="../../InnerRange/Integriti/PermissionGroup.html">InnerRange::Integriti::PermissionGroup</a> | Nil = <span class="n">nil</span>)
+        def self.<strong>new</strong>(id : Int64 | Nil = <span class="n">nil</span>, name : Nil | String = <span class="n">nil</span>, site : <a href="../../InnerRange/Integriti/Site.html">InnerRange::Integriti::Site</a> | Nil = <span class="n">nil</span>, address : Nil | String = <span class="n">nil</span>, partition_id : Int32 | Nil = <span class="n">nil</span>, origo : Bool | Nil = <span class="n">nil</span>, phone : Nil | String = <span class="n">nil</span>, email : Nil | String = <span class="n">nil</span>, csv : Nil | String = <span class="n">nil</span>, primary_permission_group : <a href="../../InnerRange/Integriti/PermissionGroup.html">InnerRange::Integriti::PermissionGroup</a> | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cpartition_id%3AInt32%7CNil%3Dnil%2Corigo%3ABool%7CNil%3Dnil%2Cphone%3ANil%7CString%3Dnil%2Cemail%3ANil%7CString%3Dnil%2Cprimary_permission_group%3AInnerRange%3A%3AIntegriti%3A%3APermissionGroup%7CNil%3Dnil%29-class-method">#</a>
+        <a class="method-permalink" href="#new%28id%3AInt64%7CNil%3Dnil%2Cname%3ANil%7CString%3Dnil%2Csite%3AInnerRange%3A%3AIntegriti%3A%3ASite%7CNil%3Dnil%2Caddress%3ANil%7CString%3Dnil%2Cpartition_id%3AInt32%7CNil%3Dnil%2Corigo%3ABool%7CNil%3Dnil%2Cphone%3ANil%7CString%3Dnil%2Cemail%3ANil%7CString%3Dnil%2Ccsv%3ANil%7CString%3Dnil%2Cprimary_permission_group%3AInnerRange%3A%3AIntegriti%3A%3APermissionGroup%7CNil%3Dnil%29-class-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/7f91a5d0149714db95158874d437eece92c6ca9b/src/inner_range/integriti.cr#L630" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/241a25fce2881e92b02f325ebee01c67055c26f5/src/inner_range/integriti.cr#L634" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7626,6 +7636,34 @@
         def <strong>address?</strong> : String | Nil
 
         <a class="method-permalink" href="#address%3F%3AString%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="csv:String-instance-method">
+      <div class="signature">
+        
+        def <strong>csv</strong> : String
+
+        <a class="method-permalink" href="#csv%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="csv?:String|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>csv?</strong> : String | Nil
+
+        <a class="method-permalink" href="#csv%3F%3AString%7CNil-instance-method">#</a>
       </div>
       
       <br/>
@@ -7869,7 +7907,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/7f91a5d0149714db95158874d437eece92c6ca9b/src/inner_range/integriti.cr#L641" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/241a25fce2881e92b02f325ebee01c67055c26f5/src/inner_range/integriti.cr#L646" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7885,7 +7923,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/7f91a5d0149714db95158874d437eece92c6ca9b/src/inner_range/integriti.cr#L645" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/241a25fce2881e92b02f325ebee01c67055c26f5/src/inner_range/integriti.cr#L650" target="_blank">View source</a>]
         
       </div>
     </div>
