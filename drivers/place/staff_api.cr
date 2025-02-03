@@ -58,7 +58,7 @@ class Place::StaffAPI < PlaceOS::Driver
     @authority_id
   rescue error
     logger.warn(exception: error) { "failed to lookup authority id" }
-    sleep rand(3)
+    sleep rand(3).seconds
     retry += 1
     return if retry == 10
     spawn { lookup_authority_id(retry) }
@@ -782,12 +782,13 @@ class Place::StaffAPI < PlaceOS::Driver
     created_after : Int64? = nil,
     approved : Bool? = nil,
     checked_in : Bool? = nil,
+    include_checked_out : Bool? = nil,
     include_booked_by : Bool? = nil,
-    extension_data : String? = nil,
     department : String? = nil,
     limit : Int32? = nil,
     offset : Int32? = nil,
     permission : String? = nil,
+    extension_data : JSON::Any? = nil,
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s if period_start
