@@ -702,7 +702,8 @@ class Place::StaffAPI < PlaceOS::Driver
     rejected : Bool? = nil,
     checked_in : Bool? = nil,
     include_checked_out : Bool? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
+    deleted : Bool? = nil
   )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
@@ -722,6 +723,7 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "approved", approved.to_s unless approved.nil?
       form.add "rejected", rejected.to_s unless rejected.nil?
       form.add "checked_in", checked_in.to_s unless checked_in.nil?
+      form.add "deleted", deleted.to_s unless deleted.nil?
       form.add "event_id", event_id.to_s if event_id.presence
       form.add "ical_uid", ical_uid.to_s if ical_uid.presence
       form.add "include_checked_out", include_checked_out.to_s unless include_checked_out.nil?
