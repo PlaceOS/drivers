@@ -41,6 +41,8 @@ class Place::Booking
   property booked_by_name : String
   property booked_by_email : String
 
+  getter checked_out_at : Int64? = nil
+  getter deleted : Bool? = nil
   property checked_in : Bool { false }
   property title : String?
   property description : String?
