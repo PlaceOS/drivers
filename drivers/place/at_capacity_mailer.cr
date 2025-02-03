@@ -12,9 +12,6 @@ class Place::AtCapacityMailer < PlaceOS::Driver
 
   default_settings({
     timezone:              "Australia/Sydney",
-    date_time_format:      "%c",
-    time_format:           "%l:%M%p",
-    date_format:           "%A, %-d %B",
     booking_type:          "desk",       # desk, locker, parking, etc
     zones:                 [] of String, # The zones to check for bookings
     notify_email:          ["concierge@place.com"],
@@ -27,8 +24,6 @@ class Place::AtCapacityMailer < PlaceOS::Driver
 
   accessor staff_api : StaffAPI_1
 
-  # accessor calendar : Calendar_1
-
   def mailer
     system.implementing(Interface::Mailer)[0]
   end
@@ -38,9 +33,6 @@ class Place::AtCapacityMailer < PlaceOS::Driver
   end
 
   @time_zone : Time::Location = Time::Location.load("Australia/Sydney")
-  @date_time_format : String = "%c"
-  @time_format : String = "%l:%M%p"
-  @date_format : String = "%A, %-d %B"
 
   @booking_type : String = "desk"
   @zones : Array(String) = [] of String
@@ -56,12 +48,11 @@ class Place::AtCapacityMailer < PlaceOS::Driver
   @template_suffix : String = ""
   @template_fields_suffix : String = ""
 
+  @zone_cache : Hash(String, Zone) = {} of String => Zone
+
   def on_update
     time_zone = setting?(String, :calendar_time_zone).presence || "Australia/Sydney"
     @time_zone = Time::Location.load(time_zone)
-    @date_time_format = setting?(String, :date_time_format) || "%c"
-    @time_format = setting?(String, :time_format) || "%l:%M%p"
-    @date_format = setting?(String, :date_format) || "%A, %-d %B"
 
     @booking_type = setting?(String, :booking_type).presence || "desk"
     @zones = setting?(Array(String), :zones) || [] of String
@@ -78,7 +69,7 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     schedule.clear
 
     # find assets
-    # schedule.every(5.minutes) { get_asset_ids }
+    schedule.every(60.minutes) { get_asset_ids }
 
     if emails = @email_schedule
       schedule.cron(emails, @time_zone) { check_capacity }
@@ -87,9 +78,8 @@ class Place::AtCapacityMailer < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def check_capacity
-    # asset_ids = self[:assets_ids]? ? Hash(String, Array(String)).from_json(self[:assets_ids].to_json) : {} of String => Array(String)
+    asset_ids = self[:assets_ids]? ? Hash(String, Array(String)).from_json(self[:assets_ids].to_json) : get_asset_ids
 
-    asset_ids = get_asset_ids
     booked_asset_ids = get_booked_asset_ids
 
     @zones.each do |zone_id|
@@ -112,8 +102,6 @@ class Place::AtCapacityMailer < PlaceOS::Driver
         logger.warn(exception: error) { "unable to get #{@booking_type} assets from zone #{zone_id} metadata" }
       end
     end
-
-    # MAYBE: get assets from DB (staff-api) if it's not an asset type stored in metadata
 
     self[:assets_ids] = assets_ids
   end
@@ -168,9 +156,15 @@ class Place::AtCapacityMailer < PlaceOS::Driver
       return
     end
 
+    zone = fetch_zone(zone_id)
     args = {
-      zone_id:      zone_id,
-      booking_type: @booking_type,
+      booking_type:      @booking_type,
+      zone_id:           zone_id,
+      zone_name:         zone.name,
+      zone_description:  zone.description,
+      zone_location:     zone.location,
+      zone_display_name: zone.display_name,
+      zone_timezone:     zone.timezone,
     }
 
     begin
@@ -191,11 +185,23 @@ class Place::AtCapacityMailer < PlaceOS::Driver
         name: "At capacity#{@template_fields_suffix}",
         description: "Notification when the assets of a zone is at capacity",
         fields: [
-          {name: "zone_id", description: "Identifier of the zone that is at capacity"},
           {name: "booking_type", description: "Type of booking that is at capacity"},
+          {name: "zone_id", description: "Identifier of the zone that is at capacity"},
+          {name: "zone_name", description: "Name of the zone that is at capacity"},
+          {name: "zone_description", description: "Description of the zone that is at capacity"},
+          {name: "zone_location", description: "Location of the zone that is at capacity"},
+          {name: "zone_display_name", description: "Display name of the zone that is at capacity"},
+          {name: "zone_timezone", description: "Timezone of the zone that is at capacity"},
         ]
       ),
     ]
+  end
+
+  def fetch_zone(zone_id : String) : Zone
+    @zone_cache[zone_id] ||= Zone.from_json staff_api.zone(zone_id).get.to_json
+  rescue error
+    logger.warn(exception: error) { "unable to find zone #{zone_id}" }
+    Zone.new(id: zone_id)
   end
 
   struct Metadata
@@ -215,5 +221,36 @@ class Place::AtCapacityMailer < PlaceOS::Driver
 
     property id : String
     property name : String
+  end
+
+  struct Zone
+    include JSON::Serializable
+
+    property id : String
+
+    property name : String = ""
+    property description : String = ""
+    property tags : Set(String) = Set(String).new
+    property location : String?
+    property display_name : String?
+    property timezone : String?
+
+    property parent_id : String?
+
+    def initialize(@id : String)
+    end
+
+    @[JSON::Field(ignore: true)]
+    @time_location : Time::Location?
+
+    def time_location? : Time::Location?
+      if tz = timezone.presence
+        @time_location ||= Time::Location.load(tz)
+      end
+    end
+
+    def time_location! : Time::Location
+      time_location?.not_nil!
+    end
   end
 end
