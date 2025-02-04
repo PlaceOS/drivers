@@ -186,8 +186,8 @@ class Place::TemplateMailer < PlaceOS::Driver
   def get_templates?(zone_id : String) : Array(Template)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_templates").get["email_templates"].to_json
     metadata.details.as_a.map { |template| Template.from_json template.to_json }
-  rescue error
-    logger.warn(exception: error) { "unable to get email templates from zone #{zone_id} metadata" }
+  rescue _error
+    logger.debug { "unable to get email templates from zone #{zone_id} metadata" }
     nil
   end
 
@@ -197,17 +197,12 @@ class Place::TemplateMailer < PlaceOS::Driver
     building_id = (zone_ids & building_zone_ids)[0]?
     level_id = (zone_ids & level_zone_ids)[0]?
 
-    org_templates = fetch_templates(org_id)
-    region_templates = fetch_templates(region_id)
-    building_templates = fetch_templates(building_id)
-    level_templates = fetch_templates(level_id)
-
     # find the requested template
     # order of precedence: level, building, region, org
-    level_templates.find { |t| t["trigger"] == template } ||
-      building_templates.find { |t| t["trigger"] == template } ||
-      region_templates.find { |t| t["trigger"] == template } ||
-      org_templates.find { |t| t["trigger"] == template } ||
+    fetch_templates(level_id).find { |t| t["trigger"] == template } ||
+      fetch_templates(building_id).find { |t| t["trigger"] == template } ||
+      fetch_templates(region_id).find { |t| t["trigger"] == template } ||
+      fetch_templates(org_id).find { |t| t["trigger"] == template } ||
       nil
   end
 
