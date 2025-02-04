@@ -1,8 +1,10 @@
 require "placeos-driver"
 require "placeos-driver/interface/lockers"
+require "../bookings/locker_models"
 
 class Place::Demo::Lockers < PlaceOS::Driver
   include Interface::Lockers
+  include Place::LockerMetadataParser
   alias PlaceLocker = PlaceOS::Driver::Interface::Lockers::PlaceLocker
 
   descriptive_name "Locker Testing"
@@ -20,62 +22,11 @@ class Place::Demo::Lockers < PlaceOS::Driver
     staff_api.systems_in_building(building_id).get.as_h.keys
   end
 
-  getter locker_banks : Hash(String, LockerBank) do
-    # Grab bank details
-    banks = staff_api.metadata(building_id, "locker_banks").get.dig?("locker_banks", "details")
-    return Hash(String, LockerBank).new unless banks
-
-    banks = begin
-      Array(LockerBank).from_json(banks.to_json)
-    rescue error
-      message = "error parsing banks json on building #{building_id}:\n#{banks.to_pretty_json}"
-      logger.warn(exception: error) { message }
-      raise message
-    end
-
-    lookup = {} of String => LockerBank
-    banks.each do |bank|
-      bank.level_id = (levels & bank.zones).first?
-      lookup[bank.id] = bank
-    end
-
-    # Grab locker details:
-    lockers = staff_api.metadata(building_id, "lockers").get.dig?("lockers", "details")
-    return lookup unless lockers
-
-    lockers = begin
-      Array(Locker).from_json(lockers.to_json)
-    rescue error
-      message = "error parsing locker json on building #{building_id}:\n#{lockers.to_pretty_json}"
-      logger.warn(exception: error) { message }
-      raise message
-    end
-
-    lockers.each do |locker|
-      begin
-        bank = lookup[locker.bank_id]
-        locker.level_id = bank.level_id
-        bank.lockers << locker
-      rescue error
-        logger.warn(exception: error) { "config issue with locker #{locker.id} on bank #{locker.bank_id}" }
-      end
-    end
-
-    lookup
-  end
-
-  class Locker
-    include JSON::Serializable
-
-    getter id : String
-    getter name : String { id }
-    getter bank_id : String
-    getter bookable : Bool { false }
-
+  # re-open class to add some helpers
+  class ::Place::Locker
     # for tracking, not part of metadata
     property allocated_to : String? = nil
     property allocated_until : Time? = nil
-    property level_id : String? = nil
     property shared_with : Array(String) = [] of String
 
     def release
@@ -103,28 +54,8 @@ class Place::Demo::Lockers < PlaceOS::Driver
     end
   end
 
-  class LockerBank
-    include JSON::Serializable
-
-    getter id : String
-    getter name : String { id }
-    getter zones : Array(String)
-
-    property level_id : String? = nil
-    getter lockers : Array(Locker) = [] of Locker
-    getter locker_hash : Hash(String, Locker) do
-      lookup = {} of String => Locker
-      level = self.level_id
-      lockers.each do |locker|
-        locker.level_id = level
-        lookup[locker.id] = locker
-      end
-      lookup
-    end
-  end
-
   class ::PlaceOS::Driver::Interface::Lockers::PlaceLocker
-    def initialize(@bank_id, locker : Place::Demo::Lockers::Locker, @building = nil)
+    def initialize(@bank_id, locker : ::Place::Locker, @building = nil)
       @locker_id = locker.id
       @locker_name = locker.name
       @mac = "lb=#{@bank_id}&lk=#{locker.id}"
@@ -144,6 +75,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
         @expires_at = nil
       end
       @allocated = in_use
+      @allocation_id = locker.allocated_to if in_use
       @level = locker.level_id
     end
   end

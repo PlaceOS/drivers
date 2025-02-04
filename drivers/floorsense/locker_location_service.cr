@@ -184,6 +184,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
       @mac = "lc=#{locker.controller_id}&lk=#{locker.key}"
       @expires_at = Time.unix(locker.finish)
       @allocated = !locker.released?
+      @allocation_id = locker.reservation_id
     end
   end
 

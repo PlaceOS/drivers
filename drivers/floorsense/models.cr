@@ -100,7 +100,13 @@ module Floorsense
     property type : String?
     property key : String?
     property usbcurrent : Int32?
-    property resid : String?
+
+    @[JSON::Field(key: "resid")]
+    property reservation_id : String?
+
+    def resid : String?
+      reservation_id
+    end
 
     # not included by default, used by locker mappings
     property! controller_id : Int32

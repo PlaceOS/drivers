@@ -7,7 +7,7 @@ require "./models"
 require "placeos"
 
 class Floorsense::CustomBookingsSync < PlaceOS::Driver
-  descriptive_name "Floorsense Custom Bookings Sync"
+  descriptive_name "Floorsense Desk Bookings Sync"
   generic_name :FloorsenseBookingSync
   description %(syncs PlaceOS desk bookings with floorsense booking system)
 
@@ -48,8 +48,6 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     meta_ext_static: {} of String => String,
   })
 
-  @sync_locker_lock = Mutex.new
-  @mutex_event_desk = Mutex.new
   @user_ids_cache : Hash(String, String) = {} of String => String
   @meta_ext_static : Hash(String, String) = {} of String => String
 
