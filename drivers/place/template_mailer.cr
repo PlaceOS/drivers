@@ -186,7 +186,7 @@ class Place::TemplateMailer < PlaceOS::Driver
   def get_templates?(zone_id : String) : Array(Template)?
     metadata = Metadata.from_json staff_api.metadata(zone_id, "email_templates").get["email_templates"].to_json
     metadata.details.as_a.map { |template| Template.from_json template.to_json }
-  rescue _error
+  rescue
     logger.debug { "unable to get email templates from zone #{zone_id} metadata" }
     nil
   end
