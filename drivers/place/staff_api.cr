@@ -58,7 +58,7 @@ class Place::StaffAPI < PlaceOS::Driver
     @authority_id
   rescue error
     logger.warn(exception: error) { "failed to lookup authority id" }
-    sleep rand(3).seconds
+    sleep rand(3)
     retry += 1
     return if retry == 10
     spawn { lookup_authority_id(retry) }
@@ -128,7 +128,7 @@ class Place::StaffAPI < PlaceOS::Driver
     bookable : Bool? = nil,
     features : String? = nil,
     limit : Int32 = 1000,
-    offset : Int32 = 0,
+    offset : Int32 = 0
   )
     placeos_client.systems.search(
       q: q,
@@ -251,7 +251,7 @@ class Place::StaffAPI < PlaceOS::Driver
     limit : Int32 = 20,
     offset : Int32 = 0,
     authority_id : String? = nil,
-    include_deleted : Bool = false,
+    include_deleted : Bool = false
   )
     placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
@@ -355,7 +355,7 @@ class Place::StaffAPI < PlaceOS::Driver
     capacity : Int32? = nil,
     features : String? = nil,
     bookable : Bool? = nil,
-    include_cancelled : Bool? = nil,
+    include_cancelled : Bool? = nil
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s
@@ -461,7 +461,7 @@ class Place::StaffAPI < PlaceOS::Driver
     field_name : String? = nil,
     value : String? = nil,
     system_id : String? = nil,
-    event_ref : Array(String)? = nil,
+    event_ref : Array(String)? = nil
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s if period_start
@@ -548,6 +548,12 @@ class Place::StaffAPI < PlaceOS::Driver
     event_id : String? = nil,
     ical_uid : String? = nil,
     attendees : Array(PlaceCalendar::Event::Attendee)? = nil,
+    process_state : String? = nil,
+    recurrence_type : String? = nil,
+    recurrence_days : Int32? = nil,
+    recurrence_nth_of_month : Int32? = nil,
+    recurrence_interval : Int32? = nil,
+    recurrence_end : Int64? = nil
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -565,22 +571,28 @@ class Place::StaffAPI < PlaceOS::Driver
     end
 
     response = post("/api/staff/v1/bookings?#{params}", headers: authentication, body: {
-      "booking_start"  => booking_start,
-      "booking_end"    => booking_end,
-      "booking_type"   => booking_type,
-      "asset_id"       => asset_id,
-      "user_id"        => user_id,
-      "user_email"     => user_email,
-      "user_name"      => user_name,
-      "zones"          => zones,
-      "checked_in"     => checked_in,
-      "checked_in_at"  => checked_in_at,
-      "approved"       => approved,
-      "title"          => title,
-      "description"    => description,
-      "timezone"       => time_zone,
-      "extension_data" => extension_data || JSON.parse("{}"),
-      "attendees"      => attendees,
+      "booking_start"           => booking_start,
+      "booking_end"             => booking_end,
+      "booking_type"            => booking_type,
+      "asset_id"                => asset_id,
+      "user_id"                 => user_id,
+      "user_email"              => user_email,
+      "user_name"               => user_name,
+      "zones"                   => zones,
+      "checked_in"              => checked_in,
+      "checked_in_at"           => checked_in_at,
+      "approved"                => approved,
+      "title"                   => title,
+      "description"             => description,
+      "timezone"                => time_zone,
+      "extension_data"          => extension_data || JSON.parse("{}"),
+      "attendees"               => attendees,
+      "process_state"           => process_state,
+      "recurrence_type"         => recurrence_type,
+      "recurrence_days"         => recurrence_days,
+      "recurrence_nth_of_month" => recurrence_nth_of_month,
+      "recurrence_interval"     => recurrence_interval,
+      "recurrence_end"          => recurrence_end,
     }.compact.to_json)
     raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
@@ -599,6 +611,8 @@ class Place::StaffAPI < PlaceOS::Driver
     approved : Bool? = nil,
     checked_in : Bool? = nil,
     limit_override : Int64? = nil,
+    instance : Int64? = nil,
+    recurrence_end : Int64? = nil,
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -625,16 +639,19 @@ class Place::StaffAPI < PlaceOS::Driver
       "description"    => description,
       "timezone"       => timezone,
       "extension_data" => extension_data,
+      "instance"       => instance,
+      "recurrence_end" => recurrence_end,
     }.compact.to_json)
     raise "issue updating booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
 
   @[Security(Level::Support)]
-  def reject(booking_id : String | Int64, utm_source : String? = nil)
+  def reject(booking_id : String | Int64, utm_source : String? = nil, instance : Int64? = nil)
     logger.debug { "rejecting booking #{booking_id}" }
 
     params = URI::Params.build do |form|
+      form.add "instance", instance.to_s unless instance.nil?
       form.add "utm_source", utm_source.to_s unless utm_source.nil?
     end
 
@@ -644,26 +661,29 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def approve(booking_id : String | Int64)
+  def approve(booking_id : String | Int64, instance : Int64? = nil)
     logger.debug { "approving booking #{booking_id}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/approve", headers: authentication)
+    inst = "/instance/#{instance}" if instance
+    response = post("/api/staff/v1/bookings/#{booking_id}/approve#{inst}", headers: authentication)
     raise "issue approving booking #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
 
   @[Security(Level::Support)]
-  def booking_state(booking_id : String | Int64, state : String)
-    logger.debug { "updating booking #{booking_id} state to: #{state}" }
-    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}", headers: authentication)
+  def booking_state(booking_id : String | Int64, state : String, instance : Int64? = nil)
+    logger.debug { "updating booking #{booking_id}.#{instance} state to: #{state}" }
+    inst = "&instance=#{instance}" if instance
+    response = post("/api/staff/v1/bookings/#{booking_id}/update_state?state=#{state}#{inst}", headers: authentication)
     raise "issue updating booking state #{booking_id}: #{response.status_code}" unless response.success?
     true
   end
 
   @[Security(Level::Support)]
-  def booking_check_in(booking_id : String | Int64, state : Bool = true, utm_source : String? = nil)
-    logger.debug { "checking in booking #{booking_id} to: #{state}" }
+  def booking_check_in(booking_id : String | Int64, state : Bool = true, utm_source : String? = nil, instance : Int64? = nil)
+    logger.debug { "checking in booking #{booking_id}.#{instance} to: #{state}" }
 
     params = URI::Params.build do |form|
+      form.add "instance", instance.to_s unless instance.nil?
       form.add "utm_source", utm_source.to_s unless utm_source.nil?
       form.add "state", state.to_s
     end
@@ -673,9 +693,10 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def booking_delete(booking_id : String | Int64, utm_source : String? = nil)
+  def booking_delete(booking_id : String | Int64, utm_source : String? = nil, instance : Int64? = nil)
     logger.debug { "deleting booking #{booking_id}" }
     params = URI::Params.build do |form|
+      form.add "instance", instance.to_s unless instance.nil?
       form.add "utm_source", utm_source.to_s unless utm_source.nil?
     end
     response = delete("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication)
@@ -760,9 +781,10 @@ class Place::StaffAPI < PlaceOS::Driver
     bookings
   end
 
-  def get_booking(booking_id : String | Int64)
+  def get_booking(booking_id : String | Int64, instance : Int64? = nil)
     logger.debug { "getting booking #{booking_id}" }
-    response = get("/api/staff/v1/bookings/#{booking_id}", headers: authentication)
+    params = "?instance=#{instance}" if instance
+    response = get("/api/staff/v1/bookings/#{booking_id}#{params}", headers: authentication)
     raise "issue getting booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
@@ -844,7 +866,7 @@ class Place::StaffAPI < PlaceOS::Driver
   def update_survey_invite(
     token : String,
     email : String? = nil,
-    sent : Bool? = nil,
+    sent : Bool? = nil
   )
     logger.debug { "updating survey invite #{token}" }
     response = patch("/api/staff/v1/surveys/invitations/#{token}", headers: authentication, body: {
