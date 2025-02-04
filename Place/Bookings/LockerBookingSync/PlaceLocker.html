@@ -14,7 +14,7 @@
 <script type="text/javascript" src="../../../js/doc.js"></script>
 
   <meta name="repository-name" content="drivers">
-  <title>Place::Demo::Lockers::Locker - drivers master</title>
+  <title>Place::Bookings::LockerBookingSync::PlaceLocker - drivers master</title>
   <script type="text/javascript">
     CrystalDocs.base_path = "../../../";
   </script>
@@ -4497,7 +4497,7 @@
       
     </li>
   
-  <li class="parent " data-id="drivers/Place/Bookings" data-name="place::bookings">
+  <li class="parent open current" data-id="drivers/Place/Bookings" data-name="place::bookings">
       <a href="../../../Place/Bookings.html">Bookings</a>
       
         <ul>
@@ -4509,6 +4509,26 @@
   
   <li class=" " data-id="drivers/Place/Bookings/GrantAreaAccess/Desk" data-name="place::bookings::grantareaaccess::desk">
       <a href="../../../Place/Bookings/GrantAreaAccess/Desk.html">Desk</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent open current" data-id="drivers/Place/Bookings/LockerBookingSync" data-name="place::bookings::lockerbookingsync">
+      <a href="../../../Place/Bookings/LockerBookingSync.html">LockerBookingSync</a>
+      
+        <ul>
+  
+  <li class=" " data-id="drivers/Place/Bookings/LockerBookingSync/LockerMetadata" data-name="place::bookings::lockerbookingsync::lockermetadata">
+      <a href="../../../Place/Bookings/LockerBookingSync/LockerMetadata.html">LockerMetadata</a>
+      
+    </li>
+  
+  <li class=" current" data-id="drivers/Place/Bookings/LockerBookingSync/PlaceLocker" data-name="place::bookings::lockerbookingsync::placelocker">
+      <a href="../../../Place/Bookings/LockerBookingSync/PlaceLocker.html">PlaceLocker</a>
       
     </li>
   
@@ -4652,7 +4672,7 @@
       
     </li>
   
-  <li class="parent open current" data-id="drivers/Place/Demo" data-name="place::demo">
+  <li class="parent " data-id="drivers/Place/Demo" data-name="place::demo">
       <a href="../../../Place/Demo.html">Demo</a>
       
         <ul>
@@ -4677,20 +4697,10 @@
       
     </li>
   
-  <li class="parent open current" data-id="drivers/Place/Demo/Lockers" data-name="place::demo::lockers">
+  <li class="parent " data-id="drivers/Place/Demo/Lockers" data-name="place::demo::lockers">
       <a href="../../../Place/Demo/Lockers.html">Lockers</a>
       
         <ul>
-  
-  <li class=" current" data-id="drivers/Place/Demo/Lockers/Locker" data-name="place::demo::lockers::locker">
-      <a href="../../../Place/Demo/Lockers/Locker.html">Locker</a>
-      
-    </li>
-  
-  <li class=" " data-id="drivers/Place/Demo/Lockers/LockerBank" data-name="place::demo::lockers::lockerbank">
-      <a href="../../../Place/Demo/Lockers/LockerBank.html">LockerBank</a>
-      
-    </li>
   
   <li class=" " data-id="drivers/Place/Demo/Lockers/PlaceLocker" data-name="place::demo::lockers::placelocker">
       <a href="../../../Place/Demo/Lockers/PlaceLocker.html">PlaceLocker</a>
@@ -4874,6 +4884,21 @@
   
   <li class=" " data-id="drivers/Place/LocationServices" data-name="place::locationservices">
       <a href="../../../Place/LocationServices.html">LocationServices</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/Locker" data-name="place::locker">
+      <a href="../../../Place/Locker.html">Locker</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/LockerBank" data-name="place::lockerbank">
+      <a href="../../../Place/LockerBank.html">LockerBank</a>
+      
+    </li>
+  
+  <li class=" " data-id="drivers/Place/LockerMetadataParser" data-name="place::lockermetadataparser">
+      <a href="../../../Place/LockerMetadataParser.html">LockerMetadataParser</a>
       
     </li>
   
@@ -7311,49 +7336,40 @@
 <div class="main-content">
 <h1 class="type-name">
 
-  <span class="kind">class</span> Place::<wbr>Demo::<wbr>Lockers::<wbr>Locker
+  <span class="kind">alias</span> Place::<wbr>Bookings::<wbr>LockerBookingSync::<wbr>PlaceLocker
 
 </h1>
 
 
-  <ul class="superclass-hierarchy"><li class="superclass"><a href="../../../Place/Demo/Lockers/Locker.html">Place::Demo::Lockers::Locker</a></li><li class="superclass">Reference</li><li class="superclass">Object</li></ul>
-
-
-
-
-
 
 
 
   <h2>
-    <a id="included-modules" class="anchor" href="#included-modules">
+    <a id="overview" class="anchor" href="#overview">
   <svg class="octicon-link" aria-hidden="true">
     <use href="#octicon-link"/>
   </svg>
 </a>
-    Included Modules
+    Overview
   </h2>
-  <ul class="other-types-list">
-    
-      <li class="other-type">JSON::Serializable</li>
-    
-  </ul>
+
+  <p>synced == allocation_id in placeos booking.process_state</p>
 
 
 
   <h2>
-    <a id="extended-modules" class="anchor" href="#extended-modules">
+    <a id="alias-definition" class="anchor" href="#alias-definition">
   <svg class="octicon-link" aria-hidden="true">
     <use href="#octicon-link"/>
   </svg>
 </a>
-    Extended Modules
+    Alias Definition
   </h2>
-  <ul class="other-types-list">
-    
-      <li class="other-type">JSON::Schema</li>
-    
-  </ul>
+  <code><a href="../../../PlaceOS/Driver/Interface/Lockers/PlaceLocker.html">PlaceOS::Driver::Interface::Lockers::PlaceLocker</a></code>
+
+
+
+
 
 
 
@@ -7372,8 +7388,8 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L67" target="_blank">
-        place/demo/lockers.cr
+      <a href="https://github.com/PlaceOS/drivers/blob/a04ec49c365aebb56f2e92b8e0a653568e28422e/src/place/bookings/locker_booking_sync.cr#L20" target="_blank">
+        place/bookings/locker_booking_sync.cr
       </a>
     
     <br/>
@@ -7383,457 +7399,24 @@
 
 
 
-  <h2>
-    <a id="constructors" class="anchor" href="#constructors">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Constructors
-  </h2>
-  <ul class="list-summary">
-    
-      <li class="entry-summary">
-        <a href="#new%28pull%3AJSON%3A%3APullParser%29-class-method" class="signature"><strong>.new</strong>(pull : JSON::PullParser)</a>
-        
-      </li>
-    
-  </ul>
 
 
 
 
 
-
-
-  <h2>
-    <a id="instance-method-summary" class="anchor" href="#instance-method-summary">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Instance Method Summary
-  </h2>
-  <ul class="list-summary">
-    
-      <li class="entry-summary">
-        <a href="#allocated%3F%3ABool-instance-method" class="signature"><strong>#allocated?</strong> : Bool</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#allocated_to%3AString%7CNil-instance-method" class="signature"><strong>#allocated_to</strong> : String | Nil</a>
-        
-          <div class="summary"><p>for tracking, not part of metadata</p></div>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#allocated_to%3D%28allocated_to%3AString%7CNil%29-instance-method" class="signature"><strong>#allocated_to=</strong>(allocated_to : String | Nil)</a>
-        
-          <div class="summary"><p>for tracking, not part of metadata</p></div>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#allocated_until%3ATime%7CNil-instance-method" class="signature"><strong>#allocated_until</strong> : Time | Nil</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#allocated_until%3D%28allocated_until%3ATime%7CNil%29-instance-method" class="signature"><strong>#allocated_until=</strong>(allocated_until : Time | Nil)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#bank_id%3AString-instance-method" class="signature"><strong>#bank_id</strong> : String</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#bookable%3ABool-instance-method" class="signature"><strong>#bookable</strong> : Bool</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#id%3AString-instance-method" class="signature"><strong>#id</strong> : String</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#level_id%3AString%7CNil-instance-method" class="signature"><strong>#level_id</strong> : String | Nil</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#level_id%3D%28level_id%3AString%7CNil%29-instance-method" class="signature"><strong>#level_id=</strong>(level_id : String | Nil)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#name%3AString-instance-method" class="signature"><strong>#name</strong> : String</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#not_allocated%3F%3ABool-instance-method" class="signature"><strong>#not_allocated?</strong> : Bool</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#release-instance-method" class="signature"><strong>#release</strong></a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#shared_with%3AArray%28String%29-instance-method" class="signature"><strong>#shared_with</strong> : Array(String)</a>
-        
-      </li>
-    
-      <li class="entry-summary">
-        <a href="#shared_with%3D%28shared_with%3AArray%28String%29%29-instance-method" class="signature"><strong>#shared_with=</strong>(shared_with : Array(String))</a>
-        
-      </li>
-    
-  </ul>
 
 
 
 <div class="methods-inherited">
-  
-    
-
-
-    
-
-
-    
-
-
-    
-
-
-  
-    
-
-
-    
-
-
-    
-
-
-    
-
-
-  
-    
-
-
-    
-
-
-    
-
-
-    
-
-
   
 </div>
 
 
-  <h2>
-    <a id="constructor-detail" class="anchor" href="#constructor-detail">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Constructor Detail
-  </h2>
-  
-    <div class="entry-detail" id="new(pull:JSON::PullParser)-class-method">
-      <div class="signature">
-        
-        def self.<strong>new</strong>(pull : JSON::PullParser)
-
-        <a class="method-permalink" href="#new%28pull%3AJSON%3A%3APullParser%29-class-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L68" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
 
 
 
 
 
-
-
-  <h2>
-    <a id="instance-method-detail" class="anchor" href="#instance-method-detail">
-  <svg class="octicon-link" aria-hidden="true">
-    <use href="#octicon-link"/>
-  </svg>
-</a>
-    Instance Method Detail
-  </h2>
-  
-    <div class="entry-detail" id="allocated?:Bool-instance-method">
-      <div class="signature">
-        
-        def <strong>allocated?</strong> : Bool
-
-        <a class="method-permalink" href="#allocated%3F%3ABool-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L87" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="allocated_to:String|Nil-instance-method">
-      <div class="signature">
-        
-        def <strong>allocated_to</strong> : String | Nil
-
-        <a class="method-permalink" href="#allocated_to%3AString%7CNil-instance-method">#</a>
-      </div>
-      
-        <div class="doc">
-          
-          <p>for tracking, not part of metadata</p>
-        </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L76" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="allocated_to=(allocated_to:String|Nil)-instance-method">
-      <div class="signature">
-        
-        def <strong>allocated_to=</strong>(allocated_to : String | Nil)
-
-        <a class="method-permalink" href="#allocated_to%3D%28allocated_to%3AString%7CNil%29-instance-method">#</a>
-      </div>
-      
-        <div class="doc">
-          
-          <p>for tracking, not part of metadata</p>
-        </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L76" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="allocated_until:Time|Nil-instance-method">
-      <div class="signature">
-        
-        def <strong>allocated_until</strong> : Time | Nil
-
-        <a class="method-permalink" href="#allocated_until%3ATime%7CNil-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L77" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="allocated_until=(allocated_until:Time|Nil)-instance-method">
-      <div class="signature">
-        
-        def <strong>allocated_until=</strong>(allocated_until : Time | Nil)
-
-        <a class="method-permalink" href="#allocated_until%3D%28allocated_until%3ATime%7CNil%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L77" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="bank_id:String-instance-method">
-      <div class="signature">
-        
-        def <strong>bank_id</strong> : String
-
-        <a class="method-permalink" href="#bank_id%3AString-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L72" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="bookable:Bool-instance-method">
-      <div class="signature">
-        
-        def <strong>bookable</strong> : Bool
-
-        <a class="method-permalink" href="#bookable%3ABool-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L73" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="id:String-instance-method">
-      <div class="signature">
-        
-        def <strong>id</strong> : String
-
-        <a class="method-permalink" href="#id%3AString-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L70" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="level_id:String|Nil-instance-method">
-      <div class="signature">
-        
-        def <strong>level_id</strong> : String | Nil
-
-        <a class="method-permalink" href="#level_id%3AString%7CNil-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L78" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="level_id=(level_id:String|Nil)-instance-method">
-      <div class="signature">
-        
-        def <strong>level_id=</strong>(level_id : String | Nil)
-
-        <a class="method-permalink" href="#level_id%3D%28level_id%3AString%7CNil%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L78" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="name:String-instance-method">
-      <div class="signature">
-        
-        def <strong>name</strong> : String
-
-        <a class="method-permalink" href="#name%3AString-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L71" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="not_allocated?:Bool-instance-method">
-      <div class="signature">
-        
-        def <strong>not_allocated?</strong> : Bool
-
-        <a class="method-permalink" href="#not_allocated%3F%3ABool-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L101" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="release-instance-method">
-      <div class="signature">
-        
-        def <strong>release</strong>
-
-        <a class="method-permalink" href="#release-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L81" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="shared_with:Array(String)-instance-method">
-      <div class="signature">
-        
-        def <strong>shared_with</strong> : Array(String)
-
-        <a class="method-permalink" href="#shared_with%3AArray%28String%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L79" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
-    <div class="entry-detail" id="shared_with=(shared_with:Array(String))-instance-method">
-      <div class="signature">
-        
-        def <strong>shared_with=</strong>(shared_with : Array(String))
-
-        <a class="method-permalink" href="#shared_with%3D%28shared_with%3AArray%28String%29%29-instance-method">#</a>
-      </div>
-      
-      <br/>
-      <div>
-        
-          [<a href="https://github.com/PlaceOS/drivers/blob/53d06cd4d2570b2ea77e56d4d597f40a81ef36d8/src/place/demo/lockers.cr#L79" target="_blank">View source</a>]
-        
-      </div>
-    </div>
-  
 
 
 </div>
