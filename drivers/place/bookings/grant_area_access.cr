@@ -7,6 +7,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   generic_name :BookingAreaAccess
   description "ensures users can access areas they have booked. i.e. a private office allocated to a user etc"
 
+  accessor calendar : Calendar_1
   accessor staff_api : StaffAPI_1
   accessor locations : LocationServices_1
 
@@ -28,13 +29,18 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   # user_id => Array(special access)
   getter allocations : Hash(String, Array(String)) = {} of String => Array(String)
+  getter cached_username : Hash(String, String) = {} of String => String
   getter cached_user_lookups : Hash(String, String | Int64) = {} of String => String | Int64
   getter cached_zone_lookups : Hash(String, String | Int64) = {} of String => String | Int64
+
+  @lookup_using_username : Bool = false
 
   def on_update
     @building_id = nil
     @timezone = nil
     @systems = nil
+
+    @lookup_using_username = setting?(Bool, :lookup_using_username) || false
 
     # we ensure that allocations are recorded so we can unallocate as required
     @mutex.synchronize do
@@ -76,6 +82,21 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     getter security : String? = nil
   end
 
+  def username_lookup(email : String) : String
+    email = email.strip.downcase
+    if username = cached_username[email]?
+      username
+    else
+      username = calendar.get_user(email).get["username"].as_s.downcase
+      if username == email
+        cached_username[email] = email
+      else
+        cached_username[email] = username
+      end
+      username
+    end
+  end
+
   def user_id?(email : String) : String | Int64 | Nil
     security = security_system
     lookup_user_id security, email.downcase
@@ -84,6 +105,8 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   protected def lookup_user_id(security, email : String) : String | Int64 | Nil
     id = cached_user_lookups[email]?
     return id if id
+
+    email = username_lookup(email) if @lookup_using_username
 
     if json = (security.card_holder_id_lookup(email).get rescue nil)
       cached_user_lookups[email] = (String | Int64).from_json(json.to_json)

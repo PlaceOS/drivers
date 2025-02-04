@@ -235,6 +235,9 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
     logger.debug { "received booking event payload: #{payload}" }
     booking_details = Booking.from_json payload
 
+    # Only process booking types of interest
+    return unless booking_details.booking_type == @booking_type
+
     # Ignore when a bookings state is updated
     return if {"process_state", "metadata_changed"}.includes?(booking_details.action)
 

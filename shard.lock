@@ -51,7 +51,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.4.1
+    version: 1.5.0
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -211,7 +211,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.22.1
+    version: 4.23.0
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -227,7 +227,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.3.3
+    version: 7.3.4
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -235,7 +235,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.61.1
+    version: 9.62.3
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
