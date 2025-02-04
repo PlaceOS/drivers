@@ -120,6 +120,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
   end
 
   protected def do_sync_level(level_id : String, unique_id : String) : Nil
+    logger.debug { "syncing #{level_id} -- id:#{unique_id}" }
+
     # grab placeos bookings (now to 1 hour from now, including deleted / checked out)
     starting = Time.local(timezone)
     end_of_day = starting.at_end_of_day
@@ -233,7 +235,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     skipped = 0
     lockers.each do |lock|
       owner = locker_systems.check_ownership_of(lock.mac).get.first?
-      email = owner["email"]?.try(&.as_s?).presence if owner
+      email = owner["assigned_to"]?.try(&.as_s?).presence if owner
       if email.nil?
         logger.warn { "unable to find locker mac #{lock.mac} -- id:#{unique_id}" }
         skipped += 1
