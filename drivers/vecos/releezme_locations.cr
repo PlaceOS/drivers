@@ -107,6 +107,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
       @locker_name = booking.full_door_number
       @expires_at = booking.ending
       @allocated = true
+      @allocation_id = booking.id
     end
 
     getter group_id : String? = nil

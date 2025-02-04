@@ -7,6 +7,7 @@ class Place::Booking
   property action : String? = nil
 
   property id : Int64
+  property instance : Int64? = nil
   property booking_type : String
   property booking_start : Int64
   property booking_end : Int64
@@ -122,6 +123,7 @@ class Place::Booking
     @created = nil,
     @approver_id = nil,
     @booked_by_id = nil,
+    @instance = nil,
   )
     asset = asset_id.presence
     if @asset_ids.empty?
