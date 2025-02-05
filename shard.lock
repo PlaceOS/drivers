@@ -209,9 +209,9 @@ shards:
     git: https://github.com/spider-gazelle/pinger.git
     version: 1.1.2
 
-  place_calendar:
+  place_calendar: # Overridden
     git: https://github.com/placeos/calendar.git
-    version: 4.23.0
+    version: 4.24.0+git.commit.5c8b70e2624fa444facb057d468c4b7adfe83d7b
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
