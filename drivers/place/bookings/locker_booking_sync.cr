@@ -13,7 +13,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
   description "Syncs placeos bookings with a physical lockers system via the placeos locker interface"
 
   default_settings({
-    authority_id: "auth-1234",
+    authority_id:         "auth-1234",
     end_of_week_bookings: true,
   })
 
@@ -261,7 +261,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         title: lock.locker_name,
         process_state: lock.allocation_id,
         recurrence_type: "DAILY",
-        recurrence_days: 127
+        recurrence_days: 127,
         recurrence_end: recurrence_end,
       ).get
       allocated += 1
