@@ -5,7 +5,3 @@ dependencies:
 
   ulid:
     github: place-labs/ulid
-
-  place_calendar:
-    github: PlaceOS/calendar
-    branch: master
