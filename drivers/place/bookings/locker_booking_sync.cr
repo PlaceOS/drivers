@@ -225,8 +225,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       else
         checked_out += 1
         # locker has been released so we should free the booking
-        staff_api.update_booking(booking.id, checked_in: false, recurrence_end: booking.booking_end)
-        staff_api.update_booking(booking.id, checked_in: false, instance: booking.instance) if booking.instance
+        staff_api.update_booking(booking.id, recurrence_end: booking.booking_end) if booking.instance
+        staff_api.booking_check_in(booking.id, false, "locker-sync", instance: booking.instance)
       end
     end
 
