@@ -49,6 +49,11 @@ class Place::Booking
   property description : String?
 
   property extension_data : Hash(String, JSON::Any) { {} of String => JSON::Any }
+  getter recurrence_type : String? = nil
+
+  def recurring?
+    @recurrence_type != "none"
+  end
 
   def in_progress?
     now = Time.utc.to_unix
