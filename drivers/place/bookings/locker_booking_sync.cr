@@ -161,7 +161,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     # remove allocations where a place booking has been checked out
     # ensure the locker is still allocated to that user
     release_lockers.each do |place_booking|
-      allocation_id = place_booking.process_state
+      allocation_id = place_booking.process_state.presence
       next unless allocation_id
 
       if locker = lockers.find { |lock| lock.allocation_id == allocation_id }
@@ -280,7 +280,11 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
   protected def check_allocation(booking : Booking)
     return unless booking.booking_type == "locker"
     if zone = (booking.zones & levels).first?
-      queue_sync_level(zone)
+      booking = Booking.from_json staff_api.get_booking(booking.id, booking.instance).get.to_json
+      # only sync level if the update is a create (unsynced) or the ending of a booking
+      if booking.process_state.presence.nil? || booking.deleted || booking.rejected || !booking.checked_out_at.nil?
+        queue_sync_level(zone)
+      end
     end
   end
 end
