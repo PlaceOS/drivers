@@ -10,6 +10,10 @@ class StaffAPI < DriverSpecs::MockDriver
     self[:rejected] = self[:rejected].as_i + 1
   end
 
+  TIMEZONE       = "Australia/Sydney"
+  TIME_UTC       = Time.utc
+  TIME_YESTERDAY = TIME_UTC - 1.day
+
   # Using a constant for bookings to ensure the times don't change during tests
   BOOKINGS = [
     {
@@ -20,8 +24,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_001",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc + 1.hour).to_unix,
-      booking_end:     (Time.utc + 2.hours).to_unix,
+      booking_start:   (TIME_UTC + 1.hour).to_unix,
+      booking_end:     (TIME_UTC + 2.hours).to_unix,
       timezone:        "Australia/Darwin",
       title:           "ignore",
       description:     "",
@@ -32,8 +36,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    TIME_UTC.to_unix,
+      created:         TIME_UTC.to_unix,
     },
     {
       id:              2,
@@ -43,8 +47,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_002",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc + 5.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC + 5.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "notify",
       description:     "",
@@ -55,8 +59,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    TIME_UTC.to_unix,
+      created:         TIME_UTC.to_unix,
     },
     {
       id:              3,
@@ -66,8 +70,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_003",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 11.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "reject",
       description:     "",
@@ -78,8 +82,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
     },
     {
       id:              4,
@@ -89,8 +93,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_004",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc + 5.hours).to_unix,
-      booking_end:     (Time.utc + 6.hours).to_unix,
+      booking_start:   (TIME_UTC + 5.hours).to_unix,
+      booking_end:     (TIME_UTC + 6.hours).to_unix,
       timezone:        "Australia/Darwin",
       title:           "ignore_after_hours",
       description:     "",
@@ -101,8 +105,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    TIME_UTC.to_unix,
+      created:         TIME_UTC.to_unix,
     },
     {
       id:              5,
@@ -112,8 +116,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_005",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 11.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "ignore_wfo",
       description:     "",
@@ -124,8 +128,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_two@example.com",
       booked_by_name:  "User Two",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
     },
     {
       id:              6,
@@ -135,8 +139,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_006",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 11.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "ignore_last_minute_checkin",
       description:     "",
@@ -147,8 +151,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
     },
     {
       id:              7,
@@ -158,8 +162,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_007",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 11.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "ignore_last_minute_schedule_change",
       description:     "",
@@ -170,8 +174,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
     },
     {
       id:              8,
@@ -181,8 +185,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_008",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 2.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 2.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "reject_on_start",
       description:     "",
@@ -193,8 +197,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
     },
     {
       id:              9,
@@ -204,8 +208,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_009",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 11.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "release_override_aol",
       description:     "",
@@ -216,8 +220,8 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_three@example.com",
       booked_by_name:  "User Three",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
     },
     {
       id:              10,
@@ -227,8 +231,8 @@ class StaffAPI < DriverSpecs::MockDriver
       asset_id:        "desk_010",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 11.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "ignore_override",
       description:     "",
@@ -239,19 +243,19 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_four@example.com",
       booked_by_name:  "User Four",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
     },
     {
       id:              11,
       user_id:         "user-wfh",
       user_email:      "user_one@example.com",
       user_name:       "User One",
-      asset_id:        "desk_003",
+      asset_id:        "desk_011",
       zones:           ["zone-1234"],
       booking_type:    "desk",
-      booking_start:   (Time.utc - 11.minutes).to_unix,
-      booking_end:     (Time.utc + 1.hour).to_unix,
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
       timezone:        "Australia/Darwin",
       title:           "ignore_checked_in",
       description:     "",
@@ -262,12 +266,104 @@ class StaffAPI < DriverSpecs::MockDriver
       booked_by_email: "user_one@example.com",
       booked_by_name:  "User One",
       process_state:   "approved",
-      last_changed:    Time.utc.to_unix,
-      created:         Time.utc.to_unix,
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
+    },
+    {
+      id:              12,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_012",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (TIME_UTC - 1.seconds).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore_created_after_start",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    TIME_UTC.to_unix,
+      created:         TIME_UTC.to_unix,
+    },
+    {
+      id:              13,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_013",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   TIME_UTC.to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "ignore_same_created_and_start",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    TIME_UTC.to_unix,
+      created:         TIME_UTC.to_unix,
+    },
+    {
+      id:              14,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_014",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (TIME_UTC + 5.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "notify_created_yesterday",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    TIME_YESTERDAY.to_unix,
+      created:         TIME_YESTERDAY.to_unix,
+    },
+    {
+      id:              15,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_015",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (TIME_UTC - 11.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "reject_created_yesterday",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    TIME_YESTERDAY.to_unix,
+      created:         TIME_YESTERDAY.to_unix,
     },
   ]
 
-  NOW         = Time.local(location: Time::Location.load("Australia/Sydney"))
+  NOW         = Time.local(location: Time::Location.load(TIMEZONE))
   DATE        = NOW.to_s(format: "%F")
   DAY_OF_WEEK = NOW.day_of_week.value == 0 ? 7 : NOW.day_of_week.value
 
@@ -533,7 +629,7 @@ class StaffAPI < DriverSpecs::MockDriver
         ],
         triggers:  [] of String,
         parent_id: "zone-0000",
-        timezone:  "Australia/Sydney",
+        timezone:  TIMEZONE,
       },
     ]
 
@@ -585,8 +681,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   })
 
   settings({
-    time_window_hours: 8,
-    auto_release:      {
+    auto_release: {
       time_before: 10,
       time_after:  10,
       resources:   ["desk"],
@@ -598,15 +693,29 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp.not_nil!.as_h["id"].should eq "zone-1234"
 
   resp = exec(:get_pending_bookings).get
-  resp.not_nil!.as_a.size.should eq 10
+  resp.not_nil!.as_a.size.should eq 14
 
   resp = exec(:get_user_preferences?, "user-wfh").get
   resp.not_nil!.as_h.keys.should eq ["work_preferences", "work_overrides"]
 
-  # this also tests #skip_release?
+  # Start of tests for: #pending_release
+  #######################################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            false,
+  })
+
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 7
+  pending_release.size.should eq 9
   pending_release.should eq [
     "ignore",
     "notify",
@@ -615,7 +724,35 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     "ignore_last_minute_schedule_change",
     "reject_on_start",
     "release_override_aol",
+    "notify_created_yesterday",
+    "reject_created_yesterday",
   ]
+
+  # skip_same_day: true
+  #####################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            true,
+  })
+
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.size.should eq 2
+  pending_release.should eq [
+    "notify_created_yesterday",
+    "reject_created_yesterday",
+  ]
+
+  #####################################
+  # End of tests for: #pending_release
 
   # Start of tests for: #release_bookings
   #######################################
@@ -627,20 +764,39 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
       time_after:  10,
       resources:   ["desk"],
     },
-    release_locations: ["wfh", "aol"],
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            false,
   })
 
-  # Should reject 2 bookings
+  # Ensure self[:pending_release] holds the correct bookings for the settings before testing #release_bookings
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.size.should eq 9
+  pending_release.should eq [
+    "ignore",
+    "notify",
+    "reject",
+    "ignore_last_minute_checkin",
+    "ignore_last_minute_schedule_change",
+    "reject_on_start",
+    "release_override_aol",
+    "notify_created_yesterday",
+    "reject_created_yesterday",
+  ]
+
+  # Should reject 3 bookings
   # booking_id: 3, title: reject
   # booking_id: 9, title: release_override_aol
+  # booking_id: 15, title: reject_created_yesterday
   resp = exec(:release_bookings).get
-  resp.should eq [3, 9]
-  system(:StaffAPI_1)[:rejected].should eq 2
+  resp.should eq [3, 9, 15]
+  system(:StaffAPI_1)[:rejected].should eq 3
 
   # Don't try to reject bookings that have already been rejected
   resp = exec(:release_bookings).get
-  resp.should eq [3, 9]
-  system(:StaffAPI_1)[:rejected].should eq 2
+  resp.should eq [3, 9, 15]
+  system(:StaffAPI_1)[:rejected].should eq 3
 
   # Reject bookings immidiatly on start
   settings({
@@ -650,14 +806,16 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
       time_after:  0,
       resources:   ["desk"],
     },
-    release_locations: ["wfh", "aol"],
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            false,
   })
 
-  # Should reject two bookings
-  # booking_id: [3, 9, 8], title: ["reject", "release_override_aol", "reject_on_start"]
+  # Should reject 4 bookings
+  # booking_id: [3, 9, 15, 8], title: ["reject", "release_override_aol", "reject_created_yesterday", "reject_on_start"]
   resp = exec(:release_bookings).get
-  resp.should eq [3, 9, 8]
-  system(:StaffAPI_1)[:rejected].should eq 3
+  resp.should eq [3, 9, 15, 8]
+  system(:StaffAPI_1)[:rejected].should eq 4
 
   #####################################
   # End of tests for: #release_bookings
@@ -677,14 +835,15 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # Send email once booking is past the time_before window,
   # but before the time_after window
   # (booking_id: 2, title: notify)
+  # (booking_id: 14, title: notify_created_yesterday)
   resp = exec(:send_release_emails).get
-  resp.should eq [2]
-  system(:Mailer_1)[:sent].should eq 1
+  resp.should eq [2, 14]
+  system(:Mailer_1)[:sent].should eq 2
 
   # Spam protection, should not send email again
   resp = exec(:send_release_emails).get
-  resp.should eq [2]
-  system(:Mailer_1)[:sent].should eq 1
+  resp.should eq [2, 14]
+  system(:Mailer_1)[:sent].should eq 2
 
   ########################################
   # End of tests for: #send_release_emails

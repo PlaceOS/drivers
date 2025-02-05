@@ -10,33 +10,35 @@ class Place::AutoRelease < PlaceOS::Driver
   generic_name :AutoRelease
   description %(emails visitors to confirm automatic release of their booking when they have indicated they are not on-site and releases the booking if they do not confirm)
 
-  # time_window_hours: The number of hours to check for bookings pending release
-  #
-  # release_locations: Locations to release bookings for
-  # available locations:
-  # - wfh: Work From Home
-  # - aol: Away on Leave
-  # - wfo: Work From Office
   default_settings({
-    timezone:          "Australia/Sydney",
     date_time_format:  "%c",
     time_format:       "%l:%M%p",
     date_format:       "%A, %-d %B",
     email_schedule:    "*/5 * * * *",
     email_template:    "auto_release",
-    time_window_hours: 4,
-    release_locations: ["wfh", "aol"],
+    time_window_hours: 4,              # The number of hours to check for bookings pending release
+    release_locations: ["wfh", "aol"], # Locations to release bookings for
+    # available locations:
+    # - wfh: Work From Home
+    # - aol: Away on Leave
+    # - wfo: Work From Office
+    skip_created_after_start: true,  # Skip bookings created after the start time
+    skip_same_day:            false, # Skip bookings created on the same day as the booking
   })
 
   accessor staff_api : StaffAPI_1
 
   getter building_zone : Zone { get_building_zone?.not_nil! }
 
+  protected getter timezone : Time::Location do
+    tz = config.control_system.try(&.timezone) || building_zone.timezone.presence || "UTC"
+    Time::Location.load(tz)
+  end
+
   def mailer
     system.implementing(Interface::Mailer)[0]
   end
 
-  @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
@@ -50,15 +52,16 @@ class Place::AutoRelease < PlaceOS::Driver
   @time_window_hours : Int32 = 1
   @release_locations : Array(String) = ["wfh"]
   @auto_release : AutoReleaseConfig = AutoReleaseConfig.new
+  @skip_created_after_start : Bool = true
+  @skip_same_day : Bool = true
 
   def on_update
     @building_zone = nil
+    @timezone = nil
 
     @email_schedule = setting?(String, :email_schedule).presence
     @email_template = setting?(String, :email_template) || "auto_release"
 
-    timezone = setting?(String, :timezone).presence || "Australia/Sydney"
-    @timezone = Time::Location.load(timezone)
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
@@ -66,6 +69,8 @@ class Place::AutoRelease < PlaceOS::Driver
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
+    @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
+    @skip_same_day = setting?(Bool, :skip_same_day) || false
 
     schedule.clear
 
@@ -76,7 +81,7 @@ class Place::AutoRelease < PlaceOS::Driver
     schedule.every(1.minute) { release_bookings }
 
     if emails = @email_schedule
-      schedule.cron(emails, @timezone) { send_release_emails }
+      schedule.cron(emails, timezone) { send_release_emails }
     end
   end
 
@@ -171,6 +176,10 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings = get_pending_bookings
 
     bookings.each do |booking|
+      next if @skip_created_after_start && (created_at = booking.created) && created_at >= booking.booking_start
+      next if @skip_same_day && (created_at = booking.created) &&
+              Time.unix(created_at).in(building_zone.time_location!).day == Time.unix(booking.booking_start).in(building_zone.time_location!).day
+
       if preferences = get_user_preferences?(booking.user_id)
         # get the booking start time in the building timezone
         booking_start = Time.unix(booking.booking_start).in building_zone.time_location!
@@ -246,7 +255,7 @@ class Place::AutoRelease < PlaceOS::Driver
   end
 
   def template_fields : Array(TemplateFields)
-    time_now = Time.utc.in(@timezone)
+    time_now = Time.utc.in(timezone)
     [
       TemplateFields.new(
         trigger: {@email_template, "auto_release"},
@@ -298,9 +307,7 @@ class Place::AutoRelease < PlaceOS::Driver
          (Time.utc.to_unix - booking.booking_start < @auto_release.time_after * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
 
-        timezone = booking.timezone.presence || @timezone.name
-        location = Time::Location.load(timezone)
-
+        location = Time::Location.load(booking.timezone.presence || timezone.name)
         starting = Time.unix(booking.booking_start).in(location)
         ending = Time.unix(booking.booking_end).in(location)
 
