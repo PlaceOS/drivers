@@ -14,6 +14,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
 
   default_settings({
     authority_id: "auth-1234",
+    end_of_week_bookings: true,
   })
 
   # synced == allocation_id in placeos booking.process_state
@@ -32,12 +33,15 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     on_update
   end
 
+  @end_of_week_bookings : Bool = false
+
   def on_update
     @building_id = nil
     @timezone = nil
     @systems = nil
     @locker_banks = nil
     @locker_details = nil
+    @end_of_week_bookings = setting?(Bool, :end_of_week_bookings) || false
 
     authority_id = setting(String, :authority_id)
     subscriptions.clear
@@ -243,6 +247,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       end
 
       user = staff_api.user(email).get
+      recurrence_end = end_of_week.to_unix if @end_of_week_bookings
       staff_api.create_booking(
         booking_type: "locker",
         asset_id: lock.locker_id,
@@ -252,12 +257,13 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         zones: [level_id] + config.control_system.not_nil!.zones,
         booking_start: start_of_day.to_unix,
         booking_end: end_of_day.to_unix,
-        checked_in: true,
+        # checked_in: true, # results in a 422 error
         title: lock.locker_name,
         process_state: lock.allocation_id,
         recurrence_type: "DAILY",
-        recurrence_end: end_of_week.to_unix,
-      )
+        recurrence_days: 127
+        recurrence_end: recurrence_end,
+      ).get
       allocated += 1
     rescue error
       logger.warn(exception: error) { "error c locker mac #{lock.mac} -- id:#{unique_id}" }
