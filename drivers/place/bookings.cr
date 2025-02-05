@@ -296,7 +296,23 @@ class Place::Bookings < PlaceOS::Driver
         cache_period,
         @time_zone.name,
         include_cancelled: @include_cancelled_bookings
-      ).get.as_a
+      ).get.as_a.map do |evt|
+        visibility = if evt["private"].as_bool?
+                       "private"
+                     else
+                       evt["visibility"]?.try &.as_s?.try &.downcase || "normal"
+                     end
+        if visibility == "private"
+          evt.as_h["title"] = JSON::Any.new("Private")
+          evt.as_h["host"] = JSON::Any.new("Private")
+        elsif visibility == "personal"
+          evt.as_h["title"] = evt["host"]
+        elsif visibility == "confidential"
+          evt.as_h["title"] = JSON::Any.new("Confidential")
+          evt.as_h["host"] = JSON::Any.new("Confidential")
+        end
+        evt
+      end
     }.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
 
     self[:bookings] = events
