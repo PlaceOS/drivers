@@ -160,17 +160,19 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
 
     # remove allocations where a place booking has been checked out
     # ensure the locker is still allocated to that user
+    allocated = 0
     release_lockers.each do |place_booking|
       allocation_id = place_booking.process_state.presence
       next unless allocation_id
 
       if locker = lockers.find { |lock| lock.allocation_id == allocation_id }
+        allocated += 1
         locker_systems.locker_release(locker.bank_id, locker.locker_id, place_booking.user_id.presence || place_booking.user_email) rescue nil
         lockers.delete locker
       end
     end
 
-    logger.debug { "released #{release_lockers.size} lockers -- id:#{unique_id}" }
+    logger.debug { "released #{allocated} lockers, checked #{release_lockers.size} bookings -- id:#{unique_id}" }
 
     # allocate lockers where a place booking has been created
     allocated = 0
