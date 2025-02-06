@@ -8,6 +8,7 @@ This helper provides a simple method for asking users if they intend to attend t
 * Booking checkin helper monitors `Booking.current_pending` and `Booking.presence`
   * auto checks in if presence found
   * emails the host about the booking if they have not checked in
+* configuring `auto_cancel: true` will have the system decline the meeting with the `decline_message` instead of asking the host if they still intend to attend.
 
 
 ## Requirements
@@ -18,6 +19,9 @@ Requires the following drivers in the system
 * StaffAPI - for peoples names
 * Mailer - for querying the host if they will be using the room
 * (some sensor driver for Booking driver to obtain presence state from)
+
+Note:: to avoid having to add Mailer and StaffAPI to each system you can define a `mailer_system` setting.
+This will delegate to that system for StaffAPI and Mailers.
 
 
 ## Usage
