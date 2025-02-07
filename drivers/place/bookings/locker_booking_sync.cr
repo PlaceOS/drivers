@@ -158,6 +158,13 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       end
     end
 
+    # there might be new allocations or valid bookings and we don't want to
+    # release the locker if there are existing bookings
+    release_lockers.reject! do |booking|
+      allocate_lockers.find { |book| book.asset_id == booking.asset_id && (book.user_id == booking.user_id || book.user_email.downcase == booking.user_email.downcase) } ||
+        place_bookings.find { |book| book.asset_id == booking.asset_id && (book.user_id == booking.user_id || book.user_email.downcase == booking.user_email.downcase) }
+    end
+
     # remove allocations where a place booking has been checked out
     # ensure the locker is still allocated to that user
     allocated = 0
@@ -167,6 +174,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
 
       if locker = lockers.find { |lock| lock.allocation_id == allocation_id }
         allocated += 1
+        logger.debug { "  -- released #{locker.locker_id} (#{locker.allocation_id}) form #{place_booking.user_id} (#{place_booking.user_email}) -- id:#{unique_id}" }
         locker_systems.locker_release(locker.bank_id, locker.locker_id, place_booking.user_id.presence || place_booking.user_email) rescue nil
         lockers.delete locker
       end
@@ -201,12 +209,16 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
           Array(PlaceLocker).from_json locker_system.lockers_allocated_to(place_user_id).get.to_json
         }.select! { |lock| lock.locker_id == asset_id }.first?
 
-        lockers.delete(found) if locker
+        if locker
+          logger.debug { "  -- allocated #{found.locker_id} to #{place_user_id} (#{place_booking.user_email}) -- id:#{unique_id}" }
+          lockers.delete(found)
+        end
       end
 
       # store the allocation id in placeos, if locker allocate failed then we'll hopefully
       # resolve this below if this step failed in a previous run
       if locker
+        logger.debug { "  -- update #{locker.locker_id} booking state on #{place_booking.id} to #{locker.allocation_id} -- id:#{unique_id}" }
         staff_api.booking_state(place_booking.id, locker.allocation_id)
         allocated += 1
       else
@@ -226,6 +238,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         lockers.delete(locker)
       else
         checked_out += 1
+        logger.debug { "  -- booking #{booking.id} checked out of #{booking.asset_id} (#{booking.user_id}: #{booking.user_email}) -- id:#{unique_id}" }
         # locker has been released so we should free the booking
         staff_api.update_booking(booking.id, recurrence_end: booking.booking_end) if booking.instance
         staff_api.booking_check_in(booking.id, false, "locker-sync", instance: booking.instance)
@@ -248,6 +261,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         next
       end
 
+      logger.debug { "  -- creating booking for #{lock.locker_id} and #{email} -- id:#{unique_id}" }
       user = staff_api.user(email).get
       recurrence_end = end_of_week.to_unix if @end_of_week_bookings
       staff_api.create_booking(
@@ -259,6 +273,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         zones: [level_id] + config.control_system.not_nil!.zones,
         booking_start: start_of_day.to_unix,
         booking_end: end_of_day.to_unix,
+        time_zone: timezone.name,
         # checked_in: true, # results in a 422 error
         title: lock.locker_name,
         process_state: lock.allocation_id,
@@ -268,7 +283,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       ).get
       allocated += 1
     rescue error
-      logger.warn(exception: error) { "error c locker mac #{lock.mac} -- id:#{unique_id}" }
+      logger.warn(exception: error) { "error creating booking for locker mac #{lock.mac} -- id:#{unique_id}" }
       skipped += 1
     end
 
