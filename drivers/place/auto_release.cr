@@ -2,6 +2,7 @@ require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 require "place_calendar"
+require "./booking_model"
 
 class Place::AutoRelease < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
@@ -241,7 +242,7 @@ class Place::AutoRelease < PlaceOS::Driver
         next if skip_release?(booking)
 
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
-        staff_api.reject(booking.id).get
+        staff_api.reject(booking.id, "auto_release", booking.instance).get
         released_booking_ids << booking.id
       end
     end
@@ -372,42 +373,6 @@ class Place::AutoRelease < PlaceOS::Driver
 
     property day_of_week : Int32
     property blocks : Array(WorktimeBlock) = [] of WorktimeBlock
-  end
-
-  struct Booking
-    include JSON::Serializable
-
-    property id : Int64
-
-    property user_id : String
-    property user_email : String
-    property user_name : String
-    property asset_id : String
-    property zones : Array(String)
-    property booking_type : String
-
-    property booking_start : Int64
-    property booking_end : Int64
-
-    property timezone : String?
-    property title : String?
-    property description : String?
-
-    property checked_in : Bool
-    property rejected : Bool
-    property approved : Bool
-
-    property approver_id : String?
-    property approver_email : String?
-    property approver_name : String?
-
-    property booked_by_id : String
-    property booked_by_email : String
-    property booked_by_name : String
-
-    property process_state : String?
-    property last_changed : Int64?
-    property created : Int64?
   end
 
   struct Zone

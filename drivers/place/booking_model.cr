@@ -55,6 +55,10 @@ class Place::Booking
     @recurrence_type != "none"
   end
 
+  def recurring_master?
+    recurring? && instance.nil?
+  end
+
   def in_progress?
     now = Time.utc.to_unix
     now >= @booking_start && now < @booking_end
