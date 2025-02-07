@@ -26,11 +26,13 @@ class Place::Demo::Lockers < PlaceOS::Driver
   class ::Place::Locker
     # for tracking, not part of metadata
     property allocated_to : String? = nil
+    property allocated_at : Time? = nil
     property allocated_until : Time? = nil
     property shared_with : Array(String) = [] of String
 
     def release
       @allocated_to = nil
+      @allocated_at = nil
       @allocated_until = nil
       @shared_with = [] of String
     end
@@ -42,7 +44,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
         else
           false
         end
-      elsif allocated_to = self.allocated_to
+      elsif self.allocated_to.presence
         true
       else
         false
@@ -75,7 +77,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
         @expires_at = nil
       end
       @allocated = in_use
-      @allocation_id = "#{@mac}--#{locker.allocated_to}" if in_use
+      @allocation_id = "#{locker.allocated_to}--#{locker.allocated_at}" if in_use
       @level = locker.level_id
     end
   end
@@ -99,6 +101,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     locker_id = locker_id ? locker_id : bank.locker_hash.values.select(&.not_allocated?).sample.id
     locker = bank.locker_hash[locker_id.to_s]
     locker.allocated_to = user_id
+    locker.allocated_at = Time.utc
     locker.allocated_until = Time.unix(expires_at) if expires_at
     PlaceLocker.new(bank_id, locker, building_id)
   rescue

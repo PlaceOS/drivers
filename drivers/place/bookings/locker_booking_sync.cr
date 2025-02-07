@@ -152,7 +152,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     release_lockers = [] of Booking
     place_bookings.reject! do |booking|
       if booking.deleted == true || booking.rejected == true || !booking.checked_out_at.nil?
-        logger.debug { "  -- releasing locker #{booking.asset_id} as booking deleted #{booking.deleted.inspect}, rejected #{booking.rejected.inspect}, checked out #{booking.checked_out_at.inspect}" }
+        logger.debug { "  -- releasing locker #{booking.asset_id} as booking deleted #{booking.deleted.inspect}, rejected #{booking.rejected.inspect}, checked out #{booking.checked_out_at.inspect} -- id:#{unique_id}" }
         release_lockers << booking
       elsif booking.process_state.presence.nil?
         allocate_lockers << booking
