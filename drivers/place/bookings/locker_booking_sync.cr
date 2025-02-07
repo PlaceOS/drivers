@@ -151,7 +151,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     allocate_lockers = [] of Booking
     release_lockers = [] of Booking
     place_bookings.reject! do |booking|
-      if booking.deleted || booking.rejected || !booking.checked_out_at.nil?
+      if booking.deleted == true || booking.rejected == true || !booking.checked_out_at.nil?
+        logger.debug { "  -- releasing locker #{booking.asset_id} as booking deleted #{booking.deleted.inspect}, rejected #{booking.rejected.inspect}, checked out #{booking.checked_out_at.inspect}" }
         release_lockers << booking
       elsif booking.process_state.presence.nil?
         allocate_lockers << booking
@@ -174,7 +175,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
 
       if locker = lockers.find { |lock| lock.allocation_id == allocation_id }
         allocated += 1
-        logger.debug { "  -- released #{locker.locker_id} (#{locker.allocation_id}) form #{place_booking.user_id} (#{place_booking.user_email}) -- id:#{unique_id}" }
+        logger.debug { "  -- released #{locker.locker_id} (#{locker.allocation_id}) from #{place_booking.user_id} (#{place_booking.user_email}) -- id:#{unique_id}" }
         locker_systems.locker_release(locker.bank_id, locker.locker_id, place_booking.user_id.presence || place_booking.user_email) rescue nil
         lockers.delete locker
       end
@@ -299,7 +300,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     if zone = (booking.zones & levels).first?
       booking = Booking.from_json staff_api.get_booking(booking.id, booking.instance).get.to_json
       # only sync level if the update is a create (unsynced) or the ending of a booking
-      if booking.process_state.presence.nil? || booking.deleted || booking.rejected || !booking.checked_out_at.nil?
+      if booking.process_state.presence.nil? || booking.deleted == true || booking.rejected == true || !booking.checked_out_at.nil?
         queue_sync_level(zone)
       end
     end
