@@ -29,6 +29,7 @@ class Place::Booking
   property zones : Array(String)
 
   property rejected : Bool?
+  property rejected_at : Int64? = nil
   property approved : Bool?
   property process_state : String?
   property last_changed : Int64?
