@@ -166,6 +166,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         place_bookings.find { |book| book.asset_id == booking.asset_id && (book.user_id == booking.user_id || book.user_email.downcase == booking.user_email.downcase) }
     end
 
+    logger.debug { "planning to allocate #{allocate_lockers.size}, release #{release_lockers.size} and check #{place_bookings.size} against #{lockers.size} allocations -- id:#{unique_id}" }
+
     # remove allocations where a place booking has been checked out
     # ensure the locker is still allocated to that user
     allocated = 0
@@ -220,7 +222,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       # resolve this below if this step failed in a previous run
       if locker
         logger.debug { "  -- update #{locker.locker_id} booking state on #{place_booking.id} to #{locker.allocation_id} -- id:#{unique_id}" }
-        staff_api.booking_state(place_booking.id, locker.allocation_id)
+        staff_api.booking_state(place_booking.id, locker.allocation_id) if place_booking.instance
+        staff_api.booking_state(place_booking.id, locker.allocation_id, instance: place_booking.instance)
         allocated += 1
       else
         alloc_failed << place_booking

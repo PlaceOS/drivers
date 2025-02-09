@@ -6,7 +6,7 @@ class StaffAPI < DriverSpecs::MockDriver
     self[:rejected] = 0
   end
 
-  def reject(booking_id : String | Int64, utm_source : String? = nil)
+  def reject(booking_id : String | Int64, utm_source : String? = nil, instance : Int64? = nil)
     self[:rejected] = self[:rejected].as_i + 1
   end
 
