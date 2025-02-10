@@ -31,6 +31,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     custom_field_email:     "cf_EmailAddress",
     custom_field_phone:     "cf_Mobile",
     custom_field_csv_sync:  "cf_CSVCustom",
+    custom_field_license:   "cf_LicensePlate",
 
     # 16 bit card number in Wiegand 26
     # Ideally guests have their own site id and the full range of card numbers
@@ -50,6 +51,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     @cf_email = setting?(String, :custom_field_email) || "cf_EmailAddress"
     @cf_phone = setting?(String, :custom_field_phone) || "cf_Mobile"
     @cf_csv = setting?(String, :custom_field_csv_sync) || "cf_CSVCustom"
+    @cf_license = setting?(String, :custom_field_license) || "cf_LicensePlate"
     @guest_card_template = setting?(String, :guest_card_template) || ""
     guest_card_start = setting?(UInt16, :guest_card_start) || 0_u16
     guest_card_end = setting?(UInt16, :guest_card_end) || (UInt16::MAX - 1_u16)
@@ -80,6 +82,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   getter cf_phone : String = "cf_Mobile"
   getter cf_origo : String = "cf_HasVirtualCard"
   getter cf_csv : String = "cf_CSVCustom"
+  getter cf_license : String = "cf_LicensePlate"
   getter guest_card_template : String = ""
   getter guest_access_group : String = ""
   @guest_card_range : Range(UInt16, UInt16) = 0_u16..UInt16::MAX
@@ -628,6 +631,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     "cf_phone"               => phone : String,
     "cf_email"               => email : String,
     "cf_csv"                 => csv : String,
+    "cf_license"             => license : String,
     "PrimaryPermissionGroup" => primary_permission_group : PermissionGroup,
   })
 
@@ -641,6 +645,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     "cf_phone"               => phone : String,
     "cf_email"               => email : String,
     "cf_csv"                 => csv : String,
+    "cf_license"             => license : String,
     "PrimaryPermissionGroup" => primary_permission_group : PermissionGroup, # ref only
   }) do
     def site_id
@@ -679,7 +684,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def create_user(name : String, email : String, phone : String? = nil, site_id : String | Int64? = nil, csv : String? = nil) : String
+  def create_user(name : String, email : String, phone : String? = nil, site_id : String | Int64? = nil, csv : String? = nil, license : String? = nil) : String
     first_name, second_name = name.split(' ', 2)
     user = extract_add_or_update_result(add_entry("User", UpdateFields{
       "FirstName"  => first_name,
@@ -688,6 +693,7 @@ class InnerRange::Integriti < PlaceOS::Driver
       cf_email     => email.strip.downcase,
       cf_phone     => phone,
       cf_csv       => csv,
+      cf_license   => license,
     }.compact!))
     user.address.as(String)
   end
@@ -699,12 +705,14 @@ class InnerRange::Integriti < PlaceOS::Driver
     phone : String? = nil,
     origo : Bool? = nil,
     csv : String? = nil,
+    license : String? = nil,
   )
     fields = UpdateFields{
-      cf_email => email.try(&.strip.downcase),
-      cf_phone => phone,
-      cf_origo => origo,
-      cf_csv   => csv,
+      cf_email   => email.try(&.strip.downcase),
+      cf_phone   => phone,
+      cf_origo   => origo,
+      cf_csv     => csv,
+      cf_license => license,
     }.compact!
 
     return nil if fields.empty?
