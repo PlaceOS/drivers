@@ -44,4 +44,9 @@ class InnerRange::Integriti < PlaceOS::Driver
     email = get_user_email
     integriti.users(email: email).get.dig?(0, "origo").try(&.as_bool?) || false
   end
+
+  def has_account? : Bool
+    email = get_user_email
+    integriti.user_id_lookup(email).get.as_a.size > 0
+  end
 end
