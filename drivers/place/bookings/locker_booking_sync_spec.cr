@@ -117,7 +117,66 @@ DriverSpecs.mock_driver "Place::Bookings::LockerBookingSync" do
   staff_api.updated.should eq 1
   staff_api.query_calls.should eq 16
 
+  # ===================================================
   # create a new booking and ensure bookings are stable
+  # repeating all these previous tasks with old entries
+  # ===================================================
+
+  # create a staff api booking as a locker booking has been made
+  puts "\n\nLOCKER ALLOCATION SYNC\n"
+  lockers = system(:Lockers).as(LockersMock)
+  lockers.locker_allocate("user-1", "bank-1", "locker-2")
+  lockers.total_lockers_allocated.should eq 1
+  staff_api.bookings.size.should eq 2
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  staff_api.bookings.size.should eq 3
+  staff_api.created.should eq 3
+  staff_api.query_calls.should eq 18
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 1
+  staff_api.bookings.size.should eq 3
+  staff_api.created.should eq 3
+  staff_api.checked_out.should eq 1
+  staff_api.updated.should eq 1
+  staff_api.query_calls.should eq 20
+
+  # create a locker allocation if a staff API booking has been made
+  puts "\n\nSTAFF API BOOKING SYNC\n"
+  timezone = Time::Location.load("Australia/Sydney")
+  now = Time.local(timezone)
+  staff_api.create_booking(
+    booking_type: "locker",
+    asset_id: "locker-1",
+    user_id: "user-2",
+    user_email: "user-2@email.com",
+    user_name: "User 2",
+    zones: ["zone-level1", "zone-1234"],
+    booking_start: now.to_unix,
+    booking_end: now.at_end_of_day.to_unix,
+    title: "Lock 2",
+    time_zone: "Australia/Sydney"
+  )
+  staff_api.bookings.size.should eq 4
+  staff_api.created.should eq 4
+  lockers.total_lockers_allocated.should eq 1
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 2
+  staff_api.bookings.size.should eq 4
+  staff_api.created.should eq 4
+  staff_api.checked_out.should eq 1
+  staff_api.updated.should eq 2
+  staff_api.query_calls.should eq 22
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 2
+  staff_api.bookings.size.should eq 4
+  staff_api.created.should eq 4
+  staff_api.checked_out.should eq 1
+  staff_api.updated.should eq 2
+  staff_api.query_calls.should eq 24
 end
 
 # :nodoc:
