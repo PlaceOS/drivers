@@ -228,6 +228,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       else
         alloc_failed << place_booking
       end
+    rescue error
+      logger.warn(exception: error) { "failed to allocate #{place_booking.asset_id}" }
     end
 
     logger.debug { "allocated #{allocated} lockers, failed #{alloc_failed.size}, skipped #{skipped} -- id:#{unique_id}" }
@@ -292,6 +294,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     end
 
     logger.debug { "created #{allocated} placeos locker bookings. Failed to find #{skipped} users -- id:#{unique_id}" }
+  rescue error
+    logger.error(exception: error) { "unexpected error syncing bookings" }
   end
 
   # ===========================
