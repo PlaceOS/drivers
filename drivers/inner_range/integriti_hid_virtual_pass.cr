@@ -21,7 +21,8 @@ class InnerRange::Integriti < PlaceOS::Driver
     user_id = invoked_by_user_id
     raise "current user not known in this context" unless user_id
     id = user_id.as(String)
-    staff_api.user(id).get["email"].as_s.downcase
+    user = staff_api.user(id).get
+    (user["login_name"]? || user["email"]).as_s.downcase
   end
 
   protected def get_integriti_id : String
@@ -41,6 +42,6 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   def has_virtual_card? : Bool
     email = get_user_email
-    integriti.users(email: email).get[0]["origo"].as_bool? || false
+    integriti.users(email: email).get.dig?(0, "origo").try(&.as_bool?) || false
   end
 end
