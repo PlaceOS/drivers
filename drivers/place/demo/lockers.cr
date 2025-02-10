@@ -77,7 +77,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
         @expires_at = nil
       end
       @allocated = in_use
-      @allocation_id = "#{locker.allocated_to}--#{locker.allocated_at}" if in_use
+      @allocation_id = "#{locker.allocated_to}--#{locker.id}--#{locker.allocated_at.try(&.to_unix_ns)}" if in_use
       @level = locker.level_id
     end
   end

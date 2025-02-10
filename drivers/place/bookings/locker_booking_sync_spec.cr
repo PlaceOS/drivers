@@ -10,12 +10,114 @@ DriverSpecs.mock_driver "Place::Bookings::LockerBookingSync" do
     Lockers:          {LockersMock},
   })
 
+  # Ensure sync works and creates no bookings
+  puts "\n\nEMPTY SYNC\n"
   exec :sync_level, "zone-level1"
-  sleep 1
-
+  sleep 300.milliseconds
   staff_api = system(:StaffAPI).as(StaffAPIMock)
   staff_api.created.should eq 0
   staff_api.query_calls.should eq 2
+  staff_api.reset
+
+  # create a staff api booking as a locker booking has been made
+  puts "\n\nLOCKER ALLOCATION SYNC\n"
+  lockers = system(:Lockers).as(LockersMock)
+  lockers.locker_allocate("user-1", "bank-1", "locker-2")
+  lockers.total_lockers_allocated.should eq 1
+  staff_api.bookings.size.should eq 0
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  staff_api.bookings.size.should eq 1
+  staff_api.created.should eq 1
+  staff_api.query_calls.should eq 2
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 1
+  staff_api.bookings.size.should eq 1
+  staff_api.created.should eq 1
+  staff_api.checked_out.should eq 0
+  staff_api.updated.should eq 0
+  staff_api.query_calls.should eq 4
+
+  # create a locker allocation if a staff API booking has been made
+  puts "\n\nSTAFF API BOOKING SYNC\n"
+  timezone = Time::Location.load("Australia/Sydney")
+  now = Time.local(timezone)
+  staff_api.create_booking(
+    booking_type: "locker",
+    asset_id: "locker-1",
+    user_id: "user-2",
+    user_email: "user-2@email.com",
+    user_name: "User 2",
+    zones: ["zone-level1", "zone-1234"],
+    booking_start: now.to_unix,
+    booking_end: now.at_end_of_day.to_unix,
+    title: "Lock 2",
+    time_zone: "Australia/Sydney"
+  )
+  staff_api.bookings.size.should eq 2
+  staff_api.created.should eq 2
+  lockers.total_lockers_allocated.should eq 1
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 2
+  staff_api.bookings.size.should eq 2
+  staff_api.created.should eq 2
+  staff_api.checked_out.should eq 0
+  staff_api.updated.should eq 1
+  staff_api.query_calls.should eq 6
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 2
+  staff_api.bookings.size.should eq 2
+  staff_api.created.should eq 2
+  staff_api.checked_out.should eq 0
+  staff_api.updated.should eq 1
+  staff_api.query_calls.should eq 8
+
+  # release a locker if a staff api booking is ended
+  puts "\n\nSTAFF BOOKING ENDED SYNC\n"
+  booking = staff_api.bookings.values.find! { |book| book.user_id == "user-2" }
+  booking.checked_in = false
+  booking.checked_out_at = Time.utc.to_unix
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 1
+  staff_api.bookings.size.should eq 2
+  staff_api.created.should eq 2
+  staff_api.checked_out.should eq 0
+  staff_api.updated.should eq 1
+  staff_api.query_calls.should eq 10
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 1
+  staff_api.bookings.size.should eq 2
+  staff_api.created.should eq 2
+  staff_api.checked_out.should eq 0
+  staff_api.updated.should eq 1
+  staff_api.query_calls.should eq 12
+
+  # end a booking if a locker is released
+  puts "\n\nLOCKER RELEASE SYNC\n"
+  lockers.locker_release_mine("bank-1", "locker-2")
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 0
+  staff_api.bookings.size.should eq 2
+  staff_api.created.should eq 2
+  staff_api.checked_out.should eq 1
+  staff_api.updated.should eq 1
+  staff_api.query_calls.should eq 14
+  exec :sync_level, "zone-level1"
+  sleep 300.milliseconds
+  lockers.total_lockers_allocated.should eq 0
+  staff_api.bookings.size.should eq 2
+  staff_api.created.should eq 2
+  staff_api.checked_out.should eq 1
+  staff_api.updated.should eq 1
+  staff_api.query_calls.should eq 16
+
+  # create a new booking and ensure bookings are stable
 end
 
 # :nodoc:
@@ -35,6 +137,62 @@ class StaffAPIMock < DriverSpecs::MockDriver
       "zone-level1" => [] of String,
       "zone-level2" => [] of String,
     }
+  end
+
+  def metadata(id : String, key : String? = nil)
+    raise "unexpected building id: #{id}" unless id == "zone-building-id"
+    case key
+    when "locker_banks"
+      {
+        locker_banks: {
+          details: [
+            {
+              id:    "bank-1",
+              name:  "Bank 1",
+              zones: ["zone-building-id", "zone-level1"],
+            },
+            {
+              id:    "bank-2",
+              name:  "Bank 2",
+              zones: ["zone-building-id", "zone-level2"],
+            },
+          ],
+        },
+      }
+    when "lockers"
+      {
+        lockers: {
+          details: [
+            {
+              id:       "locker-1",
+              name:     "Lock 1",
+              bank_id:  "bank-1",
+              bookable: true,
+            },
+            {
+              id:       "locker-2",
+              name:     "Lock 2",
+              bank_id:  "bank-1",
+              bookable: true,
+            },
+            {
+              id:       "locker-3",
+              name:     "Lock 3",
+              bank_id:  "bank-2",
+              bookable: true,
+            },
+            {
+              id:       "locker-4",
+              name:     "Lock 4",
+              bank_id:  "bank-2",
+              bookable: true,
+            },
+          ],
+        },
+      }
+    else
+      {} of Nil => Nil
+    end
   end
 
   def reset
@@ -104,11 +262,13 @@ class StaffAPIMock < DriverSpecs::MockDriver
       {
         id:    "user-1",
         email: "user-1@email.com",
+        name:  "User 1",
       }
     when "user-2", "user-2@email.com"
       {
         id:    "user-2",
         email: "user-2@email.com",
+        name:  "User 2",
       }
     else
       raise "unexpected user id requested #{id}"
@@ -142,7 +302,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     recurrence_interval : Int32? = nil,
     recurrence_end : Int64? = nil
   )
-    @created += 0
+    @created += 1
     id = rand(Int64::MAX)
     @bookings[id] = Place::Booking.new(
       id: id,
@@ -226,7 +386,7 @@ class ::PlaceOS::Driver::Interface::Lockers::PlaceLocker
       @expires_at = nil
     end
     @allocated = in_use
-    @allocation_id = "#{locker.allocated_to}--#{@mac}" if in_use
+    @allocation_id = "#{locker.allocated_to}--#{locker.id}--#{locker.allocated_at.try(&.to_unix_ns)}" if in_use
     @level = locker.level_id
   end
 end
@@ -246,6 +406,14 @@ class LockersMock < DriverSpecs::MockDriver
   def reset
     @locker_banks = nil
     @locker_details = nil
+  end
+
+  def total_lockers_allocated : Int32
+    allocated = 0
+    locker_details.each_value do |locker|
+      allocated += 1 if locker.allocated?
+    end
+    allocated
   end
 
   def invoked_by_user_id
