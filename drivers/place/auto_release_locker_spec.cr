@@ -123,7 +123,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     rejected : Bool? = nil,
     checked_in : Bool? = nil
   )
-    JSON.parse(BOOKINGS.to_json)
+    BOOKINGS
   end
 
   def zones(q : String? = nil,
@@ -154,10 +154,28 @@ class StaffAPIMock < DriverSpecs::MockDriver
       },
     ]
 
-    JSON.parse(zones.to_json)
+    zones
   end
 
-  def update_booking(booking_id : String | Int64, booking_end : Int64, checked_in : Bool)
+  def update_booking(
+    booking_id : String | Int64,
+    booking_start : Int64? = nil,
+    booking_end : Int64? = nil,
+    asset_id : String? = nil,
+    title : String? = nil,
+    description : String? = nil,
+    timezone : String? = nil,
+    extension_data : JSON::Any? = nil,
+    approved : Bool? = nil,
+    checked_in : Bool? = nil,
+    limit_override : Int64? = nil,
+    instance : Int64? = nil,
+    recurrence_end : Int64? = nil,
+  )
+    true
+  end
+
+  def booking_check_in(booking_id : String | Int64, state : Bool = true, utm_source : String? = nil, instance : Int64? = nil)
     true
   end
 end
