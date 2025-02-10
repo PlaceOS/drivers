@@ -22,7 +22,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     raise "current user not known in this context" unless user_id
     id = user_id.as(String)
     user = staff_api.user(id).get
-    (user["login_name"]? || user["email"]).as_s.downcase
+    (user["login_name"]?.presence || user["email"]).as_s.downcase
   end
 
   protected def get_integriti_id : String
