@@ -2,8 +2,9 @@ require "placeos-driver"
 require "place_calendar"
 
 class Place::AttendeeScanner < PlaceOS::Driver
-  descriptive_name "PlaceOS Room Events"
+  descriptive_name "PlaceOS Attendee scanner"
   generic_name :AttendeeScanner
+  description %(Scans for attendees that don't have a visitor invite and creates one)
 
   accessor staff_api : StaffAPI_1
   accessor locations : LocationServices_1
