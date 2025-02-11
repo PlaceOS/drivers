@@ -40,6 +40,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     guest_access_group:  "QG36",
     guest_card_start:    0,
     guest_card_end:      (UInt16::MAX - 1),
+    guest_exclude_range: ["19350-21599", "22505-22754"],
 
     timezone:          "Australia/Sydney",
     long_poll_seconds: 10,
@@ -72,6 +73,16 @@ class InnerRange::Integriti < PlaceOS::Driver
 
     time_zone = setting?(String, :timezone).presence
     @timezone = Time::Location.load(time_zone) if time_zone
+
+    exclude_range = setting?(Array(String), :guest_exclude_range) || [] of String
+    ranges = [] of Range(Int32, Int32)
+    exclude_range.each do |range_str|
+      range = range_str.split('-').map(&.to_i)
+      ranges << (range[0]..range[1])
+    rescue error
+      logger.warn(exception: error) { "failed to parse range: #{range_str}" }
+    end
+    @guest_exclude_ranges = ranges
   end
 
   getter long_poll_seconds : Int32 = 10
@@ -86,6 +97,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   getter guest_card_template : String = ""
   getter guest_access_group : String = ""
   @guest_card_range : Range(UInt16, UInt16) = 0_u16..UInt16::MAX
+  @guest_exclude_ranges : Array(Range(Int32, Int32)) = [] of Range(Int32, Int32)
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
 
   macro check(response)
@@ -1238,7 +1250,20 @@ class InnerRange::Integriti < PlaceOS::Driver
     template = @guest_card_template
 
     loop do
-      number = @guest_card_range.sample.to_s
+      # find a number we can use as a guest card
+      number = @guest_card_range.sample
+      loop do
+        excluded = false
+        @guest_exclude_ranges.each do |range|
+          excluded = range.includes?(number)
+          break if excluded
+        end
+        break unless excluded
+        number = @guest_card_range.sample
+      end
+
+      number = number.to_s
+
       if candidate = cards(template: template, number: number).first?
         if old_user_id = candidate.user.try(&.address)
           # if user still using the card, look for another
