@@ -109,6 +109,12 @@ class Place::StaffAPI < PlaceOS::Driver
     }
   end
 
+  def auth_authority
+    response = get("/auth/authority")
+    raise "unexpected response for /auth/authority: #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
   def get_system(id : String, complete : Bool = false)
     response = get("/api/engine/v2/systems/#{id}?complete=#{complete}", headers: authentication)
     raise "unexpected response for system id #{id}: #{response.status_code}\n#{response.body}" unless response.success?
