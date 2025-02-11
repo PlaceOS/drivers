@@ -9,19 +9,20 @@ class Place::AttendeeScanner < PlaceOS::Driver
   accessor locations : LocationServices_1
 
   default_settings({
-    internal_domains: ["comment.out", "use authority / domain email_domains by preference"],
+    attendee_scan_every_minutes: 5,
+    _internal_domains:           ["comment.out", "use authority / domain email_domains by preference"],
   })
 
-  getter internal_domains : Array(String) = [] of String
-
   def on_update
-    # TODO:: use authority email_domains so this setting isn't required
-    @internal_domains = setting(Array(String), :internal_domains).map!(&.strip.downcase)
-
+    @internal_domains = nil
     @building_id = nil
     @timezone = nil
     @systems = nil
     @org_id = nil
+
+    period = setting?(Int32, :attendee_scan_every_minutes) || 5
+    schedule.clear
+    schedule.every(period.minutes) { invite_external_guests }
   end
 
   getter building_id : String do
@@ -47,8 +48,18 @@ class Place::AttendeeScanner < PlaceOS::Driver
     building_details = staff_api.zone(building_id).get
     @org_id = building_details["parent_id"].as_s?
 
-    tz = building_details["timezone"].as_s
-    Time::Location.load(tz)
+    tz = building_details["timezone"]?.try(&.as_s?).presence || config.control_system.try(&.timezone)
+    Time::Location.load(tz.as(String))
+  end
+
+  getter internal_domains : Array(String) do
+    # use authority email_domains so this setting isn't required
+    domains = (setting?(Array(String), :internal_domains) || [] of String).map!(&.strip.downcase)
+    if domains.empty?
+      staff_api.auth_authority.get["email_domains"].as_a?.try(&.map(&.as_s.strip.downcase)) || domains
+    else
+      domains
+    end
   end
 
   alias Event = PlaceCalendar::Event
