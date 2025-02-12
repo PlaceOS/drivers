@@ -10,10 +10,11 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
   description %(notifies when a room is at capacity)
 
   default_settings({
-    notify_email:          ["concierge@place.com"],
-    debounce_time_minutes: 60, # the time to wait before sending another email
-    email_template:        "room_at_capacity",
-    check_every_minutes:   5, # the frequency to check rooms
+    notify_email:                  ["concierge@place.com"],
+    email_template:                "room_at_capacity",
+    debounce_time_minutes:         60, # the time to wait before sending another email
+    check_every_minutes:           5,  # the frequency to check rooms
+    over_capactity_detected_count: 2,  # the number of times over capacity before sending an email
   })
 
   accessor staff_api : StaffAPI_1
@@ -37,18 +38,21 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
   end
 
   @notify_email : Array(String) = [] of String
-  @debounce_time_minutes : Int32 = 60
-  @last_email_sent : Hash(String, Time) = {} of String => Time
-
   @email_template : String = "room_at_capacity"
+  @debounce_time_minutes : Int32 = 60
+  @over_capactity_detected_count : Int32 = 2
+
+  @last_email_sent : Hash(String, Time) = {} of String => Time
+  @over_capacity : Hash(String, Int32) = {} of String => Int32
 
   def on_update
     @building_id = nil
     @systems = nil
 
     @notify_email = setting?(Array(String), :notify_email) || [] of String
-    @debounce_time_minutes = setting?(Int32, :debounce_time_minutes) || 60
     @email_template = setting?(String, :email_template) || "room_at_capacity"
+    @debounce_time_minutes = setting?(Int32, :debounce_time_minutes) || 60
+    @over_capactity_detected_count = setting?(Int32, :over_capactity_detected_count) || 2
 
     period = setting?(Int32, :check_every_minutes) || 5
     schedule.clear
@@ -64,7 +68,14 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
 
         if people_count = sys.get("Bookings", 1).status?(Int32, "people_count")
           logger.debug { "people count for #{system_id}: #{people_count}" }
+
           if people_count >= sys.capacity
+            @over_capacity[system_id] = @over_capacity[system_id]? ? @over_capacity[system_id] + 1 : 1
+          else
+            @over_capacity[system_id] = 0
+          end
+
+          if (over = @over_capacity[system_id]?) && over == @over_capactity_detected_count
             send_email(
               sys.capacity,
               people_count,
