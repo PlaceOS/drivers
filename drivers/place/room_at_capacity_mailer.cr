@@ -13,6 +13,7 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
     notify_email:          ["concierge@place.com"],
     debounce_time_minutes: 60, # the time to wait before sending another email
     email_template:        "room_at_capacity",
+    check_every_minutes:   5, # the frequency to check rooms
   })
 
   accessor staff_api : StaffAPI_1
@@ -47,12 +48,11 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
 
     @notify_email = setting?(Array(String), :notify_email) || [] of String
     @debounce_time_minutes = setting?(Int32, :debounce_time_minutes) || 60
-
     @email_template = setting?(String, :email_template) || "room_at_capacity"
 
+    period = setting?(Int32, :check_every_minutes) || 5
     schedule.clear
-
-    schedule.every(20.seconds) { check_capacity }
+    schedule.every(period.minutes) { check_capacity }
   end
 
   def check_capacity
