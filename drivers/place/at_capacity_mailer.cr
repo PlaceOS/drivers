@@ -8,7 +8,7 @@ class Place::AtCapacityMailer < PlaceOS::Driver
 
   descriptive_name "PlaceOS At Capacity Mailer"
   generic_name :AtCapacityMailer
-  description %()
+  description %(sends a notification when the specified type is at capacity)
 
   default_settings({
     timezone:              "Australia/Sydney",
@@ -62,6 +62,7 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @debounce_time_minutes = setting?(Int32, :debounce_time_minutes) || 60
 
+    @email_template = setting?(String, :email_template) || "at_capacity"
     @unique_templates = setting?(Bool, :unique_templates) || false
     @template_suffix = @unique_templates ? "_#{@booking_type}" : ""
     @template_fields_suffix = @unique_templates ? " (#{@booking_type})" : ""
