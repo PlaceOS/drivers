@@ -43,7 +43,7 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
   @over_capactity_detected_count : Int32 = 2
 
   @last_email_sent : Hash(String, Time) = {} of String => Time
-  @over_capacity : Hash(String, Int32) = {} of String => Int32
+  @over_capacity : Hash(String, Int32) = Hash(String, Int32).new { |hash, sys_id| hash[sys_id] = 0 }
 
   def on_update
     @building_id = nil
@@ -70,7 +70,7 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
           logger.debug { "people count for #{system_id}: #{people_count}" }
 
           if people_count >= sys.capacity
-            @over_capacity[system_id] = @over_capacity[system_id]? ? @over_capacity[system_id] + 1 : 1
+            @over_capacity[system_id] += 1
           else
             @over_capacity[system_id] = 0
           end
