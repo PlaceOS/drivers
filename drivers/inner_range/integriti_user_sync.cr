@@ -29,7 +29,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     },
 
     # use these for enabling push notifications
-    _push_authority: "authority-GAdySsf05mL",
+    _push_authority:        "authority-GAdySsf05mL",
     _push_notification_url: "https://placeos-dev.aca.im/api/engine/v2/notifications/office365",
   })
 
@@ -313,14 +313,20 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
               DEFAULT_KEY
             end
 
+      # attempt to find a number plate for this user
+      if book = bookings.find { |booking| booking["extension_data"]["plate_number"].as_s rescue nil }
+        number_plate = book["extension_data"]["plate_number"].as_s
+      end
+
       # ensure appropriate security group is selected
       csv_security_group = mappings[key][gender]
       user = integriti.user(user_id).get
       csv_string = user["cf_csv"].as_s?
+
       if csv_string != csv_security_group
         if !csv_string.presence || csv_string.in?(possible_csv_strings)
           # change the CSV string of this user
-          integriti.update_user_custom(user_id, email: email, csv: csv_security_group)
+          integriti.update_user_custom(user_id, email: email, csv: csv_security_group, license: number_plate)
         else
           logger.debug { "skipping csv update for #{email} as current mapping #{csv_string} may have been manually configured" }
         end
