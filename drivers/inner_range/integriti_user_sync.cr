@@ -315,21 +315,34 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
 
       # attempt to find a number plate for this user
       if book = bookings.find { |booking| booking["extension_data"]["plate_number"].as_s rescue nil }
-        number_plate = book["extension_data"]["plate_number"].as_s
+        number_plate = book["extension_data"]["plate_number"].as_s.strip.gsub(/[^A-Za-z0-9]/, "").upcase
       end
 
       # ensure appropriate security group is selected
       csv_security_group = mappings[key][gender]
       user = integriti.user(user_id).get
       csv_string = user["cf_csv"].as_s?
+      license_string = user["cf_license"].as_s?
+
+      update_csv = false
+      update_license = number_plate.presence && number_plate != license_string
 
       if csv_string != csv_security_group
         if !csv_string.presence || csv_string.in?(possible_csv_strings)
           # change the CSV string of this user
-          integriti.update_user_custom(user_id, email: email, csv: csv_security_group, license: number_plate)
+          update_csv = true
         else
           logger.debug { "skipping csv update for #{email} as current mapping #{csv_string} may have been manually configured" }
         end
+      end
+
+      if update_csv && update_license
+        integriti.update_user_custom(user_id, email: email, csv: csv_security_group, license: number_plate)
+      elsif update_csv
+        integriti.update_user_custom(user_id, email: email, csv: csv_security_group)
+      else
+        update_license
+        integriti.update_user_custom(user_id, email: email, license: number_plate)
       end
     rescue error
       logger.warn(exception: error) { "failed to check csv field for #{email}" }
