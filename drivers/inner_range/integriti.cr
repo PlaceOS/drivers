@@ -670,12 +670,14 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   # users in a site
-  def users(site_id : Int32? = nil, email : String? = nil)
+  def users(site_id : Int32? = nil, email : String? = nil, first_name : String? = nil, second_name : String? = nil)
     users = [] of User
     filter = Filter{
       # can't filter users by site id for some reason
       # "SiteID" => site_id,
-      cf_email => email,
+      cf_email     => email,
+      "FirstName"  => first_name,
+      "SecondName" => second_name,
     }
     paginate_request("User", "User", filter) do |row|
       users << extract_user(row)
