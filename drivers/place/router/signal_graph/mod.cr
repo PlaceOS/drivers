@@ -17,7 +17,14 @@ class Place::Router::SignalGraph
     end
 
     def metadata
-      PlaceOS::Driver::Proxy::System.driver_metadata?(id).not_nil!
+      if meta = PlaceOS::Driver::Proxy::System.driver_metadata?(id)
+        meta
+      else
+        # TODO:: warn about offline device
+        PlaceOS::Driver::DriverModel::Metadata.new(interface: {} of String => Hash(String, JSON::Any))
+      end
+    rescue error
+      raise RuntimeError.new("failed to obtain metadata for #{id}", cause: error)
     end
 
     # FIXME: drop if / after renaming InputSelection -> Selectable
