@@ -84,9 +84,9 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     booked_asset_ids = get_booked_asset_ids
 
     @zones.each do |zone_id|
-      next if asset_ids[zone_id].empty?
+      next unless (zone_asset_ids = asset_ids[zone_id]?) && !zone_asset_ids.empty?
 
-      if (asset_ids[zone_id] - [booked_asset_ids]).empty?
+      if (zone_asset_ids - booked_asset_ids).empty?
         logger.debug { "zone #{zone_id} is at capacity" }
         send_email(zone_id)
       end
