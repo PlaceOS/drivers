@@ -7369,7 +7369,7 @@
   </h2>
   
     
-      <a href="https://github.com/PlaceOS/drivers/blob/632862abffae66a60a30999743bee4e0cb05b10f/src/inner_range/integriti.cr#L1130" target="_blank">
+      <a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1132" target="_blank">
         inner_range/integriti.cr
       </a>
     
@@ -7391,7 +7391,7 @@
   <ul class="list-summary">
     
       <li class="entry-summary">
-        <a href="#new%28user_id%3AString%2Cpermission_id%3AString%2Ccard_hex%3AString%29-class-method" class="signature"><strong>.new</strong>(user_id : String, permission_id : String, card_hex : String)</a>
+        <a href="#new%28user_id%3AString%2Cpermission_id%3AString%2Ccard_hex%2Ccard_number%3AInt64%7CNil%3Dnil%2Ccard_facility%3AInt64%7CNil%3Dnil%29-class-method" class="signature"><strong>.new</strong>(user_id : String, permission_id : String, card_hex, card_number : Int64 | Nil = <span class="n">nil</span>, card_facility : Int64 | Nil = <span class="n">nil</span>)</a>
         
       </li>
     
@@ -7417,6 +7417,26 @@
     Instance Method Summary
   </h2>
   <ul class="list-summary">
+    
+      <li class="entry-summary">
+        <a href="#card_facility%3AInt64%7CNil-instance-method" class="signature"><strong>#card_facility</strong> : Int64 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#card_facility%3D%28card_facility%3AInt64%7CNil%29-instance-method" class="signature"><strong>#card_facility=</strong>(card_facility : Int64 | Nil)</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#card_number%3AInt64%7CNil-instance-method" class="signature"><strong>#card_number</strong> : Int64 | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#card_number%3D%28card_number%3AInt64%7CNil%29-instance-method" class="signature"><strong>#card_number=</strong>(card_number : Int64 | Nil)</a>
+        
+      </li>
     
       <li class="entry-summary">
         <a href="#permission_id%3AString-instance-method" class="signature"><strong>#permission_id</strong> : String</a>
@@ -7521,18 +7541,18 @@
     Constructor Detail
   </h2>
   
-    <div class="entry-detail" id="new(user_id:String,permission_id:String,card_hex:String)-class-method">
+    <div class="entry-detail" id="new(user_id:String,permission_id:String,card_hex,card_number:Int64|Nil=nil,card_facility:Int64|Nil=nil)-class-method">
       <div class="signature">
         
-        def self.<strong>new</strong>(user_id : String, permission_id : String, card_hex : String)
+        def self.<strong>new</strong>(user_id : String, permission_id : String, card_hex, card_number : Int64 | Nil = <span class="n">nil</span>, card_facility : Int64 | Nil = <span class="n">nil</span>)
 
-        <a class="method-permalink" href="#new%28user_id%3AString%2Cpermission_id%3AString%2Ccard_hex%3AString%29-class-method">#</a>
+        <a class="method-permalink" href="#new%28user_id%3AString%2Cpermission_id%3AString%2Ccard_hex%2Ccard_number%3AInt64%7CNil%3Dnil%2Ccard_facility%3AInt64%7CNil%3Dnil%29-class-method">#</a>
       </div>
       
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/632862abffae66a60a30999743bee4e0cb05b10f/src/inner_range/integriti.cr#L1134" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1138" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7548,7 +7568,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/632862abffae66a60a30999743bee4e0cb05b10f/src/inner_range/integriti.cr#L1130" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1132" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7569,6 +7589,70 @@
     Instance Method Detail
   </h2>
   
+    <div class="entry-detail" id="card_facility:Int64|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>card_facility</strong> : Int64 | Nil
+
+        <a class="method-permalink" href="#card_facility%3AInt64%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1136" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="card_facility=(card_facility:Int64|Nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>card_facility=</strong>(card_facility : Int64 | Nil)
+
+        <a class="method-permalink" href="#card_facility%3D%28card_facility%3AInt64%7CNil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1136" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="card_number:Int64|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>card_number</strong> : Int64 | Nil
+
+        <a class="method-permalink" href="#card_number%3AInt64%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1135" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="card_number=(card_number:Int64|Nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>card_number=</strong>(card_number : Int64 | Nil)
+
+        <a class="method-permalink" href="#card_number%3D%28card_number%3AInt64%7CNil%29-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1135" target="_blank">View source</a>]
+        
+      </div>
+    </div>
+  
     <div class="entry-detail" id="permission_id:String-instance-method">
       <div class="signature">
         
@@ -7580,7 +7664,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/632862abffae66a60a30999743bee4e0cb05b10f/src/inner_range/integriti.cr#L1132" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1134" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7596,7 +7680,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/632862abffae66a60a30999743bee4e0cb05b10f/src/inner_range/integriti.cr#L1132" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1134" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7612,7 +7696,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/632862abffae66a60a30999743bee4e0cb05b10f/src/inner_range/integriti.cr#L1131" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1133" target="_blank">View source</a>]
         
       </div>
     </div>
@@ -7628,7 +7712,7 @@
       <br/>
       <div>
         
-          [<a href="https://github.com/PlaceOS/drivers/blob/632862abffae66a60a30999743bee4e0cb05b10f/src/inner_range/integriti.cr#L1131" target="_blank">View source</a>]
+          [<a href="https://github.com/PlaceOS/drivers/blob/a5512cccd50ce0c3f928aebe7963179658b45e47/src/inner_range/integriti.cr#L1133" target="_blank">View source</a>]
         
       </div>
     </div>
