@@ -228,7 +228,7 @@ class Mailer < DriverSpecs::MockDriver
   end
 end
 
-DriverSpecs.mock_driver "Place::AutoRelease" do
+DriverSpecs.mock_driver "Place::AtCapacityMailer" do
   system({
     StaffAPI: {StaffAPI},
     Mailer:   {Mailer},
