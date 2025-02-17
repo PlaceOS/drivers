@@ -32,7 +32,7 @@ up() {
   docker compose pull
   echo '░░░ -> Starting environment...'
   docker compose up -d
-  printf "░░░ The harness can be found at http://localhost:8085\n"
+  printf "░░░ The harness can be found at http://localhost:8085/index.html\n"
   echo '░░░ Stop the harness with `harness down`'
   say_done
 }
