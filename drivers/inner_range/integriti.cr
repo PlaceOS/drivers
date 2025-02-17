@@ -83,6 +83,8 @@ class InnerRange::Integriti < PlaceOS::Driver
       logger.warn(exception: error) { "failed to parse range: #{range_str}" }
     end
     @guest_exclude_ranges = ranges
+
+    @guest_card_site_code = nil
   end
 
   getter long_poll_seconds : Int32 = 10
@@ -1130,8 +1132,10 @@ class InnerRange::Integriti < PlaceOS::Driver
   class Guest < AccessDetails
     property user_id : String
     property permission_id : String
+    property card_number : Int64?
+    property card_facility : Int64?
 
-    def initialize(@user_id : String, @permission_id : String, @card_hex : String)
+    def initialize(@user_id, @permission_id, @card_hex, @card_number = nil, @card_facility = nil)
     end
   end
 
@@ -1231,7 +1235,12 @@ class InnerRange::Integriti < PlaceOS::Driver
     matching = PERMISSION_REGEX.match(result.message)
     raise "unable to obtain permission ID from: #{result.message}" unless matching
 
-    Guest.new(user_id, matching["id"], card.card_data_hex)
+    Guest.new(user_id, matching["id"], card.card_data_hex, card.card_number.try(&.to_i64?), guest_card_site_code)
+  end
+
+  getter guest_card_site_code : Int64 do
+    raise "guest access is not configured" unless guest_access_configured?
+    template(guest_card_template).site_code
   end
 
   # delete the permission from user
