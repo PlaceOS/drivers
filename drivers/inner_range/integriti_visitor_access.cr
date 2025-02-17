@@ -2,7 +2,7 @@ require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 
-# other data
+# required models
 require "../wiegand/models"
 require "../place/visitor_models"
 
