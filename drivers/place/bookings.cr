@@ -16,7 +16,7 @@ class Place::Bookings < PlaceOS::Driver
     book_now_default_title: "Ad Hoc booking",
     disable_book_now_host:  false,
     disable_book_now:       false,
-    disable_end_meeting:    false,
+    disable_end_meeting:    true,
     pending_period:         5,
     pending_before:         5,
     cache_polling_period:   5,
@@ -372,7 +372,13 @@ class Place::Bookings < PlaceOS::Driver
 
       # Up to the frontend to delete pending bookings that have past their start time
       if !@disable_end_meeting
-        current_pending = true if start_time > @last_booking_started
+        if start_time > @last_booking_started
+          if sensor_stale? || status?(Bool, "presence")
+            check_in_actual(start_time, check_bookings: false)
+          else
+            current_pending = true
+          end
+        end
       elsif @pending_period.to_i > 0_i64
         pending_limit = (Time.unix(start_time) + @pending_period).to_unix
         current_pending = true if start_time < pending_limit && start_time > @last_booking_started
@@ -647,7 +653,7 @@ class Place::Bookings < PlaceOS::Driver
     self[:sensor_stale] = true
   end
 
-  def is_stale?(timestamp : Int64?) : Bool
+  protected def is_stale?(timestamp : Int64?) : Bool
     if timestamp.nil?
       return self[:sensor_stale] = false
     end
@@ -661,6 +667,10 @@ class Place::Bookings < PlaceOS::Driver
       @perform_sensor_search = true
       self[:sensor_stale] = true
     end
+  end
+
+  def sensor_stale? : Bool
+    status?(Bool, "sensor_stale") || false
   end
 
   enum ServiceName
