@@ -84,9 +84,9 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     booked_asset_ids = get_booked_asset_ids
 
     @zones.each do |zone_id|
-      next if asset_ids[zone_id].empty?
+      next unless (zone_asset_ids = asset_ids[zone_id]?) && !zone_asset_ids.empty?
 
-      if (asset_ids[zone_id] - [booked_asset_ids]).empty?
+      if (zone_asset_ids - booked_asset_ids).empty?
         logger.debug { "zone #{zone_id} is at capacity" }
         send_email(zone_id)
       end
@@ -97,20 +97,16 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     assets_ids = {} of String => Array(String)
 
     @zones.each do |zone_id|
-      begin
-        assets_ids[zone_id] = get_assets_from_metadata(@booking_type, zone_id).map { |asset| asset.id }.uniq!
-      rescue error
-        logger.warn(exception: error) { "unable to get #{@booking_type} assets from zone #{zone_id} metadata" }
-      end
+      assets_ids[zone_id] = get_assets_from_metadata(zone_id).map { |asset| asset.id }.uniq!
     end
 
     self[:assets_ids] = assets_ids
   end
 
-  def get_assets_from_metadata(type : String, zone_id : String) : Array(Asset)
+  def get_assets_from_metadata(zone_id : String) : Array(Asset)
     assets = [] of Asset
 
-    metadata_field = case type
+    metadata_field = case @booking_type
                      when "desk"
                        "desks"
                      when "parking"
@@ -121,16 +117,12 @@ class Place::AtCapacityMailer < PlaceOS::Driver
 
     if metadata_field
       metadata = Metadata.from_json staff_api.metadata(zone_id, metadata_field).get[metadata_field].to_json
-      if "lockers"
-        assets = metadata.details.as_a.flat_map { |locker_bank| locker_bank.as_h["lockers"].as_a.map { |locker| Asset.from_json locker.to_json } }
-      else
-        assets = metadata.details.as_a.map { |asset| Asset.from_json asset.to_json }
-      end
+      assets = metadata.details.as_a.map { |asset| Asset.from_json asset.to_json }
     end
 
     assets
   rescue error
-    logger.warn(exception: error) { "unable to get #{type} assets from zone #{zone_id} metadata" }
+    logger.warn(exception: error) { "unable to get #{metadata_field} from zone #{zone_id} metadata" }
     [] of Asset
   end
 
