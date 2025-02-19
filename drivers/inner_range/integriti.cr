@@ -1089,6 +1089,8 @@ class InnerRange::Integriti < PlaceOS::Driver
     end
 
     review = [] of Review
+    # as the enums need to be filtered by int value (very annoying)
+    filter = filter.transform_values { |val| val.is_a?(Int64) ? val.to_i32 : val }
     paginate_request("Review", "Review", filter, page_limit: page_limit, query: params) do |row|
       entry = extract_review(row)
       entry.time_gen_ms
