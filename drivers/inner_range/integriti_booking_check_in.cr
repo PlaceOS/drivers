@@ -78,6 +78,7 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
   end
 
   getter check_ins : UInt64 = 0_u64
+  getter matched_users : UInt64 = 0_u64
 
   # event_types: transition:
   #  DoorEvent: DoorLock, DoorTimedUnlock (triggered by UserGrantedOut)
@@ -137,6 +138,7 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
                 if staff_user
                   email = staff_user["email"].as_s
                 end
+                @matched_users += 1_u64
 
                 # find any bookings that user may have
                 bookings = staff_api.query_bookings(now.to_unix, end_of_day.to_unix, zones: {building}, type: booking_type, email: email).get.as_a
