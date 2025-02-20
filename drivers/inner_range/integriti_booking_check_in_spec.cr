@@ -1,6 +1,6 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "InnerRange::IntegritiHIDVirtualPass" do
+DriverSpecs.mock_driver "InnerRange::IntegritiBookingCheckin" do
   system({
     StaffAPI:  {StaffAPIMock},
     Integriti: {IntegritiMock},
