@@ -9,8 +9,6 @@ DriverSpecs.mock_driver "GlobalCache::Gc100" do
   responds("device,3,1 IR\r")
   responds("endlistdevices\r")
 
-  sleep 1
-
   status[:relay_config].should eq({
     "relay"       => {"0" => "2:1", "1" => "2:2", "2" => "2:3"},
     "relaysensor" => {"0" => "1:1", "1" => "1:2", "2" => "1:3", "3" => "1:4"},
