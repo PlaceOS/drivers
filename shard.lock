@@ -51,7 +51,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.5.0
+    version: 1.5.1
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -235,7 +235,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.63.0
+    version: 9.64.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
