@@ -125,7 +125,7 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
 
     access_from = (local_start_time - 15.minutes).to_unix
     access_until = local_start_time < late_in_day ? late_in_day : (local_start_time + 2.hours)
-    card_details = integriti.grant_guest_access(visitor_name, visitor_email, access_from, access_until).get
+    card_details = integriti.grant_guest_access(visitor_name, visitor_email, access_from, access_until.to_unix).get
     card_facility = card_details["card_facility"].as_i64.to_u32
     card_number = card_details["card_number"].as_i64.to_u32
 
