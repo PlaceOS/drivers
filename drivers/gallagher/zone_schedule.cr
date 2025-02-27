@@ -6,6 +6,8 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   generic_name :GallagherZoneSchedule
   description "maps a booking state to a gallagher access zone state"
 
+  accessor bookings : Bookings_1
+
   default_settings({
     # gallagher_system: "sys-12345"
     zone_id: "1234",
@@ -18,7 +20,8 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     },
 
     # max time in minutes that presence can prevent a lock
-    presence_timeout: 30,
+    presence_timeout:   30,
+    grant_hosts_access: false,
   })
 
   getter system_id : String = ""
@@ -35,6 +38,11 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     @state_mappings = setting(Hash(String, String), :state_mappings)
     @zone_id = setting?(String | Int64, :zone_id) || setting(String | Int64, :door_zone_id)
     @presence_timeout = (setting?(Int32, :presence_timeout) || 30).minutes
+
+    @grant_hosts_access = setting?(Bool, :grant_hosts_access) || false
+    @host_access_mutex.synchronize do
+      @access_granted = setting?(Hash(String, String | Int64), :access_granted) || {} of String => String | Int64
+    end
   end
 
   bind Bookings_1, :status, :status_changed
@@ -42,6 +50,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
 
   getter last_status : String? = nil
   getter last_presence : Bool? = nil
+  getter grant_hosts_access : Bool = false
 
   @presence_relevant : Bool = false
   @presence_timeout : Time::Span = 30.minutes
@@ -124,9 +133,138 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
         at:      Time.utc.to_s,
       }
     end
+
+    schedule.in(1.second) { check_host_access } if @grant_hosts_access
   end
 
   private def gallagher
     system(system_id)["Gallagher"]
+  end
+
+  # ============================================
+  # Grant host access to space for locking doors
+  # ============================================
+
+  # we want to do this as the local Calendar module may
+  # not be a graph or google calendar (which we need)
+  private def calendar
+    system(system_id)["Calendar"]
+  end
+
+  # email => cardholder_id
+  getter access_granted : Hash(String, String | Int64) = {} of String => String | Int64
+  getter existing_access : Hash(String, String | Int64) = {} of String => String | Int64
+
+  @host_access_mutex = Mutex.new
+
+  enum Status
+    Pending
+    Busy
+    Free
+  end
+
+  def check_host_access
+    return unless @grant_hosts_access
+
+    host_email = bookings.status?(String, :host_email).try(&.strip.downcase)
+    next_host = bookings.status?(String, :next_host).try(&.strip.downcase)
+    status = bookings.status?(Status, :status)
+
+    security = gallagher
+    return remove_all_access(security) unless status
+
+    case status
+    in .pending?, .busy?
+      # should we be removing any access?
+      active_hosts = [host_email, next_host].compact
+      current_access = access_granted.keys + existing_access.keys
+      remove_access = current_access - active_hosts
+      remove_access_from security, remove_access
+
+      # do we need to grant access?
+      needs_access = active_hosts - current_access
+      return if needs_access.empty?
+
+      # tuple: needs access, email, cardholder_id
+      access_required = [] of Tuple(Bool, String, String | Int64)
+      needs_access.each do |email|
+        begin
+          # get the users username (for lookup in the security system)
+          user = calendar.get_user(email).get
+          username = (user["username"]? || user["email"]).as_s.downcase
+
+          # find the user in the security system
+          cardholder = security.card_holder_id_lookup(email).get
+          cardholder_id = cardholder.as_s? || cardholder.as_i64
+
+          # check if the user already has access
+          if (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id).get.to_json)
+            access_required << {false, username, cardholder_id}
+            next
+          end
+
+          # the user needs access
+          access_required << {true, username, cardholder_id}
+        rescue error
+          logger.warn(exception: error) { "failed to grant room access to #{email}" }
+        end
+      end
+
+      grant_access_to security, access_required
+    in .free?
+      remove_all_access(security)
+    end
+  end
+
+  protected def remove_all_access(security)
+    current_access = access_granted.keys + existing_access.keys
+    remove_access_from security, current_access
+
+    # we define the setting here as remove access does not define this setting
+    @host_access_mutex.synchronize do
+      define_setting(:access_granted, access_granted)
+    end
+  end
+
+  protected def remove_access_from(security, users : Array(String))
+    users.each do |user|
+      if cardholder_id = access_granted[user]?
+        security.zone_access_remove_member(zone_id, cardholder_id).get rescue nil
+      end
+    end
+
+    # update after as no harm removing access again
+    @host_access_mutex.synchronize do
+      users.each do |user|
+        access_granted.delete user
+        existing_access.delete user
+      end
+    end
+  rescue error
+    logger.error(exception: error) { "failed to remove access from #{users}" }
+  end
+
+  protected def grant_access_to(security, access_required)
+    # update the setting first as we want to ensure access is removed
+    @host_access_mutex.synchronize do
+      access_required.each do |(needs_access, email, cardholder_id)|
+        if needs_access
+          access_granted[email] = cardholder_id
+        else
+          existing_access[email] = cardholder_id
+        end
+      end
+
+      # we define the setting here as remove access would have run first
+      define_setting(:access_granted, access_granted)
+    end
+
+    # grant users access to zones
+    access_required.each do |(needs_access, email, cardholder_id)|
+      next unless needs_access
+      security.zone_access_add_member(zone_id, cardholder_id).get rescue nil
+    end
+  rescue error
+    logger.error(exception: error) { "failed to grant access to #{access_required.map(&.[](1))}" }
   end
 end
