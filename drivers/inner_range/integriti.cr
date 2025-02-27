@@ -701,10 +701,11 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def create_user(name : String, email : String, phone : String? = nil, site_id : String | Int64? = nil, csv : String? = nil, license : String? = nil) : String
-    first_name, second_name = name.split(' ', 2)
+    first_name, second_name = name.includes?(' ') ? name.split(' ', 2) : {name, "not provided"}
+
     user = extract_add_or_update_result(add_entry("User", UpdateFields{
-      "FirstName"  => first_name,
-      "SecondName" => second_name,
+      "FirstName"  => first_name.strip,
+      "SecondName" => second_name.strip,
       "Site"       => Ref.new("SiteKeyword", (site_id || default_site_id).to_s),
       cf_email     => email.strip.downcase,
       cf_phone     => phone,
