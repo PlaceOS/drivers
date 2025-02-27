@@ -11,10 +11,8 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     cisco_client_id:     "",
     cisco_client_secret: "",
     cisco_scopes:        "spark:xapi_commands spark:xapi_statuses",
-    cisco_device_id:     "",
   })
 
-  @device_id : String = ""
   @credentials : String = ""
   getter! authoriation : Authorization
   getter! device_token : DeviceToken
@@ -27,7 +25,6 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     @cisco_client_id = setting(String, :cisco_client_id)
     @cisco_client_secret = setting(String, :cisco_client_secret)
     @cisco_scopes = setting?(String, :cisco_scopes) || "spark:xapi_commands spark:xapi_statuses"
-    @device_id = setting(String, :cisco_device_id)
     @credentials = Base64.strict_encode("#{@cisco_client_id}:#{@cisco_client_secret}")
 
     transport.before_request do |req|
@@ -46,13 +43,13 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     authoriation.verification_uri_complete
   end
 
-  def led_colour?
-    status("UserInterface.LedControl.Color")
+  def led_colour?(device_id : String)
+    status(device_id, "UserInterface.LedControl.Color")
   end
 
-  def led_colour(colour : Colour)
+  def led_colour(device_id : String, colour : Colour)
     payload = {
-      "deviceId"  => @device_id,
+      "deviceId"  => device_id,
       "arguments" => {
         "Color": colour.to_s,
       },
@@ -60,14 +57,14 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     command("UserInterface.LedControl.Color.Set", payload.to_json)
   end
 
-  def status(name : String)
+  def status(device_id : String, name : String)
     query = URI::Params.build do |form|
-      form.add("deviceId", @device_id)
+      form.add("deviceId", device_id)
       form.add("name", name)
     end
 
     response = get("/v1/xapi/status?#{query}")
-    raise "failed to query status for device #{@device_id}, code #{response.status_code}" unless response.success?
+    raise "failed to query status for device #{device_id}, code #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
 

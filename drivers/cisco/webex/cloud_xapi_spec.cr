@@ -4,7 +4,6 @@ DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
   settings({
     cisco_client_id:     "client-id",
     cisco_client_secret: "client-secret",
-    cisco_device_id:     "device1-id",
   })
 
   ret_val = exec(:authorize)
@@ -20,7 +19,7 @@ DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
 
   ret_val.get.should eq("https://oauth-helper-r.wbx2.com/verify?userCode=6587b053970a656c29500e6bced0c1c59290a743ad7e34af474a65085860de57")
 
-  ret_val = exec(:led_colour?)
+  ret_val = exec(:led_colour?, "device1-id")
 
   expect_http_request(2.seconds) do |request, response|
     if request.path == "/v1/device/token"
@@ -42,7 +41,7 @@ DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
 
   ret_val.get.should eq(color_resp("device1-id"))
 
-  ret_val = exec(:led_colour, :green)
+  ret_val = exec(:led_colour, "device1-id", :green)
 
   # invoking another endpoint request should use previously obtained access token
 
