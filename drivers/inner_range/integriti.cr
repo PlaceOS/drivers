@@ -1064,6 +1064,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     review
   end
 
+  # Type 5 = CommsEvent, 6 = UserAccess, 7 = CardInfo
   @[PlaceOS::Driver::Security(Level::Support)]
   def review_access(filter : Filter, long_poll : Bool = false, after : String | Int64 | Time? = nil, page_limit : Int64? = nil) : Array(Review)
     after_param = case after
