@@ -167,10 +167,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:custom_qr_color] = setting?(String, :custom_qr_color)
     self[:custom_qr_url] = setting?(String, :custom_qr_url).try do |custom_url|
       url = custom_url.gsub("{system_id}", control_sys.id)
-      if email = control_sys.email
-        url = url.gsub("{system_email}", email)
-        url = url.gsub("{system_email_prefix}", email.split('@', 2)[0])
-      end
+      url = url.gsub("{system_email}", @calendar_id)
+      url = url.gsub("{system_email_prefix}", @calendar_id.split('@', 2)[0])
       url = url.gsub("{system_map_id}", control_sys.map_id.as(String)) if control_sys.map_id
       url = url.gsub("{system_code}", control_sys.code.as(String)) if control_sys.code
       url = url.gsub("{system_type}", control_sys.type.as(String)) if control_sys.type
