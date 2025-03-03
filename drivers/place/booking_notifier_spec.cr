@@ -106,7 +106,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     }]
   end
 
-  def booking_state(booking_id : String | Int64, state : String)
+  def booking_state(booking_id : String | Int64, state : String, instance : Int64? = nil)
     self[:booking_state] = "#{booking_id}--#{state}"
     true
   end
