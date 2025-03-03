@@ -11,6 +11,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   default_settings({
     # gallagher_system: "sys-12345"
     zone_id: "1234",
+    _access_group_id: "140623",
 
     # booking status => zone state
     state_mappings: {
@@ -38,6 +39,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     @state_mappings = setting(Hash(String, String), :state_mappings)
     @zone_id = setting?(String | Int64, :zone_id) || setting(String | Int64, :door_zone_id)
     @presence_timeout = (setting?(Int32, :presence_timeout) || 30).minutes
+    @access_group_id = nil
 
     @grant_hosts_access = setting?(Bool, :grant_hosts_access) || false
     @host_access_mutex.synchronize do
@@ -51,6 +53,10 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   getter last_status : String? = nil
   getter last_presence : Bool? = nil
   getter grant_hosts_access : Bool = false
+
+  getter access_group_id : String | Int64 do
+    setting?(String | Int64, :access_group_id) || find_access_group_from_zone
+  end
 
   @presence_relevant : Bool = false
   @presence_timeout : Time::Span = 30.minutes
@@ -145,6 +151,12 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   # Grant host access to space for locking doors
   # ============================================
 
+  def find_access_group_from_zone : String
+    gal = gallagher
+    zone_name = gal.get_access_zone(zone_id).get["name"].as_s
+    gal.get_access_groups(zone_name).get.as_a.first["id"].as_s
+  end
+
   # we want to do this as the local Calendar module may
   # not be a graph or google calendar (which we need)
   private def calendar
@@ -198,7 +210,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
           cardholder_id = cardholder.as_s? || cardholder.as_i64
 
           # check if the user already has access
-          if (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id, cardholder_id).get.to_json)
+          if (String | Int64 | Nil).from_json(security.zone_access_member?(access_group_id, cardholder_id).get.to_json)
             access_required << {false, username, cardholder_id}
             next
           end
@@ -229,7 +241,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   protected def remove_access_from(security, users : Array(String))
     users.each do |user|
       if cardholder_id = access_granted[user]?
-        security.zone_access_remove_member(zone_id, cardholder_id).get rescue nil
+        security.zone_access_remove_member(access_group_id, cardholder_id).get rescue nil
       end
     end
 
@@ -262,7 +274,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     # grant users access to zones
     access_required.each do |(needs_access, email, cardholder_id)|
       next unless needs_access
-      security.zone_access_add_member(zone_id, cardholder_id).get rescue nil
+      security.zone_access_add_member(access_group_id, cardholder_id).get rescue nil
     end
   rescue error
     logger.error(exception: error) { "failed to grant access to #{access_required.map(&.[](1))}" }
