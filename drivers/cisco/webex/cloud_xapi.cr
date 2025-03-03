@@ -1,6 +1,8 @@
 require "placeos-driver"
+require "./cloud_xapi/ui_extensions"
 
 class Cisco::Webex::Cloud < PlaceOS::Driver
+  include CloudXAPI::UIExtensions
   # Discovery Information
   descriptive_name "Webex Cloud xAPI"
   generic_name :CloudXAPI
@@ -47,15 +49,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     status(device_id, "UserInterface.LedControl.Color")
   end
 
-  def led_colour(device_id : String, colour : Colour)
-    payload = {
-      "deviceId"  => device_id,
-      "arguments" => {
-        "Color": colour.to_s,
-      },
-    }
-    command("UserInterface.LedControl.Color.Set", payload.to_json)
-  end
+  command({"UserInterface LedControl Color Set" => :led_colour}, color: Colour)
 
   def status(device_id : String, name : String)
     query = URI::Params.build do |form|
@@ -133,57 +127,5 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     raise "failed to refresh device access token for client-id #{client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
     @device_token = DeviceToken.from_json(response.body)
     device_token.auth_token
-  end
-
-  enum Colour
-    Green
-    Yellow
-    Red
-    Purple
-    Blue
-    Orange
-    Orchid
-    Aquamarine
-    Fuchsia
-    Violet
-    Magenta
-    Scarlet
-    Gold
-    Lime
-    Turquoise
-    Cyan
-    Off
-  end
-
-  record Authorization, device_code : String, expires_in : Int64, user_code : String, verification_url : String?,
-    verification_uri_complete : String, interval : Int64 do
-    include JSON::Serializable
-
-    @[JSON::Field(ignore: true)]
-    getter! expiry : Time
-
-    def after_initialize
-      @expiry = Time.utc + expires_in.seconds
-    end
-  end
-
-  record DeviceToken, scope : String, expires_in : Int64, token_type : String, refresh_token : String, refresh_token_expires_in : Int64,
-    access_token : String do
-    include JSON::Serializable
-
-    @[JSON::Field(ignore: true)]
-    getter! expiry : Time
-
-    @[JSON::Field(ignore: true)]
-    getter! refresh_expiry : Time
-
-    def after_initialize
-      @expiry = Time.utc + expires_in.seconds
-      @refresh_expiry = Time.utc + refresh_token_expires_in.seconds
-    end
-
-    def auth_token
-      "#{token_type} #{access_token}"
-    end
   end
 end
