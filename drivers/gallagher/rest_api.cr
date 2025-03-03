@@ -480,12 +480,12 @@ class Gallagher::RestAPI < PlaceOS::Driver
     response.success?
   end
 
-  # returns the zone to it's default scheduled state, removing any overrides
+  # returns the zone details
   @[Security(Level::Support)]
   def get_access_zone(zone_id : String | Int32) : JSON::Any
     response = get("#{@access_zones_endpoint}/#{zone_id}", headers: @headers)
     raise "zone request failed with #{response.status_code}\n#{response.body}" unless response.success?
-    get_results(JSON::Any, response.body)
+    JSON.parse(response.body)
   end
 
   @[Security(Level::Support)]
@@ -526,12 +526,14 @@ class Gallagher::RestAPI < PlaceOS::Driver
     response.body
   end
 
+  @[Security(Level::Support)]
   def get_href(href : String)
     response = get(get_path(href), headers: @headers)
     raise "generic request failed with #{response.status_code}\n#{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
+  @[Security(Level::Support)]
   def delete_href(href : String)
     delete_card(href)
   end
@@ -566,6 +568,12 @@ class Gallagher::RestAPI < PlaceOS::Driver
     response = get(@doors_endpoint, headers: @headers)
     raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
     NamedTuple(results: Array(DoorDetails)).from_json(response.body)[:results]
+  end
+
+  def door(id : String | Int64)
+    response = get("#{@doors_endpoint}/#{id}", headers: @headers)
+    raise "door lookup request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    DoorDetails.from_json(response.body)
   end
 
   # =======================
