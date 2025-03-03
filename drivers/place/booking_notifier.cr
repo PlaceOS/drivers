@@ -295,7 +295,7 @@ class Place::BookingNotifier < PlaceOS::Driver
         attachments: attachments
       )
     end
-    staff_api.booking_state(booking_details.id, "notified").get
+    staff_api.booking_state(booking_details.id, "notified", booking_details.instance).get
 
     @bookings_checked += 1
     self[:bookings_checked] = @bookings_checked
@@ -478,7 +478,7 @@ class Place::BookingNotifier < PlaceOS::Driver
           args: args,
           attachments: attachments
         )
-        staff_api.booking_state(booking_details.id, "notified").get
+        staff_api.booking_state(booking_details.id, "notified", booking_details.instance).get
       rescue error
         logger.error(exception: error) { "while processing booking id #{booking_details.id}" }
       end
