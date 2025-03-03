@@ -328,7 +328,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         attachments: attachments
       ).get
 
-      staff_api.booking_state(booking_details.id, "approval_sent").get
+      staff_api.booking_state(booking_details.id, "approval_sent", booking_details.instance).get
     when "rejected", "checked_in"
       # no attachment for rejection email
       user_email = booking_details.user_email
@@ -412,7 +412,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
           ).get
 
           # set the booking state
-          staff_api.booking_state(booking_details.id, "manager_contacted").get
+          staff_api.booking_state(booking_details.id, "manager_contacted", booking_details.instance).get
 
           mailer.send_template(
             to: user_email,
@@ -425,7 +425,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         else
           logger.debug { "manager not found, approving booking!" }
           # approve automatically if no manager to approve
-          staff_api.approve(booking_details.id).get
+          staff_api.approve(booking_details.id, booking_details.instance).get
         end
         # we might need to remind this manager to approve or reject a booking
       when "manager_contacted"
@@ -440,11 +440,11 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
             ).get
 
             # set the booking state
-            staff_api.booking_state(booking_details.id, "manager_reminded").get
+            staff_api.booking_state(booking_details.id, "manager_reminded", booking_details.instance).get
           else
             logger.debug { "manager not found, approving booking!" }
             # approve automatically if no manager to approve
-            staff_api.approve(booking_details.id).get
+            staff_api.approve(booking_details.id, booking_details.instance).get
           end
         end
         # do we need to escalate the approval?
@@ -461,30 +461,30 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
               ).get
 
               # set the booking state
-              staff_api.booking_state(booking_details.id, "managers_manager").get
+              staff_api.booking_state(booking_details.id, "managers_manager", booking_details.instance).get
             else
               # approve automatically if no manager to approve
               logger.debug { "managers manager not found, approving booking!" }
-              staff_api.approve(booking_details.id).get
+              staff_api.approve(booking_details.id, booking_details.instance).get
             end
           else
             # approve automatically if no manager to approve
             logger.debug { "manager not found, approving booking!" }
-            staff_api.approve(booking_details.id).get
+            staff_api.approve(booking_details.id, booking_details.instance).get
           end
         end
       when "managers_manager"
         if booking_details.changed > 5.days.ago
           # approve automatically if no manager approves in over 4 days
           logger.debug { "approving booking as managers have failed to approve" }
-          staff_api.approve(booking_details.id).get
+          staff_api.approve(booking_details.id, booking_details.instance).get
         end
       end
     when "notify"
       logger.debug { "approving booking and notifing manager = #{@notify_managers}" }
 
       # manager needs to be notified of approval
-      staff_api.approve(booking_details.id).get
+      staff_api.approve(booking_details.id, booking_details.instance).get
       # NOTE:: user will be sent email via the approval event
 
       if @notify_managers && (manager_email = get_manager(user_email).try(&.at(0)))
@@ -497,7 +497,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
     else
       # Auto approval
       logger.debug { "approving booking as unknown approval type: #{approval_type.inspect}" }
-      staff_api.approve(booking_details.id).get
+      staff_api.approve(booking_details.id, booking_details.instance).get
       # NOTE:: user will be sent email via the approval event
     end
   end
@@ -639,7 +639,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
               args: args,
               attachments: attachments
             )
-            staff_api.booking_state(booking_details.id, "approval_sent").get
+            staff_api.booking_state(booking_details.id, "approval_sent", booking_details.instance).get
           end
         else
           check_approval(
