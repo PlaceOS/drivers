@@ -64,7 +64,7 @@ class Place::BookingApprover < PlaceOS::Driver
     end
 
     if !booking.approved
-      staff_api.approve(booking.id).get
+      staff_api.approve(booking.id, booking.instance).get
       logger.debug { "Approved Booking #{booking.id}" }
       @bookings_approved += 1
       true
