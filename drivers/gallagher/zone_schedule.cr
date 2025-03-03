@@ -198,7 +198,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
           cardholder_id = cardholder.as_s? || cardholder.as_i64
 
           # check if the user already has access
-          if (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id).get.to_json)
+          if (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id, cardholder_id).get.to_json)
             access_required << {false, username, cardholder_id}
             next
           end
