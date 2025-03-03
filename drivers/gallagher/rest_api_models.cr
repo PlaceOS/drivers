@@ -41,6 +41,8 @@ module Gallagher
     property id : String
     property name : String
     property href : String
+
+    property description : String?
   end
 
   class Cardholder
