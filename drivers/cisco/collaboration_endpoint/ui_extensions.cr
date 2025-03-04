@@ -1,4 +1,6 @@
-module Cloud_XAPI::UIExtensions
+require "./xapi"
+
+module Cisco::CollaborationEndpoint::UIExtensions
   include Cisco::CollaborationEndpoint::XAPI
 
   command({"UserInterface Message Alert Clear" => :msg_alert_clear})
