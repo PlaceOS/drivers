@@ -710,6 +710,19 @@ class Place::StaffAPI < PlaceOS::Driver
     true
   end
 
+  @[Security(Level::Support)]
+  def booking_extension_data(booking_id : String | Int64, extension_data : Hash(String, JSON::Any), instance : Int64? = nil, signal_changes : Bool = false)
+    logger.debug { "updating booking ext data #{booking_id}.#{instance} with: #{extension_data}" }
+
+    params = URI::Params.build do |form|
+      form.add "signal_changes", signal_changes.to_s
+    end
+
+    response = patch("/api/staff/v1/bookings/#{booking_id}/ext_data/#{instance}?#{params}", headers: authentication, body: extension_data.to_json)
+    raise "issue updating booking #{booking_id}.#{instance}: #{response.status_code}\n#{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
   # ===================================
   # BOOKINGS QUERY
   # ===================================
