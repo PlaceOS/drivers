@@ -10,39 +10,43 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
   uri_base "https://webexapis.com"
 
   default_settings({
-    cisco_client_id:     "",
-    cisco_client_secret: "",
-    cisco_scopes:        "spark:xapi_commands spark:xapi_statuses",
+    cisco_client_id:      "",
+    cisco_client_secret:  "",
+    cisco_target_orgid:   "",
+    cisco_app_id:         "",
+    cisco_personal_token: "",
   })
 
-  @credentials : String = ""
-  getter! authoriation : Authorization
   getter! device_token : DeviceToken
 
   @cisco_client_id : String = ""
   @cisco_client_secret : String = ""
-  @cisco_scopes : String = ""
+  @cisco_target_orgid : String = ""
+  @cisco_app_id : String = ""
+  @cisco_personal_token : String = ""
 
-  def on_update
-    @cisco_client_id = setting(String, :cisco_client_id)
-    @cisco_client_secret = setting(String, :cisco_client_secret)
-    @cisco_scopes = setting?(String, :cisco_scopes) || "spark:xapi_commands spark:xapi_statuses"
-    @credentials = Base64.strict_encode("#{@cisco_client_id}:#{@cisco_client_secret}")
-
+  def on_load
     transport.before_request do |req|
-      unless req.path.in?("/v1/device/authorize", "/v1/device/token", "/v1/device/access_token")
-        access_token = get_access_token(@cisco_client_id, @cisco_client_secret)
-        req.headers["Authorization"] = access_token
+      unless req.path.in?("/v1/applications/#{@cisco_app_id}/token", "/v1/access_token")
+        req.headers["Authorization"] = get_access_token
         req.headers["Content-Type"] = "application/json"
         req.headers["Accept"] = "application/json"
       end
       logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
     end
+
+    on_update
+
+    schedule.every(1.minute) { keep_token_refreshed }
   end
 
-  def authorize : String
-    @authoriation = authorize(@cisco_client_id, @cisco_scopes)
-    authoriation.verification_uri_complete
+  def on_update
+    @cisco_client_id = setting(String, :cisco_client_id)
+    @cisco_client_secret = setting(String, :cisco_client_secret)
+    @cisco_target_orgid = setting(String, :cisco_target_orgid)
+    @cisco_app_id = setting(String, :cisco_app_id)
+    @cisco_personal_token = setting(String, :cisco_personal_token)
+    @device_token = setting?(DeviceToken, :cisco_token_pair) || @device_token
   end
 
   def led_colour?(device_id : String)
@@ -68,54 +72,35 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
-  # https://developer.webex.com/docs/login-with-webex#getting-an-access-token-with-device-grant-flow
-  protected def get_access_token(client_id, client_secret)
-    raise "complete authorization process by visiting the url returned via driver :authorize method" if @authoriation.nil?
-
+  protected def get_access_token
     if device_token?
       return device_token.auth_token if 1.minute.from_now < device_token.expiry
-      return refresh_token(client_id, client_secret) if 1.minute.from_now < device_token.refresh_expiry
+      return refresh_token if 1.minute.from_now < device_token.refresh_expiry
     end
 
-    # Minimum amount of time in seconds we should wait before polling device token endpoint
-    sleep authoriation.interval.seconds
-
-    body = URI::Params.build do |form|
-      form.add("client_id", client_id)
-      form.add("device_code", authoriation.device_code)
-      form.add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-    end
+    body = {
+      "clientId":     @cisco_client_id,
+      "clientSecret": @cisco_client_secret,
+      "targetOrgId":  @cisco_target_orgid,
+    }.to_json
 
     headers = HTTP::Headers{
-      "Authorization" => "Basic #{@credentials}",
-      "Content-Type"  => "application/x-www-form-urlencoded",
+      "Authorization" => "Bearer #{@cisco_personal_token}",
+      "Content-Type"  => "application/json",
       "Accept"        => "application/json",
     }
-    response = post("/v1/device/token", headers: headers, body: body)
-    raise "failed to get device access token for client-id #{client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
+    response = post("/v1/applications/#{@cisco_app_id}/token", headers: headers, body: body)
+    raise "failed to retriee access token for client-id #{@cisco_client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
     @device_token = DeviceToken.from_json(response.body)
+    define_setting(:cisco_token_pair, device_token)
     device_token.auth_token
   end
 
-  protected def authorize(client_id : String, scope : String) : Authorization
-    body = URI::Params.build do |form|
-      form.add("client_id", client_id)
-      form.add("scope", scope)
-    end
-    headers = HTTP::Headers{
-      "Content-Type" => "application/x-www-form-urlencoded",
-      "Accept"       => "application/json",
-    }
-    response = post("/v1/device/authorize", headers: headers, body: body)
-    raise "failed to authorize client-id #{client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
-    Authorization.from_json(response.body)
-  end
-
-  protected def refresh_token(client_id : String, client_secret : String)
+  protected def refresh_token
     body = URI::Params.build do |form|
       form.add("grant_type", "refresh_token")
-      form.add("client_id", client_id)
-      form.add("client_secret", client_secret)
+      form.add("client_id", @cisco_client_id)
+      form.add("client_secret", @cisco_client_secret)
       form.add("refresh_token", device_token.refresh_token)
     end
 
@@ -123,9 +108,15 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       "Content-Type" => "application/x-www-form-urlencoded",
       "Accept"       => "application/json",
     }
-    response = post("/v1/device/access_token", headers: headers, body: body)
-    raise "failed to refresh device access token for client-id #{client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
+    response = post("/v1/access_token", headers: headers, body: body)
+    raise "failed to refresh access token for client-id #{@cisco_client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
     @device_token = DeviceToken.from_json(response.body)
+    define_setting(:cisco_token_pair, device_token)
     device_token.auth_token
+  end
+
+  protected def keep_token_refreshed : Nil
+    return if @device_token.nil?
+    refresh_token if 1.minute.from_now < device_token.refresh_expiry
   end
 end

@@ -19,18 +19,6 @@ module CloudXAPI::Models
     Off
   end
 
-  record Authorization, device_code : String, expires_in : Int64, user_code : String, verification_url : String?,
-    verification_uri_complete : String, interval : Int64 do
-    include JSON::Serializable
-
-    @[JSON::Field(ignore: true)]
-    getter! expiry : Time
-
-    def after_initialize
-      @expiry = Time.utc + expires_in.seconds
-    end
-  end
-
   record DeviceToken, scope : String, expires_in : Int64, token_type : String, refresh_token : String, refresh_token_expires_in : Int64,
     access_token : String do
     include JSON::Serializable

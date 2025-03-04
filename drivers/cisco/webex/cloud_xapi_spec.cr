@@ -2,27 +2,17 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
   settings({
-    cisco_client_id:     "client-id",
-    cisco_client_secret: "client-secret",
+    cisco_client_id:      "client-id",
+    cisco_client_secret:  "client-secret",
+    cisco_target_orgid:   "target-org",
+    cisco_app_id:         "my-app",
+    cisco_personal_token: "my-personal-token",
   })
-
-  ret_val = exec(:authorize)
-
-  expect_http_request do |request, response|
-    if request.path == "/v1/device/authorize"
-      response.status_code = 200
-      response << auth_resp_json.to_json
-    else
-      response.status_code = 401
-    end
-  end
-
-  ret_val.get.should eq("https://oauth-helper-r.wbx2.com/verify?userCode=6587b053970a656c29500e6bced0c1c59290a743ad7e34af474a65085860de57")
 
   ret_val = exec(:led_colour?, "device1-id")
 
   expect_http_request(2.seconds) do |request, response|
-    if request.path == "/v1/device/token"
+    if request.path == "/v1/applications/my-app/token"
       response.status_code = 200
       response << device_resp_json.to_json
     else
@@ -79,17 +69,6 @@ end
 
 def color_set_resp
   {"deviceId" => "device1-id", "arguments" => {"Color" => "Green"}}
-end
-
-def auth_resp_json
-  {
-    "device_code":               "5d5cf602-f0dd-49d5-bfd3-915267e4fbe0",
-    "expires_in":                300,
-    "user_code":                 "729703",
-    "verification_uri":          "https://oauth-helper-r.wbx2.com/verify",
-    "verification_uri_complete": "https://oauth-helper-r.wbx2.com/verify?userCode=6587b053970a656c29500e6bced0c1c59290a743ad7e34af474a65085860de57",
-    "interval":                  1,
-  }
 end
 
 def device_resp_json
