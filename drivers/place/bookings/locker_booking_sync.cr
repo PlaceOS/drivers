@@ -17,7 +17,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     end_of_week_bookings: true,
   })
 
-  # synced == allocation_id in placeos booking.process_state
+  # synced == allocation_id in placeos booking.extension_data
   alias PlaceLocker = PlaceOS::Driver::Interface::Lockers::PlaceLocker
   alias LockerMetadata = Place::Locker
 
@@ -154,7 +154,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       if booking.deleted == true || booking.rejected == true || !booking.checked_out_at.nil?
         logger.debug { "  -- releasing locker #{booking.asset_id} as booking deleted #{booking.deleted.inspect}, rejected #{booking.rejected.inspect}, checked out #{booking.checked_out_at.inspect} -- id:#{unique_id}" }
         release_lockers << booking
-      elsif booking.process_state.presence.nil?
+      elsif has_allocation?(booking).nil?
         allocate_lockers << booking
       end
     end
@@ -172,7 +172,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     # ensure the locker is still allocated to that user
     allocated = 0
     release_lockers.each do |place_booking|
-      allocation_id = place_booking.process_state.presence
+      allocation_id = has_allocation?(place_booking)
       next unless allocation_id
 
       if locker = lockers.find { |lock| lock.allocation_id == allocation_id }
@@ -222,8 +222,8 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       # resolve this below if this step failed in a previous run
       if locker
         logger.debug { "  -- update #{locker.locker_id} booking state on #{place_booking.id} to #{locker.allocation_id} -- id:#{unique_id}" }
-        staff_api.booking_state(place_booking.id, locker.allocation_id) if place_booking.instance
-        staff_api.booking_state(place_booking.id, locker.allocation_id, instance: place_booking.instance)
+        staff_api.booking_extension_data(place_booking.id, {locker_allocation_id: locker.allocation_id}) if place_booking.instance
+        staff_api.booking_extension_data(place_booking.id, {locker_allocation_id: locker.allocation_id}, instance: place_booking.instance)
         allocated += 1
       else
         alloc_failed << place_booking
@@ -238,7 +238,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     # or there is a clash (locker allocated to someone else already)
     checked_out = 0
     place_bookings.each do |booking|
-      allocation_id = booking.process_state
+      allocation_id = has_allocation?(booking)
       if locker = lockers.find { |lock| lock.allocation_id == allocation_id }
         # we found the locker so we don't need to create a placeos booking
         lockers.delete(locker)
@@ -282,7 +282,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         time_zone: timezone.name,
         # checked_in: true, # results in a 422 error
         title: lock.locker_name,
-        process_state: lock.allocation_id,
+        extension_data: {locker_allocation_id: lock.allocation_id},
         recurrence_type: "DAILY",
         recurrence_days: 127,
         recurrence_end: recurrence_end,
@@ -298,6 +298,10 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     logger.error(exception: error) { "unexpected error syncing bookings" }
   end
 
+  protected def has_allocation?(booking) : String?
+    booking.extension_data["locker_allocation_id"]?.try(&.as_s.presence)
+  end
+
   # ===========================
   # Booking change notification
   # ===========================
@@ -307,7 +311,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     if zone = (booking.zones & levels).first?
       booking = Booking.from_json staff_api.get_booking(booking.id, booking.instance).get.to_json
       # only sync level if the update is a create (unsynced) or the ending of a booking
-      if booking.process_state.presence.nil? || booking.deleted == true || booking.rejected == true || !booking.checked_out_at.nil?
+      if has_allocation?(booking).nil? || booking.deleted == true || booking.rejected == true || !booking.checked_out_at.nil?
         queue_sync_level(zone)
       end
     end

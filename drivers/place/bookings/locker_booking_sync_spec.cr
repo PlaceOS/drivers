@@ -295,11 +295,11 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @bookings.values
   end
 
-  def booking_state(booking_id : String | Int64, state : String, instance : Int64? = nil)
+  def booking_extension_data(booking_id : String | Int64, extension_data : Hash(String, JSON::Any), instance : Int64? = nil, signal_changes : Bool = false)
     booking = @bookings[booking_id]?
     raise "could not find booking #{booking_id}" unless booking
     @updated += 1
-    booking.process_state = state
+    booking.extension_data = extension_data
     booking
   end
 
@@ -376,7 +376,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
       booking_start: booking_start.not_nil!,
       booking_end: booking_end.not_nil!,
       timezone: time_zone.not_nil!,
-      process_state: process_state
+      extension_data: extension_data.try(&.as_h),
     )
   end
 
