@@ -101,6 +101,7 @@ class Place::Booking
         created: created,
         approver_id: approver_id,
         booked_by_id: booked_by_id,
+        extension_data: extension_data,
       )
     end
   end
@@ -134,6 +135,7 @@ class Place::Booking
     @approver_id = nil,
     @booked_by_id = nil,
     @instance = nil,
+    @extension_data = nil,
   )
     asset = asset_id.presence
     if @asset_ids.empty?
