@@ -242,15 +242,25 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     csv_changed = sync_csv_field(ad_emails, email_to_user_id)
 
     result = {
-      removed:        removed,
-      removed_errors: removed_errors,
-      added:          added,
-      added_errors:   added_errors,
-      base_building:  csv_changed,
+      removed:           removed,
+      removed_errors:    removed_errors,
+      added:             added,
+      added_errors:      added_errors,
+      base_building_csv: csv_changed,
     }
+    @last_result = result
+    self[:last_result] = result
     logger.info { "integriti user sync results: #{result}" }
     result
   end
+
+  getter last_result : NamedTuple(
+    removed: Int32,
+    removed_errors: Int32,
+    added: Int32,
+    added_errors: Int32,
+    base_building_csv: String,
+  )? = nil
 
   # ===================
   # Group subscriptions
@@ -305,7 +315,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     nil
   end
 
-  protected def sync_csv_field(ad_emails : Array(String), email_to_user_id : Hash(String, String))
+  protected def sync_csv_field(ad_emails : Array(String), email_to_user_id : Hash(String, String)) : String
     mappings = csv_sync_mappings
     return "no CSV mappings" unless mappings && !mappings.empty?
 
@@ -322,6 +332,9 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     end_of_day = 3.days.from_now.in(@time_zone).at_end_of_day
     building = building_id
     licence_users = building_parking_users
+
+    updated = 0
+    failed = 0
 
     ad_emails.each do |email|
       user_id = email_to_user_id[email]?
@@ -380,8 +393,12 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
         update_license
         integriti.update_user_custom(user_id, email: email, license: number_plate)
       end
+      updated += 1
     rescue error
+      failed += 1
       logger.warn(exception: error) { "failed to check csv field for #{email}" }
     end
+
+    "updated #{updated}, failed #{failed}"
   end
 end
