@@ -1,6 +1,7 @@
 require "placeos-driver"
 require "place_calendar"
 require "xml"
+require "set"
 
 require "../place/models/workplace_subscriptions"
 
@@ -84,6 +85,35 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
   end
 
   alias DirUser = ::PlaceCalendar::Member
+
+  protected def normalize_number_plate(plate : String, *plates)
+    new_plates = Set(String).new(plate.split(',').map(&.strip.gsub(/[^A-Za-z0-9]/, "").upcase))
+    plates.each do |existing_plate|
+      next unless existing_plate
+      new_plates.concat existing_plate.split(',')
+    end
+    new_plates.join(',')
+  end
+
+  # email => licence plate
+  def building_parking_users : Hash(String, String)
+    parking_access = Hash(String, String).new
+    users = staff_api.metadata(building_id, "parking-users").get.dig?("parking-users", "details")
+    return parking_access unless users
+
+    users.as_a.each do |user|
+      begin
+        next if user["deny"].as_bool?
+        email = user["email"].as_s.strip.downcase
+        plate = normalize_number_plate user["plate_number"].as_s
+        parking_access[email] = plate
+      rescue error
+        logger.error(exception: error) { "failed to parse user #{user}" }
+      end
+    end
+
+    parking_access
+  end
 
   def perform_user_sync
     return "already syncing" if @syncing
@@ -291,6 +321,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     now = Time.local(@time_zone).at_beginning_of_day
     end_of_day = 3.days.from_now.in(@time_zone).at_end_of_day
     building = building_id
+    licence_users = building_parking_users
 
     ad_emails.each do |email|
       user_id = email_to_user_id[email]?
@@ -315,7 +346,9 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
 
       # attempt to find a number plate for this user
       if book = bookings.find { |booking| booking["extension_data"]["plate_number"].as_s rescue nil }
-        number_plate = book["extension_data"]["plate_number"].as_s.strip.gsub(/[^A-Za-z0-9]/, "").upcase
+        number_plate = normalize_number_plate(book["extension_data"]["plate_number"].as_s, licence_users[email]?)
+      else
+        number_plate = licence_users[email]?
       end
 
       # ensure appropriate security group is selected
