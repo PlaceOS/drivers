@@ -351,6 +351,9 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
         number_plate = licence_users[email]?
       end
 
+      # TODO:: remove once we know how to handle multiple number plates
+      number_plate = number_plate.split(',').first if number_plate
+
       # ensure appropriate security group is selected
       csv_security_group = mappings[key][gender]
       user = integriti.user(user_id).get
