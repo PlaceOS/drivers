@@ -425,4 +425,24 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
       end
     end
   end
+
+  @[Security(Level::Support)]
+  def release_all_lockers : Int32
+    released = 0
+    floor = floorsense
+    @zone_mappings.each_value do |controllers|
+      controllers.each do |controller_id|
+        bookings = Array(LockerBooking).from_json(floor.locker_reservations(active: true, controller_id: controller_id).get.to_json)
+        bookings.each do |booking|
+          begin
+            floor.locker_release(booking.reservation_id).get
+            released += 1
+          rescue error
+            logger.warn(exception: error) { "failed to release locker: controller #{controller_id}, locker_id: " }
+          end
+        end
+      end
+    end
+    released
+  end
 end
