@@ -300,4 +300,18 @@ class Place::Demo::Lockers < PlaceOS::Driver
       end
     end
   end
+
+  @[Security(Level::Support)]
+  def release_all_lockers : Int32
+    released = 0
+    locker_banks.values.flat_map do |bank|
+      bank.locker_hash.values.compact_map do |locker|
+        if locker.allocated_to
+          locker.release
+          released += 1
+        end
+      end
+    end
+    released
+  end
 end
