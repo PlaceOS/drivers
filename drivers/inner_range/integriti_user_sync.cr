@@ -360,8 +360,9 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
       # attempt to find a number plate for this user
       if book = bookings.find { |booking| booking["extension_data"]["plate_number"].as_s rescue nil }
         number_plate = normalize_number_plate(book["extension_data"]["plate_number"].as_s, licence_users[email]?)
-      else
-        number_plate = licence_users[email]?
+      elsif number_plate = licence_users[email]?
+        # the user might have parking access without a booking
+        key = mappings["parking"]? ? "parking" : key
       end
 
       # TODO:: remove once we know how to handle multiple number plates
