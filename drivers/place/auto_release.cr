@@ -93,7 +93,7 @@ class Place::AutoRelease < PlaceOS::Driver
     zone_id = (zone_ids & system.zones).first
     zones.find { |zone| zone.id == zone_id }
   rescue error
-    logger.warn(exception: error) { "unable to determine building zone" }
+    logger.error(exception: error) { "unable to determine building zone" }
     nil
   end
 
@@ -130,7 +130,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
     self[:pending_bookings] = results
   rescue error
-    logger.warn(exception: error) { "unable to obtain list of bookings" }
+    logger.error(exception: error) { "unable to obtain list of bookings" }
     self[:pending_bookings] = [] of Booking
   end
 
@@ -142,8 +142,8 @@ class Place::AutoRelease < PlaceOS::Driver
     work_overrides = Hash(String, WorktimePreference).from_json user.as_h["work_overrides"].to_json
 
     {work_preferences: work_preferences, work_overrides: work_overrides}
-  rescue error
-    logger.warn(exception: error) { "unable to obtain user work location" }
+  rescue
+    logger.warn { "unable to obtain work location for user #{user_id}" }
     nil
   end
 
@@ -251,7 +251,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
     self[:released_booking_ids] = released_booking_ids
   rescue error
-    logger.warn(exception: error) { "unable to release bookings" }
+    logger.error(exception: error) { "unable to release bookings" }
     self[:released_booking_ids] = [] of Int64
   end
 
