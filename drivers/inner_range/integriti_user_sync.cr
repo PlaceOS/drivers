@@ -59,7 +59,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     @graph_group_id = nil
 
     schedule.clear
-    schedule.cron(@sync_cron, @time_zone) { sync_users }
+    schedule.cron(@sync_cron, @time_zone) { perform_user_sync }
 
     if setting?(String, :push_notification_url).presence
       push_notificaitons_configure
@@ -370,8 +370,8 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
       # ensure appropriate security group is selected
       csv_security_group = mappings[key][gender]
       user = integriti.user(user_id).get
-      csv_string = user["cf_csv"].as_s?
-      license_string = user["cf_license"].as_s?
+      csv_string = user["cf_csv"]?.try(&.as_s?)
+      license_string = user["cf_license"]?.try(&.as_s?)
 
       update_csv = false
       update_license = number_plate.presence && number_plate != license_string
