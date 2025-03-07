@@ -3,6 +3,7 @@ require "./cloud_xapi/ui_extensions"
 
 class Cisco::Webex::Cloud < PlaceOS::Driver
   include CloudXAPI::UIExtensions
+
   # Discovery Information
   descriptive_name "Webex Cloud xAPI"
   generic_name :CloudXAPI
