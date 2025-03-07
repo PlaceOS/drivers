@@ -73,7 +73,6 @@ end
 
 def device_resp_json
   {
-    "scope":                    "meeting:schedules_read",
     "expires_in":               64799,
     "token_type":               "Bearer",
     "refresh_token":            "MjZmMzcyZWUtMzI2MS00MmE4LTgyZWMtYTVlMWIxYzBjZjhiODJmYzViOTItMGFi_PF84_1eb65fdf-9643-417f-9974-ad72cae0e10f",

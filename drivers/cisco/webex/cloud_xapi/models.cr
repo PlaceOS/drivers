@@ -19,7 +19,7 @@ module CloudXAPI::Models
     Off
   end
 
-  record DeviceToken, scope : String, expires_in : Int64, token_type : String, refresh_token : String, refresh_token_expires_in : Int64,
+  record DeviceToken, expires_in : Int64, token_type : String, refresh_token : String, refresh_token_expires_in : Int64,
     access_token : String do
     include JSON::Serializable
 
