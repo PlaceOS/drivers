@@ -26,17 +26,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
   @cisco_personal_token : String = ""
 
   def on_load
-    transport.before_request do |req|
-      unless req.path.in?("/v1/applications/#{@cisco_app_id}/token", "/v1/access_token")
-        req.headers["Authorization"] = get_access_token
-        req.headers["Content-Type"] = "application/json"
-        req.headers["Accept"] = "application/json"
-      end
-      logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
-    end
-
     on_update
-
     schedule.every(1.minute) { keep_token_refreshed }
   end
 
@@ -61,13 +51,23 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       form.add("name", name)
     end
 
-    response = get("/v1/xapi/status?#{query}")
+    headers = HTTP::Headers{
+      "Authorization" => get_access_token,
+      "Content-Type"  => "application/json",
+      "Accept"        => "application/json",
+    }
+    response = get("/v1/xapi/status?#{query}", headers: headers)
     raise "failed to query status for device #{device_id}, code #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
 
   def command(name : String, payload : String)
-    response = post("/v1/xapi/command/#{name}", body: payload)
+    headers = HTTP::Headers{
+      "Authorization" => get_access_token,
+      "Content-Type"  => "application/json",
+      "Accept"        => "application/json",
+    }
+    response = post("/v1/xapi/command/#{name}", headers: headers, body: payload)
     raise "failed to execute command #{name}, code #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
