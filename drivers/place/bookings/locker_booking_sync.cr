@@ -267,8 +267,16 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
         next
       end
 
+      email = email.strip.downcase
       logger.debug { "  -- creating booking for #{lock.locker_id} and #{email} -- id:#{unique_id}" }
-      user = staff_api.user(email).get
+      user = begin
+        staff_api.user(email).get
+      rescue error
+        {
+          "id"   => email,
+          "name" => email.split('@', 2)[0].gsub('.', ' '),
+        }
+      end
       recurrence_end = end_of_week.to_unix if @end_of_week_bookings
       staff_api.create_booking(
         booking_type: "locker",
