@@ -7,6 +7,12 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   generic_name :BookingAreaAccess
   description "ensures users can access areas they have booked. i.e. a private office allocated to a user etc"
 
+  default_settings({
+    # the channel id we're looking for events on
+    lookup_using_username:    true,
+    _security_zone_whitelist: ["zone_name_or_id"],
+  })
+
   accessor calendar : Calendar_1
   accessor staff_api : StaffAPI_1
   accessor locations : LocationServices_1
@@ -32,6 +38,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   getter cached_username : Hash(String, String) = {} of String => String
   getter cached_user_lookups : Hash(String, String | Int64) = {} of String => String | Int64
   getter cached_zone_lookups : Hash(String, String | Int64) = {} of String => String | Int64
+  getter security_zone_whitelist : Array(String | Int64) = [] of String | Int64
 
   @lookup_using_username : Bool = false
 
@@ -41,6 +48,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     @systems = nil
 
     @lookup_using_username = setting?(Bool, :lookup_using_username) || false
+    @security_zone_whitelist = setting?(Array(String | Int64), :security_zone_whitelist) || [] of String | Int64
 
     # we ensure that allocations are recorded so we can unallocate as required
     @mutex.synchronize do
@@ -87,7 +95,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     if username = cached_username[email]?
       username
     else
-      username = calendar.get_user(email).get["username"].as_s.downcase
+      username = calendar.get_user(email).get["username"]?.try(&.as_s.downcase) || email
       if username == email
         cached_username[email] = email
       else
@@ -140,7 +148,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   end
 
   # returns desk_id => security zone name / id
-  def desks(level_id : String) : Hash(String, String)
+  def desks(level_id : String, blocked : Hash(String, String | Int64) = {} of String => String | Int64) : Hash(String, String)
     desks = staff_api.metadata(level_id, "desks").get.dig?("desks", "details")
     security = {} of String => String
     return security unless desks
@@ -148,7 +156,14 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     Array(Desk).from_json(desks.to_json).each do |desk|
       sec = desk.security.presence
       next unless sec
-      security[desk.id] = sec
+
+      if security_zone_whitelist.empty?
+        security[desk.id] = sec
+      elsif security_zone_whitelist.includes?(sec)
+        security[desk.id] = sec
+      else
+        blocked[desk.id] = sec
+      end
     end
     security
   end
@@ -164,6 +179,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   def ensure_booking_access
     errors = [] of String
+    # desk id => security zone
+    # where mapping blocked due to not being whitelisted
+    blocked = {} of String => String | Int64
 
     @check_mutex.synchronize do
       if @performing_check
@@ -183,7 +201,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
       # calculate who needs access
       levels.each do |level_id|
-        desks = desks(level_id)
+        desks = desks(level_id, blocked)
         next if desks.empty?
 
         desk_bookings = staff_api.query_bookings(now.to_unix, end_of_day.to_unix, zones: {level_id}, type: "desk").get.as_a
@@ -295,6 +313,8 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       end
     end
 
+    # expose errors and anything blocked as not on the whitelist
     self[:sync_errors] = errors
+    self[:sync_blocked] = blocked
   end
 end
