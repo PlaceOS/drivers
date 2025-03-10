@@ -19,7 +19,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
   bind Floorsense_1, :controllers, :controllers_changed
 
   default_settings({
-    # execute Floorsense.controller_list to define these mappings
+    # execute Floorsense.controller_list to define these mappings:
     locker_building_location: "Building Location",
     locker_floor_mappings:    {
       "Floor Location": {
