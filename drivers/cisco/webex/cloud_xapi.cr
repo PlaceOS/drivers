@@ -1,6 +1,9 @@
 require "placeos-driver"
+require "./cloud_xapi/ui_extensions"
 
 class Cisco::Webex::Cloud < PlaceOS::Driver
+  include CloudXAPI::UIExtensions
+
   # Discovery Information
   descriptive_name "Webex Cloud xAPI"
   generic_name :CloudXAPI
@@ -8,54 +11,40 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
   uri_base "https://webexapis.com"
 
   default_settings({
-    cisco_client_id:     "",
-    cisco_client_secret: "",
-    cisco_scopes:        "spark:xapi_commands spark:xapi_statuses",
+    cisco_client_id:      "",
+    cisco_client_secret:  "",
+    cisco_target_orgid:   "",
+    cisco_app_id:         "",
+    cisco_personal_token: "",
   })
 
-  @credentials : String = ""
-  getter! authoriation : Authorization
   getter! device_token : DeviceToken
 
   @cisco_client_id : String = ""
   @cisco_client_secret : String = ""
-  @cisco_scopes : String = ""
+  @cisco_target_orgid : String = ""
+  @cisco_app_id : String = ""
+  @cisco_personal_token : String = ""
+
+  def on_load
+    on_update
+    schedule.every(1.minute) { keep_token_refreshed }
+  end
 
   def on_update
     @cisco_client_id = setting(String, :cisco_client_id)
     @cisco_client_secret = setting(String, :cisco_client_secret)
-    @cisco_scopes = setting?(String, :cisco_scopes) || "spark:xapi_commands spark:xapi_statuses"
-    @credentials = Base64.strict_encode("#{@cisco_client_id}:#{@cisco_client_secret}")
-
-    transport.before_request do |req|
-      unless req.path.in?("/v1/device/authorize", "/v1/device/token", "/v1/device/access_token")
-        access_token = get_access_token(@cisco_client_id, @cisco_client_secret)
-        req.headers["Authorization"] = access_token
-        req.headers["Content-Type"] = "application/json"
-        req.headers["Accept"] = "application/json"
-      end
-      logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
-    end
-  end
-
-  def authorize : String
-    @authoriation = authorize(@cisco_client_id, @cisco_scopes)
-    authoriation.verification_uri_complete
+    @cisco_target_orgid = setting(String, :cisco_target_orgid)
+    @cisco_app_id = setting(String, :cisco_app_id)
+    @cisco_personal_token = setting(String, :cisco_personal_token)
+    @device_token = setting?(DeviceToken, :cisco_token_pair) || @device_token
   end
 
   def led_colour?(device_id : String)
     status(device_id, "UserInterface.LedControl.Color")
   end
 
-  def led_colour(device_id : String, colour : Colour)
-    payload = {
-      "deviceId"  => device_id,
-      "arguments" => {
-        "Color": colour.to_s,
-      },
-    }
-    command("UserInterface.LedControl.Color.Set", payload.to_json)
-  end
+  command({"UserInterface LedControl Color Set" => :led_colour}, color: Colour)
 
   def status(device_id : String, name : String)
     query = URI::Params.build do |form|
@@ -63,65 +52,56 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       form.add("name", name)
     end
 
-    response = get("/v1/xapi/status?#{query}")
+    headers = HTTP::Headers{
+      "Authorization" => get_access_token,
+      "Content-Type"  => "application/json",
+      "Accept"        => "application/json",
+    }
+    response = get("/v1/xapi/status?#{query}", headers: headers)
     raise "failed to query status for device #{device_id}, code #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
 
   def command(name : String, payload : String)
-    response = post("/v1/xapi/command/#{name}", body: payload)
+    headers = HTTP::Headers{
+      "Authorization" => get_access_token,
+      "Content-Type"  => "application/json",
+      "Accept"        => "application/json",
+    }
+    response = post("/v1/xapi/command/#{name}", headers: headers, body: payload)
     raise "failed to execute command #{name}, code #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
 
-  # https://developer.webex.com/docs/login-with-webex#getting-an-access-token-with-device-grant-flow
-  protected def get_access_token(client_id, client_secret)
-    raise "complete authorization process by visiting the url returned via driver :authorize method" if @authoriation.nil?
-
+  protected def get_access_token
     if device_token?
       return device_token.auth_token if 1.minute.from_now < device_token.expiry
-      return refresh_token(client_id, client_secret) if 1.minute.from_now < device_token.refresh_expiry
+      return refresh_token if 1.minute.from_now < device_token.refresh_expiry
     end
 
-    # Minimum amount of time in seconds we should wait before polling device token endpoint
-    sleep authoriation.interval.seconds
-
-    body = URI::Params.build do |form|
-      form.add("client_id", client_id)
-      form.add("device_code", authoriation.device_code)
-      form.add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-    end
+    body = {
+      "clientId":     @cisco_client_id,
+      "clientSecret": @cisco_client_secret,
+      "targetOrgId":  @cisco_target_orgid,
+    }.to_json
 
     headers = HTTP::Headers{
-      "Authorization" => "Basic #{@credentials}",
-      "Content-Type"  => "application/x-www-form-urlencoded",
+      "Authorization" => "Bearer #{@cisco_personal_token}",
+      "Content-Type"  => "application/json",
       "Accept"        => "application/json",
     }
-    response = post("/v1/device/token", headers: headers, body: body)
-    raise "failed to get device access token for client-id #{client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
+    response = post("/v1/applications/#{@cisco_app_id}/token", headers: headers, body: body)
+    raise "failed to retriee access token for client-id #{@cisco_client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
     @device_token = DeviceToken.from_json(response.body)
+    define_setting(:cisco_token_pair, device_token)
     device_token.auth_token
   end
 
-  protected def authorize(client_id : String, scope : String) : Authorization
-    body = URI::Params.build do |form|
-      form.add("client_id", client_id)
-      form.add("scope", scope)
-    end
-    headers = HTTP::Headers{
-      "Content-Type" => "application/x-www-form-urlencoded",
-      "Accept"       => "application/json",
-    }
-    response = post("/v1/device/authorize", headers: headers, body: body)
-    raise "failed to authorize client-id #{client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
-    Authorization.from_json(response.body)
-  end
-
-  protected def refresh_token(client_id : String, client_secret : String)
+  protected def refresh_token
     body = URI::Params.build do |form|
       form.add("grant_type", "refresh_token")
-      form.add("client_id", client_id)
-      form.add("client_secret", client_secret)
+      form.add("client_id", @cisco_client_id)
+      form.add("client_secret", @cisco_client_secret)
       form.add("refresh_token", device_token.refresh_token)
     end
 
@@ -129,61 +109,15 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       "Content-Type" => "application/x-www-form-urlencoded",
       "Accept"       => "application/json",
     }
-    response = post("/v1/device/access_token", headers: headers, body: body)
-    raise "failed to refresh device access token for client-id #{client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
+    response = post("/v1/access_token", headers: headers, body: body)
+    raise "failed to refresh access token for client-id #{@cisco_client_id}, code #{response.status_code}, body #{response.body}" unless response.success?
     @device_token = DeviceToken.from_json(response.body)
+    define_setting(:cisco_token_pair, device_token)
     device_token.auth_token
   end
 
-  enum Colour
-    Green
-    Yellow
-    Red
-    Purple
-    Blue
-    Orange
-    Orchid
-    Aquamarine
-    Fuchsia
-    Violet
-    Magenta
-    Scarlet
-    Gold
-    Lime
-    Turquoise
-    Cyan
-    Off
-  end
-
-  record Authorization, device_code : String, expires_in : Int64, user_code : String, verification_url : String?,
-    verification_uri_complete : String, interval : Int64 do
-    include JSON::Serializable
-
-    @[JSON::Field(ignore: true)]
-    getter! expiry : Time
-
-    def after_initialize
-      @expiry = Time.utc + expires_in.seconds
-    end
-  end
-
-  record DeviceToken, scope : String, expires_in : Int64, token_type : String, refresh_token : String, refresh_token_expires_in : Int64,
-    access_token : String do
-    include JSON::Serializable
-
-    @[JSON::Field(ignore: true)]
-    getter! expiry : Time
-
-    @[JSON::Field(ignore: true)]
-    getter! refresh_expiry : Time
-
-    def after_initialize
-      @expiry = Time.utc + expires_in.seconds
-      @refresh_expiry = Time.utc + refresh_token_expires_in.seconds
-    end
-
-    def auth_token
-      "#{token_type} #{access_token}"
-    end
+  protected def keep_token_refreshed : Nil
+    return if @device_token.nil?
+    refresh_token if 1.minute.from_now < device_token.refresh_expiry
   end
 end
