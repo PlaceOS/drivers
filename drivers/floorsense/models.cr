@@ -137,7 +137,7 @@ module Floorsense
     property releasecode : Int32
 
     def released?
-      self.active == 1
+      self.active != 1
     end
 
     # not included in the responses but we will merge this
