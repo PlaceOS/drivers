@@ -12,36 +12,9 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
       password: :labrador,
     },
     max_waits:       100,
-    channel_details: [
-      {
-        name:    "Al Jazeera",
-        icon:    "https://url-to-svg-or-png",
-        channel: "udp://239.192.10.170:5000?hwchan=0",
-      },
-    ],
   })
 
-  class ChannelDetail
-    include JSON::Serializable
-
-    getter name : String
-    getter icon : String?
-    getter channel : String
-  end
-
   @ready : Bool = false
-  @channel_lookup : Hash(String, ChannelDetail) = {} of String => ChannelDetail
-
-  def on_update
-    channel_lookup = {} of String => ChannelDetail
-    if channel_details = setting?(Array(ChannelDetail), :channel_details)
-      self[:channel_details] = channel_details
-      channel_details.each { |lookup| channel_lookup[lookup.channel] = lookup }
-    else
-      self[:channel_details] = nil
-    end
-    @channel_lookup = channel_lookup
-  end
 
   def connected
     self[:ready] = @ready = false
@@ -77,18 +50,12 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
     current_channel_name
   end
 
-  def stream(uri : String)
+  def stream(uri : String) : Nil
     set(:playChannelUri, uri, name: :channel).get
-    name = @channel_lookup[uri]?.try &.name
-
     schedule.in(2.second) do
-      current_channel.get
-      if name && uri == self[:current_channel]
-        channel_name name
-      end
+      current_channel
+      current_channel_name
     end
-
-    name
   end
 
   def current_channel
