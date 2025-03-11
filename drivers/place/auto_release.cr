@@ -287,6 +287,7 @@ class Place::AutoRelease < PlaceOS::Driver
           {name: "end_date", description: "Formatted end date (e.g., #{time_now.to_s(@date_format)})"},
           {name: "end_datetime", description: "Formatted end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
           {name: "asset_id", description: "Identifier of the booked resource"},
+          {name: "asset_name", description: "Name of the booked resource"},
           {name: "user_id", description: "Identifier of the person who has the booking"},
           {name: "user_email", description: "Email address of the person who has the booking"},
           {name: "user_name", description: "Full name of the person who has the booking"},
