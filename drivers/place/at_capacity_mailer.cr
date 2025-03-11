@@ -2,9 +2,11 @@ require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 require "place_calendar"
+require "./bookings/asset_name_resolver"
 
 class Place::AtCapacityMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::AssetNameResolver
 
   descriptive_name "PlaceOS At Capacity Mailer"
   generic_name :AtCapacityMailer
@@ -19,13 +21,23 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     time_window_hours:     1,             # the number of hours to check for bookings
     debounce_time_minutes: 60,            # the time to wait before sending another email
     email_template:        "at_capacity",
-    unique_templates:      false, # this appends the booking type to the template name
+    unique_templates:      false,    # this appends the booking type to the template name
+    asset_cache_timeout:   3600_i64, # 1 hour
   })
 
   accessor staff_api : StaffAPI_1
 
   def mailer
     system.implementing(Interface::Mailer)[0]
+  end
+
+  # used by AssetNameResolver and LockerMetadataParser
+  accessor locations : LocationServices_1
+  getter building_id : String do
+    locations.building_id.get.as_s
+  end
+  getter levels : Array(String) do
+    staff_api.systems_in_building(building_id).get.as_h.keys
   end
 
   def on_load
@@ -51,6 +63,9 @@ class Place::AtCapacityMailer < PlaceOS::Driver
   @zone_cache : Hash(String, Zone) = {} of String => Zone
 
   def on_update
+    @building_id = nil
+    @levels = nil
+
     time_zone = setting?(String, :calendar_time_zone).presence || "Australia/Sydney"
     @time_zone = Time::Location.load(time_zone)
 
@@ -66,6 +81,8 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     @unique_templates = setting?(Bool, :unique_templates) || false
     @template_suffix = @unique_templates ? "_#{@booking_type}" : ""
     @template_fields_suffix = @unique_templates ? " (#{@booking_type})" : ""
+
+    @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
 
     schedule.clear
 
@@ -97,33 +114,10 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     assets_ids = {} of String => Array(String)
 
     @zones.each do |zone_id|
-      assets_ids[zone_id] = get_assets_from_metadata(zone_id).map { |asset| asset.id }.uniq!
+      assets_ids[zone_id] = lookup_assets(zone_id, @booking_type).map { |asset| asset.id }.uniq!
     end
 
     self[:assets_ids] = assets_ids
-  end
-
-  def get_assets_from_metadata(zone_id : String) : Array(Asset)
-    assets = [] of Asset
-
-    metadata_field = case @booking_type
-                     when "desk"
-                       "desks"
-                     when "parking"
-                       "parking-spaces"
-                     when "locker"
-                       "lockers"
-                     end
-
-    if metadata_field
-      metadata = Metadata.from_json staff_api.metadata(zone_id, metadata_field).get[metadata_field].to_json
-      assets = metadata.details.as_a.map { |asset| Asset.from_json asset.to_json }
-    end
-
-    assets
-  rescue error
-    logger.warn(exception: error) { "unable to get #{metadata_field} from zone #{zone_id} metadata" }
-    [] of Asset
   end
 
   def get_booked_asset_ids : Array(String)
@@ -195,25 +189,6 @@ class Place::AtCapacityMailer < PlaceOS::Driver
   rescue error
     logger.warn(exception: error) { "unable to find zone #{zone_id}" }
     Zone.new(id: zone_id)
-  end
-
-  struct Metadata
-    include JSON::Serializable
-
-    property name : String
-    property description : String = ""
-    property details : JSON::Any
-    property parent_id : String
-    property schema_id : String? = nil
-    property editors : Set(String) = Set(String).new
-    property modified_by_id : String? = nil
-  end
-
-  struct Asset
-    include JSON::Serializable
-
-    property id : String
-    property name : String
   end
 
   struct Zone
