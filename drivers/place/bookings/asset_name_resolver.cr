@@ -4,11 +4,12 @@ require "./locker_models"
 module Place::AssetNameResolver
   include Place::LockerMetadataParser
 
-  getter asset_cache : AssetCache { AssetCache.new }
-
+  @asset_cache : AssetCache = AssetCache.new
   @asset_cache_timeout : Int64 = 3600_i64 # 1 hour
+  
+  private getter asset_cache : AssetCache
 
-  def clear_asset_cache
+  private def clear_asset_cache
     @asset_cache = AssetCache.new
   end
 
@@ -22,7 +23,6 @@ module Place::AssetNameResolver
                   cache[1].find { |asset| asset.id == asset_id }
                 else
                   assets = lookup_assets(zone_id, type)
-                  @asset_cache ||= AssetCache.new
                   @asset_cache[{zone_id, type}] = {Time.utc.to_unix + @asset_cache_timeout, assets}
                   assets.find { |asset| asset.id == asset_id }
                 end
