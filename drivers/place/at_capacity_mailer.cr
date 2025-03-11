@@ -83,6 +83,7 @@ class Place::AtCapacityMailer < PlaceOS::Driver
     @template_fields_suffix = @unique_templates ? " (#{@booking_type})" : ""
 
     @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
+    clear_asset_cache
 
     schedule.clear
 
