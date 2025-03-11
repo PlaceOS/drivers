@@ -764,6 +764,13 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     desk_info
   end
 
+  # NOTE:: here for backwards compatibility
+  def desk_details(controller_id : String | Int32, desk_id : String)
+    response = get("/restapi/desk-status?cid=#{controller_id}&key=#{desk_id}", headers: default_headers)
+    desk_info = parse response, DeskInfo
+    desk_info
+  end
+
   enum LedColour
     Red
     Green
