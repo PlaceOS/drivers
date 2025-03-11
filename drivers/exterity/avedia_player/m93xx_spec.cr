@@ -12,9 +12,11 @@ DriverSpecs.mock_driver "Exterity::AvediaPlayer::R92xx" do
 ^currentChannel_number:30!
 ^currentAVChannel:udp://239.193.3.169:5000?hwchan=4!
 ^new_channel:NO VALUE!
-^cur_channel:udp://239.193.3.169:5000?hwchan=4!)
+^currentChannel:udp://239.193.3.169:5000?hwchan=4!)
 
-  status[:cur_channel].should eq "udp://239.193.3.169:5000?hwchan=4"
+  sleep 100.milliseconds
+
+  status[:current_channel].should eq "udp://239.193.3.169:5000?hwchan=4"
   status[:current_channel_name].should eq "SBS ONE HD"
 
   resp = exec(:version)

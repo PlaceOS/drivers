@@ -15,7 +15,7 @@ shards:
 
   awscr-signer:
     git: https://github.com/taylorfinnell/awscr-signer.git
-    version: 0.8.2
+    version: 0.9.0
 
   axio:
     git: https://github.com/place-technology/axio.git
@@ -203,7 +203,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.1.2+git.commit.7714bb4d3e57fadcfded9d2e17247b5d3506e379
+    version: 1.1.2+git.commit.f14936937ad0787a75d04d9fed23ffab11e4c42d
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -227,7 +227,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.4.1
+    version: 7.4.2
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
