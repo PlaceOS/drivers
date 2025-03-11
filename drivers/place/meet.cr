@@ -82,7 +82,22 @@ class Place::Meet < PlaceOS::Driver
         opacity: 0.8,
       },
     ],
+    _channel_details: [
+      {
+        name:    "Al Jazeera",
+        icon:    "https://url-to-svg-or-png",
+        channel: "udp://239.192.10.170:5000?hwchan=0",
+      },
+    ],
   })
+
+  class ChannelDetail
+    include JSON::Serializable
+
+    getter name : String
+    getter icon : String?
+    getter channel : String
+  end
 
   # =========================
   # The LLM Interface
@@ -145,6 +160,7 @@ class Place::Meet < PlaceOS::Driver
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
     self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
     self[:voice_control] = setting?(Bool, :voice_control) || false
+    self[:channel_details] = setting?(Array(ChannelDetail), :channel_details)
     @shutdown_devices = setting?(Array(String), :shutdown_devices)
     @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
     @unjoin_on_shutdown = setting?(Bool, :unjoin_on_shutdown)
