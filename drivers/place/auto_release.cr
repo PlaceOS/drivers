@@ -3,9 +3,11 @@ require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 require "place_calendar"
 require "./booking_model"
+require "./bookings/asset_name_resolver"
 
 class Place::AutoRelease < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::AssetNameResolver
 
   descriptive_name "PlaceOS Auto Release"
   generic_name :AutoRelease
@@ -23,13 +25,20 @@ class Place::AutoRelease < PlaceOS::Driver
     # - wfh: Work From Home
     # - aol: Away on Leave
     # - wfo: Work From Office
-    skip_created_after_start: true,  # Skip bookings created after the start time
-    skip_same_day:            false, # Skip bookings created on the same day as the booking
+    skip_created_after_start: true,     # Skip bookings created after the start time
+    skip_same_day:            false,    # Skip bookings created on the same day as the booking
+    asset_cache_timeout:      3600_i64, # 1 hour
   })
 
   accessor staff_api : StaffAPI_1
 
   getter building_zone : Zone { get_building_zone?.not_nil! }
+
+  # used by AssetNameResolver and LockerMetadataParser
+  getter building_id : String { building_zone.id }
+  getter levels : Array(String) do
+    staff_api.systems_in_building(building_id).get.as_h.keys
+  end
 
   protected getter timezone : Time::Location do
     tz = config.control_system.try(&.timezone) || building_zone.timezone.presence || "UTC"
@@ -58,6 +67,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def on_update
     @building_zone = nil
+    @building_id = nil
+    @levels = nil
     @timezone = nil
 
     @email_schedule = setting?(String, :email_schedule).presence
@@ -72,6 +83,8 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
+
+    @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
 
     schedule.clear
 
@@ -325,6 +338,7 @@ class Place::AutoRelease < PlaceOS::Driver
           end_datetime:   ending.to_s(@date_time_format),
 
           asset_id:   booking.asset_id,
+          asset_name: lookup_asset(asset_id: booking.asset_id, type: booking.booking_type, zones: booking.zones),
           user_id:    booking.user_id,
           user_email: booking.user_email,
           user_name:  booking.user_name,
