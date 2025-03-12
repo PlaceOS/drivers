@@ -361,6 +361,29 @@ class StaffAPI < DriverSpecs::MockDriver
       last_changed:    TIME_YESTERDAY.to_unix,
       created:         TIME_YESTERDAY.to_unix,
     },
+    {
+      id:              16,
+      user_id:         "user-wfh",
+      user_email:      "user_one@example.com",
+      user_name:       "User One",
+      asset_id:        "desk_016",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (TIME_UTC - 6.minutes).to_unix,
+      booking_end:     (TIME_UTC + 1.hour).to_unix,
+      timezone:        "Australia/Darwin",
+      title:           "notify_after_start",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-wfh",
+      booked_by_email: "user_one@example.com",
+      booked_by_name:  "User One",
+      process_state:   "approved",
+      last_changed:    (TIME_UTC - 20.minutes).to_unix,
+      created:         (TIME_UTC - 20.minutes).to_unix,
+    },
   ]
 
   NOW         = Time.local(location: Time::Location.load(TIMEZONE))
@@ -693,7 +716,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp.not_nil!.as_h["id"].should eq "zone-1234"
 
   resp = exec(:get_pending_bookings).get
-  resp.not_nil!.as_a.size.should eq 14
+  resp.not_nil!.as_a.size.should eq 15
 
   resp = exec(:get_user_preferences?, "user-wfh").get
   resp.not_nil!.as_h.keys.should eq ["work_preferences", "work_overrides"]
@@ -715,7 +738,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
 
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 9
+  pending_release.size.should eq 10
   pending_release.should eq [
     "ignore",
     "notify",
@@ -726,6 +749,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     "release_override_aol",
     "notify_created_yesterday",
     "reject_created_yesterday",
+    "notify_after_start",
   ]
 
   # skip_same_day: true
@@ -772,7 +796,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # Ensure self[:pending_release] holds the correct bookings for the settings before testing #release_bookings
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 9
+  pending_release.size.should eq 10
   pending_release.should eq [
     "ignore",
     "notify",
@@ -783,6 +807,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     "release_override_aol",
     "notify_created_yesterday",
     "reject_created_yesterday",
+    "notify_after_start",
   ]
 
   # Should reject 3 bookings
@@ -811,11 +836,11 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     skip_same_day:            false,
   })
 
-  # Should reject 4 bookings
-  # booking_id: [3, 9, 15, 8], title: ["reject", "release_override_aol", "reject_created_yesterday", "reject_on_start"]
+  # Should reject 5 bookings
+  # booking_id: [3, 9, 15, 8, 16], title: ["reject", "release_override_aol", "reject_created_yesterday", "reject_on_start", "notify_after_start"]
   resp = exec(:release_bookings).get
-  resp.should eq [3, 9, 15, 8]
-  system(:StaffAPI_1)[:rejected].should eq 4
+  resp.should eq [3, 9, 15, 8, 16]
+  system(:StaffAPI_1)[:rejected].should eq 5
 
   #####################################
   # End of tests for: #release_bookings
@@ -844,6 +869,25 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp = exec(:send_release_emails).get
   resp.should eq [2, 14]
   system(:Mailer_1)[:sent].should eq 2
+
+  # Notify after start
+  ####################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: -5,
+      time_after:  40,
+      resources:   ["desk"],
+    },
+  })
+  status[:released_booking_ids] = [2, 14, 3, 6, 7, 9, 15]
+  status[:emailed_booking_ids] = nil
+
+  # (booking_id: 16, title: notify_after_start)
+  resp = exec(:send_release_emails).get
+  resp.should eq [16]
+  system(:Mailer_1)[:sent].should eq 3
 
   ########################################
   # End of tests for: #send_release_emails
@@ -887,7 +931,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # Start of tests for: #enabled?
   ###############################
 
-  # disabled wehn both time_before and time_after are 0
+  # disabled when both time_before and time_after are 0
   settings({
     auto_release: {
       time_before: 0,
@@ -900,8 +944,8 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # enabled when time_before is set and time_after is 0
   settings({
     auto_release: {
-      time_before: 10,
-      time_after:  0,
+      time_before: 10, # notify before start of meeting
+      time_after:  0,  # release at start of meeting
       resources:   ["desk"],
     },
   })
@@ -910,8 +954,8 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # enabled when time_before is 0 and time_after is set
   settings({
     auto_release: {
-      time_before: 0,
-      time_after:  10,
+      time_before: 0,  # notify at start of meeting
+      time_after:  10, # release after start of meeting
       resources:   ["desk"],
     },
   })
@@ -920,8 +964,16 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # enabled when both time_before and time_after are set
   settings({
     auto_release: {
-      time_before: 10,
-      time_after:  10,
+      time_before: 10, # notify before start of meeting
+      time_after:  10, # release after start of meeting
+      resources:   ["desk"],
+    },
+  })
+  # enabled when time_before is set to a negative number and time_after is set to a positive number
+  settings({
+    auto_release: {
+      time_before: -10, # notify after start of meeting
+      time_after:  20,  # release after start of meeting
       resources:   ["desk"],
     },
   })

@@ -3,9 +3,11 @@ require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 require "place_calendar"
 require "./booking_model"
+require "./bookings/asset_name_resolver"
 
 class Place::AutoRelease < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::AssetNameResolver
 
   descriptive_name "PlaceOS Auto Release"
   generic_name :AutoRelease
@@ -23,13 +25,20 @@ class Place::AutoRelease < PlaceOS::Driver
     # - wfh: Work From Home
     # - aol: Away on Leave
     # - wfo: Work From Office
-    skip_created_after_start: true,  # Skip bookings created after the start time
-    skip_same_day:            false, # Skip bookings created on the same day as the booking
+    skip_created_after_start: true,     # Skip bookings created after the start time
+    skip_same_day:            false,    # Skip bookings created on the same day as the booking
+    asset_cache_timeout:      3600_i64, # 1 hour
   })
 
   accessor staff_api : StaffAPI_1
 
   getter building_zone : Zone { get_building_zone?.not_nil! }
+
+  # used by AssetNameResolver and LockerMetadataParser
+  getter building_id : String { building_zone.id }
+  getter levels : Array(String) do
+    staff_api.systems_in_building(building_id).get.as_h.keys
+  end
 
   protected getter timezone : Time::Location do
     tz = config.control_system.try(&.timezone) || building_zone.timezone.presence || "UTC"
@@ -58,6 +67,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
   def on_update
     @building_zone = nil
+    @building_id = nil
+    @levels = nil
     @timezone = nil
 
     @email_schedule = setting?(String, :email_schedule).presence
@@ -72,6 +83,9 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
+
+    @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
+    clear_asset_cache
 
     schedule.clear
 
@@ -93,7 +107,7 @@ class Place::AutoRelease < PlaceOS::Driver
     zone_id = (zone_ids & system.zones).first
     zones.find { |zone| zone.id == zone_id }
   rescue error
-    logger.warn(exception: error) { "unable to determine building zone" }
+    logger.error(exception: error) { "unable to determine building zone" }
     nil
   end
 
@@ -130,7 +144,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
     self[:pending_bookings] = results
   rescue error
-    logger.warn(exception: error) { "unable to obtain list of bookings" }
+    logger.error(exception: error) { "unable to obtain list of bookings" }
     self[:pending_bookings] = [] of Booking
   end
 
@@ -142,8 +156,8 @@ class Place::AutoRelease < PlaceOS::Driver
     work_overrides = Hash(String, WorktimePreference).from_json user.as_h["work_overrides"].to_json
 
     {work_preferences: work_preferences, work_overrides: work_overrides}
-  rescue error
-    logger.warn(exception: error) { "unable to obtain user work location" }
+  rescue
+    logger.warn { "unable to obtain work location for user #{user_id}" }
     nil
   end
 
@@ -251,7 +265,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
     self[:released_booking_ids] = released_booking_ids
   rescue error
-    logger.warn(exception: error) { "unable to release bookings" }
+    logger.error(exception: error) { "unable to release bookings" }
     self[:released_booking_ids] = [] of Int64
   end
 
@@ -273,6 +287,7 @@ class Place::AutoRelease < PlaceOS::Driver
           {name: "end_date", description: "Formatted end date (e.g., #{time_now.to_s(@date_format)})"},
           {name: "end_datetime", description: "Formatted end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
           {name: "asset_id", description: "Identifier of the booked resource"},
+          {name: "asset_name", description: "Name of the booked resource"},
           {name: "user_id", description: "Identifier of the person who has the booking"},
           {name: "user_email", description: "Email address of the person who has the booking"},
           {name: "user_name", description: "Full name of the person who has the booking"},
@@ -325,6 +340,7 @@ class Place::AutoRelease < PlaceOS::Driver
           end_datetime:   ending.to_s(@date_time_format),
 
           asset_id:   booking.asset_id,
+          asset_name: lookup_asset(asset_id: booking.asset_id, type: booking.booking_type, zones: booking.zones),
           user_id:    booking.user_id,
           user_email: booking.user_email,
           user_name:  booking.user_name,
