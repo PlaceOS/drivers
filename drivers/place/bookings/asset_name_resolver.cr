@@ -6,7 +6,7 @@ module Place::AssetNameResolver
 
   @asset_cache : AssetCache = AssetCache.new
   @asset_cache_timeout : Int64 = 3600_i64 # 1 hour
-  
+
   private getter asset_cache : AssetCache
 
   private def clear_asset_cache
