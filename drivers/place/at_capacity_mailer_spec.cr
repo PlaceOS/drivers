@@ -99,51 +99,6 @@ class StaffAPI < DriverSpecs::MockDriver
                     "assigned_user": nil,
                   },
                 ]
-              when "lockers"
-                [
-                  {
-                    "id":   "locker-1",
-                    "name": "L1-01",
-                    "size": [
-                      1,
-                      3,
-                    ],
-                    "tags": [
-                      "Base",
-                    ],
-                    "notes":    "",
-                    "bank_id":  "bank-1",
-                    "bookable": true,
-                    "features": [] of String,
-                    "position": [
-                      0,
-                      0,
-                    ],
-                    "accessible":    true,
-                    "assigned_user": nil,
-                  },
-                  {
-                    "id":   "locker-2",
-                    "name": "L1-02",
-                    "size": [
-                      1,
-                      3,
-                    ],
-                    "tags": [
-                      "Base",
-                    ],
-                    "notes":    "",
-                    "bank_id":  "bank-1",
-                    "bookable": true,
-                    "features": [] of String,
-                    "position": [
-                      1,
-                      0,
-                    ],
-                    "accessible":    true,
-                    "assigned_user": nil,
-                  },
-                ]
               end
 
     JSON.parse(
@@ -184,8 +139,6 @@ class StaffAPI < DriverSpecs::MockDriver
                ["desk-1", "desk-2"]
              when "parking"
                ["park-1"]
-             when "locker"
-               ["locker-1", "locker-2"]
              end
     JSON.parse(assets.to_json)
   end
@@ -248,36 +201,6 @@ DriverSpecs.mock_driver "Place::AtCapacityMailer" do
   ###########################################
   # End of tests for: #get_booked_asset_ids
 
-  # Start of tests for: #get_assets_from_metadata
-  ###############################################
-
-  settings({
-    booking_type: "desk",
-    zones:        ["level-1"],
-  })
-
-  resp = exec(:get_assets_from_metadata, "level-1").get
-  resp.not_nil!.as_a.map(&.as_h["id"]).should eq ["desk-1", "desk-2"]
-
-  settings({
-    booking_type: "parking",
-    zones:        ["level-1"],
-  })
-
-  resp = exec(:get_assets_from_metadata, "level-1").get
-  resp.not_nil!.as_a.map(&.as_h["id"]).should eq ["park-1", "park-2"]
-
-  settings({
-    booking_type: "locker",
-    zones:        ["level-1"],
-  })
-
-  resp = exec(:get_assets_from_metadata, "level-1").get
-  resp.not_nil!.as_a.map(&.as_h["id"]).should eq ["locker-1", "locker-2"]
-
-  ###############################################
-  # End of tests for: #get_assets_from_metadata
-
   # Start of tests for: #get_asset_ids
   ####################################
 
@@ -307,7 +230,7 @@ DriverSpecs.mock_driver "Place::AtCapacityMailer" do
 
   #  Fully booked
   settings({
-    booking_type: "locker",
+    booking_type: "desk",
     zones:        ["level-1"],
   })
   _resp = exec(:get_asset_ids).get # asset_ids are cached
