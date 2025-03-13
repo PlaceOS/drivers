@@ -243,6 +243,7 @@ class Place::Meet < PlaceOS::Driver
       end
     else
       unlink_systems if unlink
+      audio_mute(true) rescue nil
 
       @local_outputs.each { |output| unroute(output) }
       @local_preview_outputs.each { |output| unroute(output) }
