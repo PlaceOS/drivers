@@ -58,7 +58,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       "Accept"        => "application/json",
     }
     response = get("/v1/xapi/status?#{query}", headers: headers)
-    raise "failed to query status for device #{device_id}, code #{response.status_code}" unless response.success?
+    raise "failed to query status for device #{device_id}, code #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
@@ -69,7 +69,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       "Accept"        => "application/json",
     }
     response = post("/v1/xapi/command/#{name}", headers: headers, body: payload)
-    raise "failed to execute command #{name}, code #{response.status_code}" unless response.success?
+    raise "failed to execute command #{name}, code #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
