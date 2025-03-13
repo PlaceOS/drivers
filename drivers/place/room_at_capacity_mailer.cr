@@ -66,7 +66,7 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
         next unless sys.exists?("Bookings", 1)
         next unless sys.capacity > 0
 
-        if people_count = sys.get("Bookings", 1).status?(Int32, "people_count")
+        if people_count = sys.get("Bookings", 1).status?(Float64, "people_count")
           logger.debug { "people count for #{system_id}: #{people_count}" }
 
           if people_count >= sys.capacity
@@ -94,7 +94,7 @@ class Place::RoomAtCapacityMailer < PlaceOS::Driver
   @[Security(Level::Support)]
   def send_email(
     capacity : Int32,
-    people_count : Int32,
+    people_count : Float64,
     system_id : String,
     name : String? = nil,
     display_name : String? = nil,
