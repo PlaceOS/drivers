@@ -127,7 +127,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
 
     headers = HTTP::Headers{
       "Authorization" => get_access_token,
-      "Content-Type"  => "application/json",
+      "Content-Type"  => "application/json-patch+json",
       "Accept"        => "application/json",
     }
 
