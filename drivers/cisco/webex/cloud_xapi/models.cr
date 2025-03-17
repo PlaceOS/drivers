@@ -17,6 +17,10 @@ module CloudXAPI::Models
     Turquoise
     Cyan
     Off
+
+    def to_json(json : JSON::Builder)
+      json.string(to_s)
+    end
   end
 
   record DeviceToken, expires_in : Int64, token_type : String, refresh_token : String, refresh_token_expires_in : Int64,
@@ -89,7 +93,7 @@ module CloudXAPI::Models
                   {% if param.stringify.ends_with?("_") %}
                     {% param = param.stringify[0..-2] %}
                   {% end %}
-                  "{{param.id}}" => JSON.parse({{param.id}}.to_json),
+                  "{{param.id.capitalize}}" => JSON.parse({{param.id}}.to_json),
                 {% end %}
               } of String => JSON::Any
             {% end %}
