@@ -44,6 +44,15 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     @device_token = setting?(DeviceToken, :cisco_token_pair) || @device_token
   end
 
+  def led_mode?(device_id : String)
+    config?(device_id, "UserInterface.LedControl.Mode")
+  end
+
+  def led_mode(device_id : String, value : String)
+    value = value.downcase.capitalize
+    config("UserInterface.LedControl.Mode", device_id, value)
+  end
+
   def led_colour?(device_id : String)
     status(device_id, "UserInterface.LedControl.Color")
   end
@@ -79,6 +88,53 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
 
     response = post("/v1/xapi/command/#{name}", headers: headers, body: payload)
     raise "failed to execute command #{name}, code #{response.status_code}, body: #{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def config?(device_id : String, name : String)
+    query = URI::Params.build do |form|
+      form.add("deviceId", device_id)
+      form.add("key", name)
+    end
+
+    headers = HTTP::Headers{
+      "Authorization" => get_access_token,
+      "Content-Type"  => "application/json",
+      "Accept"        => "application/json",
+    }
+
+    logger.debug { {msg: "Status HTTP Data:", headers: headers.to_json, query: query.to_s} } if @debug_payload
+
+    response = get("/v1/deviceConfigurations?#{query}", headers: headers)
+    raise "failed to query configuration for device #{device_id}, code #{response.status_code}, body: #{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def config(name : String, device_id : String, value : String)
+    body = {
+      "op"    => "replace",
+      "path"  => "#{name}/sources/configured/value",
+      "value" => value,
+    }
+
+    config(device_id, body.to_json)
+  end
+
+  def config(device_id : String, payload : String)
+    query = URI::Params.build do |form|
+      form.add("deviceId", device_id)
+    end
+
+    headers = HTTP::Headers{
+      "Authorization" => get_access_token,
+      "Content-Type"  => "application/json",
+      "Accept"        => "application/json",
+    }
+
+    logger.debug { {msg: "Config HTTP Data:", headers: headers.to_json, query: query, payload: payload} } if @debug_payload
+
+    response = patch("/v1/deviceConfigurations?#{query}", headers: headers, body: payload)
+    raise "failed to patch config on device #{device_id}, code #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
