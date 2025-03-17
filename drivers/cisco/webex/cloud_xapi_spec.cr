@@ -7,6 +7,7 @@ DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
     cisco_target_orgid:   "target-org",
     cisco_app_id:         "my-app",
     cisco_personal_token: "my-personal-token",
+    debug_payload:        true,
   })
 
   ret_val = exec(:led_colour?, "device1-id")

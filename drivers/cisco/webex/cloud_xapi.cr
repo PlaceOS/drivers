@@ -16,6 +16,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     cisco_target_orgid:   "",
     cisco_app_id:         "",
     cisco_personal_token: "",
+    debug_payload:        false,
   })
 
   getter! device_token : DeviceToken
@@ -25,6 +26,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
   @cisco_target_orgid : String = ""
   @cisco_app_id : String = ""
   @cisco_personal_token : String = ""
+  @debug_payload : Bool = false
 
   def on_load
     on_update
@@ -37,6 +39,8 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
     @cisco_target_orgid = setting(String, :cisco_target_orgid)
     @cisco_app_id = setting(String, :cisco_app_id)
     @cisco_personal_token = setting(String, :cisco_personal_token)
+    @debug_payload = setting?(Bool, :debug_payload) || false
+
     @device_token = setting?(DeviceToken, :cisco_token_pair) || @device_token
   end
 
@@ -57,6 +61,8 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       "Content-Type"  => "application/json",
       "Accept"        => "application/json",
     }
+    logger.debug { {msg: "Status HTTP Data:", headers: headers.to_json, query: query.to_s} } if @debug_payload
+
     response = get("/v1/xapi/status?#{query}", headers: headers)
     raise "failed to query status for device #{device_id}, code #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
@@ -68,6 +74,8 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       "Content-Type"  => "application/json",
       "Accept"        => "application/json",
     }
+    logger.debug { {msg: "Command HTTP Data:", headers: headers.to_json, command: name, payload: payload} } if @debug_payload
+
     response = post("/v1/xapi/command/#{name}", headers: headers, body: payload)
     raise "failed to execute command #{name}, code #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
@@ -75,8 +83,10 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
 
   protected def get_access_token
     if device_token?
-      return device_token.auth_token if 1.minute.from_now < device_token.expiry
-      return refresh_token if 1.minute.from_now < device_token.refresh_expiry
+      logger.debug { {msg: "Access Token expiry", expiry: device_token.expiry} } if @debug_payload
+      return device_token.auth_token if 1.minute.from_now <= device_token.expiry
+      logger.debug { {msg: "Access Token expiring, refreshing token", token_expiry: device_token.expiry, refresh_expiry: device_token.refresh_expiry} } if @debug_payload
+      return refresh_token if 1.minute.from_now <= device_token.refresh_expiry
     end
 
     body = {
@@ -118,6 +128,6 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
 
   protected def keep_token_refreshed : Nil
     return if @device_token.nil?
-    refresh_token if 1.minute.from_now < device_token.refresh_expiry
+    refresh_token if 1.minute.from_now <= device_token.refresh_expiry
   end
 end
