@@ -42,7 +42,7 @@ DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
     if io
       data = io.gets_to_end
       request = JSON.parse(data)
-      if request["deviceId"] == "device1-id" && request["arguments"]["color"] == "green" && headers["Authorization"] == "Bearer generated-access-token"
+      if request["deviceId"] == "device1-id" && request["arguments"]["Color"] == "Green" && headers["Authorization"] == "Bearer generated-access-token"
         response.status_code = 202
         response << color_set_resp.to_json
       else
@@ -54,6 +54,14 @@ DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
   end
 
   ret_val.get.should eq(color_set_resp)
+
+  ret_val = exec(:led_mode?, "device1-id")
+  expect_http_request do |request, response|
+    response.status_code = 200
+    response << %({"mode": "Auto"})
+  end
+
+  ret_val.get.try &.as_h["mode"].should eq "Auto"
 
   ret_val = exec(:msg_prompt, "device1-id", "text", [JSON::Any.new("one")], "title", "feedback_id", 32)
   expect_http_request do |request, response|
