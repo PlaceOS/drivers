@@ -61,6 +61,7 @@ class Cisco::Webex::Cloud < PlaceOS::Driver
       "Content-Type"  => "application/json",
       "Accept"        => "application/json",
     }
+
     logger.debug { {msg: "Status HTTP Data:", headers: headers.to_json, query: query.to_s} } if @debug_payload
 
     response = get("/v1/xapi/status?#{query}", headers: headers)
