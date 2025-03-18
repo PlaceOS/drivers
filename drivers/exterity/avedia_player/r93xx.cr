@@ -16,16 +16,18 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
 
   def on_load
     new_telnet_client
-    transport.pre_processor { |bytes| @telnet.try &.buffer(bytes) }
+    transport.pre_processor do |bytes|
+      logger.debug { "preprocessing #{bytes.size} bytes" }
+      @telnet.try &.buffer(bytes)
+    end
   end
 
   def connected
-    @ready = false
-    self[:ready] = false
+    self[:ready] = @ready = false
 
     # Login
     do_send setting(String, :username), wait: false, delay: 1.seconds, priority: 98
-    do_send setting(String, :password), wait: false, delay: 2.seconds, priority: 97
+    do_send setting(String, :password), wait: false, delay: 1.seconds, priority: 97
 
     transport.tokenizer = Tokenizer.new("\r")
 
@@ -83,7 +85,7 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
   def received(data, task)
     data = String.new(data).strip
 
-    logger.debug { "Exterity sent #{data}" }
+    logger.debug { "Exterity received #{data}" }
 
     if @ready
       # Extract response
@@ -91,15 +93,14 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
         process_resp(resp, task)
       end
     elsif data =~ /Terminal Control Interface/i
-      @ready = true
-      self[:ready] = true
+      self[:ready] = @ready = true
       transport.tokenizer = Tokenizer.new("\r")
       version
     elsif data =~ /login:/i
       # We need to disconnect if we don't see the serialCommandInterface after a certain amount of time
-      schedule.in(6.seconds) do
+      schedule.in(20.seconds) do
         if !@ready
-          logger.error { "Exterity connection failed to be ready after 5 seconds. Check username and password." }
+          logger.error { "Exterity connection failed to be ready after 30 seconds. Check username and password." }
           disconnect
         end
       end
@@ -129,6 +130,7 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
 
   protected def new_telnet_client
     @telnet = Telnet.new do |data|
+      logger.debug { "sending #{data.size} bytes via telnet" }
       transport.send(data)
     end
   end
