@@ -1,6 +1,6 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "Exterity::AvediaPlayer::R92xx" do
+DriverSpecs.mock_driver "Exterity::AvediaPlayer::R93xx" do
   responds("login:")
   should_send("admin\r\n", 3.seconds)
   should_send("labrador\r\n", 3.seconds)
