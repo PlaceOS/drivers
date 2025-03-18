@@ -58,7 +58,7 @@ class Place::StaffAPI < PlaceOS::Driver
     @authority_id
   rescue error
     logger.warn(exception: error) { "failed to lookup authority id" }
-    sleep rand(3)
+    sleep rand(3).seconds
     retry += 1
     return if retry == 10
     spawn { lookup_authority_id(retry) }

@@ -23,7 +23,7 @@ shards:
 
   backtracer:
     git: https://github.com/sija/backtracer.cr.git
-    version: 1.2.2
+    version: 1.2.4
 
   bacnet:
     git: https://github.com/spider-gazelle/crystal-bacnet.git
@@ -127,7 +127,7 @@ shards:
 
   http_proxy:
     git: https://github.com/mamantoha/http_proxy.git
-    version: 0.12.1
+    version: 0.13.0
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -227,7 +227,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.4.2
+    version: 7.5.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
