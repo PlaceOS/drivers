@@ -23,6 +23,12 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
     @ready = false
     self[:ready] = false
 
+    # Login
+    do_send setting(String, :username), wait: false, delay: 1.seconds, priority: 98
+    do_send setting(String, :password), wait: false, delay: 2.seconds, priority: 97
+
+    transport.tokenizer = Tokenizer.new("\r")
+
     schedule.every(60.seconds) do
       logger.debug { "-- Polling Exterity Player" }
       tv_info
@@ -30,9 +36,11 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
   end
 
   def disconnected
+    self[:ready] = @ready = false
+    transport.tokenizer = nil
+
     # Ensures the buffer is cleared
     new_telnet_client
-
     schedule.clear
   end
 
@@ -85,16 +93,11 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
     elsif data =~ /Terminal Control Interface/i
       @ready = true
       self[:ready] = true
+      transport.tokenizer = Tokenizer.new("\r")
       version
     elsif data =~ /login:/i
-      transport.tokenizer = Tokenizer.new("\r")
-
-      # Login
-      do_send setting(String, :username), wait: false, delay: 2.seconds, priority: 98
-      do_send setting(String, :password), wait: false, delay: 2.seconds, priority: 97
-
       # We need to disconnect if we don't see the serialCommandInterface after a certain amount of time
-      schedule.in(5.seconds) do
+      schedule.in(6.seconds) do
         if !@ready
           logger.error { "Exterity connection failed to be ready after 5 seconds. Check username and password." }
           disconnect
