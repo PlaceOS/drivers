@@ -26,6 +26,8 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   getter last_update : Int64 = 0_i64
   getter poll_counter : UInt64 = 0_u64
 
+  @sensor_data : Array(Interface::Sensor::Detail) = Array(Interface::Sensor::Detail).new(1)
+
   def on_load
     spawn { event_monitor }
     schedule.every(10.minutes) { authenticate }
@@ -53,6 +55,8 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     self[:presence] = @occupied ? 1.0 : 0.0
     self[:mac] = @mac = format_mac payload.dig("Device", "DeviceInfo", "MacAddress").as_s
     self[:name] = @name = payload.dig("Device", "DeviceInfo", "Name").as_s?
+
+    update_sensor
 
     # Start long polling once we have state
     @poll_counter += 1
@@ -100,6 +104,8 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
     self[:presence] = @occupied ? 1.0 : 0.0
+    update_sensor
+
     true
   rescue timeout : IO::TimeoutError
     logger.debug { "timeout waiting for long poll to complete" }
@@ -107,6 +113,32 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   rescue error
     logger.warn(exception: error) { "during long polling" }
     false
+  end
+
+  @update_lock = Mutex.new
+
+  protected def update_sensor
+    @update_lock.synchronize do
+      if sensor = @sensor_data[0]?
+        sensor.value = @occupied ? 1.0 : 0.0
+        sensor.last_seen = @connected ? Time.utc.to_unix : @last_update
+        sensor.mac = @mac
+        sensor.name = @name
+        sensor.status = @connected ? Status::Normal : Status::Fault
+      else
+        @sensor_data << Detail.new(
+          type: :presence,
+          value: @occupied ? 1.0 : 0.0,
+          last_seen: @connected ? Time.utc.to_unix : @last_update,
+          mac: @mac,
+          id: nil,
+          name: @name,
+          module_id: module_id,
+          binding: "presence",
+          status: @connected ? Status::Normal : Status::Fault,
+        )
+      end
+    end
   end
 
   # ======================
@@ -125,26 +157,16 @@ class Crestron::OccupancySensor < PlaceOS::Driver
       return NO_MATCH unless SENSOR_TYPES.includes?(sensor_type)
     end
 
-    [get_sensor_details]
+    @sensor_data
   end
 
   def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
     return nil unless @mac == mac
-    get_sensor_details
+    @sensor_data[0]?
   end
 
   def get_sensor_details
-    Detail.new(
-      type: :presence,
-      value: @occupied ? 1.0 : 0.0,
-      last_seen: @connected ? Time.utc.to_unix : @last_update,
-      mac: @mac,
-      id: nil,
-      name: @name,
-      module_id: module_id,
-      binding: "presence",
-      status: @connected ? Status::Normal : Status::Fault,
-    )
+    @sensor_data[0]?
   end
 end
