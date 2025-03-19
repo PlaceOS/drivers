@@ -108,7 +108,7 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     "mac"       => "00107fec2d72",
     "name"      => "Room1-Sensor",
     "module_id" => "spec_runner",
-    "binding"   => "occupied",
+    "binding"   => "presence",
     "location"  => "sensor",
   })
 end
