@@ -26,9 +26,8 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   getter last_update : Int64 = 0_i64
   getter poll_counter : UInt64 = 0_u64
 
-  @long_polling = false
-
   def on_load
+    spawn { event_monitor }
     schedule.every(10.minutes) { authenticate }
     schedule.every(1.hour) { poll_device_state }
   end
@@ -57,11 +56,23 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     # Start long polling once we have state
     @poll_counter += 1
-    long_poll unless @long_polling
   end
 
   protected def format_mac(address : String)
     address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
+  end
+
+  def event_monitor
+    loop do
+      break if terminated?
+      if @connected
+        # sleep if long poll failed
+        sleep 1.second unless long_poll
+      else
+        # sleep if not connected
+        sleep 1.second
+      end
+    end
   end
 
   # NOTE:: /Device/Longpoll
@@ -70,32 +81,32 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   #  when update: {"Device":{"SystemClock":{"CurrentTime":"2022-10-22T20:29:03Z","CurrentTimeWithOffset":"2022-10-22T20:29:03+09:30"}}}
   # 301 == authentication required
   #  could auth every so often to prevent hitting this too
-  protected def long_poll
-    @long_polling = true
-    response = get("/Device/Longpoll")
+  protected def long_poll : Bool
+    response = get("/Device/Longpoll", concurrent: true)
 
-    authenticate if response.status_code == 301
+    # retry after authenticating
+    if response.status_code == 301
+      authenticate
+      response = get("/Device/Longpoll", concurrent: true)
+    end
     raise "unexpected response code: #{response.status_code}" unless response.success?
 
     raw_json = response.body
     logger.debug { "long poll sent: #{raw_json}" }
 
-    return unless raw_json.includes? "IsRoomOccupied"
+    return true unless raw_json.includes? "IsRoomOccupied"
     payload = JSON.parse(raw_json)
 
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
     self[:presence] = @occupied ? 1.0 : 0.0
+    true
   rescue timeout : IO::TimeoutError
     logger.debug { "timeout waiting for long poll to complete" }
+    false
   rescue error
     logger.warn(exception: error) { "during long polling" }
-  ensure
-    if @connected
-      spawn { long_poll }
-    else
-      @long_polling = false
-    end
+    false
   end
 
   # ======================
