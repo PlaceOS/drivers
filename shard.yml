@@ -137,3 +137,7 @@ dependencies:
   # Siemens Desigo API wrapper
   desigo:
     github: place-technology/desigo
+
+  # debugging drivers
+  perf_tools:
+    github: crystal-lang/perf-tools
