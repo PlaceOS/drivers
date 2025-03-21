@@ -80,6 +80,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     end
   end
 
+  # remove once resolved
   def memory_object_counts : String
     String.build do |io|
       PerfTools::MemProf.log_object_counts(io)
