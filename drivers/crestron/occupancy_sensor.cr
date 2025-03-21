@@ -1,7 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "./cres_next_auth"
-require "perf_tools/mem_prof"
 
 # This device doesn't seem to support a websocket interface
 # and relies on long polling.
@@ -18,6 +17,9 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   default_settings({
     username: "admin",
     password: "admin",
+
+    http_keep_alive_seconds: 600,
+    http_max_requests:       1200,
   })
 
   @mac : String = ""
@@ -47,7 +49,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   end
 
   def poll_device_state : Nil
-    response = get("/Device")
+    response = get("/Device", concurrent: true)
     raise "unexpected response code: #{response.status_code}" unless response.success?
     payload = JSON.parse(response.body)
 
@@ -80,25 +82,6 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     end
   end
 
-  # remove once resolved
-  def memory_object_counts : String
-    String.build do |io|
-      PerfTools::MemProf.log_object_counts(io)
-    end
-  end
-
-  def memory_object_sizes : String
-    String.build do |io|
-      PerfTools::MemProf.log_object_sizes(io)
-    end
-  end
-
-  def memory_allocations : String
-    String.build do |io|
-      PerfTools::MemProf.log_allocations(io)
-    end
-  end
-
   # NOTE:: /Device/Longpoll
   # 200 == check data
   #  when nothing new: {"Device":"Response Timeout"}
@@ -106,12 +89,12 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   # 301 == authentication required
   #  could auth every so often to prevent hitting this too
   protected def long_poll : Bool
-    response = get("/Device/Longpoll", concurrent: true)
+    response = get("/Device/Longpoll")
 
     # retry after authenticating
     if response.status_code == 301
       authenticate
-      response = get("/Device/Longpoll", concurrent: true)
+      response = get("/Device/Longpoll")
     end
     raise "unexpected response code: #{response.status_code}" unless response.success?
 
