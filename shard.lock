@@ -191,7 +191,7 @@ shards:
 
   pars: # Overridden
     git: https://github.com/spider-gazelle/pars.git
-    version: 1.1.0
+    version: 1.2.0
 
   pegmatite:
     git: https://github.com/jemc/crystal-pegmatite.git
@@ -231,7 +231,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.6.0
+    version: 7.7.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
