@@ -6,6 +6,7 @@ require "link-header"
 require "simple_retry"
 require "place_calendar"
 require "./booking_model"
+require "perf_tools/mem_prof"
 
 # This comment is to force a recompile of the driver with updated models
 
@@ -32,6 +33,13 @@ class Place::StaffAPI < PlaceOS::Driver
   @notify_count : UInt64 = 0_u64
   @notify_fails : UInt64 = 0_u64
 
+  def on_load
+    spawn do
+      sleep 30.seconds
+      initial_object_counts
+    end
+  end
+
   def on_update
     # x-api-key is the preferred method for API access
     @api_key = setting(String, :api_key) || ""
@@ -46,6 +54,28 @@ class Place::StaffAPI < PlaceOS::Driver
     schedule.clear
     schedule.every(1.hour + rand(300).seconds) { lookup_authority_id }
     schedule.in(1.second) { lookup_authority_id }
+  end
+
+  def memory_object_counts : String
+    String.build do |io|
+      PerfTools::MemProf.log_object_counts(io)
+    end
+  end
+
+  def memory_object_sizes : String
+    String.build do |io|
+      PerfTools::MemProf.log_object_sizes(io)
+    end
+  end
+
+  def memory_allocations : String
+    String.build do |io|
+      PerfTools::MemProf.log_allocations(io)
+    end
+  end
+
+  getter initial_object_counts : String do
+    memory_object_counts
   end
 
   def lookup_authority_id(retry : Int32 = 0)
