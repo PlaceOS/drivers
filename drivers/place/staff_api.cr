@@ -41,6 +41,8 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def on_update
+    @placeos_client = nil
+
     # x-api-key is the preferred method for API access
     @api_key = setting(String, :api_key) || ""
     @access_expires = 30.years.from_now if @api_key.presence
@@ -934,7 +936,7 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # For accessing PlaceOS APIs
-  protected def placeos_client : PlaceOS::Client
+  protected getter placeos_client : PlaceOS::Client do
     PlaceOS::Client.new(
       @place_domain,
       host_header: @host_header,
