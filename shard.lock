@@ -219,7 +219,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.11.8
+    version: 2.11.9
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -231,7 +231,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.7.1
+    version: 7.8.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
