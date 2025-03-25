@@ -33,13 +33,6 @@ class Place::StaffAPI < PlaceOS::Driver
   @notify_count : UInt64 = 0_u64
   @notify_fails : UInt64 = 0_u64
 
-  def on_load
-    spawn do
-      sleep 30.seconds
-      initial_object_counts
-    end
-  end
-
   def on_update
     # x-api-key is the preferred method for API access
     @api_key = setting(String, :api_key) || ""
@@ -74,10 +67,6 @@ class Place::StaffAPI < PlaceOS::Driver
     String.build do |io|
       PerfTools::MemProf.log_allocations(io)
     end
-  end
-
-  getter initial_object_counts : String do
-    memory_object_counts
   end
 
   def lookup_authority_id(retry : Int32 = 0)
