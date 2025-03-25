@@ -41,14 +41,14 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   def on_update
-    @placeos_client = nil
-
     # x-api-key is the preferred method for API access
     @api_key = setting(String, :api_key) || ""
     @access_expires = 30.years.from_now if @api_key.presence
 
     @place_domain = URI.parse(config.uri.not_nil!)
     @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
+
+    @placeos_client = nil
 
     # skip if not going to work
     return unless @api_key.presence
