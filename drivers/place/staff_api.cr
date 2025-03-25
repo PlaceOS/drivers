@@ -6,7 +6,6 @@ require "link-header"
 require "simple_retry"
 require "place_calendar"
 require "./booking_model"
-require "perf_tools/mem_prof"
 
 # This comment is to force a recompile of the driver with updated models
 
@@ -49,24 +48,6 @@ class Place::StaffAPI < PlaceOS::Driver
     schedule.clear
     schedule.every(1.hour + rand(300).seconds) { lookup_authority_id }
     schedule.in(1.second) { lookup_authority_id }
-  end
-
-  def memory_object_counts : String
-    String.build do |io|
-      PerfTools::MemProf.log_object_counts(io)
-    end
-  end
-
-  def memory_object_sizes : String
-    String.build do |io|
-      PerfTools::MemProf.log_object_sizes(io)
-    end
-  end
-
-  def memory_allocations : String
-    String.build do |io|
-      PerfTools::MemProf.log_allocations(io)
-    end
   end
 
   def lookup_authority_id(retry : Int32 = 0)
