@@ -10,7 +10,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
 
   default_settings({
     # gallagher_system: "sys-12345"
-    zone_id: "1234",
+    zone_id:          "1234",
     _access_group_id: "140623",
 
     # booking status => zone state
@@ -23,7 +23,19 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     # max time in minutes that presence can prevent a lock
     presence_timeout:   30,
     grant_hosts_access: false,
+
+    disable_unlock: {
+      keys:  ["extended_properties", "Don't Unlock"],
+      value: "TRUE",
+    },
   })
+
+  struct DisableUnlock
+    include JSON::Serializable
+
+    getter keys : Array(String)
+    getter value : String
+  end
 
   getter system_id : String = ""
   getter count : UInt64 = 0_u64
@@ -33,6 +45,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   getter state_mappings : Hash(String, String) = {} of String => String
 
   @update_mutex = Mutex.new
+  @disable_unlock : DisableUnlock? = nil
 
   def on_update
     @system_id = setting?(String, :gallagher_system).presence || config.control_system.not_nil!.id
@@ -45,6 +58,8 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     @host_access_mutex.synchronize do
       @access_granted = setting?(Hash(String, String | Int64), :access_granted) || {} of String => String | Int64
     end
+
+    @disable_unlock = setting?(DisableUnlock, :disable_unlock) rescue nil
   end
 
   bind Bookings_1, :status, :status_changed
@@ -81,8 +96,16 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     # we'll ignore nil values, most likely only when drivers are updated or starting
     return unless new_status
 
+    # check if we want to disable unlock for this booking
+    unlock_disabled = !should_unlock_booking?
+    if unlock_disabled
+      new_status = "free"
+      @presence_relevant = false
+    end
+
     # ignore redis errors as this is a critical system component
     begin
+      self[:unlock_disabled] = unlock_disabled
       self[:booking_status] = new_status
       self[:people_present] = presence
     rescue
@@ -145,6 +168,41 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
 
   private def gallagher
     system(system_id)["Gallagher"]
+  end
+
+  # ==========================================
+  # check if the current booking should unlock
+  # ==========================================
+
+  def should_unlock_booking? : Bool
+    # do we need to check if the room should unlock
+    disable_unlock = @disable_unlock
+    return true unless disable_unlock
+
+    # if so we need to grab the current bookings
+    booking_mod = bookings
+    current_booking = booking_mod[:current_booking]?
+    if current_booking.nil? && booking_mod.status?(Bool, :pending)
+      current_booking = booking_mod[:next_booking]?
+    end
+    return true unless current_booking
+
+    # check if the booking should allow unlocking or not
+    value = nil
+    disable_unlock.keys.each do |key|
+      value = current_booking.dig?(key)
+      break unless value
+    end
+    return true unless value
+
+    !(value.as_s? == disable_unlock.value)
+  rescue error
+    logger.error(exception: error) { "error checking if a room should not be unlocked" }
+    self[:last_error] = {
+      message: error.message,
+      at:      Time.utc.to_s,
+    }
+    true
   end
 
   # ============================================
