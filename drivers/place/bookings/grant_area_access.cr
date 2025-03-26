@@ -1,8 +1,12 @@
 require "placeos-driver"
+require "placeos-driver/interface/mailer"
+require "placeos-driver/interface/mailer_templates"
 require "placeos-driver/interface/zone_access_security"
 require "../booking_model"
 
 class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
+  include PlaceOS::Driver::Interface::MailerTemplates
+
   descriptive_name "PlaceOS Booking Area Access"
   generic_name :BookingAreaAccess
   description "ensures users can access areas they have booked. i.e. a private office allocated to a user etc"
@@ -11,6 +15,10 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     # the channel id we're looking for events on
     lookup_using_username:    true,
     _security_zone_whitelist: ["zone_name_or_id"],
+
+    # At 10:00 on every day-of-week from Monday through Friday
+    _email_cron:      "0 10 * * 1-5",
+    _email_errors_to: "admin@org.com",
   })
 
   accessor calendar : Calendar_1
@@ -27,7 +35,6 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       check_access(Booking.from_json payload)
     end
 
-    schedule.every(30.minutes) { ensure_booking_access }
     on_update
   end
 
@@ -41,6 +48,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   getter security_zone_whitelist : Array(String | Int64) = [] of String | Int64
 
   @lookup_using_username : Bool = false
+  @email_errors_to : String? = nil
 
   def on_update
     @building_id = nil
@@ -53,6 +61,14 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     # we ensure that allocations are recorded so we can unallocate as required
     @mutex.synchronize do
       @allocations = setting?(Hash(String, Array(String)), :permissions_allocated) || Hash(String, Array(String)).new
+    end
+
+    schedule.clear
+    schedule.every(30.minutes) { ensure_booking_access }
+
+    @email_errors_to = setting?(String, :email_errors_to)
+    if @email_errors_to && (cron = setting?(String, :email_cron))
+      schedule.cron(cron, timezone) { notify_issues }
     end
   end
 
@@ -316,5 +332,61 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     # expose errors and anything blocked as not on the whitelist
     self[:sync_errors] = errors
     self[:sync_blocked] = blocked
+  end
+
+  # =========================
+  # MailerTemplates interface
+  # =========================
+
+  def template_fields : Array(TemplateFields)
+    [
+      TemplateFields.new(
+        trigger: {"security", "area_access_errors"},
+        name: "Booking Area Access Errors",
+        description: "Email sent when there are errors adding users to security groups so they can access the desk they have booked or allocated",
+        fields: [
+          {name: "errors", description: "a formatted list of email addresses to security groups that could not be applied"},
+          {name: "system_id", description: "the system with the BookingAreaAccess driver"},
+        ]
+      ),
+    ]
+  end
+
+  def mailer
+    system.implementing(Interface::Mailer)[0]
+  end
+
+  def notify_issues
+    sync_blocked = status?(Hash(String, String | Int64), :sync_blocked) || Hash(String, String | Int64).new
+    sync_errors = status?(Array(String), :sync_errors) || [] of String
+    return if sync_blocked.empty? && sync_errors.empty?
+
+    issue_list = String.build do |io|
+      if !sync_blocked.empty?
+        io << "security groups not in the whitelist:\n"
+        io << "=====================================\n"
+
+        sync_blocked.each do |desk_id, security_zone|
+          io << "desk: #{desk_id}, security group: #{security_zone}\n"
+        end
+        io << "\n\n"
+      end
+
+      if !sync_errors.empty?
+        io << "unable to allocate desks for:\n"
+        io << "=============================\n"
+
+        sync_errors.each do |error|
+          io << " - "
+          io << error
+          io << "\n"
+        end
+      end
+    end
+
+    mailer.send_template(@email_errors_to.as(String), {"security", "area_access_errors"}, {
+      errors:    issue_list,
+      system_id: config.control_system.try(&.id),
+    })
   end
 end
