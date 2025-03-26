@@ -363,24 +363,25 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
     issue_list = String.build do |io|
       if !sync_blocked.empty?
-        io << "security groups not in the whitelist:\n"
-        io << "=====================================\n"
+        io << "security groups not in the whitelist: <br>\n"
+        io << "===================================== <br>\n"
 
         sync_blocked.each do |desk_id, security_zone|
-          io << "desk: #{desk_id}, security group: #{security_zone}\n"
+          io << "desk: #{desk_id}, security group: #{security_zone} <br>\n"
         end
-        io << "\n\n"
+        io << " <br><br>\n\n"
       end
 
       if !sync_errors.empty?
-        io << "unable to allocate desks for:\n"
-        io << "=============================\n"
+        io << "unable to allocate desks for: <br>\n"
+        io << "============================= <br>\n"
 
         sync_errors.each do |error|
           io << " - "
           io << error
-          io << "\n"
+          io << " <br>\n"
         end
+        io << " <br><br>\n\n"
       end
     end
 
