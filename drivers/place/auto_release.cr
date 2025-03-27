@@ -27,7 +27,7 @@ class Place::AutoRelease < PlaceOS::Driver
     # - wfo: Work From Office
     skip_created_after_start: true,                     # Skip bookings created after the start time
     skip_same_day:            false,                    # Skip bookings created on the same day as the booking
-    asset_cache_timeout:      3600_i64, # 1 hour
+    default_work_preferences: [] of WorktimePreference, # Default work preferences for users
     all_day_start:            8.0,                      # Start time used for all day bookings
     asset_cache_timeout:      3600_i64,                 # 1 hour
   })
@@ -66,6 +66,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @auto_release : AutoReleaseConfig = AutoReleaseConfig.new
   @skip_created_after_start : Bool = true
   @skip_same_day : Bool = true
+  @default_work_preferences : Array(WorktimePreference) = [] of WorktimePreference
   @all_day_start : Float64 = 8.0
 
   def on_update
@@ -86,6 +87,7 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
+    @default_work_preferences = setting?(Array(WorktimePreference), :default_work_preferences) || [] of WorktimePreference
     @all_day_start = setting?(Float64, :all_day_start) || 8.0
 
     @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
@@ -157,6 +159,8 @@ class Place::AutoRelease < PlaceOS::Driver
     user = staff_api.user(user_id).get
 
     work_preferences = Array(WorktimePreference).from_json user.as_h["work_preferences"].to_json
+    work_preferences = @default_work_preferences if work_preferences.empty?
+
     work_overrides = Hash(String, WorktimePreference).from_json user.as_h["work_overrides"].to_json
 
     {work_preferences: work_preferences, work_overrides: work_overrides}
