@@ -25,9 +25,11 @@ class Place::AutoRelease < PlaceOS::Driver
     # - wfh: Work From Home
     # - aol: Away on Leave
     # - wfo: Work From Office
-    skip_created_after_start: true,     # Skip bookings created after the start time
-    skip_same_day:            false,    # Skip bookings created on the same day as the booking
+    skip_created_after_start: true,                     # Skip bookings created after the start time
+    skip_same_day:            false,                    # Skip bookings created on the same day as the booking
     asset_cache_timeout:      3600_i64, # 1 hour
+    all_day_start:            8.0,                      # Start time used for all day bookings
+    asset_cache_timeout:      3600_i64,                 # 1 hour
   })
 
   accessor staff_api : StaffAPI_1
@@ -64,6 +66,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @auto_release : AutoReleaseConfig = AutoReleaseConfig.new
   @skip_created_after_start : Bool = true
   @skip_same_day : Bool = true
+  @all_day_start : Float64 = 8.0
 
   def on_update
     @building_zone = nil
@@ -83,6 +86,7 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
+    @all_day_start = setting?(Float64, :all_day_start) || 8.0
 
     @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
     clear_asset_cache
@@ -206,6 +210,9 @@ class Place::AutoRelease < PlaceOS::Driver
         # e.g. 7:30AM = 7.5
         event_time = booking_start.hour + (booking_start.minute / 60.0)
 
+        # use all_day_start for all day bookings
+        event_time = @all_day_start if booking.all_day
+
         # exclude overrides with empty time blocks
         overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
 
@@ -250,6 +257,8 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings.each do |booking|
       next if previously_released.includes? booking.id
 
+      # convert hours (all_day_start) to seconds
+      booking_start = booking.all_day ? (@all_day_start * 60 * 60).to_i : booking.booking_start
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
       if Time.utc.to_unix - booking.booking_start > @auto_release.time_after * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
