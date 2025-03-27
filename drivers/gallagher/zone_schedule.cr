@@ -196,9 +196,9 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     end
 
     # check if the booking should allow unlocking or not
-    value = nil
+    value = current_booking
     disable_unlock.keys.each do |key|
-      value = current_booking.dig?(key)
+      value = value[key]?
       break if value.nil?
     end
 
@@ -208,7 +208,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     end
 
     result = !(value.as_s? == disable_unlock.value)
-    logger.debug { "checking #{value.as_s?.inspect} == #{disable_unlock.value.inspect} (#{result})" }
+    logger.debug { "checking #{value.as_s?.inspect} == #{disable_unlock.value.inspect} (#{!result})" }
     result
   rescue error
     logger.error(exception: error) { "error checking if a room should not be unlocked" }
