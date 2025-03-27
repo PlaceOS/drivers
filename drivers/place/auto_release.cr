@@ -28,6 +28,7 @@ class Place::AutoRelease < PlaceOS::Driver
     skip_created_after_start: true,                     # Skip bookings created after the start time
     skip_same_day:            false,                    # Skip bookings created on the same day as the booking
     default_work_preferences: [] of WorktimePreference, # Default work preferences for users
+    release_outside_hours:    false,                    # Release bookings outside of work hours
     all_day_start:            8.0,                      # Start time used for all day bookings
     asset_cache_timeout:      3600_i64,                 # 1 hour
   })
@@ -67,6 +68,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @skip_created_after_start : Bool = true
   @skip_same_day : Bool = true
   @default_work_preferences : Array(WorktimePreference) = [] of WorktimePreference
+  @release_outside_hours : Bool = false
   @all_day_start : Float64 = 8.0
 
   def on_update
@@ -88,6 +90,7 @@ class Place::AutoRelease < PlaceOS::Driver
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
     @default_work_preferences = setting?(Array(WorktimePreference), :default_work_preferences) || [] of WorktimePreference
+    @release_outside_hours = setting?(Bool, :release_outside_hours) || false
     @all_day_start = setting?(Float64, :all_day_start) || 8.0
 
     @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
@@ -227,6 +230,8 @@ class Place::AutoRelease < PlaceOS::Driver
               in_preference?(override, event_time, @release_locations, false)
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
+          results << booking
+        elsif @release_outside_hours
           results << booking
         end
       end
