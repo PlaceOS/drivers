@@ -177,25 +177,39 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   def should_unlock_booking? : Bool
     # do we need to check if the room should unlock
     disable_unlock = @disable_unlock
-    return true unless disable_unlock
+    if disable_unlock.nil?
+      logger.debug { "unlock check disabled" }
+      return true
+    end
 
     # if so we need to grab the current bookings
     booking_mod = bookings
     current_booking = booking_mod[:current_booking]?
     if current_booking.nil? && booking_mod.status?(Bool, :pending)
+      logger.debug { "looking at next_booking as current_booking has not started" }
       current_booking = booking_mod[:next_booking]?
     end
-    return true unless current_booking
+
+    if current_booking.nil?
+      logger.debug { "ignoring as no booking found" }
+      return true
+    end
 
     # check if the booking should allow unlocking or not
     value = nil
     disable_unlock.keys.each do |key|
       value = current_booking.dig?(key)
-      break unless value
+      break if value.nil?
     end
-    return true unless value
 
-    !(value.as_s? == disable_unlock.value)
+    if value.nil?
+      logger.debug { "could not find relevant key, ignoring" }
+      return true
+    end
+
+    result = !(value.as_s? == disable_unlock.value)
+    logger.debug { "checking #{value.as_s?.inspect} == #{disable_unlock.value.inspect} (#{result})" }
+    result
   rescue error
     logger.error(exception: error) { "error checking if a room should not be unlocked" }
     self[:last_error] = {
