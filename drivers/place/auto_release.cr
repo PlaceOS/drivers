@@ -126,13 +126,11 @@ class Place::AutoRelease < PlaceOS::Driver
   @[Security(Level::Support)]
   def enabled? : Bool
     if !@auto_release.resources.empty? &&
-       (@auto_release.time_before > 0 || @auto_release.time_after > 0) &&
        !building_zone.time_location?.nil?
       true
     else
       logger.notice { "auto release is not enabled on zone #{building_zone.id}" }
       logger.debug { "auto release is not enabled on zone #{building_zone.id} due to auto_release.resources being empty" } if @auto_release.resources.empty?
-      logger.debug { "auto release is not enabled on zone #{building_zone.id} due to auto_release.time_before and auto_release.time_after being 0" } if @auto_release.time_before.zero? && @auto_release.time_after.zero?
       logger.debug { "auto release is not enabled on zone #{building_zone.id} due to building_zone.time_location being nil" } if building_zone.time_location?.nil?
       false
     end
@@ -272,7 +270,7 @@ class Place::AutoRelease < PlaceOS::Driver
       # convert hours (all_day_start) to seconds
       booking_start = booking.all_day ? (@all_day_start * 60 * 60).to_i : booking.booking_start
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
-      if Time.utc.to_unix - booking.booking_start > @auto_release.time_after * 60
+      if Time.utc.to_unix - booking_start > @auto_release.time_after(booking.type) * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
         next if skip_release?(booking)
 
@@ -308,8 +306,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
       if enabled? &&
-         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before * 60) &&
-         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after * 60)
+         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before(booking.type) * 60) &&
+         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after(booking.type) * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
 
         location = Time::Location.load(booking.timezone.presence || timezone.name)
@@ -402,7 +400,32 @@ class Place::AutoRelease < PlaceOS::Driver
   private def template_fields_suffix(booking_type : String) : String
     @unique_templates && !@auto_release.resources.empty? ? " (#{booking_type})" : ""
   end
+
+  struct AutoReleaseConfig
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    getter time_before : Int64 = 0 # minutes
+    getter time_after : Int64 = 0  # minutes
+    getter resources : Array(String) = [] of String
+
+    # getter all_day_start : Float64 = 8.0 # hours
+
+    def time_before(resource : String) : Int64
+      if resource_time_before = json_unmapped["#{resource}_time_before"]?
+        resource_time_before.as_i64
+      else
+        time_before
+      end
+    end
+
+    def time_after(resource : String) : Int64
+      if resource_time_after = json_unmapped["#{resource}_time_after"]?
+        resource_time_after.as_i64
+      else
+        time_after
+      end
+    end
   end
 
   # start_time: Start time of work hours. e.g. `7.5` being 7:30AM
