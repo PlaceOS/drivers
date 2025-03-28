@@ -753,8 +753,12 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def desk_list(controller_id : String | Int32 | Int64)
-    response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
-    parse response, Array(DeskInfo)
+      response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
+      parse response, Array(DeskInfo)
+    rescue error
+      # code 34 "unknown command" indicates the desk api is unavailable
+      raise error unless error.message.try &.includes?("34")
+      [] of DeskInfo
   end
 
   def desk_info(desk_key : String)
