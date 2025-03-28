@@ -757,9 +757,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
       parse response, Array(DeskInfo)
     rescue error
       # code 34 "unknown command" indicates the desk api is unavailable
-      raise error unless error.message.include?("34")
+      raise error unless error.message.try &.includes?("34")
       [] of DeskInfo
-    end
   end
 
   def desk_info(desk_key : String)
