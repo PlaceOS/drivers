@@ -83,7 +83,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
   end
 
   # allocates a locker now, the allocation may expire
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_allocate(
     # PlaceOS user id
     user_id : String,
@@ -109,7 +109,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
   end
 
   # return the locker to the pool
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_release(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -126,7 +126,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
   end
 
   # a list of lockers that are allocated to the user
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def lockers_allocated_to(user_id : String) : Array(PlaceLocker)
     now = Time.utc
     building = building_id
@@ -144,7 +144,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     end
   end
 
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_share(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -167,7 +167,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     end
   end
 
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_unshare(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -196,7 +196,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
 
   # a list of user-ids that the locker is shared with.
   # this can be placeos user ids or emails
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_shared_with(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -219,7 +219,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     end
   end
 
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_unlock(
     bank_id : String | Int64,
     locker_id : String | Int64,
