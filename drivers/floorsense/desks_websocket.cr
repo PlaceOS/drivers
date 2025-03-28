@@ -753,22 +753,12 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def desk_list(controller_id : String | Int32 | Int64)
-    response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
-    
-    # return empty array if controller does not support desk api
-    begin
+      response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
       parse response, Array(DeskInfo)
-    rescue error : Exception
-      begin
-        err_res = Response.from_json(response.body.not_nil!)
-        if !err_res.result && (err_res.code == 34 || err_res.message.downcase.include?("unknown command"))
-          logger.info { "Controller #{controller_id} does not support desk API, returning empty array. Error code #{err_res.code}: #{err_res.message}" }
-          return [] of DeskInfo
-        end
-      rescue
-      end
-      
-      raise error # raise original error if not the "unknown command" indicating missing desk api
+    rescue error
+      # code 34 "unknown command" indicates the desk api is unavailable
+      raise error unless error.message.include?("34")
+      [] of DeskInfo
     end
   end
 
