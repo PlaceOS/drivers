@@ -20,7 +20,7 @@ class Place::Meet < PlaceOS::Driver
     Room level state and behaviours.
 
     This driver provides a high-level API for interaction with devices, systems \
-    and integrations found within common workplace collaboration spaces.
+    and integrations found within common workplace collaboration spaces
     DESC
 
   default_settings({
