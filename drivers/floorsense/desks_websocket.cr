@@ -68,6 +68,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     schedule.clear
     schedule.every(1.hour) { sync_locker_list }
     schedule.in(5.seconds) { sync_locker_list }
+    schedule.every(1.hour) { sync_desk_list }
+    schedule.in(5.seconds) { sync_desk_list }
     schedule.every(1.minute) { check_subscriptions }
   end
 
@@ -204,9 +206,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
   def sync_locker_list
     lockers = {} of String => LockerInfo
-    desks = {} of String => DeskInfo
 
-    controller_list.each do |controller_id, controller|
+    controller_list(locker: true, desks: false).each do |controller_id, controller|
       next unless controller.lockers
 
       begin
@@ -219,6 +220,16 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
         logger.warn(exception: error) { "obtaining locker list for controller #{controller.name} - #{controller_id}, possibly offline" }
       end
 
+    end
+    @locker_controllers = lockers
+  end
+
+  def sync_desk_list
+    desks = {} of String => DeskInfo
+
+    controller_list(locker: false, desks: true).each do |controller_id, controller|
+      next unless controller.desks
+
       begin
         desk_list(controller_id).each do |desk|
           next unless desk.key
@@ -230,7 +241,6 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
       end
     end
     @desk_controllers = desks
-    @locker_controllers = lockers
   end
 
   def controller_list(locker : Bool? = nil, desks : Bool? = nil)
