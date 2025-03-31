@@ -870,6 +870,19 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # Driver debugging
+  # ===================================
+
+  def driver_introspection
+    protocol = PlaceOS::Driver::Protocol.instance
+    {
+      tracking: protocol.@tracking.size,
+      current_requests: protocol.@current_requests.size,
+      next_requests: protocol.@next_requests.size,
+    }
+  end
+
+  # ===================================
   # SURVEYS
   # ===================================
 
