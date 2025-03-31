@@ -199,7 +199,7 @@ shards:
 
   perf_tools:
     git: https://github.com/crystal-lang/perf-tools.git
-    version: 0.1.0+git.commit.bf884bc85431f8b446ae3b50e250d9a5cca262ac
+    version: 0.1.0+git.commit.e2c905b0f77758584cbee761dfe8681cbaf0a79f
 
   pg:
     git: https://github.com/will/crystal-pg.git
@@ -231,7 +231,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.9.2
+    version: 7.9.3
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
