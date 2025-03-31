@@ -21,6 +21,7 @@ class Place::StaffAPI < PlaceOS::Driver
     # PlaceOS X-API-key, for simpler authentication
     api_key:              "",
     disable_event_notify: false,
+    query_limit:          100,
   })
 
   @place_domain : URI = URI.parse("https://staff")
@@ -32,6 +33,8 @@ class Place::StaffAPI < PlaceOS::Driver
   @notify_count : UInt64 = 0_u64
   @notify_fails : UInt64 = 0_u64
 
+  @query_limit : Int32 = 100
+
   def on_update
     # x-api-key is the preferred method for API access
     @api_key = setting(String, :api_key) || ""
@@ -41,6 +44,7 @@ class Place::StaffAPI < PlaceOS::Driver
     @host_header = setting?(String, :host_header) || @place_domain.host.not_nil!
 
     @placeos_client = nil
+    @query_limit = setting?(Int32, :query_limit) || 100
 
     # skip if not going to work
     return unless @api_key.presence
@@ -745,11 +749,14 @@ class Place::StaffAPI < PlaceOS::Driver
     checked_in : Bool? = nil,
     include_checked_out : Bool? = nil,
     extension_data : JSON::Any? = nil,
-    deleted : Bool? = nil
+    deleted : Bool? = nil,
+    asset_id : String? = nil,
+    limit : Int32? = nil
   )
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
     period_end ||= 30.minutes.from_now.to_unix
+    limit ||= @query_limit
 
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s if period_start
@@ -769,6 +776,9 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "event_id", event_id.to_s if event_id.presence
       form.add "ical_uid", ical_uid.to_s if ical_uid.presence
       form.add "include_checked_out", include_checked_out.to_s unless include_checked_out.nil?
+
+      form.add "asset_id", asset_id.to_s unless asset_id.nil?
+      form.add "limit", limit.to_s
 
       if extension_data
         value = extension_data.as_h.map { |k, v| "#{k}:#{v}" }.join(",")
@@ -874,11 +884,9 @@ class Place::StaffAPI < PlaceOS::Driver
   # ===================================
 
   def driver_introspection
-    protocol = PlaceOS::Driver::Protocol.instance
     {
-      tracking: protocol.@tracking.size,
-      current_requests: protocol.@current_requests.size,
-      next_requests: protocol.@next_requests.size,
+      protocol: PlaceOS::Driver::Stats.protocol_tracking,
+      memory:   PlaceOS::Driver::Stats.memory_usage,
     }
   end
 
