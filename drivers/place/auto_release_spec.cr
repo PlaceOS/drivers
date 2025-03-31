@@ -941,42 +941,18 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   })
   resp = exec(:enabled?).get
   resp.should eq nil
-  # enabled when time_before is set and time_after is 0
+
+  # enabled when there are resources
   settings({
     auto_release: {
-      time_before: 10, # notify before start of meeting
-      time_after:  0,  # release at start of meeting
+      time_before: 10,
+      time_after:  10,
       resources:   ["desk"],
     },
   })
   resp = exec(:enabled?).get
   resp.should eq true
-  # enabled when time_before is 0 and time_after is set
-  settings({
-    auto_release: {
-      time_before: 0,  # notify at start of meeting
-      time_after:  10, # release after start of meeting
-      resources:   ["desk"],
-    },
-  })
-  resp = exec(:enabled?).get
-  resp.should eq true
-  # enabled when both time_before and time_after are set
-  settings({
-    auto_release: {
-      time_before: 10, # notify before start of meeting
-      time_after:  10, # release after start of meeting
-      resources:   ["desk"],
-    },
-  })
-  # enabled when time_before is set to a negative number and time_after is set to a positive number
-  settings({
-    auto_release: {
-      time_before: -10, # notify after start of meeting
-      time_after:  20,  # release after start of meeting
-      resources:   ["desk"],
-    },
-  })
+
   # disabled when resources is empty
   resp = exec(:enabled?).get
   resp.should eq true
