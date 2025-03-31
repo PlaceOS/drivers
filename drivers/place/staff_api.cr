@@ -19,9 +19,10 @@ class Place::StaffAPI < PlaceOS::Driver
 
   default_settings({
     # PlaceOS X-API-key, for simpler authentication
-    api_key:              "",
-    disable_event_notify: false,
-    query_limit:          100,
+    api_key:                   "",
+    disable_event_notify:      false,
+    query_limit:               100,
+    period_end_default_in_min: 60,
   })
 
   @place_domain : URI = URI.parse("https://staff")
@@ -34,6 +35,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @notify_fails : UInt64 = 0_u64
 
   @query_limit : Int32 = 100
+  @period_end_default_in_min : Int32? = nil
 
   def on_update
     # x-api-key is the preferred method for API access
@@ -45,6 +47,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
     @placeos_client = nil
     @query_limit = setting?(Int32, :query_limit) || 100
+    @period_end_default_in_min = setting?(Int32, :period_end_default_in_min)
 
     # skip if not going to work
     return unless @api_key.presence
@@ -753,9 +756,11 @@ class Place::StaffAPI < PlaceOS::Driver
     asset_id : String? = nil,
     limit : Int32? = nil
   )
+    default_end = @period_end_default_in_min || 30
+
     # Assumes occuring now
     period_start ||= Time.utc.to_unix
-    period_end ||= 30.minutes.from_now.to_unix
+    period_end ||= default_end.minutes.from_now.to_unix
     limit ||= @query_limit
 
     params = URI::Params.build do |form|
