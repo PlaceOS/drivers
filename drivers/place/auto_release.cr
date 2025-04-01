@@ -163,16 +163,14 @@ class Place::AutoRelease < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def get_user_preferences?(user_id : String)
-    user = staff_api.user(user_id).get
+    user = User.from_json staff_api.user(user_id).get.to_json
 
-    work_preferences = Array(WorktimePreference).from_json user.as_h["work_preferences"].to_json
+    work_preferences = user.work_preferences
     work_preferences = @default_work_preferences if work_preferences.empty?
 
-    work_overrides = Hash(String, WorktimePreference).from_json user.as_h["work_overrides"].to_json
-
-    {work_preferences: work_preferences, work_overrides: work_overrides}
+    {work_preferences: work_preferences, work_overrides: user.work_overrides}
   rescue
-    logger.warn { "unable to obtain work location for user #{user_id}" }
+    logger.debug { "unable to obtain work location for user #{user_id}" }
     nil
   end
 
@@ -443,6 +441,13 @@ class Place::AutoRelease < PlaceOS::Driver
         time_after
       end
     end
+  end
+
+  record User,
+    id : String,
+    work_preferences : Array(WorktimePreference) = [] of WorktimePreference,
+    work_overrides : Hash(String, WorktimePreference) = Hash(String, WorktimePreference).new do
+    include JSON::Serializable
   end
 
   # start_time: Start time of work hours. e.g. `7.5` being 7:30AM
