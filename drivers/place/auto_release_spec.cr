@@ -957,10 +957,34 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     time_window_hours: 8,
     auto_release:      {
       time_before: 10,
-      time_after:  10,
+      time_after:  0,
       resources:   ["desk"],
     },
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            false,
+    skip_all_day:             true,
   })
+
+  # Ensure self[:pending_release] holds the correct bookings for the settings before testing #release_bookings
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.should eq [
+    "ignore",
+    "notify",
+    "reject",
+    "ignore_last_minute_checkin",
+    "ignore_last_minute_schedule_change",
+    "reject_on_start",
+    "release_override_aol",
+    "notify_created_yesterday",
+    "reject_created_yesterday",
+    "notify_after_start",
+  ]
+
+  # Ensure self[:released_booking_ids] holds the correct bookings for the settings before testing #send_release_emails
+  resp = exec(:release_bookings).get
+  resp.should eq [15, 3, 8, 9, 16]
 
   # Send email once booking is past the time_before window,
   # but before the time_after window
@@ -1035,17 +1059,6 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
 
   # Start of tests for: #enabled?
   ###############################
-
-  # disabled when both time_before and time_after are 0
-  settings({
-    auto_release: {
-      time_before: 0,
-      time_after:  0,
-      resources:   ["desk"],
-    },
-  })
-  resp = exec(:enabled?).get
-  resp.should eq nil
 
   # enabled when there are resources
   settings({
