@@ -270,7 +270,7 @@ class Place::AutoRelease < PlaceOS::Driver
       # convert hours (all_day_start) to seconds
       booking_start = booking.all_day ? (@all_day_start * 60 * 60).to_i : booking.booking_start
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
-      if Time.utc.to_unix - booking_start > @auto_release.time_after(booking.type) * 60
+      if Time.utc.to_unix - booking_start > @auto_release.time_after(booking.booking_type) * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
         next if skip_release?(booking)
 
@@ -306,8 +306,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
       if enabled? &&
-         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before(booking.type) * 60) &&
-         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after(booking.type) * 60)
+         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before(booking.booking_type) * 60) &&
+         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after(booking.booking_type) * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
 
         location = Time::Location.load(booking.timezone.presence || timezone.name)
@@ -409,7 +409,8 @@ class Place::AutoRelease < PlaceOS::Driver
     getter time_after : Int64 = 0  # minutes
     getter resources : Array(String) = [] of String
 
-    # getter all_day_start : Float64 = 8.0 # hours
+    def initialize
+    end
 
     def time_before(resource : String) : Int64
       if resource_time_before = json_unmapped["#{resource}_time_before"]?
