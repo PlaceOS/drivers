@@ -23,6 +23,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     password:    "password!",
     ws_username: "srvc_acct",
     ws_password: "password!",
+    desk_sync_interval_mins: 60,
+    locker_sync_interval_mins: 60,
 
     # if the websocket is on a different port
     # http_uri_override: "https://ip"
@@ -66,9 +68,9 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     end
 
     schedule.clear
-    schedule.every(1.hour) { sync_locker_list }
+    schedule.every(locker_sync_interval_mins.minutes) { sync_locker_list }
     schedule.in(5.seconds) { sync_locker_list }
-    schedule.every(1.hour) { sync_desk_list }
+    schedule.every(desk_sync_interval_mins.minutes) { sync_desk_list }
     schedule.in(5.seconds) { sync_desk_list }
     schedule.every(1.minute) { check_subscriptions }
   end
