@@ -15,6 +15,8 @@ class StaffAPI < DriverSpecs::MockDriver
   TIME_YESTERDAY    = TIME_LOCAL - 1.day
   TIME_START_OF_DAY = TIME_LOCAL - TIME_LOCAL.hour.hours - TIME_LOCAL.minute.minutes - TIME_LOCAL.second.seconds
   TIME_END_OF_DAY   = TIME_START_OF_DAY + 1.day - 1.seconds
+  DATE        = TIME_LOCAL.to_s(format: "%F")
+  DAY_OF_WEEK = TIME_LOCAL.day_of_week.value == 0 ? 7 : TIME_LOCAL.day_of_week.value
 
   # Using a constant for bookings to ensure the times don't change during tests
   BOOKINGS = [
@@ -410,6 +412,30 @@ class StaffAPI < DriverSpecs::MockDriver
       last_changed:    (TIME_LOCAL - 2.days).to_unix,
       created:         (TIME_LOCAL - 2.days).to_unix,
     },
+    {
+      id:              18,
+      user_id:         "user-after-hours",
+      user_email:      "user_five@example.com",
+      user_name:       "User Five",
+      asset_id:        "desk_018",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (TIME_LOCAL - 20.minutes).to_unix,
+      booking_end:     (TIME_LOCAL + 40.minutes).to_unix,
+      timezone:        TIMEZONE,
+      all_day:         false,
+      title:           "outside_hours",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-after-hours",
+      booked_by_email: "user_five@example.com",
+      booked_by_name:  "User Five",
+      process_state:   "approved",
+      last_changed:    TIME_YESTERDAY.to_unix,
+      created:         TIME_YESTERDAY.to_unix,
+    },
   ]
 
   NOW         = Time.local(location: Time::Location.load(TIMEZONE))
@@ -467,25 +493,13 @@ class StaffAPI < DriverSpecs::MockDriver
           day_of_week: i,
           blocks:      [
             {
-              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              start_time: (TIME_LOCAL - 4.hours).hour,
+              end_time:   (TIME_LOCAL + 4.hours).hour,
               location:   "wfh",
             },
           ],
         }
       end,
-      work_overrides: {
-        "2024-02-15": {
-          day_of_week: 4,
-          blocks:      [
-            {
-              start_time: 9,
-              end_time:   17,
-              location:   "wfo",
-            },
-          ],
-        },
-      },
       sys_admin:   false,
       support:     false,
       email:       "user_one@example.com",
@@ -515,25 +529,13 @@ class StaffAPI < DriverSpecs::MockDriver
           day_of_week: i,
           blocks:      [
             {
-              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              start_time: (TIME_LOCAL - 4.hours).hour,
+              end_time:   (TIME_LOCAL + 4.hours).hour,
               location:   "wfo",
             },
           ],
         }
       end,
-      work_overrides: {
-        "2024-02-15": {
-          day_of_week: 4,
-          blocks:      [
-            {
-              start_time: 9,
-              end_time:   17,
-              location:   "wfo",
-            },
-          ],
-        },
-      },
       sys_admin:   false,
       support:     false,
       email:       "user_two@example.com",
@@ -563,8 +565,8 @@ class StaffAPI < DriverSpecs::MockDriver
           day_of_week: i,
           blocks:      [
             {
-              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              start_time: (TIME_LOCAL - 4.hours).hour,
+              end_time:   (TIME_LOCAL + 4.hours).hour,
               location:   "wfo",
             },
           ],
@@ -575,8 +577,8 @@ class StaffAPI < DriverSpecs::MockDriver
           day_of_week: DAY_OF_WEEK,
           blocks:      [
             {
-              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              start_time: (TIME_LOCAL - 4.hours).hour,
+              end_time:   (TIME_LOCAL + 4.hours).hour,
               location:   "aol",
             },
           ],
@@ -611,8 +613,8 @@ class StaffAPI < DriverSpecs::MockDriver
           day_of_week: i,
           blocks:      [
             {
-              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              start_time: (TIME_LOCAL - 4.hours).hour,
+              end_time:   (TIME_LOCAL + 4.hours).hour,
               location:   "wfh",
             },
           ],
@@ -623,8 +625,8 @@ class StaffAPI < DriverSpecs::MockDriver
           day_of_week: DAY_OF_WEEK,
           blocks:      [
             {
-              start_time: (Time.local(location: Time::Location.load("Australia/Sydney")) - 4.hours).hour,
-              end_time:   (Time.local(location: Time::Location.load("Australia/Sydney")) + 4.hours).hour,
+              start_time: (TIME_LOCAL - 4.hours).hour,
+              end_time:   (TIME_LOCAL + 4.hours).hour,
               location:   "wfo",
             },
           ],
@@ -640,6 +642,41 @@ class StaffAPI < DriverSpecs::MockDriver
       card_number: "",
     }
 
+    user_after_hours = {
+      created_at:       Time.utc.to_unix,
+      id:               id,
+      email_digest:     "not_real_digest",
+      name:             "User Five",
+      first_name:       "User",
+      last_name:        "Five",
+      groups:           [] of String,
+      country:          "Australia",
+      building:         "",
+      image:            "",
+      authority_id:     "authority-after-hours",
+      deleted:          false,
+      department:       "",
+      work_preferences: 7.times.map do |i|
+        {
+          day_of_week: i,
+          blocks:      [
+            {
+              start_time: (TIME_LOCAL - 6.hours).hour,
+              end_time:   (TIME_LOCAL - 2.hours).hour,
+              location:   "wfo",
+            },
+          ],
+        }
+      end,
+      sys_admin:   false,
+      support:     false,
+      email:       "user_five@example.com",
+      phone:       "",
+      ui_theme:    "light",
+      login_name:  "",
+      staff_id:    "",
+      card_number: "",
+    }
     case id
     when "user-wfh"
       JSON.parse(user_wfh.to_json)
@@ -649,6 +686,8 @@ class StaffAPI < DriverSpecs::MockDriver
       JSON.parse(user_aol.to_json)
     when "user-wfh-override"
       JSON.parse(user_wfh_override.to_json)
+    when "user-after-hours"
+      JSON.parse(user_after_hours.to_json)
     else
       JSON.parse(user_wfh.to_json)
     end
@@ -767,7 +806,6 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
 
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 10
   pending_release.should eq [
     "ignore",
     "notify",
@@ -798,7 +836,6 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
 
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 2
   pending_release.should eq [
     "notify_created_yesterday",
     "reject_created_yesterday",
@@ -819,16 +856,41 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
+    skip_all_day:             false,
     all_day_start:            all_day_start_in_20_minutes,
   })
 
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
-  pending_release.size.should eq 3
   pending_release.should eq [
     "notify_created_yesterday",
     "reject_created_yesterday",
     "all_day",
+  ]
+
+  # release_outside_hours: true
+  #############################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            true,
+    skip_all_day:             true,
+    release_outside_hours:   true,
+  })
+
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.should eq [
+    "notify_created_yesterday",
+    "reject_created_yesterday",
+    "outside_hours",
   ]
 
   #####################################
@@ -940,12 +1002,46 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
+    skip_all_day:             false,
     all_day_start:            all_day_start_20_minutes_ago,
   })
 
   resp = exec(:release_bookings).get
   resp.should eq [15, 17]
   system(:StaffAPI_1)[:rejected].should eq 6
+
+
+  # release_outside_hours: true
+  #############################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            true,
+    skip_all_day:             true,
+    release_outside_hours:   true,
+  })
+
+  # Ensure self[:pending_release] holds the correct bookings for the settings before testing #release_bookings
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.should eq [
+    "notify_created_yesterday",
+    "reject_created_yesterday",
+    "outside_hours",
+  ]
+
+  resp = exec(:release_bookings).get
+  resp.should eq [15, 18]
+  system(:StaffAPI_1)[:rejected].should eq 7
+
+
 
   #####################################
   # End of tests for: #release_bookings
