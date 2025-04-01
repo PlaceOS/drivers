@@ -37,6 +37,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   @auth_token : String = ""
   @auth_expiry : Time = 1.minute.ago
   @user_cache : Hash(String, User) = {} of String => User
+  @desk_sync_interval_mins : Int32 = 60
+  @locker_sync_interval_mins : Int32 = 60
 
   @controllers : Hash(Int32, ControllerInfo) = {} of Int32 => ControllerInfo
 
@@ -56,6 +58,8 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     @password = setting(String, :password)
     @ws_username = setting?(String, :ws_username) || @username
     @ws_password = setting?(String, :ws_password) || @password
+    @desk_sync_interval_mins = setting?(Int32, :desk_sync_interval_mins) || 60
+    @locker_sync_interval_mins = setting?(Int32, :locker_sync_interval_mins) || 60
 
     if uri_override = setting?(String, :http_uri_override)
       transport.http_uri_override = URI.parse uri_override
