@@ -28,6 +28,7 @@ class Place::AutoRelease < PlaceOS::Driver
     # - wfo: Work From Office
     skip_created_after_start: true,                     # Skip bookings created after the start time
     skip_same_day:            false,                    # Skip bookings created on the same day as the booking
+    skip_all_day:             false,                    # Skip all day bookings
     default_work_preferences: [] of WorktimePreference, # Default work preferences for users
     release_outside_hours:    false,                    # Release bookings outside of work hours
     all_day_start:            8.0,                      # Start time used for all day bookings
@@ -69,6 +70,7 @@ class Place::AutoRelease < PlaceOS::Driver
   @auto_release : AutoReleaseConfig = AutoReleaseConfig.new
   @skip_created_after_start : Bool = true
   @skip_same_day : Bool = true
+  @skip_all_day : Bool = false
   @default_work_preferences : Array(WorktimePreference) = [] of WorktimePreference
   @release_outside_hours : Bool = false
   @all_day_start : Float64 = 8.0
@@ -92,6 +94,7 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
+    @skip_all_day = setting?(Bool, :skip_all_day) || false
     @default_work_preferences = setting?(Array(WorktimePreference), :default_work_preferences) || [] of WorktimePreference
     @release_outside_hours = setting?(Bool, :release_outside_hours) || false
     @all_day_start = setting?(Float64, :all_day_start) || 8.0
@@ -206,6 +209,7 @@ class Place::AutoRelease < PlaceOS::Driver
       next if @skip_created_after_start && (created_at = booking.created) && created_at >= booking.booking_start
       next if @skip_same_day && (created_at = booking.created) &&
               Time.unix(created_at).in(building_zone.time_location!).day == Time.unix(booking.booking_start).in(building_zone.time_location!).day
+      next if @skip_all_day && booking.all_day
 
       if preferences = get_user_preferences?(booking.user_id)
         # get the booking start time in the building timezone
@@ -267,8 +271,12 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings.each do |booking|
       next if previously_released.includes? booking.id
 
+      # get the booking start time in the building timezone
+      booking_start = Time.unix(booking.booking_start).in building_zone.time_location!
+
       # convert hours (all_day_start) to seconds
-      booking_start = booking.all_day ? (@all_day_start * 60 * 60).to_i : booking.booking_start
+      booking_start = booking.all_day ? all_day_start_time(booking_start).to_unix : booking.booking_start
+
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
       if Time.utc.to_unix - booking_start > @auto_release.time_after(booking.booking_type) * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
@@ -286,6 +294,14 @@ class Place::AutoRelease < PlaceOS::Driver
   rescue error
     logger.error(exception: error) { "unable to release bookings" }
     self[:released_booking_ids] = [] of Int64
+  end
+
+  private def all_day_start_time(booking_start : Time) : Time
+    # Convert float hours/minutes to time
+    # e.g. 7.5 = 7:30AM in the specified timezone
+    hours = @all_day_start.to_i
+    minutes = ((@all_day_start - hours) * 60).to_i
+    time_in_zone = Time.local(booking_start.year, booking_start.month, booking_start.day, hours, minutes, location: building_zone.time_location!)
   end
 
   @[Security(Level::Support)]
