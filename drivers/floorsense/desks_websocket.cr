@@ -72,9 +72,9 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     end
 
     schedule.clear
-    schedule.every(locker_sync_interval_mins.minutes) { sync_locker_list }
+    schedule.every(@locker_sync_interval_mins.minutes) { sync_locker_list }
     schedule.in(5.seconds) { sync_locker_list }
-    schedule.every(desk_sync_interval_mins.minutes) { sync_desk_list }
+    schedule.every(@desk_sync_interval_mins.minutes) { sync_desk_list }
     schedule.in(5.seconds) { sync_desk_list }
     schedule.every(1.minute) { check_subscriptions }
   end
