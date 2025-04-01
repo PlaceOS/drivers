@@ -15,8 +15,8 @@ class StaffAPI < DriverSpecs::MockDriver
   TIME_YESTERDAY    = TIME_LOCAL - 1.day
   TIME_START_OF_DAY = TIME_LOCAL - TIME_LOCAL.hour.hours - TIME_LOCAL.minute.minutes - TIME_LOCAL.second.seconds
   TIME_END_OF_DAY   = TIME_START_OF_DAY + 1.day - 1.seconds
-  DATE        = TIME_LOCAL.to_s(format: "%F")
-  DAY_OF_WEEK = TIME_LOCAL.day_of_week.value == 0 ? 7 : TIME_LOCAL.day_of_week.value
+  DATE              = TIME_LOCAL.to_s(format: "%F")
+  DAY_OF_WEEK       = TIME_LOCAL.day_of_week.value == 0 ? 7 : TIME_LOCAL.day_of_week.value
 
   # Using a constant for bookings to ensure the times don't change during tests
   BOOKINGS = [
@@ -436,11 +436,31 @@ class StaffAPI < DriverSpecs::MockDriver
       last_changed:    TIME_YESTERDAY.to_unix,
       created:         TIME_YESTERDAY.to_unix,
     },
+    {
+      id:              19,
+      user_id:         "user-no-preferences",
+      user_email:      "user_six@example.com",
+      user_name:       "User Six",
+      asset_id:        "desk_019",
+      zones:           ["zone-1234"],
+      booking_type:    "desk",
+      booking_start:   (TIME_LOCAL + 5.minutes).to_unix,
+      booking_end:     (TIME_LOCAL + 25.minutes).to_unix,
+      timezone:        TIMEZONE,
+      all_day:         false,
+      title:           "no_preferences",
+      description:     "",
+      checked_in:      false,
+      rejected:        false,
+      approved:        true,
+      booked_by_id:    "user-no-preferences",
+      booked_by_email: "user_six@example.com",
+      booked_by_name:  "User Six",
+      process_state:   "approved",
+      last_changed:    TIME_YESTERDAY.to_unix,
+      created:         TIME_YESTERDAY.to_unix,
+    },
   ]
-
-  NOW         = Time.local(location: Time::Location.load(TIMEZONE))
-  DATE        = NOW.to_s(format: "%F")
-  DAY_OF_WEEK = NOW.day_of_week.value == 0 ? 7 : NOW.day_of_week.value
 
   def query_bookings(
     type : String? = nil,
@@ -677,6 +697,31 @@ class StaffAPI < DriverSpecs::MockDriver
       staff_id:    "",
       card_number: "",
     }
+
+    user_no_preferences = {
+      created_at:   Time.utc.to_unix,
+      id:           id,
+      email_digest: "not_real_digest",
+      name:         "User Six",
+      first_name:   "User",
+      last_name:    "Six",
+      groups:       [] of String,
+      country:      "Australia",
+      building:     "",
+      image:        "",
+      authority_id: "authority-no-preferences",
+      deleted:      false,
+      department:   "",
+      sys_admin:    false,
+      support:      false,
+      email:        "user_six@example.com",
+      phone:        "",
+      ui_theme:     "light",
+      login_name:   "",
+      staff_id:     "",
+      card_number:  "",
+    }
+
     case id
     when "user-wfh"
       JSON.parse(user_wfh.to_json)
@@ -688,6 +733,8 @@ class StaffAPI < DriverSpecs::MockDriver
       JSON.parse(user_wfh_override.to_json)
     when "user-after-hours"
       JSON.parse(user_after_hours.to_json)
+    when "user-no-preferences"
+      JSON.parse(user_no_preferences.to_json)
     else
       JSON.parse(user_wfh.to_json)
     end
@@ -784,7 +831,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp.not_nil!.as_h["id"].should eq "zone-1234"
 
   resp = exec(:get_pending_bookings).get
-  resp.not_nil!.as_a.size.should eq 16
+  resp.not_nil!.as_a.size.should eq 18
 
   resp = exec(:get_user_preferences?, "user-wfh").get
   resp.not_nil!.as_h.keys.should eq ["work_preferences", "work_overrides"]
@@ -882,7 +929,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             true,
-    release_outside_hours:   true,
+    release_outside_hours:    true,
   })
 
   resp = exec(:pending_release).get
@@ -891,6 +938,66 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     "notify_created_yesterday",
     "reject_created_yesterday",
     "outside_hours",
+    "no_preferences",
+  ]
+
+  # when release_outside_hours is false (the default)
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            true,
+    skip_all_day:             true,
+    release_outside_hours:    false,
+  })
+
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.should eq [
+    "notify_created_yesterday",
+    "reject_created_yesterday",
+  ]
+
+  # default_work_preferences
+  ##########################
+
+  settings({
+    time_window_hours: 8,
+    auto_release:      {
+      time_before: 10,
+      time_after:  10,
+      resources:   ["desk"],
+    },
+    release_locations:        ["wfh", "aol"],
+    skip_created_after_start: true,
+    skip_same_day:            true,
+    skip_all_day:             true,
+    release_outside_hours:    false,
+    default_work_preferences: 7.times.map do |i|
+      {
+        day_of_week: i,
+        blocks:      [
+          {
+            start_time: (time_local - 4.hours).hour,
+            end_time:   (time_local + 4.hours).hour,
+            location:   "wfh",
+          },
+        ],
+      }
+    end,
+  })
+
+  resp = exec(:pending_release).get
+  pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
+  pending_release.should eq [
+    "notify_created_yesterday",
+    "reject_created_yesterday",
+    "no_preferences",
   ]
 
   #####################################
@@ -974,6 +1081,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
+    skip_all_day:             false,
     all_day_start:            all_day_start_in_20_minutes,
   })
 
@@ -1010,7 +1118,6 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp.should eq [15, 17]
   system(:StaffAPI_1)[:rejected].should eq 6
 
-
   # release_outside_hours: true
   #############################
 
@@ -1025,7 +1132,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             true,
-    release_outside_hours:   true,
+    release_outside_hours:    true,
   })
 
   # Ensure self[:pending_release] holds the correct bookings for the settings before testing #release_bookings
@@ -1035,13 +1142,12 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     "notify_created_yesterday",
     "reject_created_yesterday",
     "outside_hours",
+    "no_preferences",
   ]
 
   resp = exec(:release_bookings).get
   resp.should eq [15, 18]
   system(:StaffAPI_1)[:rejected].should eq 7
-
-
 
   #####################################
   # End of tests for: #release_bookings
