@@ -19,6 +19,7 @@ class Place::AutoRelease < PlaceOS::Driver
     date_format:       "%A, %-d %B",
     email_schedule:    "*/5 * * * *",
     email_template:    "auto_release",
+    unique_templates:  false,
     time_window_hours: 4,              # The number of hours to check for bookings pending release
     release_locations: ["wfh", "aol"], # Locations to release bookings for
     # available locations:
@@ -27,6 +28,7 @@ class Place::AutoRelease < PlaceOS::Driver
     # - wfo: Work From Office
     skip_created_after_start: true,     # Skip bookings created after the start time
     skip_same_day:            false,    # Skip bookings created on the same day as the booking
+    skip_all_day:             false,    # Skip all day bookings
     asset_cache_timeout:      3600_i64, # 1 hour
   })
 
@@ -57,13 +59,15 @@ class Place::AutoRelease < PlaceOS::Driver
   @auto_release_email_errors : UInt64 = 0_u64
 
   @email_template : String = "auto_release"
+  @unique_templates : Bool = false
   @email_schedule : String? = nil
 
   @time_window_hours : Int32 = 1
-  @release_locations : Array(String) = ["wfh"]
+  @release_locations : Array(String) = ["wfh", "aol"]
   @auto_release : AutoReleaseConfig = AutoReleaseConfig.new
   @skip_created_after_start : Bool = true
   @skip_same_day : Bool = true
+  @skip_all_day : Bool = false
 
   def on_update
     @building_zone = nil
@@ -73,16 +77,18 @@ class Place::AutoRelease < PlaceOS::Driver
 
     @email_schedule = setting?(String, :email_schedule).presence
     @email_template = setting?(String, :email_template) || "auto_release"
+    @unique_templates = setting?(Bool, :unique_templates) || false
 
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
 
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
-    @release_locations = setting?(Array(String), :release_locations) || ["wfh"]
+    @release_locations = setting?(Array(String), :release_locations) || ["wfh", "aol"]
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
+    @skip_all_day = setting?(Bool, :skip_all_day) || false
 
     @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
     clear_asset_cache
@@ -114,13 +120,11 @@ class Place::AutoRelease < PlaceOS::Driver
   @[Security(Level::Support)]
   def enabled? : Bool
     if !@auto_release.resources.empty? &&
-       (@auto_release.time_before > 0 || @auto_release.time_after > 0) &&
        !building_zone.time_location?.nil?
       true
     else
       logger.notice { "auto release is not enabled on zone #{building_zone.id}" }
       logger.debug { "auto release is not enabled on zone #{building_zone.id} due to auto_release.resources being empty" } if @auto_release.resources.empty?
-      logger.debug { "auto release is not enabled on zone #{building_zone.id} due to auto_release.time_before and auto_release.time_after being 0" } if @auto_release.time_before.zero? && @auto_release.time_after.zero?
       logger.debug { "auto release is not enabled on zone #{building_zone.id} due to building_zone.time_location being nil" } if building_zone.time_location?.nil?
       false
     end
@@ -150,14 +154,14 @@ class Place::AutoRelease < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def get_user_preferences?(user_id : String)
-    user = staff_api.user(user_id).get
+    user = User.from_json staff_api.user(user_id).get.to_json
 
-    work_preferences = Array(WorktimePreference).from_json user.as_h["work_preferences"].to_json
-    work_overrides = Hash(String, WorktimePreference).from_json user.as_h["work_overrides"].to_json
+    work_preferences = user.work_preferences
+    work_preferences = @auto_release.default_work_preferences if work_preferences.empty?
 
-    {work_preferences: work_preferences, work_overrides: work_overrides}
+    {work_preferences: work_preferences, work_overrides: user.work_overrides}
   rescue
-    logger.warn { "unable to obtain work location for user #{user_id}" }
+    logger.debug { "unable to obtain work location for user #{user_id}" }
     nil
   end
 
@@ -194,6 +198,7 @@ class Place::AutoRelease < PlaceOS::Driver
       next if @skip_created_after_start && (created_at = booking.created) && created_at >= booking.booking_start
       next if @skip_same_day && (created_at = booking.created) &&
               Time.unix(created_at).in(building_zone.time_location!).day == Time.unix(booking.booking_start).in(building_zone.time_location!).day
+      next if @skip_all_day && booking.all_day
 
       if preferences = get_user_preferences?(booking.user_id)
         # get the booking start time in the building timezone
@@ -206,6 +211,9 @@ class Place::AutoRelease < PlaceOS::Driver
         # e.g. 7:30AM = 7.5
         event_time = booking_start.hour + (booking_start.minute / 60.0)
 
+        # use all_day_start for all day bookings
+        event_time = @auto_release.all_day_start if booking.all_day
+
         # exclude overrides with empty time blocks
         overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
 
@@ -216,6 +224,8 @@ class Place::AutoRelease < PlaceOS::Driver
               in_preference?(override, event_time, @release_locations, false)
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
+          results << booking
+        elsif @auto_release.release_outside_hours
           results << booking
         end
       end
@@ -250,8 +260,14 @@ class Place::AutoRelease < PlaceOS::Driver
     bookings.each do |booking|
       next if previously_released.includes? booking.id
 
+      # get the booking start time in the building timezone
+      booking_start = Time.unix(booking.booking_start).in building_zone.time_location!
+
+      # convert hours (all_day_start) to seconds
+      booking_start = booking.all_day ? all_day_start_time(booking_start).to_unix : booking.booking_start
+
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
-      if Time.utc.to_unix - booking.booking_start > @auto_release.time_after * 60
+      if Time.utc.to_unix - booking_start > @auto_release.time_after(booking.booking_type) * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
         next if skip_release?(booking)
 
@@ -269,36 +285,12 @@ class Place::AutoRelease < PlaceOS::Driver
     self[:released_booking_ids] = [] of Int64
   end
 
-  def template_fields : Array(TemplateFields)
-    time_now = Time.utc.in(timezone)
-    [
-      TemplateFields.new(
-        trigger: {@email_template, "auto_release"},
-        name: "Auto release booking",
-        description: "Notification when a booking is pending automatic release due to user's work location preferences",
-        fields: [
-          {name: "booking_id", description: "Unique identifier for the booking that may be released"},
-          {name: "booking_start", description: "Unix timestamp of when the booking begins"},
-          {name: "booking_end", description: "Unix timestamp of when the booking ends"},
-          {name: "start_time", description: "Formatted start time (e.g., #{time_now.to_s(@time_format)})"},
-          {name: "start_date", description: "Formatted start date (e.g., #{time_now.to_s(@date_format)})"},
-          {name: "start_datetime", description: "Formatted start date and time (e.g., #{time_now.to_s(@date_time_format)})"},
-          {name: "end_time", description: "Formatted end time (e.g., #{time_now.to_s(@time_format)})"},
-          {name: "end_date", description: "Formatted end date (e.g., #{time_now.to_s(@date_format)})"},
-          {name: "end_datetime", description: "Formatted end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
-          {name: "asset_id", description: "Identifier of the booked resource"},
-          {name: "asset_name", description: "Name of the booked resource"},
-          {name: "user_id", description: "Identifier of the person who has the booking"},
-          {name: "user_email", description: "Email address of the person who has the booking"},
-          {name: "user_name", description: "Full name of the person who has the booking"},
-          {name: "reason", description: "Title or purpose of the booking"},
-          {name: "approver_name", description: "Name of the person who approved the booking"},
-          {name: "approver_email", description: "Email of the person who approved the booking"},
-          {name: "booked_by_name", description: "Name of the person who made the booking"},
-          {name: "booked_by_email", description: "Email of the person who made the booking"},
-        ]
-      ),
-    ]
+  private def all_day_start_time(booking_start : Time) : Time
+    # Convert float hours/minutes to time
+    # e.g. 7.5 = 7:30AM in the specified timezone
+    hours = @auto_release.all_day_start.to_i
+    minutes = ((@auto_release.all_day_start - hours) * 60).to_i
+    time_in_zone = Time.local(booking_start.year, booking_start.month, booking_start.day, hours, minutes, location: building_zone.time_location!)
   end
 
   @[Security(Level::Support)]
@@ -319,8 +311,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
       if enabled? &&
-         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before * 60) &&
-         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after * 60)
+         (booking.booking_start - Time.utc.to_unix < @auto_release.time_before(booking.booking_type) * 60) &&
+         (Time.utc.to_unix - booking.booking_start < @auto_release.time_after(booking.booking_type) * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is withing the time_before window" }
 
         location = Time::Location.load(booking.timezone.presence || timezone.name)
@@ -356,7 +348,7 @@ class Place::AutoRelease < PlaceOS::Driver
         begin
           mailer.send_template(
             to: booking.user_email,
-            template: {@email_template, "auto_release"},
+            template: {@email_template, "auto_release#{template_suffix(booking.booking_type)}"},
             args: args)
           emailed_booking_ids << booking.id
         rescue error
@@ -367,8 +359,88 @@ class Place::AutoRelease < PlaceOS::Driver
     self[:emailed_booking_ids] = emailed_booking_ids
   end
 
-  # time_before and time_after are in minutes
-  record AutoReleaseConfig, time_before : Int64 = 0, time_after : Int64 = 0, resources : Array(String) = [] of String do
+  def template_fields : Array(TemplateFields)
+    if @unique_templates && !@auto_release.resources.empty?
+      @auto_release.resources.map { |type| unique_template_fields(type) }
+    else
+      [unique_template_fields]
+    end
+  end
+
+  private def unique_template_fields(booking_type : String = "") : TemplateFields
+    time_now = Time.utc.in(timezone)
+
+    TemplateFields.new(
+      trigger: {@email_template, "auto_release#{template_suffix(booking_type)}"},
+      name: "Auto release booking#{template_fields_suffix(booking_type)}",
+      description: "Notification when a booking is pending automatic release due to user's work location preferences",
+      fields: [
+        {name: "booking_id", description: "Unique identifier for the booking that may be released"},
+        {name: "booking_start", description: "Unix timestamp of when the booking begins"},
+        {name: "booking_end", description: "Unix timestamp of when the booking ends"},
+        {name: "start_time", description: "Formatted start time (e.g., #{time_now.to_s(@time_format)})"},
+        {name: "start_date", description: "Formatted start date (e.g., #{time_now.to_s(@date_format)})"},
+        {name: "start_datetime", description: "Formatted start date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+        {name: "end_time", description: "Formatted end time (e.g., #{time_now.to_s(@time_format)})"},
+        {name: "end_date", description: "Formatted end date (e.g., #{time_now.to_s(@date_format)})"},
+        {name: "end_datetime", description: "Formatted end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
+        {name: "asset_id", description: "Identifier of the booked resource"},
+        {name: "asset_name", description: "Name of the booked resource"},
+        {name: "user_id", description: "Identifier of the person who has the booking"},
+        {name: "user_email", description: "Email address of the person who has the booking"},
+        {name: "user_name", description: "Full name of the person who has the booking"},
+        {name: "reason", description: "Title or purpose of the booking"},
+        {name: "approver_name", description: "Name of the person who approved the booking"},
+        {name: "approver_email", description: "Email of the person who approved the booking"},
+        {name: "booked_by_name", description: "Name of the person who made the booking"},
+        {name: "booked_by_email", description: "Email of the person who made the booking"},
+      ]
+    )
+  end
+
+  private def template_suffix(booking_type : String) : String
+    @unique_templates && !@auto_release.resources.empty? ? "_#{booking_type}" : ""
+  end
+
+  private def template_fields_suffix(booking_type : String) : String
+    @unique_templates && !@auto_release.resources.empty? ? " (#{booking_type})" : ""
+  end
+
+  struct AutoReleaseConfig
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    getter time_before : Int64 = 0                                                         # Notification time before booking start in minutes
+    getter time_after : Int64 = 0                                                          # Release time after booking start in minutes
+    getter resources : Array(String) = [] of String                                        # Resources to release bookings for
+    getter default_work_preferences : Array(WorktimePreference) = [] of WorktimePreference # Default work preferences for users
+    getter release_outside_hours : Bool = false                                            # Release bookings outside of work hours
+    getter all_day_start : Float64 = 8.0                                                   # Start time used for all day bookings
+
+    def initialize
+    end
+
+    def time_before(resource : String) : Int64
+      if resource_time_before = json_unmapped["#{resource}_time_before"]?
+        resource_time_before.as_i64
+      else
+        time_before
+      end
+    end
+
+    def time_after(resource : String) : Int64
+      if resource_time_after = json_unmapped["#{resource}_time_after"]?
+        resource_time_after.as_i64
+      else
+        time_after
+      end
+    end
+  end
+
+  record User,
+    id : String,
+    work_preferences : Array(WorktimePreference) = [] of WorktimePreference,
+    work_overrides : Hash(String, WorktimePreference) = Hash(String, WorktimePreference).new do
     include JSON::Serializable
   end
 
