@@ -849,6 +849,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            false,
+    skip_all_day:             true,
   })
 
   resp = exec(:pending_release).get
@@ -879,6 +880,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
+    skip_all_day:             true,
   })
 
   resp = exec(:pending_release).get
@@ -896,15 +898,15 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   settings({
     time_window_hours: 8,
     auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
+      time_before:   10,
+      time_after:    10,
+      resources:     ["desk"],
+      all_day_start: all_day_start_in_20_minutes,
     },
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             false,
-    all_day_start:            all_day_start_in_20_minutes,
   })
 
   resp = exec(:pending_release).get
@@ -921,15 +923,15 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   settings({
     time_window_hours: 8,
     auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
+      time_before:           10,
+      time_after:            10,
+      resources:             ["desk"],
+      release_outside_hours: true,
     },
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             true,
-    release_outside_hours:    true,
   })
 
   resp = exec(:pending_release).get
@@ -945,15 +947,15 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   settings({
     time_window_hours: 8,
     auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
+      time_before:           10,
+      time_after:            10,
+      resources:             ["desk"],
+      release_outside_hours: false,
     },
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             true,
-    release_outside_hours:    false,
   })
 
   resp = exec(:pending_release).get
@@ -969,27 +971,27 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   settings({
     time_window_hours: 8,
     auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
+      time_before:              10,
+      time_after:               10,
+      resources:                ["desk"],
+      release_outside_hours:    false,
+      default_work_preferences: 7.times.map do |i|
+        {
+          day_of_week: i,
+          blocks:      [
+            {
+              start_time: (time_local - 4.hours).hour,
+              end_time:   (time_local + 4.hours).hour,
+              location:   "wfh",
+            },
+          ],
+        }
+      end,
     },
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             true,
-    release_outside_hours:    false,
-    default_work_preferences: 7.times.map do |i|
-      {
-        day_of_week: i,
-        blocks:      [
-          {
-            start_time: (time_local - 4.hours).hour,
-            end_time:   (time_local + 4.hours).hour,
-            location:   "wfh",
-          },
-        ],
-      }
-    end,
   })
 
   resp = exec(:pending_release).get
@@ -1074,15 +1076,15 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   settings({
     time_window_hours: 8,
     auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
+      time_before:   10,
+      time_after:    10,
+      resources:     ["desk"],
+      all_day_start: all_day_start_in_20_minutes,
     },
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             false,
-    all_day_start:            all_day_start_in_20_minutes,
   })
 
   # Ensure self[:pending_release] holds the correct bookings for the settings before testing #release_bookings
@@ -1103,15 +1105,15 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   settings({
     time_window_hours: 8,
     auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
+      time_before:   10,
+      time_after:    10,
+      resources:     ["desk"],
+      all_day_start: all_day_start_20_minutes_ago,
     },
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             false,
-    all_day_start:            all_day_start_20_minutes_ago,
   })
 
   resp = exec(:release_bookings).get
@@ -1124,15 +1126,15 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   settings({
     time_window_hours: 8,
     auto_release:      {
-      time_before: 10,
-      time_after:  10,
-      resources:   ["desk"],
+      time_before:           10,
+      time_after:            10,
+      resources:             ["desk"],
+      release_outside_hours: true,
     },
     release_locations:        ["wfh", "aol"],
     skip_created_after_start: true,
     skip_same_day:            true,
     skip_all_day:             true,
-    release_outside_hours:    true,
   })
 
   # Ensure self[:pending_release] holds the correct bookings for the settings before testing #release_bookings
