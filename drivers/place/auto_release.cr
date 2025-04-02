@@ -26,13 +26,10 @@ class Place::AutoRelease < PlaceOS::Driver
     # - wfh: Work From Home
     # - aol: Away on Leave
     # - wfo: Work From Office
-    skip_created_after_start: true,                     # Skip bookings created after the start time
-    skip_same_day:            false,                    # Skip bookings created on the same day as the booking
-    skip_all_day:             false,                    # Skip all day bookings
-    default_work_preferences: [] of WorktimePreference, # Default work preferences for users
-    release_outside_hours:    false,                    # Release bookings outside of work hours
-    all_day_start:            8.0,                      # Start time used for all day bookings
-    asset_cache_timeout:      3600_i64,                 # 1 hour
+    skip_created_after_start: true,     # Skip bookings created after the start time
+    skip_same_day:            false,    # Skip bookings created on the same day as the booking
+    skip_all_day:             false,    # Skip all day bookings
+    asset_cache_timeout:      3600_i64, # 1 hour
   })
 
   accessor staff_api : StaffAPI_1
@@ -71,9 +68,6 @@ class Place::AutoRelease < PlaceOS::Driver
   @skip_created_after_start : Bool = true
   @skip_same_day : Bool = true
   @skip_all_day : Bool = false
-  @default_work_preferences : Array(WorktimePreference) = [] of WorktimePreference
-  @release_outside_hours : Bool = false
-  @all_day_start : Float64 = 8.0
 
   def on_update
     @building_zone = nil
@@ -95,9 +89,6 @@ class Place::AutoRelease < PlaceOS::Driver
     @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
     @skip_same_day = setting?(Bool, :skip_same_day) || false
     @skip_all_day = setting?(Bool, :skip_all_day) || false
-    @default_work_preferences = setting?(Array(WorktimePreference), :default_work_preferences) || [] of WorktimePreference
-    @release_outside_hours = setting?(Bool, :release_outside_hours) || false
-    @all_day_start = setting?(Float64, :all_day_start) || 8.0
 
     @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
     clear_asset_cache
@@ -166,7 +157,7 @@ class Place::AutoRelease < PlaceOS::Driver
     user = User.from_json staff_api.user(user_id).get.to_json
 
     work_preferences = user.work_preferences
-    work_preferences = @default_work_preferences if work_preferences.empty?
+    work_preferences = @auto_release.default_work_preferences if work_preferences.empty?
 
     {work_preferences: work_preferences, work_overrides: user.work_overrides}
   rescue
@@ -221,7 +212,7 @@ class Place::AutoRelease < PlaceOS::Driver
         event_time = booking_start.hour + (booking_start.minute / 60.0)
 
         # use all_day_start for all day bookings
-        event_time = @all_day_start if booking.all_day
+        event_time = @auto_release.all_day_start if booking.all_day
 
         # exclude overrides with empty time blocks
         overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
@@ -234,7 +225,7 @@ class Place::AutoRelease < PlaceOS::Driver
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
           results << booking
-        elsif @release_outside_hours
+        elsif @auto_release.release_outside_hours
           results << booking
         end
       end
@@ -297,8 +288,8 @@ class Place::AutoRelease < PlaceOS::Driver
   private def all_day_start_time(booking_start : Time) : Time
     # Convert float hours/minutes to time
     # e.g. 7.5 = 7:30AM in the specified timezone
-    hours = @all_day_start.to_i
-    minutes = ((@all_day_start - hours) * 60).to_i
+    hours = @auto_release.all_day_start.to_i
+    minutes = ((@auto_release.all_day_start - hours) * 60).to_i
     time_in_zone = Time.local(booking_start.year, booking_start.month, booking_start.day, hours, minutes, location: building_zone.time_location!)
   end
 
@@ -419,9 +410,12 @@ class Place::AutoRelease < PlaceOS::Driver
     include JSON::Serializable
     include JSON::Serializable::Unmapped
 
-    getter time_before : Int64 = 0 # minutes
-    getter time_after : Int64 = 0  # minutes
-    getter resources : Array(String) = [] of String
+    getter time_before : Int64 = 0                                                         # Notification time before booking start in minutes
+    getter time_after : Int64 = 0                                                          # Release time after booking start in minutes
+    getter resources : Array(String) = [] of String                                        # Resources to release bookings for
+    getter default_work_preferences : Array(WorktimePreference) = [] of WorktimePreference # Default work preferences for users
+    getter release_outside_hours : Bool = false                                            # Release bookings outside of work hours
+    getter all_day_start : Float64 = 8.0                                                   # Start time used for all day bookings
 
     def initialize
     end
