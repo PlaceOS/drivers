@@ -52,6 +52,8 @@ class Place::Booking
   property extension_data : Hash(String, JSON::Any) { {} of String => JSON::Any }
   getter recurrence_type : String? = nil
 
+  property all_day : Bool = false
+
   def recurring?
     @recurrence_type != "none"
   end
