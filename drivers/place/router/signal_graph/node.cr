@@ -185,9 +185,12 @@ class Place::Router::SignalGraph
       end
 
       def self.parse?(ref) : self?
-        m, _, o = ref.rpartition '.'
-        if mod = Mod.parse? m
-          output = o.to_i? || o
+        # as match == "_123."
+        mod_name, match, outp = ref.rpartition(/_\d+\./)
+        mod_name = "#{mod_name}_#{match[1..-2]}" if !match.empty?
+
+        if mod = Mod.parse? mod_name
+          output = outp.to_i? || outp
           new mod, output
         end
       end

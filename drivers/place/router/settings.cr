@@ -47,18 +47,16 @@ module Place::Router::Core::Settings
 
       def self.parse?(raw : String)
         return if name = raw.lchop?('*')
-        mod_name, match, outp = raw.rpartition('.')
+        mod_name, match, outp = raw.rpartition(/_\d+\./)
         if !match.empty?
-          mod, idx = get_parts(mod_name)
-          if idx
-            outp_idx, match, layer = outp.rpartition('!')
-            if match.empty?
-              output = outp.to_i? || outp
-              new mod, idx, output, nil
-            else
-              output = outp_idx.to_i? || outp_idx
-              new mod, idx, output, layer
-            end
+          mod, idx = mod_name, match[1..-2].to_i
+          outp_idx, match, layer = outp.rpartition('!')
+          if match.empty?
+            output = outp.to_i? || outp
+            new mod, idx, output, nil
+          else
+            output = outp_idx.to_i? || outp_idx
+            new mod, idx, output, layer
           end
         end
       end

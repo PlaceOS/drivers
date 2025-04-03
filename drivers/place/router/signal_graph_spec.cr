@@ -38,9 +38,9 @@ end
 #
 # connections = {
 #   Display_1: {
-#     hdmi: "Switcher_1.1"
+#     hdmi: "15.02_Switcher_1.1"
 #   },
-#   Switcher_1: ["*foo", "*bar"],
+#   15.02_Switcher_1: ["*foo", "*bar"],
 #   Display_2: {
 #     hdmi: "*baz"
 #   }
@@ -56,21 +56,21 @@ end
 nodes = [
   SigGraph::Input.new("sys-123", "Display", 1, "hdmi"),
   SigGraph::Input.new("sys-123", "Display", 2, "hdmi"),
-  SigGraph::Input.new("sys-123", "Switcher", 1, 1),
-  SigGraph::Input.new("sys-123", "Switcher", 1, 2),
-  SigGraph::Output.new("sys-123", "Switcher", 1, 1),
+  SigGraph::Input.new("sys-123", "15.02_Switcher", 1, 1),
+  SigGraph::Input.new("sys-123", "15.02_Switcher", 1, 2),
+  SigGraph::Output.new("sys-123", "15.02_Switcher", 1, 1, "all"),
   SigGraph::Device.new("sys-123", "Display", 1),
   SigGraph::Device.new("sys-123", "Display", 2),
-  SigGraph::Device.new("sys-123", "Switcher", 1),
+  SigGraph::Device.new("sys-123", "15.02_Switcher", 1),
 ]
 
 connections = [
-  {SigGraph::Output.new("sys-123", "Switcher", 1, 1), SigGraph::Input.new("sys-123", "Display", 1, "hdmi")},
+  {SigGraph::Output.new("sys-123", "15.02_Switcher", 1, 1, "all"), SigGraph::Input.new("sys-123", "Display", 1, "hdmi")},
 ]
 
 inputs = {
-  foo: SigGraph::Input.new("sys-123", "Switcher", 1, 1),
-  bar: SigGraph::Input.new("sys-123", "Switcher", 1, 2),
+  foo: SigGraph::Input.new("sys-123", "15.02_Switcher", 1, 1),
+  bar: SigGraph::Input.new("sys-123", "15.02_Switcher", 1, 2),
   baz: SigGraph::Input.new("sys-123", "Display", 2, "hdmi"),
 }
 
@@ -123,8 +123,8 @@ describe SigGraph do
         when 0
           node.should eq g[source]
           edge = edge.as SigGraph::Edge::Active
-          edge.mod.name.should eq "Switcher"
-          edge.func.should eq SigGraph::Edge::Func::Switch.new 1, 1
+          edge.mod.name.should eq "15.02_Switcher"
+          edge.func.should eq SigGraph::Edge::Func::Switch.new 1, 1, "all"
         when 1
           edge.should be_a SigGraph::Edge::Static
           next_node.should eq g[SigGraph::Input.new("sys-123", "Display", 1, "hdmi")]
@@ -156,7 +156,7 @@ describe SigGraph do
 
     it "provide mute activate on an intermediate switcher" do
       source = SigGraph::Mute
-      dest = SigGraph::Output.new("sys-123", "Switcher", 1, 1)
+      dest = SigGraph::Output.new("sys-123", "15.02_Switcher", 1, 1, "all")
 
       path = g.route source, dest
       path = path.not_nil!
@@ -164,7 +164,7 @@ describe SigGraph do
       node, edge, next_node = path.first
       node.should eq g[source]
       edge = edge.as SigGraph::Edge::Active
-      edge.mod.name.should eq "Switcher"
+      edge.mod.name.should eq "15.02_Switcher"
       edge.func.should eq SigGraph::Edge::Func::Mute.new true, 1
       next_node.should eq g[dest]
     end
