@@ -34,7 +34,29 @@ describe Settings::Connections do
       nodes, links, aliases = Settings::Connections.parse map, sys: "abc123"
       nodes.size.should eq(7)
       links.should contain({
-        SignalGraph::Output.new("abc123", "Switcher", 1, 1),
+        SignalGraph::Output.new("abc123", "Switcher", 1, 1, "all"),
+        SignalGraph::Input.new("abc123", "Display", 1, "hdmi"),
+      })
+      aliases.keys.should contain "Foo"
+      aliases.keys.should contain "FloorBox"
+    end
+
+    it "extracts nodes, links, aliases and layers" do
+      connections2 = <<-JSON
+      {
+        "Display_1": {
+          "hdmi": "15.07_Switcher_1.1!video"
+        },
+        "Switcher_1": ["*Foo", "*Bar"],
+        "*FloorBox": "Switcher_1.2"
+      }
+      JSON
+
+      map = Settings::Connections::Map.from_json connections2
+      nodes, links, aliases = Settings::Connections.parse map, sys: "abc123"
+      nodes.size.should eq(7)
+      links.should contain({
+        SignalGraph::Output.new("abc123", "15.07_Switcher", 1, 1, "video"),
         SignalGraph::Input.new("abc123", "Display", 1, "hdmi"),
       })
       aliases.keys.should contain "Foo"
