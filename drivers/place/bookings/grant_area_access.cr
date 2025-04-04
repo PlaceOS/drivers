@@ -9,7 +9,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   descriptive_name "PlaceOS Booking Area Access"
   generic_name :BookingAreaAccess
-  description "ensures users can access areas they have booked. i.e. a private office allocated to a user etc"
+  description "ensures users can access areas they have booked. i.e. a private office allocated to a user"
 
   default_settings({
     # the channel id we're looking for events on
