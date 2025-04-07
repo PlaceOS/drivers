@@ -892,6 +892,7 @@ class Place::StaffAPI < PlaceOS::Driver
     {
       protocol: PlaceOS::Driver::Stats.protocol_tracking,
       memory:   PlaceOS::Driver::Stats.memory_usage,
+      queue:    @__queue__.@queue.size,
     }
   end
 
@@ -947,13 +948,5 @@ class Place::StaffAPI < PlaceOS::Driver
     headers["Accept"] = "application/json"
     headers["X-API-Key"] = @api_key.presence || "spec-test"
     headers
-  end
-end
-
-# Deal with bad SSL certificate
-class OpenSSL::SSL::Context::Client
-  def initialize(method : LibSSL::SSLMethod = Context.default_method)
-    super(method)
-    self.verify_mode = OpenSSL::SSL::VerifyMode::NONE
   end
 end
