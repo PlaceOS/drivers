@@ -1,0 +1,49 @@
+package location;
+
+message mac_address
+{
+   optional bytes addr = 1;
+}
+enum target_dev_type
+{
+   TARGET_TYPE_UNKNOWN = 0; 
+   TARGET_TYPE_STATION = 1; 
+   TARGET_TYPE_ROGUE = 3;
+}
+enum algorithm
+{
+   ALGORITHM_TRIANGULATION = 0; 
+}
+enum measurement_unit 
+{
+   METERS = 0; 
+   FEET = 1; 
+}
+message stream_location
+{
+   optional float sta_location_x = 1; 
+   optional float sta_location_y = 2; 
+   optional uint32 error_level = 3;
+   optional algorithm loc_algorithm = 9; 
+   optional measurement_unit unit = 14; 
+   required mac_address sta_eth_mac = 15; 
+   optional string campus_id_string = 16;
+   optional string building_id_string = 17; 
+   optional string floor_id_string = 18; 
+   optional target_dev_type target_type = 19;
+   optional bool associated = 20;
+}
+enum zone_event {
+	ZONE_IN = 0;
+	ZONE_OUT = 1;
+}
+ 
+message stream_geofence_notify {
+	optional zone_event geofence_event = 1;
+	optional bytes geofence_id = 2;
+	optional string geofence_name = 3;
+	optional mac_address sta_eth_mac = 4;
+	optional bool associated = 5;
+	optional uint32 dwell_time = 6 [default=0];
+	optional string hashed_sta_eth_mac = 7;
+}

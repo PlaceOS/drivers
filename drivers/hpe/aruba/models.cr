@@ -1,6 +1,11 @@
 require "json"
 
 module HPE::ANW::Model
+  enum MeasurementUnit
+    FEET
+    METERS
+  end
+
   record AuthToken, expires_in : Int64, token_type : String, refresh_token : String, access_token : String do
     include JSON::Serializable
 
@@ -13,6 +18,24 @@ module HPE::ANW::Model
 
     def token
       "#{token_type} #{access_token}"
+    end
+  end
+
+  struct ClientLocation
+    include JSON::Serializable
+
+    getter x : Float32?
+    getter y : Float32?
+    getter units : MeasurementUnit = MeasurementUnit::FEET
+    getter error_level : UInt32?
+    getter campus_id : String?
+    getter building_id : String?
+    getter floor_id : String?
+    getter associated : Bool?
+    getter device_mac : String?
+    getter target_dev_type : String?
+
+    def initialize(@x, @y, @units, @error_level, @campus_id, @building_id, @floor_id, @associated, @device_mac, @target_dev_type)
     end
   end
 

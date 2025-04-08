@@ -137,3 +137,7 @@ dependencies:
   # Siemens Desigo API wrapper
   desigo:
     github: place-technology/desigo
+
+  # Protobuf
+  protobuf:
+    github: jeromegn/protobuf.cr
