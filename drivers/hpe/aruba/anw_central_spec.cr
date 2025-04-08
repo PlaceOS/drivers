@@ -63,6 +63,18 @@ DriverSpecs.mock_driver "HPE::ANW::Aruba" do
   end
 
   ret_val.get.try &.as_h["count"].as_i.should eq 1
+
+  ret_val = exec(:client_location, "macaddr")
+  expect_http_request(2.seconds) do |request, response|
+    if request.path == "visualrf_api/v1/client_location/macaddr" && request.headers["Authorization"]? == "Bearer generated-access-token"
+      response.status_code = 200
+      response << client_location_resp.to_json
+    else
+      response.status_code = 401
+    end
+  end
+
+  ret_val.get.try &.as_h["device_mac"].as_s.should eq "ac:37:43:a9:ec:10"
 end
 
 def wifi_client_locations_resp
@@ -106,5 +118,21 @@ def auth_token_json
     "token_type":    "Bearer",
     "refresh_token": "refresh-token-1",
     "access_token":  "generated-access-token",
+  }
+end
+
+def client_location_resp
+  {
+    "location": {
+      "x":           185.55978,
+      "y":           35.71597,
+      "units":       "FEET",
+      "error_level": 61,
+      "campus_id":   "201610193176__1b99400c-f5bd-4a17-9a1c-87da89941381",
+      "building_id": "201610193176__f2267635-d1b5-4e33-be9b-2bf7dbd6f885",
+      "floor_id":    "201610193176__39295d71-fac8-4837-8a91-c1798b51a2ad",
+      "associated":  true,
+      "device_mac":  "ac:37:43:a9:ec:10",
+    },
   }
 end

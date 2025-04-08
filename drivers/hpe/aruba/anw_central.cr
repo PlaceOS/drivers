@@ -47,7 +47,7 @@ class HPE::ANW::Aruba < PlaceOS::Driver
   # https://developer.arubanetworks.com/new-hpe-anw-central/reference/listclientlocationsforapi
   def wifi_locations(offset : Int32 = 0, limit : Int32 = 100, start_query_time : Time? = nil, site_id : String? = nil,
                      building_id : String? = nil, floor_id : String? = nil, associated : Bool? = nil, connected : Bool? = nil,
-                     last_connect_client_mac_address : String? = nil)
+                     last_connect_client_mac_address : String? = nil) : Model::WifiClientLocations
     query = URI::Params.build do |form|
       limit = limit > 1000 ? 1000 : limit
       if mac_address = last_connect_client_mac_address
@@ -82,6 +82,26 @@ class HPE::ANW::Aruba < PlaceOS::Driver
     response = get("/network-monitoring/v1alpha1/wifi-clients-locations?#{query}", headers: headers)
     raise "failed to obtain wifi client locations , response code #{response.status_code}, body: #{response.body}" unless response.success?
     Model::WifiClientLocations.from_json(response.body)
+  end
+
+  # https://developer.arubanetworks.com/hpe-aruba-networking-central/reference/get_visualrf-api-v1-client-location-macaddr
+  def client_location(mac_address : String, offset : Int32 = 0, limit : Int32 = 100, units : Model::MeasurementUnit = Model::MeasurementUnit::FEET) : Model::ClientLocation
+    query = URI::Params.build do |form|
+      form.add("offset", offset.to_s)
+      form.add("limit", limit.to_s)
+      form.add("units", units.to_s)
+    end
+
+    headers = HTTP::Headers{
+      "Authorization" => access_token,
+      "Content-Type"  => "application/json",
+      "Accept"        => "application/json",
+    }
+    logger.debug { {msg: "Get Wifi client locations HTTP Data:", headers: headers.to_json, query_params: query.to_s} } if @debug_payload
+
+    response = get("visualrf_api/v1/client_location/#{mac_address}?#{query}", headers: headers)
+    raise "failed to obtain client wifi location , response code #{response.status_code}, body: #{response.body}" unless response.success?
+    Model::ClientLocation.from_json(response.body, root: "location")
   end
 
   protected def access_token
