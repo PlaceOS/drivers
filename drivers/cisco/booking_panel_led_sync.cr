@@ -24,10 +24,10 @@ class Cisco::BookingPanelLedSync < PlaceOS::Driver
   end
 
   def on_update
-    clear_subscriptions
-    @led_color_when_room_booked = setting(:led_color_when_room_booked) || "Red"
-    @led_color_when_room_available = setting(:led_color_when_room_available) || "Green"
-    @webex_panel_device_id = setting(:webex_panel_device_id) || "Ensure this is set in each System's settings"
+    subscriptions.clear
+    @led_color_when_room_booked = setting(String, :led_color_when_room_booked) || "Red"
+    @led_color_when_room_available = setting(String, :led_color_when_room_available) || "Green"
+    @webex_panel_device_id = setting(String, :webex_panel_device_id) || "Ensure this is set in each System's settings"
 
     system.subscribe("Bookings_1", "in_use") do |_sub, value|
       next unless ["true", "false"].includes?(value)
@@ -37,8 +37,8 @@ class Cisco::BookingPanelLedSync < PlaceOS::Driver
   end
 
   def sync_led_color_now
-    return unless ["true", "false"].includes?(room_in_use = system[:Bookings][:in_use].as_bool)
-    set_led_color(room_in_use)
+    return unless ["true", "false"].includes?(room_in_use = system[:Bookings].status?(Bool, :in_use))
+    set_led_color(room_in_use) unless room_in_use.nil?
   end
 
   private def set_led_color(room_in_use : Bool)
