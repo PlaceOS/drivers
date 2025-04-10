@@ -19,17 +19,17 @@ DriverSpecs.mock_driver "Gallagher::ZoneSchedule" do
 
   bookings.presence(true)
   sleep 500.milliseconds
-  exec(:count).get.should eq 2
+  exec(:count).get.should eq 1
   system(:Gallagher)[:state].should eq(["free", "1234"])
 
   bookings.end_meeting
   sleep 500.milliseconds
-  exec(:count).get.should eq 3
+  exec(:count).get.should eq 1
   system(:Gallagher)[:state].should eq(["free", "1234"])
 
   bookings.presence(false)
   sleep 500.milliseconds
-  exec(:count).get.should eq 4
+  exec(:count).get.should eq 2
   system(:Gallagher)[:state].should eq(["locked", "1234"])
 
   bookings.disable_unlock

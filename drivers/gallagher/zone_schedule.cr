@@ -60,6 +60,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     end
 
     @disable_unlock = setting?(DisableUnlock, :disable_unlock) rescue nil
+    @current_state = setting?(String, :saved_current_state)
   end
 
   bind Bookings_1, :status, :status_changed
@@ -68,6 +69,8 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   getter last_status : String? = nil
   getter last_presence : Bool? = nil
   getter grant_hosts_access : Bool = false
+
+  @current_state : String? = nil
 
   getter access_group_id : String | Int64 do
     setting?(String | Int64, :access_group_id) || find_access_group_from_zone
@@ -134,33 +137,42 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
 
     self[:zone_state] = apply_zone_state rescue nil
 
-    logger.debug { "mapping #{new_status} => #{apply_zone_state} in #{zone_id}" }
+    if apply_zone_state != @current_state
+      logger.debug { "mapping #{new_status} => #{apply_zone_state} in #{zone_id}" }
 
-    begin
-      SimpleRetry.try_to(
-        max_attempts: 5,
-        base_interval: 500.milliseconds,
-        max_interval: 1.seconds,
-        randomise: 100.milliseconds
-      ) do
-        case apply_zone_state
-        when "free"
-          gallagher.free_zone(zone_id).get
-        when "secure"
-          gallagher.secure_zone(zone_id).get
-        when "default", "reset"
-          gallagher.reset_zone(zone_id).get
-        else
-          logger.warn { "unknown zone state #{apply_zone_state}" }
-          false
+      begin
+        SimpleRetry.try_to(
+          max_attempts: 5,
+          base_interval: 500.milliseconds,
+          max_interval: 1.seconds,
+          randomise: 100.milliseconds
+        ) do
+          case apply_zone_state
+          when "free"
+            gallagher.free_zone(zone_id).get
+          when "secure"
+            gallagher.secure_zone(zone_id).get
+          when "default", "reset"
+            gallagher.reset_zone(zone_id).get
+          else
+            logger.warn { "unknown zone state #{apply_zone_state}" }
+            false
+          end
         end
+        @count += 1
+      rescue error
+        self[:last_error] = {
+          message: error.message,
+          at:      Time.utc.to_s,
+        }
       end
-      @count += 1
-    rescue error
-      self[:last_error] = {
-        message: error.message,
-        at:      Time.utc.to_s,
-      }
+
+      @current_state = apply_zone_state
+      @host_access_mutex.synchronize do
+        define_setting(:saved_current_state, apply_zone_state) rescue nil
+      end
+    else
+      logger.debug { "zone state already applied, skipping step" }
     end
 
     schedule.in(1.second) { check_host_access } if @grant_hosts_access
@@ -291,6 +303,11 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
           access_required << {true, username, cardholder_id}
         rescue error
           logger.warn(exception: error) { "failed to grant room access to #{email}" }
+          self[:staff_access_error] = {
+            message: "failed to grant room access to #{email}",
+            error:   error.message,
+            at:      Time.utc.to_s,
+          }
         end
       end
 
@@ -326,6 +343,11 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     end
   rescue error
     logger.error(exception: error) { "failed to remove access from #{users}" }
+    self[:staff_access_error] = {
+      message: "failed to remove access from #{users}",
+      error:   error.message,
+      at:      Time.utc.to_s,
+    }
   end
 
   protected def grant_access_to(security, access_required)
@@ -350,5 +372,10 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     end
   rescue error
     logger.error(exception: error) { "failed to grant access to #{access_required.map(&.[](1))}" }
+    self[:staff_access_error] = {
+      message: "failed to grant access to #{access_required.map(&.[](1))}",
+      error:   error.message,
+      at:      Time.utc.to_s,
+    }
   end
 end
