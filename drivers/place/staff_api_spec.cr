@@ -89,4 +89,62 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "email": "user@spec.test",
       "sent": false
     }])))
+
+  sleep 1
+  channel_msgs_resp = exec(:list_channel_messages, team_id: "my_teams", channel_id: "my_channel")
+
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["X-API-Key"]? == "spec-test" && request.path == "/api/staff/v1/teams/my_teams/my_channel"
+      response.status_code = 200
+      response << mock_get_channel_message.to_json
+    end
+  end
+
+  channel_msgs_resp.get.should eq(JSON.parse(mock_get_channel_message.to_json))
+end
+
+def mock_get_channel_message
+  %(
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#chats('19%3A8ea0e38b-efb3-4757-924a-5f94061cf8c2_97f62344-57dc-409c-88ad-c4af14158ff5%40unq.gbl.spaces')/messages/$entity",
+  "id": "1612289992105",
+  "replyToId": null,
+  "etag": "1612289992105",
+  "messageType": "message",
+  "createdDateTime": "2021-02-02T18:19:52.105Z",
+  "lastModifiedDateTime": "2021-02-02T18:19:52.105Z",
+  "lastEditedDateTime": null,
+  "deletedDateTime": null,
+  "subject": null,
+  "summary": null,
+  "chatId": "19:8ea0e38b-efb3-4757-924a-5f94061cf8c2_97f62344-57dc-409c-88ad-c4af14158ff5@unq.gbl.spaces",
+  "importance": "normal",
+  "locale": "en-us",
+  "webUrl": null,
+  "channelIdentity": null,
+  "policyViolation": null,
+  "eventDetail": null,
+  "from": {
+      "application": null,
+      "device": null,
+      "conversation": null,
+      "user": {
+          "@odata.type": "#microsoft.graph.teamworkUserIdentity",
+          "id": "8ea0e38b-efb3-4757-924a-5f94061cf8c2",
+          "displayName": "Robin Kline",
+          "userIdentityType": "aadUser",
+          "tenantId": "e61ef81e-8bd8-476a-92e8-4a62f8426fca"
+      }
+  },
+  "body": {
+      "contentType": "text",
+      "content": "test"
+  },
+  "attachments": [],
+  "mentions": [],
+  "reactions": [],
+  "messageHistory": []
+}
+  )
 end
