@@ -124,6 +124,10 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
+  def domain : String
+    @place_domain.host.as(String)
+  end
+
   def get_system(id : String, complete : Bool = false)
     response = get("/api/engine/v2/systems/#{id}?complete=#{complete}", headers: authentication)
     raise "unexpected response for system id #{id}: #{response.status_code}\n#{response.body}" unless response.success?
