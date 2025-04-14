@@ -307,7 +307,7 @@ shards:
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
-    version: 1.7.0
+    version: 1.7.1
 
   stomp:
     git: https://github.com/spider-gazelle/stomp.git
