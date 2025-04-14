@@ -959,7 +959,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params = URI::Params.new
     params["top"] = top.to_s if top
     response = get("/api/staff/v1/teams/#{team_id}/#{channel_id}", params, headers: authentication)
-    raise "issue getting teams channel messages (team #{team_id}, channel #{channel_id}): #{response.status_code}, body: #{response.body}" unless response.success?
+    raise "error getting teams channel messages (team #{team_id}, channel #{channel_id}): #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
@@ -967,12 +967,12 @@ class Place::StaffAPI < PlaceOS::Driver
   def get_channel_message(team_id : String, channel_id : String, message_id : String)
     logger.debug { "Getting teams #{team_id} channel #{channel_id} message id #{message_id}, note: graphAPI only" }
     response = get("/api/staff/v1/teams/#{team_id}/#{channel_id}/#{message_id}", headers: authentication)
-    raise "issue getting teams channel message (team #{team_id}, channel #{channel_id}, message id #{message_id}): #{response.status_code}, body: #{response.body}" unless response.success?
+    raise "error getting teams channel message (team #{team_id}, channel #{channel_id}, message id #{message_id}): #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
   @[Security(Level::Support)]
-  def send_channel_message(team_id : String, channel_id : String, message : String, content_type : String? = nil) : Bool
+  def send_channel_message(team_id : String, channel_id : String, message : String, content_type : String? = nil)
     logger.debug { "Sending teams #{team_id} channel #{channel_id} content_type #{content_type}, message #{message}, note: graphAPI only" }
     params = URI::Params.new
     params["type"] = content_type if content_type
@@ -983,7 +983,8 @@ class Place::StaffAPI < PlaceOS::Driver
         "Content-Type" => "text/plain",
       })
     )
-    response.status_code == 201
+    raise "error sending teams channel message (team #{team_id}, channel #{channel_id}, message id #{message_id}): #{response.status_code}, body: #{response.body}" unless response.success?
+    JSON.parse(response.body)
   end
 end
 
