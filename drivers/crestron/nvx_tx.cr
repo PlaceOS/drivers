@@ -134,8 +134,8 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
                 1
               end
 
-        sync = input.dig?("Ports", 0, "IsSyncDetected").try &.as_bool?
-        self["input_#{idx}_sync"] = sync unless sync.nil?
+        sync = input.dig?("Ports", 0, "IsSyncDetected").try(&.as_bool?) == true
+        self["input_#{idx}_sync"] = sync
       end
     end
   end
