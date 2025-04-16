@@ -20,7 +20,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
       "free"    => "default",
     },
 
-    # max time in minutes that presence can prevent a lock
+    # max time in minutes that presence can prevent a lock.
     presence_timeout:   30,
     grant_hosts_access: false,
 

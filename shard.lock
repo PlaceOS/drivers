@@ -179,7 +179,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.25.5
+    version: 1.25.6
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -207,7 +207,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.1.2+git.commit.f14936937ad0787a75d04d9fed23ffab11e4c42d
+    version: 2.0.1
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -231,7 +231,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.9.5
+    version: 7.9.6
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -239,7 +239,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.64.1
+    version: 9.65.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
