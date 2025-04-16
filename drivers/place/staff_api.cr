@@ -147,7 +147,7 @@ class Place::StaffAPI < PlaceOS::Driver
     bookable : Bool? = nil,
     features : String? = nil,
     limit : Int32 = 1000,
-    offset : Int32 = 0
+    offset : Int32 = 0,
   )
     placeos_client.systems.search(
       q: q,
@@ -270,7 +270,7 @@ class Place::StaffAPI < PlaceOS::Driver
     limit : Int32 = 20,
     offset : Int32 = 0,
     authority_id : String? = nil,
-    include_deleted : Bool = false
+    include_deleted : Bool = false,
   )
     placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
@@ -374,7 +374,7 @@ class Place::StaffAPI < PlaceOS::Driver
     capacity : Int32? = nil,
     features : String? = nil,
     bookable : Bool? = nil,
-    include_cancelled : Bool? = nil
+    include_cancelled : Bool? = nil,
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s
@@ -480,7 +480,7 @@ class Place::StaffAPI < PlaceOS::Driver
     field_name : String? = nil,
     value : String? = nil,
     system_id : String? = nil,
-    event_ref : Array(String)? = nil
+    event_ref : Array(String)? = nil,
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s if period_start
@@ -572,7 +572,7 @@ class Place::StaffAPI < PlaceOS::Driver
     recurrence_days : Int32? = nil,
     recurrence_nth_of_month : Int32? = nil,
     recurrence_interval : Int32? = nil,
-    recurrence_end : Int64? = nil
+    recurrence_end : Int64? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -758,7 +758,7 @@ class Place::StaffAPI < PlaceOS::Driver
     extension_data : JSON::Any? = nil,
     deleted : Bool? = nil,
     asset_id : String? = nil,
-    limit : Int32? = nil
+    limit : Int32? = nil,
   )
     default_end = @period_end_default_in_min || 30
 
@@ -918,7 +918,7 @@ class Place::StaffAPI < PlaceOS::Driver
   def update_survey_invite(
     token : String,
     email : String? = nil,
-    sent : Bool? = nil
+    sent : Bool? = nil,
   )
     logger.debug { "updating survey invite #{token}" }
     response = patch("/api/staff/v1/surveys/invitations/#{token}", headers: authentication, body: {
@@ -952,5 +952,43 @@ class Place::StaffAPI < PlaceOS::Driver
     headers["Accept"] = "application/json"
     headers["X-API-Key"] = @api_key.presence || "spec-test"
     headers
+  end
+
+  # ===================================
+  # MS Teams
+  # ===================================
+
+  @[Security(Level::Support)]
+  def list_channel_messages(team_id : String, channel_id : String, top : Int32? = nil)
+    logger.debug { "listing teams #{team_id} channel #{channel_id} messages , top #{top}" }
+    params = URI::Params.new
+    params["top"] = top.to_s if top
+    response = get("/api/staff/v1/teams/#{team_id}/#{channel_id}", params, headers: authentication)
+    raise "error getting teams channel messages (team #{team_id}, channel #{channel_id}): #{response.status_code}, body: #{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  @[Security(Level::Support)]
+  def get_channel_message(team_id : String, channel_id : String, message_id : String)
+    logger.debug { "Getting teams #{team_id} channel #{channel_id} message id #{message_id}, note: graphAPI only" }
+    response = get("/api/staff/v1/teams/#{team_id}/#{channel_id}/#{message_id}", headers: authentication)
+    raise "error getting teams channel message (team #{team_id}, channel #{channel_id}, message id #{message_id}): #{response.status_code}, body: #{response.body}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  @[Security(Level::Support)]
+  def send_channel_message(team_id : String, channel_id : String, message : String, content_type : String? = nil)
+    logger.debug { "Sending teams #{team_id} channel #{channel_id} content_type #{content_type}, message #{message}, note: graphAPI only" }
+    params = URI::Params.new
+    params["type"] = content_type if content_type
+    query_params = params ? "?#{params}" : ""
+    response = post("/api/staff/v1/teams/#{team_id}/#{channel_id}#{query_params}",
+      body: message,
+      headers: authentication(HTTP::Headers{
+        "Content-Type" => "text/plain",
+      })
+    )
+    raise "error sending teams channel message (team #{team_id}, channel #{channel_id}, message id #{message_id}): #{response.status_code}, body: #{response.body}" unless response.success?
+    JSON.parse(response.body)
   end
 end

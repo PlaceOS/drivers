@@ -179,7 +179,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.25.5
+    version: 1.25.6
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -207,7 +207,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 1.1.2+git.commit.f14936937ad0787a75d04d9fed23ffab11e4c42d
+    version: 2.0.0+git.commit.e48103b0d97ae29d787b74babab309ca9878a3d9
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
