@@ -109,33 +109,41 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
     logger.debug { "Crestron sent: #{raw_json}" }
 
     return unless raw_json.includes? "AudioVideoInputOutput"
-    payload = JSON.parse(raw_json)
+    raw_json.lines.each do |line|
+      next if line.empty?
 
-    # we're checking if a device is plugged into a port
-    # Device/AudioVideoInputOutput/Inputs/0/Ports/0/IsSyncDetected
-    if av_inputs = payload.dig?("Device", "AudioVideoInputOutput", "Inputs").try &.as_a?
-      av_inputs.each do |input|
-        name = input["Name"]?.try(&.as_s) || ""
+      begin
+        payload = JSON.parse(line)
 
-        # Device returns inputs as "input0", "input1" ... "inputN" within
-        # long poll responses, but appears to reference these same inputs
-        # as "input-1", "input-2" ... "input-N" within direct state queries.
-        idx = case name
-              when /input(\d+)/
-                # increment by 1
-                $~[1].to_i.succ
-              when /input-(\d+)/
-                $~[1].to_i
-              else
-                # There also appears to be situations where no name is
-                # returned. As only the first input is in use across all
-                # encoders, default to input 1 as a nasty hack around
-                # this craziness.
-                1
-              end
+        # we're checking if a device is plugged into a port
+        # Device/AudioVideoInputOutput/Inputs/0/Ports/0/IsSyncDetected
+        if av_inputs = payload.dig?("Device", "AudioVideoInputOutput", "Inputs").try &.as_a?
+          av_inputs.each do |input|
+            name = input["Name"]?.try(&.as_s) || ""
 
-        sync = input.dig?("Ports", 0, "IsSyncDetected").try &.as_bool?
-        self["input_#{idx}_sync"] = sync unless sync.nil?
+            # Device returns inputs as "input0", "input1" ... "inputN" within
+            # long poll responses, but appears to reference these same inputs
+            # as "input-1", "input-2" ... "input-N" within direct state queries.
+            idx = case name
+                  when /input(\d+)/
+                    # increment by 1
+                    $~[1].to_i.succ
+                  when /input-(\d+)/
+                    $~[1].to_i
+                  else
+                    # There also appears to be situations where no name is
+                    # returned. As only the first input is in use across all
+                    # encoders, default to input 1 as a nasty hack around
+                    # this craziness.
+                    1
+                  end
+
+            sync = input.dig?("Ports", 0, "IsSyncDetected").try &.as_bool?
+            self["input_#{idx}_sync"] = sync unless sync.nil?
+          end
+        end
+      rescue error
+        logger.warn(exception: error) { "error parsing JSON:\n#{line}" }
       end
     end
   end

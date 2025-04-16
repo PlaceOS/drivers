@@ -29,7 +29,7 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
   transmit %({"Device": {"AudioVideoInputOutput": {"Inputs": [
     {"Name": "input0", "Ports": [{"IsSyncDetected": true}]},
     {"Name": "input-2", "Ports": [{"IsSyncDetected": false}]}
-  ]}}})
+  ]}}}).gsub(/\s/, "")
 
   status["input_1_sync"].should eq(true)
   status["input_2_sync"].should eq(false)
