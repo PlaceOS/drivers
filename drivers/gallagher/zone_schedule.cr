@@ -60,7 +60,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     end
 
     @disable_unlock = setting?(DisableUnlock, :disable_unlock) rescue nil
-    @current_state = setting?(String, :saved_current_state)
+    # @current_state = setting?(String, :saved_current_state)
   end
 
   bind Bookings_1, :status, :status_changed
@@ -168,9 +168,9 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
       end
 
       @current_state = apply_zone_state
-      @host_access_mutex.synchronize do
-        define_setting(:saved_current_state, apply_zone_state) rescue nil
-      end
+      # @host_access_mutex.synchronize do
+      #   define_setting(:saved_current_state, apply_zone_state) rescue nil
+      # end
     else
       logger.debug { "zone state already applied, skipping step" }
     end
