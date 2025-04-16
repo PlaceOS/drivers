@@ -117,6 +117,17 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     end
   end
 
+  def query_osd_text
+    query("/Osd/Text", name: "osd_text") do |text|
+      self[:osd_text] = text
+    end
+  end
+
+  def set_osd_text(text : String, enabled : Bool = true)
+    ws_update "/Osd/Text", text, name: :set_osd_text
+    ws_update "/Osd/IsEnabled", enabled, name: :set_osd_enabled
+  end
+
   protected def switch_stream(stream_reference : String | Int32, layer : SwitchLayer)
     uuid = uuid_for stream_reference
 
@@ -265,5 +276,6 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     query_source_name_for(:video)
     query_source_name_for(:audio)
     query_device_name
+    query_osd_text
   end
 end
