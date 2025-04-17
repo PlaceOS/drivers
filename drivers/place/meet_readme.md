@@ -226,6 +226,10 @@ vc_camera_in:
   - VC_Camera_Input
   - Recorder_Camera_Input
 
+# where there are joining rooms you must define which cameras are local to the system
+local_cameras: 
+  - Camera_1
+  - Camera_2
 ```
 
 configuring camera switching where cameras are connected via a switcher but also multiple cameras are connected to the VC at once
