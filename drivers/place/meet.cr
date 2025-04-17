@@ -453,6 +453,7 @@ class Place::Meet < PlaceOS::Driver
       end
     end
 
+    self[:local_inputs] = tabs.flat_map(&.inputs)
     self[:tabs] = @tabs = tabs
   end
 
