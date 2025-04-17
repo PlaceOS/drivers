@@ -47,6 +47,7 @@ class Place::Meet < PlaceOS::Driver
     join_lockout_secondary: true,
     unjoin_on_shutdown:     false,
     mute_on_unlink:         true,
+    auto_route_on_join:     false,
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
@@ -145,6 +146,7 @@ class Place::Meet < PlaceOS::Driver
   @ignore_update : Int64 = 0_i64
   @unjoin_on_shutdown : Bool? = nil
   @mute_on_unlink : Bool = true
+  @auto_route_on_join : Bool = false
 
   # core includes: 'current_routes' hash
   # but we override it here for LLM integration
@@ -165,6 +167,7 @@ class Place::Meet < PlaceOS::Driver
     @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
     @unjoin_on_shutdown = setting?(Bool, :unjoin_on_shutdown)
     @mute_on_unlink = setting?(Bool, :mute_on_unlink) || false
+    @auto_route_on_join = setting?(Bool, :auto_route_on_join) || false
 
     @join_lock.synchronize do
       subscriptions.clear
@@ -501,6 +504,13 @@ class Place::Meet < PlaceOS::Driver
   # Primary volume controls
   # =======================
 
+  class RoomMutes
+    include JSON::Serializable
+
+    getter name : String
+    getter ids : Array(String)
+  end
+
   class AudioFader
     include JSON::Serializable
 
@@ -531,6 +541,8 @@ class Place::Meet < PlaceOS::Driver
     property module_id : String { "Mixer_1" }
 
     getter? level_feedback, mute_feedback
+
+    getter rooms : Array(RoomMutes)? = nil
 
     def use_defaults?
       @module_id.nil? && (level_id.nil? || level_id.try &.empty?) && (mute_id.nil? || mute_id.try &.empty?)
@@ -1133,6 +1145,20 @@ class Place::Meet < PlaceOS::Driver
 
       # ensure the system is powered on
       power(true) if mode.linked? && !power?
+
+      # send the current input to the remote rooms
+      begin
+        if @auto_route_on_join && master && (selected_inp = status?(String, :selected_input))
+          routes = current_routes.compact.keys
+          all_outputs.each do |outp|
+            # skip if a display has something routed to it
+            next if routes.includes?(outp)
+            route(selected_inp, outp)
+          end
+        end
+      rescue error
+        logger.error(exception: error) { "error applying routes during join" }
+      end
 
       # perform the custom actions
       mode.join_actions.each do |action|

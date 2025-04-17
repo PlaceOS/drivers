@@ -453,6 +453,22 @@ local_microphones:
 
 ```
 
+Where a microphone might be shared between rooms or spill into a lobby, you can add a rooms configuration with mute ids that when unmuted will route the microphone audio to various spaces.
+
+```yaml
+
+local_microphones:
+  - name: Hand Held Microphone
+    # as above
+
+    rooms:
+      - name: "Room 1"
+        ids: ["hh_room1_mute_id"]
+      - name: "Room 2"
+        ids: ["hh_room2_mute_id"]
+
+```
+
 ## Joining Config
 
 Where systems can be merged you can define the various modes that are supported between the rooms.
