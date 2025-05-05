@@ -21,11 +21,11 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   default_settings({
     epson_projectors_poll_video_mute: true,
-    epson_projectors_poll_volume_mute: true
+    epson_projectors_poll_volume: true
   })
 
   @epson_projectors_poll_video_mute : Bool = true
-  @epson_projectors_poll_volume_mute : Bool = true
+  @epson_projectors_poll_volume : Bool = true
 
   @ready : Bool = false
 
@@ -43,7 +43,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def on_update
     @epson_projectors_poll_video_mute = setting(Bool, :epson_projectors_poll_video_mute)
-    @epson_projectors_poll_volume_mute = setting(Bool, :epson_projectors_poll_volume_mute)
+    @epson_projectors_poll_volume = setting(Bool, :epson_projectors_poll_volume)
   end
 
   def connected
@@ -176,7 +176,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def received(data, task)
     return task.try(&.success) if data.size <= 2
     data = String.new(data[1..-2])
-    logger.debug { "epson Proj sent: #{data}" }
+    logger.debug { "<< Received from Epson Proj: #{data}" }
 
     data = data.split('=')
     case RESPONSE[data[0]]
@@ -238,7 +238,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     if power?(priority: 20) && @power_stable
       input?
       video_mute? if @epson_projectors_poll_video_mute
-      volume? if @epson_projectors_poll_volume_mute
+      volume? if @epson_projectors_poll_volume
     end
     do_send(:lamp, priority: 20)
   end
@@ -246,7 +246,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   private def do_send(command, param = nil, **options)
     command = COMMAND[command]
     cmd = param ? "#{command} #{param}\r" : "#{command}?\r"
-    logger.debug { "Epson proj sending #{command}: #{cmd}" }
+    logger.debug { ">> Sending to Epson Proj: #{command}: #{cmd}" }
     send(cmd, **options)
   end
 end
