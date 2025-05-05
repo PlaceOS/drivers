@@ -51,7 +51,6 @@ class Place::Meet < PlaceOS::Driver
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
-    local_cameras: ["Camera_1"],
 
     screens: {
       "Projector_1" => "Screen_1",
@@ -138,7 +137,6 @@ class Place::Meet < PlaceOS::Driver
   @outputs : Array(String) = [] of String
   getter linked_outputs = {} of String => Hash(String, String)
   getter local_outputs : Array(String) = [] of String
-  getter local_cameras : Array(String) = [] of String
 
   @preview_outputs : Array(String) = [] of String
   getter local_preview_outputs : Array(String) = [] of String
@@ -162,7 +160,6 @@ class Place::Meet < PlaceOS::Driver
     self[:local_help] = @local_help = setting?(Help, :help) || Help.new
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
-    self[:local_cameras] = @local_cameras = setting?(Array(String), :local_cameras) || [] of String
     self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
     self[:voice_control] = setting?(Bool, :voice_control) || false
     self[:channel_details] = setting?(Array(ChannelDetail), :channel_details)
@@ -440,8 +437,6 @@ class Place::Meet < PlaceOS::Driver
   end
 
   protected def update_available_tabs
-    available_cameras = @local_cameras.dup
-    seen_cameras = @local_cameras.dup
     tabs = @local_tabs.dup.map(&.clone)
 
     # merge in joined room tabs
@@ -456,22 +451,10 @@ class Place::Meet < PlaceOS::Driver
           tabs << remote_tab
         end
       end
-
-      remote_cameras = room.local_cameras.get.as_a.map(&.as_s)
-      remote_cameras.each_with_index do |remote_cam, index|
-        next if seen_cameras.includes?(remote_cam)
-        available_cameras << remote_cam
-        seen_cameras << remote_cam
-      end
     end
 
-    self[:available_inputs] = tabs.flat_map(&.inputs)
+    self[:local_inputs] = tabs.flat_map(&.inputs)
     self[:tabs] = @tabs = tabs
-
-    if available_cameras.empty? && @join_modes.empty?
-      available_cameras = all_inputs
-    end
-    self[:available_cameras] = available_cameras
   end
 
   protected def update_available_outputs
