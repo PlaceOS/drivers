@@ -226,7 +226,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       self[:audio_mute] = mute if mute
       @unmute_volume ||= vol_percent unless mute
     when :lamp
-      self[:lamp_usage] = data[1].to_i
+      self[:lamp_usage] = data[1].split(" ")[0].to_i  #split added as we see responses like "LAMP=1633 1633"
     when :input
       self[:input] = Input.from_value(data[1].to_i(16)) || "unknown"
     end
