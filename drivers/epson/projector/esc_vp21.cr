@@ -19,6 +19,16 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   descriptive_name "Epson Projector"
   generic_name :Display
 
+  default_settings({
+    epson_projectors_poll_video_mute: true,
+    epson_projectors_poll_volume_mute: true
+  })
+
+  @epson_projectors_poll_video_mute : Bool = true
+  @epson_projectors_poll_volume_mute : Bool = true
+
+  @ready : Bool = false
+
   getter power_actual : Bool? = nil  # actual power state
   getter? power_stable : Bool = true # are we in a stable state?
   getter? power_target : Bool = true # what is the target state?
@@ -28,6 +38,12 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def on_load
     transport.tokenizer = Tokenizer.new("\r")
     self[:type] = :projector
+    on_update
+  end
+
+  def on_update
+    @epson_projectors_poll_video_mute = setting(Bool, :epson_projectors_poll_video_mute)
+    @epson_projectors_poll_volume_mute = setting(Bool, :epson_projectors_poll_volume_mute)
   end
 
   def connected
@@ -221,8 +237,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def do_poll
     if power?(priority: 20) && @power_stable
       input?
-      video_mute?
-      volume?
+      video_mute? if @epson_projectors_poll_video_mute
+      volume? if @epson_projectors_poll_volume_mute
     end
     do_send(:lamp, priority: 20)
   end
