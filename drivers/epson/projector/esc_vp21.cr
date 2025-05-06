@@ -189,7 +189,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     logger.debug { "<< Received from Epson Proj: #{data}" }
 
     data = data.split('=')
-    case RESPONSE[data[0]]
+    case RESPONSE[data[0].lstrip(':')]  # Because we see sometimes see responses like ':::PWR'
     when :error
       if data[1]?
         code = data[1].to_i(16)
