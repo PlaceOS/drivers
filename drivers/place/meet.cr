@@ -236,6 +236,7 @@ class Place::Meet < PlaceOS::Driver
     sys = system
 
     if state
+      @local_preview_outputs.each { |device| sys[device].power true } # Power on preview displays
       apply_master_audio_default
       apply_camera_defaults
       apply_default_routes
