@@ -21,12 +21,18 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   default_settings({
     epson_projectors_poll_video_mute: true,
-    epson_projectors_poll_volume: true
+    epson_projectors_poll_volume: true,
+    epson_projectors_disable_muting: false
   })
 
-  @epson_projectors_poll_video_mute : Bool = true
-  @epson_projectors_poll_volume : Bool = true
+  @poll_video_mute : Bool = true
+  @poll_volume : Bool = true
 
+  # Mute commands appear to cause significant problems in some Epson models. 
+  # meet.cr appears to send mute commands to outputs of unjoined joinable rooms, causing disturbance to other meetings (especially since the UI currently does not have mute/unmute buttons). 
+  # The below is a workaround until the meeting rm logic driver is fixed (don't mute other (unjoined) rooms on shutdown/unroute)
+  @muting_disabled : Bool = false 
+  
   @ready : Bool = false
 
   getter power_actual : Bool? = nil  # actual power state
@@ -42,8 +48,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def on_update
-    @epson_projectors_poll_video_mute = setting(Bool, :epson_projectors_poll_video_mute)
-    @epson_projectors_poll_volume = setting(Bool, :epson_projectors_poll_volume)
+    @poll_video_mute = setting?(Bool, :epson_projectors_poll_video_mute) || true
+    @poll_volume = setting?(Bool, :epson_projectors_poll_volume) || true
+    @muting_disabled = setting?(Bool, :epson_projectors_disable_muting) || false
   end
 
   def connected
@@ -97,16 +104,17 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     percentage = vol / 100.0
     vol_actual = (percentage * 255.0).round_away.to_i
 
-    @unmute_volume = self[:volume].as_f if (mute = vol == 0.0) && self[:volume]?
+    @unmute_volume = self[:volume].as_f if (muted = vol == 0.0) && self[:volume]?
     do_send(:volume, vol_actual, **options, name: :volume)
 
     # for a responsive UI
     self[:volume] = vol
-    self[:audio_mute] = mute
-    volume?
+    self[:audio_mute] = muted
+    volume? unless @muting_disabled # Affected projectors support volume setting, but not volume query
   end
 
   def volume?
+    return if @muting_disabled
     do_send(:volume, priority: 0).get
     self[:volume]?.try(&.as_f)
   end
@@ -116,6 +124,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo
   )
+    return if @muting_disabled
     case layer
     when .audio_video?
       do_send(:av_mute, state ? "ON" : "OFF", name: :mute)
@@ -130,6 +139,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def video_mute?
+    return if @muting_disabled
     do_send(:video_mute, priority: 0).get
     !!self[:video_mute]?.try(&.as_bool)
   end
@@ -237,8 +247,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def do_poll
     if power?(priority: 20) && @power_stable
       input?
-      video_mute? if @epson_projectors_poll_video_mute
-      volume? if @epson_projectors_poll_volume
+      video_mute? if @poll_video_mute
+      volume? if @poll_volume
     end
     do_send(:lamp, priority: 20)
   end
