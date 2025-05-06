@@ -27,7 +27,7 @@ class Amx::Svsi::VirtualSwitcher < PlaceOS::Driver
     end
   end
 
-  private def connect(inouts : Hash(Input, Array(Output)), &)
+  private def connect(inouts : FullSwitch, &)
     inouts.each do |input, outputs|
       if input == 0
         stream = 0 # disconnected
