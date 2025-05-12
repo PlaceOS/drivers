@@ -152,6 +152,11 @@ outputs:
   Display_2:
     name: Display Right
 
+  # this display is hidden on the UI when the room is joined, preventing its use
+  Display_3:
+    name: Middle of room
+    hide_on_join: true
+
 ```
 
 ## Laying out Tabs
@@ -350,6 +355,8 @@ preview_outputs:
   - Display_3
 
 ```
+
+NOTE:: there is a setting `mute_on_unlink: true` that can be set to ensure outputs are muted when rooms are unlinked - ensuring routes are reset
 
 ## Front of House Audio
 
