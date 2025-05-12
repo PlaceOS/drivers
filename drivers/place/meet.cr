@@ -255,6 +255,8 @@ class Place::Meet < PlaceOS::Driver
       @local_outputs.each { |output| unroute(output) }
       @local_preview_outputs.each { |output| unroute(output) }
 
+      mute_microphones
+
       if devices = @shutdown_devices
         devices.each { |device| sys[device].power false }
       else
@@ -963,6 +965,22 @@ class Place::Meet < PlaceOS::Driver
         mixer.mute(mic.level_id, mute, mute_index)
       else
         mixer.mute(mic.level_id, mute)
+      end
+    end
+  end
+
+  def mute_microphones(mute : Bool = true) : Nil
+    @local_mics.each do |mic|
+      begin
+        mixer = system[mic.module_id]
+
+        if mute_index = mic.mute_index
+          mixer.mute(mic.level_id, mute, mute_index)
+        else
+          mixer.mute(mic.level_id, mute)
+        end
+      rescue error
+        logger.warn(exception: error) { "failed to mute microphone: #{mic}" }
       end
     end
   end
