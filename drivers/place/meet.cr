@@ -473,7 +473,9 @@ class Place::Meet < PlaceOS::Driver
     self[:tabs] = @tabs = tabs
 
     if available_cameras.empty? && @join_modes.empty?
-      available_cameras = all_inputs
+      if inputs_raw = setting?(::Place::Router::Core::Settings::IOMeta, "inputs")
+        available_cameras = inputs_raw.select! { |_key, values| values["type"]?.try(&.as_s?) == "cam" }.keys
+      end
     end
     self[:available_cameras] = available_cameras
   end
