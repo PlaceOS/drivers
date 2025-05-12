@@ -466,7 +466,8 @@ class Place::Meet < PlaceOS::Driver
       end
     end
 
-    self[:available_inputs] = tabs.flat_map(&.inputs)
+    # local_inputs configured for backwards compatibility with older versions of the UI
+    self[:local_inputs] = self[:available_inputs] = tabs.flat_map(&.inputs)
     self[:tabs] = @tabs = tabs
 
     if available_cameras.empty? && @join_modes.empty?
