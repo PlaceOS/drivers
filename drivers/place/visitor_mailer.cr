@@ -1,6 +1,7 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
+require "placeos-models/placeos-models/base/jwt"
 
 require "./password_generator_helper"
 require "./visitor_models"
@@ -48,11 +49,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     invite_zone_tag:        "building",
     is_campus:              false,
 
-    domain_uri:       "https://example.com/",
-    jwt_private_key: <<-STRING
------BEGIN RSA PRIVATE KEY-----
------END RSA PRIVATE KEY-----
-STRING
+    domain_uri:      "https://example.com/",
+    jwt_private_key: PlaceOS::Model::JWTBase.private_key,
   })
 
   accessor staff_api : StaffAPI_1
@@ -124,7 +122,7 @@ STRING
   @disable_event_visitors : Bool = true
 
   @uri : URI = URI.new
-  @jwt_private_key : String = ""
+  @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
 
   def on_update
     @debug = setting?(Bool, :debug) || true
@@ -161,7 +159,7 @@ STRING
 
 
     @uri = URI.parse(setting?(String, :domain_uri) || "")
-    @jwt_private_key = setting?(String, :jwt_private_key) || ""
+    @jwt_private_key = setting?(String, :jwt_private_key) || PlaceOS::Model::JWTBase.private_key
 
     zones = config.control_system.not_nil!.zones
     schedule.clear
