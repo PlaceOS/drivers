@@ -1122,6 +1122,7 @@ class Place::Meet < PlaceOS::Driver
     getter name : String
     getter room_ids : Array(String)
     getter join_actions : Array(JoinAction) { [] of JoinAction }
+    getter breakdown : Array(JoinAction) { [] of JoinAction }
 
     # Do we want to merge the outputs (all outputs on all screens)
     # or do we want them as seperate displays
@@ -1175,6 +1176,15 @@ class Place::Meet < PlaceOS::Driver
     self[:join_hide_button] = setting?(Bool, :join_hide_button) || false
   end
 
+  protected def perform_breakdown_actions(old_mode)
+    old_mode.breakdown.each do |action|
+      # dynamic function invocation
+      system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
+    end
+  rescue error
+    logger.error(exception: error) { "error performing join breakdown actions" }
+  end
+
   def join_mode(mode_id : String, master : Bool = true)
     mode = @join_modes[mode_id]
     old_mode = @join_modes[@join_selected]? if @join_selected
@@ -1193,9 +1203,15 @@ class Place::Meet < PlaceOS::Driver
           @join_selected = mode.id
           @join_master = true
 
-          # unlink independent rooms
-          if old_mode && old_mode.linked? && join_settings.type.independent?
-            unlink(old_mode.room_ids - mode.room_ids) # find the rooms not incuded in this join
+          if old_mode && old_mode.linked?
+            # Perform any breakdown actions
+            perform_breakdown_actions(old_mode)
+
+            # unlink independent rooms
+            # find the rooms not incuded in this join and unlink them
+            if join_settings.type.independent?
+              unlink(old_mode.room_ids - mode.room_ids)
+            end
           end
 
           # unlink fully aware systems (empty array for independent rooms, unlinked above)
@@ -1266,6 +1282,7 @@ class Place::Meet < PlaceOS::Driver
     else
       currrent_selected = @join_selected
       if currrent_selected && (current_mode = @join_modes[currrent_selected]?)
+        perform_breakdown_actions(current_mode)
         unlink(current_mode.room_ids)
       end
       unlink_internal_use
