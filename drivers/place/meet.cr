@@ -845,7 +845,7 @@ class Place::Meet < PlaceOS::Driver
   # Room Accessories
   # ================
 
-  struct Accessory
+  struct AccessoryBasic
     include JSON::Serializable
 
     struct Control
@@ -861,6 +861,31 @@ class Place::Meet < PlaceOS::Driver
     getter module : String
     getter controls : Array(Control)
   end
+
+  struct AccessoryComplex
+    include JSON::Serializable
+
+    struct Exec
+      include JSON::Serializable
+
+      getter module : String
+      getter function_name : String
+      getter arguments : Array(JSON::Any) = [] of JSON::Any
+    end
+
+    struct Control
+      include JSON::Serializable
+
+      getter name : String
+      getter icon : String
+      getter exec : Array(Exec)?
+    end
+
+    getter name : String
+    getter controls : Array(Control)
+  end
+
+  alias Accessory = AccessoryBasic | AccessoryComplex
 
   getter local_accessories : Array(Accessory) = [] of Accessory
 
