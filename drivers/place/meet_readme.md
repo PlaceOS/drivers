@@ -563,7 +563,7 @@ These are things like blinds or air-conditioning that usually have limited contr
 ```yaml
 
 room_accessories:
-  - name: Shade blinds
+  - name: Shade blind
     module: Blinds_1
     controls:
       - name: Up
@@ -574,5 +574,30 @@ room_accessories:
         icon: vertical_align_bottom
         function_name: position
         arguments: [1, "down"]
+
+```
+
+If a control performs multiple actions you can use the `exec` block
+
+```yaml
+
+room_accessories:
+  - name: Projector Screen
+    controls:
+      - name: Up
+        icon: vertical_align_top
+        exec: 
+          - module: Screen_1
+            function_name: position
+            arguments: [1, "up"]
+          - module: Projector_1
+            function_name: power
+            arguments: [false]
+      - name: Down
+        icon: vertical_align_bottom
+        exec: 
+          - module: Screen_1
+            function_name: position
+            arguments: [1, "down"]
 
 ```
