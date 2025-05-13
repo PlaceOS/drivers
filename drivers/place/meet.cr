@@ -854,7 +854,7 @@ class Place::Meet < PlaceOS::Driver
       getter name : String
       getter icon : String
       getter function_name : String
-      getter arguments : Array(JSON::Any)
+      getter arguments : Array(JSON::Any) = [] of JSON::Any
     end
 
     getter name : String
@@ -878,7 +878,7 @@ class Place::Meet < PlaceOS::Driver
 
       getter name : String
       getter icon : String
-      getter exec : Array(Exec)?
+      getter exec : Array(Exec)
     end
 
     getter name : String
@@ -900,6 +900,26 @@ class Place::Meet < PlaceOS::Driver
       accessories.concat Array(Accessory).from_json(room.local_accessories.get.to_json)
     end
     self[:room_accessories] = accessories
+  end
+
+  def accessory_exec(accessory : String, control : String) : Bool
+    accessory_inst = local_accessories.find { |access| access.name == accessory }
+    return false unless accessory_inst
+
+    control_inst = accessory_inst.controls.find { |ctrl| ctrl.name == control }
+    return false unless control_inst
+
+    case control_inst
+    in AccessoryBasic::Control
+      mod_name = accessory_inst.as(AccessoryBasic).module
+      system[mod_name].__send__(control_inst.function_name, control_inst.arguments)
+    in AccessoryComplex::Control
+      control_inst.exec.each do |exec|
+        system[exec.module].__send__(exec.function_name, exec.arguments)
+      end
+    end
+
+    true
   end
 
   # ===================
