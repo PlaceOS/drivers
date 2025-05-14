@@ -915,4 +915,15 @@ class Place::Bookings < PlaceOS::Driver
       configure_push_monitoring
     end
   end
+
+  # =======================================
+  # Helper for detecting invalid config
+  # =======================================
+
+  def syllabus_plus_resource_check
+    @calendar_ids.each do |cal_id|
+      resource_id = cal_id.split('@')[0]
+      calendar.resource_lookup(resource_id).get
+    end
+  end
 end
