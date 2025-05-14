@@ -921,6 +921,7 @@ class Place::Bookings < PlaceOS::Driver
   # =======================================
 
   def syllabus_plus_resource_check
+    sleep rand(10_000).milliseconds
     @calendar_ids.each do |cal_id|
       resource_id = cal_id.split('@')[0]
       calendar.resource_lookup(resource_id).get
