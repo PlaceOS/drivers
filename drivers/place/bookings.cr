@@ -924,7 +924,11 @@ class Place::Bookings < PlaceOS::Driver
     sleep rand(10_000).milliseconds
     @calendar_ids.each do |cal_id|
       resource_id = cal_id.split('@')[0]
-      calendar.resource_lookup(resource_id).get
+      begin
+        calendar.resource_lookup(resource_id).get
+      rescue error
+        logger.error(exception: error) { "invalid syllabus plus resource id #{resource_id} in #{config.control_system.not_nil!.name}" }
+      end
     end
   end
 end
