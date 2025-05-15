@@ -965,6 +965,7 @@ class Place::Meet < PlaceOS::Driver
         module_id:      mic.module_id,
         min_level:      mic.min_level,
         max_level:      mic.max_level,
+        rooms:          mic.rooms,
       }
     end
   end
