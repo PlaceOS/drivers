@@ -22,7 +22,7 @@ class Place::Bookings < PlaceOS::Driver
     cache_polling_period:   5,
     cache_days:             30,
 
-    # consider sensor data older than this unreliable
+    # consider sensor data older than this unreliable.
     sensor_stale_minutes: 8,
 
     # as graph API is eventually consistent we want to delay syncing for a moment
