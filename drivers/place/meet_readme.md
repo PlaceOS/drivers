@@ -518,6 +518,12 @@ join_modes:
         - module_id: Mixer_1
           function_name: trigger
           arguments: ["Join-all"]
+      
+      # sometimes you may need to run an action to break a join (typically not required)
+      breakdown:
+        - module_id: Mixer_1
+          function_name: trigger
+          arguments: ["UnjoinAll"]
 
 ```
 
