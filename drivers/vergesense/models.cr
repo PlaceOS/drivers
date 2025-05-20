@@ -90,6 +90,8 @@ module Vergesense
     def last_report_time? : Time?
       if report = last_reports.try &.first?
         report.timestamp
+      elsif env = environment
+        env.timestamp
       end
     end
 
