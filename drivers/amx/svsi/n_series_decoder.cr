@@ -2,12 +2,14 @@ require "placeos-driver"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 require "inactive-support/mapped_enum"
+require "./models"
 
 # Documentation: https://aca.im/driver_docs/AMX/SVSIN1000N2000Series.APICommandList.pdf
 
 class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   include Interface::Muteable
   include PlaceOS::Driver::Interface::InputSelection(Int32)
+  include Amx::Receiver
 
   tcp_port 50002
   descriptive_name "AMX SVSI N-Series Decoder"
@@ -72,7 +74,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     if state
       do_send(Command::Mute, name: :mute)
@@ -118,7 +120,7 @@ class Amx::Svsi::NSeriesDecoder < PlaceOS::Driver
     height : Int32,
     x_pos : Int32,
     y_pos : Int32,
-    scale : VideowallScalingMode = VideowallScalingMode::Auto
+    scale : VideowallScalingMode = VideowallScalingMode::Auto,
   )
     if width > 1 && height > 1
       videowall_size(width, height)
