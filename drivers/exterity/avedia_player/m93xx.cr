@@ -10,7 +10,7 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
     ssh: {
       username: :ctrl,
       password: :labrador,
-      term: :xterm,
+      term:     :xterm,
     },
     max_waits: 100,
   })
@@ -114,7 +114,6 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
             disconnect
           end
         end
-
       elsif data =~ /Terminal Control Interface/i
         logger.info { "-- got the control interface message, we're READY now" }
         transport.tokenizer = Tokenizer.new("!")
