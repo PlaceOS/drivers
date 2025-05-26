@@ -199,7 +199,7 @@ shards:
 
   perf_tools:
     git: https://github.com/crystal-lang/perf-tools.git
-    version: 0.1.0+git.commit.c4e3f13c92b301605e341c0489885a1ba2b75c98
+    version: 0.1.0+git.commit.70e016a8f3089fd30d0ad9bd50955c6f5d7bf2c1
 
   pg:
     git: https://github.com/will/crystal-pg.git
@@ -207,7 +207,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 2.0.1
+    version: 2.0.3
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -239,7 +239,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.65.1
+    version: 9.65.2
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -307,7 +307,7 @@ shards:
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
-    version: 1.7.1
+    version: 1.7.2
 
   stomp:
     git: https://github.com/spider-gazelle/stomp.git
