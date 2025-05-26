@@ -17,6 +17,7 @@ class Philips::Dynalite < PlaceOS::Driver
   def on_load
     queue.wait = false
     queue.delay = 35.milliseconds
+    queue.retries = 0
     # 8 bytes starting with 1C
     transport.tokenizer = Tokenizer.new(8, Bytes[0x1C])
   end
