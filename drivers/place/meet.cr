@@ -911,6 +911,7 @@ class Place::Meet < PlaceOS::Driver
   alias Accessory = AccessoryBasic | AccessoryComplex
 
   getter local_accessories : Array(Accessory) = [] of Accessory
+  getter available_accessories : Array(Accessory) = [] of Accessory
 
   protected def init_accessories
     @local_accessories = setting?(Array(Accessory), :room_accessories) || [] of Accessory
@@ -926,11 +927,11 @@ class Place::Meet < PlaceOS::Driver
         acc
       })
     end
-    self[:room_accessories] = accessories
+    self[:room_accessories] = @available_accessories = accessories
   end
 
   def accessory_exec(accessory : String, control : String) : Bool
-    accessory_inst = local_accessories.find { |access| access.name == accessory }
+    accessory_inst = @available_accessories.find { |access| access.name == accessory }
     return false unless accessory_inst
 
     control_inst = accessory_inst.controls.find { |ctrl| ctrl.name == control }
