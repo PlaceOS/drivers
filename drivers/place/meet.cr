@@ -941,7 +941,7 @@ class Place::Meet < PlaceOS::Driver
     # some are merged in if a room is joined
     if system_id = accessory_inst.remote
       system(system_id).get("System", 1).accessory_exec(accessory, control)
-      true
+      return true
     end
 
     case control_inst
