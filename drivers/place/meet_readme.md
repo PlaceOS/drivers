@@ -474,9 +474,20 @@ local_microphones:
 
     rooms:
       - name: "Room 1"
-        ids: ["hh_room1_mute_id"]
+        binding: "hh_room1_mute_id_mute"
+        control: "hh_room1_mute_id"
+        # this uses the `mute` function
+
       - name: "Room 2"
-        ids: ["hh_room2_mute_id"]
+        binding: "hh_room2_mute_id_mute"
+        route:
+          - module_id: Mixer_1
+            function_name: trigger
+            arguments: ["hh_room2_add"]
+        unroute:
+          - module_id: Mixer_1
+            function_name: trigger
+            arguments: ["hh_room2_remove"]
 
 ```
 

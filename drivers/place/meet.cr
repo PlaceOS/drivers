@@ -395,6 +395,13 @@ class Place::Meet < PlaceOS::Driver
     logger.debug(exception: error) { "failed to unroute #{output}" }
   end
 
+  @[Description("blank all displays / outputs")]
+  def unroute_all
+    all_outputs.each do |output|
+      route("MUTE", output)
+    end
+  end
+
   # This is the currently selected input
   # if the user selects an output then this will be routed to it
   def selected_input(name : String, simulate : Bool = false) : Nil
@@ -532,7 +539,13 @@ class Place::Meet < PlaceOS::Driver
     include JSON::Serializable
 
     getter name : String
-    getter ids : Array(String)
+    getter binding : String
+    getter control : String? = nil
+    getter falsy_value : String | Bool = false
+
+    # maps ids to commands to send
+    getter route : Array(AccessoryComplex::Exec)? = nil
+    getter unroute : Array(AccessoryComplex::Exec)? = nil
   end
 
   class AudioFader
@@ -860,6 +873,9 @@ class Place::Meet < PlaceOS::Driver
     getter name : String
     getter module : String
     getter controls : Array(Control)
+
+    @[JSON::Field(ignore: true)]
+    property remote : String? = nil
   end
 
   struct AccessoryComplex
@@ -868,9 +884,13 @@ class Place::Meet < PlaceOS::Driver
     struct Exec
       include JSON::Serializable
 
-      getter module : String
+      getter module : String { "System_1" }
       getter function_name : String
       getter arguments : Array(JSON::Any) = [] of JSON::Any
+
+      # used with mic room selection controls, do we want to augment the arguments
+      # with a toggle value? i.e. true / false value
+      getter augment : Bool? = nil
     end
 
     struct Control
@@ -883,6 +903,9 @@ class Place::Meet < PlaceOS::Driver
 
     getter name : String
     getter controls : Array(Control)
+
+    @[JSON::Field(ignore: true)]
+    property remote : String? = nil
   end
 
   alias Accessory = AccessoryBasic | AccessoryComplex
@@ -896,8 +919,12 @@ class Place::Meet < PlaceOS::Driver
 
   protected def update_available_accessories
     accessories = @local_accessories.dup
-    remote_rooms.each do |room|
-      accessories.concat Array(Accessory).from_json(room.local_accessories.get.to_json)
+    remote_systems.each do |remote|
+      remote_accessories = Array(Accessory).from_json(remote.room_logic.local_accessories.get.to_json)
+      accessories.concat(remote_accessories.map! { |acc|
+        acc.remote = remote.system_id
+        acc
+      })
     end
     self[:room_accessories] = accessories
   end
@@ -908,6 +935,13 @@ class Place::Meet < PlaceOS::Driver
 
     control_inst = accessory_inst.controls.find { |ctrl| ctrl.name == control }
     return false unless control_inst
+
+    # execute accessories on the system they came from
+    # some are merged in if a room is joined
+    if system_id = accessory_inst.remote
+      system(system_id).get("System", 1).accessory_exec(accessory, control)
+      true
+    end
 
     case control_inst
     in AccessoryBasic::Control
@@ -1030,6 +1064,35 @@ class Place::Meet < PlaceOS::Driver
       rescue error
         logger.warn(exception: error) { "failed to mute microphone: #{mic}" }
       end
+    end
+  end
+
+  # set_string: zone_id, index
+  # 22 for false
+  def mic_room_selection(mic_name : String, room_binding : String, selected : Bool)
+    mic = @local_mics.find! { |match| match.name == mic_name }
+    raise "no matching mic name: #{mic_name}" unless mic
+
+    rooms = mic.rooms
+    raise "no rooms for mic: #{mic_name}" unless rooms
+
+    room = rooms.find! { |match| match.binding == room_binding }
+    raise "no matching room binding for: #{room_binding}" unless room
+
+    execs = selected ? room.route : room.unroute
+    if execs
+      execs.each do |action|
+        if action.augment
+          args = action.arguments.dup
+          args << JSON::Any.new(selected)
+          system[action.@module || mic.module_id].__send__(action.function_name, args)
+        else
+          system[action.@module || mic.module_id].__send__(action.function_name, action.arguments)
+        end
+      end
+    else
+      mixer = system[mic.module_id]
+      mixer.mute(room.control || room_binding, !selected)
     end
   end
 
