@@ -61,7 +61,7 @@ class TvOne::WindowStacker < PlaceOS::Driver
       logger.debug { "Restacking all videowall windows due to preset change" }
       bindings.each do |display, window|
         begin
-          source = system[:System][display]["source"]?.try(&.as_s?)
+          source = system[:System]["output/#{display}"]["source"]?.try(&.as_s?)
           restack window, source
         rescue
           logger.warn { "could not find active source for #{display}" }
