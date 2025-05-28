@@ -540,7 +540,7 @@ class Place::Meet < PlaceOS::Driver
 
     getter name : String
     getter binding : String
-    getter control : String? = nil
+    getter control : String | Array(String)? = nil
     getter falsy_value : String | Bool = false
 
     # maps ids to commands to send
@@ -1093,7 +1093,13 @@ class Place::Meet < PlaceOS::Driver
       end
     else
       mixer = system[mic.module_id]
-      mixer.mute(room.control || room.binding, !selected)
+      ctrl = room.control
+      case ctrl
+      in Nil
+        mixer.mute(room.binding, !selected)
+      in String, Array(String)
+        mixer.mute(ctrl, !selected)
+      end
     end
   end
 
