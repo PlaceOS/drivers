@@ -1070,15 +1070,15 @@ class Place::Meet < PlaceOS::Driver
 
   # set_string: zone_id, index
   # 22 for false
-  def mic_room_selection(mic_name : String, room_binding : String, selected : Bool)
-    mic = @local_mics.find! { |match| match.name == mic_name }
+  def mic_room_selection(mic_name : String, room_name : String, selected : Bool)
+    mic = @available_mics.find { |match| match.name == mic_name }
     raise "no matching mic name: #{mic_name}" unless mic
 
     rooms = mic.rooms
     raise "no rooms for mic: #{mic_name}" unless rooms
 
-    room = rooms.find! { |match| match.binding == room_binding }
-    raise "no matching room binding for: #{room_binding}" unless room
+    room = rooms.find { |match| match.name == room_name }
+    raise "no matching room name for: #{room_name}" unless room
 
     execs = selected ? room.route : room.unroute
     if execs
@@ -1093,7 +1093,7 @@ class Place::Meet < PlaceOS::Driver
       end
     else
       mixer = system[mic.module_id]
-      mixer.mute(room.control || room_binding, !selected)
+      mixer.mute(room.control || room.binding, !selected)
     end
   end
 
