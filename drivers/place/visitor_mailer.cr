@@ -623,9 +623,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   protected def get_host_name_from_staff_api_driver(host_email, retries = 0)
-    # staff_api.staff_details(host_email).get["name"].as_s.split('(')[0]
-    # prefer using calendar over staff api for fetching user
-    calendar.get_user(host_email).get["name"].as_s.split('(')[0]
+    staff_api.staff_details(host_email).get["name"].as_s.split('(')[0]
   rescue error
     if retries > 3
       logger.error { "issue loading host details #{host_email}" }
