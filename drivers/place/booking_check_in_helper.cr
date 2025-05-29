@@ -11,17 +11,12 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   description "works in conjunction with the Bookings driver to help automate check-in"
 
   accessor bookings : Bookings_1
+  accessor calendar : Calendar_1
 
   def mailer
     sys_id = @mailer_system.presence
     sys = sys_id ? system(sys_id) : system
     sys.implementing(Interface::Mailer)[0]
-  end
-
-  def staff_api
-    sys_id = @mailer_system.presence
-    sys = sys_id ? system(sys_id) : system
-    sys[:StaffAPI_1]
   end
 
   default_settings({
@@ -347,7 +342,7 @@ STRING
     system_id = ctrl_system.id
     event_id = meeting.id
     host_email = meeting.host.not_nil!
-    user = PlaceCalendar::User.from_json staff_api.staff_details(host_email).get.to_json
+    user = PlaceCalendar::User.from_json calendar.get_user(host_email).get.to_json
 
     now = Time.utc
     starting = meeting.event_start.in(@timezone)
