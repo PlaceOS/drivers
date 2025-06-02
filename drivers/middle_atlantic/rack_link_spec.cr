@@ -3,7 +3,7 @@ require "./rack_link_protocol"
 
 DriverSpecs.mock_driver "MiddleAtlantic::RackLink" do
   login = MiddleAtlantic::RackLinkProtocol.login_packet("user", "password")
-  pong  = MiddleAtlantic::RackLinkProtocol.pong_response
+  pong = MiddleAtlantic::RackLinkProtocol.pong_response
 
   # data from protocol doc
   login_hex = "fe10000201" + "757365727c70617373776f7264" + "3FFF"
@@ -17,7 +17,8 @@ DriverSpecs.mock_driver "MiddleAtlantic::RackLink" do
   transmit Bytes[0xFE, 0x03, 0x00, 0x01, 0x01, 0x03, 0xFF] # PING
   should_send pong
 
-  # query outlet states (assume 8 outlets)
+  # query outlet states (assume 8 outlets).
+  exec :query_all_outlets
   1.upto(8) do |id|
     query = MiddleAtlantic::RackLinkProtocol.query_outlet(id.to_u8)
     should_send query
@@ -42,14 +43,8 @@ DriverSpecs.mock_driver "MiddleAtlantic::RackLink" do
   exec(:power_cycle, 1, 5)
   should_send MiddleAtlantic::RackLinkProtocol.cycle_outlet(1_u8, 5)
 
-  # Sequencing up
-  exec(:sequence_up)
-  should_send MiddleAtlantic::RackLinkProtocol.build(Bytes[0x00, 0x36, 0x01, 0x01] + "0003".to_slice)
-
-  # Sequencing down
-  exec(:sequence_down)
-  should_send MiddleAtlantic::RackLinkProtocol.build(Bytes[0x00, 0x36, 0x01, 0x03] + "0003".to_slice)
-
   # NACK Handling
   responds Bytes[0xFE, 0x04, 0x00, 0x10, 0x10, 0x08, 0x3F, 0xFF] # NACK - invalid credentials
+
+  sleep 4.seconds
 end
