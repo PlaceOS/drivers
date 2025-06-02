@@ -1,6 +1,8 @@
 require "placeos-driver"
 require "./rack_link_protocol"
 
+# docs: https://res.cloudinary.com/avd/image/upload/v133928820/Resources/Middle%20Atlantic/Power/Firmware/I-00472-Series-Protocol.pdf
+
 class MiddleAtlantic::RackLink < PlaceOS::Driver
   descriptive_name "RackLink Power Controller."
   generic_name :PowerController
