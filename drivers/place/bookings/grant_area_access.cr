@@ -343,12 +343,13 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       found.merge! desks(level_id, blocked)
     end
 
+    found_values = found.values.map(&.to_s).uniq!
     security_groups = found.values + blocked.values
     in_whitelist_only = security_zone_whitelist - security_groups
 
     {
       blocked:           blocked,
-      allocated:         found.values.uniq!,
+      allocated:         found_values,
       in_whitelist_only: in_whitelist_only,
     }
   end
@@ -358,7 +359,12 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     # save all the security zones to the whitelist
     details = security_zone_report
     new_whitelist = details[:in_whitelist_only] + details[:allocated] + details[:blocked].values.uniq!
-    new_whitelist.sort!
+    whitelist_strings = new_whitelist.compact_map { |item| item.as(String) if item.is_a?(String) }.sort!
+    whitelist_ints = new_whitelist.compact_map { |item| item.as(Int64) if item.is_a?(Int64) }.sort!
+
+    new_whitelist = [] of String | Int64
+    new_whitelist.concat whitelist_strings
+    new_whitelist.concat whitelist_ints
 
     define_setting(:security_zone_whitelist, new_whitelist)
     new_whitelist
