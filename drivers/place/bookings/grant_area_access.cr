@@ -334,6 +334,35 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     self[:sync_blocked] = blocked
   end
 
+  @[Security(Level::Support)]
+  def security_zone_report
+    # desk id => security id
+    blocked = {} of String => String | Int64
+    found = {} of String => String | Int64
+    levels.each do |level_id|
+      found.merge! desks(level_id, blocked)
+    end
+
+    security_groups = found.values + blocked.values
+    in_whitelist_only = security_zone_whitelist - security_groups
+
+    {
+      blocked:           blocked,
+      allocated:         found.values,
+      in_whitelist_only: in_whitelist_only,
+    }
+  end
+
+  @[Security(Level::Support)]
+  def approve_security_zone_list
+    # save all the security zones to the whitelist
+    details = security_zone_report
+    new_whitelist = details[:in_whitelist_only] + details[:allocated] + details[:blocked].values
+
+    define_setting(:security_zone_whitelist, new_whitelist)
+    new_whitelist
+  end
+
   # =========================
   # MailerTemplates interface
   # =========================
