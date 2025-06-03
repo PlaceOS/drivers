@@ -348,7 +348,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
     {
       blocked:           blocked,
-      allocated:         found.values,
+      allocated:         found.values.uniq!,
       in_whitelist_only: in_whitelist_only,
     }
   end
@@ -358,6 +358,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     # save all the security zones to the whitelist
     details = security_zone_report
     new_whitelist = details[:in_whitelist_only] + details[:allocated] + details[:blocked].values
+    new_whitelist.sort!
 
     define_setting(:security_zone_whitelist, new_whitelist)
     new_whitelist
