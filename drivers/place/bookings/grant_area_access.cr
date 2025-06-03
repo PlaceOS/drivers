@@ -357,7 +357,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   def approve_security_zone_list
     # save all the security zones to the whitelist
     details = security_zone_report
-    new_whitelist = details[:in_whitelist_only] + details[:allocated] + details[:blocked].values
+    new_whitelist = details[:in_whitelist_only] + details[:allocated] + details[:blocked].values.uniq!
     new_whitelist.sort!
 
     define_setting(:security_zone_whitelist, new_whitelist)
