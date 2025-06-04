@@ -3,17 +3,27 @@ require "placeos-driver"
 # Documentation: https://aca.im/driver_docs/Embedia/Embedia%20Control%20Point%20rev2013.pdf
 # RS232 Gateway. Baud Rate 9600,8,N,1
 
+# this is a good example of communicating with a binary protocol
+# although this particular device uses hex encoded streams
 class Embedia::ControlPoint < PlaceOS::Driver
   # Discovery Information
   descriptive_name "Embedia Control Point Blinds"
   generic_name :Blinds
+  description %(simple driver to control embedia blinds, doesn't expose any state)
 
   # Global Cache Port
   tcp_port 4999
 
   def on_load
+    # this device doesn't respond when we make requests to it
     queue.wait = false
+
+    # the documentation specifies a delay needs to occur between sends
+    # to allow the device some time to process requests
     queue.delay = 200.milliseconds
+
+    # all messages from the device are terminated so we can tokenize the
+    # IO stream
     transport.tokenizer = Tokenizer.new("\r\n")
   end
 
@@ -71,6 +81,8 @@ class Embedia::ControlPoint < PlaceOS::Driver
     send ":#{sending}--\r\n", **options
   end
 
+  # as we've configured the tokenizer we know that for every invokation of this function
+  # will contain exactly one message from the device
   def received(bytes, task)
     logger.debug {
       # remove the newline chars
@@ -89,6 +101,7 @@ class Embedia::ControlPoint < PlaceOS::Driver
       end
     }
 
+    # as this device is not waiting for responses task will always be nil
     task.try &.success
   end
 end
