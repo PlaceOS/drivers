@@ -1,7 +1,9 @@
 require "placeos-driver"
+require "placeos-driver/interface/muteable"
 require "./models"
 
 class Sennheiser::TeamConnectCM < PlaceOS::Driver
+  include Interface::AudioMuteable
   include Sennheiser::Models
   descriptive_name "TeamConnect Ceiling Medium"
   generic_name :TCCM
@@ -26,6 +28,14 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
     @debug_payload = setting?(Bool, :debug_payload) || false
 
     @uri_base = "https://#{device_ip}"
+  end
+
+  # ====================
+  # Audio Mute Interface
+  # ====================
+
+  def mute_audio(state : Bool = true, index : Int32 | String = 0)
+    set_mute_status(state)
   end
 
   # Device

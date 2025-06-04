@@ -58,6 +58,20 @@ DriverSpecs.mock_driver "Sennheiser::TeamConnectCM" do
   end
 
   ret_val.get.try &.as_h["brightness"].should eq(5)
+
+  ret_val = exec(:mute_audio)
+
+  expect_http_request(2.seconds) do |request, response|
+    auth = Base64.strict_encode("api:password")
+    if request.headers["Authorization"]? == "Basic #{auth}"
+      response.status_code = 200
+      response << {enabled: true}.to_json
+    else
+      response.status_code = 401
+    end
+  end
+
+  ret_val.get.should eq({"enabled" => true})
 end
 
 def device_identity_resp
