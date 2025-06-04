@@ -3,6 +3,7 @@ require "placeos-driver"
 # Documentation: https://developers.messagemedia.com/code/messages-api-documentation/
 require "placeos-driver/interface/sms"
 
+# this is a good example of an API or services driver
 class MessageMedia::SMS < PlaceOS::Driver
   include Interface::SMS
 
