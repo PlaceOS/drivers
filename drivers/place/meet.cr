@@ -709,7 +709,7 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # Set the volume of a signal node within the system.
-  def volume(level : Int32 | Float64, input_or_output : String)
+  def volume(level : Int32 | Float64, input_or_output : String, push_to_remotes : Bool = true)
     audio = @master_audio
     if audio
       logger.debug { "setting master volume to #{level}" }
@@ -728,6 +728,13 @@ class Place::Meet < PlaceOS::Driver
 
     mixer = system[audio.module_id]
     set_master_volume(mixer, audio, level_actual)
+
+    # We are not using a join mode, so we need to set the lighting scene in joined rooms
+    if push_to_remotes
+      remote_rooms.each { |room| room.volume(level, input_or_output, false) }
+    end
+
+    level
   end
 
   # Sets the mute state on a signal node within the system.
