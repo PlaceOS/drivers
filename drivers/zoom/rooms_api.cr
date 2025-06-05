@@ -16,10 +16,9 @@ class Zoom::RoomsApi < PlaceOS::Driver
     - Calendar API access (Microsoft Exchange or Google Calendar) for room check-in/out features
   )
 
-  uri_base "https://api.zoom.us/v2"
+  uri_base "https://api.zoom.us"
 
   default_settings({
-    base_url:      "https://api.zoom.us/v2",
     account_id:    "your_account_id",
     client_id:     "your_client_id",
     client_secret: "your_client_secret",
@@ -32,89 +31,90 @@ class Zoom::RoomsApi < PlaceOS::Driver
 
   def on_update
     # Read settings
-    @base_url = setting(String, :base_url)
     @account_id = setting(String, :account_id)
     @client_id = setting(String, :client_id)
     @client_secret = setting(String, :client_secret)
     @default_room_id = setting?(String, :room_id)
-
-    # Clear token to force re-authentication
-    @access_token = nil
-    @token_expires_at = nil
   end
 
-  @base_url : String = "https://api.zoom.us/v2"
   @account_id : String = ""
   @client_id : String = ""
   @client_secret : String = ""
   @default_room_id : String? = nil
-  @access_token : String? = nil
-  @token_expires_at : Time? = nil
+  getter! auth_token : AccessToken
 
-  # Authentication
-  private def authenticate : String
-    # Check if we have a valid token
-    if token = @access_token
-      if expires_at = @token_expires_at
-        return token if expires_at > Time.utc + 5.minutes
-      end
+  record AccessToken, access_token : String, token_type : String, expires_in : Int32, scope : String?, api_url : String do
+    include JSON::Serializable
+
+    @[JSON::Field(ignore: true)]
+    getter! expiry : Time
+
+    def after_initialize
+      @expiry = Time.utc + expires_in.seconds
     end
 
-    # Request new token using OAuth 2.0
-    token_url = "https://zoom.us/oauth/token"
-
-    response = post(
-      token_url,
-      headers: {
-        "Authorization" => "Basic #{Base64.strict_encode("#{@client_id}:#{@client_secret}")}",
-        "Content-Type"  => "application/x-www-form-urlencoded",
-      },
-      body: "grant_type=account_credentials&account_id=#{@account_id}"
-    )
-
-    if response.success?
-      data = JSON.parse(response.body)
-      @access_token = data["access_token"].as_s
-      expires_in = data["expires_in"].as_i
-      @token_expires_at = Time.utc + expires_in.seconds
-
-      logger.debug { "Successfully authenticated with Zoom API" }
-      @access_token.not_nil!
-    else
-      logger.error { "Failed to authenticate: #{response.status_code} - #{response.body}" }
-      raise "Authentication failed: #{response.status_code}"
+    def expired?
+      1.minute.from_now > expiry
     end
   end
 
-  private def api_request(method : String, path : String, body : JSON::Any? = nil, params : Hash(String, String)? = nil)
+  # Authentication
+  private def authenticate : String
+    if auth_token?.nil? || (auth_token? && auth_token.expired?)
+      token_url = "https://zoom.us/oauth/token"
+      http_uri_override = "https://zoom.us"
+      body = URI::Params.build do |form|
+        form.add("grant_type", "account_credentials")
+        form.add("account_id", @account_id)
+      end
+      response = post(
+        "/oauth/token",
+        headers: HTTP::Headers{
+          "Authorization" => "Basic #{Base64.strict_encode("#{@client_id}:#{@client_secret}")}",
+          "Content-Type"  => "application/x-www-form-urlencoded",
+        },
+        body: body
+      )
+
+      if response.success?
+        logger.debug { "Successfully authenticated with Zoom API" }
+        @auth_token = AccessToken.from_json(response.body)
+        http_uri_override = auth_token.api_url
+      else
+        logger.error { "Failed to authenticate: #{response.status_code} - #{response.body}" }
+        raise "Authentication failed: #{response.status_code}, response: #{response.body}"
+      end
+    end
+    auth_token.access_token
+  end
+
+  private def api_request(method : String, resource : String, body : JSON::Any? = nil, params : Hash(String, String)? = nil)
     token = authenticate
 
     headers = {
       "Authorization" => "Bearer #{token}",
       "Content-Type"  => "application/json",
     }
-
-    url = "#{@base_url}#{path}"
-
+    resource = "/v2#{resource}"
     response = case method.downcase
                when "get"
-                 params ? get(url, headers: headers, params: params) : get(url, headers: headers)
+                 params ? get(resource, headers: headers, params: params) : get(resource, headers: headers)
                when "post"
-                 post(url, headers: headers, body: body.try(&.to_json))
+                 post(resource, headers: headers, body: body.try(&.to_json))
                when "patch"
-                 patch(url, headers: headers, body: body.try(&.to_json))
+                 patch(resource, headers: headers, body: body.try(&.to_json))
                when "delete"
-                 delete(url, headers: headers)
+                 delete(resource, headers: headers)
                else
                  raise "Unsupported HTTP method: #{method}"
                end
 
     unless response.success?
-      logger.error { "API request failed: #{method} #{path} - #{response.status_code} - #{response.body}" }
-      raise "API request failed: #{response.status_code}"
+      logger.error { "API request failed: #{method} #{resource} - #{response.status_code} - #{response.body}" }
+      raise "API request failed: #{response.status_code}, response: #{response.body}"
     end
 
-    response.body.empty? ? nil : JSON.parse(response.body)
+    JSON.parse(response.body) unless (response.body.nil? || response.body.empty?)
   end
 
   # List Zoom Rooms
