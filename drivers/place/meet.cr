@@ -1053,9 +1053,9 @@ class Place::Meet < PlaceOS::Driver
       end
 
       if mute_index = mic.mute_index
-        mixer.mute(mic.level_id, mute, mute_index)
+        mixer.mute(mic.mute_id, mute, mute_index)
       else
-        mixer.mute(mic.level_id, mute)
+        mixer.mute(mic.mute_id, mute)
       end
     end
   end
@@ -1066,9 +1066,9 @@ class Place::Meet < PlaceOS::Driver
         mixer = system[mic.module_id]
 
         if mute_index = mic.mute_index
-          mixer.mute(mic.level_id, mute, mute_index)
+          mixer.mute(mic.mute_id, mute, mute_index)
         else
-          mixer.mute(mic.level_id, mute)
+          mixer.mute(mic.mute_id, mute)
         end
       rescue error
         logger.warn(exception: error) { "failed to mute microphone: #{mic}" }
