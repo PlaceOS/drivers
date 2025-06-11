@@ -22,7 +22,13 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
   @debug_payload : Bool = false
   @username : String = ""
   @password : String = ""
+def on_load
+  transport.before_request do |request|
+    logger.debug { "performing request: #{request.method} #{request.path}" }
+  end
 
+  on_update
+end
   def on_update
     @username = setting?(String, :username) || "api"
     @password = setting(String, :password)
