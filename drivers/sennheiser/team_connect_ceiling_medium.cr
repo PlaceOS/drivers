@@ -23,7 +23,7 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
 
   def on_load
     transport.before_request do |request|
-      logger.debug { "performing request: #{request.method} #{request.path}\nheaders: #{response.headers}" }
+      logger.debug { "performing request: #{request.method} #{request.path}\nheaders: #{request.headers}" }
     end
 
     on_update
