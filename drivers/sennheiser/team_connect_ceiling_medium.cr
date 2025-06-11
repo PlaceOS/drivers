@@ -79,26 +79,17 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
   def_put :set_analog_output_settings, "/api/audio/outputs/analog", gain: -18..0, switch: SwitchOutput
 
   def api_get(resource : String, query : String? = nil)
-    headers = get_headers
-    logger.debug { {msg: "GET #{resource}:", headers: headers.to_json, query: query.to_s} } if @debug_payload
+    logger.debug { {msg: "GET #{resource}:", query: query.to_s} } if @debug_payload
     uri = query.presence ? resource + "?#{query}" : resource
-    response = get(uri, headers: headers)
+    response = get(uri)
     raise "failed to get #{resource}, code #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
   def api_put(uri : String, payload : String)
-    headers = get_headers
-    logger.debug { {msg: "PUT HTTP Data:", headers: headers.to_json, payload: payload} } if @debug_payload
-    response = put(uri, headers: headers, body: payload)
+    logger.debug { {msg: "PUT HTTP Data:", payload: payload} } if @debug_payload
+    response = put(uri, body: payload)
     raise "failed to invoke put command, code #{response.status_code}, body: #{response.body}" unless response.success?
     JSON.parse(response.body)
-  end
-
-  private def get_headers
-    HTTP::Headers{
-      "Content-Type"  => "application/json",
-      "Accept"        => "application/json",
-    }
   end
 end
