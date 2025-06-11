@@ -11,8 +11,10 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
   uri_base "https://device_ip"
 
   default_settings({
-    username:      "api",
-    password:      "",
+    basic_auth: {
+      username: "api",
+      password: "",
+    },
     device_ip:     "192.168.0.1",
     debug_payload: false,
   })
