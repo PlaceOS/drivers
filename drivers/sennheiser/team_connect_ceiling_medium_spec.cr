@@ -2,7 +2,10 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Sennheiser::TeamConnectCM" do
   settings({
-    password:      "password",
+    basic_auth: {
+      username: "api",
+      password: "password",
+    },
     device_ip:     "192.168.1.0",
     debug_payload: true,
   })
