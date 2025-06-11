@@ -20,8 +20,6 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
   })
 
   @debug_payload : Bool = false
-  @username : String = ""
-  @password : String = ""
 
   def on_load
     transport.before_request do |request|
@@ -32,8 +30,6 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
   end
 
   def on_update
-    @username = setting?(String, :username) || "api"
-    @password = setting(String, :password)
     device_ip = setting(String, :device_ip)
     @debug_payload = setting?(Bool, :debug_payload) || false
 
@@ -103,7 +99,6 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
     HTTP::Headers{
       "Content-Type"  => "application/json",
       "Accept"        => "application/json",
-      "Authorization" => "Basic #{Base64.strict_encode("#{@username}:#{@password}")}",
     }
   end
 end
