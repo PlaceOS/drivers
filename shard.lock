@@ -13,6 +13,10 @@ shards:
     git: https://github.com/spider-gazelle/active-model.git
     version: 4.3.2
 
+  awscr-s3:
+    git: https://github.com/taylorfinnell/awscr-s3.git
+    version: 0.10.0
+
   awscr-signer:
     git: https://github.com/taylorfinnell/awscr-signer.git
     version: 0.9.0
@@ -20,6 +24,10 @@ shards:
   axio:
     git: https://github.com/place-technology/axio.git
     version: 0.1.2+git.commit.746ec20191e9b1dade912d08dd50366ddcb22c7d
+
+  azblob:
+    git: https://github.com/spider-gazelle/azblob.cr.git
+    version: 0.1.0+git.commit.154582499bf9d1296b446c0817fea465321f0735
 
   backtracer:
     git: https://github.com/sija/backtracer.cr.git
@@ -215,7 +223,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.24.0
+    version: 4.25.0
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
@@ -231,7 +239,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.10.2
+    version: 7.11.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -239,7 +247,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.65.2
+    version: 9.67.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -340,6 +348,10 @@ shards:
   ulid: # Overridden
     git: https://github.com/place-labs/ulid.git
     version: 0.1.2
+
+  upload-signer:
+    git: https://github.com/spider-gazelle/upload-signer.git
+    version: 0.2.0+git.commit.fdf8a1b2886006777efd01d69450c2028e0cf21e
 
   xml_converter:
     git: https://github.com/mamantoha/xml_converter.git
