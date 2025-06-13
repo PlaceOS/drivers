@@ -13,18 +13,20 @@ DriverSpecs.mock_driver "Epson::Projector::EscVp21" do
   should_send("SOURCE?\r")
   responds(":SOURCE=30\r")
   status[:input].should eq("HDMI")
-  # video_mute?
-  should_send("MSEL?\r")
-  responds(":MSEL=0\r")
-  status[:video_mute].should eq(false)
   # volume?
   should_send("VOL?\r")
-  responds(":VOL=10\r")
-  status[:volume].should eq(10)
+  responds(":VOL=0\r")
+  status[:volume].should eq(0)
   # lamp
   should_send("LAMP?\r")
   responds(":LAMP=20\r")
   status[:lamp_usage].should eq(20)
+
+  # IMEVENT test - projector on
+  transmit(":IMEVENT=0001 03 00000000 00000000 T1 F1\r")
+  status[:power].should eq(true)
+  status[:warming].should eq(false)
+  status[:cooling].should eq(false)
 
   exec(:mute)
   should_send("MUTE ON\r")
@@ -44,18 +46,37 @@ DriverSpecs.mock_driver "Epson::Projector::EscVp21" do
   status[:video_mute].should eq(false)
 
   exec(:mute_audio, false)
-  should_send("VOL 10\r")
+  should_send("VOL 153\r")
   responds(":\r")
   should_send("VOL?\r")
-  responds(":VOL=10\r")
-  status[:volume].should eq(10)
+  responds(":VOL=255\r")
+  status[:volume].should eq(100)
   status[:audio_mute].should eq(false)
 
-  exec(:volume, 50)
-  should_send("VOL 50\r")
+  exec(:volume, 80)
+  should_send("VOL 204\r")
   responds(":\r")
   should_send("VOL?\r")
-  responds(":VOL=50\r")
-  status[:volume].should eq(50)
+  responds(":VOL=204\r")
+  status[:volume].should eq(80)
   status[:audio_mute].should eq(false)
+
+  # Additional IMEVENT tests
+  # Test warming state
+  transmit(":IMEVENT=0001 02 00000000 00000000 T1 F1\r")
+  status[:power].should eq(false)
+  status[:warming].should eq(true)
+  status[:cooling].should eq(false)
+
+  # Test cooling state
+  transmit(":IMEVENT=0001 04 00000000 00000000 T1 F1\r")
+  status[:power].should eq(false)
+  status[:warming].should eq(false)
+  status[:cooling].should eq(true)
+
+  # Test with warnings and alarms
+  transmit(":IMEVENT=0001 03 00000003 00000007 T1 F1\r")
+  status[:power].should eq(true)
+  status[:warnings].should eq(["Lamp life", "No signal"])
+  status[:alarms].should eq(["Lamp ON failure", "Lamp lid", "Lamp burnout"])
 end
