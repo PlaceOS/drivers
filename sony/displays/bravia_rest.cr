@@ -130,7 +130,7 @@ class Sony::Displays::BraviaRest < PlaceOS::Driver
   end
 
   def do_poll
-    if self[:power]?
+    if status?(Bool, :power)
       volume?
       mute?
       input?
