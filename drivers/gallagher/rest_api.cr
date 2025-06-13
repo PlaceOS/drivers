@@ -54,10 +54,22 @@ class Gallagher::RestAPI < PlaceOS::Driver
         action: "denied",
       },
       {
+        group:  19,
+        action: "duress",
+      },
+      {
         # card swipe events for various door / lift types
         group:  23,
         types:  [15800, 15816, 20001, 20002, 20003, 20006, 20047, 41500, 41501, 41520, 41521, 42102, 42415],
         action: "granted",
+      },
+      {
+        group:  29,
+        action: "forced_door",
+      },
+      {
+        group:  47,
+        action: "security_breach",
       },
     ],
   })
@@ -284,7 +296,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     cards : Array(Card)? = nil,
     access_groups : Array(CardholderAccessGroup)? = nil,
     short_name : String? = nil,
-    division_href : String? = nil
+    division_href : String? = nil,
   )
     short_name ||= "#{first_name} #{last_name}"
     short_name = short_name[0..15]
@@ -317,7 +329,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     remove_access_groups : Array(CardholderAccessGroup)? = nil,
     update_access_groups : Array(CardholderAccessGroup)? = nil,
     short_name : String? = nil,
-    division_href : String? = nil
+    division_href : String? = nil,
   )
     url = href ? get_path(href) : "#{@cardholders_endpoint}/#{id.not_nil!}"
 
@@ -369,7 +381,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
   def remove_cardholder_access(
     id : String? = nil,
-    href : String? = nil
+    href : String? = nil,
   )
     update_cardholder(id, href, authorised: false)
   end

@@ -57,7 +57,7 @@ module Gallagher
       @authorised,
       cards,
       access_groups,
-      division : String?
+      division : String?,
     )
       @cards = cards
       @division = division ? {href: division} : nil
