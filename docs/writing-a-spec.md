@@ -1,37 +1,35 @@
-# How to test a PlaceOS Driver
+# Testing drivers
 
-There are three kinds of PlaceOS Driver...
+There are three kind of drivers
 
-* [Streaming IO (TCP, SSH, UDP, Multicast, etc.)](#testing-streaming-io)
-* [HTTP Client](#testing-http-requests)
-* [Logic](#testing-logic)
+* Streaming IO (TCP, SSH, UDP, Multicast, ect)
+* HTTP Client
+* Logic
 
-From a PlaceOS Driver code structure standpoint, there is no difference between these types of Driver.
+From a driver code structure standpoint there is no difference between these types.
 
 * The same driver can be used over a TCP, UDP or SSH transport.
 * All drivers support HTTP methods if a URI endpoint is defined.
 * If a driver is associated with a System then it has access to logic helpers
 
-During a test, the loaded module is loaded with a TCP transport, HTTP enabled and logic module capabilities.
-This allows for testing the full capabilities of any driver.
+During a test, the loaded module is loaded with a TCP transport, HTTP enabled and logic module capabilities. This allows for testing the full capabilities of any driver.
 
 The driver is launched as it would be in production.
 
+### Code documentation
+
+For detailed automatically generated documentation please see the: [Driver Spec API](https://placeos.github.io/driver/DriverSpecs.html)
 
 ## Expectations
 
-Specs have access to Crystal lang spec expectations. This allows you to confirm expectations.
-https://crystal-lang.org/api/latest/Spec/Expectations.html
+Specs have access to Crystal lang [spec expectations](https://crystal-lang.org/api/latest/Spec/Expectations.html). This allows you to confirm expectations.
 
 ```crystal
-
 variable = 34
 variable.should eq(34)
-
 ```
 
-There is a good overview on how to use expectations here: https://crystal-lang.org/reference/guides/testing.html
-
+There is a good overview on [how to use expectations](https://crystal-lang.org/reference/guides/testing.html) on the crystal lang docs site
 
 ### Status
 
@@ -39,7 +37,6 @@ Expectations are primarily there to test the state of the module.
 
 * You can access state via the status helper: `status[:state_name]`
 * Then you can check it an expected value: `status[:state_name].should eq(14)`
-
 
 ## Testing Streaming IO
 
@@ -53,22 +50,18 @@ The following functions are available for testing streaming IO:
 A common test case is to ensure that module state updates as expected after transmitting some data to it:
 
 ```crystal
-
-# Transmit some data
+# transmit some data
 transmit(">V:2,C:11,G:2001,B:1,S:1,F:100#")
 
-# Check that the state was updated as expected
+# check that the state updated as expected
 status[:area2001].should eq(1)
-
 ```
-
 
 ## Testing HTTP requests
 
-The test suite emulates an HTTP server so you can inspect HTTP requests and send canned responses to the module.
+The test suite emulates a HTTP server so you can inspect HTTP requests and send canned responses to the module.
 
 ```crystal
-
 expect_http_request do |request, response|
   io = request.body
   if io
@@ -84,27 +77,24 @@ expect_http_request do |request, response|
   end
 end
 
-# Check that the state was updated as expected
+# check that the state updated as expected
 status[:area2001].should eq(1)
-
 ```
 
 Use `expect_http_request` to access an expected request coming from the module.
 
-* When the block completes, the response is sent to the module
-* You can see `request` object details here: https://crystal-lang.org/api/latest/HTTP/Request.html
-* You can see `response` object details here: https://crystal-lang.org/api/latest/HTTP/Server/Response.html
-
+* when the block completes, the response is sent to the module
+* you can see `request` object details here: https://crystal-lang.org/api/latest/HTTP/Request.html
+* you can see `response` object details here: https://crystal-lang.org/api/latest/HTTP/Server/Response.html
 
 ## Executing functions
 
-Functions allow you to request methods to be performed in the module via the standard public interface.
+This allows you to request actions be performed in the module via the standard public interface.
 
 * `exec(:function_name, argument_name: argument_value)` -> `response` a response future (async return value)
 * You should send and `responds(data)` before inspecting the `response.get`
 
 ```crystal
-
 # Execute a command
 response = exec(:scene?, area: 1)
 
@@ -117,16 +107,13 @@ responds("~AREA,1,6,2\r\n")
 response.get.should eq(2)
 # Check if the module state is correct
 status[:area1].should eq(2)
-
 ```
-
 
 ## Testing Logic
 
-Logic modules typically expect a system to contain some drivers which the logic modules interact with.
+Logic modules typically expect a system to contain some drivers which the logic modules interacts with.
 
 ```crystal
-
 # define mock versions of the drivers it will interact with
 
 class Display < DriverSpecs::MockDriver
@@ -172,14 +159,11 @@ class Display < DriverSpecs::MockDriver
     self[:mute0] = state
   end
 end
-
 ```
 
-Then you can define the system configuration,
-you can also change the system configuration throughout your spec to test different configurations.
+Then you can define the system configuration, you can also change the system configuration throughout your spec to test different configurations.
 
 ```crystal
-
 DriverSpecs.mock_driver "Place::LogicExample" do
 
   # Where `{Display, Display}` is referencing the `MockDriver` class defined above
@@ -192,14 +176,11 @@ DriverSpecs.mock_driver "Place::LogicExample" do
 
   # ...
 end
-
 ```
 
-Along with the physical system configuration, you can test different setting configurations.
-Settings can also be changed throughout the life cycle of your spec.
+Along with the physical system configuration you can test different setting configurations. Settings can also be changed throughout the life cycle of your spec.
 
 ```crystal
-
 DriverSpecs.mock_driver "Place::LogicExample" do
 
   settings({
@@ -208,24 +189,33 @@ DriverSpecs.mock_driver "Place::LogicExample" do
   })
 
 end
-
 ```
 
-A Driver's method might be expected to update some state in the mock devices.
-You can access this state via the `system` helper
+An action you perform on your driver might be expected to update state in the mock devices. You can access this state via the `system` helper
 
 ```crystal
-
 DriverSpecs.mock_driver "Place::LogicExample" do
 
-  # Execute a function in your logic module
+  # execute a function in your logic module
   exec(:power, true)
 
-  # Check that the expected state has been updated in your mock device
+  # Check that the expected state has updated in you mock device
   system(:Display_1)[:power].should eq(true)
 
+  # manually execute a function on a mock device
+  # need to cast the mock to the appropriate class
+  system(:Display_1).as(Display).power false
 end
-
 ```
 
 All status queried in this manner is returned as a `JSON::Any` object
+
+#### Publishing events
+
+Emulating notifications is also possible
+
+```crystal
+DriverSpecs.mock_driver "Place::LogicExample" do
+  publish("channel/path", {payload: "data"}.to_json)
+end
+```
