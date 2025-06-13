@@ -76,6 +76,43 @@ end
 
 In most cases you won't need to use the queue explicitly, but it's good to understand that how it functions.
 
+### State
+
+Drivers expose state via a hash like object exposed through `self`.
+
+```crystal
+  # state can be any JSON parsable object
+  self["state_index#{idx}"] = true
+  self[:state_name] = "state value"
+```
+
+Drivers can be thought of as a digitial twin for the hardware they control. The state of that hardware should be exposed via this method.
+
+```crystal
+  # it's also possible to read state back
+  self[:state_name] # => JSON::Any
+
+  # if you know the type you can use status helpers
+  status(String, :state_name) # => "state value"
+
+  # use this method if the status may not be set at time of retrieval
+  status?(Bool, :other_state) # => nil.as(Bool?)
+```
+
+NOTE: if there is some state that will be queried often, it's good practice to also have an instance variable hold the state as the status is stored in redis.
+
+```crystal
+  @state_cached_locally : Bool? = nil
+  # ...
+  self[:state] = @state_cached_locally = get_state_from_device
+  # ...
+  if @state_cached_locally
+    # ...
+  else
+    # ...
+  end
+```
+
 ### Transport
 
 The transport loaded is defined by settings in the database.
