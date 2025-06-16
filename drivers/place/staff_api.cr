@@ -147,7 +147,7 @@ class Place::StaffAPI < PlaceOS::Driver
     bookable : Bool? = nil,
     features : String? = nil,
     limit : Int32 = 1000,
-    offset : Int32 = 0
+    offset : Int32 = 0,
   )
     placeos_client.systems.search(
       q: q,
@@ -270,7 +270,7 @@ class Place::StaffAPI < PlaceOS::Driver
     limit : Int32 = 20,
     offset : Int32 = 0,
     authority_id : String? = nil,
-    include_deleted : Bool = false
+    include_deleted : Bool = false,
   )
     placeos_client.users.search(q: q, limit: limit, offset: offset, authority_id: authority_id, include_deleted: include_deleted)
   end
@@ -315,6 +315,68 @@ class Place::StaffAPI < PlaceOS::Driver
       raise "webrtc service possibly unavailable" unless response.success?
       Array(String).from_json(response.not_nil!.body)
     end
+  end
+
+  # ===================================
+  # Uploads
+  # ===================================
+
+  def uploads(search : String? = nil, tags : Array(String) = [] of String, limit : Int32? = nil, offset : Int32? = nil)
+    tags_param = tags.join(",")
+
+    params = URI::Params.build do |form|
+      form.add("file_search", search.to_s) if search.presence
+      form.add("tags", tags_param) if tags_param.presence
+      form.add("limit", limit.to_s) if limit
+      form.add("offset", offset.to_s) if offset
+    end
+
+    response = get("/api/engine/v2/uploads?#{params}", headers: authentication)
+    raise "uploads request failed #{response.status_code}\n#{response.body}" unless response.success?
+
+    JSON.parse(response.body)
+  end
+
+  enum UploadPermissions
+    None
+    Admin
+    Support
+  end
+
+  # returns details for a signed URL that can be used to upload the file
+  # obviously this doesn't actually upload the file directly
+  def upload(
+    file_name : String,
+    file_size : Int64,
+    file_md5 : String,
+    file_mime : String? = nil,
+    file_path : String? = nil,
+    permissions : UploadPermissions = UploadPermissions::None,
+    public : Bool = false, # public internet accessible
+    tags : Array(String) = [] of String,
+  )
+    response = post("/api/engine/v2/uploads", headers: authentication, body: {
+      file_name:   file_name,
+      file_size:   file_size,
+      file_id:     file_md5,
+      file_mime:   file_mime,
+      file_path:   file_path,
+      permissions: permissions,
+      public:      public,
+      tags:        tags,
+    }.to_json)
+    raise "upload request failed #{response.status_code}\n#{response.body}" unless response.success?
+
+    # Looks like: {type: "chunked_upload" | "direct_upload", upload_id: "upload-1234", residence: "S3" | "AzureStorage",
+    # signature: {verb: "PUT", url: "https://signed.url/file", headers: {"Content-Type": "image/jpeg"}}}
+    JSON.parse(response.body)
+  end
+
+  # returns a temporary URL where you can download the upload contents
+  def upload_content_url(upload_id : String) : String
+    response = get("/api/engine/v2/uploads/#{upload_id}/url", headers: authentication)
+    raise "uploads request failed #{response.status_code}\n#{response.body}" unless response.status.see_other?
+    response.headers["Location"]
   end
 
   # ===================================
@@ -374,7 +436,7 @@ class Place::StaffAPI < PlaceOS::Driver
     capacity : Int32? = nil,
     features : String? = nil,
     bookable : Bool? = nil,
-    include_cancelled : Bool? = nil
+    include_cancelled : Bool? = nil,
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s
@@ -480,7 +542,7 @@ class Place::StaffAPI < PlaceOS::Driver
     field_name : String? = nil,
     value : String? = nil,
     system_id : String? = nil,
-    event_ref : Array(String)? = nil
+    event_ref : Array(String)? = nil,
   )
     params = URI::Params.build do |form|
       form.add "period_start", period_start.to_s if period_start
@@ -572,7 +634,7 @@ class Place::StaffAPI < PlaceOS::Driver
     recurrence_days : Int32? = nil,
     recurrence_nth_of_month : Int32? = nil,
     recurrence_interval : Int32? = nil,
-    recurrence_end : Int64? = nil
+    recurrence_end : Int64? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -758,7 +820,7 @@ class Place::StaffAPI < PlaceOS::Driver
     extension_data : JSON::Any? = nil,
     deleted : Bool? = nil,
     asset_id : String? = nil,
-    limit : Int32? = nil
+    limit : Int32? = nil,
   )
     default_end = @period_end_default_in_min || 30
 
@@ -918,7 +980,7 @@ class Place::StaffAPI < PlaceOS::Driver
   def update_survey_invite(
     token : String,
     email : String? = nil,
-    sent : Bool? = nil
+    sent : Bool? = nil,
   )
     logger.debug { "updating survey invite #{token}" }
     response = patch("/api/staff/v1/surveys/invitations/#{token}", headers: authentication, body: {
