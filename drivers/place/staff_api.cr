@@ -383,6 +383,12 @@ class Place::StaffAPI < PlaceOS::Driver
     response.headers["Location"]
   end
 
+  def upload_remove(upload_id : String) : Bool
+    response = delete("/api/engine/v2/uploads/#{upload_id}", headers: authentication)
+    raise "upload removal failed #{response.status_code}\n#{response.body}" unless response.success?
+    true
+  end
+
   # ===================================
   # Guest details
   # ===================================
