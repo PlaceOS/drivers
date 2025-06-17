@@ -354,16 +354,20 @@ class Place::StaffAPI < PlaceOS::Driver
     permissions : UploadPermissions = UploadPermissions::None,
     public : Bool = false, # public internet accessible
     tags : Array(String) = [] of String,
+    cache_etag : String? = nil,
+    cache_modified : Time? = nil,
   )
     response = post("/api/engine/v2/uploads", headers: authentication, body: {
-      file_name:   file_name,
-      file_size:   file_size,
-      file_id:     file_md5,
-      file_mime:   file_mime,
-      file_path:   file_path,
-      permissions: permissions,
-      public:      public,
-      tags:        tags,
+      file_name:      file_name,
+      file_size:      file_size,
+      file_id:        file_md5,
+      file_mime:      file_mime,
+      file_path:      file_path,
+      permissions:    permissions,
+      public:         public,
+      tags:           tags,
+      cache_etag:     cache_etag,
+      cache_modified: cache_modified,
     }.to_json)
     raise "upload request failed #{response.status_code}\n#{response.body}" unless response.success?
 
