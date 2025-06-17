@@ -96,29 +96,29 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     users = get_members
     loop do
       users.each do |user|
-        unless user.suspended
-          begin
-            user_email = user.email.strip.downcase
-            user.email = user_email
-            username = user.username.strip.downcase
-            user.username = username
+        next if user.suspended
 
-            tags = if user_email == username
-                     ["user-photo", user_email]
-                   else
-                     ["user-photo", user_email, username]
-                   end
+        begin
+          user_email = user.email.strip.downcase
+          user.email = user_email
+          username = user.username.strip.downcase
+          user.username = username
 
-            logger.debug { "checking: #{tags}" }
+          tags = if user_email == username
+                   ["user-photo", user_email]
+                 else
+                   ["user-photo", user_email, username]
+                 end
 
-            # check if there is an existing photo for the user
-            uploads = staff_api.uploads(tags: tags).get
-            updated_photos += 1 if compare_and_sync(uploads.as_a, tags)
-            photos_checked += 1
-          rescue error
-            errors += 1
-            logger.error(exception: error) { "failed to sync photo for #{user_email}" }
-          end
+          logger.debug { "checking: #{tags}" }
+
+          # check if there is an existing photo for the user
+          uploads = staff_api.uploads(tags: tags).get
+          updated_photos += 1 if compare_and_sync(uploads.as_a, tags)
+          photos_checked += 1
+        rescue error
+          errors += 1
+          logger.error(exception: error) { "failed to sync photo for #{user_email}" }
         end
       end
 
@@ -147,6 +147,26 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     updated_photos: Int32,
     errors: Int32,
   )? = nil
+
+  def sync_user(email : String)
+    user = DirUser.from_json directory.get_user(email).get.to_json
+    raise "user is suspended" if user.suspended
+
+    user_email = user.email.strip.downcase
+    user.email = user_email
+    username = user.username.strip.downcase
+    user.username = username
+
+    tags = if user_email == username
+             ["user-photo", user_email]
+           else
+             ["user-photo", user_email, username]
+           end
+
+    # check if there is an existing photo for the user
+    uploads = staff_api.uploads(tags: tags).get
+    compare_and_sync(uploads.as_a, tags)
+  end
 
   protected def compare_and_sync(uploads : Array(JSON::Any), tags : Array(String)) : Bool
     graph_user = tags.last
@@ -209,7 +229,7 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     signed_url = staff_api.upload(
       file_name: "#{(download.last_modified || Time.utc).to_unix}-#{user_org}.jpg",
       file_size: download.payload.size,
-      file_md5: Digest::MD5.hexdigest(download.payload),
+      file_md5: Digest::MD5.base64digest(download.payload),
       file_mime: "image/jpeg",
       tags: tags,
       cache_etag: download.etag,
