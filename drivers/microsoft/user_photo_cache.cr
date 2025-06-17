@@ -96,7 +96,7 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     users = get_members
     loop do
       users.each do |user|
-        next if user.suspended
+        # next if user.suspended
 
         begin
           user_email = user.email.strip.downcase
@@ -150,7 +150,7 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
 
   def sync_user(email : String)
     user = DirUser.from_json directory.get_user(email).get.to_json
-    raise "user is suspended" if user.suspended
+    # raise "user is suspended" if user.suspended
 
     user_email = user.email.strip.downcase
     user.email = user_email
