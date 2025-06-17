@@ -176,11 +176,24 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
       return save(tags, download(graph_user))
     end
 
-    # remove any old photos one we've grabbed the current photo
+    # checking photo exists
     current_photo = uploads.shift
+    current_url = staff_api.upload_content_url(current_photo["id"].as_s).get.as_s
 
+    # request 0 bytes, just want to make sure the content is there (not a failed upload)
+    response = HTTP::Client.get(current_url, headers: HTTP::Headers{
+      "Range" => "bytes=0-0",
+    })
+
+    # remove any old photos one we've grabbed the current photo
     logger.debug { "  - removing #{uploads.size} old photos" } unless uploads.empty?
     uploads.each { |upload| delete(upload) }
+
+    if response.status.not_found?
+      delete(current_photo)
+      logger.debug { "  - no cached photo" }
+      return save(tags, download(graph_user))
+    end
 
     # update the photo if there is no etag match
     if data = download(graph_user, current_photo["cache_etag"]?.try(&.as_s))
@@ -213,8 +226,15 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
       return Download.new(bytes, headers["ETag"]?, time)
     end
 
-    raise "photo data request failed with #{response.status}\n#{response.body}" unless {404, 304}.includes?(response.status_code)
-    logger.debug { "  - user doesn't have a photo, skipping..." }
+    case response.status_code
+    when 404
+      logger.debug { "  - user doesn't have a photo, skipping..." }
+    when 304
+      logger.debug { "  - user photo matches, skipping..." }
+    else
+      raise "photo data request failed with #{response.status}\n#{response.body}"
+    end
+
     nil
   end
 
