@@ -86,7 +86,7 @@ class Place::AutoRelease < PlaceOS::Driver
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh", "aol"]
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
-    @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
+    @skip_created_after_start = setting?(Bool, :skip_created_after_start).nil? || setting(Bool, :skip_created_after_start)
     @skip_same_day = setting?(Bool, :skip_same_day) || false
     @skip_all_day = setting?(Bool, :skip_all_day) || false
 
