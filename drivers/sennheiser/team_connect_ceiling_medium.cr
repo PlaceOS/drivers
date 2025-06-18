@@ -32,8 +32,6 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
   def on_update
     device_ip = setting(String, :device_ip)
     @debug_payload = setting?(Bool, :debug_payload) || false
-
-    @uri_base = "https://#{device_ip}"
   end
 
   # ====================
