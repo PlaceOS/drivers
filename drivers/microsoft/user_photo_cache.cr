@@ -115,7 +115,7 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
           # check if there is an existing photo for the user
           uploads = staff_api.uploads(tags: tags).get
           if upload_id = compare_and_sync(uploads.as_a, tags)
-            staff_api.update_user(username, {photo_upload_id: upload_id})
+            staff_api.update_user(username, {photo_upload_id: upload_id}.to_json)
             updated_photos += 1
           end
           photos_checked += 1
@@ -169,7 +169,7 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     # check if there is an existing photo for the user
     uploads = staff_api.uploads(tags: tags).get
     if upload_id = compare_and_sync(uploads.as_a, tags)
-      staff_api.update_user(username, {photo_upload_id: upload_id})
+      staff_api.update_user(username, {photo_upload_id: upload_id}.to_json)
     end
   end
 
@@ -235,7 +235,7 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
       logger.debug { "  - user doesn't have a photo, skipping..." }
     when 304
       # ensure the upload_id matches the user model, we don't `.get` as not too important
-      staff_api.update_user(graph_user, {photo_upload_id: upload_id}) if upload_id
+      staff_api.update_user(graph_user, {photo_upload_id: upload_id}.to_json) if upload_id
 
       logger.debug { "  - user photo matches, skipping..." }
     else
