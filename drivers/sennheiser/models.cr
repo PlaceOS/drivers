@@ -1,7 +1,7 @@
 module Sennheiser::Models
   macro def_get(name, resource)
     def {{name.id}}
-        api_get({{resource.stringify}})
+        api_get({{resource}})
     end
   end
 
@@ -34,7 +34,7 @@ module Sennheiser::Models
           {% end %}
         {% end %}
         
-       api_put({{resource.stringify}},{
+       api_put({{resource}},{
                 {% for param, klass in params %}
                   {% if param.stringify.ends_with?("_") %}
                     {% param = param.stringify[0..-2] %}
