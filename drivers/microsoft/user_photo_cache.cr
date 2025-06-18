@@ -114,7 +114,10 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
 
           # check if there is an existing photo for the user
           uploads = staff_api.uploads(tags: tags).get
-          updated_photos += 1 if compare_and_sync(uploads.as_a, tags)
+          if upload_id = compare_and_sync(uploads.as_a, tags)
+            staff_api.update_user(username, {photo_upload_id: upload_id})
+            updated_photos += 1
+          end
           photos_checked += 1
         rescue error
           errors += 1
@@ -165,10 +168,12 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
 
     # check if there is an existing photo for the user
     uploads = staff_api.uploads(tags: tags).get
-    compare_and_sync(uploads.as_a, tags)
+    if upload_id = compare_and_sync(uploads.as_a, tags)
+      staff_api.update_user(username, {photo_upload_id: upload_id})
+    end
   end
 
-  protected def compare_and_sync(uploads : Array(JSON::Any), tags : Array(String)) : Bool
+  protected def compare_and_sync(uploads : Array(JSON::Any), tags : Array(String)) : String?
     graph_user = tags.last
 
     if uploads.empty?
@@ -196,17 +201,16 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     end
 
     # update the photo if there is no etag match
-    if data = download(graph_user, current_photo["cache_etag"]?.try(&.as_s))
+    if data = download(graph_user, current_photo["cache_etag"]?.try(&.as_s), current_photo["id"].as_s)
       result = save(tags, data)
       delete current_photo
       return result
     end
-    false
   end
 
   record Download, payload : Bytes, etag : String? = nil, last_modified : Time? = nil
 
-  protected def download(graph_user : String, etag : String? = nil) : Download?
+  protected def download(graph_user : String, etag : String? = nil, upload_id : String? = nil) : Download?
     path = "https://graph.microsoft.com/v1.0/users/#{graph_user}/photos/#{pixel_width}x#{pixel_width}/$value"
     headers = HTTP::Headers.new
     headers["If-None-Match"] = etag if etag
@@ -230,6 +234,9 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     when 404
       logger.debug { "  - user doesn't have a photo, skipping..." }
     when 304
+      # ensure the upload_id matches the user model, we don't `.get` as not too important
+      staff_api.update_user(graph_user, {photo_upload_id: upload_id}) if upload_id
+
       logger.debug { "  - user photo matches, skipping..." }
     else
       raise "photo data request failed with #{response.status}\n#{response.body}"
@@ -238,9 +245,9 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     nil
   end
 
-  protected def save(tags : Array(String), download : Download?) : Bool
+  protected def save(tags : Array(String), download : Download?) : String?
     # no image uploaded to azure
-    return false unless download
+    return unless download
 
     logger.debug { "  - uploading image..." }
 
@@ -269,7 +276,8 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
     # upload the image to our cache (S3 / Azure)
     response = HTTP::Client.exec verb, url, headers, download.payload
     raise "failed to upload image with #{response.status_code}\n#{response.body}\n#{signed_url}" unless response.success?
-    true
+
+    signed_url["upload_id"].as_s
   end
 
   protected def delete(upload : JSON::Any)
