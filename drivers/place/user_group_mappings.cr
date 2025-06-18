@@ -53,7 +53,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
   alias Mapping = NamedTuple(place_id: String)
   alias Prefix = NamedTuple(strip_prefix: Bool?, place_id: String?)
 
-  @authority_id : String = ""
+  @authority_id : Array(String) = [] of String
   @group_mappings : Hash(String, Mapping) = {} of String => Mapping
   @group_prefixes : Hash(String, Prefix) = {} of String => Prefix
   @users_checked : UInt64 = 0_u64
@@ -64,7 +64,13 @@ class Place::UserGroupMappings < PlaceOS::Driver
     @group_prefixes = setting?(Hash(String, Prefix), :group_prefix) || {} of String => Prefix
     @group_prefixes = @group_prefixes.transform_keys(&.downcase)
 
-    @authority_id = setting?(String, :authority_id) || "authority-12345"
+    authority_id = setting?(String | Array(String), :authority_id) || "authority-12345"
+    case authority_id
+    in String
+      @authority_id = [authority_id]
+    in Array(String)
+      @authority_id = authority_id
+    end
   end
 
   protected def new_user_login(user_json)
@@ -90,6 +96,8 @@ class Place::UserGroupMappings < PlaceOS::Driver
 
     # Loading the existing user info in PlaceOS (we need the users id)
     user_json = staff_api.user(id).get
+    auth_id = user_json["authority_id"].as_s
+    return unless auth_id.in?(@authority_id)
     sync_user(user_json)
   end
 
@@ -132,6 +140,12 @@ class Place::UserGroupMappings < PlaceOS::Driver
 
   @[PlaceOS::Driver::Security(Level::Support)]
   def sync_all_users
+    @authority_id.each do |auth_id|
+      sync_users(auth_id)
+    end
+  end
+
+  protected def sync_users(authority_id)
     return "currently syncing" if @syncing
     @syncing = true
 
@@ -144,7 +158,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
       users = staff_api.query_users(
         limit: limit,
         offset: offset,
-        authority_id: @authority_id
+        authority_id: authority_id
       ).get.as_a
 
       logger.debug { "syncing users #{offset}->#{offset + limit}..." }
