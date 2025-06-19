@@ -82,23 +82,25 @@ class Place::Demo::Camera < PlaceOS::Driver
 
   # ====== Moveable Interface ======
 
-  # moves at 50% of max speed
   def move(position : MoveablePosition, index : Int32 | String = 0)
-    case position
-    in .up?
-      joystick(pan_speed: 0.0, tilt_speed: 50.0)
-    in .down?
-      joystick(pan_speed: 0.0, tilt_speed: -50.0)
-    in .left?
-      joystick(pan_speed: -50.0, tilt_speed: 0.0)
-    in .right?
-      joystick(pan_speed: 50.0, tilt_speed: 0.0)
-    in .in?
-      zoom(:in)
-    in .out?
-      zoom(:out)
-    in .open?, .close?
-      # not supported
+    @mutex.synchronize do
+      logger.debug { "move called: #{position}" }
+      case position
+      in .up?
+        joystick(pan_speed: 0.0, tilt_speed: 50.0)
+      in .down?
+        joystick(pan_speed: 0.0, tilt_speed: -50.0)
+      in .left?
+        joystick(pan_speed: -50.0, tilt_speed: 0.0)
+      in .right?
+        joystick(pan_speed: 50.0, tilt_speed: 0.0)
+      in .in?
+        zoom(:in)
+      in .out?
+        zoom(:out)
+      in .open?, .close?
+        # not supported
+      end
     end
   end
 
@@ -111,38 +113,42 @@ class Place::Demo::Camera < PlaceOS::Driver
   end
 
   @zoom_task : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+  @mutex : Mutex = Mutex.new
 
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
-    @zoom_task.try &.cancel
+    @mutex.synchronize do
+      logger.debug { "zoom called: #{direction}" }
+      @zoom_task.try &.cancel
 
-    case direction
-    in .in?
-      self[:zooming] = true
-      @zoom_task = schedule.every(250.milliseconds) do
-        level = zoom? + 1
-        level = level.clamp(0, 100)
-        self[:zoom] = level
+      case direction
+      in .in?
+        self[:zooming] = true
+        @zoom_task = schedule.every(250.milliseconds) do
+          level = zoom? + 1
+          level = level.clamp(0, 100)
+          self[:zoom] = level
 
-        if level == 100
-          @zoom_task.try &.cancel
-          @zoom_task = nil
+          if level == 100
+            @zoom_task.try &.cancel
+            @zoom_task = nil
+          end
         end
-      end
-    in .out?
-      self[:zooming] = true
-      @zoom_task = schedule.every(250.milliseconds) do
-        level = zoom? - 1
-        level = level.clamp(0, 100)
-        self[:zoom] = level
+      in .out?
+        self[:zooming] = true
+        @zoom_task = schedule.every(250.milliseconds) do
+          level = zoom? - 1
+          level = level.clamp(0, 100)
+          self[:zoom] = level
 
-        if level == 0
-          @zoom_task.try &.cancel
-          @zoom_task = nil
+          if level == 0
+            @zoom_task.try &.cancel
+            @zoom_task = nil
+          end
         end
+      in .stop?
+        self[:zooming] = false
+        @zoom_task = nil
       end
-    in .stop?
-      self[:zooming] = false
-      @zoom_task = nil
     end
   end
 
