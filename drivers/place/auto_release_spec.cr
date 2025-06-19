@@ -1236,12 +1236,12 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # normal work hours, event out of range (after)
   # start at 8am, end at 4pm, event at 5pm
   resp = exec(:in_preference_hours?, 8.0, 16.0, 17.0).get
-  resp.should eq nil
+  resp.should eq false
 
   # normal work hours, event out of range (before)
   # start at 8am, end at 4pm, event at 6am
   resp = exec(:in_preference_hours?, 8.0, 16.0, 6.0).get
-  resp.should eq nil
+  resp.should eq false
 
   # work hours crosses midnight, event in range
   # start at 10pm, end at 6am, event at 3am
@@ -1251,12 +1251,12 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # work hours crosses midnight, event out of range (after)
   # start at 10pm, end at 6am, event at 7am
   resp = exec(:in_preference_hours?, 22.0, 6.0, 7.0).get
-  resp.should eq nil
+  resp.should eq false
 
   # work hours crosses midnight, event out of range (before)
   # start at 10pm, end at 6am, event at 8pm
   resp = exec(:in_preference_hours?, 22.0, 6.0, 20.0).get
-  resp.should eq nil
+  resp.should eq false
 
   #########################################
   # End of tests for: #in_preference_hours?
@@ -1286,7 +1286,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     },
   })
   resp = exec(:enabled?).get
-  resp.should eq nil
+  resp.should eq false
 
   #############################
   # End of tests for: #enabled?
