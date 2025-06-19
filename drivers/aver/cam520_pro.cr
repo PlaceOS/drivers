@@ -26,6 +26,8 @@ class Aver::Cam520Pro < PlaceOS::Driver
   @username : String = ""
   @zoom_max : Int32 = 28448
   @invert : Bool = false
+  @zooming : Bool = false
+  @panning : AxisSelect? = nil
 
   def on_load
     queue.wait = false
@@ -141,17 +143,19 @@ class Aver::Cam520Pro < PlaceOS::Driver
       cmd = tilt_speed.zero? ? 2 : 1
     end
 
-    # stop any previous move
-    spawn do
-      post("/camera_move", body: {
-        method: "SetPtzf",
-        axis:   stop.to_i,
-        dir:    dir,
-        cmd:    2,
-      }.to_json)
+    if @panning && @panning != axis
+      # stop any previous move
+      spawn do
+        post("/camera_move", body: {
+          method: "SetPtzf",
+          axis:   stop.to_i,
+          dir:    dir,
+          cmd:    2,
+        }.to_json)
+      end
     end
 
-    Fiber.yield
+    @panning = cmd == 1 ? axis : nil
 
     # start moving in the desired direction
     response = post("/camera_move", body: {
@@ -244,10 +248,12 @@ class Aver::Cam520Pro < PlaceOS::Driver
   end
 
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
+    @zooming = true
     case direction
     in .stop?
       dir = 0
       cmd = 2
+      @zooming = false
     in .out?
       dir = 1
       cmd = 1
@@ -331,8 +337,6 @@ class Aver::Cam520Pro < PlaceOS::Driver
       }.to_json)
     end
 
-    Fiber.yield
-
     # zoom
     response = post("/camera_move", body: {
       method: "SetPtzf",
@@ -341,6 +345,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
       cmd:    2,
     }.to_json)
 
+    @zooming = false
     parse(response, Nil)
   end
 
