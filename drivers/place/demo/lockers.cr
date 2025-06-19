@@ -95,7 +95,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     locker_id : String | Int64? = nil,
 
     # attempts to create a booking that expires at the time specified
-    expires_at : Int64? = nil
+    expires_at : Int64? = nil,
   ) : PlaceLocker
     bank = locker_banks[bank_id.to_s]
     locker_id = locker_id ? locker_id : bank.locker_hash.values.select(&.not_allocated?).sample.id
@@ -115,7 +115,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     locker_id : String | Int64,
 
     # release / unshare just this user - otherwise release the whole locker
-    owner_id : String? = nil
+    owner_id : String? = nil,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     if locker.allocated_to == owner_id
@@ -149,7 +149,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     bank_id : String | Int64,
     locker_id : String | Int64,
     owner_id : String,
-    share_with : String
+    share_with : String,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -173,7 +173,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     locker_id : String | Int64,
     owner_id : String,
     # the individual you previously shared with (optional)
-    shared_with_id : String? = nil
+    shared_with_id : String? = nil,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -200,7 +200,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
   def locker_shared_with(
     bank_id : String | Int64,
     locker_id : String | Int64,
-    owner_id : String
+    owner_id : String,
   ) : Array(String)
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -230,7 +230,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     # (can be ignored if not implemented)
     open_time : Int32 = 60,
     # optional pin code - if user entered from a kiosk
-    pin_code : String? = nil
+    pin_code : String? = nil,
   ) : Nil
   end
 
