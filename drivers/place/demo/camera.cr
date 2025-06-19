@@ -119,6 +119,7 @@ class Place::Demo::Camera < PlaceOS::Driver
     @mutex.synchronize do
       logger.debug { "zoom called: #{direction}" }
       @zoom_task.try &.cancel
+      @zoom_task = nil
 
       case direction
       in .in?
@@ -147,7 +148,6 @@ class Place::Demo::Camera < PlaceOS::Driver
         end
       in .stop?
         self[:zooming] = false
-        @zoom_task = nil
       end
     end
   end
