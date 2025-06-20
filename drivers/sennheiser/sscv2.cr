@@ -1,7 +1,12 @@
 require "placeos-driver"
+require "placeos-driver/interface/muteable"
 require "./sscv2_models"
 
+# https://docs.cloud.sennheiser.com/en-us/api-docs/api-docs/open-api-tc-ceiling-medium.html#/FastResource/get_api_audio_roomInUse_activityLevel
+
 class Sennheiser::SSCv2Driver < PlaceOS::Driver
+  include Interface::AudioMuteable
+  
   descriptive_name "Sennheiser Sound Control Protocol v2"
   generic_name :AudioDevice
   description "Driver for Sennheiser TeamConnect Ceiling Microphone (TCCM) using SSCv2 protocol. Requires third-party access to be enabled in Sennheiser Control Cockpit with configured password. Automatically subscribes to real-time device state, beam direction, audio levels, and room occupancy when running_specs is false or nil."
@@ -374,6 +379,12 @@ class Sennheiser::SSCv2Driver < PlaceOS::Driver
 
   def license_agreements_licenses
     get("/api/device/licenseAgreements/licenses")
+  end
+
+  # === Interface::AudioMuteable Implementation ===
+  
+  def mute_audio(state : Bool = true, index : Int32 | String = 0)
+    set_audio_global_mute(state)
   end
 
   # === Convenience Methods ===
