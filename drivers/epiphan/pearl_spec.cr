@@ -50,25 +50,22 @@ DriverSpecs.mock_driver "Epiphan::Pearl" do
 
   expect_http_request do |request, response|
     headers = request.headers
-    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/channels"
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/channels"
       response.status_code = 200
       response << %({
         "status": "ok",
         "result": [
           {
             "id": "4",
-            "name": "CameraTrackingRegie",
-            "type": "local"
+            "name": "CameraTrackingRegie"
           },
           {
             "id": "5",
-            "name": "CAM1",
-            "type": "local"
+            "name": "CAM1"
           },
           {
             "id": "6",
-            "name": "CAM2",
-            "type": "local"
+            "name": "CAM2"
           }
         ]
       })
@@ -93,7 +90,8 @@ DriverSpecs.mock_driver "Epiphan::Pearl" do
         "result": {
           "state": "stopped",
           "duration": 0,
-          "filename": null
+          "active": "0",
+          "total": "0"
         }
       })
     else
@@ -110,7 +108,7 @@ DriverSpecs.mock_driver "Epiphan::Pearl" do
 
   expect_http_request do |request, response|
     headers = request.headers
-    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/recorders/1/control/start"
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/recorders/1/control/start" && request.method == "POST"
       response.status_code = 200
       response << %({"status": "ok"})
     else
@@ -125,7 +123,7 @@ DriverSpecs.mock_driver "Epiphan::Pearl" do
 
   expect_http_request do |request, response|
     headers = request.headers
-    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/recorders/1/control/stop"
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/recorders/1/control/stop" && request.method == "POST"
       response.status_code = 200
       response << %({"status": "ok"})
     else
@@ -140,25 +138,22 @@ DriverSpecs.mock_driver "Epiphan::Pearl" do
 
   expect_http_request do |request, response|
     headers = request.headers
-    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/channels/4/layouts"
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/channels/4/layouts"
       response.status_code = 200
       response << %({
         "status": "ok",
         "result": [
           {
             "id": "1",
-            "name": "Web+Barco+Cams",
-            "active": false
+            "name": "Web+Barco+Cams"
           },
           {
             "id": "2",
-            "name": "Barco+Cams",
-            "active": false
+            "name": "Barco+Cams"
           },
           {
             "id": "3",
-            "name": "Cams",
-            "active": true
+            "name": "Cams"
           }
         ]
       })
@@ -170,4 +165,109 @@ DriverSpecs.mock_driver "Epiphan::Pearl" do
   retval.get
   layouts = status["channel_4_layouts"]?
   layouts.should_not be_nil
+
+  # Test pause_recording functionality
+  retval = exec(:pause_recording, "1")
+
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/recorders/1/control/pause" && request.method == "POST"
+      response.status_code = 200
+      response << %({"status": "ok"})
+    else
+      response.status_code = 401
+    end
+  end
+
+  retval.get.should be_true
+
+  # Test resume_recording functionality
+  retval = exec(:resume_recording, "1")
+
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/recorders/1/control/resume" && request.method == "POST"
+      response.status_code = 200
+      response << %({"status": "ok"})
+    else
+      response.status_code = 401
+    end
+  end
+
+  retval.get.should be_true
+
+  # Test list_publishers functionality
+  retval = exec(:list_publishers, "4")
+
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/channels/4/publishers"
+      response.status_code = 200
+      response << %({
+        "status": "ok",
+        "result": [
+          {
+            "id": "1",
+            "type": "rtmp",
+            "name": "RTMP Stream"
+          },
+          {
+            "id": "2",
+            "type": "hls",
+            "name": "HLS Stream"
+          }
+        ]
+      })
+    else
+      response.status_code = 401
+    end
+  end
+
+  retval.get
+  publishers = status["channel_4_publishers"]?
+  publishers.should_not be_nil
+
+  # Test set_channel_layout functionality
+  retval = exec(:set_channel_layout, "4", "3")
+
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" &&
+       request.path == "/api/v2.0/channels/4/set_layout" &&
+       request.method == "PUT"
+      response.status_code = 200
+      response << %({"status": "ok"})
+    else
+      response.status_code = 401
+    end
+  end
+
+  retval.get.should be_true
+
+  # Test get_system_status functionality
+  retval = exec(:get_system_status)
+
+  expect_http_request do |request, response|
+    headers = request.headers
+    if headers["Authorization"]? == "Basic #{Base64.strict_encode("admin:admin")}" && request.path == "/api/v2.0/system/status"
+      response.status_code = 200
+      response << %({
+        "status": "ok",
+        "result": {
+          "date": "2025-02-14T08:41:09-05:00",
+          "uptime": 5490,
+          "cpuload": 25,
+          "cpuload_high": false,
+          "cputemp": 57,
+          "cputemp_threshold": 70
+        }
+      })
+    else
+      response.status_code = 401
+    end
+  end
+
+  retval.get
+  system_status = status[:system_status]?
+  system_status.should_not be_nil
 end
