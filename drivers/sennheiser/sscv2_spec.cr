@@ -11,19 +11,20 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
     subscription_resources: ["/api/device/site"] of String,
   })
 
-  # Test device info API
-  exec(:device_info)
+  # Test device identity API
+  exec(:device_identity)
   expect_http_request do |request, response|
     headers = request.headers
     headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
     request.method.should eq("GET")
-    request.path.should eq("/api/device/info")
+    request.path.should eq("/api/device/identity")
 
     response.status_code = 200
     response << {
-      "model":    "TeamConnect Ceiling Medium",
-      "serial":   "TCC001234",
-      "firmware": "1.2.3",
+      "product":          "TeamConnect Ceiling Medium",
+      "hardwareRevision": "1.0",
+      "serial":           "TCC001234",
+      "vendor":           "Sennheiser",
     }.to_json
   end
 
@@ -37,25 +38,24 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
 
     response.status_code = 200
     response << {
-      "name":     "Conference Room A",
-      "location": "Building 1, Floor 2",
-      "site":     "Main Campus",
+      "deviceName": "Conference Room A",
+      "location":   "Building 1, Floor 2",
+      "position":   "Main Campus",
     }.to_json
   end
 
-  # Test device status API
-  exec(:device_status)
+  # Test device state API
+  exec(:device_state)
   expect_http_request do |request, response|
     headers = request.headers
     headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
     request.method.should eq("GET")
-    request.path.should eq("/api/device/status")
+    request.path.should eq("/api/device/state")
 
     response.status_code = 200
     response << {
-      "online":      true,
-      "temperature": 45.2,
-      "uptime":      123456,
+      "state":    "Ok",
+      "warnings": [] of String,
     }.to_json
   end
 
@@ -84,13 +84,13 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
     request.path.should eq("/api/device/site")
 
     body = JSON.parse(request.body.not_nil!)
-    body["name"]?.should eq("New Room Name")
+    body["deviceName"]?.should eq("New Room Name")
 
     response.status_code = 200
     response << {
-      "name":     "New Room Name",
-      "location": "Building 1, Floor 2",
-      "site":     "Main Campus",
+      "deviceName": "New Room Name",
+      "location":   "Building 1, Floor 2",
+      "position":   "Main Campus",
     }.to_json
   end
 
@@ -108,14 +108,14 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
 
     response.status_code = 200
     response << {
-      "name":     "Conference Room A",
-      "location": "Building 2, Floor 3",
-      "site":     "Main Campus",
+      "deviceName": "Conference Room A",
+      "location":   "Building 2, Floor 3",
+      "position":   "Main Campus",
     }.to_json
   end
 
-  # Test setting device site
-  exec(:set_device_site, "Secondary Campus")
+  # Test setting device position
+  exec(:set_device_position, "Secondary Campus")
   expect_http_request do |request, response|
     headers = request.headers
     headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
@@ -124,13 +124,13 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
     request.path.should eq("/api/device/site")
 
     body = JSON.parse(request.body.not_nil!)
-    body["site"]?.should eq("Secondary Campus")
+    body["position"]?.should eq("Secondary Campus")
 
     response.status_code = 200
     response << {
-      "name":     "Conference Room A",
-      "location": "Building 1, Floor 2",
-      "site":     "Secondary Campus",
+      "deviceName": "Conference Room A",
+      "location":   "Building 1, Floor 2",
+      "position":   "Secondary Campus",
     }.to_json
   end
 
@@ -190,9 +190,9 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
   site = Sennheiser::SSCv2::DeviceSite.new("Test Room", "Building 1", "Campus A")
   json = site.to_json
   parsed = Sennheiser::SSCv2::DeviceSite.from_json(json)
-  parsed.name.should eq("Test Room")
+  parsed.deviceName.should eq("Test Room")
   parsed.location.should eq("Building 1")
-  parsed.site.should eq("Campus A")
+  parsed.position.should eq("Campus A")
 
   status_obj = Sennheiser::SSCv2::SubscriptionStatus.new("/api/ssc/state/subscriptions/123", "123")
   json = status_obj.to_json
