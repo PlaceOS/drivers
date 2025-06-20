@@ -205,4 +205,110 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
   parsed_error = Sennheiser::SSCv2::ErrorResponse.from_json(json)
   parsed_error.path.should eq("/api/device/invalid")
   parsed_error.error.should eq(404)
+
+  # === Test AudioMuteable Interface ===
+  
+  # Test mute_audio method (Interface::AudioMuteable)
+  exec(:mute_audio, true)
+  expect_http_request do |request, response|
+    headers = request.headers
+    headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
+    headers["Content-Type"]?.should eq("application/json")
+    request.method.should eq("PUT")
+    request.path.should eq("/api/audio/outputs/global/mute")
+
+    body = JSON.parse(request.body.not_nil!)
+    body["enabled"]?.should eq(true)
+
+    response.status_code = 200
+    response << {
+      "enabled" => true,
+    }.to_json
+  end
+
+  # Test mute_audio unmute (Interface::AudioMuteable)
+  exec(:mute_audio, false)
+  expect_http_request do |request, response|
+    headers = request.headers
+    headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
+    headers["Content-Type"]?.should eq("application/json")
+    request.method.should eq("PUT")
+    request.path.should eq("/api/audio/outputs/global/mute")
+
+    body = JSON.parse(request.body.not_nil!)
+    body["enabled"]?.should eq(false)
+
+    response.status_code = 200
+    response << {
+      "enabled" => false,
+    }.to_json
+  end
+
+  # Test mute_audio with index parameter (should still work, index ignored for global mute)
+  exec(:mute_audio, true, 1)
+  expect_http_request do |request, response|
+    headers = request.headers
+    headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
+    headers["Content-Type"]?.should eq("application/json")
+    request.method.should eq("PUT")
+    request.path.should eq("/api/audio/outputs/global/mute")
+
+    body = JSON.parse(request.body.not_nil!)
+    body["enabled"]?.should eq(true)
+
+    response.status_code = 200
+    response << {
+      "enabled" => true,
+    }.to_json
+  end
+
+  # Test convenience mute method
+  exec(:mute, true)
+  expect_http_request do |request, response|
+    headers = request.headers
+    headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
+    headers["Content-Type"]?.should eq("application/json")
+    request.method.should eq("PUT")
+    request.path.should eq("/api/audio/outputs/global/mute")
+
+    body = JSON.parse(request.body.not_nil!)
+    body["enabled"]?.should eq(true)
+
+    response.status_code = 200
+    response << {
+      "enabled" => true,
+    }.to_json
+  end
+
+  # Test convenience unmute method
+  exec(:unmute)
+  expect_http_request do |request, response|
+    headers = request.headers
+    headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
+    headers["Content-Type"]?.should eq("application/json")
+    request.method.should eq("PUT")
+    request.path.should eq("/api/audio/outputs/global/mute")
+
+    body = JSON.parse(request.body.not_nil!)
+    body["enabled"]?.should eq(false)
+
+    response.status_code = 200
+    response << {
+      "enabled" => false,
+    }.to_json
+  end
+
+  # Test audio global mute get status
+  exec(:audio_global_mute)
+  expect_http_request do |request, response|
+    headers = request.headers
+    headers["Authorization"]?.should eq("Basic #{Base64.strict_encode("api:test_password")}")
+    request.method.should eq("GET")
+    request.path.should eq("/api/audio/outputs/global/mute")
+
+    response.status_code = 200
+    response << {
+      "enabled" => false,
+    }.to_json
+  end
 end
