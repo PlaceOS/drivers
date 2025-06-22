@@ -5,7 +5,7 @@ require "./security_interop_models"
 class Rhombus::SecurityInterop < PlaceOS::Driver
   descriptive_name "Rhombus Security Interop"
   generic_name :RhombusSecurity
-  description %(provides an interface for rhombus and local security platforms)
+  description %(provides an interface for rhombus and local security platforms.)
 
   default_settings({
     debug_webhook:   false,
