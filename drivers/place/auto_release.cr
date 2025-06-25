@@ -86,7 +86,7 @@ class Place::AutoRelease < PlaceOS::Driver
     @time_window_hours = setting?(Int32, :time_window_hours) || 1
     @release_locations = setting?(Array(String), :release_locations) || ["wfh", "aol"]
     @auto_release = setting?(AutoReleaseConfig, :auto_release) || AutoReleaseConfig.new
-    @skip_created_after_start = setting?(Bool, :skip_created_after_start) || true
+    @skip_created_after_start = setting?(Bool, :skip_created_after_start).nil? || setting(Bool, :skip_created_after_start)
     @skip_same_day = setting?(Bool, :skip_same_day) || false
     @skip_all_day = setting?(Bool, :skip_all_day) || false
 
@@ -192,13 +192,24 @@ class Place::AutoRelease < PlaceOS::Driver
     results = [] of Booking
     return results unless enabled?
 
+    explain = Hash(Int64, String).new
+
     bookings = get_pending_bookings
 
     bookings.each do |booking|
-      next if @skip_created_after_start && (created_at = booking.created) && created_at >= booking.booking_start
-      next if @skip_same_day && (created_at = booking.created) &&
-              Time.unix(created_at).in(building_zone.time_location!).day == Time.unix(booking.booking_start).in(building_zone.time_location!).day
-      next if @skip_all_day && booking.all_day
+      if @skip_created_after_start && (created_at = booking.created) && created_at >= booking.booking_start
+        explain[booking.id] = "skipped due to created after start time"
+        next
+      end
+      if @skip_same_day && (created_at = booking.created) &&
+         Time.unix(created_at).in(building_zone.time_location!).day == Time.unix(booking.booking_start).in(building_zone.time_location!).day
+        explain[booking.id] = "skipped due to same day booking"
+        next
+      end
+      if @skip_all_day && booking.all_day
+        explain[booking.id] = "skipped due to all day booking"
+        next
+      end
 
       if preferences = get_user_preferences?(booking.user_id)
         # get the booking start time in the building timezone
@@ -219,20 +230,30 @@ class Place::AutoRelease < PlaceOS::Driver
 
         if (override = overrides[booking_start.to_s(format: "%F")]?) &&
            in_preference?(override, event_time, @release_locations)
+          explain[booking.id] = "release due to override matching time and location"
           results << booking
         elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
               in_preference?(override, event_time, @release_locations, false)
+          explain[booking.id] = "skipped due to override matching time but not location"
         elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
               in_preference?(preference, event_time, @release_locations)
+          explain[booking.id] = "release due to matching time and location"
           results << booking
+        elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
+              in_preference?(preference, event_time, @release_locations, false)
+          explain[booking.id] = "skipped due to matching time but not location"
         elsif @auto_release.release_outside_hours
+          explain[booking.id] = "release due to outside work hours"
           results << booking
         end
+      else
+        explain[booking.id] = "skipped due to no user preferences"
       end
     end
 
     logger.debug { "found #{results.size} bookings pending release" }
 
+    self[:explain_pending_release] = explain
     self[:pending_release] = results
   end
 
