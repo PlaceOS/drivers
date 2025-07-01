@@ -386,6 +386,23 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  @[Description("route an input for presentation to all displays. Don't guess, look up available input ids")]
+  def route_all(input_id : String)
+    # obtain input ID
+    keys = all_inputs
+    hash = keys.each_with_object({} of String => String) do |input, memo|
+      memo[input.downcase] = input
+    end
+    input_actual = hash[input_id.downcase]?
+    raise "invalid input #{input_id}, must be one of #{keys.join(", ")}" unless input_actual
+
+    power true
+    selected_input(input_actual)
+    all_outputs.each do |output|
+      route(input_actual, output)
+    end
+  end
+
   # we want to unroute any signal going to the display
   # or if it's a direct connection, we want to mute the display.
   @[Description("blank a display / output, sometimes called a video mute")]
@@ -598,9 +615,11 @@ class Place::Meet < PlaceOS::Driver
     output = @outputs.first?
     unless audio || output
       logger.warn { "no audio configuration found" }
+      self[:has_master_audio] = false
       @master_audio = nil
       return
     end
+    self[:has_master_audio] = true
     audio ||= AudioFader.new
 
     # if nothing defined then we want to use the first output
