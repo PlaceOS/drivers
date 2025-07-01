@@ -2,6 +2,7 @@ require "placeos-driver"
 require "place_calendar"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
+require "set"
 
 class Place::BookingCheckInHelper < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
@@ -24,6 +25,12 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
     prompt_after:    10,
     auto_cancel:     false,
     decline_message: "optionally use this instead of a custom email template",
+
+    # notify 3rd parties of meetings that are not used
+    _notify_staff: {
+      cc:      ["email@address"],
+      mailbox: ["email@address"],
+    },
 
     # how many minutes to wait before we enable auto-check-in
     present_from:       5,
@@ -99,11 +106,14 @@ STRING
 
   @jwt_private_key : String = ""
   @decline_message : String? = nil
+  @notify_staff : Hash(String, Array(String)) = {} of String => Array(String)
 
   def on_update
     @jwt_private_key = setting?(String, :jwt_private_key) || ""
     @decline_message = setting?(String, :decline_message)
     @mailer_system = setting?(String, :mailer_system)
+
+    @notify_staff = setting?(Hash(String, Array(String)), :notify_staff) || {} of String => Array(String)
 
     @ignore_longer_than = setting?(Int32, :ignore_longer_than).try &.minutes
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
@@ -290,8 +300,21 @@ STRING
     unless @decline_message && @auto_cancel
       logger.debug { "prompting user about meeting room booking #{meeting.id}" }
       begin
+        cc_list = Set(String).new(@notify_staff["cc"]? || [] of String)
+        begin
+          meeting.attendees.each do |attendee|
+            cc_list << attendee.email.downcase if attendee.organizer
+          end
+          if additional = @notify_staff[meeting.mailbox]?
+            cc_list.concat additional
+          end
+        rescue error
+          logger.warn(exception: error) { "checking for additional staff to notify" }
+        end
+        host_email = meeting.host.not_nil!.downcase
+        cc_list.delete(host_email)
         params = generate_guest_jwt
-        mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
+        mailer.send_template(host_email, {"bookings", "check_in_prompt"}, params, cc: cc_list.to_a)
       rescue error
         logger.warn(exception: error) { "failed to notify user" }
       end
