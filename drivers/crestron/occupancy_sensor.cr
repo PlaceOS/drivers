@@ -103,7 +103,10 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     payload = JSON.parse(raw_json)
 
     if !raw_json.includes?("IsRoomOccupied")
-      @last_update = Time.utc.to_unix if !@occupied.nil? && payload["Device"]?.try(&.raw)
+      if !@occupied.nil? && payload["Device"]?.try(&.raw)
+        @last_update = Time.utc.to_unix
+        update_sensor
+      end
       return true
     end
 
