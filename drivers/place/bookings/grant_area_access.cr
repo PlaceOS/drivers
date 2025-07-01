@@ -130,9 +130,18 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     id = cached_user_lookups[email]?
     return id if id
 
-    email = username_lookup(email) if @lookup_using_username
+    if @lookup_using_username && (username = username_lookup(email))
+      json = (security.card_holder_id_lookup(username).get rescue nil)
+      if json && json.raw
+        id = (String | Int64).from_json(json.to_json)
+        cached_user_lookups[email] = (String | Int64).from_json(json.to_json)
+        return id
+      end
+    end
 
-    if json = (security.card_holder_id_lookup(email).get rescue nil)
+    # handle the case where we have a json `null` response
+    json = (security.card_holder_id_lookup(email).get rescue nil)
+    if json && json.raw
       cached_user_lookups[email] = (String | Int64).from_json(json.to_json)
     end
   end
