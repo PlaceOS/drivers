@@ -24,7 +24,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
   @mac : String = ""
   @name : String? = nil
-  @occupied : Bool = false
+  @occupied : Bool? = nil
   @connected : Bool = false
   getter last_update : Int64 = 0_i64
   getter poll_counter : UInt64 = 0_u64
@@ -100,9 +100,12 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     raw_json = response.body
     logger.debug { "long poll sent: #{raw_json}" }
-
-    return true unless raw_json.includes? "IsRoomOccupied"
     payload = JSON.parse(raw_json)
+
+    if !raw_json.includes?("IsRoomOccupied")
+      @last_update = Time.utc.to_unix if !@occupied.nil? && payload["Device"]?.try(&.raw)
+      return true
+    end
 
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
@@ -154,6 +157,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
     logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
 
+    return NO_MATCH if @occupied.nil?
     return NO_MATCH if mac && mac != @mac
     if type
       sensor_type = SensorType.parse(type)
@@ -165,7 +169,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
   def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
-    return nil unless @mac == mac
+    return nil unless @mac == mac && !@occupied.nil?
     @sensor_data[0]?
   end
 
