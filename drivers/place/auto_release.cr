@@ -165,6 +165,11 @@ class Place::AutoRelease < PlaceOS::Driver
     nil
   end
 
+  @[Security(Level::Support)]
+  def get_user_preferences(user_id : String)
+    get_user_preferences?(user_id) || {work_preferences: @auto_release.default_work_preferences, work_overrides: Hash(String, WorktimePreference).new}
+  end
+
   def in_preference_hours?(start_time : Float64, end_time : Float64, event_time : Float64) : Bool
     if start_time < end_time
       start_time < event_time && end_time > event_time
@@ -211,43 +216,41 @@ class Place::AutoRelease < PlaceOS::Driver
         next
       end
 
-      if preferences = (get_user_preferences?(booking.user_id) || {work_preferences: @auto_release.default_work_preferences, work_overrides: Hash(String, WorktimePreference).new})
-        # get the booking start time in the building timezone
-        booking_start = Time.unix(booking.booking_start).in building_zone.time_location!
+      preferences = get_user_preferences(booking.user_id)
 
-        day_of_week = booking_start.day_of_week.value
-        day_of_week = 0 if day_of_week == 7 # Crystal uses 7 for Sunday, but we use 0 (all other days match up)
+      # get the booking start time in the building timezone
+      booking_start = Time.unix(booking.booking_start).in building_zone.time_location!
 
-        # convert unix timestamp to float hours/minutes
-        # e.g. 7:30AM = 7.5
-        event_time = booking_start.hour + (booking_start.minute / 60.0)
+      day_of_week = booking_start.day_of_week.value
+      day_of_week = 0 if day_of_week == 7 # Crystal uses 7 for Sunday, but we use 0 (all other days match up)
 
-        # use all_day_start for all day bookings
-        event_time = @auto_release.all_day_start if booking.all_day
+      # convert unix timestamp to float hours/minutes
+      # e.g. 7:30AM = 7.5
+      event_time = booking_start.hour + (booking_start.minute / 60.0)
 
-        # exclude overrides with empty time blocks
-        overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
+      # use all_day_start for all day bookings
+      event_time = @auto_release.all_day_start if booking.all_day
 
-        if (override = overrides[booking_start.to_s(format: "%F")]?) &&
-           in_preference?(override, event_time, @release_locations)
-          explain[booking.id] = "release due to override matching time and location"
-          results << booking
-        elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
-              in_preference?(override, event_time, @release_locations, false)
-          explain[booking.id] = "skipped due to override matching time but not location"
-        elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
-              in_preference?(preference, event_time, @release_locations)
-          explain[booking.id] = "release due to matching time and location"
-          results << booking
-        elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
-              in_preference?(preference, event_time, @release_locations, false)
-          explain[booking.id] = "skipped due to matching time but not location"
-        elsif @auto_release.release_outside_hours
-          explain[booking.id] = "release due to outside work hours"
-          results << booking
-        end
-      else
-        explain[booking.id] = "skipped due to no user preferences"
+      # exclude overrides with empty time blocks
+      overrides = preferences[:work_overrides].select { |_, pref| pref.blocks.size > 0 }
+
+      if (override = overrides[booking_start.to_s(format: "%F")]?) &&
+         in_preference?(override, event_time, @release_locations)
+        explain[booking.id] = "release due to override matching time and location"
+        results << booking
+      elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
+            in_preference?(override, event_time, @release_locations, false)
+        explain[booking.id] = "skipped due to override matching time but not location"
+      elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
+            in_preference?(preference, event_time, @release_locations)
+        explain[booking.id] = "release due to matching time and location"
+        results << booking
+      elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
+            in_preference?(preference, event_time, @release_locations, false)
+        explain[booking.id] = "skipped due to matching time but not location"
+      elsif @auto_release.release_outside_hours
+        explain[booking.id] = "release due to outside work hours"
+        results << booking
       end
     end
 
