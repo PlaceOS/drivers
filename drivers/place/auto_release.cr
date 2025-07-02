@@ -211,7 +211,7 @@ class Place::AutoRelease < PlaceOS::Driver
         next
       end
 
-      if preferences = get_user_preferences?(booking.user_id)
+      if preferences = (get_user_preferences?(booking.user_id) || {work_preferences: @auto_release.default_work_preferences, work_overrides: Hash(String, WorktimePreference).new})
         # get the booking start time in the building timezone
         booking_start = Time.unix(booking.booking_start).in building_zone.time_location!
 
