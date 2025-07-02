@@ -356,6 +356,8 @@ STRING
     end
   end
 
+  record FallbackUser, name : String
+
   # generates the parameters that can be mixed into the template email
   protected def generate_guest_jwt
     meeting = current_meeting
@@ -364,30 +366,38 @@ STRING
     ctrl_system = config.control_system.not_nil!
     system_id = ctrl_system.id
     event_id = meeting.id
-    host_email = meeting.host.not_nil!
-    user = PlaceCalendar::User.from_json calendar.get_user(host_email).get.to_json
+    host_email = meeting.host.not_nil!.downcase
+
+    user = meeting.attendees.find { |attendee| attendee.email.downcase == host_email }
+    begin
+      user ||= PlaceCalendar::User.from_json(calendar.get_user(host_email).get.to_json)
+    rescue
+    end
+    user ||= FallbackUser.new(host_email.split('@').first.split(/\.|_/).map(&.capitalize).join(' '))
 
     now = Time.utc
     starting = meeting.event_start.in(@timezone)
     end_of_meeting = (meeting.event_end || starting.at_end_of_day).in(@timezone)
 
-    payload = {
-      iss:   "POS",
-      iat:   now.to_unix,
-      exp:   end_of_meeting.to_unix,
-      jti:   UUID.random.to_s,
-      aud:   @domain,
-      scope: ["guest"],
-      sub:   host_email,
-      u:     {
-        n: user.name,
-        e: host_email,
-        p: 0,
-        r: [event_id, system_id],
-      },
-    }
+    if @jwt_private_key.presence
+      payload = {
+        iss:   "POS",
+        iat:   now.to_unix,
+        exp:   end_of_meeting.to_unix,
+        jti:   UUID.random.to_s,
+        aud:   @domain,
+        scope: ["guest"],
+        sub:   host_email,
+        u:     {
+          n: user.name,
+          e: host_email,
+          p: 0,
+          r: [event_id, system_id],
+        },
+      }
 
-    jwt = JWT.encode(payload, @jwt_private_key, JWT::Algorithm::RS256)
+      jwt = JWT.encode(payload, @jwt_private_key, JWT::Algorithm::RS256)
+    end
 
     {
       jwt:               jwt,
