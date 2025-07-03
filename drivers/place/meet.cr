@@ -878,7 +878,7 @@ class Place::Meet < PlaceOS::Driver
         levels.concat(remote_levels)
       end
     end
-    levels.map! { |level| LightingLevel.new(level.name, level.area, level.to_s) }
+    levels.map! { |level| LightingLevel.new(level.name, level.area, level.area.to_s) }
     self[:lighting_levels] = levels.empty? ? nil : levels
   end
 
