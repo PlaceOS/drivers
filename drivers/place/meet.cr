@@ -84,6 +84,14 @@ class Place::Meet < PlaceOS::Driver
         opacity: 0.8,
       },
     ],
+    lighting_levels: [
+      {
+        name: "Spot light left",
+        area: {
+          id: 123,
+        },
+      },
+    ],
     _channel_details: [
       {
         name:    "Al Jazeera",
@@ -777,6 +785,9 @@ class Place::Meet < PlaceOS::Driver
 
   alias LightingArea = Interface::Lighting::Area
   alias LightingScene = NamedTuple(name: String, id: UInt32, icon: String, opacity: Float64)
+  record LightingLevel, name : String, area : LightingArea, binding : String? = nil do
+    include JSON::Serializable
+  end
 
   DEFAULT_LIGHT_MOD = "Lighting_1"
 
@@ -785,8 +796,10 @@ class Place::Meet < PlaceOS::Driver
   @light_area : LightingArea? = nil
   @light_scenes : Hash(String, UInt32) = {} of String => UInt32
   @light_module : String = DEFAULT_LIGHT_MOD
+  getter local_light_levels : Array(LightingLevel)? = nil
 
   @light_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
+  @light_levels_query : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
 
   protected def init_lighting
     # deal with `false`
@@ -794,6 +807,7 @@ class Place::Meet < PlaceOS::Driver
     @lighting_independent = lights_independent.nil? ? true : lights_independent
     @light_area = @local_lighting_area = setting?(LightingArea, :lighting_area)
     light_scenes = setting?(Array(LightingScene), :lighting_scenes)
+    @local_light_levels = setting?(Array(LightingLevel), :lighting_levels)
     @light_module = setting?(String, :lighting_module) || DEFAULT_LIGHT_MOD
 
     local_scenes = {} of String => UInt32
@@ -801,6 +815,19 @@ class Place::Meet < PlaceOS::Driver
     light_scenes.try(&.each { |scene| local_scenes[scene[:name].downcase] = scene[:id] })
     @light_scenes = local_scenes
     self[:lighting_scenes] = light_scenes
+
+    # query current light levels if we have faders
+    @light_levels_query.try(&.cancel) rescue nil
+    @light_levels_query = nil
+    if local_levels = @local_light_levels
+      @light_levels_query = schedule.in(10.seconds + rand(2000).milliseconds) do
+        @light_levels_query = nil
+        lighting = system[@light_module]
+        local_levels.each do |level|
+          lighting.lighting_level?(level.area)
+        end
+      end
+    end
 
     @light_subscription = nil
     update_available_lighting
@@ -843,6 +870,16 @@ class Place::Meet < PlaceOS::Driver
     @light_subscription = system.subscribe(@light_module, @light_area.to_s) do |_sub, scene|
       self[:lighting_scene] = scene.to_i if scene && scene != "null"
     end
+
+    # merge all the faders onto the joined touch panels
+    levels = @local_light_levels.try(&.dup) || [] of LightingLevel
+    remote_systems.each do |remote|
+      if remote_levels = Array(LightingLevel)?.from_json(remote.room_logic.local_light_levels.get.to_json)
+        levels.concat(remote_levels)
+      end
+    end
+    levels.map! { |level| LightingLevel.new(level.name, level.area, level.to_s) }
+    self[:lighting_levels] = levels.empty? ? nil : levels
   end
 
   def select_lighting_scene(scene : String, push_to_remotes : Bool = true)
