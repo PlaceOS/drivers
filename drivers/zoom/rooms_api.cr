@@ -141,12 +141,31 @@ class Zoom::RoomsApi < PlaceOS::Driver
   end
 
   # Get specific room details
+  # the user_id in this response can be used to get the upcoming meetings
+  # https://developers.zoom.us/docs/api/rooms/#tag/zoom-rooms/GET/rooms/{roomId}
   def get_room(room_id : String? = nil)
     room_id ||= @default_room_id || raise "No room_id provided"
 
     result = api_request("GET", "/rooms/#{room_id}")
     self[:room_details] = result
     result
+  end
+
+  enum MeetingType
+    Scheduled        # All valid previous (unexpired) meetings, live meetings, and upcoming scheduled meetings.
+    Live             # All the ongoing meetings
+    Upcoming         # All upcoming meetings, including live meetings.
+    UpcomingMeetings # All upcoming meetings, including live meetings.
+    PreviousMeetings # All the previous meetings.
+  end
+
+  # list the meetings in the room
+  # https://developers.zoom.us/docs/api/meetings/#tag/meetings/GET/users/{userId}/meetings
+  def list_meetings(room_user_id : String, type : MeetingType = MeetingType::Scheduled)
+    params = {
+      "type" => type.to_s.underscore,
+    }
+    api_request("GET", "/users/#{room_user_id}/meetings", params: params)
   end
 
   # List Zoom Room devices
@@ -247,12 +266,6 @@ class Zoom::RoomsApi < PlaceOS::Driver
     api_request("PATCH", "/rooms/#{room_id}/events", body: body)
     logger.info { "Zoom Room restart initiated" }
     nil
-  end
-
-  # list the meetings in the room
-  def list_meetings(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-    api_request("GET", "/rooms/#{room_id}/meetings")
   end
 
   # Meeting controls
