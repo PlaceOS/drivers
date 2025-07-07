@@ -1,6 +1,7 @@
 require "placeos-driver"
-require "json"
 require "base64"
+require "json"
+require "jwt"
 
 # Documentation: https://developers.zoom.us/docs/api/rooms/
 
@@ -77,11 +78,13 @@ class Zoom::RoomsApi < PlaceOS::Driver
       )
 
       if response.success?
-        logger.debug { "Successfully authenticated with Zoom API" }
+        logger.debug { "Successfully authenticated with Zoom API:\n#{response.body}" }
         @auth_token = AccessToken.from_json(response.body)
+
+        # TODO:: fix this, needs to be against the transport
         http_uri_override = auth_token.api_url
       else
-        logger.error { "Failed to authenticate: #{response.status_code} - #{response.body}" }
+        logger.error { "Failed to authenticate: #{response.status_code}\n#{response.body}" }
         raise "Authentication failed: #{response.status_code}, response: #{response.body}"
       end
     end
@@ -244,6 +247,12 @@ class Zoom::RoomsApi < PlaceOS::Driver
     api_request("PATCH", "/rooms/#{room_id}/events", body: body)
     logger.info { "Zoom Room restart initiated" }
     nil
+  end
+
+  # list the meetings in the room
+  def list_meetings(room_id : String? = nil)
+    room_id ||= @default_room_id || raise "No room_id provided"
+    api_request("GET", "/rooms/#{room_id}/meetings")
   end
 
   # Meeting controls
