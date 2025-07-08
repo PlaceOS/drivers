@@ -94,7 +94,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def input?
-    do_send(:input, priority: 0).get
+    do_send(:input, priority: 0, retries: 0).get
     self[:input]
   end
 
@@ -115,7 +115,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def volume?
     return if @muting_disabled
-    do_send(:volume, priority: 0).get
+    do_send(:volume, priority: 0, retries: 0).get
     self[:volume]?.try(&.as_f)
   end
 
@@ -128,7 +128,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     case layer
     when .audio_video?
       do_send(:av_mute, state ? "ON" : "OFF", name: :mute)
-      do_send(:av_mute, name: :mute?, priority: 0)
+      do_send(:av_mute, name: :mute?, priority: 0, retries: 0)
     when .video?
       do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute)
       video_mute?
@@ -185,7 +185,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def received(data, task)
     return task.try(&.success) if data.size <= 2
-    data = String.new(data[1..-2])
+    # Because we see sometimes see responses like ':::PWR'
+    data = String.new(data[1..-2]).lstrip(':')
     logger.debug { "<< Received from Epson Proj: #{data}" }
 
     # Handle IMEVENT messages
@@ -195,7 +196,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     end
 
     data = data.split('=')
-    case RESPONSE[data[0].lstrip(':')] # Because we see sometimes see responses like ':::PWR'
+    case RESPONSE[data[0]]
     when :error
       if data[1]?
         code = data[1].to_i(16)
