@@ -596,6 +596,7 @@ class Place::Bookings < PlaceOS::Driver
   @sensor_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
 
   protected def check_for_sensors
+    @perform_sensor_search = true
     drivers = system.implementing(Interface::Sensor)
 
     if sub = @sensor_subscription
