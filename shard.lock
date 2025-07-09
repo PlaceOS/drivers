@@ -261,6 +261,10 @@ shards:
     git: https://github.com/spider-gazelle/promise.git
     version: 3.2.0
 
+  protobuf:
+    git: https://github.com/jeromegn/protobuf.cr.git
+    version: 2.3.1
+
   qr-code:
     git: https://github.com/spider-gazelle/qr-code.git
     version: 1.0.3
