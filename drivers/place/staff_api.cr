@@ -12,7 +12,7 @@ require "./booking_model"
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
   generic_name :StaffAPI
-  description %(helpers for requesting data held in the staff API)
+  description %(helpers for requesting data held in the staff API.)
 
   # The PlaceOS API
   uri_base "https://staff"
