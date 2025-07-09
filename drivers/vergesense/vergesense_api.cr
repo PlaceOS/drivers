@@ -16,9 +16,9 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
 
   @api_key : String = ""
 
-  @buildings : Array(Building) = [] of Building
-  @floors : Hash(String, Floor) = {} of String => Floor
-  @spaces : Hash(String, String) = {} of String => String
+  getter buildings : Array(Building) = [] of Building
+  getter floors : Hash(String, Floor) = {} of String => Floor
+  getter spaces : Hash(String, String) = {} of String => String
 
   @debug_payload : Bool = false
   @poll_every : Time::Span? = nil
@@ -134,7 +134,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
         floor_space.floor_ref_id = remote_space.floor_ref_id
         floor_space.people = remote_space.people
         floor_space.motion_detected = remote_space.motion_detected
-        floor_space.timestamp = remote_space.timestamp
+        floor_space.timestamp = remote_space.last_report_time?
         floor_space.environment = remote_space.environment
         floor_space.name = remote_space.name if remote_space.name
         floor_space.capacity = remote_space.capacity if remote_space.capacity
@@ -152,6 +152,11 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
     end
   end
 
+  private def check_hardware_state
+    # paginated_request("/hardware/sensors") do |raw_json|
+    # end
+  end
+
   private def get_request(path)
     response = get(path,
       headers: {
@@ -163,6 +168,32 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
       response.body
     else
       raise "unexpected response #{response.status_code}\n#{response.body}"
+    end
+  end
+
+  private def paginated_request(path)
+    max_pages = 100
+    loop do
+      response = get(path,
+        headers: {
+          "vs-api-key" => @api_key,
+        }
+      )
+
+      if response.success?
+        body_json = response.body
+        yield body_json
+
+        max_pages -= 1
+        break if max_pages <= 0
+
+        pagination = Pagination.from_json(body_json, "links") rescue Pagination.new
+        next_request = pagination.next_page
+        break unless next_request
+        path = next_request
+      else
+        raise "unexpected response #{response.status_code}\n#{response.body}"
+      end
     end
   end
 end

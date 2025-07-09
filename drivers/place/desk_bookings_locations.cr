@@ -43,6 +43,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   def on_update
     @zone_filter = setting?(Array(String), :zone_filter) || [] of String
     @zones = nil
+    @building_id = nil
+    @map_ids = nil
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
 
     @booking_type = setting?(String, :booking_type).presence || "desk"
@@ -61,6 +63,25 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     else
       filtered
     end
+  end
+
+  getter building_id : String { location_service.building_id.get.as_s }
+
+  # asset_id => map_id
+  getter map_ids : Hash(String, String) do
+    levels = staff_api.metadata_children(building_id, "desks").get.as_a
+    id_map = {} of String => String
+
+    levels.each do |level|
+      if desks = level["metadata"]["desks"]?
+        desks["details"].as_a.each do |desk|
+          if map_id = desk["map_id"]?.try(&.as_s?).presence
+            id_map[desk["id"].as_s] = map_id
+          end
+        end
+      end
+    end
+    id_map
   end
 
   # ===================================
@@ -143,6 +164,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   end
 
   protected def map_bookings(bookings)
+    map_mappings = map_ids rescue {} of String => String
     bookings.map do |booking|
       level = nil
       building = nil
@@ -169,7 +191,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
         "mac"         => booking.user_id,
         "staff_email" => booking.user_email,
         "staff_name"  => booking.user_name,
-      }
+        "map_id"      => map_mappings[booking.asset_id]?
+      }.compact!
 
       # check for any custom data we want to include
       if !booking.extension_data.empty? && (init_data = JSON::Any.new(booking.extension_data))

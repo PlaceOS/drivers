@@ -221,6 +221,9 @@ module Place::Router::Core
               end
             in SignalGraph::Edge::Func::Select
               mod.switch_to func.input
+
+              # ensure the device is unmuted
+              mod.mute(false, layer: :video) if mod.implements?(::PlaceOS::Driver::Interface::Muteable)
             in SignalGraph::Edge::Func::Switch
               mod.switch({func.input => [func.output]}, func.layer)
             end

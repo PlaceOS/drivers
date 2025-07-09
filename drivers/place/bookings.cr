@@ -22,7 +22,7 @@ class Place::Bookings < PlaceOS::Driver
     cache_polling_period:   5,
     cache_days:             30,
 
-    # consider sensor data older than this unreliable
+    # consider sensor data older than this unreliable.
     sensor_stale_minutes: 8,
 
     # as graph API is eventually consistent we want to delay syncing for a moment
@@ -596,6 +596,7 @@ class Place::Bookings < PlaceOS::Driver
   @sensor_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
 
   protected def check_for_sensors
+    @perform_sensor_search = true
     drivers = system.implementing(Interface::Sensor)
 
     if sub = @sensor_subscription
@@ -913,6 +914,22 @@ class Place::Bookings < PlaceOS::Driver
       @sub_renewed_at = Time.local
 
       configure_push_monitoring
+    end
+  end
+
+  # =======================================
+  # Helper for detecting invalid config
+  # =======================================
+
+  def syllabus_plus_resource_check
+    sleep rand(10_000).milliseconds
+    @calendar_ids.each do |cal_id|
+      resource_id = cal_id.split('@')[0]
+      begin
+        calendar.resource_lookup(resource_id).get
+      rescue error
+        logger.error(exception: error) { "invalid syllabus plus resource id #{resource_id} in #{config.control_system.not_nil!.name}" }
+      end
     end
   end
 end

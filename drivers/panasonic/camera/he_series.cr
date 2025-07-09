@@ -99,7 +99,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     else
       options = {
         retries:     1,
-        priority:    queue.priority,
+        priority:    queue.priority + 10,
         clear_queue: false,
         name:        :joystick,
       }
@@ -189,11 +189,11 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
     case direction
     in .in?
-      move_zoom(@default_movement_speed // 2)
+      move_zoom(@default_movement_speed // 2, priority: queue.priority + 9)
     in .out?
-      move_zoom(-@default_movement_speed)
+      move_zoom(-@default_movement_speed, priority: queue.priority + 9)
     in .stop?
-      move_zoom(0)
+      move_zoom(0, priority: queue.priority + 20)
     end
   end
 
@@ -208,8 +208,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   # Stoppable interface
 
   def stop(index : Int32 | String = 0, emergency : Bool = false)
-    move_zoom(0, priority: 100)
     joystick(0, 0)
+    move_zoom(0, priority: queue.priority + 20)
   end
 
   # ======================

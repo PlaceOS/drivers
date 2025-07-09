@@ -53,6 +53,17 @@ module Vergesense
     property signs_of_life : Bool?
   end
 
+  struct Pagination
+    include JSON::Serializable
+
+    def initialize
+      @next_page = nil
+    end
+
+    @[JSON::Field(key: "next")]
+    property next_page : String?
+  end
+
   class Space
     include JSON::Serializable
 
@@ -73,6 +84,14 @@ module Vergesense
     def signs_of_life? : Bool?
       if report = last_reports.try &.first?
         report.signs_of_life if report.timestamp >= 2.hours.ago
+      end
+    end
+
+    def last_report_time? : Time?
+      if report = last_reports.try &.first?
+        report.timestamp
+      elsif env = environment
+        env.timestamp
       end
     end
 

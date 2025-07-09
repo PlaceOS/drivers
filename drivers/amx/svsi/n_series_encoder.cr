@@ -2,11 +2,13 @@ require "placeos-driver"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 require "inactive-support/mapped_enum"
+require "./models"
 
 # Documentation: https://aca.im/driver_docs/AMX/SVSIN1000N2000Series.APICommandList.pdf
 
 class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   include Interface::Muteable
+  include Amx::Transmitter
 
   enum Input
     Hdmionly
@@ -68,7 +70,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     if state
       do_send(Command::Disable) if layer.audio_video? || layer.video?

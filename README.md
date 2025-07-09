@@ -30,7 +30,7 @@ To spin up the test harness, clone the repository and run...
 $ ./harness up
 ```
 
-Point a browser to [localhost:8085](http://localhost:8085), and you're good to go.
+Point a browser to [localhost:8085/index.html](http://localhost:8085/index.html), and you're good to go.
 
 When the environment is not in use, remember to run...
 

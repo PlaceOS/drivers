@@ -1,12 +1,14 @@
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
+require "placeos-models/placeos-models/base/jwt"
 
 require "./password_generator_helper"
 require "./visitor_models"
 
 require "uuid"
 require "oauth2"
+require "jwt"
 
 class Place::VisitorMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
@@ -46,6 +48,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     disable_event_visitors: true,
     invite_zone_tag:        "building",
     is_campus:              false,
+
+    domain_uri:      "https://example.com/",
+    jwt_private_key: PlaceOS::Model::JWTBase.private_key,
   })
 
   accessor staff_api : StaffAPI_1
@@ -116,6 +121,9 @@ class Place::VisitorMailer < PlaceOS::Driver
   @network_group_ids = [] of String
   @disable_event_visitors : Bool = true
 
+  @uri : URI = URI.new
+  @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
+
   def on_update
     @debug = setting?(Bool, :debug) || true
     @date_time_format = setting?(String, :date_time_format) || "%c"
@@ -148,6 +156,10 @@ class Place::VisitorMailer < PlaceOS::Driver
     @time_zone = Time::Location.load(time_zone)
 
     @booking_space_name = setting?(String, :booking_space_name).presence || "Client Floor"
+
+
+    @uri = URI.parse(setting?(String, :domain_uri) || "")
+    @jwt_private_key = setting?(String, :jwt_private_key) || PlaceOS::Model::JWTBase.private_key
 
     zones = config.control_system.not_nil!.zones
     schedule.clear
@@ -268,7 +280,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       guest_details.event_starting,
       guest_details.resource_id,
       guest_details.event_id,
-      area_name
+      area_name,
+      system_id: guest_details.responds_to?(:system_id) ? guest_details.system_id : nil,
     )
   rescue error
     logger.error { error.inspect_with_backtrace }
@@ -322,7 +335,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     mailer.send_template(
       host_email,
-      {"visitor_invited", template}, # Template selection: "visitor_invited" "notify_checkin"
+      {"visitor_invited", template}, # Template selection: "visitor_invited" "induction_accepted"
       {
       visitor_email:    visitor_email,
       visitor_name:     visitor_name,
@@ -362,6 +375,11 @@ class Place::VisitorMailer < PlaceOS::Driver
       {name: "induction_status", description: "Status of the induction (e.g., accepted or declined)"},
     ]
 
+    jwt_fields = [
+      {name: "guest_jwt", description: "JWT token for the guest"},
+      {name: "kiosk_url", description: "URL for the visitor kiosk"},
+    ]
+
     [
       TemplateFields.new(
         trigger: {"visitor_invited", @reminder_template},
@@ -373,13 +391,13 @@ class Place::VisitorMailer < PlaceOS::Driver
         trigger: {"visitor_invited", @event_template},
         name: "Visitor invited to event",
         description: "Initial invitation for a visitor attending a calendar event",
-        fields: invitation_fields
+        fields: invitation_fields + jwt_fields
       ),
       TemplateFields.new(
         trigger: {"visitor_invited", @booking_template},
         name: "Visitor invited to booking",
         description: "Initial invitation for a visitor with a space booking",
-        fields: invitation_fields
+        fields: invitation_fields + jwt_fields
       ),
       TemplateFields.new(
         trigger: {"visitor_invited", @group_event_template},
@@ -421,7 +439,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_id : String,
     area_name : String,
 
-    event_end : Int64? = nil
+    event_end : Int64? = nil,
+    system_id : String? = nil,
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -458,6 +477,9 @@ class Place::VisitorMailer < PlaceOS::Driver
                    local_start_time.to_s(@time_format)
                  end
 
+    guest_jwt = generate_guest_jwt(visitor_name || visitor_email, visitor_email, visitor_email, event_id, system_id || resource_id)
+    kiosk_url = "/visitor-kiosk/#/checkin/preferences?email=#{visitor_email}&jwt=#{guest_jwt}&event_id=#{event_id}"
+
     mailer.send_template(
       visitor_email,
       {"visitor_invited", template}, # Template selection: "visitor_invited" action, "visitor" email
@@ -474,6 +496,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_time:       event_time,
       network_username: network_username,
       network_password: network_password,
+      guest_jwt:        guest_jwt,
+      kiosk_url:        kiosk_url,
     },
       attach
     )
@@ -524,6 +548,35 @@ class Place::VisitorMailer < PlaceOS::Driver
         logger.warn(exception: error) { "failed to send reminder email to #{guest["email"]}" }
       end
     end
+  end
+
+  # ===================================
+  # Guest JWT Generation:
+  # ===================================
+
+  @[Security(Level::Administrator)]
+  def generate_guest_jwt(name : String, email : String, guest_id : String, event_id : String, system_id : String)
+    now = Time.local(@time_zone)
+    tonight = now.at_end_of_day
+    tomorrow_night = tonight + 24.hours
+
+    payload = {
+      iss:   "POS",
+      iat:   now.to_unix,
+      exp:   tomorrow_night.to_unix,
+      jti:   UUID.random.to_s,
+      aud:   @uri.try &.host,
+      scope: ["guest"],
+      sub:   guest_id,
+      u:     {
+        n: name,
+        e: email,
+        p: 0,
+        r: [event_id, system_id],
+      },
+    }
+
+    JWT.encode(payload, @jwt_private_key, JWT::Algorithm::RS256)
   end
 
   # ===================================

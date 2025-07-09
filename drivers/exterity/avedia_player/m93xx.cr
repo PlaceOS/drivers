@@ -10,8 +10,9 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
     ssh: {
       username: :ctrl,
       password: :labrador,
+      term:     :xterm,
     },
-    max_waits:       100,
+    max_waits: 100,
   })
 
   @ready : Bool = false
@@ -96,12 +97,30 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
 
     logger.debug { "Exterity sent #{data}" }
 
-    if !@ready && data =~ /Terminal Control Interface/i
-      logger.info { "-- got the control interface message, we're READY now" }
-      transport.tokenizer = Tokenizer.new("!")
-      self[:ready] = @ready = true
-      dump
-      return
+    if !@ready
+      if data =~ /Run a Shell/i
+        logger.info { "-- starting the command interface" }
+
+        # select open shell option
+        do_send "6\r", wait: false, delay: 2.seconds, priority: 96
+
+        # launch command processor
+        do_send "/usr/bin/serialCommandInterface\r", wait: false, delay: 200.milliseconds, priority: 95
+
+        # we need to disconnect if we don't see the serialCommandInterface after a certain amount of time
+        schedule.in(20.seconds) do
+          if !@ready
+            logger.error { "Exterity connection failed to be ready after 20 seconds." }
+            disconnect
+          end
+        end
+      elsif data =~ /Terminal Control Interface/i
+        logger.info { "-- got the control interface message, we're READY now" }
+        transport.tokenizer = Tokenizer.new("!")
+        self[:ready] = @ready = true
+        dump
+        return
+      end
     end
 
     # Extract response between the ^ and !

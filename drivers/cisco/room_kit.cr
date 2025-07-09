@@ -18,7 +18,7 @@ class Cisco::RoomKit < PlaceOS::Driver
   tcp_port 22
 
   description <<-DESC
-    Control of Cisco SX20 devices.
+    Control of Cisco SX20 devices
 
     API access requires a local user with the "admin" role to be
     created on the codec.

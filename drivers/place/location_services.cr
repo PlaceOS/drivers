@@ -73,9 +73,18 @@ class Place::LocationServices < PlaceOS::Driver
   # requests location information on the identifier for all of them
   # concatenates the results and returns them as a single array
   def locate_user(email : String? = nil, username : String? = nil)
+    raise ArgumentError.new("must provide either email or username") unless email.presence || username.presence
+
     email = email.try &.downcase
     logger.debug { "searching for #{email}, #{username}" }
     located = [] of JSON::Any
+
+    # check if the user has opted out of being located
+    user = (staff_api.user(email || username).get rescue nil)
+    if user && !user.raw.nil?
+      return located if user["locatable"].as_bool == false
+    end
+
     system.implementing(Interface::Locatable).locate_user(email, username).get.each do |locations|
       located.concat locations.as_a
     end

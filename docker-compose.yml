@@ -1,5 +1,3 @@
-version: "3.7"
-
 x-build-client-env: &build-client-env
   PLACEOS_BUILD_HOST: ${PLACEOS_BUILD_HOST:-build}
   PLACEOS_BUILD_PORT: ${PLACEOS_BUILD_PORT:-3000}

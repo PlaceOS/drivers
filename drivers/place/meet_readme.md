@@ -152,6 +152,11 @@ outputs:
   Display_2:
     name: Display Right
 
+  # this display is hidden on the UI when the room is joined, preventing its use
+  Display_3:
+    name: Middle of room
+    hide_on_join: true
+
 ```
 
 ## Laying out Tabs
@@ -226,6 +231,10 @@ vc_camera_in:
   - VC_Camera_Input
   - Recorder_Camera_Input
 
+# where there are joining rooms you must define which cameras are local to the system
+local_cameras: 
+  - Camera_1
+  - Camera_2
 ```
 
 configuring camera switching where cameras are connected via a switcher but also multiple cameras are connected to the VC at once
@@ -347,6 +356,8 @@ preview_outputs:
 
 ```
 
+NOTE:: there is a setting `mute_on_unlink: true` that can be set to ensure outputs are muted when rooms are unlinked - ensuring routes are reset
+
 ## Front of House Audio
 
 By default the first display in the output list is assumed to be managing audio
@@ -453,6 +464,33 @@ local_microphones:
 
 ```
 
+Where a microphone might be shared between rooms or spill into a lobby, you can add a rooms configuration with mute ids that when unmuted will route the microphone audio to various spaces.
+
+```yaml
+
+local_microphones:
+  - name: Hand Held Microphone
+    # as above
+
+    rooms:
+      - name: "Room 1"
+        binding: "hh_room1_mute_id_mute"
+        control: "hh_room1_mute_id"
+        # this uses the `mute` function
+
+      - name: "Room 2"
+        binding: "hh_room2_mute_id_mute"
+        route:
+          - module_id: Mixer_1
+            function_name: trigger
+            arguments: ["hh_room2_add"]
+        unroute:
+          - module_id: Mixer_1
+            function_name: trigger
+            arguments: ["hh_room2_remove"]
+
+```
+
 ## Joining Config
 
 Where systems can be merged you can define the various modes that are supported between the rooms.
@@ -491,6 +529,12 @@ join_modes:
         - module_id: Mixer_1
           function_name: trigger
           arguments: ["Join-all"]
+      
+      # sometimes you may need to run an action to break a join (typically not required)
+      breakdown:
+        - module_id: Mixer_1
+          function_name: trigger
+          arguments: ["UnjoinAll"]
 
 ```
 
@@ -536,7 +580,7 @@ These are things like blinds or air-conditioning that usually have limited contr
 ```yaml
 
 room_accessories:
-  - name: Shade blinds
+  - name: Shade blind
     module: Blinds_1
     controls:
       - name: Up
@@ -547,5 +591,30 @@ room_accessories:
         icon: vertical_align_bottom
         function_name: position
         arguments: [1, "down"]
+
+```
+
+If a control performs multiple actions you can use the `exec` block
+
+```yaml
+
+room_accessories:
+  - name: Projector Screen
+    controls:
+      - name: Up
+        icon: vertical_align_top
+        exec: 
+          - module: Screen_1
+            function_name: position
+            arguments: [1, "up"]
+          - module: Projector_1
+            function_name: power
+            arguments: [false]
+      - name: Down
+        icon: vertical_align_bottom
+        exec: 
+          - module: Screen_1
+            function_name: position
+            arguments: [1, "down"]
 
 ```

@@ -94,9 +94,11 @@ class Sony::Camera::VISCA < PlaceOS::Driver
 
     pan_direction = pan_zero ? "03" : (pan_neg ? "01" : "02")
     tilt_direction = tilt_zero ? "03" : (tilt_neg ? "02" : "01")
+    stopping = pan_zero && tilt_zero
+    priority = queue.priority + (stopping ? 100 : 50)
 
     bytes = "0601#{pan_value}#{tilt_value}#{pan_direction}#{tilt_direction}"
-    resp = send_cmd(bytes.hexbytes, name: :joystick)
+    resp = send_cmd(bytes.hexbytes, name: :joystick, priority: priority)
 
     # query the current position after we've stopped moving
     if pan_zero && tilt_zero
@@ -201,8 +203,10 @@ class Sony::Camera::VISCA < PlaceOS::Driver
   end
 
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
+    priority = queue.priority + 40
     speed_byte = case direction
                  in .stop?
+                   priority = priority + 40
                    schedule.in(500.milliseconds) { zoom? }
                    0x00_u8
                  in .out?
@@ -211,7 +215,7 @@ class Sony::Camera::VISCA < PlaceOS::Driver
                    0x30_u8 | @zoom_speed
                  end
 
-    send_cmd(Bytes[0x04, 0x07, speed_byte], name: :zoom)
+    send_cmd(Bytes[0x04, 0x07, speed_byte], name: :zoom, priority: priority)
   end
 
   def zoom?
@@ -250,9 +254,9 @@ class Sony::Camera::VISCA < PlaceOS::Driver
     end
 
     enum_field UInt16, type : Type = Type::Command
-    uint16 :size, value: ->{ payload.size.to_u16 }
+    uint16 :size, value: -> { payload.size.to_u16 }
     uint32 :sequence
-    bytes :payload, length: ->{ size }
+    bytes :payload, length: -> { size }
   end
 
   @[Security(Level::Administrator)]
