@@ -406,7 +406,7 @@ class Place::Meet < PlaceOS::Driver
 
     power true
     selected_input(input_actual)
-    all_outputs.each do |output|
+    @outputs.each do |output|
       route(input_actual, output)
     end
   end
@@ -422,7 +422,7 @@ class Place::Meet < PlaceOS::Driver
 
   @[Description("blank all displays / outputs")]
   def unroute_all
-    all_outputs.each do |output|
+    @outputs.each do |output|
       route("MUTE", output)
     end
   end
@@ -1382,20 +1382,6 @@ class Place::Meet < PlaceOS::Driver
       # ensure the system is powered on
       power(true) if mode.linked? && !power?
 
-      # send the current input to the remote rooms
-      begin
-        if @auto_route_on_join && master && (selected_inp = status?(String, :selected_input))
-          routes = current_routes.compact.keys
-          all_outputs.each do |outp|
-            # skip if a display has something routed to it
-            next if routes.includes?(outp)
-            route(selected_inp, outp)
-          end
-        end
-      rescue error
-        logger.error(exception: error) { "error applying routes during join" }
-      end
-
       # perform the custom actions
       mode.join_actions.each do |action|
         if master || !action.master_only?
@@ -1407,6 +1393,21 @@ class Place::Meet < PlaceOS::Driver
       # recall the first lighting preset
       if !@light_scenes.empty? && master
         select_lighting_scene(@light_scenes.keys.first)
+      end
+
+      # send the current input to the remote rooms
+      if @auto_route_on_join && master
+        begin
+          if selected_inp = status?(String, :selected_input)
+            @outputs.each do |outp|
+              route(selected_inp, outp)
+            end
+          else
+            unroute_all
+          end
+        rescue error
+          logger.error(exception: error) { "error applying routes during join" }
+        end
       end
     end
   end
