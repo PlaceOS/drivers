@@ -19,22 +19,34 @@ DriverSpecs.mock_driver "Gallagher::ZoneSchedule" do
 
   bookings.presence(true)
   sleep 500.milliseconds
-  exec(:count).get.should eq 2
+  exec(:count).get.should eq 1
   system(:Gallagher)[:state].should eq(["free", "1234"])
 
   bookings.end_meeting
   sleep 500.milliseconds
-  exec(:count).get.should eq 3
+  exec(:count).get.should eq 1
   system(:Gallagher)[:state].should eq(["free", "1234"])
 
   bookings.presence(false)
   sleep 500.milliseconds
-  exec(:count).get.should eq 4
+  exec(:count).get.should eq 2
   system(:Gallagher)[:state].should eq(["locked", "1234"])
+
+  bookings.disable_unlock
+  sleep 500.milliseconds
+  exec(:should_unlock_booking?).get.should_not eq true
 end
 
 # :nodoc:
 class BookingsMock < DriverSpecs::MockDriver
+  def disable_unlock
+    self[:current_booking] = {
+      extended_properties: {
+        "Don't Unlock" => "TRUE",
+      },
+    }
+  end
+
   def new_meeting : Nil
     self[:status] = "pending"
   end

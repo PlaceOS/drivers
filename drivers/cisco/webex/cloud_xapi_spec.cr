@@ -70,6 +70,32 @@ DriverSpecs.mock_driver "Cisco::Webex::Cloud" do
   end
 
   ret_val.get.try &.as_h["status"].should eq "OK"
+
+  ret_val = exec(:list_workspaces)
+
+  expect_http_request(2.seconds) do |request, response|
+    if request.path == "/v1/workspaces" && request.query_params.empty?
+      response.status_code = 200
+      response << workspace_resp.to_json
+    else
+      response.status_code = 401
+    end
+  end
+
+  ret_val.get.try &.as_h["items"].as_a.size.should eq 1
+
+  ret_val = exec(:workspace_details, "some-workspace-id")
+
+  expect_http_request(2.seconds) do |request, response|
+    if request.path == "/v1/workspaces/some-workspace-id" && request.query_params.empty?
+      response.status_code = 200
+      response << workspace_resp[:items][0].to_json
+    else
+      response.status_code = 401
+    end
+  end
+
+  ret_val.get.try &.as_h["capacity"].as_i.should eq 5
 end
 
 def color_resp(device_id : String)
@@ -87,5 +113,60 @@ def device_resp_json
     "refresh_token":            "MjZmMzcyZWUtMzI2MS00MmE4LTgyZWMtYTVlMWIxYzBjZjhiODJmYzViOTItMGFi_PF84_1eb65fdf-9643-417f-9974-ad72cae0e10f",
     "access_token":             "generated-access-token",
     "refresh_token_expires_in": 7697037,
+  }
+end
+
+def workspace_resp
+  {
+    "items": [
+      {
+        "id":                  "Y2lzY29zcGFyazovL3VzL1BMQUNFUy81MTAxQjA3Qi00RjhGLTRFRjctQjU2NS1EQjE5QzdCNzIzRjc",
+        "orgId":               "Y2lzY29zcGFyazovL3VzL09SR0FOSVpBVElPTi8xZWI2NWZkZi05NjQzLTQxN2YtOTk3NC1hZDcyY2FlMGUxMGY",
+        "locationId":          "Y2lzY29...",
+        "workspaceLocationId": "YL34GrT...",
+        "floorId":             "Y2lzY29z...",
+        "displayName":         "SFO-12 Capanina",
+        "capacity":            5,
+        "type":                "notSet",
+        "sipAddress":          "test_workspace_1@trialorg.room.ciscospark.com",
+        "created":             "2016-04-21T17:00:00.000Z",
+        "calling":             {
+          "type":          "hybridCalling",
+          "hybridCalling": {
+            "emailAddress": "workspace@example.com",
+          },
+          "webexCalling": {
+            "licenses": [
+              "Y2lzY29g4...",
+            ],
+          },
+        },
+        "notes":            "this is a note",
+        "hotdeskingStatus": "on",
+        "supportedDevices": "collaborationDevices",
+        "calendar":         {
+          "type":         "microsoft",
+          "emailAddress": "workspace@example.com",
+        },
+        "deviceHostedMeetings": {
+          "enabled": true,
+          "siteUrl": "'example.webex.com'",
+        },
+        "devicePlatform": "cisco",
+        "health":         {
+          "level":  "error",
+          "issues": [
+            {
+              "id":                "",
+              "createdAt":         "",
+              "title":             "",
+              "description":       "",
+              "recommendedAction": "",
+              "level":             "",
+            },
+          ],
+        },
+      },
+    ],
   }
 end

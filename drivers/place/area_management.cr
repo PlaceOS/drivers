@@ -5,6 +5,8 @@ require "./area_config"
 require "./area_polygon"
 require "placeos-driver/interface/sensor"
 
+::PlaceOS::Driver::Interface::Sensor.include_unit_conversions
+
 class Place::AreaManagement < PlaceOS::Driver
   descriptive_name "PlaceOS Area Management"
   generic_name :AreaManagement

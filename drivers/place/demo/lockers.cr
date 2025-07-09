@@ -83,7 +83,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
   end
 
   # allocates a locker now, the allocation may expire
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_allocate(
     # PlaceOS user id
     user_id : String,
@@ -95,7 +95,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     locker_id : String | Int64? = nil,
 
     # attempts to create a booking that expires at the time specified
-    expires_at : Int64? = nil
+    expires_at : Int64? = nil,
   ) : PlaceLocker
     bank = locker_banks[bank_id.to_s]
     locker_id = locker_id ? locker_id : bank.locker_hash.values.select(&.not_allocated?).sample.id
@@ -109,13 +109,13 @@ class Place::Demo::Lockers < PlaceOS::Driver
   end
 
   # return the locker to the pool
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_release(
     bank_id : String | Int64,
     locker_id : String | Int64,
 
     # release / unshare just this user - otherwise release the whole locker
-    owner_id : String? = nil
+    owner_id : String? = nil,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     if locker.allocated_to == owner_id
@@ -126,7 +126,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
   end
 
   # a list of lockers that are allocated to the user
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def lockers_allocated_to(user_id : String) : Array(PlaceLocker)
     now = Time.utc
     building = building_id
@@ -144,12 +144,12 @@ class Place::Demo::Lockers < PlaceOS::Driver
     end
   end
 
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_share(
     bank_id : String | Int64,
     locker_id : String | Int64,
     owner_id : String,
-    share_with : String
+    share_with : String,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -167,13 +167,13 @@ class Place::Demo::Lockers < PlaceOS::Driver
     end
   end
 
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_unshare(
     bank_id : String | Int64,
     locker_id : String | Int64,
     owner_id : String,
     # the individual you previously shared with (optional)
-    shared_with_id : String? = nil
+    shared_with_id : String? = nil,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -196,11 +196,11 @@ class Place::Demo::Lockers < PlaceOS::Driver
 
   # a list of user-ids that the locker is shared with.
   # this can be placeos user ids or emails
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_shared_with(
     bank_id : String | Int64,
     locker_id : String | Int64,
-    owner_id : String
+    owner_id : String,
   ) : Array(String)
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -219,7 +219,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     end
   end
 
-  @[Security(Level::Administrator)]
+  @[Security(Level::Support)]
   def locker_unlock(
     bank_id : String | Int64,
     locker_id : String | Int64,
@@ -230,7 +230,7 @@ class Place::Demo::Lockers < PlaceOS::Driver
     # (can be ignored if not implemented)
     open_time : Int32 = 60,
     # optional pin code - if user entered from a kiosk
-    pin_code : String? = nil
+    pin_code : String? = nil,
   ) : Nil
   end
 

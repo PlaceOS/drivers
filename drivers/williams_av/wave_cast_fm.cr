@@ -13,10 +13,15 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
     http_max_requests: 0,
     # supports 0-7
     channel_number: 0,
+
+    hearing_notice_text: "Hearing augmentation code:",
   })
+
+  @hearing_notice_text : String = "Hearing augmentation code:"
 
   def on_update
     @channel_number = setting?(Int32, :channel_number)
+    @hearing_notice_text = setting?(String, :hearing_notice_text) || "Hearing augmentation code:"
     schedule.clear
 
     # ensure query run at the same time for offset to work
@@ -156,6 +161,8 @@ class WilliamsAV::WaveCastFM < PlaceOS::Driver
       value = InputSource.from_value?(value.to_i) || value
     when Command::TDU8_PRESET
       value = Preset.from_value?(value.to_i) || value
+    when Command::TDSTR_JOIN_CODE
+      self[:hearing_notice_text] = "#{@hearing_notice_text} #{value}"
     end
 
     self[command_str] = value

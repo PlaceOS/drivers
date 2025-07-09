@@ -3,7 +3,7 @@ require "placeos-driver/spec"
 # :nodoc:
 class StaffAPIMock < DriverSpecs::MockDriver
   def user(id : String)
-    {id: "user-1234", email: "steve@placeos.tech"}
+    {id: "user-1234", email: "steve@placeos.tech", authority_id: "authority-12345"}
   end
 
   def update_user(id : String, body_json : String) : Nil

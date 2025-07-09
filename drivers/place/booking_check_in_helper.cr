@@ -2,6 +2,7 @@ require "placeos-driver"
 require "place_calendar"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
+require "set"
 
 class Place::BookingCheckInHelper < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
@@ -11,6 +12,7 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   description "works in conjunction with the Bookings driver to help automate check-in"
 
   accessor bookings : Bookings_1
+  accessor calendar : Calendar_1
 
   def mailer
     sys_id = @mailer_system.presence
@@ -18,17 +20,17 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
     sys.implementing(Interface::Mailer)[0]
   end
 
-  def staff_api
-    sys_id = @mailer_system.presence
-    sys = sys_id ? system(sys_id) : system
-    sys[:StaffAPI_1]
-  end
-
   default_settings({
     # how many minutes until we want to prompt the user
     prompt_after:    10,
     auto_cancel:     false,
     decline_message: "optionally use this instead of a custom email template",
+
+    # notify 3rd parties of meetings that are not used
+    _notify_staff: {
+      cc:      ["email@address"],
+      mailbox: ["email@address"],
+    },
 
     # how many minutes to wait before we enable auto-check-in
     present_from:       5,
@@ -104,11 +106,14 @@ STRING
 
   @jwt_private_key : String = ""
   @decline_message : String? = nil
+  @notify_staff : Hash(String, Array(String)) = {} of String => Array(String)
 
   def on_update
     @jwt_private_key = setting?(String, :jwt_private_key) || ""
     @decline_message = setting?(String, :decline_message)
     @mailer_system = setting?(String, :mailer_system)
+
+    @notify_staff = setting?(Hash(String, Array(String)), :notify_staff) || {} of String => Array(String)
 
     @ignore_longer_than = setting?(Int32, :ignore_longer_than).try &.minutes
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
@@ -295,8 +300,21 @@ STRING
     unless @decline_message && @auto_cancel
       logger.debug { "prompting user about meeting room booking #{meeting.id}" }
       begin
+        cc_list = Set(String).new(@notify_staff["cc"]? || [] of String)
+        begin
+          meeting.attendees.each do |attendee|
+            cc_list << attendee.email.downcase if attendee.organizer
+          end
+          if additional = @notify_staff[meeting.mailbox]?
+            cc_list.concat additional
+          end
+        rescue error
+          logger.warn(exception: error) { "checking for additional staff to notify" }
+        end
+        host_email = meeting.host.not_nil!.downcase
+        cc_list.delete(host_email)
         params = generate_guest_jwt
-        mailer.send_template(params[:host_email], {"bookings", "check_in_prompt"}, params)
+        mailer.send_template(host_email, {"bookings", "check_in_prompt"}, params, cc: cc_list.to_a)
       rescue error
         logger.warn(exception: error) { "failed to notify user" }
       end
@@ -338,6 +356,8 @@ STRING
     end
   end
 
+  record FallbackUser, name : String
+
   # generates the parameters that can be mixed into the template email
   protected def generate_guest_jwt
     meeting = current_meeting
@@ -346,30 +366,38 @@ STRING
     ctrl_system = config.control_system.not_nil!
     system_id = ctrl_system.id
     event_id = meeting.id
-    host_email = meeting.host.not_nil!
-    user = PlaceCalendar::User.from_json staff_api.staff_details(host_email).get.to_json
+    host_email = meeting.host.not_nil!.downcase
+
+    user = meeting.attendees.find { |attendee| attendee.email.downcase == host_email }
+    begin
+      user ||= PlaceCalendar::User.from_json(calendar.get_user(host_email).get.to_json)
+    rescue
+    end
+    user ||= FallbackUser.new(host_email.split('@').first.split(/\.|_/).map(&.capitalize).join(' '))
 
     now = Time.utc
     starting = meeting.event_start.in(@timezone)
     end_of_meeting = (meeting.event_end || starting.at_end_of_day).in(@timezone)
 
-    payload = {
-      iss:   "POS",
-      iat:   now.to_unix,
-      exp:   end_of_meeting.to_unix,
-      jti:   UUID.random.to_s,
-      aud:   @domain,
-      scope: ["guest"],
-      sub:   host_email,
-      u:     {
-        n: user.name,
-        e: host_email,
-        p: 0,
-        r: [event_id, system_id],
-      },
-    }
+    if @jwt_private_key.presence
+      payload = {
+        iss:   "POS",
+        iat:   now.to_unix,
+        exp:   end_of_meeting.to_unix,
+        jti:   UUID.random.to_s,
+        aud:   @domain,
+        scope: ["guest"],
+        sub:   host_email,
+        u:     {
+          n: user.name,
+          e: host_email,
+          p: 0,
+          r: [event_id, system_id],
+        },
+      }
 
-    jwt = JWT.encode(payload, @jwt_private_key, JWT::Algorithm::RS256)
+      jwt = JWT.encode(payload, @jwt_private_key, JWT::Algorithm::RS256)
+    end
 
     {
       jwt:               jwt,

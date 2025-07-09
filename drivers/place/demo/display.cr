@@ -52,7 +52,7 @@ class Place::Demo::Display < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     self[:audio_mute] = state
     self[:volume] = state ? 0 : @volume

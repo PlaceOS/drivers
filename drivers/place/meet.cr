@@ -20,7 +20,7 @@ class Place::Meet < PlaceOS::Driver
     Room level state and behaviours.
 
     This driver provides a high-level API for interaction with devices, systems \
-    and integrations found within common workplace collaboration spaces.
+    and integrations found within common workplace collaboration spaces
     DESC
 
   default_settings({
@@ -47,9 +47,11 @@ class Place::Meet < PlaceOS::Driver
     join_lockout_secondary: true,
     unjoin_on_shutdown:     false,
     mute_on_unlink:         true,
+    auto_route_on_join:     false,
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
+    local_cameras: ["Camera_1"],
 
     screens: {
       "Projector_1" => "Screen_1",
@@ -80,6 +82,14 @@ class Place::Meet < PlaceOS::Driver
         id:      3,
         icon:    "lightbulb_outline",
         opacity: 0.8,
+      },
+    ],
+    lighting_levels: [
+      {
+        name: "Spot light left",
+        area: {
+          id: 123,
+        },
       },
     ],
     _channel_details: [
@@ -136,6 +146,7 @@ class Place::Meet < PlaceOS::Driver
   @outputs : Array(String) = [] of String
   getter linked_outputs = {} of String => Hash(String, String)
   getter local_outputs : Array(String) = [] of String
+  getter local_cameras : Array(String) = [] of String
 
   @preview_outputs : Array(String) = [] of String
   getter local_preview_outputs : Array(String) = [] of String
@@ -145,6 +156,7 @@ class Place::Meet < PlaceOS::Driver
   @ignore_update : Int64 = 0_i64
   @unjoin_on_shutdown : Bool? = nil
   @mute_on_unlink : Bool = true
+  @auto_route_on_join : Bool = false
 
   # core includes: 'current_routes' hash
   # but we override it here for LLM integration
@@ -158,6 +170,7 @@ class Place::Meet < PlaceOS::Driver
     self[:local_help] = @local_help = setting?(Help, :help) || Help.new
     self[:local_tabs] = @local_tabs = setting?(Array(Tab), :tabs) || [] of Tab
     self[:local_outputs] = @local_outputs = setting?(Array(String), :local_outputs) || [] of String
+    self[:local_cameras] = @local_cameras = setting?(Array(String), :local_cameras) || [] of String
     self[:local_preview_outputs] = @local_preview_outputs = setting?(Array(String), :preview_outputs) || [] of String
     self[:voice_control] = setting?(Bool, :voice_control) || false
     self[:channel_details] = setting?(Array(ChannelDetail), :channel_details)
@@ -165,6 +178,7 @@ class Place::Meet < PlaceOS::Driver
     @local_vidconf = setting?(String, :local_vidconf) || "VidConf_1"
     @unjoin_on_shutdown = setting?(Bool, :unjoin_on_shutdown)
     @mute_on_unlink = setting?(Bool, :mute_on_unlink) || false
+    @auto_route_on_join = setting?(Bool, :auto_route_on_join) || false
 
     @join_lock.synchronize do
       subscriptions.clear
@@ -233,6 +247,7 @@ class Place::Meet < PlaceOS::Driver
     sys = system
 
     if state
+      @local_preview_outputs.each { |device| sys[device].power true } # Power on preview displays
       apply_master_audio_default
       apply_camera_defaults
       apply_default_routes
@@ -247,6 +262,8 @@ class Place::Meet < PlaceOS::Driver
 
       @local_outputs.each { |output| unroute(output) }
       @local_preview_outputs.each { |output| unroute(output) }
+
+      mute_microphones
 
       if devices = @shutdown_devices
         devices.each { |device| sys[device].power false }
@@ -377,6 +394,23 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  @[Description("route an input for presentation to all displays. Don't guess, look up available input ids")]
+  def route_all(input_id : String)
+    # obtain input ID
+    keys = all_inputs
+    hash = keys.each_with_object({} of String => String) do |input, memo|
+      memo[input.downcase] = input
+    end
+    input_actual = hash[input_id.downcase]?
+    raise "invalid input #{input_id}, must be one of #{keys.join(", ")}" unless input_actual
+
+    power true
+    selected_input(input_actual)
+    all_outputs.each do |output|
+      route(input_actual, output)
+    end
+  end
+
   # we want to unroute any signal going to the display
   # or if it's a direct connection, we want to mute the display.
   @[Description("blank a display / output, sometimes called a video mute")]
@@ -384,6 +418,13 @@ class Place::Meet < PlaceOS::Driver
     route("MUTE", output)
   rescue error
     logger.debug(exception: error) { "failed to unroute #{output}" }
+  end
+
+  @[Description("blank all displays / outputs")]
+  def unroute_all
+    all_outputs.each do |output|
+      route("MUTE", output)
+    end
   end
 
   # This is the currently selected input
@@ -434,6 +475,8 @@ class Place::Meet < PlaceOS::Driver
   end
 
   protected def update_available_tabs
+    available_cameras = @local_cameras.dup
+    seen_cameras = @local_cameras.dup
     tabs = @local_tabs.dup.map(&.clone)
 
     # merge in joined room tabs
@@ -448,9 +491,25 @@ class Place::Meet < PlaceOS::Driver
           tabs << remote_tab
         end
       end
+
+      remote_cameras = room.local_cameras.get.as_a.map(&.as_s)
+      remote_cameras.each_with_index do |remote_cam, index|
+        next if seen_cameras.includes?(remote_cam)
+        available_cameras << remote_cam
+        seen_cameras << remote_cam
+      end
     end
 
+    # local_inputs configured for backwards compatibility with older versions of the UI
+    self[:local_inputs] = self[:available_inputs] = tabs.flat_map(&.inputs)
     self[:tabs] = @tabs = tabs
+
+    if available_cameras.empty? && @join_modes.empty?
+      if inputs_raw = setting?(::Place::Router::Core::Settings::IOMeta, "inputs")
+        available_cameras = inputs_raw.select! { |_key, values| values["type"]?.try(&.as_s?) == "cam" }.keys
+      end
+    end
+    self[:available_cameras] = available_cameras
   end
 
   protected def update_available_outputs
@@ -473,6 +532,7 @@ class Place::Meet < PlaceOS::Driver
         remote_outputs = room.local_outputs.get.as_a.map(&.as_s)
         remote_outputs.each_with_index do |remote_out, index|
           if join_mode.merge_outputs? && (local_out = available_outputs[index]?)
+            seen_outputs << remote_out
             new_linked_outputs[local_out][remote_system_id] = remote_out
           end
 
@@ -500,6 +560,19 @@ class Place::Meet < PlaceOS::Driver
   # =======================
   # Primary volume controls
   # =======================
+
+  class RoomMutes
+    include JSON::Serializable
+
+    getter name : String
+    getter binding : String
+    getter control : String | Array(String)? = nil
+    getter falsy_value : String | Bool = false
+
+    # maps ids to commands to send
+    getter route : Array(AccessoryComplex::Exec)? = nil
+    getter unroute : Array(AccessoryComplex::Exec)? = nil
+  end
 
   class AudioFader
     include JSON::Serializable
@@ -532,6 +605,8 @@ class Place::Meet < PlaceOS::Driver
 
     getter? level_feedback, mute_feedback
 
+    getter rooms : Array(RoomMutes)? = nil
+
     def use_defaults?
       @module_id.nil? && (level_id.nil? || level_id.try &.empty?) && (mute_id.nil? || mute_id.try &.empty?)
     end
@@ -548,9 +623,11 @@ class Place::Meet < PlaceOS::Driver
     output = @outputs.first?
     unless audio || output
       logger.warn { "no audio configuration found" }
+      self[:has_master_audio] = false
       @master_audio = nil
       return
     end
+    self[:has_master_audio] = true
     audio ||= AudioFader.new
 
     # if nothing defined then we want to use the first output
@@ -659,7 +736,7 @@ class Place::Meet < PlaceOS::Driver
   end
 
   # Set the volume of a signal node within the system.
-  def volume(level : Int32 | Float64, input_or_output : String)
+  def volume(level : Int32 | Float64, input_or_output : String, push_to_remotes : Bool = true)
     audio = @master_audio
     if audio
       logger.debug { "setting master volume to #{level}" }
@@ -678,6 +755,13 @@ class Place::Meet < PlaceOS::Driver
 
     mixer = system[audio.module_id]
     set_master_volume(mixer, audio, level_actual)
+
+    # We are not using a join mode, so we need to set the lighting scene in joined rooms
+    if push_to_remotes
+      remote_rooms.each { |room| room.volume(level, input_or_output, false) }
+    end
+
+    level
   end
 
   # Sets the mute state on a signal node within the system.
@@ -701,6 +785,9 @@ class Place::Meet < PlaceOS::Driver
 
   alias LightingArea = Interface::Lighting::Area
   alias LightingScene = NamedTuple(name: String, id: UInt32, icon: String, opacity: Float64)
+  record LightingLevel, name : String, area : LightingArea, binding : String? = nil do
+    include JSON::Serializable
+  end
 
   DEFAULT_LIGHT_MOD = "Lighting_1"
 
@@ -709,8 +796,10 @@ class Place::Meet < PlaceOS::Driver
   @light_area : LightingArea? = nil
   @light_scenes : Hash(String, UInt32) = {} of String => UInt32
   @light_module : String = DEFAULT_LIGHT_MOD
+  getter local_light_levels : Array(LightingLevel)? = nil
 
   @light_subscription : PlaceOS::Driver::Subscriptions::Subscription? = nil
+  @light_levels_query : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
 
   protected def init_lighting
     # deal with `false`
@@ -718,6 +807,7 @@ class Place::Meet < PlaceOS::Driver
     @lighting_independent = lights_independent.nil? ? true : lights_independent
     @light_area = @local_lighting_area = setting?(LightingArea, :lighting_area)
     light_scenes = setting?(Array(LightingScene), :lighting_scenes)
+    @local_light_levels = setting?(Array(LightingLevel), :lighting_levels)
     @light_module = setting?(String, :lighting_module) || DEFAULT_LIGHT_MOD
 
     local_scenes = {} of String => UInt32
@@ -725,6 +815,19 @@ class Place::Meet < PlaceOS::Driver
     light_scenes.try(&.each { |scene| local_scenes[scene[:name].downcase] = scene[:id] })
     @light_scenes = local_scenes
     self[:lighting_scenes] = light_scenes
+
+    # query current light levels if we have faders
+    @light_levels_query.try(&.cancel) rescue nil
+    @light_levels_query = nil
+    if local_levels = @local_light_levels
+      @light_levels_query = schedule.in(10.seconds + rand(2000).milliseconds) do
+        @light_levels_query = nil
+        lighting = system[@light_module]
+        local_levels.each do |level|
+          lighting.lighting_level?(level.area)
+        end
+      end
+    end
 
     @light_subscription = nil
     update_available_lighting
@@ -767,6 +870,16 @@ class Place::Meet < PlaceOS::Driver
     @light_subscription = system.subscribe(@light_module, @light_area.to_s) do |_sub, scene|
       self[:lighting_scene] = scene.to_i if scene && scene != "null"
     end
+
+    # merge all the faders onto the joined touch panels
+    levels = @local_light_levels.try(&.dup) || [] of LightingLevel
+    remote_systems.each do |remote|
+      if remote_levels = Array(LightingLevel)?.from_json(remote.room_logic.local_light_levels.get.to_json)
+        levels.concat(remote_levels)
+      end
+    end
+    levels.map! { |level| LightingLevel.new(level.name, level.area, level.area.to_s) }
+    self[:lighting_levels] = levels.empty? ? nil : levels
   end
 
   def select_lighting_scene(scene : String, push_to_remotes : Bool = true)
@@ -809,7 +922,7 @@ class Place::Meet < PlaceOS::Driver
   # Room Accessories
   # ================
 
-  struct Accessory
+  struct AccessoryBasic
     include JSON::Serializable
 
     struct Control
@@ -818,15 +931,51 @@ class Place::Meet < PlaceOS::Driver
       getter name : String
       getter icon : String
       getter function_name : String
-      getter arguments : Array(JSON::Any)
+      getter arguments : Array(JSON::Any) = [] of JSON::Any
     end
 
     getter name : String
     getter module : String
     getter controls : Array(Control)
+
+    @[JSON::Field(ignore: true)]
+    property remote : String? = nil
   end
 
+  struct AccessoryComplex
+    include JSON::Serializable
+
+    struct Exec
+      include JSON::Serializable
+
+      getter module : String { "System_1" }
+      getter function_name : String
+      getter arguments : Array(JSON::Any) = [] of JSON::Any
+
+      # used with mic room selection controls, do we want to augment the arguments
+      # with a toggle value? i.e. true / false value
+      getter augment : Bool? = nil
+    end
+
+    struct Control
+      include JSON::Serializable
+
+      getter name : String
+      getter icon : String
+      getter exec : Array(Exec)
+    end
+
+    getter name : String
+    getter controls : Array(Control)
+
+    @[JSON::Field(ignore: true)]
+    property remote : String? = nil
+  end
+
+  alias Accessory = AccessoryBasic | AccessoryComplex
+
   getter local_accessories : Array(Accessory) = [] of Accessory
+  getter available_accessories : Array(Accessory) = [] of Accessory
 
   protected def init_accessories
     @local_accessories = setting?(Array(Accessory), :room_accessories) || [] of Accessory
@@ -835,10 +984,41 @@ class Place::Meet < PlaceOS::Driver
 
   protected def update_available_accessories
     accessories = @local_accessories.dup
-    remote_rooms.each do |room|
-      accessories.concat Array(Accessory).from_json(room.local_accessories.get.to_json)
+    remote_systems.each do |remote|
+      remote_accessories = Array(Accessory).from_json(remote.room_logic.local_accessories.get.to_json)
+      accessories.concat(remote_accessories.map! { |acc|
+        acc.remote = remote.system_id
+        acc
+      })
     end
-    self[:room_accessories] = accessories
+    self[:room_accessories] = @available_accessories = accessories
+  end
+
+  def accessory_exec(accessory : String, control : String) : Bool
+    accessory_inst = @available_accessories.find { |access| access.name == accessory }
+    return false unless accessory_inst
+
+    control_inst = accessory_inst.controls.find { |ctrl| ctrl.name == control }
+    return false unless control_inst
+
+    # execute accessories on the system they came from
+    # some are merged in if a room is joined
+    if system_id = accessory_inst.remote
+      system(system_id).get("System", 1).accessory_exec(accessory, control)
+      return true
+    end
+
+    case control_inst
+    in AccessoryBasic::Control
+      mod_name = accessory_inst.as(AccessoryBasic).module
+      system[mod_name].__send__(control_inst.function_name, control_inst.arguments)
+    in AccessoryComplex::Control
+      control_inst.exec.each do |exec|
+        system[exec.module].__send__(exec.function_name, exec.arguments)
+      end
+    end
+
+    true
   end
 
   # ===================
@@ -884,6 +1064,7 @@ class Place::Meet < PlaceOS::Driver
         module_id:      mic.module_id,
         min_level:      mic.min_level,
         max_level:      mic.max_level,
+        rooms:          mic.rooms,
       }
     end
   end
@@ -928,9 +1109,60 @@ class Place::Meet < PlaceOS::Driver
       end
 
       if mute_index = mic.mute_index
-        mixer.mute(mic.level_id, mute, mute_index)
+        mixer.mute(mic.mute_id, mute, mute_index)
       else
-        mixer.mute(mic.level_id, mute)
+        mixer.mute(mic.mute_id, mute)
+      end
+    end
+  end
+
+  def mute_microphones(mute : Bool = true) : Nil
+    @local_mics.each do |mic|
+      begin
+        mixer = system[mic.module_id]
+
+        if mute_index = mic.mute_index
+          mixer.mute(mic.mute_id, mute, mute_index)
+        else
+          mixer.mute(mic.mute_id, mute)
+        end
+      rescue error
+        logger.warn(exception: error) { "failed to mute microphone: #{mic}" }
+      end
+    end
+  end
+
+  # set_string: zone_id, index
+  # 22 for false
+  def mic_room_selection(mic_name : String, room_name : String, selected : Bool)
+    mic = @available_mics.find { |match| match.name == mic_name }
+    raise "no matching mic name: #{mic_name}" unless mic
+
+    rooms = mic.rooms
+    raise "no rooms for mic: #{mic_name}" unless rooms
+
+    room = rooms.find { |match| match.name == room_name }
+    raise "no matching room name for: #{room_name}" unless room
+
+    execs = selected ? room.route : room.unroute
+    if execs
+      execs.each do |action|
+        if action.augment
+          args = action.arguments.dup
+          args << JSON::Any.new(selected)
+          system[action.@module || mic.module_id].__send__(action.function_name, args)
+        else
+          system[action.@module || mic.module_id].__send__(action.function_name, action.arguments)
+        end
+      end
+    else
+      mixer = system[mic.module_id]
+      ctrl = room.control
+      case ctrl
+      in Nil
+        mixer.mute(room.binding, !selected)
+      in String, Array(String)
+        mixer.mute(ctrl, !selected)
       end
     end
   end
@@ -1025,6 +1257,7 @@ class Place::Meet < PlaceOS::Driver
     getter name : String
     getter room_ids : Array(String)
     getter join_actions : Array(JoinAction) { [] of JoinAction }
+    getter breakdown : Array(JoinAction) { [] of JoinAction }
 
     # Do we want to merge the outputs (all outputs on all screens)
     # or do we want them as seperate displays
@@ -1078,6 +1311,15 @@ class Place::Meet < PlaceOS::Driver
     self[:join_hide_button] = setting?(Bool, :join_hide_button) || false
   end
 
+  protected def perform_breakdown_actions(old_mode)
+    old_mode.breakdown.each do |action|
+      # dynamic function invocation
+      system[action.module_id].__send__(action.function_name, action.arguments, action.named_args)
+    end
+  rescue error
+    logger.error(exception: error) { "error performing join breakdown actions" }
+  end
+
   def join_mode(mode_id : String, master : Bool = true)
     mode = @join_modes[mode_id]
     old_mode = @join_modes[@join_selected]? if @join_selected
@@ -1096,9 +1338,15 @@ class Place::Meet < PlaceOS::Driver
           @join_selected = mode.id
           @join_master = true
 
-          # unlink independent rooms
-          if old_mode && old_mode.linked? && join_settings.type.independent?
-            unlink(old_mode.room_ids - mode.room_ids) # find the rooms not incuded in this join
+          if old_mode && old_mode.linked?
+            # Perform any breakdown actions
+            perform_breakdown_actions(old_mode)
+
+            # unlink independent rooms
+            # find the rooms not incuded in this join and unlink them
+            if join_settings.type.independent?
+              unlink(old_mode.room_ids - mode.room_ids)
+            end
           end
 
           # unlink fully aware systems (empty array for independent rooms, unlinked above)
@@ -1134,6 +1382,20 @@ class Place::Meet < PlaceOS::Driver
       # ensure the system is powered on
       power(true) if mode.linked? && !power?
 
+      # send the current input to the remote rooms
+      begin
+        if @auto_route_on_join && master && (selected_inp = status?(String, :selected_input))
+          routes = current_routes.compact.keys
+          all_outputs.each do |outp|
+            # skip if a display has something routed to it
+            next if routes.includes?(outp)
+            route(selected_inp, outp)
+          end
+        end
+      rescue error
+        logger.error(exception: error) { "error applying routes during join" }
+      end
+
       # perform the custom actions
       mode.join_actions.each do |action|
         if master || !action.master_only?
@@ -1155,6 +1417,7 @@ class Place::Meet < PlaceOS::Driver
     else
       currrent_selected = @join_selected
       if currrent_selected && (current_mode = @join_modes[currrent_selected]?)
+        perform_breakdown_actions(current_mode)
         unlink(current_mode.room_ids)
       end
       unlink_internal_use

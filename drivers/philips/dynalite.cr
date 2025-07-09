@@ -14,11 +14,33 @@ class Philips::Dynalite < PlaceOS::Driver
   generic_name :Lighting
   tcp_port 50000
 
+  default_settings({
+    disable_tokenizer: false,
+    wait_for_replies:  true,
+    num_retries:       3,
+  })
+
   def on_load
-    queue.wait = false
     queue.delay = 35.milliseconds
-    # 8 bytes starting with 1C
-    transport.tokenizer = Tokenizer.new(8, Bytes[0x1C])
+    on_update
+  end
+
+  def on_update
+    case setting?(Bool, :wait_for_replies)
+    when false
+      queue.wait = false
+    when true, nil
+      queue.wait = true
+    end
+
+    queue.retries = setting?(Int32, :num_retries) || 3
+
+    if !(setting?(Bool, :disable_tokenizer) || false)
+      # 8 bytes starting with 1C
+      transport.tokenizer ||= Tokenizer.new(8, Bytes[0x1C])
+    else
+      transport.tokenizer = nil
+    end
   end
 
   def disconnected

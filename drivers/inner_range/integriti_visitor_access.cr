@@ -118,9 +118,11 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
     visitor_name : String,
     host_email : String,
     event_title : String?,
-    event_start : Int64
+    event_start : Int64,
   )
-    local_start_time = Time.unix(event_start).in(@time_zone)
+    # now until end of meeting
+    local_event_start = Time.unix(event_start).in(@time_zone)
+    local_start_time = Time.local(@time_zone)
     late_in_day = local_start_time.at_end_of_day - 7.hours
 
     access_from = (local_start_time - 15.minutes).to_unix
@@ -132,9 +134,14 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
     # remove the 2 sign bits
     wiegand = Wiegand::Wiegand26.from_components(facility: card_facility, card_number: card_number)
     raw = (wiegand.wiegand & (Wiegand::Wiegand26::FACILITY_MASK | Wiegand::Wiegand26::CARD_MASK)) >> 1
-    data = raw.to_s(16).upcase.rjust(6, '0')
 
-    # convert to hex and create QR code
+    # this would be the data in HEX
+    # data = raw.to_s(16).upcase.rjust(6, '0')
+
+    # payload in decimal (format expects the \r\n)
+    data = "#{raw.to_s}\r\n"
+
+    # create QR code
     qr_png = mailer.generate_png_qrcode(text: data, size: 256).get.as_s
     attach = [
       {
@@ -154,9 +161,9 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
         host_email:    host_email,
         building_name: building_zone.display_name.presence || building_zone.name,
         event_title:   event_title,
-        event_start:   local_start_time.to_s(@time_format),
-        event_date:    local_start_time.to_s(@date_format),
-        event_time:    local_start_time.to_s(@time_format),
+        event_start:   local_event_start.to_s(@time_format),
+        event_date:    local_event_start.to_s(@date_format),
+        event_time:    local_event_start.to_s(@time_format),
       },
       attach
     )

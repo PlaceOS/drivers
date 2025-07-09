@@ -207,26 +207,28 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     desks = {} of String => DeskInfo
 
     controller_list.each do |controller_id, controller|
-      next unless controller.lockers
-
-      begin
-        lockers(controller_id).each do |locker|
-          next unless locker.key
-          locker.controller_id = controller_id
-          lockers[locker.key.not_nil!] = locker
+      if controller.lockers
+        begin
+          lockers(controller_id).each do |locker|
+            next unless locker.key
+            locker.controller_id = controller_id
+            lockers[locker.key.not_nil!] = locker
+          end
+        rescue error
+          logger.warn(exception: error) { "obtaining locker list for controller #{controller.name} - #{controller_id}, possibly offline" }
         end
-      rescue error
-        logger.warn(exception: error) { "obtaining locker list for controller #{controller.name} - #{controller_id}, possibly offline" }
       end
 
-      begin
-        desk_list(controller_id).each do |desk|
-          next unless desk.key
-          desk.controller_id = controller_id
-          desks[desk.key.not_nil!] = desk
+      if controller.desks
+        begin
+          desk_list(controller_id).each do |desk|
+            next unless desk.key
+            desk.controller_id = controller_id
+            desks[desk.key.not_nil!] = desk
+          end
+        rescue error
+          logger.warn(exception: error) { "obtaining desk list for controller #{controller.name} - #{controller_id}, possibly offline" }
         end
-      rescue error
-        logger.warn(exception: error) { "obtaining desk list for controller #{controller.name} - #{controller_id}, possibly offline" }
       end
     end
     @desk_controllers = desks
@@ -753,8 +755,12 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def desk_list(controller_id : String | Int32 | Int64)
-    response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
-    parse response, Array(DeskInfo)
+      response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
+      parse response, Array(DeskInfo)
+    rescue error
+      # code 34 "unknown command" indicates the desk api is unavailable
+      raise error unless error.message.try &.includes?("34")
+      [] of DeskInfo
   end
 
   def desk_info(desk_key : String)

@@ -141,3 +141,7 @@ dependencies:
   # Protobuf
   protobuf:
     github: jeromegn/protobuf.cr
+
+  # debugging drivers
+  perf_tools:
+    github: crystal-lang/perf-tools

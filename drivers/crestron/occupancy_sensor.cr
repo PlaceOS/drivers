@@ -17,11 +17,14 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   default_settings({
     username: "admin",
     password: "admin",
+
+    http_keep_alive_seconds: 600,
+    http_max_requests:       1200,
   })
 
   @mac : String = ""
   @name : String? = nil
-  @occupied : Bool = false
+  @occupied : Bool? = nil
   @connected : Bool = false
   getter last_update : Int64 = 0_i64
   getter poll_counter : UInt64 = 0_u64
@@ -46,7 +49,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   end
 
   def poll_device_state : Nil
-    response = get("/Device")
+    response = get("/Device", concurrent: true)
     raise "unexpected response code: #{response.status_code}" unless response.success?
     payload = JSON.parse(response.body)
 
@@ -86,20 +89,26 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   # 301 == authentication required
   #  could auth every so often to prevent hitting this too
   protected def long_poll : Bool
-    response = get("/Device/Longpoll", concurrent: true)
+    response = get("/Device/Longpoll")
 
     # retry after authenticating
     if response.status_code == 301
       authenticate
-      response = get("/Device/Longpoll", concurrent: true)
+      response = get("/Device/Longpoll")
     end
     raise "unexpected response code: #{response.status_code}" unless response.success?
 
     raw_json = response.body
     logger.debug { "long poll sent: #{raw_json}" }
-
-    return true unless raw_json.includes? "IsRoomOccupied"
     payload = JSON.parse(raw_json)
+
+    if !raw_json.includes?("IsRoomOccupied")
+      if !@occupied.nil? && payload["Device"]?.try(&.raw)
+        @last_update = Time.utc.to_unix
+        update_sensor
+      end
+      return true
+    end
 
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
@@ -151,6 +160,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
     logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
 
+    return NO_MATCH if @occupied.nil?
     return NO_MATCH if mac && mac != @mac
     if type
       sensor_type = SensorType.parse(type)
@@ -162,7 +172,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
   def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
-    return nil unless @mac == mac
+    return nil unless @mac == mac && !@occupied.nil?
     @sensor_data[0]?
   end
 

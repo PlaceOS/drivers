@@ -204,7 +204,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
       end
 
       action("/command/ptzf.cgi?Move=#{position.to_s.downcase},0,image#{index}",
-        name: "moving"
+        name: "moving",
+        priority: queue.priority + 50,
       ) { self[:moving] = @moving = true }
     when MoveablePosition::In
       zoom ZoomDirection::In
@@ -261,7 +262,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
     tilt_speed = -tilt_speed if @invert_controls && tilt_speed != 0
 
     action("/command/ptzf.cgi?ContinuousPanTiltZoom=#{pan_speed.to_s(16)},#{tilt_speed.to_s(16)},0,image#{index}",
-      name: "moving"
+      name: "moving",
+      priority: queue.priority + 50,
     ) do
       self[:moving] = @moving = (pan_speed != 0 || tilt_speed != 0)
       query_status if !@moving
@@ -294,7 +296,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
       ) { self[:zooming] = @zooming = false }
     else
       action("/command/ptzf.cgi?Move=#{direction.out? ? "wide" : "near"},0,image#{index}",
-        name: "zooming"
+        name: "zooming",
+        priority: queue.priority + 40,
       ) { self[:zooming] = @zooming = true }
     end
   end

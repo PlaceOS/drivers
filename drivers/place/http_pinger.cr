@@ -80,8 +80,5 @@ class Place::HTTPPinger < PlaceOS::Driver
   def curl(verb : String, path : String, headers : Hash(String, String) = {} of String => String, body : String? = nil)
     response = http(verb, path, body, headers: headers)
     logger.debug { "response #{response.status}: #{response.status_message}\nheaders: #{response.headers}\n#{response.body}" }
-
-    task = PlaceOS::Driver::Task.new(queue, DUMMY_CALLBACK, 0, 0.seconds, 0, false, nil, nil)
-    task.success response.body, response.status_code
   end
 end

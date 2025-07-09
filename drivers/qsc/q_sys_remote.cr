@@ -359,7 +359,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
     task.try(&.success)
   end
 
-  BoolVals = ["true", "false"]
+  BoolVals = {"true", "false", "muted", "unmuted"}
+  BoolTrue = {"true", "muted"}
 
   private def process(values : Array, name : JSON::Any? = nil)
     component = name.try(&.as_s?) ? "_#{name}" : ""
@@ -372,7 +373,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
       str = value["String"]?.try(&.as_s)
 
       if BoolVals.includes?(str)
-        self["fader#{name}#{component}_mute"] = str == "true"
+        self["fader#{name}#{component}_mute"] = str.in?(BoolTrue)
       else
         # Seems like string values can be independent of the other values
         # This should mostly work to detect a string value

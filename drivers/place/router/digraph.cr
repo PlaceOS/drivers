@@ -51,7 +51,7 @@ class Place::Router::Digraph(N, E)
 
   # Insert a new node.
   def []=(id, attr)
-    insert(id, attr) { raise Error.new "Node #{id} already exists" }
+    insert(id, attr) { raise Error.new "Node #{attr.inspect} (#{id}) already exists" }
   end
 
   # Inserts a node. Yields if it already exists.
