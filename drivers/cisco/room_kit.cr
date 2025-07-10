@@ -21,7 +21,7 @@ class Cisco::RoomKit < PlaceOS::Driver
     Control of Cisco SX20 devices
 
     API access requires a local user with the "admin" role to be
-    created on the codec.
+    created on the codec
     DESC
 
   default_settings({
