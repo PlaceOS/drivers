@@ -1,7 +1,7 @@
 require "placeos-driver"
 
 class Place::Demo::TestSSH < PlaceOS::Driver
-  # Discovery Information:
+  # Discovery Information
   descriptive_name "SSH Testing Tool"
   generic_name :TestSSH
   tcp_port 22
