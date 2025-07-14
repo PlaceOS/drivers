@@ -219,6 +219,23 @@ def perform_action
 end
 ```
 
+You can define a `before_request` callback on the transport if you'd like to inject headers or debug requests:
+
+```crystal
+def on_update
+  openai_key = setting(String, :openai_key)
+  openai_org = setting?(String, :openai_org)
+
+  transport.before_request do |request|
+    logger.debug { "requesting #{request.method} #{request.path}?#{request.query}" }
+
+    request.headers["Authorization"] = "Bearer #{openai_key}"
+    request.headers["OpenAI-Organization"] = openai_org if openai_org
+    request.headers["Content-Type"] = "application/json"
+  end
+end
+```
+
 #### Special SSH methods
 
 SSH connections will attempt to open a shell to the remote device. Sometimes you may be able to execute operations independently.

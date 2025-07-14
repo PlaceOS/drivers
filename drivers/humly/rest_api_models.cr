@@ -4,7 +4,6 @@ require "json"
 # Documentation: https://raw.githubusercontent.com/CertusOp/humly-control-panel-rest-api/refs/heads/master/README.md
 
 module Humly
-  module RestApi
   # Base response structures
   struct BaseResponse
     include JSON::Serializable
@@ -474,6 +473,5 @@ module Humly
 
     getter status : String
     getter message : String
-  end
   end
 end

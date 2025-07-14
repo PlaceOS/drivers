@@ -1,7 +1,7 @@
 require "placeos-driver/spec"
 require "./rest_api_models"
 
-DriverSpecs.mock_driver "Humly::RestApiDriver" do
+DriverSpecs.mock_driver "Humly::RestApi" do
   settings({
     username: "testuser",
     password: "testpass",
@@ -80,7 +80,7 @@ DriverSpecs.mock_driver "Humly::RestApiDriver" do
   result.should_not be_nil
 
   # Check response content using the correct pattern
-  rooms = Array(Humly::RestApi::Room).from_json(result.to_json)
+  rooms = Array(Humly::Room).from_json(result.to_json)
   rooms.size.should eq(1)
   rooms[0].name.should eq("Conference Room A")
   rooms[0].id.should eq("room1")
@@ -143,7 +143,7 @@ DriverSpecs.mock_driver "Humly::RestApiDriver" do
   result.should_not be_nil
 
   # Check response content using the correct pattern
-  desks = Array(Humly::RestApi::Desk).from_json(result.to_json)
+  desks = Array(Humly::Desk).from_json(result.to_json)
   desks.size.should eq(1)
   desks[0].name.should eq("Desk 001")
   desks[0].id.should eq("desk1")
@@ -199,7 +199,7 @@ DriverSpecs.mock_driver "Humly::RestApiDriver" do
   result.should_not be_nil
 
   # Check response content using the correct pattern
-  booking = Humly::RestApi::Booking.from_json(result.to_json)
+  booking = Humly::Booking.from_json(result.to_json)
   booking.id.should eq("booking123")
   booking.booking.subject.should eq("Test Meeting")
   booking.booking.startDate.should eq("2024-01-15T09:00:00Z")
@@ -252,7 +252,7 @@ DriverSpecs.mock_driver "Humly::RestApiDriver" do
   result.should_not be_nil
 
   # Check response content using the correct pattern
-  booking = Humly::RestApi::Booking.from_json(result.to_json)
+  booking = Humly::Booking.from_json(result.to_json)
   booking.id.should eq("booking123")
   booking.booking.subject.should eq("Updated Meeting")
 
@@ -314,7 +314,7 @@ DriverSpecs.mock_driver "Humly::RestApiDriver" do
   result.should_not be_nil
 
   # Check response content using the correct pattern
-  devices = Array(Humly::RestApi::Device).from_json(result.to_json)
+  devices = Array(Humly::Device).from_json(result.to_json)
   devices.size.should eq(1)
   devices[0].name.should eq("Panel 001")
   devices[0].status.should eq("online")
