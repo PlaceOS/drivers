@@ -175,9 +175,9 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
     end
   end
 
-  # Test pass creatio
+  # Test pass creation
   it "should create a pass" do
-    exec(:create_pass, "user-1", "active")
+    exec(:create_pass, "user-1", "template-123")
     expect_http_request do |request, response|
       request.method.should eq "POST"
       request.path.should eq "/organization/test-org-123/pass"
@@ -185,7 +185,7 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
 
       body = JSON.parse(request.body.not_nil!)
       body["userId"].should eq "user-1"
-      body["status"].should eq "active"
+      body["passTemplateId"].should eq "template-123"
 
       response.status_code = 201
       response << {
@@ -206,7 +206,7 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
       request.headers["Authorization"].should eq "Bearer test-token-123"
 
       body = JSON.parse(request.body.not_nil!)
-      body["status"].should eq "suspended"
+      body["status"].should eq "SUSPENDED"
 
       response.status_code = 200
       response << {
@@ -222,5 +222,121 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
   it "should check if authenticated" do
     result = exec(:authenticated?)
     result.get.should eq true
+  end
+
+  # Test pass template management
+  it "should list pass templates" do
+    exec(:list_pass_templates)
+    expect_http_request do |request, response|
+      request.method.should eq "GET"
+      request.path.should eq "/organization/test-org-123/pass-template"
+      request.headers["Authorization"].should eq "Bearer test-token-123"
+      request.headers["Application-ID"].should eq "TEST-APP"
+      request.headers["Content-Type"].should eq "application/vnd.hidglobal.origo.credential-management-3.0+json"
+
+      response.status_code = 200
+      response << {
+        "passTemplates" => [
+          {
+            "id"          => "template-1",
+            "name"        => "Standard Badge",
+            "description" => "Standard employee badge template",
+            "default"     => true,
+          },
+          {
+            "id"          => "template-2",
+            "name"        => "Visitor Badge",
+            "description" => "Visitor badge template",
+            "default"     => false,
+          },
+        ],
+        "totalItems" => 2,
+        "page"       => 0,
+        "perPage"    => 20,
+      }.to_json
+    end
+  end
+
+  it "should get a pass template" do
+    exec(:get_pass_template, "template-1")
+    expect_http_request do |request, response|
+      request.method.should eq "GET"
+      request.path.should eq "/organization/test-org-123/pass-template/template-1"
+      request.headers["Authorization"].should eq "Bearer test-token-123"
+
+      response.status_code = 200
+      response << {
+        "id"                            => "template-1",
+        "name"                          => "Standard Badge",
+        "description"                   => "Standard employee badge template",
+        "default"                       => true,
+        "credentialTemplateIdentifiers" => ["cred-template-1"],
+      }.to_json
+    end
+  end
+
+  it "should create a pass template" do
+    template = HID::PassTemplate.new("New Template", ["cred-template-1"])
+    template.name = "New Template"
+    template.organization_name = "Test Organization"
+
+    exec(:create_pass_template, template)
+    expect_http_request do |request, response|
+      request.method.should eq "POST"
+      request.path.should eq "/organization/test-org-123/pass-template"
+      request.headers["Authorization"].should eq "Bearer test-token-123"
+
+      body = JSON.parse(request.body.not_nil!)
+      body["description"].should eq "New Template"
+      body["name"].should eq "New Template"
+      body["organizationName"].should eq "Test Organization"
+      body["credentialTemplateIdentifiers"].should eq ["cred-template-1"]
+
+      response.status_code = 201
+      response << {
+        "id"                            => "template-new",
+        "name"                          => "New Template",
+        "description"                   => "New Template",
+        "organizationName"              => "Test Organization",
+        "credentialTemplateIdentifiers" => ["cred-template-1"],
+      }.to_json
+    end
+  end
+
+  it "should update a pass template" do
+    template = HID::PassTemplate.new(["cred-template-1", "cred-template-2"])
+    template.description = "Updated Template"
+    template.default = true
+
+    exec(:update_pass_template, "template-1", template)
+    expect_http_request do |request, response|
+      request.method.should eq "PATCH"
+      request.path.should eq "/organization/test-org-123/pass-template/template-1"
+      request.headers["Authorization"].should eq "Bearer test-token-123"
+
+      body = JSON.parse(request.body.not_nil!)
+      body["description"].should eq "Updated Template"
+      body["default"].should eq true
+      body["credentialTemplateIdentifiers"].should eq ["cred-template-1", "cred-template-2"]
+
+      response.status_code = 200
+      response << {
+        "id"                            => "template-1",
+        "description"                   => "Updated Template",
+        "default"                       => true,
+        "credentialTemplateIdentifiers" => ["cred-template-1", "cred-template-2"],
+      }.to_json
+    end
+  end
+
+  it "should delete a pass template" do
+    exec(:delete_pass_template, "template-1")
+    expect_http_request do |request, response|
+      request.method.should eq "DELETE"
+      request.path.should eq "/organization/test-org-123/pass-template/template-1"
+      request.headers["Authorization"].should eq "Bearer test-token-123"
+
+      response.status_code = 204
+    end
   end
 end
