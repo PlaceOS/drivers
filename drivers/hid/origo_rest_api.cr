@@ -163,11 +163,11 @@ class HID::OrigoRestApi < PlaceOS::Driver
   private def credential_headers
     ensure_authenticated
     HTTP::Headers{
-      "Authorization" => "Bearer #{@access_token}",
-      "Application-ID" => @application_id,
+      "Authorization"       => "Bearer #{@access_token}",
+      "Application-ID"      => @application_id,
       "Application-Version" => "1.0",
-      "Content-Type" => "application/vnd.hidglobal.origo.credential-management-3.0+json",
-      "Accept" => "application/vnd.hidglobal.origo.credential-management-3.0+json"
+      "Content-Type"        => "application/vnd.hidglobal.origo.credential-management-3.0+json",
+      "Accept"              => "application/vnd.hidglobal.origo.credential-management-3.0+json",
     }
   end
 
@@ -177,31 +177,31 @@ class HID::OrigoRestApi < PlaceOS::Driver
     PassCollection.from_json(response.body)
   end
 
-  def get_pass(pass_id : String) : PassDetails
+  def get_pass(pass_id : String) : Pass
     response = HTTP::Client.get("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}", headers: credential_headers)
     raise "Failed to get pass: #{response.status_code}\n#{response.body}" unless response.success?
-    PassDetails.from_json(response.body)
+    Pass.from_json(response.body)
   end
 
-  def create_pass(user_id : String, status : PassStatus = PassStatus::Active) : PassDetails
-    pass_request = CreatePassRequest.new(user_id, status.to_s.underscore.upcase)
+  def create_pass(user_id : String, pass_template_id : String) : Pass
+    pass_request = Pass.new(user_id, pass_template_id)
 
     response = HTTP::Client.post("#{@cred_domain}organization/#{@organization_id}/pass",
       body: pass_request.to_json,
       headers: credential_headers
     )
     raise "Failed to create pass: #{response.status_code}\n#{response.body}" unless response.success?
-    PassDetails.from_json(response.body)
+    Pass.from_json(response.body)
   end
 
-  def update_pass(pass_id : String, status : PassStatus) : PassDetails
-    pass_request = UpdatePassRequest.new(status.to_s.underscore.upcase)
+  def update_pass(pass_id : String, status : PassStatus) : Pass
+    pass_request = Pass.new(status.to_s.underscore.upcase)
     response = HTTP::Client.put("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}",
       body: pass_request.to_json,
       headers: credential_headers
     )
     raise "Failed to update pass: #{response.status_code}\n#{response.body}" unless response.success?
-    PassDetails.from_json(response.body)
+    Pass.from_json(response.body)
   end
 
   def delete_pass(pass_id : String) : Bool
@@ -217,11 +217,55 @@ class HID::OrigoRestApi < PlaceOS::Driver
     create_user(user)
   end
 
-  def suspend_pass(pass_id : String) : PassDetails
+  def suspend_pass(pass_id : String) : Pass
     update_pass(pass_id, PassStatus::Suspended)
   end
 
-  def activate_pass(pass_id : String) : PassDetails
+  def activate_pass(pass_id : String) : Pass
     update_pass(pass_id, PassStatus::Active)
+  end
+
+  # Pass Template API methods
+  def list_pass_templates(page : Int32 = 0, page_size : Int32 = 20) : PassTemplateCollection
+    query_params = "?page=#{page}&page-size=#{page_size}"
+    response = HTTP::Client.get("#{@cred_domain}organization/#{@organization_id}/pass-template#{query_params}",
+      headers: credential_headers
+    )
+    raise "Failed to list pass templates: #{response.status_code}\n#{response.body}" unless response.success?
+    PassTemplateCollection.from_json(response.body)
+  end
+
+  def get_pass_template(pass_template_id : String) : PassTemplate
+    response = HTTP::Client.get("#{@cred_domain}organization/#{@organization_id}/pass-template/#{pass_template_id}",
+      headers: credential_headers
+    )
+    raise "Failed to get pass template: #{response.status_code}\n#{response.body}" unless response.success?
+    PassTemplate.from_json(response.body)
+  end
+
+  def create_pass_template(template : PassTemplate) : PassTemplate
+    response = HTTP::Client.post("#{@cred_domain}organization/#{@organization_id}/pass-template",
+      body: template.to_json,
+      headers: credential_headers
+    )
+    raise "Failed to create pass template: #{response.status_code}\n#{response.body}" unless response.success?
+    PassTemplate.from_json(response.body)
+  end
+
+  def update_pass_template(pass_template_id : String, template : PassTemplate) : PassTemplate
+    response = HTTP::Client.patch("#{@cred_domain}organization/#{@organization_id}/pass-template/#{pass_template_id}",
+      body: template.to_json,
+      headers: credential_headers
+    )
+    raise "Failed to update pass template: #{response.status_code}\n#{response.body}" unless response.success?
+    PassTemplate.from_json(response.body)
+  end
+
+  def delete_pass_template(pass_template_id : String) : Bool
+    response = HTTP::Client.delete("#{@cred_domain}organization/#{@organization_id}/pass-template/#{pass_template_id}",
+      headers: credential_headers
+    )
+    raise "Failed to delete pass template: #{response.status_code}\n#{response.body}" unless response.success?
+    true
   end
 end
