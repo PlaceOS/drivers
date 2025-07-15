@@ -105,11 +105,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
       }
     )
 
-    if response.status_code == 200
-      PaginatedUserList.from_json(response.body)
-    else
-      raise "Failed to list users: #{response.status_code}"
-    end
+    raise "Failed to list users: #{response.status_code}\n#{response.body}" unless response.success?
+    PaginatedUserList.from_json(response.body)
   end
 
   def get_user(user_id : String) : User
@@ -117,11 +114,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
       headers: auth_headers
     )
 
-    if response.status_code == 200
-      User.from_json(response.body)
-    else
-      raise "Failed to get user: #{response.status_code}"
-    end
+    raise "Failed to get user: #{response.status_code}\n#{response.body}" unless response.success?
+    User.from_json(response.body)
   end
 
   def create_user(user : User) : User
@@ -130,11 +124,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
       headers: auth_headers
     )
 
-    if response.status_code == 201
-      User.from_json(response.body)
-    else
-      raise "Failed to create user: #{response.status_code}"
-    end
+    raise "Failed to create user: #{response.status_code}\n#{response.body}" unless response.success?
+    User.from_json(response.body)
   end
 
   def update_user(user_id : String, user : User) : User
@@ -143,11 +134,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
       headers: auth_headers
     )
 
-    if response.status_code == 200
-      User.from_json(response.body)
-    else
-      raise "Failed to update user: #{response.status_code}"
-    end
+    raise "Failed to update user: #{response.status_code}\n#{response.body}" unless response.success?
+    User.from_json(response.body)
   end
 
   def delete_user(user_id : String) : Bool
@@ -155,11 +143,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
       headers: auth_headers
     )
 
-    if response.status_code == 204
-      true
-    else
-      raise "Failed to delete user: #{response.status_code}"
-    end
+    raise "Failed to delete user: #{response.status_code}\n#{response.body}" unless response.success?
+    true
   end
 
   def search_users(filter : String, start_index : Int32 = 0, count : Int32 = 20) : PaginatedUserList
@@ -170,133 +155,64 @@ class HID::OrigoRestApi < PlaceOS::Driver
       headers: auth_headers
     )
 
-    if response.status_code == 200
-      PaginatedUserList.from_json(response.body)
-    else
-      raise "Failed to search users: #{response.status_code}"
-    end
+    raise "Failed to search users: #{response.status_code}\n#{response.body}" unless response.success?
+    PaginatedUserList.from_json(response.body)
   end
 
   # Credential Management API methods
-  def list_passes : PassCollection
+  private def credential_headers
     ensure_authenticated
+    HTTP::Headers{
+      "Authorization" => "Bearer #{@access_token}",
+      "Application-ID" => @application_id,
+      "Application-Version" => "1.0",
+      "Content-Type" => "application/vnd.hidglobal.origo.credential-management-3.0+json",
+      "Accept" => "application/vnd.hidglobal.origo.credential-management-3.0+json"
+    }
+  end
 
-    headers = HTTP::Headers.new
-    headers["Authorization"] = "Bearer #{@access_token}"
-    headers["Application-ID"] = @application_id
-    headers["Application-Version"] = "1.0"
-    headers["Content-Type"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-    headers["Accept"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-
-    begin
-      response = HTTP::Client.get("#{@cred_domain}organization/#{@organization_id}/pass", headers: headers)
-
-      if response.status_code == 200
-        PassCollection.from_json(response.body)
-      else
-        raise "Failed to list passes: #{response.status_code}"
-      end
-    rescue ex
-      raise "Error listing passes: #{ex.message}"
-    end
+  def list_passes : PassCollection
+    response = HTTP::Client.get("#{@cred_domain}organization/#{@organization_id}/pass", headers: credential_headers)
+    raise "Failed to list passes: #{response.status_code}\n#{response.body}" unless response.success?
+    PassCollection.from_json(response.body)
   end
 
   def get_pass(pass_id : String) : PassDetails
-    ensure_authenticated
-
-    headers = HTTP::Headers.new
-    headers["Authorization"] = "Bearer #{@access_token}"
-    headers["Application-ID"] = @application_id
-    headers["Application-Version"] = "1.0"
-    headers["Content-Type"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-    headers["Accept"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-
-    begin
-      response = HTTP::Client.get("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}", headers: headers)
-
-      if response.status_code == 200
-        PassDetails.from_json(response.body)
-      else
-        raise "Failed to get pass: #{response.status_code}"
-      end
-    rescue ex
-      raise "Error getting pass: #{ex.message}"
-    end
+    response = HTTP::Client.get("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}", headers: credential_headers)
+    raise "Failed to get pass: #{response.status_code}\n#{response.body}" unless response.success?
+    PassDetails.from_json(response.body)
   end
 
-  def create_pass(pass_request : CreatePassRequest) : PassDetails
-    ensure_authenticated
-
-    headers = HTTP::Headers.new
-    headers["Authorization"] = "Bearer #{@access_token}"
-    headers["Application-ID"] = @application_id
-    headers["Application-Version"] = "1.0"
-    headers["Content-Type"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-    headers["Accept"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-
-    begin
-      response = HTTP::Client.post("#{@cred_domain}organization/#{@organization_id}/pass",
-        body: pass_request.to_json,
-        headers: headers
-      )
-
-      if response.status_code == 201
-        PassDetails.from_json(response.body)
-      else
-        raise "Failed to create pass: #{response.status_code}"
-      end
-    rescue ex
-      raise "Error creating pass: #{ex.message}"
-    end
+  enum PassStatus
+    Active
+    Suspended
   end
 
-  def update_pass(pass_id : String, pass_request : UpdatePassRequest) : PassDetails
-    ensure_authenticated
+  def create_pass(user_id : String, status : PassStatus = PassStatus::Active) : PassDetails
+    pass_request = CreatePassRequest.new(user_id, status.to_s.downcase)
 
-    headers = HTTP::Headers.new
-    headers["Authorization"] = "Bearer #{@access_token}"
-    headers["Application-ID"] = @application_id
-    headers["Application-Version"] = "1.0"
-    headers["Content-Type"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-    headers["Accept"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
+    response = HTTP::Client.post("#{@cred_domain}organization/#{@organization_id}/pass",
+      body: pass_request.to_json,
+      headers: credential_headers
+    )
+    raise "Failed to create pass: #{response.status_code}\n#{response.body}" unless response.success?
+    PassDetails.from_json(response.body)
+  end
 
-    begin
-      response = HTTP::Client.put("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}",
-        body: pass_request.to_json,
-        headers: headers
-      )
-
-      if response.status_code == 200
-        PassDetails.from_json(response.body)
-      else
-        raise "Failed to update pass: #{response.status_code}"
-      end
-    rescue ex
-      raise "Error updating pass: #{ex.message}"
-    end
+  def update_pass(pass_id : String, status : PassStatus) : PassDetails
+    pass_request = UpdatePassRequest.new(status.to_s.downcase)
+    response = HTTP::Client.put("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}",
+      body: pass_request.to_json,
+      headers: credential_headers
+    )
+    raise "Failed to update pass: #{response.status_code}\n#{response.body}" unless response.success?
+    PassDetails.from_json(response.body)
   end
 
   def delete_pass(pass_id : String) : Bool
-    ensure_authenticated
-
-    headers = HTTP::Headers.new
-    headers["Authorization"] = "Bearer #{@access_token}"
-    headers["Application-ID"] = @application_id
-    headers["Application-Version"] = "1.0"
-    headers["Content-Type"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-    headers["Accept"] = "application/vnd.hidglobal.origo.credential-management-3.0+json"
-
-    begin
-      response = HTTP::Client.delete("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}", headers: headers)
-
-      if response.status_code == 204
-        true
-      else
-        raise "Failed to delete pass: #{response.status_code}"
-      end
-    rescue ex
-      raise "Error deleting pass: #{ex.message}"
-    end
+    response = HTTP::Client.delete("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}", headers: credential_headers)
+    raise "Failed to delete pass: #{response.status_code}\n#{response.body}" unless response.success?
+    true
   end
 
   # Convenience methods for creating common user structures
@@ -306,18 +222,11 @@ class HID::OrigoRestApi < PlaceOS::Driver
     create_user(user)
   end
 
-  def create_basic_pass(user_id : String, status : String = "active") : PassDetails
-    pass_request = CreatePassRequest.new(user_id, status)
-    create_pass(pass_request)
-  end
-
   def suspend_pass(pass_id : String) : PassDetails
-    update_request = UpdatePassRequest.new("suspended")
-    update_pass(pass_id, update_request)
+    update_pass(pass_id, PassStatus::Suspended)
   end
 
   def activate_pass(pass_id : String) : PassDetails
-    update_request = UpdatePassRequest.new("active")
-    update_pass(pass_id, update_request)
+    update_pass(pass_id, PassStatus::Active)
   end
 end

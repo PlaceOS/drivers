@@ -175,11 +175,9 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
     end
   end
 
-  # Test pass creation with structured data
-  it "should create a pass with structured data" do
-    pass_request = HID::CreatePassRequest.new("user-1", "active")
-
-    exec(:create_pass, pass_request)
+  # Test pass creatio
+  it "should create a pass" do
+    exec(:create_pass, "user-1", "active")
     expect_http_request do |request, response|
       request.method.should eq "POST"
       request.path.should eq "/organization/test-org-123/pass"
@@ -192,28 +190,6 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
       response.status_code = 201
       response << {
         "id"        => "pass-new",
-        "userId"    => "user-1",
-        "status"    => "active",
-        "createdAt" => "2023-07-19T04:50:59.995299Z",
-      }.to_json
-    end
-  end
-
-  # Test convenience method for creating basic passes
-  it "should create a basic pass with convenience method" do
-    exec(:create_basic_pass, "user-1")
-    expect_http_request do |request, response|
-      request.method.should eq "POST"
-      request.path.should eq "/organization/test-org-123/pass"
-      request.headers["Authorization"].should eq "Bearer test-token-123"
-
-      body = JSON.parse(request.body.not_nil!)
-      body["userId"].should eq "user-1"
-      body["status"].should eq "active"
-
-      response.status_code = 201
-      response << {
-        "id"        => "pass-basic",
         "userId"    => "user-1",
         "status"    => "active",
         "createdAt" => "2023-07-19T04:50:59.995299Z",
