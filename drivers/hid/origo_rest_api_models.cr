@@ -173,6 +173,25 @@ module HID
     end
   end
 
+  enum PassStatus
+    Created
+    IssueInitiated
+    Issuing
+    IssueFailed
+    Cancelled
+    Active
+    Suspending
+    Suspended
+    Resuming
+    Revoking
+    Revoked
+    RevokeFailed
+    UserResuming
+    UserSuspended
+    UserSuspending
+    UserRevoking
+  end
+
   # Credential Management Models
   struct Pass
     include JSON::Serializable

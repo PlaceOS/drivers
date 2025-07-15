@@ -183,13 +183,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
     PassDetails.from_json(response.body)
   end
 
-  enum PassStatus
-    Active
-    Suspended
-  end
-
   def create_pass(user_id : String, status : PassStatus = PassStatus::Active) : PassDetails
-    pass_request = CreatePassRequest.new(user_id, status.to_s.downcase)
+    pass_request = CreatePassRequest.new(user_id, status.to_s.underscore.upcase)
 
     response = HTTP::Client.post("#{@cred_domain}organization/#{@organization_id}/pass",
       body: pass_request.to_json,
@@ -200,7 +195,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
   end
 
   def update_pass(pass_id : String, status : PassStatus) : PassDetails
-    pass_request = UpdatePassRequest.new(status.to_s.downcase)
+    pass_request = UpdatePassRequest.new(status.to_s.underscore.upcase)
     response = HTTP::Client.put("#{@cred_domain}organization/#{@organization_id}/pass/#{pass_id}",
       body: pass_request.to_json,
       headers: credential_headers
