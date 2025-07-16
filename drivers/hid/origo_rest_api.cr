@@ -15,16 +15,17 @@ class HID::OrigoRestApi < PlaceOS::Driver
   CRED_DOMAIN = "https://credential-management.api.origo.hidglobal.com/"
 
   default_settings({
-    organization_id: "123456",
     client_id:       "your_client_id",
     client_secret:   "your_client_secret",
     application_id:  "HID-PLACEOS-DRIVER",
+    application_ver: "1.0",
   })
 
   @organization_id : String = ""
   @client_id : String = ""
   @client_secret : String = ""
   @application_id : String = ""
+  @application_ver : String = ""
   @access_token : String = ""
   @token_expires : Time = Time.utc
   @cred_domain : String = CRED_DOMAIN
@@ -34,10 +35,11 @@ class HID::OrigoRestApi < PlaceOS::Driver
   end
 
   def on_update
-    @organization_id = setting?(String, :organization_id) || ""
     @client_id = setting?(String, :client_id) || ""
     @client_secret = setting?(String, :client_secret) || ""
     @application_id = setting?(String, :application_id) || "HID-PLACEOS-DRIVER"
+    @application_ver = setting?(String, :application_ver) || "1.0"
+    @organization_id = @client_id.split('-', 2).first
 
     # check if we are running specs
     default_uri = config.uri.as(String)
@@ -47,15 +49,20 @@ class HID::OrigoRestApi < PlaceOS::Driver
   private def ensure_authenticated
     return if !@access_token.empty? && @token_expires > Time.utc
 
-    token_request = TokenRequest.new(@client_id, @client_secret)
+    token_request = URI::Params.build do |form|
+      form.add("client_id", @client_id)
+      form.add("client_secret", @client_secret)
+      form.add("grant_type", "client_credentials")
+    end
 
     response = post("/authentication/customer/#{@organization_id}/token",
-      body: token_request.to_json,
+      body: token_request,
       headers: {
-        "Content-Type"        => "application/json",
+        "Content-Type"        => "application/x-www-form-urlencoded",
         "Accept"              => "application/json",
+        "X-Request-ID"        => @organization_id,
         "Application-ID"      => @application_id,
-        "Application-Version" => "1.0",
+        "Application-Version" => @application_ver,
       }
     )
 
@@ -79,7 +86,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
     {
       "Authorization"       => "Bearer #{@access_token}",
       "Application-ID"      => @application_id,
-      "Application-Version" => "1.0",
+      "Application-Version" => @application_ver,
       "Content-Type"        => "application/scim+json",
       "Accept"              => "application/scim+json",
     }
@@ -165,7 +172,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
     HTTP::Headers{
       "Authorization"       => "Bearer #{@access_token}",
       "Application-ID"      => @application_id,
-      "Application-Version" => "1.0",
+      "Application-Version" => @application_ver,
       "Content-Type"        => "application/vnd.hidglobal.origo.credential-management-3.0+json",
       "Accept"              => "application/vnd.hidglobal.origo.credential-management-3.0+json",
     }
