@@ -23,6 +23,7 @@ module Place
     property action : String
 
     property checkin : Bool?
+    property event_title : String?
     property event_summary : String
     property event_starting : Int64
     property attendee_name : String?
