@@ -224,7 +224,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.attendee_email,
         guest_details.attendee_name,
         guest_details.host,
-        guest_details.event_summary,
+        guest_details.event_title || guest_details.event_summary,
         guest_details.event_starting
       )
       self[:users_checked_in] = @users_checked_in += 1
@@ -236,7 +236,7 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.attendee_email,
           guest_details.attendee_name,
           guest_details.host,
-          guest_details.event_summary,
+          guest_details.event_title || guest_details.event_summary,
           guest_details.event_starting,
           guest_details.induction
         )
@@ -247,7 +247,7 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.attendee_email,
           guest_details.attendee_name,
           guest_details.host,
-          guest_details.event_summary,
+          guest_details.event_title || guest_details.event_summary,
           guest_details.event_starting,
           guest_details.induction
         )
@@ -276,7 +276,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       guest_details.attendee_email,
       guest_details.attendee_name,
       guest_details.host,
-      guest_details.event_summary,
+      guest_details.event_title || guest_details.event_summary,
       guest_details.event_starting,
       guest_details.resource_id,
       guest_details.event_id,
