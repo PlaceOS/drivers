@@ -2,17 +2,6 @@ require "json"
 
 module HID
   # Authentication Models
-  struct TokenRequest
-    include JSON::Serializable
-
-    property client_id : String
-    property client_secret : String
-    property grant_type : String = "client_credentials"
-
-    def initialize(@client_id : String, @client_secret : String)
-    end
-  end
-
   struct TokenResponse
     include JSON::Serializable
 
