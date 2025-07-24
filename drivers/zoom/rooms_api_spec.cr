@@ -6,10 +6,11 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     account_id:    "test_account_id",
     client_id:     "test_client_id",
     client_secret: "test_client_secret",
-    room_id:       "qMOLddnySIGGVycz8aX_JQ",
   })
 
-  retval = exec(:list_rooms)
+  room_id = "qMOLddnySIGGVycz8aX_JQ"
+
+  retval = exec(:list_rooms, room_id)
   # Mock authentication response
   expect_http_request do |request, response|
     if request.path == "/oauth/token"
@@ -55,7 +56,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     "status"      => "Available",
   }])
 
-  retval = exec(:mute)
+  retval = exec(:mute, room_id)
 
   # Mock mute request
   expect_http_request do |request, response|
@@ -70,7 +71,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
 
   retval.get
 
-  retval = exec(:unmute)
+  retval = exec(:unmute, room_id)
   # Mock unmute request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -83,9 +84,8 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
   end
 
   retval.get
-  status[:muted].should eq(false)
 
-  retval = exec(:video_mute)
+  retval = exec(:video_mute, room_id)
   # Mock video mute request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -97,9 +97,8 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     end
   end
   retval.get
-  status[:video_muted].should eq(true)
 
-  retval = exec(:join_meeting, "123456789", "abc123")
+  retval = exec(:join_meeting, room_id, "123456789", "abc123")
   # Mock join meeting request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -113,9 +112,8 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     end
   end
   retval.get
-  status[:in_meeting].should eq(true)
 
-  retval = exec(:leave_meeting)
+  retval = exec(:leave_meeting, room_id)
   # Mock leave meeting request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -128,30 +126,28 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
   end
 
   retval.get
-  status[:in_meeting].should eq(false)
 
-  retval = exec(:set_volume, 75)
+  retval = exec(:set_volume, room_id, 75)
   # Mock volume control request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
       body = JSON.parse(request.body.not_nil!)
       body["method"].should eq("zoomroom.volume_level")
-      body["params"]["level"].should eq(75)
+      body["params"]["volume_level"].should eq(75)
       response.status_code = 202
     else
       raise "unexpected request #{request.path}"
     end
   end
-  retval.get
-  status[:volume].should eq(75)
+  retval.get.should eq(75)
 
-  retval = exec(:switch_camera, "camera_123")
+  retval = exec(:switch_camera, room_id, "camera_123")
   # Mock switch camera request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
       body = JSON.parse(request.body.not_nil!)
       body["method"].should eq("zoomroom.switch_camera")
-      body["params"]["camera_id"].should eq("camera_123")
+      body["params"]["cameraId"].should eq("camera_123")
       response.status_code = 202
     else
       raise "unexpected request #{request.path}"
@@ -159,9 +155,8 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
   end
 
   retval.get
-  status[:active_camera].should eq("camera_123")
 
-  retval = exec(:share_content)
+  retval = exec(:share_content, room_id)
   # Mock content sharing request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -173,9 +168,8 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     end
   end
   retval.get
-  status[:sharing_content].should eq(true)
 
-  retval = exec(:get_room)
+  retval = exec(:get_room, room_id)
   # Mock get room request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ"
@@ -203,7 +197,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     "health"      => "healthy",
   })
 
-  retval = exec(:list_devices)
+  retval = exec(:list_devices, room_id)
   # Mock list devices request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/devices"
@@ -225,9 +219,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     end
   end
 
-  retval.get
-
-  status[:devices].should eq([{
+  retval.get["devices"].should eq([{
     "id"            => "device_123",
     "room_name"     => "Conference Room A",
     "device_type"   => "ZoomRoomsComputer",
@@ -236,7 +228,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     "status"        => "Online",
   }])
 
-  retval = exec(:get_sensor_data)
+  retval = exec(:get_sensor_data, room_id)
   # Mock sensor data request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/sensor_data"
@@ -263,7 +255,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
   result["sensor_data"]["temperature"]["value"].should eq(22.5)
   result["sensor_data"]["people_count"].should eq(3)
 
-  retval = exec(:check_in, "mycalendar@example.com", "event_123", "room@example.com")
+  retval = exec(:check_in, room_id, "event_123", "room@example.com", nil, "mycalendar@example.com")
   # Mock check-in request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -279,9 +271,8 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
   end
 
   retval.get
-  status[:checked_in].should eq(true)
 
-  retval = exec(:restart_room)
+  retval = exec(:restart_room, room_id)
   # Mock restart request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -315,8 +306,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
     end
   end
 
-  retval.get
-  status[:locations].should eq([{
+  retval.get["locations"].should eq([{
     "id"                 => "49D7a0xPQvGQ2DCMZgSe7w",
     "name"               => "Building A",
     "type"               => "building",

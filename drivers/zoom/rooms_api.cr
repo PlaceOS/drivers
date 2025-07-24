@@ -23,7 +23,6 @@ class Zoom::RoomsApi < PlaceOS::Driver
     account_id:    "your_account_id",
     client_id:     "your_client_id",
     client_secret: "your_client_secret",
-    room_id:       "optional_default_room_id",
   })
 
   def on_load
@@ -35,13 +34,11 @@ class Zoom::RoomsApi < PlaceOS::Driver
     @account_id = setting(String, :account_id)
     @client_id = setting(String, :client_id)
     @client_secret = setting(String, :client_secret)
-    @default_room_id = setting?(String, :room_id)
   end
 
   @account_id : String = ""
   @client_id : String = ""
   @client_secret : String = ""
-  @default_room_id : String? = nil
   getter! auth_token : AccessToken
 
   record AccessToken, access_token : String, token_type : String, expires_in : Int32, scope : String?, api_url : String do
@@ -91,7 +88,7 @@ class Zoom::RoomsApi < PlaceOS::Driver
     auth_token.access_token
   end
 
-  private def api_request(method : String, resource : String, body : JSON::Any? = nil, params : Hash(String, String)? = nil)
+  private def api_request(method : String, resource : String, body = nil, params : Hash(String, String)? = nil)
     token = authenticate
 
     headers = {
@@ -128,27 +125,22 @@ class Zoom::RoomsApi < PlaceOS::Driver
     page_size : Int32 = 30,
     next_page_token : String? = nil,
   )
-    params = {} of String => String
-    params["status"] = status if status
-    params["type"] = type if type
-    params["location_id"] = location_id if location_id
-    params["page_size"] = page_size.to_s
-    params["next_page_token"] = next_page_token if next_page_token
+    params = {
+      "status"          => status,
+      "type"            => type,
+      "location_id"     => location_id,
+      "page_size"       => page_size.to_s,
+      "next_page_token" => next_page_token,
+    }.compact
 
-    result = api_request("GET", "/rooms", params: params)
-    self[:rooms] = result.try(&.["rooms"])
-    result
+    api_request("GET", "/rooms", params: params)
   end
 
   # Get specific room details
   # the user_id in this response can be used to get the upcoming meetings
   # https://developers.zoom.us/docs/api/rooms/#tag/zoom-rooms/GET/rooms/{roomId}
-  def get_room(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    result = api_request("GET", "/rooms/#{room_id}")
-    self[:room_details] = result
-    result
+  def get_room(room_id : String)
+    api_request("GET", "/rooms/#{room_id}")
   end
 
   enum MeetingType
@@ -160,306 +152,12 @@ class Zoom::RoomsApi < PlaceOS::Driver
   end
 
   # list the meetings in the room
-  # https://developers.zoom.us/docs/api/meetings/#tag/meetings/GET/users/{userId}/meetings
-  def list_meetings(room_user_id : String, type : MeetingType = MeetingType::Scheduled)
+  # https://developers.zoom.us/docs/api/meetings/#tag/meetings/get/users/{userId}/meetings
+  def list_user_meetings(room_user_id : String, type : MeetingType = MeetingType::Scheduled)
     params = {
       "type" => type.to_s.underscore,
     }
     api_request("GET", "/users/#{room_user_id}/meetings", params: params)
-  end
-
-  # List Zoom Room devices
-  def list_devices(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    result = api_request("GET", "/rooms/#{room_id}/devices")
-    self[:devices] = result.try(&.["devices"])
-    result
-  end
-
-  # Get device information
-  def get_device_info(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    result = api_request("GET", "/rooms/#{room_id}/device_profiles/devices")
-    self[:device_info] = result
-    result
-  end
-
-  # List device profiles
-  def list_device_profiles(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    result = api_request("GET", "/rooms/#{room_id}/device_profiles")
-    self[:device_profiles] = result.try(&.["device_profiles"])
-    result
-  end
-
-  # Get Zoom Room sensor data
-  def get_sensor_data(room_id : String? = nil, from : String? = nil, to : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    params = {} of String => String
-    params["from"] = from if from
-    params["to"] = to if to
-
-    result = api_request("GET", "/rooms/#{room_id}/sensor_data", params: params)
-    self[:sensor_data] = result
-    result
-  end
-
-  # Get Zoom Room settings
-  def get_room_settings(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    result = api_request("GET", "/rooms/#{room_id}/settings")
-    self[:room_settings] = result
-    result
-  end
-
-  # Room Controls - Mute/Unmute microphone
-  def mute(state : Bool = true, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    method = state ? "zoomroom.mute" : "zoomroom.unmute"
-    body = JSON.parse({
-      "method" => method,
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:muted] = state
-    logger.debug { "Microphone #{state ? "muted" : "unmuted"}" }
-    nil
-  end
-
-  def unmute(room_id : String? = nil)
-    mute(false, room_id)
-  end
-
-  # Video mute/unmute
-  def video_mute(state : Bool = true, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    method = state ? "zoomroom.video_mute" : "zoomroom.video_unmute"
-    body = JSON.parse({
-      "method" => method,
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:video_muted] = state
-    logger.debug { "Video #{state ? "muted" : "unmuted"}" }
-    nil
-  end
-
-  def video_unmute(room_id : String? = nil)
-    video_mute(false, room_id)
-  end
-
-  # Restart Zoom Room
-  def restart_room(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    body = JSON.parse({
-      "method" => "zoomroom.restart",
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    logger.info { "Zoom Room restart initiated" }
-    nil
-  end
-
-  # Meeting controls
-  def leave_meeting(room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    body = JSON.parse({
-      "method" => "zoomroom.meeting_leave",
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:in_meeting] = false
-    logger.info { "Left meeting" }
-    nil
-  end
-
-  def join_meeting(meeting_number : String, password : String? = nil, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    params = {
-      "meeting_number" => meeting_number,
-    }
-    params["password"] = password if password
-
-    body = JSON.parse({
-      "method" => "zoomroom.meeting_join",
-      "params" => params,
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:in_meeting] = true
-    logger.info { "Joined meeting #{meeting_number}" }
-    nil
-  end
-
-  # Device switching
-  def switch_camera(camera_id : String, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    body = JSON.parse({
-      "method" => "zoomroom.switch_camera",
-      "params" => {
-        "camera_id" => camera_id,
-      },
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:active_camera] = camera_id
-    logger.debug { "Switched to camera #{camera_id}" }
-    nil
-  end
-
-  def switch_microphone(microphone_id : String, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    body = JSON.parse({
-      "method" => "zoomroom.switch_microphone",
-      "params" => {
-        "microphone_id" => microphone_id,
-      },
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:active_microphone] = microphone_id
-    logger.debug { "Switched to microphone #{microphone_id}" }
-    nil
-  end
-
-  def switch_speaker(speaker_id : String, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    body = JSON.parse({
-      "method" => "zoomroom.switch_speaker",
-      "params" => {
-        "speaker_id" => speaker_id,
-      },
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:active_speaker] = speaker_id
-    logger.debug { "Switched to speaker #{speaker_id}" }
-    nil
-  end
-
-  # Content sharing
-  def share_content(state : Bool = true, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    method = state ? "zoomroom.share_content_start" : "zoomroom.share_content_stop"
-    body = JSON.parse({
-      "method" => method,
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:sharing_content] = state
-    logger.debug { "Content sharing #{state ? "started" : "stopped"}" }
-    nil
-  end
-
-  def stop_share_content(room_id : String? = nil)
-    share_content(false, room_id)
-  end
-
-  # Volume control
-  def set_volume(level : Int32, room_id : String? = nil)
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    # Ensure volume is within valid range (0-100)
-    level = level.clamp(0, 100)
-
-    body = JSON.parse({
-      "method" => "zoomroom.volume_level",
-      "params" => {
-        "level" => level,
-      },
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:volume] = level
-    logger.debug { "Volume set to #{level}" }
-    nil
-  end
-
-  # Room check-in/out
-  def check_in(
-    calendar_id : String,
-    event_id : String,
-    resource_email : String,
-    change_key : String? = nil,
-    room_id : String? = nil,
-  )
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    params = {
-      "calendar_id"    => calendar_id,
-      "event_id"       => event_id,
-      "resource_email" => resource_email,
-    }
-    params["change_key"] = change_key if change_key
-
-    body = JSON.parse({
-      "method" => "zoomroom.check_in",
-      "params" => params,
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:checked_in] = true
-    logger.info { "Checked in to room" }
-    nil
-  end
-
-  def check_out(
-    calendar_id : String,
-    event_id : String,
-    resource_email : String,
-    change_key : String? = nil,
-    room_id : String? = nil,
-  )
-    room_id ||= @default_room_id || raise "No room_id provided"
-
-    params = {
-      "calendar_id"    => calendar_id,
-      "event_id"       => event_id,
-      "resource_email" => resource_email,
-    }
-    params["change_key"] = change_key if change_key
-
-    body = JSON.parse({
-      "method" => "zoomroom.check_out",
-      "params" => params,
-    }.to_json)
-
-    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
-    self[:checked_in] = false
-    logger.info { "Checked out of room" }
-    nil
-  end
-
-  # List Zoom Room locations
-  def list_locations(
-    parent_location_id : String? = nil,
-    type : String? = nil,
-    page_size : Int32 = 30,
-    next_page_token : String? = nil,
-  )
-    params = {} of String => String
-    params["parent_location_id"] = parent_location_id if parent_location_id
-    params["type"] = type if type
-    params["page_size"] = page_size.to_s
-    params["next_page_token"] = next_page_token if next_page_token
-
-    result = api_request("GET", "/rooms/locations", params: params)
-    self[:locations] = result.try(&.["locations"])
-    result
   end
 
   # List calendar events
@@ -470,14 +168,352 @@ class Zoom::RoomsApi < PlaceOS::Driver
     page_size : Int32 = 30,
     next_page_token : String? = nil,
   )
-    params = {} of String => String
-    params["from"] = from if from
-    params["to"] = to if to
-    params["page_size"] = page_size.to_s
-    params["next_page_token"] = next_page_token if next_page_token
-
-    result = api_request("GET", "/calendars/#{calendar_id}/events", params: params)
-    self[:calendar_events] = result.try(&.["events"])
-    result
+    api_request("GET", "/calendars/#{calendar_id}/events", params: {
+      "from"            => from,
+      "to"              => to,
+      "page_size"       => page_size.to_s,
+      "next_page_token" => next_page_token,
+    }.compact)
   end
+
+  # List Zoom Room locations
+  def list_locations(
+    parent_location_id : String? = nil,
+    type : String? = nil,
+    page_size : Int32 = 30,
+    next_page_token : String? = nil,
+  )
+    params = {
+      "parent_location_id" => parent_location_id,
+      "type"               => type,
+      "page_size"          => page_size.to_s,
+      "next_page_token"    => next_page_token,
+    }.compact
+
+    api_request("GET", "/rooms/locations", params: params)
+  end
+
+  # List Zoom Room devices
+  def list_devices(room_id : String)
+    api_request("GET", "/rooms/#{room_id}/devices")
+  end
+
+  # Get device information
+  def get_device_info(room_id : String)
+    api_request("GET", "/rooms/#{room_id}/device_profiles")
+  end
+
+  # List device profiles
+  def list_device_profiles(room_id : String)
+    api_request("GET", "/rooms/#{room_id}/device_profiles")
+  end
+
+  # Get Zoom Room sensor data
+  def get_sensor_data(room_id : String, from : String? = nil, to : String? = nil)
+    api_request("GET", "/rooms/#{room_id}/sensor_data", params: {
+      "from" => from,
+      "to"   => to,
+    }.compact)
+  end
+
+  # Get Zoom Room settings
+  def get_room_settings(room_id : String)
+    api_request("GET", "/rooms/#{room_id}/settings")
+  end
+
+  # ==============================
+  # in-meeting controls
+  # ==============================
+
+  enum Recording
+    Start
+    Stop
+    Pause
+    Resume
+  end
+
+  def meeting_recording(meeting_id : String | Int64, command : Recording) : Nil
+    body = {
+      method: "recording.#{command.to_s.downcase}",
+    }
+    api_request("PATCH", "/live_meetings/#{meeting_id}/events", body: body)
+    logger.debug { "Updated recording state: #{command}" }
+  end
+
+  def meeting_call_phone(
+    meeting_id : String | Int64,
+    invitee_name : String,
+    phone_number : String,
+    require_greeting : Bool = true,
+    require_pressing_one : Bool = true,
+  ) : Nil
+    body = {
+      method: "participant.invite.callout",
+      params: {
+        invitee_name:   invitee_name,
+        phone_number:   phone_number,
+        invite_options: {
+          require_greeting:     require_greeting,
+          require_pressing_one: require_pressing_one,
+        },
+      },
+    }
+
+    api_request("PATCH", "/live_meetings/#{meeting_id}/events", body: body)
+    logger.debug { "Calling: #{invitee_name} => #{phone_number}" }
+  end
+
+  def meeting_invite_contacts(meeting_id : String | Int64, email : String | Array(String)) : Nil
+    email = email.is_a?(String) ? [email] : email
+    emails = email.map { |address| {email: address} }
+    body = {
+      method: "participant.invite",
+      params: {
+        contacts: emails,
+      },
+    }
+
+    api_request("PATCH", "/live_meetings/#{meeting_id}/events", body: body)
+    logger.debug { "Inviting: #{email}" }
+  end
+
+  def meeting_waiting_room(meeting_id : String | Int64, title : String, description : String) : Nil
+    body = {
+      method: "waiting_room.update",
+      params: {
+        waiting_room_title:       title,
+        waiting_room_description: description,
+      },
+    }
+
+    api_request("PATCH", "/live_meetings/#{meeting_id}/events", body: body)
+    logger.debug { "Waiting room update: #{title}\n#{description}" }
+  end
+
+  # ==============================
+  # Zoom Room Controls
+  # ==============================
+
+  # Room Controls - Mute/Unmute microphone
+  def mute(room_id : String, state : Bool = true) : Nil
+    method = state ? "zoomroom.mute" : "zoomroom.unmute"
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: method})
+    logger.debug { "Microphone #{state ? "muted" : "unmuted"} in #{room_id}" }
+  end
+
+  def unmute(room_id : String)
+    mute(room_id, false)
+  end
+
+  def meeting_accept(room_id : String) : Nil
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: "zoomroom.meeting_accept"})
+    logger.debug { "Zoom Room meeting accept in #{room_id}" }
+  end
+
+  def meeting_decline(room_id : String) : Nil
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: "zoomroom.meeting_decline"})
+    logger.debug { "Zoom Room meeting decline in #{room_id}" }
+  end
+
+  # Video mute/unmute
+  def video_mute(room_id : String, state : Bool = true) : Nil
+    method = state ? "zoomroom.video_mute" : "zoomroom.video_unmute"
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: method})
+    logger.debug { "Video #{state ? "muted" : "unmuted"} in #{room_id}" }
+  end
+
+  def video_unmute(room_id : String)
+    video_mute(room_id, false)
+  end
+
+  # Restart Zoom Room
+  def restart_room(room_id : String) : Nil
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: "zoomroom.restart"})
+    logger.info { "Zoom Room restart initiated in #{room_id}" }
+  end
+
+  # Meeting controls
+  def leave_meeting(room_id : String) : Nil
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: "zoomroom.meeting_leave"})
+    logger.info { "Left meeting in #{room_id}" }
+  end
+
+  def meeting_end(room_id : String) : Nil
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: "zoomroom.meeting_end"})
+    logger.info { "Ended meeting in #{room_id}" }
+  end
+
+  def meeting_schedule(room_id : String, meeting_topic : String, start_time : Int64, duration_min : Int32, passcode : String? = nil, join_before_host : Bool = true) : Nil
+    body = {
+      method: "zoomroom.meeting_schedule",
+      params: {
+        "passcode"      => passcode,
+        "meeting_topic" => meeting_topic,
+        "start_time"    => Time.unix(start_time).to_rfc3339,
+        "duration"      => duration_min,
+        "settings"      => {
+          "join_before_host" => join_before_host,
+        },
+      }.compact,
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.info { "Meeting #{meeting_topic} scheduled in #{room_id}" }
+  end
+
+  def join_thirdparty_url(room_id : String, join_url : String) : Nil
+    if join_url.starts_with?("https://teams.microsoft.com")
+      meeting_source_type = "MS_TEAMS"
+    elsif join_url.includes?("https://meet.google.com")
+      meeting_source_type = "GOOGLE_MEET"
+    else
+      raise "only supports Google Meet or MS Teams"
+    end
+
+    body = {
+      method: "zoomroom.thirdparty_meeting_join",
+      params: {
+        "join_type"           => "url",
+        "meeting_source_type" => meeting_source_type,
+        "join_url"            => join_url,
+      }.compact,
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.debug { "Joining 3rd party meeting #{join_url} in #{room_id}" }
+  end
+
+  def join_meeting(room_id : String, meeting_number : String, password : String? = nil) : Nil
+    body = {
+      "method" => "zoomroom.meeting_join",
+      "params" => {
+        "meeting_number" => meeting_number,
+        "password"       => password,
+      }.compact,
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.info { "Joined meeting #{meeting_number} in #{room_id}" }
+  end
+
+  # Device switching
+  def switch_camera(room_id : String, camera_id : String) : Nil
+    body = {
+      method: "zoomroom.switch_camera",
+      params: {
+        cameraId: camera_id,
+      },
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.debug { "Switched to camera #{camera_id} in #{room_id}" }
+  end
+
+  def switch_microphone(room_id : String, microphone_id : String) : Nil
+    body = {
+      method: "zoomroom.switch_microphone",
+      params: {
+        microphoneId: microphone_id,
+      },
+    }
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.debug { "Switched to microphone #{microphone_id} in #{room_id}" }
+  end
+
+  def switch_speaker(room_id : String, speaker_id : String) : Nil
+    body = {
+      "method" => "zoomroom.switch_speaker",
+      "params" => {
+        "speakerId" => speaker_id,
+      },
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.debug { "Switched to speaker #{speaker_id} in #{room_id}" }
+  end
+
+  # Content sharing
+  def share_content(room_id : String, state : Bool = true) : Nil
+    method = state ? "zoomroom.share_content_start" : "zoomroom.share_content_stop"
+    api_request("PATCH", "/rooms/#{room_id}/events", body: {method: method})
+    logger.debug { "Content sharing #{state ? "started" : "stopped"} in #{room_id}" }
+  end
+
+  def stop_share_content(room_id : String)
+    share_content(room_id, false)
+  end
+
+  # Volume control
+  def set_volume(room_id : String, level : Int32) : Int32
+    # Ensure volume is within valid range (0-100)
+    level = level.clamp(0, 100)
+
+    body = {
+      method: "zoomroom.volume_level",
+      params: {
+        volume_level: level,
+      },
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.debug { "Volume set to #{level} in #{room_id}" }
+    level
+  end
+
+  # Room check-in/out
+  def check_in(
+    room_id : String,
+    # The unique identifier of the calendar event associated with the Zoom Room.
+    event_id : String,
+    # This field is only required for Microsoft Exchange / Office 365 Calendar
+    resource_email : String? = nil,
+    # This field is required only for Microsoft Exchange or Office 365 calendar
+    change_key : String? = nil,
+    # only required if using Google Calendar
+    calendar_id : String? = nil,
+  ) : Nil
+    params = {
+      "calendar_id"    => calendar_id,
+      "event_id"       => event_id,
+      "resource_email" => resource_email,
+      "change_key"     => change_key,
+    }.compact
+
+    body = {
+      method: "zoomroom.check_in",
+      params: params,
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.info { "Checked in to room #{room_id}" }
+  end
+
+  def check_out(
+    room_id : String,
+    # The unique identifier of the calendar event associated with the Zoom Room.
+    event_id : String,
+    # This field is only required for Microsoft Exchange / Office 365 Calendar
+    resource_email : String? = nil,
+    # This field is required only for Microsoft Exchange or Office 365 calendar
+    change_key : String? = nil,
+    # only required if using Google Calendar
+    calendar_id : String? = nil,
+  ) : Nil
+    params = {
+      "calendar_id"    => calendar_id,
+      "event_id"       => event_id,
+      "resource_email" => resource_email,
+      "change_key"     => change_key,
+    }.compact
+
+    body = {
+      method: "zoomroom.check_in",
+      params: params,
+    }
+
+    api_request("PATCH", "/rooms/#{room_id}/events", body: body)
+    logger.info { "Checked out of room #{room_id}" }
+  end
+
+  # ==============================
 end
