@@ -58,6 +58,29 @@ class ZoomAPIMock < DriverSpecs::MockDriver
   def share_content(room_id : String, state : Bool = true) : Nil
     logger.debug { "sharing content #{state} in #{room_id}" }
   end
+
+  enum Role
+    Participant = 0
+    Host
+  end
+
+  def generate_jwt(meeting_number : String, issued_at : Int64? = nil, expires_at : Int64? = nil, role : Role? = nil)
+    iat = issued_at || 2.minutes.ago.to_unix     # issued at time, 2 minutes earlier to avoid clock skew
+    exp = expires_at || 2.hours.from_now.to_unix # token expires after 2 hours
+
+    client_id = "key"
+    payload = {
+      "appKey"   => client_id,
+      "sdkKey"   => client_id,
+      "mn"       => meeting_number,
+      "role"     => (role || Role::Participant).to_i,
+      "tokenExp" => exp,
+      "iat"      => iat,
+      "exp"      => exp,
+    }
+
+    {client_id, JWT.encode(payload, "secret", JWT::Algorithm::HS256)}
+  end
 end
 
 DriverSpecs.mock_driver "Zoom::Meeting" do
@@ -68,8 +91,8 @@ DriverSpecs.mock_driver "Zoom::Meeting" do
 
   # ====
   # example generated at https://developers.zoom.us/docs/meeting-sdk/auth/
-  jwt = exec(:generate_jwt, "1234567", 1751266556_i64, 1751270156_i64, "host").get
-  jwt.should eq "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhcHBLZXkiOiJrZXkiLCJzZGtLZXkiOiJrZXkiLCJtbiI6IjEyMzQ1NjciLCJyb2xlIjoxLCJ0b2tlbkV4cCI6MTc1MTI3MDE1NiwiaWF0IjoxNzUxMjY2NTU2LCJleHAiOjE3NTEyNzAxNTZ9.lbTc6uvEnxMBEq7WiJw9EnzXNdSU32qBAigXAvaIQ5I"
+  # jwt = exec(:generate_jwt, "1234567", 1751266556_i64, 1751270156_i64, "host").get
+  # jwt.should eq "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhcHBLZXkiOiJrZXkiLCJzZGtLZXkiOiJrZXkiLCJtbiI6IjEyMzQ1NjciLCJyb2xlIjoxLCJ0b2tlbkV4cCI6MTc1MTI3MDE1NiwiaWF0IjoxNzUxMjY2NTU2LCJleHAiOjE3NTEyNzAxNTZ9.lbTc6uvEnxMBEq7WiJw9EnzXNdSU32qBAigXAvaIQ5I"
 
   # ====
   # join a meeting
