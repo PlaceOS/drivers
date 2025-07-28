@@ -98,7 +98,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
   end
   retval.get
 
-  retval = exec(:join_meeting, room_id, "123456789", "abc123")
+  retval = exec(:meeting_join, room_id, "123456789", "abc123")
   # Mock join meeting request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"
@@ -113,7 +113,7 @@ DriverSpecs.mock_driver "Zoom::RoomsApi" do
   end
   retval.get
 
-  retval = exec(:leave_meeting, room_id)
+  retval = exec(:meeting_leave, room_id)
   # Mock leave meeting request
   expect_http_request do |request, response|
     if request.path == "/v2/rooms/qMOLddnySIGGVycz8aX_JQ/events"

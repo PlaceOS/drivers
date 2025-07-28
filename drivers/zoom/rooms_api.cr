@@ -7,7 +7,7 @@ require "jwt"
 
 class Zoom::RoomsApi < PlaceOS::Driver
   descriptive_name "Zoom Rooms Cloud REST API"
-  generic_name :ZoomRooms
+  generic_name :ZoomAPI
   description %(
     Zoom Rooms Cloud REST API Control driver for managing and controlling Zoom Room devices.
 
@@ -333,7 +333,7 @@ class Zoom::RoomsApi < PlaceOS::Driver
   end
 
   # Meeting controls
-  def leave_meeting(room_id : String) : Nil
+  def meeting_leave(room_id : String) : Nil
     api_request("PATCH", "/rooms/#{room_id}/events", body: {method: "zoomroom.meeting_leave"})
     logger.info { "Left meeting in #{room_id}" }
   end
@@ -361,10 +361,10 @@ class Zoom::RoomsApi < PlaceOS::Driver
     logger.info { "Meeting #{meeting_topic} scheduled in #{room_id}" }
   end
 
-  def join_thirdparty_url(room_id : String, join_url : String) : Nil
-    if join_url.starts_with?("https://teams.microsoft.com")
+  def meeting_join_thirdparty(room_id : String, join_url : String) : Nil
+    if join_url =~ /https:\/\/(?:[\w.-]*teams\.microsoft\.com|teams\.live\.com)\/[^\s>"]+/i
       meeting_source_type = "MS_TEAMS"
-    elsif join_url.includes?("https://meet.google.com")
+    elsif join_url =~ /https:\/\/meet\.google\.com\/[^\s>"]+/i
       meeting_source_type = "GOOGLE_MEET"
     else
       raise "only supports Google Meet or MS Teams"
@@ -383,12 +383,14 @@ class Zoom::RoomsApi < PlaceOS::Driver
     logger.debug { "Joining 3rd party meeting #{join_url} in #{room_id}" }
   end
 
-  def join_meeting(room_id : String, meeting_number : String, password : String? = nil) : Nil
+  def meeting_join(room_id : String, meeting_number : String | Int64, password : String? = nil, host : Bool = false) : Nil
     body = {
-      "method" => "zoomroom.meeting_join",
-      "params" => {
-        "meeting_number" => meeting_number,
-        "password"       => password,
+      method: "zoomroom.meeting_join",
+      params: {
+        "meeting_number"      => meeting_number.to_s,
+        "password"            => password,
+        "force_accept"        => true,
+        "make_zoom_room_host" => host,
       }.compact,
     }
 
@@ -422,8 +424,8 @@ class Zoom::RoomsApi < PlaceOS::Driver
 
   def switch_speaker(room_id : String, speaker_id : String) : Nil
     body = {
-      "method" => "zoomroom.switch_speaker",
-      "params" => {
+      method: "zoomroom.switch_speaker",
+      params: {
         "speakerId" => speaker_id,
       },
     }
