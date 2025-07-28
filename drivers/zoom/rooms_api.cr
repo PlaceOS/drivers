@@ -88,6 +88,29 @@ class Zoom::RoomsApi < PlaceOS::Driver
     auth_token.access_token
   end
 
+  enum Role
+    Participant = 0
+    Host
+  end
+
+  @[Security(Level::Administrator)]
+  def generate_jwt(meeting_number : String, issued_at : Int64? = nil, expires_at : Int64? = nil, role : Role? = nil)
+    iat = issued_at || 2.minutes.ago.to_unix     # issued at time, 2 minutes earlier to avoid clock skew
+    exp = expires_at || 2.hours.from_now.to_unix # token expires after 2 hours
+
+    payload = {
+      "appKey"   => @client_id,
+      "sdkKey"   => @client_id,
+      "mn"       => meeting_number,
+      "role"     => (role || Role::Participant).to_i,
+      "tokenExp" => exp,
+      "iat"      => iat,
+      "exp"      => exp,
+    }
+
+    {@client_id, JWT.encode(payload, @client_secret, JWT::Algorithm::HS256)}
+  end
+
   private def api_request(method : String, resource : String, body = nil, params : Hash(String, String)? = nil)
     token = authenticate
 

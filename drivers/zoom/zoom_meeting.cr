@@ -10,8 +10,6 @@ class Zoom::Meeting < PlaceOS::Driver
   generic_name :Zoom
 
   default_settings({
-    zoom_sdk_key:     "key",
-    zoom_sdk_secret:  "secret",
     zoom_domain:      "x.zoom.us",
     zoom_room_id:     "room_id",
     _zoom_api_system: "sys-management",
@@ -20,16 +18,12 @@ class Zoom::Meeting < PlaceOS::Driver
   accessor bookings : Bookings_1
   bind Bookings_1, :current_booking, :current_booking_changed
 
-  @key : String = "key"
-  @secret : String = "secret"
   @zoom_api_system : String? = nil
 
   getter zoom_domain : String = "x.zoom.us"
   getter room_id : String = ""
 
   def on_update
-    @key = setting(String, :zoom_sdk_key)
-    @secret = setting(String, :zoom_sdk_secret)
     @zoom_domain = setting(String, :zoom_domain).downcase
     @room_id = setting(String, :zoom_room_id)
     @zoom_api_system = setting?(String, :zoom_api_system).presence
@@ -75,29 +69,6 @@ class Zoom::Meeting < PlaceOS::Driver
   getter current_meeting : Meeting? = nil
   getter joined_meeting : Meeting? = nil
 
-  enum Role
-    Participant = 0
-    Host
-  end
-
-  @[Security(Level::Administrator)]
-  def generate_jwt(meeting_number : String, issued_at : Int64? = nil, expires_at : Int64? = nil, role : Role? = nil)
-    iat = issued_at || 2.minutes.ago.to_unix     # issued at time, 2 minutes earlier to avoid clock skew
-    exp = expires_at || 2.hours.from_now.to_unix # token expires after 2 hours
-
-    payload = {
-      "appKey"   => @key,
-      "sdkKey"   => @key,
-      "mn"       => meeting_number,
-      "role"     => (role || Role::Participant).to_i,
-      "tokenExp" => exp,
-      "iat"      => iat,
-      "exp"      => exp,
-    }
-
-    JWT.encode(payload, @secret, JWT::Algorithm::HS256)
-  end
-
   def join_meeting(start_time : Int64? = nil)
     if start_time
       if event = bookings.status(Array(PlaceCalendar::Event), :bookings).find { |event| event.event_start.to_unix == start_time }
@@ -123,23 +94,24 @@ class Zoom::Meeting < PlaceOS::Driver
       logger.debug { "found zoom meeting uri: #{meeting.url} (can host: #{meeting.can_host?})" }
 
       control_sys = config.control_system.not_nil!
-      role = meeting.can_host? ? Role::Host : Role::Participant
+      role = meeting.can_host? ? "host" : "participant"
       meeting_id = meeting.id.as(String)
       password = meeting.password
 
       zoom_api.meeting_join(room_id, meeting_id, password, meeting.can_host?).get
       @joined_meeting = meeting
-
       self[:meeting_joined] = meeting.event_start
+      client_id, jwt = zoom_api.generate_jwt(meeting_id, role: role).get.as_a
+
       spawn { setup_room }
 
       {
         meetingNumber: meeting_id,
-        signature:     generate_jwt(meeting_id, role: role),
+        signature:     jwt.as_s,
         userEmail:     control_sys.email,
         userName:      control_sys.display_name.presence || control_sys.name,
         password:      password,
-        sdkKey:        @key,
+        sdkKey:        client_id.as_s,
         tk:            meeting.token,
       }
     else
