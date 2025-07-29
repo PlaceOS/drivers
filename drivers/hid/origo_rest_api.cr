@@ -107,6 +107,12 @@ class HID::OrigoRestApi < PlaceOS::Driver
     }
   end
 
+  private def user_headers
+    headers = auth_headers
+    headers["Content-Type"] = "application/vnd.assaabloy.ma.credential-management-2.2+json"
+    headers
+  end
+
   # Authentication methods
   def login
     ensure_authenticated
@@ -122,7 +128,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
 
     response = HTTP::Client.post("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/users/.search",
       body: search_request.to_json,
-      headers: auth_headers
+      headers: user_headers
     )
 
     raise "Failed to search users: #{response.status_code}\n#{response.body}" unless response.success?
