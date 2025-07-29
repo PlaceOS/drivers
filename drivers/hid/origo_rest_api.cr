@@ -120,7 +120,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
   def search_users(email : String, start_index : Int32 = 0, count : Int32 = 20) : PaginatedUserList
     search_request = UserSearchRequest.new("emails eq \"#{email}\"", start_index, count)
 
-    response = HTTP::Client.post("#{select_domain(:user)}/credential-management/customer/#{@organization_id}/users/.search",
+    response = HTTP::Client.post("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/users/.search",
       body: search_request.to_json,
       headers: auth_headers
     )
@@ -130,7 +130,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
   end
 
   def get_user(user_id : Int64) : User
-    response = HTTP::Client.get("#{select_domain(:user)}/credential-management/customer/#{@organization_id}/users/#{user_id}",
+    response = HTTP::Client.get("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/users/#{user_id}",
       headers: auth_headers
     )
 
