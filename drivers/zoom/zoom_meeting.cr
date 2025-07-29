@@ -123,7 +123,7 @@ class Zoom::Meeting < PlaceOS::Driver
   end
 
   protected def setup_room
-    audio_mute false
+    mic_mute false
     camera_mute false
     share_content false
     self[:recording] = Recording::Stop
@@ -141,9 +141,9 @@ class Zoom::Meeting < PlaceOS::Driver
     self[:meeting_joined] = nil
   end
 
-  def audio_mute(state : Bool = true) : Bool
+  def mic_mute(state : Bool = true) : Bool
     zoom_api.mute(room_id, state).get
-    self[:audio_mute] = state
+    self[:mic_mute] = state
   end
 
   def camera_mute(state : Bool = true) : Bool
