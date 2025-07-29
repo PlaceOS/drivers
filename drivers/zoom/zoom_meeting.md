@@ -40,7 +40,7 @@ Status for binding
 
 ```crystal
 # Bool - is the local mic audio muted
-audio_mute
+mic_mute
 
 # Bool - is the local camera video muted
 camera_mute
@@ -54,7 +54,7 @@ volume
 
 related functions
 
-* `Zoom.audio_mute(state : Bool = true) : Bool`
+* `Zoom.mic_mute(state : Bool = true) : Bool`
 * `Zoom.camera_mute(state : Bool = true) : Bool`
 * `Zoom.share_content(state : Bool = true) : Bool`
 * `Zoom.volume(level : Int32) : Int32`

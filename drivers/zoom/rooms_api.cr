@@ -25,10 +25,6 @@ class Zoom::RoomsApi < PlaceOS::Driver
     client_secret: "your_client_secret",
   })
 
-  def on_load
-    on_update
-  end
-
   def on_update
     # Read settings
     @account_id = setting(String, :account_id)
@@ -36,10 +32,11 @@ class Zoom::RoomsApi < PlaceOS::Driver
     @client_secret = setting(String, :client_secret)
   end
 
+  getter client_id : String = ""
+
+  @auth_token : AccessToken? = nil
   @account_id : String = ""
-  @client_id : String = ""
   @client_secret : String = ""
-  getter! auth_token : AccessToken
 
   record AccessToken, access_token : String, token_type : String, expires_in : Int32, scope : String?, api_url : String do
     include JSON::Serializable
@@ -58,7 +55,8 @@ class Zoom::RoomsApi < PlaceOS::Driver
 
   # Authentication
   private def authenticate : String
-    if auth_token?.nil? || (auth_token? && auth_token.expired?)
+    auth_token = @auth_token
+    if auth_token.nil? || (auth_token && auth_token.expired?)
       token_url = "https://zoom.us/oauth/token"
       http_uri_override = "https://zoom.us"
       body = URI::Params.build do |form|
@@ -76,7 +74,7 @@ class Zoom::RoomsApi < PlaceOS::Driver
 
       if response.success?
         logger.debug { "Successfully authenticated with Zoom API:\n#{response.body}" }
-        @auth_token = AccessToken.from_json(response.body)
+        @auth_token = auth_token = AccessToken.from_json(response.body)
 
         # TODO:: fix this, needs to be against the transport
         http_uri_override = auth_token.api_url
@@ -85,7 +83,7 @@ class Zoom::RoomsApi < PlaceOS::Driver
         raise "Authentication failed: #{response.status_code}, response: #{response.body}"
       end
     end
-    auth_token.access_token
+    @auth_token.as(AccessToken).access_token
   end
 
   enum Role
