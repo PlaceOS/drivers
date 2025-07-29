@@ -135,7 +135,7 @@ class Zoom::Meeting < PlaceOS::Driver
     self[:meeting_joined] = nil
   end
 
-  def meeting_end : Nil
+  def end_meeting : Nil
     zoom_api.meeting_end(room_id).get
     @joined_meeting = nil
     self[:meeting_joined] = nil
@@ -170,10 +170,14 @@ class Zoom::Meeting < PlaceOS::Driver
   end
 
   def recording(command : Recording) : Recording
+    if command.start? && status?(Recording, :recording).try(&.pause?)
+      command = Recording::Resume
+    end
+
     in_meeting = joined_meeting || current_meeting
     raise "no live meetings" unless in_meeting
     zoom_api.meeting_recording(in_meeting.id, command).get
-    self[:recording] = command
+    self[:recording] = command.resume? ? Recording::Start : command
   end
 
   def call_phone(invitee_name : String, phone_number : String) : Nil
