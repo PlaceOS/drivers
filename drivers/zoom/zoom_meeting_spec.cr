@@ -71,7 +71,6 @@ class ZoomAPIMock < DriverSpecs::MockDriver
     client_id = "key"
     payload = {
       "appKey"   => client_id,
-      "sdkKey"   => client_id,
       "mn"       => meeting_number,
       "role"     => (role || Role::Participant).to_i,
       "tokenExp" => exp,
@@ -79,7 +78,7 @@ class ZoomAPIMock < DriverSpecs::MockDriver
       "exp"      => exp,
     }
 
-    {client_id, JWT.encode(payload, "secret", JWT::Algorithm::HS256)}
+    JWT.encode(payload, "secret", JWT::Algorithm::HS256)
   end
 end
 
@@ -101,10 +100,9 @@ DriverSpecs.mock_driver "Zoom::Meeting" do
   payload["meetingNumber"]?.should eq "123456789"
   payload["userEmail"]?.should eq "spec@acaprojects.com"
   payload["userName"]?.should eq "Spec Runner"
-  payload["sdkKey"]?.should eq "key"
 
   jwt, header = JWT.decode(payload["signature"].as_s, "secret", JWT::Algorithm::HS256)
-  jwt["sdkKey"].should eq "key"
+  jwt["appKey"].should eq "key"
   jwt["role"].should eq 1
   jwt["mn"].should eq "123456789"
 

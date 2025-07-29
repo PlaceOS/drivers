@@ -96,17 +96,18 @@ class Zoom::RoomsApi < PlaceOS::Driver
     iat = issued_at || 2.minutes.ago.to_unix     # issued at time, 2 minutes earlier to avoid clock skew
     exp = expires_at || 2.hours.from_now.to_unix # token expires after 2 hours
 
+    # https://developers.zoom.us/docs/meeting-sdk/auth/
     payload = {
-      "appKey"   => @client_id,
-      "sdkKey"   => @client_id,
+      "appKey" => @client_id,
+      # "sdkKey"   => @client_id, # no longer needed
       "mn"       => meeting_number,
       "role"     => (role || Role::Participant).to_i,
-      "tokenExp" => exp,
       "iat"      => iat,
       "exp"      => exp,
+      "tokenExp" => exp,
     }
 
-    {@client_id, JWT.encode(payload, @client_secret, JWT::Algorithm::HS256)}
+    JWT.encode(payload, @client_secret, JWT::Algorithm::HS256)
   end
 
   private def api_request(method : String, resource : String, body = nil, params : Hash(String, String)? = nil)
