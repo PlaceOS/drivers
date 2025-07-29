@@ -101,19 +101,18 @@ class Zoom::Meeting < PlaceOS::Driver
       zoom_api.meeting_join(room_id, meeting_id, password, meeting.can_host?).get
       @joined_meeting = meeting
       self[:meeting_joined] = meeting.event_start
-      client_id, jwt = zoom_api.generate_jwt(meeting_id, role: role).get.as_a
-
       spawn { setup_room }
 
+      # https://developers.zoom.us/docs/meeting-sdk/web/component-view/meetings/
       {
-        meetingNumber: meeting_id,
-        signature:     jwt.as_s,
-        userEmail:     control_sys.email,
-        userName:      control_sys.display_name.presence || control_sys.name,
-        password:      password,
-        sdkKey:        client_id.as_s,
-        tk:            meeting.token,
-      }
+        "meetingNumber" => meeting_id,
+        "signature"     => zoom_api.generate_jwt(meeting_id, role: role).get.as_s,
+        "userEmail"     => control_sys.email,
+        "userName"      => control_sys.display_name.presence || control_sys.name,
+        "password"      => password || "",
+        # sdkKey:      client_id.as_s, # now pulled from the JWT
+        "tk" => meeting.token,
+      }.compact!
     else
       logger.debug { "found 3rd party meeting uri: #{meeting.url}" }
       zoom_api.meeting_join_thirdparty(room_id, meeting.url).get
