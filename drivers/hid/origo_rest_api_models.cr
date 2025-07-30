@@ -5,9 +5,9 @@ module HID
   struct TokenResponse
     include JSON::Serializable
 
-    property access_token : String
-    property expires_in : Int32
-    property token_type : String
+    getter access_token : String
+    getter expires_in : Int32
+    getter token_type : String
   end
 
   # SCIM User Management Models
@@ -15,105 +15,111 @@ module HID
     include JSON::Serializable
 
     @[JSON::Field(key: "givenName")]
-    property given_name : String?
+    getter given_name : String?
 
     @[JSON::Field(key: "familyName")]
-    property family_name : String?
+    getter family_name : String?
 
     @[JSON::Field(key: "middleName")]
-    property middle_name : String?
+    getter middle_name : String?
 
     @[JSON::Field(key: "honorificPrefix")]
-    property honorific_prefix : String?
+    getter honorific_prefix : String?
 
     @[JSON::Field(key: "honorificSuffix")]
-    property honorific_suffix : String?
+    getter honorific_suffix : String?
   end
 
   struct Email
     include JSON::Serializable
 
-    property value : String
-    property type : String?
-    property primary : Bool?
+    getter value : String
+    getter type : String?
+    getter primary : Bool?
   end
 
   struct PhoneNumber
     include JSON::Serializable
 
-    property value : String
-    property type : String?
+    getter value : String
+    getter type : String?
   end
 
   struct Meta
     include JSON::Serializable
 
     @[JSON::Field(key: "lastModified")]
-    property last_modified : String?
+    getter last_modified : String?
 
-    property location : String?
+    getter location : String
 
     @[JSON::Field(key: "resourceType")]
-    property resource_type : String?
+    getter resource_type : String?
   end
 
   struct User
     include JSON::Serializable
 
-    property id : Int64?
+    getter id : Int64?
 
     @[JSON::Field(key: "externalId")]
-    property external_id : String?
+    getter external_id : String?
 
-    property name : Name?
-    property emails : Array(Email)?
+    getter name : Name?
+    getter emails : Array(Email)?
 
     @[JSON::Field(key: "phoneNumbers")]
-    property phone_numbers : Array(PhoneNumber)?
+    getter phone_numbers : Array(PhoneNumber)?
 
-    property active : Bool?
-    property schemas : Array(String)?
-    property meta : Meta?
+    getter active : Bool?
+    getter schemas : Array(String)?
+    getter meta : Meta?
 
     # Enterprise user extension - handled separately due to complex field name
-    # property enterprise_user : EnterpriseUser?
+    # getter enterprise_user : EnterpriseUser?
 
     def initialize(@user_name : String?, @display_name : String?, @active : Bool? = true)
       @schemas = ["urn:ietf:params:scim:schemas:core:2.0:User"]
     end
   end
 
-  struct PaginatedUserList
+  struct Paginated(Type)
     include JSON::Serializable
 
     @[JSON::Field(key: "totalResults")]
-    property total_results : Int32
+    getter total_results : Int32
 
     @[JSON::Field(key: "itemsPerPage")]
-    property items_per_page : Int32
+    getter items_per_page : Int32
 
     @[JSON::Field(key: "startIndex")]
-    property start_index : Int32
+    getter start_index : Int32
 
-    property schemas : Array(String)
+    getter schemas : Array(String)
 
     @[JSON::Field(key: "Resources")]
-    property resources : Array(User)
+    getter resources : Array(Type)
+  end
+
+  struct ListResponse
+    include JSON::Serializable
+
+    getter meta : Meta
   end
 
   struct UserSearchRequest
     include JSON::Serializable
 
-    property schemas : Array(String)
-    property attributes : Array(String)?
-    property filter : String
+    getter schemas : Array(String)
+    getter attributes : Array(String)?
+    getter filter : String
 
     @[JSON::Field(key: "startIndex")]
-    property start_index : Int32
+    getter start_index : Int32
 
     @[JSON::Field(key: "sortOrder")]
-    property sort_order : String = "descending"
-    property count : Int32
+    getter sort_order : String = "descending"
+    getter count : Int32
 
     def initialize(@filter : String, @start_index : Int32 = 0, @count : Int32 = 20)
       @schemas = ["urn:ietf:params:scim:api:messages:2.0:SearchRequest"]
@@ -125,16 +131,73 @@ module HID
     end
   end
 
+  struct PartNumber
+    include JSON::Serializable
+
+    getter id : String
+
+    @[JSON::Field(key: "partNumber")]
+    getter number : String
+
+    @[JSON::Field(key: "friendlyName")]
+    getter name : String?
+
+    @[JSON::Field(key: "availableQty")]
+    getter available : Int32?
+
+    getter meta : Meta
+
+    getter badge_type : String?
+  end
+
+  struct SchemaResponse
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    getter schemas : Array(String)
+  end
+
+  struct UserInvitation
+    include JSON::Serializable
+
+    getter meta : Meta
+    getter id : Int64
+
+    @[JSON::Field(key: "invitationCode")]
+    getter code : String
+    getter status : String
+  end
+
+  struct Credential
+    include JSON::Serializable
+
+    getter id : Int64
+
+    @[JSON::Field(key: "partNumber")]
+    getter part_number : String
+
+    @[JSON::Field(key: "partNumberFriendlyName")]
+    getter part_name : String?
+
+    @[JSON::Field(key: "cardNumber")]
+    getter card_number : String?
+
+    @[JSON::Field(key: "credentialType")]
+    getter type : String?
+
+    getter status : String
+  end
+
   # Error Response Models
   struct ErrorResponse
     include JSON::Serializable
 
-    property status : String
+    getter status : String
 
     @[JSON::Field(key: "scimType")]
-    property scim_type : String?
+    getter scim_type : String?
 
-    property message : String
-    property schemas : Array(String)
+    getter message : String
+    getter schemas : Array(String)
   end
 end
