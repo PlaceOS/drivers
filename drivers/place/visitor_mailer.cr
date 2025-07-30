@@ -5,6 +5,7 @@ require "placeos-models/placeos-models/base/jwt"
 
 require "./password_generator_helper"
 require "./visitor_models"
+require "./bookings/asset_name_resolver"
 
 require "uuid"
 require "oauth2"
@@ -12,6 +13,7 @@ require "jwt"
 
 class Place::VisitorMailer < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::AssetNameResolver
 
   descriptive_name "PlaceOS Visitor Mailer"
   generic_name :VisitorMailer
@@ -48,6 +50,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     disable_event_visitors: true,
     invite_zone_tag:        "building",
     is_campus:              false,
+    asset_cache_timeout:    3600_i64, # 1 hour
 
     domain_uri:      "https://example.com/",
     jwt_private_key: PlaceOS::Model::JWTBase.private_key,
@@ -59,6 +62,15 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   def mailer
     system.implementing(Interface::Mailer)[0]
+  end
+
+  # used by AssetNameResolver and LockerMetadataParser
+  accessor locations : LocationServices_1
+  getter building_id : String do
+    locations.building_id.get.as_s
+  end
+  getter levels : Array(String) do
+    staff_api.systems_in_building(building_id).get.as_h.keys
   end
 
   def on_load
@@ -125,6 +137,9 @@ class Place::VisitorMailer < PlaceOS::Driver
   @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
 
   def on_update
+    @building_id = nil
+    @levels = nil
+
     @debug = setting?(Bool, :debug) || true
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
@@ -157,6 +172,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     @booking_space_name = setting?(String, :booking_space_name).presence || "Client Floor"
 
+    @asset_cache_timeout = setting?(Int64, :asset_cache_timeout) || 3600_i64
+    clear_asset_cache
 
     @uri = URI.parse(setting?(String, :domain_uri) || "")
     @jwt_private_key = setting?(String, :jwt_private_key) || PlaceOS::Model::JWTBase.private_key
