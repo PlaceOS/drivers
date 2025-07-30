@@ -73,13 +73,18 @@ module HID
 
     getter active : Bool?
     getter schemas : Array(String)?
-    getter meta : Meta?
+    getter meta : Meta
+
+    def extract_id : Int64 | String
+      id || meta.location.split("/").last
+    end
 
     # Enterprise user extension - handled separately due to complex field name
     # getter enterprise_user : EnterpriseUser?
 
     def initialize(@user_name : String?, @display_name : String?, @active : Bool? = true)
       @schemas = ["urn:ietf:params:scim:schemas:core:2.0:User"]
+      @meta = nil
     end
   end
 

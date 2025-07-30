@@ -6,6 +6,7 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
     client_id:      "test-client-id",
     client_secret:  "test-client-secret",
     application_id: "TEST-APP",
+    default_part:   "MID-SUB-CRD_FTPN_6445",
   })
 
   # Test authentication
@@ -76,5 +77,82 @@ DriverSpecs.mock_driver "HID::OrigoRestApiDriver" do
     end
 
     resp.get["partNumber"].should eq "MID-SUB-CRD_FTPN_644245"
+  end
+
+  it "should invite a user to use a virtual card" do
+    resp = exec(:invite_user_email, "steve@example.com")
+    expect_http_request do |request, response|
+      request.method.should eq "POST"
+      request.path.should eq "/credential-management/customer/test/users/.search"
+
+      response.status_code = 200
+      response << %({
+        "schemas": [
+          "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+        ],
+        "totalResults": 1,
+        "itemsPerPage": 1,
+        "startIndex": 1,
+        "Resources": [
+          {
+            "meta": {
+              "resourceType": "PACSUser",
+              "lastModified": "2024-05-28T04:49:59Z",
+              "location": "https://cert.mi.api.origo.hidglobal.com/credential-management/customer/test/users/103367"
+            },
+            "name": {
+              "familyName": "Doe",
+              "givenName": "John"
+            },
+            "emails": [
+              {
+                "value": "steve@example.com"
+              }
+            ]
+          }
+        ]
+      })
+    end
+
+    expect_http_request do |request, response|
+      request.method.should eq "POST"
+      request.path.should eq "/credential-management/customer/test/users/103367/invitation"
+
+      response.status_code = 200
+      response << %({
+        "schemas": [
+          "urn:hid:scim:api:ma:2.2:UserInvitation",
+          "urn:hid:scim:api:ma:2.2:Credential"
+        ],
+        "urn:hid:scim:api:ma:2.2:UserInvitation": [
+          {
+            "meta": {
+              "resourceType": "UserInvitation",
+              "lastModified": "2025-07-30T03:29:15Z",
+              "location": "https://cert.mi.api.origo.hidglobal.com/credential-management/customer/test/invitation/16257463"
+            },
+            "id": 16247463,
+            "invitationCode": "BPEX-LQTC-4E33-QT6N",
+            "status": "PENDING",
+            "createdDate": "2025-07-30T03:29:15Z",
+            "expirationDate": "2025-08-01T03:29:15Z"
+          }
+        ],
+        "urn:hid:scim:api:ma:2.2:Credential": [
+          {
+            "id": 304530,
+            "partNumber": "MID-SUB-CRD_FTPN_6445",
+            "partnumberFriendlyName": "MOB0022",
+            "status": "ISSUE_INITIATED",
+            "credentialType": "ICLASSSEOS",
+            "cardNumber": "56"
+          }
+        ]
+      })
+    end
+
+    values = resp.get
+    values[0]["invitationCode"].should eq "BPEX-LQTC-4E33-QT6N"
+    values[1]["partNumber"].should eq "MID-SUB-CRD_FTPN_6445"
   end
 end
