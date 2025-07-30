@@ -29,6 +29,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
     client_secret:   "your_client_secret",
     application_id:  "HID-PLACEOS-DRIVER",
     application_ver: "1.0",
+
+    _default_part: "Part Number",
   })
 
   @organization_id : String = ""
@@ -40,6 +42,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
   @token_expires : Time = Time.utc
   @spec_domain : String? = nil
   @auth_domain : String = "https://api.origo.hidglobal.com"
+  @default_part : String? = nil
 
   def on_update
     @client_id = setting?(String, :client_id) || ""
@@ -47,6 +50,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
     @application_id = setting?(String, :application_id) || "HID-PLACEOS-DRIVER"
     @application_ver = setting?(String, :application_ver) || "1.0"
     @organization_id = @client_id.split('-', 2).first
+    @default_part = setting?(String, :default_part)
 
     # check if we are running specs
     @auth_domain = config.uri.as(String)
@@ -123,7 +127,8 @@ class HID::OrigoRestApi < PlaceOS::Driver
     !@access_token.empty? && @token_expires > Time.utc
   end
 
-  def search_users(email : String, start_index : Int32 = 0, count : Int32 = 20) : PaginatedUserList
+  # https://doc.origo.hidglobal.com/api/mobile-identities/#/Users/post-customer-organization_id-users-.search
+  def search_users(email : String, start_index : Int32 = 0, count : Int32 = 20) : Paginated(User)
     search_request = UserSearchRequest.new("emails eq \"#{email}\"", start_index, count)
 
     response = HTTP::Client.post("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/users/.search",
@@ -132,15 +137,89 @@ class HID::OrigoRestApi < PlaceOS::Driver
     )
 
     raise "Failed to search users: #{response.status_code}\n#{response.body}" unless response.success?
-    PaginatedUserList.from_json(response.body)
+    Paginated(User).from_json(response.body)
   end
 
-  def get_user(user_id : Int64) : User
+  def get_user(user_id : Int64 | String) : User
     response = HTTP::Client.get("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/users/#{user_id}",
       headers: auth_headers
     )
 
     raise "Failed to get user: #{response.status_code}\n#{response.body}" unless response.success?
     User.from_json(response.body)
+  end
+
+  # https://doc.origo.hidglobal.com/api/mobile-identities/#/Part%20Number/get-customer-organization_id-part-number
+  def list_parts : Array(String)
+    response = HTTP::Client.get("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/part-number",
+      headers: auth_headers
+    )
+
+    # NOTE:: we assume a single page of results here
+    raise "Failed to list part ids: #{response.status_code}\n#{response.body}" unless response.success?
+    Paginated(ListResponse).from_json(response.body).resources.map do |resp|
+      resp.meta.location.split("/").last
+    end
+  end
+
+  def get_part(part_id : String) : PartNumber
+    response = HTTP::Client.get("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/part-number/#{part_id}",
+      headers: auth_headers
+    )
+
+    raise "Failed to get part: #{response.status_code}\n#{response.body}" unless response.success?
+    details = SchemaResponse.from_json(response.body)
+
+    PartNumber.from_json(details.json_unmapped[details.schemas.first].to_json)
+  end
+
+  getter parts : Array(PartNumber) do
+    list_parts.map do |part_id|
+      get_part(part_id)
+    end
+  end
+
+  # https://doc.origo.hidglobal.com/api/mobile-identities/#/Invitation/post-customer-organization_id-users-user_id-invitation
+  def invite_user(user_id : Int64 | String, part_number : String) : Tuple(UserInvitation, Credential)
+    invite_req = %({
+      "schemas":[
+        "urn:hid:scim:api:ma:2.2:UserAction"
+      ],
+      "urn:hid:scim:api:ma:2.2:UserAction":{
+        "createInvitationCode":"Y",
+        "sendInvitationEmail":"Y",
+        "assignCredential":"Y",
+        "partNumber":"#{part_number}",
+        "credential":""
+      },
+      "meta":{
+        "resourceType":"PACSUser"
+      }
+    })
+
+    response = HTTP::Client.post("#{select_domain(:users)}/credential-management/customer/#{@organization_id}/users/#{user_id}/invitation",
+      body: invite_req,
+      headers: user_headers
+    )
+
+    raise "Failed to invite user: #{response.status_code}\n#{response.body}" unless response.success?
+    details = SchemaResponse.from_json(response.body)
+
+    invite = UserInvitation.from_json(
+      details.json_unmapped[details.schemas.find(&.ends_with?("Invitation"))].to_json
+    )
+
+    credential = Credential.from_json(
+      details.json_unmapped[details.schemas.find(&.ends_with?("Credential"))].to_json
+    )
+
+    {invite, credential}
+  end
+
+  def invite_user_email(email : String) : Tuple(UserInvitation, Credential)
+    user_id = search_users(email).resources.first.id.as(Int64 | String)
+    part_number = @default_part || parts.first.number
+
+    invite_user(user_id, part_number)
   end
 end
