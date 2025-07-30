@@ -170,7 +170,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
     raise "Failed to get part: #{response.status_code}\n#{response.body}" unless response.success?
     details = SchemaResponse.from_json(response.body)
 
-    PartNumber.from_json(details.json_unmapped[details.schemas.first].to_json)
+    PartNumber.from_json(details.json_unmapped[details.schemas.first][0].to_json)
   end
 
   getter parts : Array(PartNumber) do
@@ -206,11 +206,11 @@ class HID::OrigoRestApi < PlaceOS::Driver
     details = SchemaResponse.from_json(response.body)
 
     invite = UserInvitation.from_json(
-      details.json_unmapped[details.schemas.find(&.ends_with?("Invitation"))].to_json
+      details.json_unmapped[details.schemas.find(&.ends_with?("Invitation"))][0].to_json
     )
 
     credential = Credential.from_json(
-      details.json_unmapped[details.schemas.find(&.ends_with?("Credential"))].to_json
+      details.json_unmapped[details.schemas.find(&.ends_with?("Credential"))][0].to_json
     )
 
     {invite, credential}
