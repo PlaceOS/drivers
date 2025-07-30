@@ -10,6 +10,7 @@ class InnerRange::Integriti < PlaceOS::Driver
 
   accessor staff_api : StaffAPI_1
   accessor integriti : Integriti_1
+  accessor hid_origo : HID_1
 
   def on_update
     @cf_virtual_card = setting?(String, :custom_field_hid_origo) || "cf_HasVirtualCard"
@@ -31,8 +32,12 @@ class InnerRange::Integriti < PlaceOS::Driver
   end
 
   def request_virtual_card : Nil
-    id = get_integriti_id
-    integriti.update_entry("User", id, {cf_virtual_card => true})
+    if has_virtual_card?
+      hid_origo.invite_user_email(get_user_email).get
+    else
+      id = get_integriti_id
+      integriti.update_entry("User", id, {cf_virtual_card => true}).get
+    end
   end
 
   def remove_virtual_card : Nil
