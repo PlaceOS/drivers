@@ -179,6 +179,10 @@ class HID::OrigoRestApi < PlaceOS::Driver
     end
   end
 
+  def reset_parts_cache
+    @parts = nil
+  end
+
   # https://doc.origo.hidglobal.com/api/mobile-identities/#/Invitation/post-customer-organization_id-users-user_id-invitation
   def invite_user(user_id : Int64 | String, part_number : String) : Tuple(UserInvitation, Credential)
     invite_req = %({
@@ -217,7 +221,7 @@ class HID::OrigoRestApi < PlaceOS::Driver
   end
 
   def invite_user_email(email : String) : Tuple(UserInvitation, Credential)
-    user_id = search_users(email).resources.first.id.as(Int64 | String)
+    user_id = search_users(email).resources.first.extract_id
     part_number = @default_part || parts.first.number
 
     invite_user(user_id, part_number)
