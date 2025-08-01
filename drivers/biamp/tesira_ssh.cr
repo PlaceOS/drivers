@@ -19,21 +19,27 @@ class Biamp::Tesira < PlaceOS::Driver
   alias Num = Int32 | Float64
   alias Ids = String | Array(String)
 
+  @ready : Bool = false
+
   def on_load
     # Nexia requires some breathing room
     queue.wait = false
     queue.delay = 30.milliseconds
+    @ready = false
   end
 
   def connected
-    do_send "SESSION set verbose false", priority: 96
-    schedule.clear
-    schedule.every(60.seconds) do
-      do_send "DEVICE get serialNumber", priority: 95
+    # we need to disconnect if we don't see welcome message
+    schedule.in(20.seconds) do
+      if !@ready
+        logger.error { "Biamp connection failed to be ready after 20 seconds." }
+        disconnect
+      end
     end
   end
 
   def disconnected
+    @ready = false
     transport.tokenizer = nil
     schedule.clear
   end
@@ -168,9 +174,9 @@ class Biamp::Tesira < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data).strip
-
-    logger.debug { "Tesira responded -> data: #{data}" }
+    data = String.new(data)
+    logger.debug { "Tesira responded -> data: #{data.inspect}" }
+    data = data.strip
     result = data.split(" ")
 
     if result[0] == "-"
@@ -178,7 +184,13 @@ class Biamp::Tesira < PlaceOS::Driver
     end
 
     if data =~ /login:|server/i
-      transport.tokenizer = Tokenizer.new "\r"
+      @ready = true
+      transport.tokenizer = Tokenizer.new "\n"
+      do_send "SESSION set verbose false", priority: 96
+      schedule.clear
+      schedule.every(60.seconds) do
+        do_send "DEVICE get serialNumber", priority: 95
+      end
     end
 
     task.try(&.success)
@@ -199,7 +211,7 @@ class Biamp::Tesira < PlaceOS::Driver
         cmd = cmd + data
       end
     end
-    cmd + "\r"
+    cmd + "\n"
   end
 
   private def do_send(command, **options)
