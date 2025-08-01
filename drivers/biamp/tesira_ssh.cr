@@ -204,7 +204,7 @@ class Biamp::Tesira < PlaceOS::Driver
 
   private def do_send(command, **options)
     logger.debug { "requesting #{command}" }
-    send @telnet.not_nil!.prepare(command), **options
+    send command, **options
   end
 
   private def ensure_array(object)
