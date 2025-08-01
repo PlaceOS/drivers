@@ -199,7 +199,7 @@ class Biamp::Tesira < PlaceOS::Driver
         cmd = cmd + data
       end
     end
-    cmd
+    cmd + "\r"
   end
 
   private def do_send(command, **options)
