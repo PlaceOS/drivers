@@ -185,7 +185,7 @@ class Biamp::Tesira < PlaceOS::Driver
 
     if data =~ /login:|server/i
       @ready = true
-      transport.tokenizer = Tokenizer.new "\n"
+      transport.tokenizer = Tokenizer.new "\r\n"
       do_send "SESSION set verbose false", priority: 96
       schedule.clear
       schedule.every(60.seconds) do
@@ -211,12 +211,12 @@ class Biamp::Tesira < PlaceOS::Driver
         cmd = cmd + data
       end
     end
-    cmd + "\n"
+    cmd
   end
 
   private def do_send(command, **options)
     logger.debug { "requesting #{command}" }
-    send command, **options
+    send "#{command}\r\n", **options
   end
 
   private def ensure_array(object)
