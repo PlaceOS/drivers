@@ -19,7 +19,7 @@ class Biamp::Tesira < PlaceOS::Driver
   alias Num = Int32 | Float64
   alias Ids = String | Array(String)
 
-  @ready : Bool = false
+  getter ready : Bool = false
 
   def on_load
     # Nexia requires some breathing room
@@ -216,7 +216,7 @@ class Biamp::Tesira < PlaceOS::Driver
 
   private def do_send(command, **options)
     logger.debug { "requesting #{command}" }
-    send "#{command}\r\n", **options
+    send "#{command}\n", **options
   end
 
   private def ensure_array(object)
