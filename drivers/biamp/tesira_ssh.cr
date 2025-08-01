@@ -178,7 +178,7 @@ class Biamp::Tesira < PlaceOS::Driver
     end
 
     if data =~ /login:|server/i
-      transport.tokenizer = Tokenizer.new "\r\n"
+      transport.tokenizer = Tokenizer.new "\r"
     end
 
     task.try(&.success)
