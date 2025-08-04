@@ -53,8 +53,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
       if all_desks && (building = buildings[level.parent_id]?)
         desks = all_desks.as_a
 
-        building_code = building.code || building.display_name || building.name
-        level_code = level.code || level.display_name || level.name
+        building_code = building.code.presence || building.display_name.presence || building.name
+        level_code = level.code.presence || level.display_name.presence || level.name
 
         desks.each do |desk|
           response << Desk.new(
