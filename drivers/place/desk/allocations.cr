@@ -59,10 +59,10 @@ class Place::Desk::Allocations < PlaceOS::Driver
         desks.each do |desk|
           response << Desk.new(
             desk["id"].as_s,
-            desk["name"].as_s? || desk["id"].as_s,
+            desk["name"].as_s?.presence || desk["id"].as_s,
             level_code,
             building_code,
-            desk["assigned_to"].as_s?.presence
+            desk["assigned_to"]?.try(&.as_s?.presence)
           )
         end
       end
