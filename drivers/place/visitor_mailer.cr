@@ -262,19 +262,10 @@ class Place::VisitorMailer < PlaceOS::Driver
       area_name = room.display_name.presence || room.name
       template = @event_template
     in BookingGuest
-      booking = staff_api.get_booking(guest_details.booking_id).get
-
-      # check if this is actually an event guest (visitor booking with a linked event)
-      if linked_event = booking["linked_event"]?
-        return if @disable_event_visitors
-        room = get_room_details(linked_event.as_h["system_id"].as_s)
-        area_name = room.display_name.presence || room.name
-        template = @event_template
-      else
-        area_name = @booking_space_name
-        template = @booking_template
-      end
-      template = @group_event_template if booking["booking_type"].as_s == "group-event"
+      area_name = @booking_space_name
+      template = @booking_template
+      booking_type = staff_api.get_booking(guest_details.booking_id).get["booking_type"].as_s
+      template = @group_event_template if booking_type == "group-event"
     in GuestNotification
       # should never get here
       return
