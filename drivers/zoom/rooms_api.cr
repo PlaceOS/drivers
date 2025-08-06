@@ -23,6 +23,9 @@ class Zoom::RoomsApi < PlaceOS::Driver
     account_id:    "your_account_id",
     client_id:     "your_client_id",
     client_secret: "your_client_secret",
+
+    sdk_client_id:     "your_client_id",
+    sdk_client_secret: "your_client_secret",
   })
 
   def on_update
@@ -30,6 +33,8 @@ class Zoom::RoomsApi < PlaceOS::Driver
     @account_id = setting(String, :account_id)
     @client_id = setting(String, :client_id)
     @client_secret = setting(String, :client_secret)
+    @sdk_client_id = setting?(String, :sdk_client_id) || @client_id
+    @sdk_client_secret = setting?(String, :sdk_client_secret) || @client_secret
   end
 
   getter client_id : String = ""
@@ -98,7 +103,7 @@ class Zoom::RoomsApi < PlaceOS::Driver
 
     # https://developers.zoom.us/docs/meeting-sdk/auth/
     payload = {
-      "appKey" => @client_id,
+      "appKey" => @sdk_client_id,
       # "sdkKey"   => @client_id, # no longer needed
       "mn"       => meeting_number,
       "role"     => (role || Role::Participant).to_i,
@@ -107,7 +112,7 @@ class Zoom::RoomsApi < PlaceOS::Driver
       "tokenExp" => exp,
     }
 
-    JWT.encode(payload, @client_secret, JWT::Algorithm::HS256)
+    JWT.encode(payload, @sdk_client_secret, JWT::Algorithm::HS256)
   end
 
   private def api_request(method : String, resource : String, body = nil, params : Hash(String, String)? = nil)
