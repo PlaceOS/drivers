@@ -38,10 +38,12 @@ class Zoom::RoomsApi < PlaceOS::Driver
   end
 
   getter client_id : String = ""
+  getter sdk_client_id : String = ""
 
   @auth_token : AccessToken? = nil
   @account_id : String = ""
   @client_secret : String = ""
+  @sdk_client_secret : String = ""
 
   record AccessToken, access_token : String, token_type : String, expires_in : Int32, scope : String?, api_url : String do
     include JSON::Serializable
