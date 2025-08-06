@@ -201,7 +201,7 @@ class Zoom::Meeting < PlaceOS::Driver
     end
 
     return nil unless link
-    {zoom, URI.parse(link)}
+    {zoom, URI.parse(URI.decode(link))}
   end
 
   def extract_zoom_link(body : String) : String?
