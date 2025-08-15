@@ -54,6 +54,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def received(data, task)
     response = String.new(data).strip
     logger.debug { "Received: #{response}" }
+    task.try &.success(response)
     
     if response[0] != '{'
       return
