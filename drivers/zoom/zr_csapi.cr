@@ -27,7 +27,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     logger.debug { "Connected to Zoom Room ZR-CSAPI on port 2244" }
     self[:connected] = true
     initialize_ssh_session
-    send("zStatus SystemUnit\n", name: "status_system_unit")
+    send("zStatus SystemUnit\r", name: "status_system_unit")
   end
 
   def disconnected
@@ -37,18 +37,18 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   end
 
   def initialize_ssh_session
-    send("echo off\n", name: "echo_off")
-    send("format json\n", name: "set_format")
+    send("echo off\r", name: "echo_off")
+    send("format json\r", name: "set_format")
   end
 
   # Get today's meetings scheduled for this room
   def bookings_list
-    send("zCommand Bookings List\n", name: "bookings_list")
+    send("zCommand Bookings List\r", name: "bookings_list")
   end
 
   # Update/refresh the meeting list from calendar
   def bookings_update
-    send("zCommand Bookings Update\n", name: "bookings_update")
+    send("zCommand Bookings Update\r", name: "bookings_update")
   end
 
   def received(data, task)
