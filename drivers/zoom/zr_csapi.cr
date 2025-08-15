@@ -36,7 +36,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     schedule.clear
   end
 
-  protected def initialize_ssh_session
+  def initialize_ssh_session
     send("echo off\n", name: "echo_off")
     send("format json\n", name: "set_format")
   end
@@ -55,8 +55,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     response = String.new(data).strip
     logger.debug { "Received: #{response}" }
     
-    if response[0] == '{'
-      initialize_ssh_session
+    if response[0] != '{'
       return
     end
 
