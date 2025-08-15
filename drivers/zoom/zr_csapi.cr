@@ -74,8 +74,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
         initialize_ssh_session    
         @ready = true
         logger.debug { "Login successful, echo disabled, output mode set to JSON, ready to send commands" }
-        return
       end
+      return
     end
 
     json_response = JSON.parse(response)
