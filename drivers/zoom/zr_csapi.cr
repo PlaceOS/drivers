@@ -34,9 +34,9 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   def connected
     reset_connection_flags
-    schedule.in(5.seconds) do
-      initialize_tokenizer unless @ready || @init_called
-    end
+    # schedule.in(5.seconds) do
+    #   initialize_tokenizer unless @ready || @init_called
+    # end
     # we need to disconnect if we don't see welcome message
     schedule.in(9.seconds) do
       if !ready?
@@ -46,7 +46,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     end
     logger.debug { "Connected to Zoom Room ZR-CSAPI" }
     self[:connected] = true
-    do_send("zStatus SystemUnit", name: "status_system_unit")
   end
 
   def disconnected
@@ -65,6 +64,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   # Update/refresh the meeting list from calendar
   def bookings_update
     do_send("zCommand Bookings Update", name: "bookings_update")
+  end
+
+  def system_unit?
+    do_send("zStatus SystemUnit", name: "status_system_unit")
   end
 
   def send_command_r(command : String)
@@ -126,13 +129,15 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
     unless ready?
       if response.includes?("ZAAPI") # Initial connection message
-        initialize_tokenizer unless @init_called
         queue.clear abort_current: true
         sleep 500.milliseconds
+        logger.debug { "Disabling echo and enabling JSON output..." } if @debug_enabled
         do_send("echo off", name: "echo_off")
         schedule.clear
         do_send("format json", name: "set_format")
         schedule.clear
+        sleep 500.milliseconds
+        initialize_tokenizer unless @init_called
       else
         return task.try(&.abort)
       end
