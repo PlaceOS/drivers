@@ -146,8 +146,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
     logger.debug { "Parsing response into JSON..." } if @debug_enabled
     json_response = JSON.parse(response)
-    response_type = json_response["type"]
-    response_topkey = json_response["topKey"]
+    response_type : String = json_response["type"].as_s
+    response_topkey : String  = json_response["topKey"].as_s
+    logger.debug { "JSON: #{json_response.inspect}" } if @debug_enabled
+    logger.debug { "type: #{response_type}, topkey: #{response_topkey}" } if @debug_enabled
 
     case response_type
     when "zStatus"
