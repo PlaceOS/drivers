@@ -27,7 +27,8 @@ class Zoom::BookingConverter < PlaceOS::Driver
     schedule.cron("* * * * *") do
       schedule.in(rand(1000).milliseconds) do
         if list = self[:bookings]?
-          check_current_booking(list.as_a)
+          determine_current_booking(list.as_a)
+          determine_next_booking(list.as_a)
         end
       end
     end
@@ -51,7 +52,7 @@ class Zoom::BookingConverter < PlaceOS::Driver
     }
   end
 
-  private def check_current_booking(bookings : Array(JSON::Any))
+  private def determine_current_booking(bookings : Array(JSON::Any))
     if bookings.empty?
       self[:current_booking] = nil
       return
@@ -61,5 +62,18 @@ class Zoom::BookingConverter < PlaceOS::Driver
       booking["event_start"].as_i64 <= current_time && booking["event_end"].as_i64 > current_time
     end
     self[:current_booking] = current_booking || nil
+  end
+
+  # This assumes the Zoom bookings are sorted by start time, which is still TBD
+  private def determine_next_booking(bookings : Array(JSON::Any))
+    if bookings.empty?
+      self[:next_booking] = nil
+      return
+    end
+    current_time = Time.utc.to_unix
+    next_booking = bookings.find do |booking|
+      booking["event_start"].as_i64 > current_time
+    end
+    self[:next_booking] = next_booking || nil
   end
 end
