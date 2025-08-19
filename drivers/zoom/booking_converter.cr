@@ -35,7 +35,7 @@ class Zoom::BookingConverter < PlaceOS::Driver
   end
 
   private def expose_bookings(zoom_bookings_list : Array(JSON::Any))
-    placeos_bookings = [] of  Hash(String, Int64 | String)
+    placeos_bookings = [] of  Hash(String, Array(PlaceCalendar::Event::Attendee) | Bool | Int64 | String | Nil)
     zoom_bookings_list.each do |zoom_booking|
       placeos_bookings << convert_booking(zoom_booking)
     end
@@ -49,6 +49,18 @@ class Zoom::BookingConverter < PlaceOS::Driver
         "location"    => zoom_booking["location"].as_s,
         "event_start" => Time.parse_rfc3339(zoom_booking["startTime"].as_s).to_unix,
         "event_end"   => Time.parse_rfc3339(zoom_booking["endTime"].as_s).to_unix,
+        "id"          => zoom_booking["meetingNumber"].as_s,
+
+        "recurring_event_id" => nil,
+        "attendees" => [] of PlaceCalendar::Event::Attendee,
+        "timezone" => nil,
+        "recurring" => false,
+        "created" => nil,
+        "updated" => nil,
+        "recurrence" => nil,
+        "status" => nil,
+        "creator" => nil,
+        "ical_uid" => nil
     }
   end
 
