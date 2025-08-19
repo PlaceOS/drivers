@@ -17,45 +17,62 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     },
   })
 
-  def on_load
-  end
+  getter? ready : Bool = false
 
-  def on_update
+  def on_load
+    queue.wait = false
+    queue.delay = 10.milliseconds
+    @ready = false
   end
 
   def connected
+    # we need to disconnect if we don't see welcome message
+    schedule.in(20.seconds) do
+      if !ready?
+        logger.error { "ZR-CSAPI connection failed to be ready after 20 seconds." }
+        disconnect
+      end
+    end
     logger.debug { "Connected to Zoom Room ZR-CSAPI on port 2244" }
     self[:connected] = true
-    initialize_ssh_session
-    send("zStatus SystemUnit\r", name: "status_system_unit")
+    do_send("zStatus SystemUnit", name: "status_system_unit")
   end
 
   def disconnected
     logger.debug { "Disconnected from Zoom Room ZR-CSAPI" }
-    self[:connected] = false
+    @ready = false
     schedule.clear
-  end
-
-  def initialize_ssh_session
-    send("echo off\r", name: "echo_off")
-    send("format json\r", name: "set_format")
+    self[:connected] = false
   end
 
   # Get today's meetings scheduled for this room
   def bookings_list
-    send("zCommand Bookings List\r", name: "bookings_list")
+    do_send("zCommand Bookings List", name: "bookings_list")
   end
 
   # Update/refresh the meeting list from calendar
   def bookings_update
-    send("zCommand Bookings Update\r", name: "bookings_update")
+    do_send("zCommand Bookings Update", name: "bookings_update")
   end
 
   def received(data, task)
     response = String.new(data).strip
-    logger.debug { "Received: #{response}" }
+    logger.debug { "Received: #{response.inspect}" }
+    p! response
+    unless ready?
+      data = response.split("\r")
+      return task.try(&.abort) unless data.size > 0
+      if data[0].starts_with?("ZAAPI")
+        @ready = true
+        do_send("echo off", name: "echo_off")
+        schedule.clear
+        do_send("format json", name: "set_format")
+        schedule.clear
+      end
+    end
+
     task.try &.success(response)
-    
+
     if response[0] != '{'
       return
     end
@@ -83,5 +100,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
         self[:bookings_last_updated_at] = Time.local.to_s
       end
     end
+  end
+
+  private def do_send(command, **options)
+    logger.debug { "requesting #{command}" }
+    send "#{command}\r", **options
   end
 end
