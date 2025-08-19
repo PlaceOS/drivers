@@ -60,7 +60,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     response = String.new(data).strip
     logger.debug { "Received: #{response.inspect}" }
     unless ready?
-      if data.includes?("ZAAPI")
+      if response.includes?("ZAAPI")
         @ready = true
         transport.tokenizer = Tokenizer.new "\r\n"
         do_send("echo off", name: "echo_off")
