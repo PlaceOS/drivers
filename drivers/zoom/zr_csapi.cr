@@ -60,6 +60,18 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     do_send("zCommand Bookings Update", name: "bookings_update")
   end
 
+  def send_command_r(command : String)
+      transport.send "#{command}\r"
+  end
+
+  def send_command_n(command : String)
+      transport.send "#{command}\n"
+  end
+
+  def send_command_rn(command : String)
+      transport.send "#{command}\r\n"
+  end
+
   protected def reset_connection_flags
     self[:ready] = @ready = false
     @init_called = false
