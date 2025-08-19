@@ -5,7 +5,7 @@ require "placeos-driver"
 # API Documentation: https://developers.zoom.us/docs/rooms/cli/
 class Zoom::ZrCSAPI < PlaceOS::Driver
   descriptive_name "Zoom Room ZR-CSAPI"
-  generic_name :ZoomRoomAPI
+  generic_name :ZoomCSAPI
   description "Legacy SSH-based API for Zoom Rooms. Requires SSH credentials configured on the Zoom Room."
 
   tcp_port 2244
