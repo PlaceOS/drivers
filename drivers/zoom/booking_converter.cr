@@ -35,7 +35,7 @@ class Zoom::BookingConverter < PlaceOS::Driver
   end
 
   private def expose_bookings(zoom_bookings_list : Array(JSON::Any))
-    placeos_bookings = [] of  Hash(String, Bool | Int64 | String | Nil)
+    placeos_bookings = [] of  Hash(String, Array(Bool) | Bool | Int64 | String | Nil)
     zoom_bookings_list.each do |zoom_booking|
       placeos_bookings << convert_booking(zoom_booking)
     end
@@ -61,9 +61,9 @@ class Zoom::BookingConverter < PlaceOS::Driver
         "recurrence" => nil,
         "status" => nil,
         "creator" => nil,
-        "ical_uid" => nil
+        "ical_uid" => nil,
         "private" => false,
-        "all_day" => false,
+        "all_day" => false
     }
   end
 
