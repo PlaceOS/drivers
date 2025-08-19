@@ -13,7 +13,7 @@ class Cisco::RoomKit < PlaceOS::Driver
   include Interface::Sensor
 
   # Discovery Information
-  descriptive_name "Cisco Room Kit"
+  descriptive_name "Cisco Room Kit" 
   generic_name :VidConf
   tcp_port 22
 
