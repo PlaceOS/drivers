@@ -2,12 +2,12 @@ require "placeos-driver"
 require "placeos-driver/interface/muteable"
 
 # Documentation: https://www.shure.com/en-US/docs/commandstrings/IntelliMixRoom
-# TCP Port: 2244
+# TCP Port: 2202
 
 class Shure::IntellimixRoom < PlaceOS::Driver
   include Interface::AudioMuteable
 
-  tcp_port 2244
+  tcp_port 2202
   descriptive_name "Shure IntelliMix Room Audio Processor"
   generic_name :AudioMixer
   description "Software-based digital signal processing for Shure networked microphones"
