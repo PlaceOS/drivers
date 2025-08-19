@@ -42,6 +42,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     logger.debug { "Disconnected from Zoom Room ZR-CSAPI" }
     @ready = false
     schedule.clear
+    transport.tokenizer = nil
     self[:connected] = false
   end
 
@@ -58,16 +59,16 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def received(data, task)
     response = String.new(data).strip
     logger.debug { "Received: #{response.inspect}" }
-    p! response
     unless ready?
-      data = response.split("\r")
-      return task.try(&.abort) unless data.size > 0
-      if data[0].starts_with?("ZAAPI")
+      if data.includes?("ZAAPI")
         @ready = true
+        transport.tokenizer = Tokenizer.new "\r\n"
         do_send("echo off", name: "echo_off")
         schedule.clear
         do_send("format json", name: "set_format")
         schedule.clear
+      else
+        return task.try(&.abort)
       end
     end
 
@@ -104,6 +105,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   private def do_send(command, **options)
     logger.debug { "requesting #{command}" }
-    send "#{command}\r", **options
+    send "#{command}\r\n", **options
   end
 end
