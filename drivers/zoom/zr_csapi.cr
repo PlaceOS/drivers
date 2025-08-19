@@ -22,27 +22,31 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def on_load
     queue.wait = false
     queue.delay = 10.milliseconds
-    @ready = false
+    self[:ready] = @ready = false
   end
 
   def connected
+    reset_connection_flags
+    schedule.in(5.seconds) do
+      initialize_tokenizer unless @ready || @init_called
+    end
     # we need to disconnect if we don't see welcome message
-    schedule.in(20.seconds) do
+    schedule.in(9.seconds) do
       if !ready?
-        logger.error { "ZR-CSAPI connection failed to be ready after 20 seconds." }
+        logger.error { "ZR-CSAPI connection failed to be ready after 9 seconds." }
         disconnect
       end
     end
-    logger.debug { "Connected to Zoom Room ZR-CSAPI on port 2244" }
+    logger.debug { "Connected to Zoom Room ZR-CSAPI" }
     self[:connected] = true
     do_send("zStatus SystemUnit", name: "status_system_unit")
   end
 
   def disconnected
-    logger.debug { "Disconnected from Zoom Room ZR-CSAPI" }
-    @ready = false
+    reset_connection_flags
+    queue.clear abort_current: true
     schedule.clear
-    transport.tokenizer = nil
+    logger.debug { "Disconnected from Zoom Room ZR-CSAPI" }
     self[:connected] = false
   end
 
@@ -56,13 +60,56 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     do_send("zCommand Bookings Update", name: "bookings_update")
   end
 
+  protected def reset_connection_flags
+    self[:ready] = @ready = false
+    @init_called = false
+    transport.tokenizer = nil
+  end
+
+  # Regexp's for tokenizing the ZR-CSAPI response structure.
+  INVALID_COMMAND = /(?<=onUnsupported Command)[\r\n]+/
+  SUCCESS = /(?<=OK)[\r\n]+/
+  COMMAND_RESPONSE = Regex.union(INVALID_COMMAND, SUCCESS)
+  private def initialize_tokenizer
+    @init_called = true
+    transport.tokenizer = Tokenizer.new do |io|
+      raw = io.gets_to_end
+      data = raw.lstrip
+      index = if data.starts_with?("{")
+                count = 0
+                pos = 0
+                data.each_char_with_index do |char, i|
+                  pos = i
+                  count += 1 if char == '{'
+                  count -= 1 if char == '}'
+                  break if count.zero?
+                end
+                pos if count.zero?
+              else
+                data =~ COMMAND_RESPONSE
+              end
+      if index
+        message = data[0..index]
+        index += raw.byte_index_to_char_index(raw.byte_index(message).not_nil!).not_nil!
+        index = raw.char_index_to_byte_index(index + 1)
+      end
+      index || -1
+    end
+    self[:ready] = @ready = true
+  rescue error
+    @init_called = false
+    logger.warn(exception: error) { "error configuring zrcsapi transport" }
+  end
+
   def received(data, task)
     response = String.new(data).strip
     logger.debug { "Received: #{response.inspect}" }
+
     unless ready?
-      if response.includes?("ZAAPI")
-        @ready = true
-        transport.tokenizer = Tokenizer.new "\r\n"
+      if response.includes?("ZAAPI") # Initial connection message
+        initialize_tokenizer unless @init_called
+        queue.clear abort_current: true
+        sleep 500.milliseconds
         do_send("echo off", name: "echo_off")
         schedule.clear
         do_send("format json", name: "set_format")
