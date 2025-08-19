@@ -155,8 +155,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     json_response = JSON.parse(response)
     response_type : String = json_response["type"].as_s
     response_topkey : String  = json_response["topKey"].as_s
-    logger.debug { "JSON: #{json_response.inspect}" } if @debug_enabled
-    logger.debug { "type: #{response_type}, topkey: #{response_topkey}" } if @debug_enabled
+    if @debug_enabled
+      logger.debug { "JSON: #{json_response.inspect}" }
+      logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
+    end
 
     case response_type
     when "zStatus"
@@ -166,15 +168,15 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       end
     when "zCommand"
       case response_topkey
-      when "Bookings List"
-        self[:bookings_list] = json_response["Bookings List"]
-      when "Bookings Update"
+      when "BookingsUpdateResult"
         self[:bookings_last_updated_at] = Time.local.to_s
       end
     when "zEvent"
       case response_topkey
-      when "Bookings Update"
+      when "BookingsUpdateResult"
         self[:bookings_last_updated_at] = Time.local.to_s
+      when "BookingsListResult"
+        self[:bookings_list] = json_response["BookingsListResult"]
       end
     end
   end
