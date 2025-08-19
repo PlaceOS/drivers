@@ -15,14 +15,21 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       username: "zoom",
       password: "",
     },
+    enable_debug_logging: false
   })
 
   getter? ready : Bool = false
+  @debug_enabled : Bool = false
 
   def on_load
     queue.wait = false
     queue.delay = 10.milliseconds
     self[:ready] = @ready = false
+    on_update
+  end
+
+  def on_update
+    @debug_enabled = setting?(Bool, :enable_debug_logging) || false
   end
 
   def connected
@@ -115,7 +122,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   def received(data, task)
     response = String.new(data).strip
-    logger.debug { "Received: #{response.inspect}" }
+    logger.debug { "Received: #{response.inspect}" } if @debug_enabled
 
     unless ready?
       if response.includes?("ZAAPI") # Initial connection message
@@ -137,6 +144,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       return
     end
 
+    logger.debug { "Parsing response into JSON..." } if @debug_enabled
     json_response = JSON.parse(response)
     response_type = json_response["type"]
     response_topkey = json_response["topKey"]
