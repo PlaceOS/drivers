@@ -97,7 +97,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     transport.tokenizer = Tokenizer.new do |io|
       raw = io.gets_to_end
       data = raw.lstrip
-      index = if data.starts_with?("{")
+      index = if data.includes?("{")
+                logger.debug { "Tokenizing as JSON response" } if @debug_enabled
                 count = 0
                 pos = 0
                 data.each_char_with_index do |char, i|
@@ -108,6 +109,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
                 end
                 pos if count.zero?
               else
+                logger.debug { "Tokenizing as non-JSON response" } if @debug_enabled
                 data =~ COMMAND_RESPONSE
               end
       if index
@@ -130,13 +132,13 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     unless ready?
       if response.includes?("ZAAPI") # Initial connection message
         queue.clear abort_current: true
-        sleep 500.milliseconds
+        sleep 1000.milliseconds
         logger.debug { "Disabling echo and enabling JSON output..." } if @debug_enabled
         do_send("echo off", name: "echo_off")
         schedule.clear
         do_send("format json", name: "set_format")
         schedule.clear
-        sleep 500.milliseconds
+        sleep 1000.milliseconds
         initialize_tokenizer unless @init_called
       else
         return task.try(&.abort)
