@@ -520,7 +520,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       if response.includes?("ZAAPI") # Initial connection message
         queue.clear abort_current: true
         sleep 1000.milliseconds
-        logger.debug { "Disabling echo and enabling JSON output..." } if @debug_enabled
         do_send("echo off", name: "echo_off")
         schedule.clear
         do_send("format json", name: "set_format")
@@ -532,13 +531,12 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       end
     end
 
-    task.try &.success(response)
-
-    if response[0] != '{'
+    if response[0] == '{'
+      task.try &.success(response)
+    else
       return
     end
 
-    logger.debug { "Parsing response into JSON..." } if @debug_enabled
     json_response = JSON.parse(response)
     response_type : String = json_response["type"].as_s
     response_topkey : String = json_response["topKey"].as_s
@@ -547,11 +545,12 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
 
-    new_data = json_response[response_topkey]
+    new_data = json_response[response_topkey].as_h
     if new_data.is_a?(Hash)
       logger.debug { "Merging new data into existing data for #{response_topkey}" } if @debug_enabled
-      self[response_topkey] = self[response_topkey].merge(new_data.as_h)
+      self[response_topkey] = self[response_topkey].as_h.merge(new_data)
     else
+      logger.debug { "Replacing existing data for #{response_topkey}" } if @debug_enabled
       self[response_topkey] = new_data
     end
 
