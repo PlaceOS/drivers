@@ -544,9 +544,9 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       logger.debug { "JSON: #{json_response.inspect}" }
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
-    
+
     new_data = json_response[response_topkey]
-    if new_data.is_a?(Hash) && self[response_topkey]
+    if new_data.as_h? && self[response_topkey]
       logger.debug { "Merging new data into existing data for #{response_topkey}" } if @debug_enabled
       self[response_topkey] = self[response_topkey].as_h.merge(new_data.as_h)
     else
