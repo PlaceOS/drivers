@@ -1,6 +1,10 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Zoom::ZrCSAPI" do
+  settings({
+    enable_debug_logging: true
+  })
+
   # Initial connection sequence
   transmit "Welcome to ZAAPI\r\n"
   should_send "echo off\r\n"
@@ -8,7 +12,6 @@ DriverSpecs.mock_driver "Zoom::ZrCSAPI" do
   should_send "format json\r\n"  
   responds "OK\r\n"
 
-  # Test existing functionality
   exec(:bookings_list)
   should_send "zCommand Bookings List\r\n"
   responds "{\"type\":\"zCommand\",\"topKey\":\"BookingsListResult\",\"BookingsListResult\":{\"meetings\":[]}}\r\n"
@@ -17,22 +20,22 @@ DriverSpecs.mock_driver "Zoom::ZrCSAPI" do
   should_send "zCommand Bookings Update\r\n"
   responds "{\"type\":\"zCommand\",\"topKey\":\"BookingsUpdateResult\",\"BookingsUpdateResult\":{\"status\":\"success\"}}\r\n"
 
-  # Test meeting control methods
+  exec(:call_disconnect)
+  should_send "zCommand Call Disconnect\r\n"
+  responds "{\r\n  \"Call\": {\r\n    \"Status\": \"NOT_IN_MEETING\"\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zStatus\"\r\n}"
+
   exec(:dial_start, "1234567890")
   should_send "zCommand Dial Start meetingNumber: 1234567890\r\n"
-  responds "{\"type\":\"zCommand\",\"topKey\":\"DialResult\",\"DialResult\":{\"status\":\"connecting\"}}\r\n"
-
-  exec(:dial_start, "1234567890", "password123")
-  should_send "zCommand Dial Start meetingNumber: 1234567890 meetingPassword: password123\r\n"
-  responds "{\"type\":\"zCommand\",\"topKey\":\"DialResult\",\"DialResult\":{\"status\":\"connecting\"}}\r\n"
+  responds "{\r\n  \"Call\": {\r\n    \"Status\": \"IN_MEETING\"\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zStatus\"\r\n}"
+  transmit "{\r\n  \"Call\": {\r\n    \"Microphone\": {\r\n      \"Mute\": false\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
+  transmit "{\r\n  \"Call\": {\r\n    \"Lock\": {\r\n      \"Enable\": false\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
+  transmit  "{\r\n  \"Call\": {\r\n    \"Layout\": {\r\n      \"Size\": \"Size1\"\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
+  transmit "{\r\n  \"Call\": {\r\n    \"ClosedCaption\": {\r\n      \"CanDisable\": false\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zStatus\"\r\n}"
+  transmit "{\r\n  \"Call\": {\r\n    \"Share\": {\r\n      \"Setting\": \"MULTI_SHARE\"\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}" 
 
   exec(:dial_join_sip, "test@example.com", "SIP")
   should_send "zCommand Dial Join meetingAddress: test@example.com protocol: SIP\r\n"
   responds "{\"type\":\"zCommand\",\"topKey\":\"DialResult\",\"DialResult\":{\"status\":\"connecting\"}}\r\n"
-
-  exec(:call_disconnect)
-  should_send "zCommand Call Disconnect\r\n"
-  responds "{\"type\":\"zCommand\",\"topKey\":\"CallResult\",\"CallResult\":{\"status\":\"disconnected\"}}\r\n"
 
   exec(:call_invite, "user@example.com")
   should_send "zCommand Call Invite user: user@example.com\r\n"

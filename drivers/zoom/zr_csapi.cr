@@ -519,12 +519,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     unless ready?
       if response.includes?("ZAAPI") # Initial connection message
         queue.clear abort_current: true
-        sleep 1000.milliseconds
         do_send("echo off", name: "echo_off")
         schedule.clear
         do_send("format json", name: "set_format")
         schedule.clear
-        sleep 1000.milliseconds
         initialize_tokenizer unless @init_called
       else
         return task.try(&.abort)
@@ -545,14 +543,25 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
 
-    new_data = json_response[response_topkey]
-    if new_data.as_h? && !self[response_topkey].nil?
-      logger.debug { "Merging new data into existing data for #{response_topkey}" } if @debug_enabled
-      self[response_topkey] = self[response_topkey].as_h.merge(new_data.as_h)
-    else
-      logger.debug { "Replacing existing data for #{response_topkey}" } if @debug_enabled
-      self[response_topkey] = new_data
+    begin
+      old_data = self[response_topkey]
+      new_data = json_response[response_topkey].as_h
+      logger.debug { "Merging new data into existing data" } if @debug_enabled
+      self[response_topkey] = old_data.as_h.merge(new_data)
+    rescue exception
+      logger.debug { "Error when merging data: #{exception.inspect}" } if @debug_enabled
+      logger.debug { "Replacing existing data" } if @debug_enabled
+      self[response_topkey] = json_response[response_topkey]
     end
+    # new_data = json_response[response_topkey]
+    # logger.debug { "self: #{self[response_topkey].inspect}" }
+    # if new_data.as_h?
+    #   logger.debug { "Merging new data into existing data for #{self[response_topkey].inspect}" } if @debug_enabled
+    #   self[response_topkey] = self[response_topkey].as_h.merge(new_data.as_h)
+    # else
+    #   logger.debug { "Replacing existing data for #{response_topkey}" } if @debug_enabled
+    #   self[response_topkey] = new_data
+    # end
 
     # case response_type
     # when "zStatus"
