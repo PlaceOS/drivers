@@ -491,7 +491,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       raw = io.gets_to_end
       data = raw.lstrip
       index = if data.includes?("{")
-                logger.debug { "Tokenizing as JSON response" } if @debug_enabled
                 count = 0
                 pos = 0
                 data.each_char_with_index do |char, i|
@@ -502,7 +501,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
                 end
                 pos if count.zero?
               else
-                logger.debug { "Tokenizing as non-JSON response" } if @debug_enabled
                 data =~ COMMAND_RESPONSE
               end
       if index
@@ -519,7 +517,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   end
 
   def received(data, task)
-    response = String.new(data).strip
+    response = String.new(data).strip.delete &.in?('\r', '\n')
     logger.debug { "Received: #{response.inspect}" } if @debug_enabled
 
     unless ready?
@@ -545,7 +543,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     response_type : String = json_response["type"].as_s
     response_topkey : String = json_response["topKey"].as_s
     if @debug_enabled
-      logger.debug { "JSON: #{json_response.inspect}" }
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
 
