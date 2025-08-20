@@ -75,7 +75,7 @@ class PMS < PlaceOS::Driver
       form.add("DepartmentId", department_id)
     end
 
-    request("PUT", "/api/employees/assign-department/#{employee_id}")
+    request("PUT", "/api/employees/assign-department/#{employee_id}", body)
   end
 
   def assign_vehicle(employee_id : String, vehicle_id : String)
@@ -83,7 +83,7 @@ class PMS < PlaceOS::Driver
       form.add("VehicleId", vehicle_id)
     end
 
-    request("PUT", "/api/employees/assign-vehicle/#{employee_id}")
+    request("PUT", "/api/employees/assign-vehicle/#{employee_id}", body)
   end
 
   def unassign_vehicle(employee_id : String, vehicle_id : String)
@@ -91,7 +91,7 @@ class PMS < PlaceOS::Driver
       form.add("VehicleId", vehicle_id)
     end
 
-    request("PUT", "/api/employees/unassign-vehicle/#{employee_id}")
+    request("PUT", "/api/employees/unassign-vehicle/#{employee_id}", body)
   end
 
   def owner_type(employee_id : String, owner_type : String)
@@ -99,7 +99,7 @@ class PMS < PlaceOS::Driver
       form.add("OwnerType", owner_type)
     end
 
-    request("PUT", "/api/employees/ownertype/#{employee_id}")
+    request("PUT", "/api/employees/ownertype/#{employee_id}", body)
   end
 
   def visitor_parking_requests(from_date : String, to_date : String)
