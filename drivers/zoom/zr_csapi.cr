@@ -15,7 +15,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       username: "zoom",
       password: "",
     },
-    enable_debug_logging: false
+    enable_debug_logging: false,
   })
 
   getter? ready : Bool = false
@@ -56,6 +56,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     self[:connected] = false
   end
 
+  # =================
+  # zCommand Methods - Meeting Control
+  # =================
+
   # Get today's meetings scheduled for this room
   def bookings_list
     do_send("zCommand Bookings List", name: "bookings_list")
@@ -66,20 +70,410 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     do_send("zCommand Bookings Update", name: "bookings_update")
   end
 
+  # Start or join a meeting
+  def dial_start(meeting_number : String)
+    command = "zCommand Dial Start meetingNumber: #{meeting_number}"
+    do_send(command, name: "dial_start")
+  end
+
+  # Join a meeting
+  def dial_join(meeting_number : String)
+    command = "zCommand Dial Join meetingNumber: #{meeting_number}"
+    do_send(command, name: "dial_join")
+  end
+
+  # Join meeting via SIP
+  def dial_join_sip(sip_address : String, protocol : String = "Auto")
+    do_send("zCommand Dial Join meetingAddress: #{sip_address} protocol: #{protocol}", name: "dial_join_sip")
+  end
+
+  # Start PMI meeting
+  def dial_start_pmi(duration_minutes : Int32?)
+    command = "zCommand Dial StartPmi Duration: #{duration_minutes || 15}"
+    do_send(command, name: "dial_start_pmi")
+  end
+
+  # Input meeting password
+  def input_password(password : String)
+    do_send("zCommand Input Meeting Password: #{password}", name: "input_password")
+  end
+
+  # Leave current meeting
+  def call_disconnect
+    do_send("zCommand Call Disconnect", name: "call_disconnect")
+  end
+
+  # Invite participant to meeting
+  def call_invite(user : String)
+    do_send("zCommand Call Invite user: #{user}", name: "call_invite")
+  end
+
+  # Mute/unmute specific participant
+  def call_mute_participant(mute : Bool, participant_id : String)
+    state = mute ? "on" : "off"
+    do_send("zCommand Call MuteParticipant mute: #{state} Id: #{participant_id}", name: "call_mute_participant")
+  end
+
+  # Mute/unmute all participants
+  def call_mute_all(mute : Bool)
+    state = mute ? "on" : "off"
+    do_send("zCommand Call MuteAll mute: #{state}", name: "call_mute_all")
+  end
+
+  # Mute/unmute self (room microphone)
+  def call_mute_self(mute : Bool)
+    state = mute ? "on" : "off"
+    do_send("zCommand Audio Microphone Mute: #{state}", name: "call_mute_self")
+  end
+
+  # Start/stop recording
+  def call_record(enable : Bool)
+    state = enable ? "on" : "off"
+    do_send("zCommand Call Record Enable: #{state}", name: "call_record")
+  end
+
+  # Change meeting host
+  def call_make_host(participant_id : String)
+    do_send("zCommand Call MakeHost Id: #{participant_id}", name: "call_make_host")
+  end
+
+  # Pin participant video
+  def call_pin_participant(pin : Bool, participant_id : String)
+    state = pin ? "on" : "off"
+    do_send("zCommand Call PinParticipant Pin: #{state} Id: #{participant_id}", name: "call_pin_participant")
+  end
+
+  # Spotlight participant
+  def call_spotlight_participant(spotlight : Bool, participant_id : String)
+    state = spotlight ? "on" : "off"
+    do_send("zCommand Call SpotlightParticipant Spotlight: #{state} Id: #{participant_id}", name: "call_spotlight_participant")
+  end
+
+  # Lock/unlock meeting
+  def call_lock(lock : Bool)
+    state = lock ? "on" : "off"
+    do_send("zCommand Call Lock Enable: #{state}", name: "call_lock")
+  end
+
+  # Enable/disable waiting room
+  def call_waiting_room(enable : Bool)
+    state = enable ? "on" : "off"
+    do_send("zCommand Call WaitingRoom Enable: #{state}", name: "call_waiting_room")
+  end
+
+  # Admit participant from waiting room
+  def call_admit_participant(participant_id : String)
+    do_send("zCommand Call Admit Participant: #{participant_id}", name: "call_admit_participant")
+  end
+
+  # Expel participant from meeting
+  def call_expel_participant(participant_id : String)
+    do_send("zCommand Call Expel Id: #{participant_id}", name: "call_expel_participant")
+  end
+
+  # Change video layout
+  def call_layout(layout_style : String, layout_size : String? = nil, layout_position : String? = nil)
+    command = "zCommand Call Layout LayoutStyle: #{layout_style}"
+    command += " LayoutSize: #{layout_size}" if layout_size
+    command += " LayoutPosition: #{layout_position}" if layout_position
+    do_send(command, name: "call_layout")
+  end
+
+  # List phonebook contacts
+  def phonebook_list
+    do_send("zCommand Phonebook List", name: "phonebook_list")
+  end
+
+  # Search phonebook
+  def phonebook_search(search_string : String)
+    do_send("zCommand Phonebook Search SearchString: #{search_string}", name: "phonebook_search")
+  end
+
+  # =================
+  # zCommand Methods - Sharing Control
+  # =================
+
+  # Start/stop HDMI sharing
+  def sharing_start_hdmi
+    do_send("zCommand Call Sharing HDMI Start", name: "sharing_start_hdmi")
+  end
+
+  def sharing_stop
+    do_send("zCommand Call Sharing HDMI Stop", name: "sharing_stop_hdmi")
+  end
+
+  # Share camera
+  def sharing_start_camera(camera_id : String, enable : Bool)
+    state = enable ? "on" : "off"
+    do_send("zCommand Call ShareCamera id: #{camera_id} state: #{state}", name: "sharing_camera")
+  end
+
+  # =================
+  # zCommand Methods - Device Testing
+  # =================
+
+  # Test microphone
+  def test_microphone_start(device_id : String? = nil)
+    command = "zCommand Test Microphone Start"
+    command += " Id: #{device_id}" if device_id
+    do_send(command, name: "test_microphone_start")
+  end
+
+  def test_microphone_stop
+    do_send("zCommand Test Microphone Stop", name: "test_microphone_stop")
+  end
+
+  # Test speakers
+  def test_speakers_start(device_id : String? = nil)
+    command = "zCommand Test Speakers Start"
+    command += " Id: #{device_id}" if device_id
+    do_send(command, name: "test_speakers_start")
+  end
+
+  def test_speakers_stop
+    do_send("zCommand Test Speakers Stop", name: "test_speakers_stop")
+  end
+
+  # Test camera
+  def test_camera_start(device_id : String? = nil)
+    command = "zCommand Test Camera Start"
+    command += " Id: #{device_id}" if device_id
+    do_send(command, name: "test_camera_start")
+  end
+
+  def test_camera_stop
+    do_send("zCommand Test Camera Stop", name: "test_camera_stop")
+  end
+
+  # =================
+  # zStatus Methods
+  # =================
+
   def system_unit?
     do_send("zStatus SystemUnit", name: "status_system_unit")
   end
 
+  # Get call status
+  def call_status
+    do_send("zStatus Call Status", name: "call_status")
+  end
+
+  # Get call stats information
+  def call_stats
+    do_send("zStatus Call Stats", name: "call_stats")
+  end
+
+  # Get participant list
+  def call_list_participants
+    do_send("zStatus Call Participants", name: "call_participants")
+  end
+
+  # Get audio input devices
+  def audio_input_line
+    do_send("zStatus Audio Input Line", name: "audio_input_line")
+  end
+
+  # Get audio output devices
+  def audio_output_line
+    do_send("zStatus Audio Output Line", name: "audio_output_line")
+  end
+
+  # Get video camera devices
+  def video_camera_line
+    do_send("zStatus Video Camera Line", name: "video_camera_line")
+  end
+
+  # Get system capabilities
+  def capabilities
+    do_send("zStatus Capabilities", name: "capabilities")
+  end
+
+  # Get sharing status
+  def sharing_status
+    do_send("zStatus Sharing", name: "sharing_status")
+  end
+
+  # Get room info
+  def room_info
+    do_send("zStatus RoomInfo", name: "room_info")
+  end
+
+  # Get peripherals
+  def peripherals
+    do_send("zStatus Peripherals", name: "peripherals")
+  end
+
+  # =================
+  # zConfiguration Methods
+  # =================
+
+  # Audio Configuration
+  def config_audio_input(device_id : String? = nil)
+    if device_id
+      do_send("zConfiguration Audio Input selectedDevice: #{device_id}", name: "config_audio_input")
+    else
+      do_send("zConfiguration Audio Input selectedDevice", name: "config_audio_input")
+    end
+  end
+
+  def config_audio_output(device_id : String? = nil)
+    if device_id
+      do_send("zConfiguration Audio Output selectedDevice: #{device_id}", name: "config_audio_output")
+    else
+      do_send("zConfiguration Audio Output selectedDevice", name: "config_audio_output")
+    end
+  end
+
+  def config_audio_volume(volume : Int32? = nil)
+    if volume
+      do_send("zConfiguration Audio Output volume: #{volume}", name: "config_audio_volume")
+    else
+      do_send("zConfiguration Audio Output volume", name: "config_audio_volume")
+    end
+  end
+
+  def config_audio_reduce_reverb(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Audio Input ReduceReverb", name: "config_audio_reduce_reverb")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Audio Input ReduceReverb: #{state}", name: "config_audio_reduce_reverb")
+    end
+  end
+
+  def config_audio_software_processing(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Audio Input SoftwareAudioProcessing", name: "config_audio_software_processing")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Audio Input SoftwareAudioProcessing: #{state}", name: "config_audio_software_processing")
+    end
+  end
+
+  # Video Configuration
+  def config_video_camera(device_id : String? = nil)
+    if device_id
+      do_send("zConfiguration Video Camera selectedDevice: #{device_id}", name: "config_video_camera")
+    else
+      do_send("zConfiguration Video Camera selectedDevice", name: "config_video_camera")
+    end
+  end
+
+  def config_video_self_view(hide : Bool? = nil)
+    if hide.nil?
+      do_send("zConfiguration Video selfViewHide", name: "config_video_self_view")
+    else
+      state = hide ? "on" : "off"
+      do_send("zConfiguration Video selfViewHide: #{state}", name: "config_video_self_view")
+    end
+  end
+
+  def config_video_mirror_mode(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Video Camera mirrorMode", name: "config_video_mirror_mode")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Video Camera mirrorMode: #{state}", name: "config_video_mirror_mode")
+    end
+  end
+
+  # Call Configuration
+  def config_call_mute_on_entry(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Call muteUserOnEntry", name: "config_call_mute_on_entry")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Call muteUserOnEntry: #{state}", name: "config_call_mute_on_entry")
+    end
+  end
+
+  def config_call_lock_enable(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Call Lock enable", name: "config_call_lock")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Call Lock enable: #{state}", name: "config_call_lock")
+    end
+  end
+
+  def config_call_layout(layout_style : String? = nil, layout_size : String? = nil, layout_position : String? = nil)
+    if layout_style
+      command = "zConfiguration Call Layout LayoutStyle: #{layout_style}"
+      command += " LayoutSize: #{layout_size}" if layout_size
+      command += " LayoutPosition: #{layout_position}" if layout_position
+      do_send(command, name: "config_call_layout")
+    else
+      do_send("zConfiguration Call Layout", name: "config_call_layout")
+    end
+  end
+
+  def config_call_share_thumb(size : String? = nil, position : String? = nil)
+    if size || position
+      command = "zConfiguration Call Layout ShareThumb"
+      command += " Size: #{size}" if size
+      command += " Position: #{position}" if position
+      do_send(command, name: "config_call_share_thumb")
+    else
+      do_send("zConfiguration Call Layout ShareThumb", name: "config_call_share_thumb")
+    end
+  end
+
+  # Closed Caption Configuration
+  def config_call_closed_caption_visible(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Call ClosedCaption Visible", name: "config_closed_caption_visible")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Call ClosedCaption Visible: #{state}", name: "config_closed_caption_visible")
+    end
+  end
+
+  def config_call_closed_caption_font_size(size : Int32? = nil)
+    if size
+      do_send("zConfiguration Call ClosedCaption FontSize: #{size}", name: "config_closed_caption_font_size")
+    else
+      do_send("zConfiguration Call ClosedCaption FontSize", name: "config_closed_caption_font_size")
+    end
+  end
+
+  # Client Information
+  def config_client_app_version
+    do_send("zConfiguration Client appVersion", name: "config_client_app_version")
+  end
+
+  def config_client_device_system
+    do_send("zConfiguration Client deviceSystem", name: "config_client_device_system")
+  end
+
+  # Sharing Configuration
+  def config_sharing_participant(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Sharing Participant", name: "config_sharing_participant")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Sharing Participant: #{state}", name: "config_sharing_participant")
+    end
+  end
+
+  def config_sharing_optimize_video(enable : Bool? = nil)
+    if enable.nil?
+      do_send("zConfiguration Sharing optimizeVideo", name: "config_sharing_optimize_video")
+    else
+      state = enable ? "on" : "off"
+      do_send("zConfiguration Sharing optimizeVideo: #{state}", name: "config_sharing_optimize_video")
+    end
+  end
+
   def send_command_r(command : String)
-      transport.send "#{command}\r"
+    transport.send "#{command}\r"
   end
 
   def send_command_n(command : String)
-      transport.send "#{command}\n"
+    transport.send "#{command}\n"
   end
 
   def send_command_rn(command : String)
-      transport.send "#{command}\r\n"
+    transport.send "#{command}\r\n"
   end
 
   protected def reset_connection_flags
@@ -89,9 +483,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   end
 
   # Regexp's for tokenizing the ZR-CSAPI response structure.
-  INVALID_COMMAND = /(?<=onUnsupported Command)[\r\n]+/
-  SUCCESS = /(?<=OK)[\r\n]+/
+  INVALID_COMMAND  = /(?<=onUnsupported Command)[\r\n]+/
+  SUCCESS          = /(?<=OK)[\r\n]+/
   COMMAND_RESPONSE = Regex.union(INVALID_COMMAND, SUCCESS)
+
   private def initialize_tokenizer
     @init_called = true
     transport.tokenizer = Tokenizer.new do |io|
@@ -154,7 +549,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     logger.debug { "Parsing response into JSON..." } if @debug_enabled
     json_response = JSON.parse(response)
     response_type : String = json_response["type"].as_s
-    response_topkey : String  = json_response["topKey"].as_s
+    response_topkey : String = json_response["topKey"].as_s
     if @debug_enabled
       logger.debug { "JSON: #{json_response.inspect}" }
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
@@ -165,11 +560,46 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       case response_topkey
       when "SystemUnit"
         self[:system_unit] = json_response["SystemUnit"]
+      when "Call"
+        self[:call_status] = json_response["Call"]
+      when "Audio"
+        self[:audio_status] = json_response["Audio"]
+      when "Video"
+        self[:video_status] = json_response["Video"]
+      when "Capabilities"
+        self[:capabilities] = json_response["Capabilities"]
+      when "Sharing"
+        self[:sharing_status] = json_response["Sharing"]
+      when "RoomInfo"
+        self[:room_info] = json_response["RoomInfo"]
+      when "Peripherals"
+        self[:peripherals] = json_response["Peripherals"]
       end
     when "zCommand"
       case response_topkey
       when "BookingsUpdateResult"
         self[:bookings_last_updated_at] = Time.local.to_s
+      when "DialResult"
+        self[:dial_result] = json_response["DialResult"]
+      when "CallResult"
+        self[:call_result] = json_response["CallResult"]
+      when "SharingResult"
+        self[:sharing_result] = json_response["SharingResult"]
+      when "TestResult"
+        self[:test_result] = json_response["TestResult"]
+      end
+    when "zConfiguration"
+      case response_topkey
+      when "Audio"
+        self[:audio_config] = json_response["Audio"]
+      when "Video"
+        self[:video_config] = json_response["Video"]
+      when "Call"
+        self[:call_config] = json_response["Call"]
+      when "Client"
+        self[:client_config] = json_response["Client"]
+      when "Sharing"
+        self[:sharing_config] = json_response["Sharing"]
       end
     when "zEvent"
       case response_topkey
@@ -177,6 +607,52 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
         self[:bookings_last_updated_at] = Time.local.to_s
       when "BookingsListResult"
         self[:bookings_list] = json_response["BookingsListResult"]
+      when "IncomingCallIndication"
+        self[:incoming_call] = json_response["IncomingCallIndication"]
+        self[:last_event] = "IncomingCallIndication"
+      when "CallDisconnect"
+        self[:call_disconnect_event] = json_response["CallDisconnect"]
+        self[:last_event] = "CallDisconnect"
+        self[:in_meeting] = false
+      when "CallConnectError"
+        self[:call_connect_error] = json_response["CallConnectError"]
+        self[:last_event] = "CallConnectError"
+      when "MeetingNeedsPassword"
+        self[:meeting_needs_password] = json_response["MeetingNeedsPassword"]
+        self[:last_event] = "MeetingNeedsPassword"
+      when "NeedWaitForHost"
+        self[:need_wait_for_host] = json_response["NeedWaitForHost"]
+        self[:last_event] = "NeedWaitForHost"
+      when "SharingState"
+        self[:sharing_state] = json_response["SharingState"]
+        self[:last_event] = "SharingState"
+      when "UpdateCallRecordInfo"
+        self[:call_record_info] = json_response["UpdateCallRecordInfo"]
+        self[:last_event] = "UpdateCallRecordInfo"
+      when "AddedContact"
+        self[:added_contact] = json_response["AddedContact"]
+        self[:last_event] = "AddedContact"
+      when "UpdatedContact"
+        self[:updated_contact] = json_response["UpdatedContact"]
+        self[:last_event] = "UpdatedContact"
+      when "PhonebookBasicInfoChange"
+        self[:phonebook_basic_info] = json_response["PhonebookBasicInfoChange"]
+        self[:last_event] = "PhonebookBasicInfoChange"
+      when "OtherControllerLogin"
+        self[:other_controller_login] = json_response["OtherControllerLogin"]
+        self[:last_event] = "OtherControllerLogin"
+      when "Reconnecting"
+        self[:reconnecting] = json_response["Reconnecting"]
+        self[:last_event] = "Reconnecting"
+      when "TreatedIncomingCallIndication"
+        self[:treated_incoming_call] = json_response["TreatedIncomingCallIndication"]
+        self[:last_event] = "TreatedIncomingCallIndication"
+      when "OpenVideoFailForHostStop"
+        self[:open_video_fail_host_stop] = json_response["OpenVideoFailForHostStop"]
+        self[:last_event] = "OpenVideoFailForHostStop"
+      when "DeviceChange"
+        self[:device_change] = json_response["DeviceChange"]
+        self[:last_event] = "DeviceChange"
       end
     end
   end
