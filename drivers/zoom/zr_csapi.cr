@@ -88,8 +88,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   end
 
   # Start PMI meeting
-  def dial_start_pmi(duration_minutes : Int32?)
-    command = "zCommand Dial StartPmi Duration: #{duration_minutes || 15}"
+  def dial_start_pmi(duration_minutes : Int32 = 15)
+    command = "zCommand Dial StartPmi Duration: #{duration_minutes}"
     do_send(command, name: "dial_start_pmi")
   end
 
@@ -123,7 +123,13 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   # Mute/unmute self (room microphone)
   def call_mute_self(mute : Bool)
     state = mute ? "on" : "off"
-    do_send("zCommand Audio Microphone Mute: #{state}", name: "call_mute_self")
+    do_send("zConfiguration Call Microphone Mute: #{state}", name: "call_mute_self")
+  end
+
+  # Mute/unmute self (camera)
+  def call_mute_camera(mute : Bool)
+    state = mute ? "on" : "off"
+    do_send("zConfiguration Call Camera Mute: #{state}", name: "call_mute_camera")
   end
 
   # Start/stop recording
@@ -324,7 +330,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     end
   end
 
-  def config_audio_volume(volume : Int32? = nil)
+  def config_audio_volume(volume : Int32)
     if volume
       do_send("zConfiguration Audio Output volume: #{volume}", name: "config_audio_volume")
     else
