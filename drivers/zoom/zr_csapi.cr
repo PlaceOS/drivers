@@ -464,15 +464,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     end
   end
 
-  def send_command_r(command : String)
-    transport.send "#{command}\r"
-  end
-
-  def send_command_n(command : String)
-    transport.send "#{command}\n"
-  end
-
-  def send_command_rn(command : String)
+  def send_command(command : String)
     transport.send "#{command}\r\n"
   end
 
@@ -555,106 +547,109 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
 
-    case response_type
-    when "zStatus"
-      case response_topkey
-      when "SystemUnit"
-        self[:system_unit] = json_response["SystemUnit"]
-      when "Call"
-        self[:call_status] = json_response["Call"]
-      when "Audio"
-        self[:audio_status] = json_response["Audio"]
-      when "Video"
-        self[:video_status] = json_response["Video"]
-      when "Capabilities"
-        self[:capabilities] = json_response["Capabilities"]
-      when "Sharing"
-        self[:sharing_status] = json_response["Sharing"]
-      when "RoomInfo"
-        self[:room_info] = json_response["RoomInfo"]
-      when "Peripherals"
-        self[:peripherals] = json_response["Peripherals"]
-      end
-    when "zCommand"
-      case response_topkey
-      when "BookingsUpdateResult"
-        self[:bookings_last_updated_at] = Time.local.to_s
-      when "DialResult"
-        self[:dial_result] = json_response["DialResult"]
-      when "CallResult"
-        self[:call_result] = json_response["CallResult"]
-      when "SharingResult"
-        self[:sharing_result] = json_response["SharingResult"]
-      when "TestResult"
-        self[:test_result] = json_response["TestResult"]
-      end
-    when "zConfiguration"
-      case response_topkey
-      when "Audio"
-        self[:audio_config] = json_response["Audio"]
-      when "Video"
-        self[:video_config] = json_response["Video"]
-      when "Call"
-        self[:call_config] = json_response["Call"]
-      when "Client"
-        self[:client_config] = json_response["Client"]
-      when "Sharing"
-        self[:sharing_config] = json_response["Sharing"]
-      end
-    when "zEvent"
-      case response_topkey
-      when "BookingsUpdateResult"
-        self[:bookings_last_updated_at] = Time.local.to_s
-      when "BookingsListResult"
-        self[:bookings_list] = json_response["BookingsListResult"]
-      when "IncomingCallIndication"
-        self[:incoming_call] = json_response["IncomingCallIndication"]
-        self[:last_event] = "IncomingCallIndication"
-      when "CallDisconnect"
-        self[:call_disconnect_event] = json_response["CallDisconnect"]
-        self[:last_event] = "CallDisconnect"
-        self[:in_meeting] = false
-      when "CallConnectError"
-        self[:call_connect_error] = json_response["CallConnectError"]
-        self[:last_event] = "CallConnectError"
-      when "MeetingNeedsPassword"
-        self[:meeting_needs_password] = json_response["MeetingNeedsPassword"]
-        self[:last_event] = "MeetingNeedsPassword"
-      when "NeedWaitForHost"
-        self[:need_wait_for_host] = json_response["NeedWaitForHost"]
-        self[:last_event] = "NeedWaitForHost"
-      when "SharingState"
-        self[:sharing_state] = json_response["SharingState"]
-        self[:last_event] = "SharingState"
-      when "UpdateCallRecordInfo"
-        self[:call_record_info] = json_response["UpdateCallRecordInfo"]
-        self[:last_event] = "UpdateCallRecordInfo"
-      when "AddedContact"
-        self[:added_contact] = json_response["AddedContact"]
-        self[:last_event] = "AddedContact"
-      when "UpdatedContact"
-        self[:updated_contact] = json_response["UpdatedContact"]
-        self[:last_event] = "UpdatedContact"
-      when "PhonebookBasicInfoChange"
-        self[:phonebook_basic_info] = json_response["PhonebookBasicInfoChange"]
-        self[:last_event] = "PhonebookBasicInfoChange"
-      when "OtherControllerLogin"
-        self[:other_controller_login] = json_response["OtherControllerLogin"]
-        self[:last_event] = "OtherControllerLogin"
-      when "Reconnecting"
-        self[:reconnecting] = json_response["Reconnecting"]
-        self[:last_event] = "Reconnecting"
-      when "TreatedIncomingCallIndication"
-        self[:treated_incoming_call] = json_response["TreatedIncomingCallIndication"]
-        self[:last_event] = "TreatedIncomingCallIndication"
-      when "OpenVideoFailForHostStop"
-        self[:open_video_fail_host_stop] = json_response["OpenVideoFailForHostStop"]
-        self[:last_event] = "OpenVideoFailForHostStop"
-      when "DeviceChange"
-        self[:device_change] = json_response["DeviceChange"]
-        self[:last_event] = "DeviceChange"
-      end
-    end
+    response_hash = json_response[response_topkey].as_h
+    self[response_topkey] = self[response_topkey].as_h.merge(response_hash)
+
+    # case response_type
+    # when "zStatus"
+    #   case response_topkey
+    #   when "SystemUnit"
+    #     self[:system_unit] = json_response["SystemUnit"]
+    #   when "Call"
+    #     self[:call_status] = json_response["Call"]
+    #   when "Audio"
+    #     self[:audio_status] = json_response["Audio"]
+    #   when "Video"
+    #     self[:video_status] = json_response["Video"]
+    #   when "Capabilities"
+    #     self[:capabilities] = json_response["Capabilities"]
+    #   when "Sharing"
+    #     self[:sharing_status] = json_response["Sharing"]
+    #   when "RoomInfo"
+    #     self[:room_info] = json_response["RoomInfo"]
+    #   when "Peripherals"
+    #     self[:peripherals] = json_response["Peripherals"]
+    #   end
+    # when "zCommand"
+    #   case response_topkey
+    #   when "BookingsUpdateResult"
+    #     self[:bookings_last_updated_at] = Time.local.to_s
+    #   when "DialResult"
+    #     self[:dial_result] = json_response["DialResult"]
+    #   when "CallResult"
+    #     self[:call_result] = json_response["CallResult"]
+    #   when "SharingResult"
+    #     self[:sharing_result] = json_response["SharingResult"]
+    #   when "TestResult"
+    #     self[:test_result] = json_response["TestResult"]
+    #   end
+    # when "zConfiguration"
+    #   case response_topkey
+    #   when "Audio"
+    #     self[:audio_config] = json_response["Audio"]
+    #   when "Video"
+    #     self[:video_config] = json_response["Video"]
+    #   when "Call"
+    #     self[:call_config] = json_response["Call"]
+    #   when "Client"
+    #     self[:client_config] = json_response["Client"]
+    #   when "Sharing"
+    #     self[:sharing_config] = json_response["Sharing"]
+    #   end
+    # when "zEvent"
+    #   case response_topkey
+    #   when "BookingsUpdateResult"
+    #     self[:bookings_last_updated_at] = Time.local.to_s
+    #   when "BookingsListResult"
+    #     self[:bookings_list] = json_response["BookingsListResult"]
+    #   when "IncomingCallIndication"
+    #     self[:incoming_call] = json_response["IncomingCallIndication"]
+    #     self[:last_event] = "IncomingCallIndication"
+    #   when "CallDisconnect"
+    #     self[:call_disconnect_event] = json_response["CallDisconnect"]
+    #     self[:last_event] = "CallDisconnect"
+    #     self[:in_meeting] = false
+    #   when "CallConnectError"
+    #     self[:call_connect_error] = json_response["CallConnectError"]
+    #     self[:last_event] = "CallConnectError"
+    #   when "MeetingNeedsPassword"
+    #     self[:meeting_needs_password] = json_response["MeetingNeedsPassword"]
+    #     self[:last_event] = "MeetingNeedsPassword"
+    #   when "NeedWaitForHost"
+    #     self[:need_wait_for_host] = json_response["NeedWaitForHost"]
+    #     self[:last_event] = "NeedWaitForHost"
+    #   when "SharingState"
+    #     self[:sharing_state] = json_response["SharingState"]
+    #     self[:last_event] = "SharingState"
+    #   when "UpdateCallRecordInfo"
+    #     self[:call_record_info] = json_response["UpdateCallRecordInfo"]
+    #     self[:last_event] = "UpdateCallRecordInfo"
+    #   when "AddedContact"
+    #     self[:added_contact] = json_response["AddedContact"]
+    #     self[:last_event] = "AddedContact"
+    #   when "UpdatedContact"
+    #     self[:updated_contact] = json_response["UpdatedContact"]
+    #     self[:last_event] = "UpdatedContact"
+    #   when "PhonebookBasicInfoChange"
+    #     self[:phonebook_basic_info] = json_response["PhonebookBasicInfoChange"]
+    #     self[:last_event] = "PhonebookBasicInfoChange"
+    #   when "OtherControllerLogin"
+    #     self[:other_controller_login] = json_response["OtherControllerLogin"]
+    #     self[:last_event] = "OtherControllerLogin"
+    #   when "Reconnecting"
+    #     self[:reconnecting] = json_response["Reconnecting"]
+    #     self[:last_event] = "Reconnecting"
+    #   when "TreatedIncomingCallIndication"
+    #     self[:treated_incoming_call] = json_response["TreatedIncomingCallIndication"]
+    #     self[:last_event] = "TreatedIncomingCallIndication"
+    #   when "OpenVideoFailForHostStop"
+    #     self[:open_video_fail_host_stop] = json_response["OpenVideoFailForHostStop"]
+    #     self[:last_event] = "OpenVideoFailForHostStop"
+    #   when "DeviceChange"
+    #     self[:device_change] = json_response["DeviceChange"]
+    #     self[:last_event] = "DeviceChange"
+    #   end
+    # end
   end
 
   private def do_send(command, **options)
