@@ -547,8 +547,12 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
 
-    response_hash = json_response[response_topkey].as_h
-    self[response_topkey] = self[response_topkey].as_h.merge(response_hash)
+    new_data = json_response[response_topkey]
+    if new_data.is_a?(Hash)
+      self[response_topkey] = self[response_topkey].as_h.merge(new_data.as_h)
+    else
+      self[response_topkey] = new_data
+    end
 
     # case response_type
     # when "zStatus"
