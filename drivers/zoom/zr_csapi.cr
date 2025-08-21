@@ -76,15 +76,13 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   private def expose_custom_bookings_list
     bookings = self["BookingsListResult"]?
     return unless bookings
-    self[:Bookings] = bookings.as_a.map do |b|
-      {
-        "creatorName": b["creatorName"].as_s,
-        "startTime": b["startTime"].as_s,
-        "endTime": b["endTime"].as_s,
-        "meetingName": b["meetingName"].as_s,
-        "meetingNumber": b["meetingNumber"].as_s
-      }
-    end
+    self[:Bookings] = bookings.as_a.map { |b| b.as_h.select(
+      "creatorName",
+      "startTime",
+      "endTime",
+      "meetingName",
+      "meetingNumber"
+    )}
   end
 
   # Update/refresh the meeting list from calendar
@@ -316,6 +314,22 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     do_send("zCommand Call ListParticipants", name: "call_participants")
     sleep @response_delay.milliseconds
     self["CallListParticipantsResult"]
+  end
+
+  private def expose_custom_participant_list
+    participants = self["CallListParticipantsResult"]?
+    return unless participants
+    self[:Participants] = participants.as_a.map { |p| p.as_h.select(
+      "user_id",
+      "user_name",
+      "audio_status state",
+      "video_status has_source",
+      "video_status is_sending",
+      "isCohost",
+      "is_host",
+      "is_in_waiting_room",
+      "hand_status"
+    )}
   end
 
   # Get audio input devices
@@ -613,6 +627,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     when "zStatus"
     when "zConfiguration"
     when "zCommand"
+      case response_topkey
+      when "CallListParticipantsResult"
+        expose_custom_participant_list
+      end
     end
   end
 
