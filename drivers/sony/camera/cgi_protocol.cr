@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/camera"
+require "digest-auth"
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
 
@@ -12,7 +13,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
   descriptive_name "Sony Camera HTTP CGI Protocol"
 
   default_settings({
-    basic_auth: {
+    digest_auth: {
       username: "admin",
       password: "Admin_1234",
     },
@@ -34,6 +35,11 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:pan_speed] = self[:tilt_speed] = {min: -100, max: 100, stop: 0}
     self[:has_discrete_zoom] = true
 
+    # Initialize digest auth
+    @digest_auth = DigestAuth.new
+    @auth_challenge = ""
+    @auth_uri = URI.parse("http://#{config.ip}:#{config.port}")
+
     schedule.every(60.seconds) { query_status }
     schedule.in(5.seconds) do
       query_status
@@ -44,11 +50,20 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   @invert_controls = false
   @presets = {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
+  @digest_auth : DigestAuth = DigestAuth.new
+  @auth_challenge = ""
+  @auth_uri : URI = URI.parse("http://localhost")
 
   def on_update
     self[:invert_controls] = @invert_controls = setting?(Bool, :invert_controls) || false
     @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
     self[:presets] = @presets.keys
+
+    # Update digest auth credentials
+    if auth_info = setting?(Hash(String, String), :digest_auth)
+      @auth_uri.user = auth_info["username"]?
+      @auth_uri.password = auth_info["password"]?
+    end
   end
 
   # 24bit twos complement
@@ -60,9 +75,33 @@ class Sony::Camera::CGI < PlaceOS::Driver
     end
   end
 
+  private def authenticate_if_needed(path : String)
+    return unless @auth_challenge.empty?
+
+    # Make initial HEAD request to get challenge
+    response = http("HEAD", path)
+    if response.status_code == 401 && (challenge = response.headers["WWW-Authenticate"]?)
+      @auth_challenge = challenge
+    else
+      raise "Failed to get digest auth challenge: #{response.status_code}"
+    end
+  end
+
+  private def get_with_digest_auth(path : String, headers : HTTP::Headers? = nil)
+    authenticate_if_needed(path)
+
+    @auth_uri.path = path
+    auth_header = @digest_auth.auth_header(@auth_uri, @auth_challenge, "GET")
+
+    request_headers = headers || HTTP::Headers.new
+    request_headers["Authorization"] = auth_header
+
+    get(path, headers: request_headers)
+  end
+
   private def query(path, **opts, &block : Hash(String, String) -> _)
     queue(**opts) do |task|
-      response = get(path)
+      response = get_with_digest_auth(path)
       data = response.body.not_nil!
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
@@ -166,7 +205,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   private def action(path, **opts, &block : HTTP::Client::Response -> _)
     queue(**opts) do |task|
-      response = get(path)
+      response = get_with_digest_auth(path)
       raise "request error #{response.status_code}\n#{response.body}" unless response.success?
 
       result = block.call(response)
