@@ -17,7 +17,7 @@ class Zoom::BookingConverter < PlaceOS::Driver
 
   def on_update
     subscriptions.clear
-    subscription = system.subscribe(:ZoomCSAPI_1, :bookings_list) do |_subscription, new_data|
+    subscription = system.subscribe(:ZoomCSAPI_1, :BookingsListResult) do |_subscription, new_data|
       zoom_bookings_list = Array(JSON::Any).from_json(new_data)
       logger.debug { "Detected changed in Zoom Bookings List: : #{zoom_bookings_list.inspect}" }
       expose_bookings(zoom_bookings_list)

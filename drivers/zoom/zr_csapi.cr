@@ -16,10 +16,12 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       password: "",
     },
     enable_debug_logging: false,
+    milliseconds_until_response: 500,
   })
 
   getter? ready : Bool = false
   @debug_enabled : Bool = false
+  @response_delay : Int32 = 500
 
   def on_load
     queue.wait = false
@@ -30,6 +32,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   def on_update
     @debug_enabled = setting?(Bool, :enable_debug_logging) || false
+    @response_delay = setting?(Int32, :milliseconds_until_response) || 500
   end
 
   def connected
@@ -56,6 +59,11 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     self[:connected] = false
   end
 
+  def fetch_initial_state
+    bookings_update
+    call_status
+  end 
+
   # =================
   # zCommand Methods - Meeting Control
   # =================
@@ -63,34 +71,59 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   # Get today's meetings scheduled for this room
   def bookings_list
     do_send("zCommand Bookings List", name: "bookings_list")
+    sleep @response_delay.milliseconds
+    expose_custom_bookings_list
+    self["BookingsListResult"]
+  end
+
+  private def expose_custom_bookings_list
+    bookings = self["BookingsListResult"]?
+    return unless bookings
+    self[:Bookings] = bookings.as_a.map { |b| b.as_h.select(
+      "creatorName",
+      "startTime",
+      "endTime",
+      "meetingName",
+      "meetingNumber"
+    )}
   end
 
   # Update/refresh the meeting list from calendar
   def bookings_update
     do_send("zCommand Bookings Update", name: "bookings_update")
+    sleep @response_delay.milliseconds
+    bookings_list
   end
 
   # Start or join a meeting
   def dial_start(meeting_number : String)
     command = "zCommand Dial Start meetingNumber: #{meeting_number}"
     do_send(command, name: "dial_start")
+    sleep @response_delay.milliseconds
+    self["Call"]
   end
 
   # Join a meeting
   def dial_join(meeting_number : String)
     command = "zCommand Dial Join meetingNumber: #{meeting_number}"
     do_send(command, name: "dial_join")
+    sleep @response_delay.milliseconds
+    self["Call"]
   end
 
   # Join meeting via SIP
   def dial_join_sip(sip_address : String, protocol : String = "Auto")
     do_send("zCommand Dial Join meetingAddress: #{sip_address} protocol: #{protocol}", name: "dial_join_sip")
+    sleep @response_delay.milliseconds
+    self["Call"]
   end
 
   # Start PMI meeting
   def dial_start_pmi(duration_minutes : Int32 = 15)
     command = "zCommand Dial StartPmi Duration: #{duration_minutes}"
     do_send(command, name: "dial_start_pmi")
+    sleep @response_delay.milliseconds
+    self["Call"]
   end
 
   # Input meeting password
@@ -130,6 +163,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def call_mute_camera(mute : Bool)
     state = mute ? "on" : "off"
     do_send("zConfiguration Call Camera Mute: #{state}", name: "call_mute_camera")
+    sleep @response_delay.milliseconds
+    self["Call"]
   end
 
   # Start/stop recording
@@ -202,16 +237,20 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   # Start/stop HDMI sharing
   def sharing_start_hdmi
     do_send("zCommand Call Sharing HDMI Start", name: "sharing_start_hdmi")
+    sleep @response_delay.milliseconds
+    self["SharingState"]
   end
 
   def sharing_stop
     do_send("zCommand Call Sharing HDMI Stop", name: "sharing_stop_hdmi")
+    sleep @response_delay.milliseconds
+    self["SharingState"]
   end
 
   # Share camera
   def sharing_start_camera(camera_id : String, enable : Bool)
     state = enable ? "on" : "off"
-    do_send("zCommand Call ShareCamera id: #{camera_id} state: #{state}", name: "sharing_camera")
+    do_send("zCommand Call ShareCamera id: #{camera_id} Status: #{state}", name: "sharing_camera")
   end
 
   # =================
@@ -257,11 +296,15 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   def system_unit?
     do_send("zStatus SystemUnit", name: "status_system_unit")
+    sleep @response_delay.milliseconds
+    self["SystemUnit"]
   end
 
   # Get call status
   def call_status
     do_send("zStatus Call Status", name: "call_status")
+    sleep @response_delay.milliseconds
+    self["Call"]
   end
 
   # Get call stats information
@@ -271,7 +314,25 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   # Get participant list
   def call_list_participants
-    do_send("zStatus Call Participants", name: "call_participants")
+    do_send("zCommand Call ListParticipants", name: "call_participants")
+    sleep @response_delay.milliseconds
+    self["ListParticipantsResult"]
+  end
+
+  private def expose_custom_participant_list
+    participants = self["ListParticipantsResult"]?
+    return unless participants
+    self[:Participants] = participants.as_a.map { |p| p.as_h.select(
+      "user_id",
+      "user_name",
+      "audio_status state",
+      "video_status has_source",
+      "video_status is_sending",
+      "isCohost",
+      "is_host",
+      "is_in_waiting_room",
+      "hand_status"
+    )}
   end
 
   # Get audio input devices
@@ -528,11 +589,13 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
         do_send("format json", name: "set_format")
         schedule.clear
         initialize_tokenizer unless @init_called
+        fetch_initial_state
       else
         return task.try(&.abort)
       end
     end
 
+    # Ignore non-JSON messages
     if response[0] == '{'
       task.try &.success(response)
     else
@@ -546,15 +609,31 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
 
+    # Expose new data as status variables
     begin
       old_data = self[response_topkey]
       new_data = json_response[response_topkey].as_h
       logger.debug { "Merging new data into existing data" } if @debug_enabled
       self[response_topkey] = old_data.as_h.merge(new_data)
     rescue exception
-      logger.debug { "Error when merging data: #{exception.inspect}" } if @debug_enabled
       logger.debug { "Replacing existing data" } if @debug_enabled
       self[response_topkey] = json_response[response_topkey]
+    end
+
+    # Perform additional actions
+    case response_type
+    when "zEvent"
+      case response_topkey
+      when "BookingUpdated"
+        bookings_list
+      end
+    when "zStatus"
+    when "zConfiguration"
+    when "zCommand"
+      case response_topkey
+      when "ListParticipantsResult"
+        expose_custom_participant_list
+      end
     end
   end
 
