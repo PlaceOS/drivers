@@ -313,7 +313,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def call_list_participants
     do_send("zCommand Call ListParticipants", name: "call_participants")
     sleep @response_delay.milliseconds
-    self["CallListParticipantsResult"]
+    self["ListParticipantsResult"]
   end
 
   private def expose_custom_participant_list
@@ -628,7 +628,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     when "zConfiguration"
     when "zCommand"
       case response_topkey
-      when "CallListParticipantsResult"
+      when "ListParticipantsResult"
         expose_custom_participant_list
       end
     end
