@@ -540,7 +540,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       index || -1
     end
     self[:ready] = @ready = true
-    fetch_initial_state
   rescue error
     @init_called = false
     logger.warn(exception: error) { "error configuring zrcsapi transport" }
@@ -558,6 +557,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
         do_send("format json", name: "set_format")
         schedule.clear
         initialize_tokenizer unless @init_called
+        fetch_initial_state
       else
         return task.try(&.abort)
       end
