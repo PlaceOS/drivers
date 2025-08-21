@@ -1,15 +1,15 @@
 require "placeos-driver"
-require "placeos-driver/interface/muteable"
+#require "placeos-driver/interface/muteable"
 
 # Documentation: https://www.shure.com/en-US/docs/commandstrings/IntelliMixRoom
 # TCP Port: 2202
 
 class Shure::IntellimixRoom < PlaceOS::Driver
-  include Interface::AudioMuteable
+  # include Interface::AudioMuteable
 
   tcp_port 2202
   descriptive_name "Shure IntelliMix Room Audio Processor"
-  generic_name :AudioMixer
+  generic_name :Mixer
   description "Software-based digital signal processing for Shure networked microphones"
 
   default_settings({
@@ -20,14 +20,8 @@ class Shure::IntellimixRoom < PlaceOS::Driver
   def connected
     # Shure uses space + > as the response terminator
     transport.tokenizer = Tokenizer.new(" >")
-
-    schedule.every(30.seconds) do
-      logger.debug { "-- Polling device status" }
-      do_poll
-    end
-
-    query_device_info
-    query_input_count if setting?(Bool, :poll_channels)
+    logger.debug { "-- Polling device status" }
+    get_device_info
   end
 
   def disconnected
@@ -35,226 +29,186 @@ class Shure::IntellimixRoom < PlaceOS::Driver
   end
 
   # Device Information
-  def query_device_info
-    do_send "GET DEVICE_ID", name: :device_info
-    do_send "GET MODEL", name: :device_model
-    do_send "GET FW_VER", name: :firmware_version
+  def get_device_info
+    do_send "GET MODEL", name: :get_device_model
+    do_send "GET FW_VER", name: :get_firmware_version
+    do_send "GET DEVICE_ID", name: :get_device_info
+    do_send "GET ALL", name: :get_all
   end
 
-  def query_input_count
-    do_send "GET INPUT_COUNT", name: :input_count
+  def get_all
+    do_send "GET ALL", name: :get_all
   end
 
-  # Audio Input Controls
-  def query_input_gain(channel : Int32)
-    validate_channel(channel)
-    do_send "GET #{channel} INPUT_GAIN", name: :input_gain
+  def get_na_device_name
+    do_send "GET NA_DEVICE_NAME", name: :get_na_device_name
   end
 
-  def set_input_gain(channel : Int32, gain : Float64)
-    validate_channel(channel)
-    raise "Gain must be between -100.0 and 20.0 dB, was #{gain}" unless gain.in?(-100.0..20.0)
-    do_send "SET #{channel} INPUT_GAIN #{gain}", name: :input_gain
+  def get_onhook_enable
+    do_send "GET ONHOOK_ENABLE", name: :get_onhook_enable
   end
 
-  def query_input_mute(channel : Int32)
-    validate_channel(channel)
-    do_send "GET #{channel} INPUT_MUTE", name: :input_mute
-  end
-
-  def set_input_mute(channel : Int32, state : Bool)
-    validate_channel(channel)
-    val = state ? "ON" : "OFF"
-    do_send "SET #{channel} INPUT_MUTE #{val}", name: :input_mute
-  end
-
-  # Audio Output Controls
-  def query_output_gain(channel : Int32 = 1)
-    validate_channel(channel)
-    do_send "GET #{channel} OUTPUT_GAIN", name: :output_gain
-  end
-
-  def set_output_gain(channel : Int32, gain : Float64)
-    validate_channel(channel)
-    raise "Gain must be between -100.0 and 20.0 dB, was #{gain}" unless gain.in?(-100.0..20.0)
-    do_send "SET #{channel} OUTPUT_GAIN #{gain}", name: :output_gain
-  end
-
-  def query_output_mute(channel : Int32 = 1)
-    validate_channel(channel)
-    do_send "GET #{channel} OUTPUT_MUTE", name: :output_mute
-  end
-
-  def set_output_mute(channel : Int32, state : Bool)
-    validate_channel(channel)
-    val = state ? "ON" : "OFF"
-    do_send "SET #{channel} OUTPUT_MUTE #{val}", name: :output_mute
-  end
-
-  # Interface::AudioMuteable implementation
-  def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    channel = index.is_a?(String) ? index.to_i : index
-    channel = 1 if channel == 0 # Default to channel 1 if 0 is specified
-    set_output_mute(channel, state)
-  end
-
-  # Global Controls
-  def query_master_gain
-    do_send "GET MASTER_GAIN", name: :master_gain
-  end
-
-  def set_master_gain(gain : Float64)
-    raise "Master gain must be between -100.0 and 20.0 dB, was #{gain}" unless gain.in?(-100.0..20.0)
-    do_send "SET MASTER_GAIN #{gain}", name: :master_gain
-  end
-
-  def query_master_mute
-    do_send "GET MASTER_MUTE", name: :master_mute
-  end
-
-  def set_master_mute(state : Bool)
-    val = state ? "ON" : "OFF"
-    do_send "SET MASTER_MUTE #{val}", name: :master_mute
+  def set_onhook_enable(enable : Bool)
+    do_send "SET ONHOOK_ENABLE #{enable ? "ON" : "OFF"}", name: :set_onhook_enable
   end
 
   # Presets
-  def query_preset
-    do_send "GET PRESET", name: :preset
+  def get_preset
+    do_send "GET PRESET", name: :get_preset
   end
 
-  def load_preset(number : Int32)
-    raise "Preset must be between 1 and 10, was #{number}" unless number.in?(1..10)
-    do_send "SET PRESET #{number}", name: :preset
+  def set_preset(number : Int32)
+    do_send "SET PRESET #{number.to_s(precision: 2)}", name: :set_preset
   end
 
-  # Audio Processing
-  def query_noise_reduction(channel : Int32)
-    validate_channel(channel)
-    do_send "GET #{channel} NOISE_REDUCTION", name: :noise_reduction
+  # Channel Commands
+  def get_audio_gain_hi_res(index : Int32)
+    do_send "GET #{index.to_s(precision: 2)} AUDIO_GAIN_HI_RES", name: :get_audio_gain_hi_res
   end
 
-  def set_noise_reduction(channel : Int32, state : Bool)
-    validate_channel(channel)
-    val = state ? "ON" : "OFF"
-    do_send "SET #{channel} NOISE_REDUCTION #{val}", name: :noise_reduction
+  def set_audio_gain_hi_res(index : Int32, value : Int32)
+    do_send "SET #{index.to_s(precision: 2)} AUDIO_GAIN_HI_RES #{value.to_s(precision: 4)}", name: :set_audio_gain_hi_res
   end
 
-  def query_automatic_gain_control(channel : Int32)
-    validate_channel(channel)
-    do_send "GET #{channel} AGC", name: :agc
+  def get_device_audio_mute
+    do_send "GET DEVICE_AUDIO_MUTE", name: :get_device_audio_mute
   end
 
-  def set_automatic_gain_control(channel : Int32, state : Bool)
-    validate_channel(channel)
-    val = state ? "ON" : "OFF"
-    do_send "SET #{channel} AGC #{val}", name: :agc
+  def set_device_audio_mute(mute : Bool)
+    do_send "SET DEVICE_AUDIO_MUTE #{mute ? "ON" : "OFF"}", name: :set_device_audio_mute
   end
 
-  # Audio Level Monitoring
-  def query_input_level(channel : Int32)
-    validate_channel(channel)
-    do_send "GET #{channel} INPUT_LEVEL", name: :input_level
+  def get_audio_mute(index : Int32)
+    do_send "GET #{index.to_s(precision: 2)} AUDIO_MUTE", name: :get_audio_mute
   end
 
-  def query_output_level(channel : Int32 = 1)
-    validate_channel(channel)
-    do_send "GET #{channel} OUTPUT_LEVEL", name: :output_level
+  def set_audio_mute(index : Int32, mute : Bool)
+    do_send "SET #{index.to_s(precision: 2)} AUDIO_MUTE #{mute ? "ON" : "OFF"}", name: :set_audio_mute
+  end
+
+  def get_matrix_mxr_route(input : Int32, output : Int32)
+    do_send "GET #{input.to_s(precision: 2)} MATRIX_MXR_ROUTE #{output.to_s(precision: 2)}", name: :get_matrix_mxr_route
+  end
+
+  def set_matrix_mxr_route(input : Int32, output : Int32, enabled : Bool)
+    do_send "SET #{input.to_s(precision: 2)} MATRIX_MXR_ROUTE #{output.to_s(precision: 2)} #{enabled ? "ON" : "OFF"}", name: :set_matrix_mxr_route
+  end
+
+  def get_matrix_mxr_gain(input : Int32, output : Int32)
+    do_send "GET #{input.to_s(precision: 2)} MATRIX_MXR_GAIN #{output.to_s(precision: 2)}", name: :get_matrix_mxr_gain
+  end
+
+  def set_matrix_mxr_gain(input : Int32, output : Int32, gain : Int32)
+    do_send "SET #{input.to_s(precision: 2)} MATRIX_MXR_GAIN #{output.to_s(precision: 2)} #{gain.to_s(precision: 4)}", name: :set_matrix_mxr_gain
+  end
+
+  def get_automxr_mute(index : Int32)
+    do_send "GET #{index.to_s(precision: 2)} AUTOMXR_MUTE", name: :get_automxr_mute
+  end
+
+  def set_automxr_mute(index : Int32, mute : Bool)
+    do_send "SET #{index.to_s(precision: 2)} AUTOMXR_MUTE #{mute ? "ON" : "OFF"}", name: :set_automxr_mute
+  end
+
+  def get_audio_gain_postgate(index : Int32)
+    do_send "GET #{index.to_s(precision: 2)} AUDIO_GAIN_POSTGATE", name: :get_audio_gain_postgate
+  end
+
+  def set_audio_gain_postgate(index : Int32, gain : Int32)
+    do_send "SET #{index.to_s(precision: 2)} AUDIO_GAIN_POSTGATE #{gain.to_s(precision: 4)}", name: :set_audio_gain_postgate
+  end
+
+  def get_AUTOMXR_GATE(index : Int32)
+    do_send "GET #{index.to_s(precision: 2)} AUTOMXR_GATE", name: :get_automxr_gate
+  end
+
+  def get_CHAN_CONFIG
+    do_send "GET CHAN_CONFIG", name: :get_chan_config
+  end
+
+  def get_CHAN_COUNT
+    do_send "GET CHAN_COUNT", name: :get_chan_count
+  end
+
+  def get_LIC_EXP_DATE
+    do_send "GET LIC_EXP_DATE", name: :get_lic_exp_date
+  end
+
+  def get_LIC_TYPE
+    do_send "GET LIC_TYPE", name: :get_lic_type
+  end
+
+  def get_LIC_VALID
+    do_send "GET LIC_VALID", name: :get_lic_valid
+  end
+
+  def get_denoiser_enable(index : Int32)
+    do_send "GET #{index.to_s(precision: 2)} DENOISER_ENABLE", name: :get_denoiser_enable
+  end
+
+  def set_denoiser_enable(index : Int32, enable : Bool)
+    do_send "SET #{index.to_s(precision: 2)} DENOISER_ENABLE #{enable ? "ON" : "OFF"}", name: :set_denoiser_enable
+  end
+
+  def get_denoiser_level(index : Int32)
+    do_send "GET #{index.to_s(precision: 2)} DENOISER_LEVEL", name: :get_denoiser_level
+  end
+
+  def set_denoiser_level(index : Int32, level : String)
+    raise "ArgumentError: level must be LOW, MEDIUM or HIGH" unless level.in?(["LOW", "MEDIUM", "HIGH"])
+    do_send "SET #{index.to_s(precision: 2)} DENOISER_LEVEL #{level}", name: :set_denoiser_level
   end
 
   def received(bytes, task)
-    data = String.new(bytes)
+    data = String.new(bytes).strip
     logger.debug { "-- received: #{data}" }
 
-    # Remove the response wrapper and convert to parts
-    # Response format: < REP parameter value >
-    if data.starts_with?("< REP ")
-      response_data = data[6..-3] # Remove "< REP " and " >"
-    else
-      # Handle error responses or other formats
-      response_data = data.strip.gsub(/[<>]/, "").strip
-    end
-
-    parts = response_data.split
+    response = data.lstrip("< REP ").rstrip(" >")
+    parts = response.split
     return task.try(&.abort("Empty response")) if parts.empty?
 
     # Handle error responses
     if parts.first == "ERR"
-      error_msg = parts.size > 1 ? parts[1..-1].join(" ") : "Unknown error"
-      logger.error { "Device error: #{error_msg}" }
-      return task.try(&.abort(error_msg))
+      logger.error { "Device error: #{response}" }
+      return task.try(&.abort(response))
     end
 
     # Parse response based on parameter structure
     case parts.size
     when 1
-      # Simple parameter like PRESET
-      param = parts[0].downcase
-      self[param] = true
+      # Must be ERR, which is handled above
     when 2
-      # Parameter with value like MODEL VALUE or MASTER_MUTE ON
-      param = parts[0].downcase
-      case param
-      when "master_mute"
-        self[param] = parts[1] == "ON"
-      when "master_gain"
-        self[param] = parts[1].to_f
-      else
-        self[param] = parse_value(parts[1])
-      end
+      # Parameter with 1 value
+      self[parts[0].downcase] = parts[1]
     when 3
-      # Channel-specific parameter like 1 INPUT_GAIN -10.0
+      # Channel-specific parameter like "nn AUDIO_MUTE sts"
       channel = parts[0]
       param = parts[1].downcase
-      value = parse_value(parts[2])
-
-      case param
-      when "input_mute", "output_mute"
-        self["#{param}_#{channel}"] = parts[2] == "ON"
-      when "input_gain", "output_gain", "input_level", "output_level"
-        self["#{param}_#{channel}"] = parts[2].to_f
-      when "noise_reduction", "agc"
-        self["#{param}_#{channel}"] = parts[2] == "ON"
-      else
-        self["#{param}_#{channel}"] = parse_value(parts[2])
-      end
+      value = parts[2]
+      self["#{param}_#{channel}"] = value
+    when 4
+      # Matrix-specific parameter like "1 input MATRIX_MXR_ROUTE output sts"
+      input = parts[0]
+      param = parts[1].downcase
+      output = parts[2]
+      value = parts[3]
+      self["#{param}_#{input}_#{output}"] = value
     else
       # Handle multi-part responses or unknown formats
-      logger.warn { "Unknown response format: #{response_data}" }
+      logger.warn { "Unknown response format: #{response}" }
     end
-
     task.try(&.success)
   end
 
-  private def parse_value(value_str : String)
-    case value_str.upcase
-    when "ON"   then true
-    when "OFF"  then false
-    when .to_i? then value_str.to_i
-    when .to_f? then value_str.to_f
-    else             value_str
-    end
-  end
-
-  private def validate_channel(channel : Int32)
-    max_channels = setting?(Int32, :channel_count) || 8
-    raise "Channel must be between 1 and #{max_channels}, was #{channel}" unless channel.in?(1..max_channels)
-  end
-
-  private def do_poll
-    query_master_mute
-    query_preset
-
-    if setting?(Bool, :poll_channels)
-      channel_count = setting?(Int32, :channel_count) || 8
-      (1..channel_count).each do |channel|
-        query_input_mute(channel)
-      end
-    end
-  end
-
   protected def do_send(*command, **options)
-    cmd = "< #{command.join(' ')} >"
+    cmd = "< #{command.join(" ")} >"
     logger.debug { "-- sending: #{cmd}" }
     send(cmd, **options)
   end
+
+  # def send_command(command : String)
+  #   cmd = "<"
+  #   logger.debug { "-- sending: #{command}" }
+  #   transport.send(command)
+  # end
 end
