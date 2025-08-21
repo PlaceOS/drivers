@@ -317,7 +317,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   end
 
   private def expose_custom_participant_list
-    participants = self["CallListParticipantsResult"]?
+    participants = self["ListParticipantsResult"]?
     return unless participants
     self[:Participants] = participants.as_a.map { |p| p.as_h.select(
       "user_id",
