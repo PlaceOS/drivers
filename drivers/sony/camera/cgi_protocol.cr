@@ -37,7 +37,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:has_discrete_zoom] = true
 
     # Initialize digest auth
-    @digest_auth = DigestAuth.new
+    # @digest_auth = DigestAuth.new
     @auth_challenge = ""
     @auth_uri = URI.parse(config.uri.not_nil!)
 
@@ -66,6 +66,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
       @auth_uri.user = auth_info["username"]?
       @auth_uri.password = auth_info["password"]?
     end
+    logger.debug { "Digest auth credentials set to #{@auth_uri.user}:#{@auth_uri.password}" } if @debug_enabled
   end
 
   # 24bit twos complement
@@ -92,7 +93,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
   private def get_with_digest_auth(path : String, headers : HTTP::Headers? = nil)
     authenticate_if_needed(path)
 
-    @auth_uri.path = path
+    uri = URI.parse(config.uri.not_nil! + path)
+    @auth_uri.path = uri.path
     logger.debug { "Fetching digest auth header with #{@auth_uri.inspect}, #{@auth_challenge.inspect}" } if @debug_enabled
     auth_header = @digest_auth.auth_header(@auth_uri, @auth_challenge, "GET")
     logger.debug { "Digest auth header: #{auth_header.inspect}" } if @debug_enabled
