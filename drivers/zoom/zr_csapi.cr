@@ -37,9 +37,6 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   def connected
     reset_connection_flags
-    # schedule.in(5.seconds) do
-    #   initialize_tokenizer unless @ready || @init_called
-    # end
     # we need to disconnect if we don't see welcome message
     schedule.in(9.seconds) do
       if !ready?
@@ -59,6 +56,11 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     self[:connected] = false
   end
 
+  def fetch_initial_state
+    call_status
+    bookings_update
+  end 
+
   # =================
   # zCommand Methods - Meeting Control
   # =================
@@ -73,9 +75,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   # Update/refresh the meeting list from calendar
   def bookings_update
     do_send("zCommand Bookings Update", name: "bookings_update")
+    sleep @response_delay.milliseconds
     bookings_list
-    sleep (2 * @response_delay).milliseconds
-    self["BookingsListResult"]
   end
 
   # Start or join a meeting
@@ -286,6 +287,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   # Get call status
   def call_status
     do_send("zStatus Call Status", name: "call_status")
+    sleep @response_delay.milliseconds
+    self["Call"]
   end
 
   # Get call stats information
@@ -537,6 +540,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       index || -1
     end
     self[:ready] = @ready = true
+    fetch_initial_state
   rescue error
     @init_called = false
     logger.warn(exception: error) { "error configuring zrcsapi transport" }
