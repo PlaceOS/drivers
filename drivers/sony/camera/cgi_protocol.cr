@@ -78,8 +78,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
   private def authenticate_if_needed(path : String)
     return unless @auth_challenge.empty?
 
-    # Make initial HEAD request to get challenge
-    response = http("HEAD", path)
+    # Make initial GET request to get challenge
+    response = http("GET", path)
     if response.status_code == 401 && (challenge = response.headers["WWW-Authenticate"]?)
       @auth_challenge = challenge
     else
