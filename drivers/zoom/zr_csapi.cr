@@ -37,6 +37,9 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   def connected
     reset_connection_flags
+    # schedule.in(5.seconds) do
+    #   initialize_tokenizer unless @ready || @init_called
+    # end
     # we need to disconnect if we don't see welcome message
     schedule.in(9.seconds) do
       if !ready?
