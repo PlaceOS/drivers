@@ -118,27 +118,27 @@ class Shure::IntellimixRoom < PlaceOS::Driver
     do_send "SET #{index.to_s(precision: 2)} AUDIO_GAIN_POSTGATE #{gain.to_s(precision: 4)}", name: :set_audio_gain_postgate
   end
 
-  def get_AUTOMXR_GATE(index : Int32)
+  def get_automxr_gate(index : Int32)
     do_send "GET #{index.to_s(precision: 2)} AUTOMXR_GATE", name: :get_automxr_gate
   end
 
-  def get_CHAN_CONFIG
+  def get_chan_config
     do_send "GET CHAN_CONFIG", name: :get_chan_config
   end
 
-  def get_CHAN_COUNT
+  def get_chan_count
     do_send "GET CHAN_COUNT", name: :get_chan_count
   end
 
-  def get_LIC_EXP_DATE
+  def get_lic_exp_date
     do_send "GET LIC_EXP_DATE", name: :get_lic_exp_date
   end
 
-  def get_LIC_TYPE
+  def get_lic_type
     do_send "GET LIC_TYPE", name: :get_lic_type
   end
 
-  def get_LIC_VALID
+  def get_lic_valid
     do_send "GET LIC_VALID", name: :get_lic_valid
   end
 
