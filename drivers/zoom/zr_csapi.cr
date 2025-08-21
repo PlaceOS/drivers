@@ -57,8 +57,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   end
 
   def fetch_initial_state
-    call_status
     bookings_update
+    call_status
   end 
 
   # =================
