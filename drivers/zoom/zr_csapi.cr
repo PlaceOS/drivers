@@ -69,7 +69,22 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def bookings_list
     do_send("zCommand Bookings List", name: "bookings_list")
     sleep @response_delay.milliseconds
+    expose_custom_bookings_list
     self["BookingsListResult"]
+  end
+
+  private def expose_custom_bookings_list
+    bookings = self["BookingsListResult"]?
+    return unless bookings
+    self[:Bookings] = bookings.as_a.map do |b|
+      {
+        "creatorName": b["creatorName"].as_s,
+        "startTime": b["startTime"].as_s,
+        "endTime": b["endTime"].as_s,
+        "meetingName": b["meetingName"].as_s,
+        "meetingNumber": b["meetingNumber"].as_s
+      }
+    end
   end
 
   # Update/refresh the meeting list from calendar
@@ -300,7 +315,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def call_list_participants
     do_send("zCommand Call ListParticipants", name: "call_participants")
     sleep @response_delay.milliseconds
-    self["ListParticipantsResult"]
+    self["CallListParticipantsResult"]
   end
 
   # Get audio input devices
@@ -563,6 +578,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       end
     end
 
+    # Ignore non-JSON messages
     if response[0] == '{'
       task.try &.success(response)
     else
@@ -576,6 +592,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       logger.debug { "type: #{response_type}, topkey: #{response_topkey}" }
     end
 
+    # Expose new data as status variables
     begin
       old_data = self[response_topkey]
       new_data = json_response[response_topkey].as_h
@@ -584,6 +601,18 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     rescue exception
       logger.debug { "Replacing existing data" } if @debug_enabled
       self[response_topkey] = json_response[response_topkey]
+    end
+
+    # Perform additional actions
+    case response_type
+    when "zEvent"
+      case response_topkey
+      when "BookingUpdated"
+        bookings_list
+      end
+    when "zStatus"
+    when "zConfiguration"
+    when "zCommand"
     end
   end
 
