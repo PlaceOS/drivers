@@ -21,6 +21,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     presets:         {
       name: {pan: 1, tilt: 1, zoom: 1},
     },
+    enable_debug_logging: false,
   })
 
   enum Movement
@@ -34,6 +35,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     @pantilt_speed = -100..100
     self[:pan_speed] = self[:tilt_speed] = {min: -100, max: 100, stop: 0}
     self[:has_discrete_zoom] = true
+    @debug_enabled = setting?(Bool, :enable_debug_logging) || false
 
     # Initialize digest auth
     @digest_auth = DigestAuth.new
@@ -91,8 +93,9 @@ class Sony::Camera::CGI < PlaceOS::Driver
     authenticate_if_needed(path)
 
     @auth_uri.path = path
+    logger.debug { "Fetching digest auth header with #{@auth_uri.inspect}, #{@auth_challenge.inspect}" } if @debug_enabled
     auth_header = @digest_auth.auth_header(@auth_uri, @auth_challenge, "GET")
-
+    logger.debug { "Digest auth header: #{auth_header.inspect}" } if @debug_enabled
     request_headers = headers || HTTP::Headers.new
     request_headers["Authorization"] = auth_header
 
