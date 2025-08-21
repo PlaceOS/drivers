@@ -35,7 +35,6 @@ class Sony::Camera::CGI < PlaceOS::Driver
     @pantilt_speed = -100..100
     self[:pan_speed] = self[:tilt_speed] = {min: -100, max: 100, stop: 0}
     self[:has_discrete_zoom] = true
-    @debug_enabled = setting?(Bool, :enable_debug_logging) || false
 
     # Initialize digest auth
     @digest_auth = DigestAuth.new
@@ -60,6 +59,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:invert_controls] = @invert_controls = setting?(Bool, :invert_controls) || false
     @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
     self[:presets] = @presets.keys
+    @debug_enabled = setting?(Bool, :enable_debug_logging) || false
 
     # Update digest auth credentials
     if auth_info = setting?(Hash(String, String), :digest_auth)
