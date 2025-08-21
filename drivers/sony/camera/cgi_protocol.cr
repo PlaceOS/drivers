@@ -38,7 +38,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     # Initialize digest auth
     @digest_auth = DigestAuth.new
     @auth_challenge = ""
-    @auth_uri = URI.parse("http://#{config.ip}:#{config.port}")
+    @auth_uri = URI.parse(config.uri.not_nil!)
 
     schedule.every(60.seconds) { query_status }
     schedule.in(5.seconds) do
