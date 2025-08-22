@@ -360,7 +360,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   def home
-    action("/command/presetposition.cgi?HomePos=ptz-recall",
+    action("/command/presetposition.cgi?HomePos=recall",
       name: "position"
     ) { query_status }
   end
