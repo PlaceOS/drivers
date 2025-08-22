@@ -145,7 +145,4 @@ dependencies:
   # debugging drivers
   perf_tools:
     github: crystal-lang/perf-tools
-
-  # HTTP Digest Authentication
-  digest-auth:
-    github: spider-gazelle/digest-auth
+    
