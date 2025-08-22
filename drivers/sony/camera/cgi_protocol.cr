@@ -23,6 +23,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
       name: {pan: 1, tilt: 1, zoom: 1},
     },
     enable_debug_logging: false,
+    poll_interval_in_minutes: 5,
   })
 
   enum Movement
@@ -61,6 +62,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
     @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
     self[:presets] = @presets.keys
     @debug_enabled = setting?(Bool, :enable_debug_logging) || false
+    @poll_interval = setting?(Int32, :poll_interval_in_minutes) || 5
+    schedule.every(@poll_interval.minutes) { query_status } if @poll_interval > 0
 
     # Update digest auth credentials
     if auth_info = setting?(Hash(String, String), :digest_auth)
