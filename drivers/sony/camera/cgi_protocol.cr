@@ -1,7 +1,7 @@
 require "placeos-driver"
 require "placeos-driver/interface/camera"
 require "placeos-driver/interface/powerable"
-require "digest-auth"
+require "http-client-digest_auth"
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
 
@@ -39,7 +39,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:has_discrete_zoom] = true
 
     # Initialize digest auth
-    # @digest_auth = DigestAuth.new
+    @digest_auth = HTTP::Client::DigestAuth.new
     @auth_challenge = ""
     @auth_uri = URI.parse(config.uri.not_nil!)
 
@@ -52,14 +52,14 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   @invert_controls = false
-  @presets = {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
-  @digest_auth : DigestAuth = DigestAuth.new
+  @presets = {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32, focus: Int32)
+  @digest_auth : HTTP::Client::DigestAuth = HTTP::Client::DigestAuth.new
   @auth_challenge = ""
   @auth_uri : URI = URI.parse("http://localhost")
 
   def on_update
     self[:invert_controls] = @invert_controls = setting?(Bool, :invert_controls) || false
-    @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
+    @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32, focus: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32, focus: Int32)
     self[:presets] = @presets.keys
     @debug_enabled = setting?(Bool, :enable_debug_logging) || false
     @poll_interval = setting?(Int32, :poll_interval_in_minutes) || 5
@@ -133,11 +133,13 @@ class Sony::Camera::CGI < PlaceOS::Driver
   @zooming = false
   @max_speed = 1
   @zoom_raw = 0
+  @focus_raw = 0
   @pan = 0
   @tilt = 0
   @pan_range = 0..1
   @tilt_range = 0..1
   @zoom_range = 0..1
+  @focus_range = 0..1
 
   def query_status(priority : Int32 = 0)
     # Response looks like:
@@ -275,14 +277,18 @@ class Sony::Camera::CGI < PlaceOS::Driver
     {{value}} = twos_complement({{value}})
   end
 
-  def pantilt(pan : Int32, tilt : Int32, zoom : Int32? = nil) : Nil
+  def pantilt(pan : Int32, tilt : Int32, zoom : Int32? = nil, focus : Int32? = nil) : Nil
     in_range @pan_range, pan
     in_range @tilt_range, tilt
 
     if zoom
       in_range @zoom_range, zoom
-
-      action("/command/ptzf.cgi?AbsolutePTZF=#{pan.to_s(16)},#{tilt.to_s(16)},#{zoom.to_s(16)}",
+      param = "#{pan.to_s(16)},#{tilt.to_s(16)},#{zoom.to_s(16)}"
+      if focus
+        in_range @focus_range, focus
+        param += ",#{focus.to_s(16)}"
+      end
+      action("/command/ptzf.cgi?AbsolutePTZF=#{param}",
         name: "position"
       ) do
         self[:pan] = @pan = pan
