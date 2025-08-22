@@ -23,8 +23,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
       name: {pan: 1, tilt: 1, zoom: 1},
     },
     enable_debug_logging: false,
-    poll_interval_in_minutes: 5,
-    reconnection_interval_in_minutes: 5,
+    poll_interval_in_minutes: 5
   })
 
   enum Movement
@@ -64,10 +63,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:presets] = @presets.keys
     @debug_enabled = setting?(Bool, :enable_debug_logging) || false
     @poll_interval = setting?(Int32, :poll_interval_in_minutes) || 5
-    @reconnection_interval = setting?(Int32, :reconnection_interval_in_minutes) || 5
 
     schedule.every(@poll_interval.not_nil!.minutes) { query_status }
-    schedule.every(@reconnection_interval.not_nil!.minutes) { disconnect }    # Temporary workaround for digest auth getting 401 after 5mins
 
     # Update digest auth credentials
     if auth_info = setting?(Hash(String, String), :digest_auth)
@@ -110,7 +107,14 @@ class Sony::Camera::CGI < PlaceOS::Driver
     request_headers = headers || HTTP::Headers.new
     request_headers["Authorization"] = auth_header
 
-    get(path, headers: request_headers)
+    response = get(path, headers: request_headers)
+    if response.status_code == 401
+      # Auth failed, clear challenge to re-authenticate next time
+      @auth_challenge = ""
+      get_with_digest_auth(path)
+    else
+      response
+    end
   end
 
   private def query(path, **opts, &block : Hash(String, String) -> _)
