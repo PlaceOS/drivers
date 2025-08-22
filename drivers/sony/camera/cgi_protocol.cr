@@ -99,6 +99,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
     uri = URI.parse(config.uri.not_nil! + path)
     @auth_uri.path = uri.path
+    @auth_uri.query = uri.query
     logger.debug { "Fetching digest auth header with #{@auth_uri.inspect}, #{@auth_challenge.inspect}" } if @debug_enabled
     auth_header = @digest_auth.auth_header(@auth_uri, @auth_challenge, "GET")
     logger.debug { "Digest auth header: #{auth_header.inspect}" } if @debug_enabled
