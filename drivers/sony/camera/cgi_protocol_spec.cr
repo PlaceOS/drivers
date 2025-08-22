@@ -1,12 +1,12 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Sony::Camera::CGI" do
-  # Test digest auth flow - first HEAD request for auth challenge
+  # Test digest auth flow - first GET request for auth challenge
   retval = exec(:query_status)
 
-  # First request should be HEAD to get auth challenge
+  # First request should be GET to get auth challenge
   expect_http_request do |request, response|
-    request.method.should eq("HEAD")
+    request.method.should eq("GET")
     request.resource.should eq("/command/inquiry.cgi?inq=ptzf")
 
     response.status_code = 401
