@@ -624,7 +624,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     case response_type
     when "zEvent"
       case response_topkey
-      when "BookingUpdated"
+      when "Booking Updated"
         bookings_list
       end
     when "zStatus"
