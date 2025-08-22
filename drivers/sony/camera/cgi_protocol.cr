@@ -153,6 +153,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
           self[:pan] = @pan = twos_complement parts[0].to_i(16)
           self[:tilt] = @tilt = twos_complement parts[1].to_i(16)
           @zoom_raw = parts[2].to_i(16)
+          @focus_raw = parts[3].to_i(16)
         when "PanMovementRange"
           # PanMovementRange=eac00,15400
           parts = value.split(",")
@@ -368,7 +369,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   def save_position(name : String, index : Int32 | String = 0)
     @presets[name] = {
-      pan: @pan, tilt: @tilt, zoom: @zoom_raw,
+      pan: @pan, tilt: @tilt, zoom: @zoom_raw, focus: @focus_raw
     }
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
