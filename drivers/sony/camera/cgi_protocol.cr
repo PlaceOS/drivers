@@ -24,6 +24,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     },
     enable_debug_logging: false,
     poll_interval_in_minutes: 5,
+    reconnection_interval_in_minutes: 5,
   })
 
   enum Movement
@@ -63,7 +64,10 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:presets] = @presets.keys
     @debug_enabled = setting?(Bool, :enable_debug_logging) || false
     @poll_interval = setting?(Int32, :poll_interval_in_minutes) || 5
+    @reconnection_interval = setting?(Int32, :reconnection_interval_in_minutes) || 5
+
     schedule.every(@poll_interval.not_nil!.minutes) { query_status }
+    schedule.every(@reconnection_interval.not_nil!.minutes) { disconnect }    # Temporary workaround for digest auth getting 401 after 5mins
 
     # Update digest auth credentials
     if auth_info = setting?(Hash(String, String), :digest_auth)
