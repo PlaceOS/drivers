@@ -139,7 +139,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
   @pan_range = 0..1
   @tilt_range = 0..1
   @zoom_range = 0..1
-  @focus_range = 0..1
+  @focus_range = 0..61440
 
   def query_status(priority : Int32 = 0)
     # Response looks like:
@@ -200,6 +200,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
       end
 
       self[:zoom] = @zoom_raw.not_nil!.to_f * (100.0 / @zoom_range.end.to_f)
+      self[:focus] = @focus_raw
 
       response
     end
