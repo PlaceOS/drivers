@@ -1,5 +1,7 @@
 require "placeos-driver"
 require "placeos-driver/interface/camera"
+require "placeos-driver/interface/powerable"
+require "http-client-digest_auth"
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
 
@@ -12,7 +14,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
   descriptive_name "Sony Camera HTTP CGI Protocol"
 
   default_settings({
-    basic_auth: {
+    digest_auth: {
       username: "admin",
       password: "Admin_1234",
     },
@@ -20,6 +22,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
     presets:         {
       name: {pan: 1, tilt: 1, zoom: 1},
     },
+    enable_debug_logging: false,
+    poll_interval_in_minutes: 5,
   })
 
   enum Movement
@@ -34,6 +38,11 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:pan_speed] = self[:tilt_speed] = {min: -100, max: 100, stop: 0}
     self[:has_discrete_zoom] = true
 
+    # Initialize digest auth
+    @digest_auth = HTTP::Client::DigestAuth.new
+    @auth_challenge = ""
+    @auth_uri = URI.parse(config.uri.not_nil!)
+
     schedule.every(60.seconds) { query_status }
     schedule.in(5.seconds) do
       query_status
@@ -43,12 +52,25 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   @invert_controls = false
-  @presets = {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
+  @presets = {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32, focus: Int32)
+  @digest_auth : HTTP::Client::DigestAuth = HTTP::Client::DigestAuth.new
+  @auth_challenge = ""
+  @auth_uri : URI = URI.parse("http://localhost")
 
   def on_update
     self[:invert_controls] = @invert_controls = setting?(Bool, :invert_controls) || false
-    @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32)
+    @presets = setting?(Hash(String, NamedTuple(pan: Int32, tilt: Int32, zoom: Int32, focus: Int32)), :presets) || {} of String => NamedTuple(pan: Int32, tilt: Int32, zoom: Int32, focus: Int32)
     self[:presets] = @presets.keys
+    @debug_enabled = setting?(Bool, :enable_debug_logging) || false
+    @poll_interval = setting?(Int32, :poll_interval_in_minutes) || 5
+    schedule.every(@poll_interval.not_nil!.minutes) { query_status }
+
+    # Update digest auth credentials
+    if auth_info = setting?(Hash(String, String), :digest_auth)
+      @auth_uri.user = auth_info["username"]?
+      @auth_uri.password = auth_info["password"]?
+    end
+    logger.debug { "Digest auth credentials set to #{@auth_uri.user}:#{@auth_uri.password}" } if @debug_enabled
   end
 
   # 24bit twos complement
@@ -60,9 +82,36 @@ class Sony::Camera::CGI < PlaceOS::Driver
     end
   end
 
+  private def authenticate_if_needed(path : String)
+    return unless @auth_challenge.empty?
+
+    # Make initial GET request to get challenge
+    response = http("GET", path)
+    if response.status_code == 401 && (challenge = response.headers["WWW-Authenticate"]?)
+      @auth_challenge = challenge
+    else
+      raise "Failed to get digest auth challenge: #{response.status_code}"
+    end
+  end
+
+  private def get_with_digest_auth(path : String, headers : HTTP::Headers? = nil)
+    authenticate_if_needed(path)
+
+    uri = URI.parse(config.uri.not_nil! + path)
+    @auth_uri.path = uri.path
+    @auth_uri.query = uri.query
+    logger.debug { "Fetching digest auth header with #{@auth_uri.inspect}, #{@auth_challenge.inspect}" } if @debug_enabled
+    auth_header = @digest_auth.auth_header(@auth_uri, @auth_challenge, "GET")
+    logger.debug { "Digest auth header: #{auth_header.inspect}" } if @debug_enabled
+    request_headers = headers || HTTP::Headers.new
+    request_headers["Authorization"] = auth_header
+
+    get(path, headers: request_headers)
+  end
+
   private def query(path, **opts, &block : Hash(String, String) -> _)
     queue(**opts) do |task|
-      response = get(path)
+      response = get_with_digest_auth(path)
       data = response.body.not_nil!
 
       raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
@@ -84,11 +133,13 @@ class Sony::Camera::CGI < PlaceOS::Driver
   @zooming = false
   @max_speed = 1
   @zoom_raw = 0
+  @focus_raw = 0
   @pan = 0
   @tilt = 0
   @pan_range = 0..1
   @tilt_range = 0..1
   @zoom_range = 0..1
+  @focus_range = 0..61440
 
   def query_status(priority : Int32 = 0)
     # Response looks like:
@@ -104,6 +155,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
           self[:pan] = @pan = twos_complement parts[0].to_i(16)
           self[:tilt] = @tilt = twos_complement parts[1].to_i(16)
           @zoom_raw = parts[2].to_i(16)
+          @focus_raw = parts[3].to_i(16)
         when "PanMovementRange"
           # PanMovementRange=eac00,15400
           parts = value.split(",")
@@ -148,6 +200,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
       end
 
       self[:zoom] = @zoom_raw.not_nil!.to_f * (100.0 / @zoom_range.end.to_f)
+      self[:focus] = @focus_raw
 
       response
     end
@@ -166,7 +219,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   private def action(path, **opts, &block : HTTP::Client::Response -> _)
     queue(**opts) do |task|
-      response = get(path)
+      response = get_with_digest_auth(path)
       raise "request error #{response.status_code}\n#{response.body}" unless response.success?
 
       result = block.call(response)
@@ -225,14 +278,18 @@ class Sony::Camera::CGI < PlaceOS::Driver
     {{value}} = twos_complement({{value}})
   end
 
-  def pantilt(pan : Int32, tilt : Int32, zoom : Int32? = nil) : Nil
+  def pantilt(pan : Int32, tilt : Int32, zoom : Int32? = nil, focus : Int32? = nil) : Nil
     in_range @pan_range, pan
     in_range @tilt_range, tilt
 
     if zoom
       in_range @zoom_range, zoom
-
-      action("/command/ptzf.cgi?AbsolutePTZF=#{pan.to_s(16)},#{tilt.to_s(16)},#{zoom.to_s(16)}",
+      param = "#{pan.to_s(16)},#{tilt.to_s(16)},#{zoom.to_s(16)}"
+      if focus
+        in_range @focus_range, focus
+        param += ",#{focus.to_s(16)}"
+      end
+      action("/command/ptzf.cgi?AbsolutePTZF=#{param}",
         name: "position"
       ) do
         self[:pan] = @pan = pan
@@ -303,7 +360,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
   end
 
   def home
-    action("/command/presetposition.cgi?HomePos=ptz-recall",
+    action("/command/presetposition.cgi?HomePos=recall",
       name: "position"
     ) { query_status }
   end
@@ -319,7 +376,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   def save_position(name : String, index : Int32 | String = 0)
     @presets[name] = {
-      pan: @pan, tilt: @tilt, zoom: @zoom_raw,
+      pan: @pan, tilt: @tilt, zoom: @zoom_raw, focus: @focus_raw
     }
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
@@ -329,5 +386,23 @@ class Sony::Camera::CGI < PlaceOS::Driver
     @presets.delete name
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
+  end
+
+
+  # ====== Powerable Interface ======
+
+  def power(state : Bool)
+    action("/command/main.cgi?System=#{state ? "on" : "standby"}",
+      name: "power"
+    ) { power? }
+  end
+
+  def power?
+    power_status : String? = nil
+    query("/command/inquiry.cgi?inq=sysinfo", priority: 0) do |response|
+      power_status = response["Power"]?
+    end
+    return nil unless power_status
+    self[:power] = power_status == "on" # device returns "on" or "standby"
   end
 end
