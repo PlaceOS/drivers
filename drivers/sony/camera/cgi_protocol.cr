@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/camera"
+require "placeos-driver/interface/powerable"
 require "digest-auth"
 
 # Documentation: https://aca.im/driver_docs/Sony/sony-camera-CGI-Commands-1.pdf
@@ -373,5 +374,23 @@ class Sony::Camera::CGI < PlaceOS::Driver
     @presets.delete name
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
+  end
+
+
+  # ====== Powerable Interface ======
+
+  def power(state : Bool)
+    action("/command/main.cgi?System=#{state ? "on" : "standby"}",
+      name: "power"
+    ) { power? }
+  end
+
+  def power?
+    power_status : String? = nil
+    query("/command/inquiry.cgi?inq=sysinfo", priority: 0) do |response|
+      power_status = response["Power"]?
+    end
+    return nil unless power_status
+    self[:power] = power_status == "on" # device returns "on" or "standby"
   end
 end
