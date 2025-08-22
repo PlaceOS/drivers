@@ -1,11 +1,11 @@
 require "placeos-driver"
-#require "placeos-driver/interface/muteable"
+require "placeos-driver/interface/muteable"
 
 # Documentation: https://www.shure.com/en-US/docs/commandstrings/IntelliMixRoom
 # TCP Port: 2202
 
 class Shure::IntellimixRoom < PlaceOS::Driver
-  # include Interface::AudioMuteable
+  include Interface::AudioMuteable
 
   tcp_port 2202
   descriptive_name "Shure IntelliMix Room Audio Processor"
@@ -157,6 +157,20 @@ class Shure::IntellimixRoom < PlaceOS::Driver
   def set_denoiser_level(index : Int32, level : String)
     raise "ArgumentError: level must be LOW, MEDIUM or HIGH" unless level.in?(["LOW", "MEDIUM", "HIGH"])
     do_send "SET #{index.to_s(precision: 2)} DENOISER_LEVEL #{level}", name: :set_denoiser_level
+  end
+
+  # === Interface::AudioMuteable Implementation ===
+  
+  def mute_audio(state : Bool = true, index : Int32 | String = 0)
+    set_audio_mute(index.to_i, state)
+  end
+  
+  def mute(state : Bool = true)
+    set_device_audio_mute(state)
+  end
+
+  def unmute
+    set_device_audio_mute(false)
   end
 
   def received(bytes, task)
