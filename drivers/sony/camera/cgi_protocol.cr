@@ -396,6 +396,21 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:presets] = @presets.keys
   end
 
+    #autoframing toggle and status query
+  def autoframe(state : Bool)
+    action("/analytics/ptzautoframing.cgi?PtzAutoFraming=#{state ? "on" : "off"}",
+    name: "auto-framing"
+    ) { autoframing? }
+  end
+
+  def autoframing?
+    autoframe_status: String? = nil
+    query("/command/inquiry.cgi?inq=sysinfo", priority: 0) do |response|
+      autoframe_status = response["PtzAutoFraming"]?
+    end  
+    return nil unless autoframe_status
+    self[:autoframe] = autoframe_status == "on" # device returns "on" or "off"
+  end
 
   # ====== Powerable Interface ======
 
