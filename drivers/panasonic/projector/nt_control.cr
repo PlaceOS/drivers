@@ -121,7 +121,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
 
   def switch_to(input : Inputs)
     # Projector doesn't automatically unmute
-    unmute if self[:mute]
+    unmute if self[:mute]?
 
     do_send(:input, INPUTS[input], delay: 2.seconds)
     logger.debug { "requested to switch to: #{input}" }
