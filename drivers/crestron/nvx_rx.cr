@@ -96,7 +96,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     )
   end
 
-  def output_with_index(state : Bool, output_index : Int32, port_index : Int32?)
+  def output_with_index(state : Bool, output_index : Int32, port_index : Int32?) 
     logger.debug { "#{state ? "enabling" : "disabling"} output sync for output #{output_index}#{port_index ? " port #{port_index}" : ""}" }
     #/AudioVideoInputOutput/Outputs/x/Ports/x/Hdmi/   https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/AudioVideoInputOutput.htm
     ws_update(

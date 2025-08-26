@@ -68,6 +68,7 @@ abstract class Crestron::CresNext < PlaceOS::Driver
   end
 
   private def apply_ws_changes(payload : String, **options)
+    logger.debug { "Sending WebSocket update: #{payload}" }
     send(payload, **options) do |data, task|
       raw_json = String.new(data)
       logger.debug { "Crestron sent: #{raw_json}" }
