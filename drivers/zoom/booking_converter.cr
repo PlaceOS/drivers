@@ -70,6 +70,7 @@ class Zoom::BookingConverter < PlaceOS::Driver
   private def determine_current_booking(bookings : Array(JSON::Any))
     if bookings.empty?
       self[:current_booking] = nil
+      self[:booking_in_progress] = false
       return
     end
     current_time = Time.utc.to_unix
@@ -77,6 +78,7 @@ class Zoom::BookingConverter < PlaceOS::Driver
       booking["event_start"].as_i64 <= current_time && booking["event_end"].as_i64 > current_time
     end
     self[:current_booking] = current_booking || nil
+    self[:booking_in_progress] = !current_booking.nil?
   end
 
   # This assumes the Zoom bookings are sorted by start time, which is still TBD
