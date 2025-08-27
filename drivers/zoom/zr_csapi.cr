@@ -337,11 +337,11 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     )}
   end
 
-  private def expose_custom_call_state(new_state : Hash(String, JSON::Any) | Nil)
-    return unless new_state
-    call_state = new_state.not_nil!["State"].as_s?
-    logger.debug { "Call state changed to #{call_state}" } if @debug_enabled
-    self[:in_call] = call_state == "IN_MEETING"
+  private def expose_custom_call_state
+    return unless call = self[:Call]
+    logger.debug { "Call state changed to #{call.inspect}" } if @debug_enabled
+    call_state = call.dig?("State")
+    self[:in_call] = call_state.as_s? == "IN_MEETING" if call_state
   end
 
   # Get audio input devices
@@ -639,7 +639,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
     when "zStatus"
       case response_topkey
       when "Call"
-        expose_custom_call_state(new_data)        
+        expose_custom_call_state
       end
     when "zConfiguration"
     when "zCommand"
