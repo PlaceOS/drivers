@@ -339,7 +339,8 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
 
   private def expose_custom_call_state(new_state : Hash(String, JSON::Any) | Nil)
     return unless new_state
-    call_state = new_state.not_nil!["State"]?
+    call_state = new_state.not_nil!["State"].as_s
+    logger.debug { "Call state changed to #{call_state}" } if @debug_enabled
     self[:in_call] = call_state == "IN_MEETING"
   end
 
