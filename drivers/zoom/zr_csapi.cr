@@ -322,7 +322,9 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   private def expose_custom_participant_list
     participants = self["ListParticipantsResult"]?
     return unless participants
-    self[:Participants] = participants.as_a.map { |p| p.as_h.select(
+    participants_array = participants.as_a
+    self[:number_of_participants] = participants_array.size
+    self[:Participants] = participants_array.map { |p| p.as_h.select(
       "user_id",
       "user_name",
       "audio_status state",
@@ -333,6 +335,12 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       "is_in_waiting_room",
       "hand_status"
     )}
+  end
+
+  private def expose_custom_call_state(new_state : Hash(String, JSON::Any) | Nil)
+    return unless new_state
+    call_state = new_state.not_nil!["State"]?
+    self[:in_call] = call_state == "IN_MEETING"
   end
 
   # Get audio input devices
@@ -628,6 +636,10 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
         bookings_list
       end
     when "zStatus"
+      case response_topkey
+      when "Call"
+        expose_custom_call_state(new_data)        
+      end
     when "zConfiguration"
     when "zCommand"
       case response_topkey
