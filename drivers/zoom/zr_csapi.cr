@@ -340,7 +340,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   private def expose_custom_call_state
     return unless call = self[:Call]
     logger.debug { "Call state changed to #{call.inspect}" } if @debug_enabled
-    call_state = call.dig?("State")
+    call_state = call.dig?("Status")
     self[:in_call] = call_state.as_s? == "IN_MEETING" if call_state
   end
 
