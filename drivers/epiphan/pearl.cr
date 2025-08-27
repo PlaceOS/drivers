@@ -171,6 +171,7 @@ class Epiphan::Pearl < PlaceOS::Driver
       end
     end
 
+    self[:number_of_active_recordings] = active.size
     self[:active_recordings] = active
     active
   end
