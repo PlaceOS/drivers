@@ -37,7 +37,11 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   tcp_port 1024
   descriptive_name "Panasonic Projector"
   generic_name :Display
-  default_settings({username: "admin1", password: "panasonic"})
+  default_settings({
+    username: "admin1", 
+    password: "panasonic", 
+    query_lamp_hours: true
+  })
   makebreak!
 
   def on_load
@@ -46,7 +50,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
 
     schedule.every(40.seconds) do
       power?(priority: 0)
-      lamp_hours?(priority: 0)
+      lamp_hours?(priority: 0) if @query_lamp_hours
     end
 
     on_update
@@ -58,6 +62,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
 
   @username : String = "admin1"
   @password : String = "panasonic"
+  @query_lamp_hours : Bool = true
 
   # used to coordinate the projector password hash
   @channel : Channel(String) = Channel(String).new
@@ -66,6 +71,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   def on_update
     @username = setting?(String, :username) || "admin1"
     @password = setting?(String, :password) || "panasonic"
+    @query_lamp_hours = setting?(Bool, :query_lamp_hours) || true
   end
 
   COMMANDS = {
