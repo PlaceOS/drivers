@@ -16,6 +16,7 @@ DriverSpecs.mock_driver "GoBright::LocationService" do
       "level"                => "placeos_zone_id",
       "building"             => "zone-1234",
       "capacity"             => 1,
+      "group"                => "HR",
       "gobright_location_id" => "level",
       "gobright_space_name"  => "desk-1",
       "gobright_space_type"  => "desk",
@@ -27,6 +28,7 @@ DriverSpecs.mock_driver "GoBright::LocationService" do
       "level"                => "placeos_zone_id",
       "building"             => "zone-1234",
       "capacity"             => 1,
+      "group"                => "none",
       "gobright_location_id" => "level",
       "gobright_space_name"  => "room-1",
       "gobright_space_type"  => "room",
@@ -80,6 +82,27 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
     # NOTE:: zone-1234 is the default zone used in the spec runner
     [{id: "zone-1234"}]
+  end
+
+  def metadata(id : String, key : String? = nil)
+    logger.info { "metadata requested from staff api" }
+
+    {
+      "desks": {
+        "name":        "desks",
+        "description": "",
+        "details":     [
+          {
+            "id":                 "table-07.001.status",
+            "name":               "Desk 07.001",
+            "groups":             ["HR"],
+            "map_id":             "table-07.001.status",
+            "bookable":           true,
+            "gobright_desk_name": "desk-1",
+          },
+        ],
+      },
+    }
   end
 end
 
