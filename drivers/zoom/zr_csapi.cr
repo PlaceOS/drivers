@@ -251,7 +251,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def sharing_stop_wireless
     do_send("zCommand Call Sharing Disconnect", name: "sharing_stop_wireless")
     sleep @response_delay.milliseconds
-    self["SharingState"]
+    self["Sharing"]
   end
 
   # Share camera
