@@ -47,12 +47,6 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   def on_load
     # Communication settings
     transport.tokenizer = Tokenizer.new("\r")
-
-    schedule.every(40.seconds) do
-      power?(priority: 0)
-      lamp_hours?(priority: 0) if @query_lamp_hours
-    end
-
     on_update
   end
 
@@ -72,6 +66,12 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
     @username = setting?(String, :username) || "admin1"
     @password = setting?(String, :password) || "panasonic"
     @query_lamp_hours = setting?(Bool, :query_lamp_hours) || true
+
+    schedule.clear
+    schedule.every(40.seconds) do
+      power?(priority: 0)
+      lamp_hours?(priority: 0) if @query_lamp_hours
+    end
   end
 
   COMMANDS = {
