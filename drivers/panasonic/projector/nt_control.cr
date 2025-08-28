@@ -56,6 +56,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
 
   @username : String = "admin1"
   @password : String = "panasonic"
+  getter query_lamp_hours
   @query_lamp_hours : Bool = true
 
   # used to coordinate the projector password hash
