@@ -157,6 +157,23 @@ class GoBright::LocationService < PlaceOS::Driver
       spaces[space.id] = space.dup
     end
 
+    # retrieve desk details and perform gobright_desk_name to groups mapping
+    desks_meta = staff_api.metadata(zone_id, "desks").get.as_h["desks"].as_h
+    desk_groups_mapping = desks_meta["details"].as_a.map do |desk|
+      desk_h = desk.as_h
+      gobright_desk_name = desk_h["gobright_desk_name"].as_s
+      groups = begin
+        if (arr = desk_h["groups"].as_a?)
+          arr.empty? ? ["none"] : arr.map(&.as_s)
+        elsif desk_h.has_key?("groups") && desk_h["groups"].raw.is_a?(String)
+          [desk_h.["groups"].as_s]
+        else
+          ["none"]
+        end
+      end
+      {gobright_desk_name, groups}
+    end.to_h
+
     # mark if the space is occupied
     occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id, @default_space_type).get.to_json)
     occupancy.each do |details|
@@ -174,13 +191,13 @@ class GoBright::LocationService < PlaceOS::Driver
 
       if (occupied = space.occupied?) || @return_empty_spaces
         {
-          location:    loc_type,
-          at_location: occupied ? 1 : 0,
-          map_id:      space.name,
-          level:       zone_id,
-          building:    building_id,
-          capacity:    space.capacity || 1,
-
+          location:             loc_type,
+          at_location:          occupied ? 1 : 0,
+          map_id:               space.name,
+          level:                zone_id,
+          building:             building_id,
+          capacity:             space.capacity || 1,
+          group:                desk_groups_mapping.fetch(space.name, ["none"]).first,
           gobright_location_id: gobright_location_id,
           gobright_space_name:  space.name,
           gobright_space_type:  space.type,
