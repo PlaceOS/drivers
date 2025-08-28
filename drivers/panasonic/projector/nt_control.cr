@@ -40,7 +40,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   default_settings({
     username: "admin1", 
     password: "panasonic", 
-    query_lamp_hours: true
+    query_lamp_hours: false
   })
   makebreak!
 
@@ -57,7 +57,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   @username : String = "admin1"
   @password : String = "panasonic"
   getter query_lamp_hours
-  @query_lamp_hours : Bool = true
+  @query_lamp_hours : Bool = false
 
   # used to coordinate the projector password hash
   @channel : Channel(String) = Channel(String).new
@@ -66,12 +66,12 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   def on_update
     @username = setting?(String, :username) || "admin1"
     @password = setting?(String, :password) || "panasonic"
-    @query_lamp_hours = setting?(Bool, :query_lamp_hours) || true
+    @query_lamp_hours = setting?(Bool, :query_lamp_hours) || false
 
     schedule.clear
     schedule.every(40.seconds) do
       power?(priority: 0)
-      lamp_hours?(priority: 0) if @query_lamp_hours
+      lamp_hours?(priority: 0, retries: 0) if @query_lamp_hours
     end
   end
 
