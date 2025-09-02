@@ -200,6 +200,24 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
+
+  # ===================================
+  # Modules
+  # ===================================
+
+  @[Security(Level::Administrator)]
+  def start_or_stop_module(module_id: String, start: Bool)
+    response = post("/api/engine/v2/modules/#{module_id}/#{start ? "start" : "stop"}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
   # ===================================
   # User details
   # ===================================
