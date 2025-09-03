@@ -70,6 +70,10 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
                   switch_local "Input1", layer
                 when "input2", "hdmi2"
                   switch_local "Input2", layer
+                when "input3", "usbc1"
+                  switch_local "USB-C1", layer
+                when "input4", "usbc2"
+                  switch_local "USB-C2", layer  
                 else
                   switch_stream input, layer
                 end
