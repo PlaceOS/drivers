@@ -279,12 +279,12 @@ class Place::Bookings < PlaceOS::Driver
       location: status?(String, "room_name"),
       timezone: @time_zone.name,
       calendar_id: host_calendar
-    )
+    ).get
     # Update booking info after creating event
     schedule.in(@poll_x_seconds_after_booking.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
 
-    check_in_actual starting, check_bookings: false
     self[:bookings] = self[:bookings].as_a << event
+    check_in_actual starting, check_bookings: true
     event
   end
 
