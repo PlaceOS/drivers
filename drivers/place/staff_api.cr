@@ -663,6 +663,8 @@ class Place::StaffAPI < PlaceOS::Driver
     recurrence_nth_of_month : Int32? = nil,
     recurrence_interval : Int32? = nil,
     recurrence_end : Int64? = nil,
+    asset_ids : Array(String)? = nil,
+    asset_name: String? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -684,6 +686,8 @@ class Place::StaffAPI < PlaceOS::Driver
       "booking_end"             => booking_end,
       "booking_type"            => booking_type,
       "asset_id"                => asset_id,
+      "asset_ids"               => asset_ids,
+      "asset_name"              => asset_name,
       "user_id"                 => user_id,
       "user_email"              => user_email,
       "user_name"               => user_name,
