@@ -156,8 +156,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     return id if id
 
     # check if this was a name and lookup the id
-    if id = security.zone_access_id_lookup(name_or_id).get
-      id = cached_zone_lookups[name_or_id] = (String | Int64).from_json(id.to_json)
+    id_raw = security.zone_access_id_lookup(name_or_id).get
+    if id = id_raw.as_s? || id_raw.as_i64?
+      cached_zone_lookups[name_or_id] = id
       return id
     end
 
