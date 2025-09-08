@@ -104,7 +104,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     logger.debug { "#{state ? "enabling" : "disabling"} output sync for output #{output_index}#{port_index ? " port #{port_index}" : ""}" }
     #/Device/AvioV2/Outputs/Output1/OutputInfo/Ports/Port1/Digital/IsOutputDisabled   https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects-HD-PS/AvioV2.htm
     ws_update(
-      "/Device/AvioV2/Outputs/Output#{output_index}/OutputInfo/Ports/Port#{port_index}/Digital/IsOutputDisabled",
+      "/AvioV2/Outputs/Output#{output_index}/OutputInfo/Ports/Port#{port_index}/Digital/IsOutputDisabled",
       !state,
       name: :output
     )
