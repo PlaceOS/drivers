@@ -191,6 +191,11 @@ class Zoom::Meeting < PlaceOS::Driver
     zoom_api.meeting_invite_contacts(in_meeting.id, emails).get
   end
 
+  # Stub for adding sensor data retrieval and exposure
+  # def get_sensor_data(from : String? = nil, to : String? = nil) : Nil
+  #   sensor_data = zoom_api.get_sensor_data(@room_id, from, to).get
+  # end
+
   protected def extract_meeting_links(mail_body : String) : Tuple(Bool, URI)?
     zoom = true
     link = extract_zoom_link(mail_body)
