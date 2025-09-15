@@ -200,7 +200,6 @@ class Place::StaffAPI < PlaceOS::Driver
     end
   end
 
-
   # ===================================
   # Modules
   # ===================================
@@ -664,7 +663,7 @@ class Place::StaffAPI < PlaceOS::Driver
     recurrence_interval : Int32? = nil,
     recurrence_end : Int64? = nil,
     asset_ids : Array(String)? = nil,
-    asset_name: String? = nil,
+    asset_name : String? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -1032,10 +1031,12 @@ class Place::StaffAPI < PlaceOS::Driver
 
   # For accessing PlaceOS APIs
   protected getter placeos_client : PlaceOS::Client do
+    insecure = setting?(Bool, :https_insecure) || setting?(String, :https_verify) == "none"
     PlaceOS::Client.new(
       @place_domain,
       host_header: @host_header,
-      x_api_key: @api_key
+      x_api_key: @api_key,
+      insecure: insecure
     )
   end
 
