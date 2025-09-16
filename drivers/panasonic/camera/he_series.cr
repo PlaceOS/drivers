@@ -98,7 +98,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
       }
     else
       options = {
-        retries:     1,
+        retries:     0,
         priority:    queue.priority + 10,
         clear_queue: false,
         name:        :joystick,
@@ -270,7 +270,9 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
         if body.starts_with?("er")
           case body[2]
           when '1' then task.abort("unsupported command #{cmd}: #{body}")
-          when '2' then task.retry("camera busy, requested #{cmd}: #{body}")
+          when '2'
+            logger.warn { "camera was busy, attempting retry on #{cmd}" }
+            task.retry("camera busy, requested #{cmd}: #{body}")
           when '3' then task.abort("query outside acceptable range, requested #{cmd}: #{body}")
           end
         else
