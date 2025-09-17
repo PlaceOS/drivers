@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 7.6.0
+    version: 7.6.1
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -167,7 +167,7 @@ shards:
 
   lucky_router:
     git: https://github.com/luckyframework/lucky_router.git
-    version: 0.6.0
+    version: 0.6.1
 
   mqtt:
     git: https://github.com/spider-gazelle/crystal-mqtt.git
@@ -239,7 +239,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.11.5
+    version: 7.11.6
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
