@@ -474,7 +474,7 @@ class StaffAPI < DriverSpecs::MockDriver
     created_after : Int64? = nil,
     approved : Bool? = nil,
     rejected : Bool? = nil,
-    checked_in : Bool? = nil
+    checked_in : Bool? = nil,
   )
     JSON.parse(BOOKINGS.to_json)
   end
@@ -788,7 +788,7 @@ class Mailer < DriverSpecs::MockDriver
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   )
     self[:sent] = self[:sent].as_i + 1
   end
@@ -803,7 +803,7 @@ class Mailer < DriverSpecs::MockDriver
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   ) : Bool
     true
   end
