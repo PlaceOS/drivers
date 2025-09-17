@@ -1231,32 +1231,32 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   # normal work hours, event in range
   # start at 8am, end at 4pm, event at 3pm
   resp = exec(:in_preference_hours?, 8.0, 16.0, 15.0).get
-  resp.should eq true
+  resp.should be_true
 
   # normal work hours, event out of range (after)
   # start at 8am, end at 4pm, event at 5pm
   resp = exec(:in_preference_hours?, 8.0, 16.0, 17.0).get
-  resp.should eq false
+  resp.should be_false
 
   # normal work hours, event out of range (before)
   # start at 8am, end at 4pm, event at 6am
   resp = exec(:in_preference_hours?, 8.0, 16.0, 6.0).get
-  resp.should eq false
+  resp.should be_false
 
   # work hours crosses midnight, event in range
   # start at 10pm, end at 6am, event at 3am
   resp = exec(:in_preference_hours?, 22.0, 6.0, 3.0).get
-  resp.should eq true
+  resp.should be_true
 
   # work hours crosses midnight, event out of range (after)
   # start at 10pm, end at 6am, event at 7am
   resp = exec(:in_preference_hours?, 22.0, 6.0, 7.0).get
-  resp.should eq false
+  resp.should be_false
 
   # work hours crosses midnight, event out of range (before)
   # start at 10pm, end at 6am, event at 8pm
   resp = exec(:in_preference_hours?, 22.0, 6.0, 20.0).get
-  resp.should eq false
+  resp.should be_false
 
   #########################################
   # End of tests for: #in_preference_hours?
@@ -1273,11 +1273,11 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     },
   })
   resp = exec(:enabled?).get
-  resp.should eq true
+  resp.should be_true
 
   # disabled when resources is empty
   resp = exec(:enabled?).get
-  resp.should eq true
+  resp.should be_true
   settings({
     auto_release: {
       time_before: 10,
@@ -1286,7 +1286,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
     },
   })
   resp = exec(:enabled?).get
-  resp.should eq false
+  resp.should be_false
 
   #############################
   # End of tests for: #enabled?
