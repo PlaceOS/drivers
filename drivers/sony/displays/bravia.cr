@@ -147,6 +147,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   def received(data, task)
     parsed_data = convert_binary(data[3..6])
     cmd = Command.from_response?(parsed_data)
+
+    logger.debug { "Sony sent: #{cmd}" }
+
     return task.try(&.abort("unrecognised command: #{parsed_data}")) if cmd.nil?
     param = data[7..-1]
     return task.try(&.abort("error")) if param.first? == MessageType::Error.value
