@@ -115,9 +115,9 @@ class Place::AutoRelease < PlaceOS::Driver
     released_booking_ids = self[:released_booking_ids]? ? Array(Int64).from_json(self[:released_booking_ids].to_json) : [] of Int64
 
     counters = {:bookings => pending_bookings.size}
-    counters << {:pending_release => pending_release.size}
-    counters << {:emails_sent => emailed_booking_ids.size}
-    counters << {:released => released_booking_ids.size}
+    counters[:pending_release] = pending_release.size
+    counters[:emails_sent] = emailed_booking_ids.size
+    counters[:released] = released_booking_ids.size
 
     bookings = Hash(Int64, Array(String)).new
 
@@ -320,7 +320,7 @@ class Place::AutoRelease < PlaceOS::Driver
     released_booking_ids += previously_released
 
     previously_explained = self[:explain_release_bookings]? ? Hash(Int64, String).from_json(self[:explain_release_bookings].to_json) : Hash(Int64, String).new
-    explain = previously_explained.select { |key, _| released_booking_ids.include?(key) }
+    explain = previously_explained.select { |key, _| released_booking_ids.includes?(key) }
 
     bookings.each do |booking|
       next if previously_released.includes? booking.id
