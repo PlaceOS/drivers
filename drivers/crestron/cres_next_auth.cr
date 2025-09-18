@@ -35,7 +35,7 @@ module Crestron::CresNextAuth
         end
         logger.debug { "Authenticated" }
       else
-        error = "Device did not return all auth information, cookies returned: #{response.cookies.to_h.keys}"
+        error = "Device did not return all auth information, cookies returned: #{response.cookies.to_h.keys}, redirect: #{response.headers["Location"]?}"
       end
     when 403
       error = "Invalid credentials"
