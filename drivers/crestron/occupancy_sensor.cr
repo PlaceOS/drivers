@@ -45,14 +45,17 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   end
 
   def connected
-    authenticate if !authenticated
+    if !authenticated
+      authenticate
+      return
+    end
+    poll_device_state
     @lock.synchronize do
       if !@monitoring
         spawn { event_monitor }
         @monitoring = true
       end
     end
-    poll_device_state
   end
 
   def poll_device_state : Nil
