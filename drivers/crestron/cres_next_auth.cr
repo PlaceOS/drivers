@@ -14,19 +14,20 @@ module Crestron::CresNextAuth
     uri = URI.parse config.uri.not_nil!
     host = uri.host
 
+    password = setting(String, :password)
     response = post("/userlogin.html", headers: {
       "Content-Type" => "application/x-www-form-urlencoded",
       "Referer"      => "https://#{host}/userlogin.html",
       "Origin"       => "https://#{host}",
     }, body: URI::Params.build { |form|
       form.add("login", setting(String, :username))
-      form.add("passwd", setting(String, :password))
+      form.add("passwd", password)
     })
 
     case response.status_code
     when 200, 302
       auth_cookies = %w(AuthByPasswd iv tag userid userstr)
-      if (auth_cookies - response.cookies.to_h.keys).empty?
+      if (auth_cookies - response.cookies.to_h.keys).empty? || password.empty?
         @xsrf_token = response.headers["CREST-XSRF-TOKEN"]? || ""
         @authenticated = true
         begin
