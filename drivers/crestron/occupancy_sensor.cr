@@ -47,7 +47,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   def connected
     if !authenticated?
       authenticate
-      return
+      return # connected is called again by the authenticate function
     end
 
     poll_device_state
