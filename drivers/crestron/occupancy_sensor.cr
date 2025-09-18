@@ -45,7 +45,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   end
 
   def connected
-    if !authenticated
+    if !authenticated?
       authenticate
       return
     end
@@ -83,7 +83,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   def event_monitor
     loop do
       break if terminated?
-      if authenticated
+      if authenticated?
         # sleep if long poll failed
         logger.debug { "event monitor: performing long poll" }
         sleep 1.second unless long_poll
@@ -143,21 +143,21 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     @update_lock.synchronize do
       if sensor = @sensor_data[0]?
         sensor.value = @occupied ? 1.0 : 0.0
-        sensor.last_seen = authenticated ? Time.utc.to_unix : @last_update
+        sensor.last_seen = authenticated? ? Time.utc.to_unix : @last_update
         sensor.mac = @mac
         sensor.name = @name
-        sensor.status = authenticated ? Status::Normal : Status::Fault
+        sensor.status = authenticated? ? Status::Normal : Status::Fault
       else
         @sensor_data << Detail.new(
           type: :presence,
           value: @occupied ? 1.0 : 0.0,
-          last_seen: authenticated ? Time.utc.to_unix : @last_update,
+          last_seen: authenticated? ? Time.utc.to_unix : @last_update,
           mac: @mac,
           id: nil,
           name: @name,
           module_id: module_id,
           binding: "presence",
-          status: authenticated ? Status::Normal : Status::Fault,
+          status: authenticated? ? Status::Normal : Status::Fault,
         )
       end
     end

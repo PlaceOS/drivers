@@ -3,7 +3,7 @@ require "uri"
 module Crestron::CresNextAuth
   protected getter xsrf_token : String = ""
 
-  getter authenticated : Bool = false
+  getter? authenticated : Bool = false
 
   def authenticate : Nil
     logger.debug { "Authenticating" }
