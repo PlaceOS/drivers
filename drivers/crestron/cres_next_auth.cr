@@ -43,10 +43,11 @@ module Crestron::CresNextAuth
       error = "Unexpected response (HTTP #{response.status})"
     end
 
+    self[:authenticated] = @authenticated
+    self[:auth_error] = error
+
     if error
       logger.error { error }
-      self[:authenticated] = false
-      self[:auth_error] = error
       queue.set_connected(false)
       raise error
     end
