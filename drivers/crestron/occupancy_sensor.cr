@@ -49,6 +49,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
       authenticate
       return
     end
+
     poll_device_state
     @lock.synchronize do
       if !@monitoring
