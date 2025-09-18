@@ -89,7 +89,7 @@ class Crestron::VirtualSwitcher < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     return unless state
     switch_layer = case layer

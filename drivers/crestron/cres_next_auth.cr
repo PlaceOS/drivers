@@ -3,8 +3,12 @@ require "uri"
 module Crestron::CresNextAuth
   protected getter xsrf_token : String = ""
 
-  def authenticate
+  getter authenticated : Bool = false
+
+  def authenticate : Nil
     logger.debug { "Authenticating" }
+    was_authenticated = @authenticated
+    @authenticated = false
 
     # some devices require referer and origin to accept the login
     uri = URI.parse config.uri.not_nil!
@@ -24,6 +28,11 @@ module Crestron::CresNextAuth
       auth_cookies = %w(AuthByPasswd iv tag userid userstr)
       if (auth_cookies - response.cookies.to_h.keys).empty?
         @xsrf_token = response.headers["CREST-XSRF-TOKEN"]? || ""
+        @authenticated = true
+        begin
+          queue.set_connected(true) unless was_authenticated
+        rescue
+        end
         logger.debug { "Authenticated" }
       else
         error = "Device did not return all auth information"
@@ -36,6 +45,9 @@ module Crestron::CresNextAuth
 
     if error
       logger.error { error }
+      self[:authenticated] = false
+      self[:auth_error] = error
+      queue.set_connected(false)
       raise error
     end
   end
@@ -46,6 +58,7 @@ module Crestron::CresNextAuth
     case response.status
     when 302
       logger.debug { "Logout successful" }
+      @authenticated = false
       true
     else
       logger.warn { "Unexpected response (HTTP #{response.status})" }
