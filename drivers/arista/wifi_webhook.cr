@@ -18,7 +18,7 @@ class Arista::WifiWebhook < PlaceOS::Driver
         "Method: #{method.inspect}\n" +
         "Headers:\n#{headers.inspect}\n" +
         "Body:\n#{body.inspect}"
-    end if @debug
+    end
     # Process the webhook payload as needed
   end
 end
