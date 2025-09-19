@@ -70,6 +70,8 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   # Camera interface
 
   MOVEMENT_STOPPED = 50
+  @panning : Bool = false
+  @zooming : Bool = false
 
   protected def joyspeed(speed : Float64)
     speed = speed.clamp(-100.0, 100.0)
@@ -90,6 +92,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
     # check if we want to stop panning
     if pan_speed == "50" && tilt_speed == "50"
+      @panning = false
       options = {
         retries:     4,
         priority:    queue.priority + 50,
@@ -97,6 +100,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
         name:        :joystick,
       }
     else
+      @panning = true
       options = {
         retries:     0,
         priority:    queue.priority + 10,
@@ -198,6 +202,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   end
 
   protected def move_zoom(speed : Int32, **options)
+    @zooming = speed != 0
     speed = MOVEMENT_STOPPED + speed
     request("Z", speed.to_s.rjust(2, '0'), **options) do |resp|
       self[:zoom_speed] = resp[2..-1].to_i - MOVEMENT_STOPPED
@@ -258,12 +263,26 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     end
   end
 
+  @mutex : Mutex = Mutex.new
+  @request_id : UInt64 = 0_u64
+
   protected def request(cmd : String, data, **options, &callback : String -> _)
     request_string = "/cgi-bin/aw_ptz?cmd=%23#{cmd}#{data}&res=1"
 
     queue.add(**options) do |task|
+      request_id = @mutex.synchronize do
+        @request_id = @request_id &+ 1_u64
+        @request_id
+      end
+
       logger.debug { "requesting #{options[:name]?}: #{request_string}" }
       response = get(request_string)
+
+      # stop movement if this request was processed out of order
+      if request_id != @request_id
+        get("/cgi-bin/aw_ptz?cmd=%23PTS5050&res=1") unless @panning
+        get("/cgi-bin/aw_ptz?cmd=%23Z50&res=1") unless @zooming
+      end
 
       if response.success?
         body = response.body.downcase
