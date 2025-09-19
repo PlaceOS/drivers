@@ -19,20 +19,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   descriptive_name "Epson Projector"
   generic_name :Display
 
-  default_settings({
-    epson_projectors_poll_video_mute: true,
-    epson_projectors_poll_volume:     true,
-    epson_projectors_disable_muting:  false,
-  })
-
-  @poll_video_mute : Bool = true
-  @poll_volume : Bool = true
-
-  # Mute commands appear to cause significant problems in some Epson models.
-  # meet.cr appears to send mute commands to outputs of unjoined joinable rooms, causing disturbance to other meetings (especially since the UI currently does not have mute/unmute buttons).
-  # The below is a workaround until the meeting rm logic driver is fixed (don't mute other (unjoined) rooms on shutdown/unroute)
-  @muting_disabled : Bool = false
-
   @ready : Bool = false
 
   getter power_actual : Bool? = nil  # actual power state
@@ -44,13 +30,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def on_load
     transport.tokenizer = Tokenizer.new("\r")
     self[:type] = :projector
-    on_update
-  end
-
-  def on_update
-    @poll_video_mute = setting?(Bool, :epson_projectors_poll_video_mute) || true
-    @poll_volume = setting?(Bool, :epson_projectors_poll_volume) || true
-    @muting_disabled = setting?(Bool, :epson_projectors_disable_muting) || false
   end
 
   def connected
@@ -78,14 +57,15 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     power?
   end
 
-  def power?(**options) : Bool
-    do_send(:power, **options).get
-    @power_actual || false
+  def power?(priority : Int32 = 50) : Bool
+    do_send(:power, priority: priority).get
+    @power_target || false
   end
 
   def switch_to(input : Input)
     logger.debug { "-- epson Proj, requested to switch to: #{input}" }
     do_send(:input, input.value.to_s(16), name: :input)
+    mute(false, layer: MuteLayer::Video)
 
     # for a responsive UI
     self[:input] = input # for a responsive UI
@@ -94,8 +74,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def input?
-    do_send(:input, priority: 0, retries: 0).get
-    self[:input]
+    do_send(:input, priority: 0, wait: false)
+    self[:input]?.try(&.as_s?)
   end
 
   # Volume commands are sent using the inpt command
@@ -110,12 +90,11 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     # for a responsive UI
     self[:volume] = vol
     self[:audio_mute] = muted
-    volume? unless @muting_disabled # Affected projectors support volume setting, but not volume query
+    volume?
   end
 
   def volume?
-    return if @muting_disabled
-    do_send(:volume, priority: 0, retries: 0).get
+    do_send(:volume, priority: 0, wait: false)
     self[:volume]?.try(&.as_f)
   end
 
@@ -124,14 +103,14 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     index : Int32 | String = 0,
     layer : MuteLayer = MuteLayer::AudioVideo,
   )
-    return if @muting_disabled
     case layer
     when .audio_video?
-      do_send(:av_mute, state ? "ON" : "OFF", name: :mute)
-      do_send(:av_mute, name: :mute?, priority: 0, retries: 0)
+      do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute, wait: false)
+      do_send(:av_mute, state ? "ON" : "OFF", name: :mute, wait: false)
+      # do_send(:av_mute, name: :mute?, priority: 0, retries: 0)
     when .video?
-      do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute)
-      video_mute?
+      do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute, wait: false)
+      # video_mute?
     when .audio?
       val = state ? 0.0 : @unmute_volume
       volume(val)
@@ -139,8 +118,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def video_mute?
-    return if @muting_disabled
-    do_send(:video_mute, priority: 0).get
+    do_send(:video_mute, priority: 0, wait: false)
     !!self[:video_mute]?.try(&.as_bool)
   end
 
@@ -254,9 +232,10 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   def do_poll
     if power?(priority: 20) && @power_stable
       input?
-      volume? if @poll_volume
+      volume?
+      video_mute?
     end
-    do_send(:lamp, priority: 20)
+    do_send(:lamp, priority: 20, wait: false)
   end
 
   private def parse_imevent(data : String)
