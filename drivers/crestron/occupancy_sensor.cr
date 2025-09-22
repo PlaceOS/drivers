@@ -3,7 +3,7 @@ require "placeos-driver/interface/sensor"
 require "./cres_next_auth"
 
 # This device doesn't seem to support a websocket interface
-# and relies on long polling
+# and relies on long polling.
 
 class Crestron::OccupancySensor < PlaceOS::Driver
   include Crestron::CresNextAuth
@@ -25,27 +25,39 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   @mac : String = ""
   @name : String? = nil
   @occupied : Bool? = nil
-  @connected : Bool = false
   getter last_update : Int64 = 0_i64
   getter poll_counter : UInt64 = 0_u64
 
   @sensor_data : Array(Interface::Sensor::Detail) = Array(Interface::Sensor::Detail).new(1)
+  @monitoring : Bool = false
+  @lock : Mutex = Mutex.new
 
   def on_load
-    spawn { event_monitor }
+    # re-authenticate every 10 minutes
     schedule.every(10.minutes) { authenticate }
+
+    # sync device state every hour
     schedule.every(1.hour) { poll_device_state }
   end
 
-  def connected
-    @connected = true
-
+  def on_update
     authenticate
-    poll_device_state
   end
 
-  def disconnected
-    @connected = false
+  def connected
+    if !authenticated?
+      # connected is called again by the authenticate function.
+      spawn { authenticate }
+      return
+    end
+
+    poll_device_state
+    @lock.synchronize do
+      if !@monitoring
+        spawn { event_monitor }
+        @monitoring = true
+      end
+    end
   end
 
   def poll_device_state : Nil
@@ -72,11 +84,13 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   def event_monitor
     loop do
       break if terminated?
-      if @connected
+      if authenticated?
         # sleep if long poll failed
+        logger.debug { "event monitor: performing long poll" }
         sleep 1.second unless long_poll
       else
-        # sleep if not connected
+        # sleep if not authenticated
+        logger.debug { "event monitor: idling as not authenticated" }
         sleep 1.second
       end
     end
@@ -130,21 +144,21 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     @update_lock.synchronize do
       if sensor = @sensor_data[0]?
         sensor.value = @occupied ? 1.0 : 0.0
-        sensor.last_seen = @connected ? Time.utc.to_unix : @last_update
+        sensor.last_seen = authenticated? ? Time.utc.to_unix : @last_update
         sensor.mac = @mac
         sensor.name = @name
-        sensor.status = @connected ? Status::Normal : Status::Fault
+        sensor.status = authenticated? ? Status::Normal : Status::Fault
       else
         @sensor_data << Detail.new(
           type: :presence,
           value: @occupied ? 1.0 : 0.0,
-          last_seen: @connected ? Time.utc.to_unix : @last_update,
+          last_seen: authenticated? ? Time.utc.to_unix : @last_update,
           mac: @mac,
           id: nil,
           name: @name,
           module_id: module_id,
           binding: "presence",
-          status: @connected ? Status::Normal : Status::Fault,
+          status: authenticated? ? Status::Normal : Status::Fault,
         )
       end
     end

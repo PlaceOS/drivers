@@ -70,10 +70,6 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
                   switch_local "Input1", layer
                 when "input2", "hdmi2"
                   switch_local "Input2", layer
-                when "input3", "usbc1"
-                  switch_local "USB-C1", layer
-                when "input4", "usbc2"
-                  switch_local "USB-C2", layer  
                 else
                   switch_stream input, layer
                 end
@@ -100,11 +96,11 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     )
   end
 
-  def output_with_index(state : Bool, output_index : Int32, port_index : Int32?) 
+  def output_with_index(state : Bool, output_index : Int32, port_index : Int32?)
     logger.debug { "#{state ? "enabling" : "disabling"} output sync for output #{output_index}#{port_index ? " port #{port_index}" : ""}" }
-    #/AudioVideoInputOutput/Outputs/x/Ports/x/Hdmi/   https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/AudioVideoInputOutput.htm
+    # /Device/AvioV2/Outputs/Output1/OutputInfo/Ports/Port1/Digital/IsOutputDisabled   https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects-HD-PS/AvioV2.htm
     ws_update(
-      "/AudioVideoInputOutput/Outputs/#{output_index}/Ports#{port_index ? "/#{port_index}/" : "/"}Hdmi/IsOutputDisabled",
+      "/AvioV2/Outputs/Output#{output_index}/OutputInfo/Ports/Port#{port_index}/Digital/IsOutputDisabled",
       !state,
       name: :output
     )

@@ -201,6 +201,23 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # Modules
+  # ===================================
+
+  @[Security(Level::Administrator)]
+  def start_or_stop_module(module_id : String, start : Bool)
+    response = post("/api/engine/v2/modules/#{module_id}/#{start ? "start" : "stop"}", headers: authentication)
+    raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
+
+    begin
+      JSON.parse(response.body)
+    rescue error
+      logger.debug { "issue parsing:\n#{response.body.inspect}" }
+      raise error
+    end
+  end
+
+  # ===================================
   # User details
   # ===================================
   def user(id : String)
@@ -645,6 +662,8 @@ class Place::StaffAPI < PlaceOS::Driver
     recurrence_nth_of_month : Int32? = nil,
     recurrence_interval : Int32? = nil,
     recurrence_end : Int64? = nil,
+    asset_ids : Array(String)? = nil,
+    asset_name : String? = nil,
   )
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
@@ -666,6 +685,8 @@ class Place::StaffAPI < PlaceOS::Driver
       "booking_end"             => booking_end,
       "booking_type"            => booking_type,
       "asset_id"                => asset_id,
+      "asset_ids"               => asset_ids,
+      "asset_name"              => asset_name,
       "user_id"                 => user_id,
       "user_email"              => user_email,
       "user_name"               => user_name,
@@ -1010,10 +1031,12 @@ class Place::StaffAPI < PlaceOS::Driver
 
   # For accessing PlaceOS APIs
   protected getter placeos_client : PlaceOS::Client do
+    insecure = setting?(Bool, :https_insecure) || setting?(String, :https_verify) == "none"
     PlaceOS::Client.new(
       @place_domain,
       host_header: @host_header,
-      x_api_key: @api_key
+      x_api_key: @api_key,
+      insecure: insecure
     )
   end
 

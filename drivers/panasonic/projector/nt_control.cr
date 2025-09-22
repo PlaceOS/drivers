@@ -7,7 +7,7 @@ require "placeos-driver/interface/switchable"
 # Documentation: https://aca.im/driver_docs/Panasonic/panasonic_pt-vw535n_manual.pdf
 #  also https://aca.im/driver_docs/Panasonic/pt-ez580_en.pdf
 
-# How the projector expects you interact with it:
+# How the projector expects you interact with it
 # ===============================================
 # 1. New connection required for each command sent (hence makebreak!)
 # 2. On connect, the projector sends you a string of characters to use as a password salt
@@ -40,19 +40,13 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   default_settings({
     username: "admin1", 
     password: "panasonic", 
-    query_lamp_hours: true
+    query_lamp_hours: false
   })
   makebreak!
 
   def on_load
     # Communication settings
     transport.tokenizer = Tokenizer.new("\r")
-
-    schedule.every(40.seconds) do
-      power?(priority: 0)
-      lamp_hours?(priority: 0) if @query_lamp_hours
-    end
-
     on_update
   end
 
@@ -62,7 +56,8 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
 
   @username : String = "admin1"
   @password : String = "panasonic"
-  @query_lamp_hours : Bool = true
+  getter query_lamp_hours
+  @query_lamp_hours : Bool = false
 
   # used to coordinate the projector password hash
   @channel : Channel(String) = Channel(String).new
@@ -71,7 +66,13 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   def on_update
     @username = setting?(String, :username) || "admin1"
     @password = setting?(String, :password) || "panasonic"
-    @query_lamp_hours = setting?(Bool, :query_lamp_hours) || true
+    @query_lamp_hours = setting?(Bool, :query_lamp_hours) || false
+
+    schedule.clear
+    schedule.every(40.seconds) do
+      power?(priority: 0)
+      lamp_hours?(priority: 0, retries: 0) if @query_lamp_hours
+    end
   end
 
   COMMANDS = {

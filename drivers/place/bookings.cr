@@ -45,6 +45,7 @@ class Place::Bookings < PlaceOS::Driver
     hide_meeting_title:        false,
     enable_end_meeting_button: false,
     max_user_search_results:   20,
+    poll_x_seconds_after_booking: 2,
 
     # use this to expose arbitrary fields to influx
     # expose_for_analytics: {"binding" => "key->subkey"},
@@ -71,6 +72,7 @@ class Place::Bookings < PlaceOS::Driver
   @application_permissions : Bool = false
   @disable_book_now_host : Bool = false
   @max_user_search_results : UInt32 = 20
+  @poll_x_seconds_after_booking : UInt32 = 2
 
   @current_meeting_id : String = ""
   @current_pending : Bool = false
@@ -110,6 +112,7 @@ class Place::Bookings < PlaceOS::Driver
     @disable_end_meeting = !!setting?(Bool, :disable_end_meeting)
     @disable_book_now_host = setting?(Bool, :disable_book_now_host) || false
     @max_user_search_results = setting?(UInt32, :max_user_search_results) || 20_u32
+    @poll_x_seconds_after_booking = setting?(UInt32, :poll_x_seconds_after_booking) || 2_u32
 
     pending_period = setting?(UInt32, :pending_period) || 5_u32
     @pending_period = pending_period.minutes
@@ -276,11 +279,12 @@ class Place::Bookings < PlaceOS::Driver
       location: status?(String, "room_name"),
       timezone: @time_zone.name,
       calendar_id: host_calendar
-    )
+    ).get
     # Update booking info after creating event
-    schedule.in(2.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
+    schedule.in(@poll_x_seconds_after_booking.seconds) { poll_events } unless (subscription = @subscription) && !subscription.expired?
 
-    check_in_actual starting, check_bookings: false
+    self[:bookings] = self[:bookings].as_a << event
+    check_in_actual starting, check_bookings: true
     event
   end
 

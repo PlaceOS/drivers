@@ -106,6 +106,44 @@ class Place::AutoRelease < PlaceOS::Driver
     end
   end
 
+  # Explain why a booking was released or not released
+  @[Security(Level::Support)]
+  def explain_state
+    pending_bookings = self[:pending_bookings]? ? Array(Booking).from_json(self[:pending_bookings].to_json) : [] of Booking
+    pending_release = self[:pending_release]? ? Array(Booking).from_json(self[:pending_release].to_json) : [] of Booking
+    emailed_booking_ids = self[:emailed_booking_ids]? ? Array(Int64).from_json(self[:emailed_booking_ids].to_json) : [] of Int64
+    released_booking_ids = self[:released_booking_ids]? ? Array(Int64).from_json(self[:released_booking_ids].to_json) : [] of Int64
+
+    counters = {:bookings => pending_bookings.size}
+    counters[:pending_release] = pending_release.size
+    counters[:emails_sent] = emailed_booking_ids.size
+    counters[:released] = released_booking_ids.size
+
+    bookings = Hash(Int64, Array(String)).new
+
+    # Add booking information details
+    pending_bookings.each do |booking|
+      bookings[booking.id] ||= Array(String).new
+      bookings[booking.id] << "checked_in: #{booking.checked_in}, booking_start: #{booking.booking_start}, booking_type: #{booking.booking_type}, all_day: #{booking.all_day}, user_id: #{booking.user_id}, asset_ids: #{booking.asset_ids}"
+    end
+
+    # Add reasons from explain_pending_release
+    explain_pending_release = self[:explain_pending_release]? ? Hash(Int64, String).from_json(self[:explain_pending_release].to_json) : Hash(Int64, String).new
+    explain_pending_release.each do |booking_id, reason|
+      bookings[booking_id] ||= Array(String).new
+      bookings[booking_id] << reason
+    end
+
+    # Add reasons from explain_release_bookings
+    explain_release_bookings = self[:explain_release_bookings]? ? Hash(Int64, String).from_json(self[:explain_release_bookings].to_json) : Hash(Int64, String).new
+    explain_release_bookings.each do |booking_id, reason|
+      bookings[booking_id] ||= Array(String).new
+      bookings[booking_id] << reason
+    end
+
+    {enabled: enabled?, counters: counters, bookings: bookings}
+  end
+
   # Finds the building zone for the current location services object
   def get_building_zone? : Zone?
     zones = Array(Zone).from_json staff_api.zones(tags: "building").get.to_json
@@ -236,20 +274,20 @@ class Place::AutoRelease < PlaceOS::Driver
 
       if (override = overrides[booking_start.to_s(format: "%F")]?) &&
          in_preference?(override, event_time, @release_locations)
-        explain[booking.id] = "release due to override matching time and location"
+        explain[booking.id] = "pending release due to override matching time and location"
         results << booking
       elsif (override = overrides[booking_start.to_s(format: "%F")]?) &&
             in_preference?(override, event_time, @release_locations, false)
         explain[booking.id] = "skipped due to override matching time but not location"
       elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
             in_preference?(preference, event_time, @release_locations)
-        explain[booking.id] = "release due to matching time and location"
+        explain[booking.id] = "pending release due to matching time and location"
         results << booking
       elsif (preference = preferences[:work_preferences].find { |pref| pref.day_of_week == day_of_week }) &&
             in_preference?(preference, event_time, @release_locations, false)
         explain[booking.id] = "skipped due to matching time but not location"
       elsif @auto_release.release_outside_hours
-        explain[booking.id] = "release due to outside work hours"
+        explain[booking.id] = "pending release due to outside work hours"
         results << booking
       end
     end
@@ -281,6 +319,9 @@ class Place::AutoRelease < PlaceOS::Driver
     # add previously released bookings that are still pending release
     released_booking_ids += previously_released
 
+    previously_explained = self[:explain_release_bookings]? ? Hash(Int64, String).from_json(self[:explain_release_bookings].to_json) : Hash(Int64, String).new
+    explain = previously_explained.select { |key, _| released_booking_ids.includes?(key) }
+
     bookings.each do |booking|
       next if previously_released.includes? booking.id
 
@@ -293,8 +334,12 @@ class Place::AutoRelease < PlaceOS::Driver
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
       if Time.utc.to_unix - booking_start > @auto_release.time_after(booking.booking_type) * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
-        next if skip_release?(booking)
+        if skip_release?(booking)
+          explain[booking.id] = "skip release due to changes to checked_in status or booking_start time"
+          next
+        end
 
+        explain[booking.id] = "rejecting booking as it is within the time_after window"
         logger.debug { "rejecting booking #{booking.id} as it is within the time_after window" }
         staff_api.reject(booking.id, "auto_release", booking.instance).get
         released_booking_ids << booking.id
@@ -303,6 +348,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
     logger.debug { "released #{released_booking_ids.size} bookings" }
 
+    self[:explain_release_bookings] = explain
     self[:released_booking_ids] = released_booking_ids
   rescue error
     logger.error(exception: error) { "unable to release bookings" }
