@@ -5,7 +5,7 @@ class Arista::WifiWebhook < PlaceOS::Driver
   generic_name :Arista_Webhook
 
   default_settings({
-    debug:      true,
+    debug:      false,
   })
 
   def on_update
@@ -18,7 +18,7 @@ class Arista::WifiWebhook < PlaceOS::Driver
         "Method: #{method.inspect}\n" +
         "Headers:\n#{headers.inspect}\n" +
         "Body:\n#{body.inspect}"
-    end
+    end if @debug
     # Process the webhook payload as needed
   end
 end
