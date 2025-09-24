@@ -1,6 +1,6 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "Qbic::TouchPanel" do
+DriverSpecs.mock_driver "Ashrae::BACnetDataPoints" do
   system({
     BACnet: {BACnetMock},
   })
