@@ -13,6 +13,11 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     _https_client_cert: "In PEM format typically required",
   })
 
+  @[Security(Level::Support)]
+  def send_message(hex : String)
+    send hex.hexbytes, wait: false
+  end
+
   def received(data, task)
     logger.debug { "websocket sent: 0x#{data.hexstring}" }
     task.try &.success
