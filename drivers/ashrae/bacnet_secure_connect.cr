@@ -13,6 +13,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     _https_client_cert: "In PEM format typically required",
   })
 
+  # directly sends the message to the remote
   @[Security(Level::Support)]
   def send_message(hex : String)
     send hex.hexbytes, wait: false
