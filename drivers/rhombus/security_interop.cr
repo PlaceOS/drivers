@@ -50,6 +50,13 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
       security.door_list.get.each do |doors|
         all_doors.concat doors.as_a
       end
+
+      # only available on gallagher
+      # any errors will ignored and not included in the results
+      security.alarm_zones.get(raise_on_error: false).each do |zones|
+        all_doors.concat zones.as_a
+      end
+
       {HTTP::Status::OK.to_i, {"Content-Type" => "application/json"}, {
         doors: all_doors,
       }.to_json}
