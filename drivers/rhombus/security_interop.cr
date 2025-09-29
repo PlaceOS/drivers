@@ -94,5 +94,7 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
     end
 
     self[:event_count] = @event_count
+  rescue error
+    logger.error(exception: error) { "error sending event" }
   end
 end
