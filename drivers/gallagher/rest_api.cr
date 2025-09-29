@@ -65,13 +65,13 @@ class Gallagher::RestAPI < PlaceOS::Driver
       },
       {
         # Door status events
-        group:  26, # Door Status
+        group:  26,
         types:  [23031], # Door Opened
         action: "request_to_exit",
       },
       {
-        # card swipe events for various door / lift types
-        group:  27, # "Non-Card Door Unlock"
+        # "Non-Card Door Unlock"
+        group:  27,
         action: "request_to_exit",
       },
       {
@@ -93,7 +93,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     on_update
 
     spawn { event_monitor }
-    schedule.every(1.minutes) { query_endpoints }
+    schedule.every(10.minutes) { query_endpoints }
     transport.before_request do |req|
       logger.debug { "requesting #{req.method} #{req.path}?#{req.query}\n#{req.headers}\n#{req.body}" }
     end
@@ -145,6 +145,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   getter! uri_base : String
   getter access_groups_endpoint : String = "/api/access_groups"
   getter access_zones_endpoint : String = "/api/access_zones"
+  getter alarm_zones_endpoint : String = "/api/alarm_zones"
   getter cardholders_endpoint : String = "/api/cardholders"
   getter divisions_endpoint : String = "/api/divisions"
   getter card_types_endpoint : String = "/api/card_types"
@@ -173,6 +174,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     @divisions_endpoint = @cardholders_endpoint.sub("cardholders", "divisions")
     @access_groups_endpoint = get_path payload["features"]["accessGroups"]["accessGroups"]["href"].as_s
     @access_zones_endpoint = get_path payload["features"]["accessZones"]["accessZones"]["href"].as_s
+    @alarm_zones_endpoint = get_path(payload.dig("features", "alarmZones", "alarmZones", "href").try(&.as_s) || @alarm_zones_endpoint)
     @events_endpoint = get_path payload["features"]["events"]["events"]["href"].as_s
 
     # not sure what version of Gallagher this was added
@@ -208,6 +210,14 @@ class Gallagher::RestAPI < PlaceOS::Driver
 
   protected def get_path(uri : String) : String
     URI.parse(uri).request_target.not_nil!
+  end
+
+  def get_alarm_zones(name : String? = nil, exact_match : Bool = true)
+    # surround the parameter with double quotes for an exact match
+    name = %("#{name}") if name && exact_match
+    response = get(@alarm_zones_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    raise "alarm zones request failed with #{response.status_code}\n#{response.body}" unless response.success?
+    get_results(JSON::Any, response.body)
   end
 
   ##
@@ -625,6 +635,10 @@ class Gallagher::RestAPI < PlaceOS::Driver
     doors.map { |d| Door.new(d.id, d.name) }
   end
 
+  def alarm_zones
+    get_alarm_zones.map { |d| Door.new(d["id"].as_s, d["name"].as_s) }
+  end
+
   @[Security(Level::Support)]
   def unlock(door_id : String) : Bool?
     response = post("#{@doors_endpoint}/#{door_id}/open", headers: @headers)
@@ -636,7 +650,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
     uri.path = @events_endpoint
     uri.query = "after=#{Time.utc.to_rfc3339}"
 
-    sleep 2
+    sleep 2.seconds
 
     loop do
       break unless @poll_events
@@ -673,7 +687,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
         else
           # we don't want to thrash the server
           logger.warn { "event polling failed with\nStatus #{response.status_code}\n#{response.body}" }
-          sleep 2
+          sleep 2.seconds
         end
       rescue timeout : IO::TimeoutError
         # if no events came in for 2min (default timeout), 10 seconds to account for server clock drift
@@ -682,7 +696,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
       rescue error
         logger.warn(exception: error) { "monitoring for events" }
         # jump over anything that potentially caused the error
-        sleep 1
+        sleep 1.second
         last_event = 1.second.from_now
       end
     end
