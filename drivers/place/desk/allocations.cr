@@ -53,6 +53,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
 
     getter id : String
     getter name : String
+    getter bookable : Bool
+    getter features : String?
     getter level_code : String
     getter building_code : String
     getter allocation_email : String?
@@ -64,7 +66,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
     # getter org : String
     # getter campus : String
 
-    def initialize(@id, @name, @level_code, @building_code, @allocation_email, @building_id, @level_id)
+    def initialize(@id, @name, @bookable, @features, @level_code, @building_code, @allocation_email, @building_id, @level_id)
     end
   end
 
@@ -88,6 +90,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
           response[desk_id] = Desk.new(
             desk_id,
             desk["name"].as_s?.presence || desk["id"].as_s,
+            desk["bookable"].as_bool,
+            desk["features"].as_a?.try(&.map(&.as_s).first?),
             level_code,
             building_code,
             desk["assigned_to"]?.try(&.as_s?.presence),
@@ -107,9 +111,24 @@ class Place::Desk::Allocations < PlaceOS::Driver
     logger.debug { "webhook received: #{method},\nheaders #{headers},\nbody size #{body.size}" }
 
     payload = CSV.build do |csv|
-      csv.row "desk_id", "desk_name", "building", "level", "allocation_email"
+      csv.row "desk_id", "desk_name", "building", "level", "allocation_email", "desk_type"
+      # Staff, Student, Staff Hot Desk, Student Hot Desk, Hot Desk
+      # unallocated + bookable == hot desk
+      # HDR in features == Student
       desks.values.each do |desk|
-        csv.row desk.id, desk.name, desk.building_code, desk.level_code, desk.allocation_email
+        allocated_email = desk.allocation_email.presence
+        desk_type = if allocated_email.nil? && desk.bookable
+                      # hot desk
+                      desk.features.try(&.downcase.includes?("hdr")) ? "Student Hot Desk" : "Staff Hot Desk"
+                    elsif allocated_email
+                      # assigned desk
+                      allocated_email.includes?("student") ? "Student" : "Staff"
+                    else
+                      # unallocated
+                      "Staff"
+                    end
+
+        csv.row desk.id, desk.name, desk.building_code, desk.level_code, desk.allocation_email, desk_type
       end
     end
 
@@ -122,8 +141,9 @@ class Place::Desk::Allocations < PlaceOS::Driver
     getter desk_id : String
     getter desk_name : String
     getter email : String?
+    getter bookable : Bool
 
-    def initialize(@desk_id, @desk_name, allocation : String?)
+    def initialize(@desk_id, @desk_name, allocation : String?, @bookable)
       @email = allocation.try(&.strip.downcase)
     end
   end
@@ -147,7 +167,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
     raise "failed to fetch desk allocations with #{response.status}\n#{response.body}" unless response.success?
 
     # parse the CSV and check each allocation and for any name updates
-    # "PlaceOS ID","Name","Assigned To"
+    # "PlaceOS ID","Name","Assigned To","desk Type" (Staff, Student, Staff Hot Desk, Student Hot Desk, Hot Desk)
     # "desk-6.43.19","6.43.19","Roopali.Misra@cdu.edu.au"
     csv = CSV.new(response.body, headers: true, strip: true)
     csv_allocations = {} of String => Allocation
@@ -156,7 +176,9 @@ class Place::Desk::Allocations < PlaceOS::Driver
       break unless csv.next
       row = csv.row
       desk_id = row[0]
-      csv_allocations[desk_id] = Allocation.new(desk_id, row[1], row[2])
+      allocated_email = row[2]
+      bookable = !!allocated_email.presence || row[4].includes?("Hot")
+      csv_allocations[desk_id] = Allocation.new(desk_id, row[1], allocated_email, bookable)
     end
 
     level_allocations = Hash(String, Array(Allocation)).new do |hash, level_id|
@@ -191,7 +213,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
       next unless allocated_email
 
       removed_allocations += 1
-      level_allocations[desk.level_id] << Allocation.new(desk_id, desk.name, nil)
+      hot_desk = desk.features.try(&.downcase.includes?("hdr"))
+      level_allocations[desk.level_id] << Allocation.new(desk_id, desk.name, nil, !!hot_desk)
     end
     logger.debug { "found #{removed_allocations} allocations to be removed" }
 
@@ -232,6 +255,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       desk["name"] = JSON::Any.new(allocation.desk_name)
       desk["assigned_to"] = JSON::Any.new(email)
       desk["assigned_name"] = JSON::Any.new(user_name)
+      desk["bookable"] = JSON::Any.new(allocation.bookable)
       desk
     end
 
