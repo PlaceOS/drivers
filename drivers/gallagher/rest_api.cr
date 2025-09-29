@@ -64,6 +64,17 @@ class Gallagher::RestAPI < PlaceOS::Driver
         action: "granted",
       },
       {
+        # Door status events
+        group:  26, # Door Status
+        types:  [23031], # Door Opened
+        action: "request_to_exit",
+      },
+      {
+        # card swipe events for various door / lift types
+        group:  27, # "Non-Card Door Unlock"
+        action: "request_to_exit",
+      },
+      {
         group:  29,
         action: "forced_door",
       },
