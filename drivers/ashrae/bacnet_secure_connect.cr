@@ -510,7 +510,9 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
             in Bool
               obj_value ? 1.0 : 0.0
             in UInt64, Int64, Float32, Float64
-              obj_value.to_f64
+              float = obj_value.to_f64
+              return nil if float.nan?
+              float
             end
     return nil if value.nil?
 
