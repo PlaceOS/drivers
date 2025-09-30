@@ -8,7 +8,7 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   generic_name :BACnet
   descriptive_name "BACnet Connector"
-  description %(BACnet IPv4 data available to other drivers in PlaceOS)
+  description %(BACnet IPv4 data available to other drivers in PlaceOS.)
 
   # Hookup dispatch to the BACnet BBMD device
   uri_base "ws://dispatch/api/dispatch/v1/udp_dispatch?port=47808&accept=192.168.0.1"
@@ -80,7 +80,7 @@ class Ashrae::BACnet < PlaceOS::Driver
         devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
         devices.each do |dev|
           begin
-            server.send message, to: dev.address
+            server.send message, to: dev.address.as(Socket::IPAddress)
           rescue error
             logger.warn(exception: error) { "error sending message to #{dev.address}" }
           end
@@ -215,7 +215,7 @@ class Ashrae::BACnet < PlaceOS::Driver
     @seen_devices.each_value do |info|
       sent << info.id.not_nil!
       logger.debug { "inspecting #{info.address} - #{info.id}" }
-      device_registry.inspect_device(info.identifier, info.net, info.addr, ip_address: info.address)
+      device_registry.inspect_device(info.identifier, info.net, info.addr, link_address: info.address)
     end
     devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
     devices.each do |info|
@@ -223,7 +223,7 @@ class Ashrae::BACnet < PlaceOS::Driver
         next if id.in? sent
         sent << id
         logger.debug { "inspecting #{info.address} - #{info.id}" }
-        device_registry.inspect_device(info.identifier, info.net, info.addr, ip_address: info.address)
+        device_registry.inspect_device(info.identifier, info.net, info.addr, link_address: info.address)
       end
     end
     "inspected #{sent.size} devices"
@@ -289,7 +289,7 @@ class Ashrae::BACnet < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
-          ip_address: object.ip_address,
+          link_address: object.link_address,
         )
       end
     end
@@ -307,7 +307,7 @@ class Ashrae::BACnet < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
-          ip_address: object.ip_address,
+          link_address: object.link_address,
         )
       end
     end
@@ -325,7 +325,7 @@ class Ashrae::BACnet < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
-          ip_address: object.ip_address,
+          link_address: object.link_address,
         )
       end
     end
@@ -343,7 +343,7 @@ class Ashrae::BACnet < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
-          ip_address: object.ip_address,
+          link_address: object.link_address,
         )
       end
     end
@@ -361,7 +361,7 @@ class Ashrae::BACnet < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
-          ip_address: object.ip_address,
+          link_address: object.link_address,
         )
       end
     end
@@ -382,7 +382,7 @@ class Ashrae::BACnet < PlaceOS::Driver
           val,
           network: object.network,
           address: object.address,
-          ip_address: object.ip_address,
+          link_address: object.link_address,
         )
       end
     end

@@ -151,6 +151,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       model_name:  device.model_name,
       vendor_name: device.vendor_name,
 
+      vmac:    device.link_address_friendly,
       network: device.network,
       address: device.address,
       id:      device.object_ptr.instance_number,
@@ -182,7 +183,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     @seen_devices.each_value do |info|
       sent << info.id.not_nil!
       logger.debug { "inspecting #{info.address} - #{info.id}" }
-      device_registry.inspect_device(info.identifier, info.net, info.addr)
+      device_registry.inspect_device(info.identifier, info.net, info.addr, link_address: info.address)
     end
     devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
     devices.each do |info|
@@ -190,7 +191,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
         next if id.in? sent
         sent << id
         logger.debug { "inspecting #{info.address} - #{info.id}" }
-        device_registry.inspect_device(info.identifier, info.net, info.addr)
+        device_registry.inspect_device(info.identifier, info.net, info.addr, link_address: info.address)
       end
     end
     "inspected #{sent.size} devices"
@@ -251,6 +252,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
+          link_address: object.link_address,
         )
       end
     end
@@ -268,6 +270,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
+          link_address: object.link_address,
         )
       end
     end
@@ -285,6 +288,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
+          link_address: object.link_address,
         )
       end
     end
@@ -302,6 +306,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
+          link_address: object.link_address,
         )
       end
     end
@@ -319,6 +324,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           ::BACnet::Object.new.set_value(value),
           network: object.network,
           address: object.address,
+          link_address: object.link_address,
         )
       end
     end
@@ -339,6 +345,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           val,
           network: object.network,
           address: object.address,
+          link_address: object.link_address,
         )
       end
     end
@@ -394,19 +401,21 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     network = message.network
 
     if network && is_cov
+      vmac = message.data_link.source_address.as(String)
       if network.source_specifier
         addr = network.source_address
         net = network.source.network
       end
       device = message.objects.find { |obj| obj.tag == 1 }.not_nil!.to_object_id.instance_number
       # prop = message.objects.find { |obj| obj.tag == 2 }
-      @seen_devices[device] = DeviceAddress.new(nil, device, net, addr)
+      @seen_devices[device] = DeviceAddress.new(vmac, device, net, addr)
     end
 
     if network && is_iam
+      vmac = message.data_link.source_address.as(String)
       details = ::BACnet::Client::Message::IAm.parse(message)
       device = details[:object_id].instance_number
-      @seen_devices[device] = DeviceAddress.new(nil, device, details[:network], details[:address])
+      @seen_devices[device] = DeviceAddress.new(vmac, device, details[:network], details[:address])
     end
   end
 
