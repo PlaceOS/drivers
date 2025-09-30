@@ -64,7 +64,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       vmac: @vmac,
     )
     client.on_transmit do |message|
-      logger.debug { "request sent: #{message}" }
+      logger.debug { "request sent: #{message.inspect}" }
       send message
     end
 
@@ -73,7 +73,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       # Track the discovery of devices once the connection is established
       case message.data_link.request_type
       when .connect_accept?
-        registry = BACnet::Client::DeviceRegistry.new(client)
+        registry = BACnet::Client::DeviceRegistry.new(client, logger)
         registry.on_new_device { |device| new_device_found(device) }
         @device_registry = registry
 
@@ -375,7 +375,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       dlink = message.data_link
       if dlink.result.result_code > 0
         logger.error { "received error response: #{dlink.error_message}" }
-        return 
+        return
       end
     end
 
