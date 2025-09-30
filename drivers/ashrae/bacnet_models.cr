@@ -8,13 +8,13 @@ module Ashrae
     def initialize(@ip, @id, @net, @addr)
     end
 
-    getter ip : String
+    getter ip : String?
     getter id : UInt32?
     getter net : UInt16?
     getter addr : String?
 
     def address
-      Socket::IPAddress.new(@ip, 0xBAC0)
+      Socket::IPAddress.new(@ip.as(String), 0xBAC0)
     end
 
     def identifier
