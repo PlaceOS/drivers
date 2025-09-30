@@ -170,8 +170,10 @@ class Ashrae::BACnet < PlaceOS::Driver
       val.property_type
     in ::BACnet::ObjectIdentifier
       {val.object_type, val.instance_number}
-    in Nil, Bool, UInt64, Int64, Float32, Float64, String
+    in Nil, Bool, UInt64, Int64, String
       val
+    in Float32, Float64
+      val.nan? ? nil : val
     end
   rescue
     nil
@@ -555,9 +557,7 @@ class Ashrae::BACnet < PlaceOS::Driver
             in Bool
               obj_value ? 1.0 : 0.0
             in UInt64, Int64, Float32, Float64
-              float = obj_value.to_f64
-              return nil if float.nan?
-              float
+              obj_value.to_f64
             end
     return nil if value.nil?
 
