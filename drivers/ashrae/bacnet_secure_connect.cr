@@ -10,7 +10,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
   generic_name :BACnet
   descriptive_name "BACnet Secure Connect"
-  description "BACnet over secure websockets"
+  description "BACnet over secure websockets."
 
   uri_base "wss://server.domain.or.ip/hub"
 
