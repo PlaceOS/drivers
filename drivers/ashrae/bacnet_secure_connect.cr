@@ -70,7 +70,8 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     # connection response handling
     client.on_control_info do |message|
       # Track the discovery of devices once the connection is established
-      if message.data_link.request_type.connect_accept?
+      case message.data_link.request_type
+      when .connect_accept?
         registry = BACnet::Client::DeviceRegistry.new(client)
         registry.on_new_device { |device| new_device_found(device) }
         @device_registry = registry
@@ -358,6 +359,8 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   end
 
   def received(bytes, task)
+    # will be a no-op, just here in case
+    task.try &.success
     logger.debug { "websocket sent: 0x#{bytes.hexstring}" }
 
     message = IO::Memory.new(bytes).read_bytes(::BACnet::Message::Secure)
@@ -365,6 +368,15 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
     bacnet_client.received message
     @packets_processed += 1_u64
+
+    case message.data_link.request_type
+    when .bvcl_result?
+      dlink = message.data_link
+      if dlink.result.result_code > 0
+        logger.error { "received error response: #{dlink.error_message}" }
+        return 
+      end
+    end
 
     app = message.application
     is_iam = false
@@ -395,8 +407,6 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       device = details[:object_id].instance_number
       @seen_devices[device] = DeviceAddress.new(nil, device, details[:network], details[:address])
     end
-
-    task.try &.success
   end
 
   # ======================
