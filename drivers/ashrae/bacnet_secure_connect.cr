@@ -64,6 +64,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       vmac: @vmac,
     )
     client.on_transmit do |message|
+      logger.debug { "request sent: #{message}" }
       send message
     end
 
