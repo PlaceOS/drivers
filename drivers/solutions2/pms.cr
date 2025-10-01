@@ -39,6 +39,22 @@ class PMS < PlaceOS::Driver
     request("GET", "/api/departments")
   end
 
+  def create_department(name : String, parking_slots : Int32)
+    body = URI::Params.build do |form|
+      form.add("Name", name)
+      form.add("ParkingSlots", parking_slots.to_s)
+    end
+    request("POST", "/api/departments/create", body)
+  end
+
+  def update_department(id : String, name : String, parking_slots : Int32)
+    body = URI::Params.build do |form|
+      form.add("Name", name)
+      form.add("ParkingSlots", parking_slots.to_s)
+    end
+    request("PATCH", "/api/departments/update/#{id}", body)
+  end
+
   def list_vehicles
     request("GET", "/api/vehicles")
   end
@@ -159,6 +175,7 @@ class PMS < PlaceOS::Driver
     headers = get_headers("application/x-www-form-urlencoded")
     logger.debug { {msg: "#{method} #{resource}:", headers: headers.to_json, payload: payload} } if @debug_payload
     response = http(method: method, path: resource, headers: headers, body: payload, params: params)
+    logger.debug { "RESPONSE code: #{response.status_code}, body: #{response.body}" } if  @debug_payload
     raise "failed to #{method} #{resource}, code #{response.status_code}, body: #{response.body}" unless response.success?
 
     JSON.parse(response.body)
