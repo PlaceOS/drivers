@@ -94,7 +94,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
             desk["features"].as_a?.try(&.map(&.as_s).first?),
             level_code,
             building_code,
-            desk["assigned_to"]?.try(&.as_s?.presence),
+            desk["assigned_to"]?.try(&.as_s?.presence.try(&.downcase)),
             building.id,
             level.id
           )
@@ -176,8 +176,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
       break unless csv.next
       row = csv.row
       desk_id = row[0]
-      allocated_email = row[2]
-      bookable = !!allocated_email.presence || row[4].includes?("Hot")
+      allocated_email = row[2].downcase.presence
+      bookable = !!allocated_email || row[4].includes?("Hot")
       csv_allocations[desk_id] = Allocation.new(desk_id, row[1], allocated_email, bookable)
     end
 
