@@ -22,8 +22,8 @@ class Sony::Camera::CGI < PlaceOS::Driver
     presets:         {
       name: {pan: 1, tilt: 1, zoom: 1},
     },
-    enable_debug_logging: false,
-    poll_interval_in_minutes: 5
+    enable_debug_logging:     false,
+    poll_interval_in_minutes: 5,
   })
 
   enum Movement
@@ -83,6 +83,14 @@ class Sony::Camera::CGI < PlaceOS::Driver
     end
   end
 
+  @connected_state : Bool = true
+
+  protected def set_connected_state(state : Bool)
+    current_state = @connected_state
+    @connected_state = state
+    queue.set_connected(state) if state != current_state
+  end
+
   private def authenticate_if_needed(path : String)
     return unless @auth_challenge.empty?
 
@@ -90,12 +98,19 @@ class Sony::Camera::CGI < PlaceOS::Driver
     response = http("GET", path)
     if response.status_code == 401 && (challenge = response.headers["WWW-Authenticate"]?)
       @auth_challenge = challenge
+    elsif response.status_code == 502
+      set_connected_state(false)
+      raise "hardware issue, power cycle required"
     else
-      raise "Failed to get digest auth challenge: #{response.status_code}"
+      raise "request failed with: #{response.status_code}"
     end
   end
 
-  private def get_with_digest_auth(path : String, headers : HTTP::Headers? = nil)
+  private def get_with_digest_auth(path : String, headers : HTTP::Headers? = nil, retry : Int32 = 0)
+    if retry >= 2
+      set_connected_state(false)
+      raise "authentication failure"
+    end
     authenticate_if_needed(path)
 
     uri = URI.parse(config.uri.not_nil! + path)
@@ -108,11 +123,19 @@ class Sony::Camera::CGI < PlaceOS::Driver
     request_headers["Authorization"] = auth_header
 
     response = get(path, headers: request_headers)
-    if response.status_code == 401
+    case response.status_code
+    when 502
+      set_connected_state(false)
+      raise "hardware issue, power cycle required"
+    when 401
       # Auth failed, clear challenge to re-authenticate next time
       @auth_challenge = ""
-      get_with_digest_auth(path)
+      @digest_auth = HTTP::Client::DigestAuth.new
+
+      # ensure we don't loop infinitely here (single retry)
+      get_with_digest_auth(path, retry: retry + 1)
     else
+      set_connected_state(true)
       response
     end
   end
@@ -384,7 +407,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   def save_position(name : String, index : Int32 | String = 0)
     @presets[name] = {
-      pan: @pan, tilt: @tilt, zoom: @zoom_raw, focus: @focus_raw
+      pan: @pan, tilt: @tilt, zoom: @zoom_raw, focus: @focus_raw,
     }
     define_setting(:presets, @presets)
     self[:presets] = @presets.keys
@@ -396,18 +419,18 @@ class Sony::Camera::CGI < PlaceOS::Driver
     self[:presets] = @presets.keys
   end
 
-    #autoframing toggle and status query
+  # autoframing toggle and status query
   def autoframe(state : Bool)
     action("/analytics/ptzautoframing.cgi?PtzAutoFraming=#{state ? "on" : "off"}",
-    name: "auto-framing"
+      name: "auto-framing"
     ) { autoframing? }
   end
 
   def autoframing?
-    autoframe_status: String? = nil
+    autoframe_status : String? = nil
     query("/command/inquiry.cgi?inq=ptzautoframing", priority: 0) do |response|
       autoframe_status = response["PtzAutoFraming"]?
-    end  
+    end
     return nil unless autoframe_status
     self[:autoframe] = autoframe_status == "on" # device returns "on" or "off"
   end
