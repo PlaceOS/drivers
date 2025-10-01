@@ -19,6 +19,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     _https_private_key: "-----BEGIN PRIVATE KEY-----",
     _https_client_cert: "-----BEGIN CERTIFICATE-----",
     verbose_debug:      false,
+    poll_period:        3,
   })
 
   def websocket_headers
@@ -82,10 +83,12 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
         schedule.every(60.seconds) { bacnet_client.heartbeat! }
 
         poll_period = setting?(UInt32, :poll_period) || 3
-        schedule.every(poll_period.minutes) do
-          logger.debug { "--- Polling all known bacnet devices" }
-          keys = @mutex.synchronize { @devices.keys }
-          keys.each { |device_id| poll_device(device_id) }
+        if poll_period > 0
+          schedule.every(poll_period.minutes) do
+            logger.debug { "--- Polling all known bacnet devices" }
+            keys = @mutex.synchronize { @devices.keys }
+            keys.each { |device_id| poll_device(device_id) }
+          end
         end
 
         perform_discovery
