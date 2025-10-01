@@ -103,7 +103,7 @@ dependencies:
   # BACnet protocol support
   bacnet:
     github: spider-gazelle/crystal-bacnet
-    version: ~> 0.10
+    branch: master
 
   # HTTP client
   halite:

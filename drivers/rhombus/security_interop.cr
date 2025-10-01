@@ -5,7 +5,7 @@ require "./security_interop_models"
 class Rhombus::SecurityInterop < PlaceOS::Driver
   descriptive_name "Rhombus Security Interop"
   generic_name :RhombusSecurity
-  description %(provides an interface for rhombus and local security platforms.)
+  description %(provides an interface for rhombus and local security platforms)
 
   default_settings({
     debug_webhook:   false,
@@ -50,6 +50,13 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
       security.door_list.get.each do |doors|
         all_doors.concat doors.as_a
       end
+
+      # only available on gallagher
+      # any errors will ignored and not included in the results
+      security.alarm_zones.get(raise_on_error: false).each do |zones|
+        all_doors.concat zones.as_a
+      end
+
       {HTTP::Status::OK.to_i, {"Content-Type" => "application/json"}, {
         doors: all_doors,
       }.to_json}
@@ -94,5 +101,7 @@ class Rhombus::SecurityInterop < PlaceOS::Driver
     end
 
     self[:event_count] = @event_count
+  rescue error
+    logger.error(exception: error) { "error sending event" }
   end
 end

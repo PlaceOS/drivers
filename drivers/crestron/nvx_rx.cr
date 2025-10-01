@@ -11,7 +11,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   descriptive_name "Crestron NVX Receiver"
   generic_name :Decoder
   description <<-DESC
-    Crestron NVX network media decoder.
+    Crestron NVX network media decoder
   DESC
 
   uri_base "wss://192.168.0.5/websockify"

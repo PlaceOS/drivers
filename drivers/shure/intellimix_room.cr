@@ -21,7 +21,7 @@ class Shure::IntellimixRoom < PlaceOS::Driver
     # Shure uses space + > as the response terminator
     transport.tokenizer = Tokenizer.new(" >")
     logger.debug { "-- Polling device status" }
-    get_device_info
+    schedule.every(50.seconds, immediate: true) { get_device_info }
   end
 
   def disconnected
@@ -30,10 +30,10 @@ class Shure::IntellimixRoom < PlaceOS::Driver
 
   # Device Information
   def get_device_info
-    do_send "GET MODEL", name: :get_device_model
-    do_send "GET FW_VER", name: :get_firmware_version
-    do_send "GET DEVICE_ID", name: :get_device_info
-    do_send "GET ALL", name: :get_all
+    do_send "GET MODEL", name: :get_device_model, priority: 0
+    do_send "GET FW_VER", name: :get_firmware_version, priority: 0
+    do_send "GET DEVICE_ID", name: :get_device_info, priority: 0
+    do_send "GET ALL", name: :get_all, priority: 0
   end
 
   def get_all

@@ -35,7 +35,7 @@ shards:
 
   bacnet:
     git: https://github.com/spider-gazelle/crystal-bacnet.git
-    version: 0.11.0
+    version: 1.0.0+git.commit.e8fbb0672f1d1d9718c013cfa1ed0c0cc4759261
 
   bindata:
     git: https://github.com/spider-gazelle/bindata.git
@@ -239,7 +239,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.11.6
+    version: 7.12.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -247,7 +247,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.75.1
+    version: 9.76.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git

@@ -1,162 +1,130 @@
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
-require "socket"
 require "./bacnet_models"
 
-class Ashrae::BACnet < PlaceOS::Driver
+# docs: https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-135-2016bj.pdf
+# https://www.ashrae.org/file%20library/technical%20resources/standards%20and%20guidelines/standards%20addenda/135_2016_bj_20191118.pdfc
+
+class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   include Interface::Sensor
 
   generic_name :BACnet
-  descriptive_name "BACnet Connector"
-  description %(BACnet IPv4 data available to other drivers in PlaceOS)
+  descriptive_name "BACnet Secure Connect"
+  description "BACnet over secure websockets"
 
-  # Hookup dispatch to the BACnet BBMD device
-  uri_base "ws://dispatch/api/dispatch/v1/udp_dispatch?port=47808&accept=192.168.0.1"
+  uri_base "wss://server.domain.or.ip/hub"
 
   default_settings({
-    dispatcher_key: "secret",
-    bbmd_ip:        "192.168.0.1",
-    known_devices:  [{
-      ip:   "192.168.86.25",
-      id:   389999,
-      net:  0x0F0F,
-      addr: "0A",
-    }],
-    verbose_debug: false,
-    poll_period:   3,
+    _https_verify:      "none",
+    _https_private_key: "-----BEGIN PRIVATE KEY-----",
+    _https_client_cert: "-----BEGIN CERTIFICATE-----",
+    verbose_debug:      false,
   })
 
   def websocket_headers
-    dispatcher_key = setting?(String, :dispatcher_key)
     HTTP::Headers{
-      "Authorization" => "Bearer #{dispatcher_key}",
-      "X-Module-ID"   => module_id,
+      # NOTE:: use dc.bsc.bacnet.org for direct node to node connections
+      "Sec-WebSocket-Protocol" => "hub.bsc.bacnet.org",
+      "Host"                   => URI.parse(config.uri.not_nil!).host.as(String),
     }
   end
 
-  protected getter! udp_server : UDPSocket
-  protected getter! bacnet_client : ::BACnet::Client::IPv4
+  getter! uuid : UUID
+  @vmac : Bytes = BACnet::Client::SecureConnect.generate_vmac
+
+  def on_load
+    # don't wait for responses, the client will do that
+    queue.wait = false
+
+    # generate a UUID and save it for future use if none exists already
+    if uuid = setting?(String, :bacnet_sc_uuid)
+      @uuid = UUID.new(uuid)
+    else
+      @uuid = uuid = UUID.v4
+      define_setting(:bacnet_sc_uuid, uuid.to_s)
+    end
+
+    on_update
+  rescue error
+    self[:load_error] = error.inspect_with_backtrace
+  end
+
+  def on_update
+    @verbose_debug = setting?(Bool, :verbose_debug) || false
+  end
+
+  @verbose_debug : Bool = false
+
+  def connected
+    # Hook up the client to the transport
+    client = ::BACnet::Client::SecureConnect.new(
+      retries: 0,
+      timeout: 2.seconds,
+      uuid: uuid,
+      vmac: @vmac,
+    )
+    client.on_transmit do |message|
+      logger.debug { "request sent: #{message.inspect}" }
+      send message
+    end
+
+    # connection response handling
+    client.on_control_info do |message|
+      # Track the discovery of devices once the connection is established
+      case message.data_link.request_type
+      when .connect_accept?
+        registry = BACnet::Client::DeviceRegistry.new(client, logger)
+        registry.on_new_device { |device| new_device_found(device) }
+        @device_registry = registry
+
+        schedule.clear
+        schedule.in(5.seconds) { query_known_devices }
+        schedule.every(60.seconds) { bacnet_client.heartbeat! }
+
+        poll_period = setting?(UInt32, :poll_period) || 3
+        schedule.every(poll_period.minutes) do
+          logger.debug { "--- Polling all known bacnet devices" }
+          keys = @mutex.synchronize { @devices.keys }
+          keys.each { |device_id| poll_device(device_id) }
+        end
+
+        perform_discovery
+      end
+    end
+
+    @bacnet_client = client
+    client.connect!
+  end
+
+  def disconnected
+    @bacnet_client = nil
+    @device_registry = nil
+    schedule.clear
+  end
+
+  protected getter! bacnet_client : ::BACnet::Client::SecureConnect
   protected getter! device_registry : ::BACnet::Client::DeviceRegistry
 
   alias DeviceInfo = ::BACnet::Client::DeviceRegistry::DeviceInfo
 
   @packets_processed : UInt64 = 0_u64
-  @verbose_debug : Bool = false
-  @bbmd_ip : Socket::IPAddress = Socket::IPAddress.new("127.0.0.1", 0xBAC0)
+  @seen_devices : Hash(UInt32, DeviceAddress) = {} of UInt32 => DeviceAddress
   @devices : Hash(UInt32, DeviceInfo) = {} of UInt32 => DeviceInfo
   @mutex : Mutex = Mutex.new(:reentrant)
-  @bbmd_forwarding : Array(UInt8) = [] of UInt8
-  @seen_devices : Hash(UInt32, DeviceAddress) = {} of UInt32 => DeviceAddress
 
   protected def get_device(device_id : UInt32)
     @mutex.synchronize { @devices[device_id]? }
   end
 
-  def on_load
-    # We only use dispatcher for broadcast messages, a local port for primary comms
-    server = UDPSocket.new
-    server.bind "0.0.0.0", 0xBAC0
-    server.write_timeout = 200.milliseconds
-    @udp_server = server
-
-    queue.timeout = 2.seconds
-
-    # Hook up the client to the transport
-    client = ::BACnet::Client::IPv4.new(0, 2.seconds)
-    client.on_transmit do |message, address|
-      if address.address == Socket::IPAddress::BROADCAST
-        if @bbmd_forwarding.size == 4
-          message.data_link.request_type = ::BACnet::Message::IPv4::Request::ForwardedNPDU
-          message.data_link.address.ip1 = @bbmd_forwarding[0]
-          message.data_link.address.ip2 = @bbmd_forwarding[1]
-          message.data_link.address.ip3 = @bbmd_forwarding[2]
-          message.data_link.address.ip4 = @bbmd_forwarding[3]
-          message.data_link.address.port = 47808_u16
-        end
-
-        logger.debug { "sending broadcase message #{message.inspect}" }
-
-        # send to the known devices (in case BBMD does not forward message)
-        devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
-        devices.each do |dev|
-          begin
-            server.send message, to: dev.address.as(Socket::IPAddress)
-          rescue error
-            logger.warn(exception: error) { "error sending message to #{dev.address}" }
-          end
-        end
-
-        # Send this message to the BBMD
-        message.data_link.request_type = ::BACnet::Message::IPv4::Request::DistributeBroadcastToNetwork
-        payload = DispatchProtocol.new
-        payload.message = DispatchProtocol::MessageType::WRITE
-        payload.ip_address = @bbmd_ip.address
-        payload.id_or_port = @bbmd_ip.port.to_u64
-        payload.data = message.to_slice
-        transport.send payload.to_slice
-      else
-        server.send message, to: address
-      end
-    end
-    @bacnet_client = client
-
-    # Track the discovery of devices
-    registry = ::BACnet::Client::DeviceRegistry.new(client, logger)
-    registry.on_new_device { |device| new_device_found(device) }
-    @device_registry = registry
-
-    spawn { process_data(server, client) }
-    on_update
+  # Performs a WhoIs discovery against the BACnet network
+  def perform_discovery : Nil
+    bacnet_client.who_is
   end
 
-  # This is our input read loop, grabs the incoming data and pumps it to our client
-  protected def process_data(server, client)
-    loop do
-      break if server.closed?
-      bytes, client_addr = server.receive
-
-      begin
-        message = IO::Memory.new(bytes).read_bytes(::BACnet::Message::IPv4)
-        client.received message, client_addr
-        @packets_processed += 1_u64
-      rescue error
-        logger.warn(exception: error) { "error parsing BACnet packet from #{client_addr}: #{bytes.to_slice.hexstring}" }
-      end
-    end
-  end
-
-  def on_unload
-    udp_server.close
-  end
-
-  def on_update
-    bbmd_ip = setting?(String, :bbmd_ip) || ""
-    bbmd_forwarding = setting?(String, :bbmd_forwarding) || ""
-
-    @bbmd_forwarding = bbmd_forwarding.strip.split(".").select(&.presence).map(&.to_u8)
-    @bbmd_ip = Socket::IPAddress.new(bbmd_ip, 0xBAC0) if bbmd_ip.presence
-    @verbose_debug = setting?(Bool, :verbose_debug) || false
-
-    schedule.clear
-    schedule.in(5.seconds) { query_known_devices }
-
-    poll_period = setting?(UInt32, :poll_period) || 3
-    schedule.every(poll_period.minutes) do
-      logger.debug { "--- Polling all known bacnet devices" }
-      keys = @mutex.synchronize { @devices.keys }
-      keys.each { |device_id| poll_device(device_id) }
-    end
-
-    perform_discovery if bbmd_ip.presence
-  end
-
-  def packets_processed
-    @packets_processed
-  end
-
-  def connected
-    bbmd_ip = setting?(String, :bbmd_ip)
-    perform_discovery if bbmd_ip.presence
+  # directly sends the message to the remote
+  @[Security(Level::Support)]
+  def send_raw_message(hex : String)
+    send hex.hexbytes, wait: false
   end
 
   protected def object_value(obj)
@@ -185,10 +153,10 @@ class Ashrae::BACnet < PlaceOS::Driver
       model_name:  device.model_name,
       vendor_name: device.vendor_name,
 
-      ip_address: device.ip_address.to_s,
-      network:    device.network,
-      address:    device.address,
-      id:         device.object_ptr.instance_number,
+      vmac:    device.link_address_friendly,
+      network: device.network,
+      address: device.address,
+      id:      device.object_ptr.instance_number,
 
       objects: device.objects.map { |obj|
         {
@@ -254,11 +222,6 @@ class Ashrae::BACnet < PlaceOS::Driver
   protected def spawn_action(task, &block : -> Nil)
     spawn { task.success block.call }
     Fiber.yield
-  end
-
-  # Performs a WhoIs discovery against the BACnet network
-  def perform_discovery : Nil
-    bacnet_client.who_is
   end
 
   alias ObjectType = ::BACnet::ObjectIdentifier::ObjectType
@@ -405,65 +368,57 @@ class Ashrae::BACnet < PlaceOS::Driver
     "#{device_id}.#{obj.object_type}[#{obj.instance_id}]"
   end
 
-  def received(data, task)
-    # we should only be receiving broadcasted messages here
-    protocol = IO::Memory.new(data).read_bytes(DispatchProtocol)
+  def received(bytes, task)
+    # will be a no-op, just here in case
+    task.try &.success
+    logger.debug { "websocket sent: 0x#{bytes.hexstring}" }
 
-    logger.debug { "received message: #{protocol.message} #{protocol.ip_address}:#{protocol.id_or_port} (size #{protocol.data_size})" }
+    message = IO::Memory.new(bytes).read_bytes(::BACnet::Message::Secure)
+    logger.debug { "message: #{message.inspect}" }
 
-    if protocol.message.received?
-      message = IO::Memory.new(protocol.data).read_bytes(::BACnet::Message::IPv4)
-      logger.debug { "dispatch sent:\n#{message.inspect}" } if @verbose_debug
-      bacnet_client.received message, @bbmd_ip
+    bacnet_client.received message
+    @packets_processed += 1_u64
 
-      app = message.application
-
-      is_iam = false
-      is_cov = case app
-               when ::BACnet::ConfirmedRequest
-                 app.service.cov_notification?
-               when ::BACnet::UnconfirmedRequest
-                 is_iam = app.service.i_am?
-                 app.service.cov_notification?
-               else
-                 false
-               end
-      network = message.network
-
-      if network && is_cov
-        ip = if message.data_link.request_type.forwarded_npdu?
-               ip_add = message.data_link.address
-               "#{ip_add.ip1}.#{ip_add.ip2}.#{ip_add.ip3}.#{ip_add.ip4}"
-             else
-               protocol.ip_address
-             end
-        if network.source_specifier
-          addr = network.source_address
-          net = network.source.network
-        end
-        device = message.objects.find { |obj| obj.tag == 1 }.not_nil!.to_object_id.instance_number
-        # prop = message.objects.find { |obj| obj.tag == 2 }
-        @seen_devices[device] = DeviceAddress.new(ip, device, net, addr)
-      end
-
-      if network && is_iam
-        ip = if message.data_link.request_type.forwarded_npdu?
-               ip_add = message.data_link.address
-               "#{ip_add.ip1}.#{ip_add.ip2}.#{ip_add.ip3}.#{ip_add.ip4}"
-             else
-               protocol.ip_address
-             end
-        details = ::BACnet::Client::Message::IAm.parse(message)
-        device = details[:object_id].instance_number
-        @seen_devices[device] = DeviceAddress.new(ip, device, details[:network], details[:address])
+    case message.data_link.request_type
+    when .bvcl_result?
+      dlink = message.data_link
+      if dlink.result.result_code > 0
+        logger.error { "received error response: #{dlink.error_message}" }
+        return
       end
     end
 
-    task.try &.success
-  end
+    app = message.application
+    is_iam = false
+    is_cov = case app
+             when ::BACnet::ConfirmedRequest
+               app.service.cov_notification?
+             when ::BACnet::UnconfirmedRequest
+               is_iam = app.service.i_am?
+               app.service.cov_notification?
+             else
+               false
+             end
 
-  def seen_devices
-    @seen_devices
+    network = message.network
+
+    if network && is_cov
+      vmac = message.data_link.source_address.as(String)
+      if network.source_specifier
+        addr = network.source_address
+        net = network.source.network
+      end
+      device = message.objects.find { |obj| obj.tag == 1 }.not_nil!.to_object_id.instance_number
+      # prop = message.objects.find { |obj| obj.tag == 2 }
+      @seen_devices[device] = DeviceAddress.new(vmac, device, net, addr)
+    end
+
+    if network && is_iam
+      vmac = message.data_link.source_address.as(String)
+      details = ::BACnet::Client::Message::IAm.parse(message)
+      device = details[:object_id].instance_number
+      @seen_devices[device] = DeviceAddress.new(vmac, device, details[:network], details[:address])
+    end
   end
 
   # ======================
