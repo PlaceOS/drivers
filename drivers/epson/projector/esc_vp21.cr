@@ -28,17 +28,27 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   @unmute_volume : Float64 = 60.0
 
   def on_load
-    transport.tokenizer = Tokenizer.new("\r")
     self[:type] = :projector
   end
 
   def connected
+    @ready = false
+    self[:ready] = false
+
+    schedule.in(20.seconds) do
+      if !@ready
+        logger.error { "Epson failed to be ready after 20 seconds. Reconnecting..." }
+        disconnect
+      end
+    end
+
     # Have to init comms
-    send("ESC/VP.net\x10\x03\x00\x00\x00\x00")
+    send("ESC/VP.net\x10\x03\x00\x00\x00\x00", priority: 99)
     schedule.every(52.seconds, true) { do_poll }
   end
 
   def disconnected
+    transport.tokenizer = nil
     schedule.clear
   end
 
@@ -46,11 +56,11 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     if state
       @power_target = true
       logger.debug { "-- epson Proj, requested to power on" }
-      do_send(:power, "ON", delay: 40.seconds, name: "power", priority: 99)
+      do_send(:power, "ON", timeout: 110.seconds, delay: 5.seconds, name: "power", priority: 99)
     else
       @power_target = false
       logger.debug { "-- epson Proj, requested to power off" }
-      do_send(:power, "OFF", delay: 10.seconds, name: "power", priority: 99)
+      do_send(:power, "OFF", timeout: 140.seconds, delay: 5.seconds, name: "power", priority: 99)
     end
     @power_stable = false
     self[:power] = state
@@ -64,8 +74,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def switch_to(input : Input)
     logger.debug { "-- epson Proj, requested to switch to: #{input}" }
-    do_send(:input, input.value.to_s(16), name: :input)
     mute(false, layer: MuteLayer::Video)
+    do_send(:input, input.value.to_s(16), name: :input, timeout: 6.seconds, delay: 1.second)
 
     # for a responsive UI
     self[:input] = input # for a responsive UI
@@ -74,7 +84,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def input?
-    do_send(:input, priority: 0, wait: false)
+    do_send(:input, priority: 0)
     self[:input]?.try(&.as_s?)
   end
 
@@ -84,7 +94,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     percentage = vol / 100.0
     vol_actual = (percentage * 255.0).round_away.to_i
 
-    @unmute_volume = self[:volume].as_f if (muted = vol == 0.0) && self[:volume]?
+    @unmute_volume = self[:volume].as_f if (muted = vol.zero?) && self[:volume]?
     do_send(:volume, vol_actual, **options, name: :volume)
 
     # for a responsive UI
@@ -94,7 +104,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def volume?
-    do_send(:volume, priority: 0, wait: false)
+    do_send(:volume, priority: 0)
     self[:volume]?.try(&.as_f)
   end
 
@@ -104,13 +114,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     layer : MuteLayer = MuteLayer::AudioVideo,
   )
     case layer
-    when .audio_video?
-      do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute, wait: false)
-      do_send(:av_mute, state ? "ON" : "OFF", name: :mute, wait: false)
-      # do_send(:av_mute, name: :mute?, priority: 0, retries: 0)
-    when .video?
-      do_send(:video_mute, state ? "ON" : "OFF", name: :video_mute, wait: false)
-      # video_mute?
+    when .video?, .audio_video?
+      do_send(:av_mute, state ? "ON" : "OFF", name: :mute)
+      video_mute?
     when .audio?
       val = state ? 0.0 : @unmute_volume
       volume(val)
@@ -118,7 +124,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   def video_mute?
-    do_send(:video_mute, priority: 0, wait: false)
+    do_send(:av_mute, priority: 0)
     !!self[:video_mute]?.try(&.as_bool)
   end
 
@@ -144,6 +150,8 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
     "14: exhaust shutter error",
     "15: obstacle detection error",
     "16: IF board discernment error",
+    "17: Communication error of 'Stack projection function'",
+    "18: I2C error",
   ]
 
   def inspect_error
@@ -162,10 +170,24 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   RESPONSE = COMMAND.to_h.invert
 
   def received(data, task)
+    data = String.new(data)
+    logger.debug { "<< Received from Epson Proj: #{data.inspect}" }
+
+    # cleanup the data
+    data = data.strip.strip(':').strip
+
+    # projector returns ":" on success
     return task.try(&.success) if data.size <= 2
-    # Because we see sometimes see responses like ':::PWR'
-    data = String.new(data[1..-2]).lstrip(':')
-    logger.debug { "<< Received from Epson Proj: #{data}" }
+
+    if !@ready
+      if data.includes?("ESC/VP.net")
+        logger.debug { "-- Epson projector ready to accept commands" }
+        transport.tokenizer = Tokenizer.new(":")
+        @ready = true
+        self[:ready] = true
+      end
+      return task.try(&.success)
+    end
 
     # Handle IMEVENT messages
     if data.starts_with?("IMEVENT=")
@@ -207,9 +229,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
         self[:video_mute] = false unless powered
       end
     when :av_mute
-      self[:video_mute] = self[:audio_mute] = data[1] == "ON"
-      self[:volume] = 0.0
+      self[:video_mute] = data[1] == "ON"
     when :video_mute
+      # we don't use this command
       self[:video_mute] = data[1] == "ON"
     when :volume
       # convert to a percentage
@@ -235,7 +257,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       volume?
       video_mute?
     end
-    do_send(:lamp, priority: 20, wait: false)
+    do_send(:lamp, priority: 20)
   end
 
   private def parse_imevent(data : String)
@@ -314,7 +336,7 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   private def do_send(command, param = nil, **options)
     command = COMMAND[command]
     cmd = param ? "#{command} #{param}\r" : "#{command}?\r"
-    logger.debug { ">> Sending to Epson Proj: #{command}: #{cmd}" }
+    logger.debug { ">> Sending to Epson Proj - #{command}: #{cmd}" }
     send(cmd, **options)
   end
 end
