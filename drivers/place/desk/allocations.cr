@@ -218,6 +218,15 @@ class Place::Desk::Allocations < PlaceOS::Driver
     end
     logger.debug { "found #{removed_allocations} allocations to be removed" }
 
+    logger.debug do
+      String.build do |str|
+        str << "allocation changes:\n"
+        level_allocations.each do |level, allocations|
+          str << " - lvl #{level}: #{allocations.inspect}\n"
+        end
+      end
+    end
+
     # update the allocation metadata
     return if test
     level_allocations.each do |level_id, allocations|
