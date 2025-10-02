@@ -116,7 +116,7 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     if layer == MuteLayer::Video
       logger.warn { "requested to mute video which is unsupported" }
