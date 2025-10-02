@@ -38,9 +38,9 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   descriptive_name "Panasonic Projector"
   generic_name :Display
   default_settings({
-    username: "admin1", 
-    password: "panasonic", 
-    query_lamp_hours: false
+    username:         "admin1",
+    password:         "panasonic",
+    query_lamp_hours: false,
   })
   makebreak!
 
@@ -140,7 +140,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     logger.debug { "requested mute state: #{state}" }
 
