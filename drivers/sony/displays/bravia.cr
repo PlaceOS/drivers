@@ -12,7 +12,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   private INDICATOR = "\x2A\x53" # *S
   private HASH      = "################"
 
-  # Discovery Information
+  # Discovery Information.
   tcp_port 20060
   descriptive_name "Sony Bravia LCD Display"
   generic_name :Display
