@@ -33,7 +33,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
 
   include PlaceOS::Driver::Interface::InputSelection(Inputs)
 
-  # Discovery Information
+  # Discovery Information.
   tcp_port 1024
   descriptive_name "Panasonic Projector"
   generic_name :Display

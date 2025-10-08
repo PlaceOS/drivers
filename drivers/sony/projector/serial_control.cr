@@ -85,7 +85,7 @@ class Sony::Projector::SerialControl < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     do_send(Type::Set, Command::Mute, Bytes[0, state ? 1 : 0]) # , delay_on_receive: 500)
     mute?

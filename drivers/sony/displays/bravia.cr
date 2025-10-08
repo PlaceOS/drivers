@@ -76,7 +76,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     request(Command::Mute, state)
     mute?
