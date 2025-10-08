@@ -83,14 +83,6 @@ class Sony::Camera::CGI < PlaceOS::Driver
     end
   end
 
-  @connected_state : Bool = true
-
-  protected def set_connected_state(state : Bool)
-    current_state = @connected_state
-    @connected_state = state
-    queue.set_connected(state) if state != current_state
-  end
-
   private def authenticate_if_needed(path : String)
     return unless @auth_challenge.empty?
 
@@ -99,7 +91,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     if response.status_code == 401 && (challenge = response.headers["WWW-Authenticate"]?)
       @auth_challenge = challenge
     elsif response.status_code == 502
-      set_connected_state(false)
+      queue.set_connected(false)
       raise "hardware issue, power cycle required"
     else
       raise "request failed with: #{response.status_code}"
@@ -108,7 +100,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
 
   private def get_with_digest_auth(path : String, headers : HTTP::Headers? = nil, retry : Int32 = 0)
     if retry >= 2
-      set_connected_state(false)
+      queue.set_connected(false)
       raise "authentication failure"
     end
     authenticate_if_needed(path)
@@ -125,7 +117,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
     response = get(path, headers: request_headers)
     case response.status_code
     when 502
-      set_connected_state(false)
+      queue.set_connected(false)
       raise "hardware issue, power cycle required"
     when 401
       # Auth failed, clear challenge to re-authenticate next time
@@ -135,7 +127,7 @@ class Sony::Camera::CGI < PlaceOS::Driver
       # ensure we don't loop infinitely here (single retry)
       get_with_digest_auth(path, retry: retry + 1)
     else
-      set_connected_state(true)
+      queue.set_connected(true)
       response
     end
   end
