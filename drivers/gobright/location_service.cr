@@ -157,21 +157,21 @@ class GoBright::LocationService < PlaceOS::Driver
       spaces[space.id] = space.dup
     end
 
-    # retrieve desk details and perform gobright_desk_name to groups mapping
+    # retrieve desk details and perform gobright_desk_name to departments (groups) mapping
     desks_meta = staff_api.metadata(zone_id, "desks").get.as_h["desks"].as_h
     desk_groups_mapping = desks_meta["details"].as_a.map do |desk|
       desk_h = desk.as_h
       gobright_desk_name = desk_h["gobright_desk_name"].as_s
-      groups = begin
-        if (arr = desk_h["groups"].as_a?)
+      departments = begin
+        if (arr = desk_h["departments"].as_a?)
           arr.empty? ? ["none"] : arr.map(&.as_s)
-        elsif desk_h.has_key?("groups") && desk_h["groups"].raw.is_a?(String)
-          [desk_h.["groups"].as_s]
+        elsif desk_h.has_key?("departments") && desk_h["departments"].raw.is_a?(String)
+          [desk_h["departments"].as_s]
         else
           ["none"]
         end
       end
-      {gobright_desk_name, groups}
+      {gobright_desk_name, departments}
     end.to_h
 
     # mark if the space is occupied
