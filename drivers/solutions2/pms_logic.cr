@@ -6,17 +6,15 @@ class PMSLogic < PlaceOS::Driver
   description "Abstracts Parking slots access for PMS"
 
   default_settings({
-    poll_parking_cron: "*/5 * * * *",
+    poll_every_seconds: 300,
   })
 
   accessor pms : PMS_1
-
-  @cron_string : String = "*/5 * * * *"
-
+  
   def on_update
-    @cron_string = setting(String, :poll_parking_cron)
+    poll_every_seconds : Int32 = setting?(Int32, :poll_every_seconds) || 300
     schedule.clear
-    schedule.cron(@cron_string) { get_parking_status }
+    schedule.every(poll_every_seconds.seconds) { get_parking_status }
   end
 
   def get_parking_status
