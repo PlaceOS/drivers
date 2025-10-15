@@ -7,7 +7,7 @@ require "placeos-driver/interface/switchable"
 # Documentation: https://aca.im/driver_docs/Panasonic/panasonic_pt-vw535n_manual.pdf
 #  also https://aca.im/driver_docs/Panasonic/pt-ez580_en.pdf
 
-# How the projector expects you interact with it.
+# How the projector expects you interact with it
 # ===============================================
 # 1. New connection required for each command sent (hence makebreak!)
 # 2. On connect, the projector sends you a string of characters to use as a password salt
