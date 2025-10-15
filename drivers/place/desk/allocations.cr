@@ -403,18 +403,18 @@ class Place::Desk::Allocations < PlaceOS::Driver
     end
 
     # log the results
-    logger.debug do
-      String.build do |io|
-        io << "found #{removed_dangling} dangling bookings\n" unless removed_dangling.zero?
-        io << "checked #{assignments.size} assignments against #{bookings.size} bookings\n"
-        io << "failed to remove #{failed} bookings\n" unless failed.zero?
-        io << "removed #{deleted.size} incorrect assignments\n"
-        deleted.each do |booking_id, email|
-          io << "  - #{email}: #{booking_id}\n"
-        end
-        io << "found #{missing.size} missing assignments"
+    removed_log = String.build do |io|
+      io << "found #{removed_dangling} dangling bookings\n" unless removed_dangling.zero?
+      io << "checked #{assignments.size} assignments against #{bookings.size} bookings\n"
+      io << "failed to remove #{failed} bookings\n" unless failed.zero?
+      io << "removed #{deleted.size} incorrect assignments\n"
+      deleted.each do |booking_id, email|
+        io << "  - #{email}: #{booking_id}\n"
       end
+      io << "found #{missing.size} missing assignments"
     end
+    self["#{building_zone}-removed"] = removed_log
+    logger.debug { removed_log }
 
     logger.debug { "creating missing bookings..." } unless missing.size.zero?
 
@@ -453,14 +453,13 @@ class Place::Desk::Allocations < PlaceOS::Driver
       fixed += 1
     end
 
-    logger.debug do
-      String.build do |io|
-        io << "added #{fixed} missing bookings\n" unless missing.size.zero?
-        if !no_applied.size.zero?
-          io << "failed to apply #{no_applied.size} bookings\n"
-        end
-        io << "done!"
+    overview = String.build do |io|
+      io << "added #{fixed} missing bookings\n" unless missing.size.zero?
+      if !no_applied.size.zero?
+        io << "failed to apply #{no_applied.size} bookings\n"
       end
     end
+    self["#{building_zone}-added"] = overview
+    logger.debug { overview }
   end
 end
