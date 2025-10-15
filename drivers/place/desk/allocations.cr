@@ -252,7 +252,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       if email = allocation.email.presence
         # look up users name
         user_name = begin
-          staff_api.calendar(email).get["name"].as_s
+          calendar.get_user(email).get["name"].as_s
         rescue error
           logger.error(exception: error) { "failed to find allocation name for #{allocation.email}" }
           email.split("@")[0].split(' ').map(&.capitalize).join(' ')
