@@ -28,6 +28,7 @@ class Place::AreaManagement < PlaceOS::Driver
     location_service: "LocationServices",
     include_sensors:  true,
 
+    # Used for testing purposes only. Do not enable
     _areas: {
       "zone-1234" => [
         {
