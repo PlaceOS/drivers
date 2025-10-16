@@ -111,8 +111,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
     begin
       users_groups = calendar_api.get_groups(email).get
     rescue error
-      u = calendar_api.get_user(email).get
-      if user
+      if u = calendar_api.get_user(email).get
         users_groups = calendar_api.get_groups(u["id"]).get
       else
         u = calendar_api.list_users(email, 1).get.as_a.first
