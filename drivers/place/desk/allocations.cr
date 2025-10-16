@@ -177,7 +177,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       row = csv.row
       desk_id = row[0]
       allocated_email = row[2].downcase.presence
-      bookable = !!allocated_email || row[4].includes?("Hot")
+      bookable = !!allocated_email || row[3].includes?("Hot")
       csv_allocations[desk_id] = Allocation.new(desk_id, row[1], allocated_email, bookable)
     end
 
