@@ -44,7 +44,7 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
   2. Set Auto Standby = OFF
   3. Set Eco Solution, Auto Off = OFF
 
-  Hard Power off displays each night and hard power ON in the morning.
+  Hard Power off displays each night and hard power ON in the morning
   DESC
 
   default_settings({
