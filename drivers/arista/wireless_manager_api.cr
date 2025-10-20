@@ -132,15 +132,21 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
 
       # Request the locations
       response = check post(next_page.request_target)
-      loc_req = LocationsRequest.from_json(response.body)
 
-      # get the location data
-      data_url = URI.parse(loc_req.result_url).request_target
-      response = check get(data_url)
+      begin
+        loc_req = LocationsRequest.from_json(response.body)
 
-      # process extract the device locations
-      loc_response = LocationTracking.from_json(response.body)
-      locations.concat loc_response.results.flat_map(&.clients)
+        # get the location data
+        data_url = URI.parse(loc_req.result_url).request_target
+        response = check get(data_url)
+
+        # process extract the device locations
+        loc_response = LocationTracking.from_json(response.body)
+        locations.concat loc_response.results.flat_map(&.clients)
+      rescue error : JSON::ParseException
+        logger.error(exception: error) { "error parsing location results:\n#{response.body.inspect}" }
+        raise error
+      end
 
       # get the next page
       next_page = loc_req.next_uri
