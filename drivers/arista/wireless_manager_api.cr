@@ -1,5 +1,7 @@
 require "placeos-driver"
 require "./wireless_manager_models"
+require "http"
+require "json"
 
 # Documentation: https://apihelp.wifi.arista.com/usecases#toc1
 # https://apihelp.wifi.arista.com/api/wm/clients/15
@@ -104,6 +106,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     raise "locations failed with: #{response.status} (#{response.status_code})\n#{response.body}"
   end
 
+  # The build structure.
   def locations
     new_session unless authenticated?
 

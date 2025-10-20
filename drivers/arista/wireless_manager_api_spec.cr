@@ -151,8 +151,7 @@ DriverSpecs.mock_driver "Arista::WirelessManagerAPI" do
                   "locationTag": null,
                   "venueId": null,
                   "sandboxLocation": false,
-                  "geoInfo": null,
-                  "children": []
+                  "geoInfo": null
                 }
               ]
             }

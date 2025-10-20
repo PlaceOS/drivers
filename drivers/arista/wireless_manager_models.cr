@@ -44,7 +44,7 @@ module Arista
     @[JSON::Field(key: "geoInfo")]
     getter geo_info_raw : String?
 
-    getter children : Array(Location)
+    getter children : Array(Location) { [] of Location }
 
     def geo_info : Coordinates?
       json = geo_info_raw
