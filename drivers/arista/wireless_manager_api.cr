@@ -51,7 +51,8 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
       timeout:  3600,
     }.to_json)
     raise "session failed with: #{response.status} (#{response.status_code})\n#{response.body}" unless response.success?
-    cookies = HTTP::Cookies.fill_from_server_headers(response.headers)
+    cookies = HTTP::Cookies.new
+    cookies.fill_from_server_headers(response.headers)
     headers = cookies.add_request_headers(HTTP::Headers.new)
 
     response = HTTP::Client.get("https://launchpad.wifi.arista.com/rest/api/v2/services?type=amc", headers: headers)
