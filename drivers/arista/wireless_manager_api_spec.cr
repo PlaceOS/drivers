@@ -1,14 +1,81 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Arista::WirelessManagerAPI" do
-  # new session request runs on load
+  # new session request runs lazily as required
   expect_http_request do |request, response|
+    puts "\n---> #{request.method} #{request.path}\n\n"
     response.status_code = 200
+    {
+      "Alt-Svc"                 => "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "Connection"              => "close",
+      "Transfer-Encoding"       => "chunked",
+      "cache-control"           => "no-store, no-cache, must-revalidate,no-store",
+      "content-security-policy" => "frame-ancestors 'self'",
+      "content-type"            => "application/json;charset=utf-8",
+      "date"                    => "Mon, 20 Oct 2025 06:04:20 GMT",
+      "expect-ct"               => "max-age=86400",
+      "expires"                 => "Thu, 19 Nov 1981 08:52:00 GMT",
+      "permissions-policy"      => "accelerometer=(), ambient-light-sensor=(),autoplay=(),battery=(), camera=(), cross-origin-isolated=(), display-capture=(), document-domain=(), encrypted-media=(),execution-while-not-rendered=(), execution-while-out-of-viewport=(),fullscreen=(), geolocation=(), gyroscope=(),keyboard-map=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(),publickey-credentials-get=(), screen-wake-lock=(),usb=(), web-share=(), xr-spatial-tracking=()",
+      "pragma"                  => "no-cache",
+      "referrer-policy"         => "origin-when-cross-origin",
+      "server"                  => "Apache",
+      "set-cookie"              => ["ATN_CLOUD_DASHBOARD=mtss3pafo2lutgrqe395rei; path=/; secure; HttpOnly",
+                       "GCLB=\"d30359c6448d3\"; Max-Age=86400; Path=/; HttpOnly"],
+      "strict-transport-security" => "max-age=63072000; includeSubdomains; preload",
+      "vary"                      => "Accept-Encoding,User-Agent",
+      "via"                       => "1.1 google",
+      "x-content-type-options"    => "nosniff",
+      "x-frame-options"           => "SAMEORIGIN",
+    }.each do |key, value|
+      response.headers[key] = value
+    end
+    response << %({
+      "sessionId": "5637cd7f-6eec-4fa9-9045-275ee5d5a3ce",
+      "timeout": 300,
+      "clientIdentifier": "PlaceOS",
+      "fetchClusterChildrenData": false,
+      "userId": -5,
+      "langId": 0,
+      "customerId": -1,
+      "defaultPassword": false,
+      "loginId": "KEY-ATN587-1493",
+      "firstName": null,
+      "lastName": null,
+      "email": null,
+      "role": "VIEWER",
+      "timeZone": "Australia/Sydney",
+      "timezonOffSetInMins": 0,
+      "passwdSettings": null,
+      "allowedLocations": [
+        {
+          "type": "locallocationid",
+          "id": 0
+        }
+      ],
+      "userType": "API",
+      "allowAccessMgmt": true,
+      "allowSecurityMgmt": true,
+      "userLanguage": {
+        "langId": 0,
+        "langCode": "en",
+        "name": "English",
+        "systemLanguage": true,
+        "supported": true,
+        "defaultLanguage": true,
+        "countryCode": "US"
+      },
+      "userDefinedFields": null,
+      "wipsAndWiFiCustomer": true
+    })
   end
 
+  promise = exec :locations
+
+  status[:authenticated]?.should be_true
+
   # fetch locations
-  exec :locations
   expect_http_request do |request, response|
+    puts "\n---> #{request.method} #{request.path}\n\n"
     response.status_code = 200
     response << %({
       "type": "folderlocation",
@@ -95,10 +162,13 @@ DriverSpecs.mock_driver "Arista::WirelessManagerAPI" do
     })
   end
 
+  promise.get
+
   # fetch locations
   result = exec :client_positions
 
   expect_http_request do |request, response|
+    puts "\n---> #{request.method} #{request.path}\n\n"
     response.status_code = 200
     response << %({
       "status": "RUNNING",
@@ -106,14 +176,15 @@ DriverSpecs.mock_driver "Arista::WirelessManagerAPI" do
       "locationTrackingResult": null,
       "previousLink": null,
       "nextLink": null,
-      "pollingUrl": "https://awm18001-c4.srv.wifi.arista.com/new/wifi/api/clients/locationtracking/requests/8030aa74-4ac8-4843-ad79-be51adc59be5",
-      "stopLocationTrackingUrl": "https://awm18001-c4.srv.wifi.arista.com/new/wifi/api/clients/locationtracking/requests/8030aa74-4ac8-4843-ad79-be51adc59be5",
+      "pollingUrl": "https://wifi.arista.com/new/wifi/api/clients/locationtracking/requests/8030aa74-4ac8-4843-ad79-be51adc59be5",
+      "stopLocationTrackingUrl": "https://wifi.arista.com/new/wifi/api/clients/locationtracking/requests/8030aa74-4ac8-4843-ad79-be51adc59be5",
       "deviceCount": 2,
       "totalDeviceCount": 2
     })
   end
 
   expect_http_request do |request, response|
+    puts "\n---> #{request.method} #{request.path}\n\n"
     response.status_code = 200
     response << LOC_PAYLOAD_EXAMPLE
   end
@@ -231,7 +302,7 @@ LOC_PAYLOAD_EXAMPLE = %({
             "deviceCapability": null,
             "manuallyTagged": false,
             "group": "AUTHORIZED",
-            "userName": "jcampion@waikato.ac.nz",
+            "userName": "pion@org.nz",
             "vendorName": "Unknown",
             "vlanId": -1,
             "cellId": "",
