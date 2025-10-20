@@ -118,7 +118,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     new_session unless authenticated?
 
     query = URI::Params.build do |form|
-      form.add("pagesize", "1000")
+      form.add("pagesize", "200")
       form.add("filter", %({"property":"activestatus","operator":"=","value":[true]}))
       form.add("locationid", at_location.to_s) if at_location
     end
@@ -138,15 +138,24 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
 
         # get the location data
         data_url = URI.parse(loc_req.result_url).request_target
-        poll_response = check get(data_url)
+        loop do
+          poll_response = check get(data_url)
 
-        begin
-          # process extract the device locations
-          loc_response = LocationTracking.from_json(poll_response.body)
-          locations.concat loc_response.results.flat_map(&.clients)
-        rescue error : JSON::ParseException
-          logger.error(exception: error) { "error parsing tracking results:\n#{poll_response.body.inspect}" }
-          raise "error parsing tracking results"
+          # the locations request is still being processed
+          if poll_response.body.starts_with?(%({"status":"RUNNING"))
+            sleep 10.milliseconds
+            next
+          end
+
+          begin
+            # process extract the device locations
+            loc_response = LocationTracking.from_json(poll_response.body)
+            locations.concat loc_response.results.flat_map(&.clients)
+          rescue error : JSON::ParseException
+            logger.error(exception: error) { "error parsing tracking results:\n#{poll_response.body.inspect}" }
+            raise "error parsing tracking results"
+          end
+          break
         end
       rescue error : JSON::ParseException
         logger.error(exception: error) { "error parsing location request:\n#{response.body.inspect}" }
