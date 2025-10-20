@@ -126,7 +126,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     locations = [] of ClientDetails
 
     # requires two requests per-page
-    next_page = URI.parse("/new/wifi/api/locations?#{query}")
+    next_page = URI.parse("/wifi/api/clients/locationtracking?#{query}")
     loop do
       break unless next_page
 
