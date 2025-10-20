@@ -60,6 +60,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     logger.debug { "session established: #{response.inspect}" }
 
     response_headers = response.headers
+    logger.debug { "response headers: #{response_headers.inspect}" }
     cookies = ::HTTP::Cookies.new
     cookies.fill_from_server_headers(response_headers)
 
