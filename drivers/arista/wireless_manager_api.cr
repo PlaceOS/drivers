@@ -24,6 +24,8 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     transport.before_request do |request|
       request.headers["Content-Type"] = "application/json"
       request.headers["Accept"] = "application/json"
+
+      logger.debug { "performing request: #{request.inspect}" }
     end
     on_update
   end
@@ -51,6 +53,9 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
       timeout:  3600,
     }.to_json)
     raise "session failed with: #{response.status} (#{response.status_code})\n#{response.body}" unless response.success?
+
+    logger.debug { "session established: #{response.inspect}" }
+
     cookies = HTTP::Cookies.new
     cookies.fill_from_server_headers(response.headers)
     headers = cookies.add_request_headers(HTTP::Headers.new)
