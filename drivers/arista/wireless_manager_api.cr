@@ -24,9 +24,8 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     transport.before_request do |request|
       request.headers["Content-Type"] = "application/json"
       request.headers["Accept"] = "application/json"
-
-      logger.debug { "performing request: #{request.inspect}" }
     end
+
     on_update
   end
 
@@ -35,8 +34,12 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     @key_value = setting(String, :key_value)
     @key_id = setting(String, :key_id)
 
+    # Sessions should last 1 hours
     schedule.clear
-    schedule.every(50.minutes, immediate: true) { new_session }
+    schedule.every(50.minutes, immediate: true) do
+      @authenticated = false
+      new_session
+    end
   end
 
   getter? authenticated : Bool = false
@@ -46,7 +49,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
 
   # make this request to obtain the base URI for the module
   def launchpad_service_locations
-    response = HTTP::Client.post("https://launchpad.wifi.arista.com/api/v2/session", body: {
+    response = ::HTTP::Client.post("https://launchpad.wifi.arista.com/api/v2/session", body: {
       type:     key_type,
       keyId:    key_id,
       keyValue: @key_value,
@@ -56,31 +59,42 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
 
     logger.debug { "session established: #{response.inspect}" }
 
-    cookies = HTTP::Cookies.new
-    cookies.fill_from_server_headers(response.headers)
-    headers = cookies.add_request_headers(HTTP::Headers.new)
+    response_headers = response.headers
+    cookies = ::HTTP::Cookies.new
+    cookies.fill_from_server_headers(response_headers)
 
-    response = HTTP::Client.get("https://launchpad.wifi.arista.com/rest/api/v2/services?type=amc", headers: headers)
-    raise "services failed with: #{response.status} (#{response.status_code})\n#{response.body}" unless response.success?
-    JSON.parse(response.body)
+    headers = cookies.add_request_headers(HTTP::Headers.new)
+    response2 = ::HTTP::Client.get("https://launchpad.wifi.arista.com/rest/api/v2/services?type=amc", headers: headers)
+    raise "services failed with: #{response2.status} (#{response2.status_code})\n#{response2.body}" unless response2.success?
+    JSON.parse(response2.body)
   end
 
-  def new_session
-    response = post("/wifi/api/session", body: {
-      type:             key_type,
-      keyId:            key_id,
-      keyValue:         @key_value,
-      clientIdentifier: "PlaceOS",
-      timeout:          3600,
-    }.to_json)
+  @mutex = Mutex.new
 
-    if response.success?
-      self[:authenticated] = @authenticated = true
-    else
-      self[:authenticated] = @authenticated = false
-      queue.set_connected(false)
-      raise "session failed with: #{response.status} (#{response.status_code})\n#{response.body}"
+  def new_session
+    @mutex.synchronize do
+      return if authenticated?
+
+      response = post("/wifi/api/session", body: {
+        type:             key_type,
+        keyId:            key_id,
+        keyValue:         @key_value,
+        clientIdentifier: "PlaceOS",
+        timeout:          3600,
+      }.to_json)
+
+      if response.success?
+        self[:authenticated] = @authenticated = true
+      else
+        self[:authenticated] = @authenticated = false
+        queue.set_connected(false)
+        raise "session failed with: #{response.status} (#{response.status_code})\n#{response.body}"
+      end
     end
+  rescue error
+    logger.warn(exception: error) { "error creating session" }
+    self[:authenticated] = @authenticated = false
+    queue.set_connected(false)
   end
 
   protected def check(response)
@@ -91,6 +105,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
 
   def locations
     new_session unless authenticated?
+
     response = check get("/new/wifi/api/locations")
     Location.from_json(response.body)
   end
