@@ -74,96 +74,108 @@ DriverSpecs.mock_driver "Arista::WirelessManagerAPI" do
   status[:authenticated]?.should be_true
 
   # fetch locations
+  location_data = %({
+    "type": "folderlocation",
+    "id": {
+      "type": "locallocationid",
+      "id": 0
+    },
+    "name": "Locations",
+    "accessibleToUser": true,
+    "defaultLocation": false,
+    "timezoneId": "Pacific/Auckland",
+    "locationTag": null,
+    "venueId": null,
+    "sandboxLocation": false,
+    "geoInfo": null,
+    "children": [
+      {
+        "type": "folderlocation",
+        "id": {
+          "type": "locallocationid",
+          "id": -1
+        },
+        "name": "Staging Area",
+        "accessibleToUser": true,
+        "defaultLocation": true,
+        "timezoneId": "Pacific/Auckland",
+        "locationTag": null,
+        "venueId": null,
+        "sandboxLocation": false,
+        "geoInfo": null,
+        "children": []
+      },
+      {
+        "type": "folderlocation",
+        "id": {
+          "type": "locallocationid",
+          "id": 2
+        },
+        "name": "New Zealand",
+        "accessibleToUser": true,
+        "defaultLocation": false,
+        "timezoneId": "Pacific/Auckland",
+        "locationTag": null,
+        "venueId": null,
+        "sandboxLocation": false,
+        "geoInfo": null,
+        "children": [
+          {
+            "type": "folderlocation",
+            "id": {
+              "type": "locallocationid",
+              "id": 26
+            },
+            "name": "Bay of Plenty",
+            "accessibleToUser": true,
+            "defaultLocation": false,
+            "timezoneId": "Pacific/Auckland",
+            "locationTag": null,
+            "venueId": null,
+            "sandboxLocation": false,
+            "geoInfo": null,
+            "children": [
+              {
+                "type": "folderlocation",
+                "id": {
+                  "type": "locallocationid",
+                  "id": 27
+                },
+                "name": "Tauranga",
+                "accessibleToUser": true,
+                "defaultLocation": false,
+                "timezoneId": "Pacific/Auckland",
+                "locationTag": null,
+                "venueId": null,
+                "sandboxLocation": false,
+                "geoInfo": null
+              }
+            ]
+          }
+        ]
+      }
+    ]
+})
   expect_http_request do |request, response|
     puts "\n---> #{request.method} #{request.path}\n\n"
     response.status_code = 200
-    response << %({
-      "type": "folderlocation",
-      "id": {
-        "type": "locallocationid",
-        "id": 0
-      },
-      "name": "Locations",
-      "accessibleToUser": true,
-      "defaultLocation": false,
-      "timezoneId": "Pacific/Auckland",
-      "locationTag": null,
-      "venueId": null,
-      "sandboxLocation": false,
-      "geoInfo": null,
-      "children": [
-        {
-          "type": "folderlocation",
-          "id": {
-            "type": "locallocationid",
-            "id": -1
-          },
-          "name": "Staging Area",
-          "accessibleToUser": true,
-          "defaultLocation": true,
-          "timezoneId": "Pacific/Auckland",
-          "locationTag": null,
-          "venueId": null,
-          "sandboxLocation": false,
-          "geoInfo": null,
-          "children": []
-        },
-        {
-          "type": "folderlocation",
-          "id": {
-            "type": "locallocationid",
-            "id": 2
-          },
-          "name": "New Zealand",
-          "accessibleToUser": true,
-          "defaultLocation": false,
-          "timezoneId": "Pacific/Auckland",
-          "locationTag": null,
-          "venueId": null,
-          "sandboxLocation": false,
-          "geoInfo": null,
-          "children": [
-            {
-              "type": "folderlocation",
-              "id": {
-                "type": "locallocationid",
-                "id": 26
-              },
-              "name": "Bay of Plenty",
-              "accessibleToUser": true,
-              "defaultLocation": false,
-              "timezoneId": "Pacific/Auckland",
-              "locationTag": null,
-              "venueId": null,
-              "sandboxLocation": false,
-              "geoInfo": null,
-              "children": [
-                {
-                  "type": "folderlocation",
-                  "id": {
-                    "type": "locallocationid",
-                    "id": 27
-                  },
-                  "name": "Tauranga",
-                  "accessibleToUser": true,
-                  "defaultLocation": false,
-                  "timezoneId": "Pacific/Auckland",
-                  "locationTag": null,
-                  "venueId": null,
-                  "sandboxLocation": false,
-                  "geoInfo": null
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    })
+    response << location_data
   end
 
   promise.get
 
-  # fetch locations
+  # Flattened locations
+  promise = exec :locations_flatten
+
+  expect_http_request do |request, response|
+    puts "\n---> #{request.method} #{request.path}\n\n"
+    response.status_code = 200
+    response << location_data
+  end
+
+  promise.get.as_a.size.should eq 5
+
+  # Fetch client positions
   result = exec :client_positions
 
   expect_http_request do |request, response|

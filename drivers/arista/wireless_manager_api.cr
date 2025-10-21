@@ -20,6 +20,10 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     key_id:    "KEY-ATNxxxxxxxx",
     key_value: "ddfxxxxxxxx",
     key_type:  "apikeycredentials",
+
+    # every 3 seconds
+    polling_seconds: 3,
+    _poll_locations: [28],
   })
 
   def on_load
@@ -42,12 +46,22 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
       @authenticated = false
       new_session
     end
+
+    polling_sec = setting?(UInt32, :polling_seconds) || 3_u32
+    polling_locs = setting?(Array(Int64), :poll_locations) || [] of Int64
+
+    if !polling_locs.empty?
+      schedule.every(polling_sec.seconds) do
+        poll(polling_locs)
+      end
+    end
   end
 
   getter? authenticated : Bool = false
   getter key_type : String = ""
   getter key_id : String = ""
   @key_value : String = ""
+  getter position_cache : Hash(Int64, Array(ClientDetails)) = {} of Int64 => Array(ClientDetails)
 
   # make this request to obtain the base URI for the module
   def launchpad_service_locations
@@ -107,18 +121,30 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
   end
 
   # The build structure.
-  def locations
+  def locations : Location
     new_session unless authenticated?
 
     response = check get("/new/wifi/api/locations")
     Location.from_json(response.body)
   end
 
+  def locations_flatten
+    locations.flatten.compact_map do |loc|
+      {
+        id:        loc.id,
+        parent_id: loc.parent_id,
+        name:      loc.name,
+        timezone:  loc.timezone,
+        geo_info:  loc.geo_info,
+      }
+    end
+  end
+
   def client_positions(at_location : String | Int64? = nil)
     new_session unless authenticated?
 
     query = URI::Params.build do |form|
-      form.add("pagesize", "200")
+      form.add("pagesize", "250")
       form.add("filter", %({"property":"activestatus","operator":"=","value":[true]}))
       form.add("locationid", at_location.to_s) if at_location
     end
@@ -140,7 +166,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
         data_url = URI.parse(loc_req.result_url).request_target
         loop do
           # always takes some time for the results to be gathered
-          sleep 100.milliseconds
+          sleep 200.milliseconds
           poll_response = check get(data_url)
 
           # the locations request is still being processed
@@ -167,5 +193,28 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     end
 
     locations
+  end
+
+  @mutex = Mutex.new
+
+  protected def poll(locations : Array(Int64))
+    cached = Hash(Int64, Array(ClientDetails)).new { |hash, key| hash[key] = [] of ClientDetails }
+
+    locations.each do |loc|
+      positions = client_positions(loc)
+      positions.each do |details|
+        cached[details.device.location.id] << details
+      end
+    end
+
+    @mutex.synchronize do
+      @position_cache = cached
+    end
+  end
+
+  def cached_positions(at_location : String | Int64)
+    @mutex.synchronize do
+      position_cache[at_location.to_i64]? || [] of ClientDetails
+    end
   end
 end
