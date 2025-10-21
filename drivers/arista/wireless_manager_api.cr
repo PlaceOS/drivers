@@ -210,11 +210,60 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     @mutex.synchronize do
       @position_cache = cached
     end
+
+    cached.each do |level, clients|
+      self["location_#{level}"] = clients
+    end
   end
 
   def cached_positions(at_location : String | Int64)
     @mutex.synchronize do
       position_cache[at_location.to_i64]? || [] of ClientDetails
     end
+  end
+
+  def locate(username : String) : ClientDetails?
+    # should be able to use a filter for realtime results
+    # filter={"property":"username","operator":"=","value":["email@org.com"]}
+    check = username.downcase.presence
+    return nil unless check
+
+    position_cache.each_value do |details|
+      if found = details.find { |client| client.device.username == check }
+        return found
+      end
+    end
+    nil
+  end
+
+  def macs_assigned_to(username : String) : Array(String)
+    macs = [] of String
+    check = username.downcase.presence
+    return macs unless check
+
+    position_cache.each_value do |details|
+      details.each do |client|
+        if client.device.username == check
+          macs << client.device.mac
+        end
+      end
+    end
+    macs
+  end
+
+  def ownership_of(mac_address : String) : ClientDetails?
+    return nil unless mac_address.presence
+    mac = format_mac(mac_address)
+
+    position_cache.each_value do |details|
+      if found = details.find { |client| client.device.mac == mac }
+        return found
+      end
+    end
+    nil
+  end
+
+  protected def format_mac(address : String)
+    address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
   end
 end

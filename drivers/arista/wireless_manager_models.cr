@@ -126,15 +126,23 @@ module Arista
   struct ClientDevice
     include JSON::Serializable
 
+    struct Radio
+      include JSON::Serializable
+
+      getter ssid : String
+    end
+
     @[JSON::Field(key: "locationId")]
     getter location : ID
+
+    getter radio : Radio
 
     @[JSON::Field(key: "boxId")]
     getter box_id : Int64
     getter name : String
 
     @[JSON::Field(key: "userName")]
-    getter username : String?
+    getter user : String?
 
     # "Android"
     @[JSON::Field(key: "osType")]
@@ -144,13 +152,29 @@ module Arista
     getter macaddress : String
 
     @[JSON::Field(key: "vlanId")]
-    getter macaddress : Int64?
+    getter vlan_id : Int64?
 
     @[JSON::Field(key: "ipAddress")]
     getter ip_v4 : String?
 
     @[JSON::Field(key: "ipv6Addresses")]
     getter ip_v6 : Array(String)?
+
+    # normalize the username
+    def username : String?
+      usern = user.presence
+      return nil unless usern
+      return nil if usern[0] == '-'
+      usern.downcase
+    end
+
+    def ssid : String?
+      radio.ssid.presence
+    end
+
+    def mac
+      macaddress.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
+    end
   end
 
   struct ClientPosition
