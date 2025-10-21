@@ -17,7 +17,7 @@ module Arista
   struct GeoInfo
     include JSON::Serializable
 
-    coordinates : Coordinates
+    getter coordinates : Coordinates
   end
 
   struct Coordinates
@@ -28,11 +28,14 @@ module Arista
     # getter altitude : Int32
   end
 
-  struct Location
+  class Location
     include JSON::Serializable
 
     getter type : String
     getter name : String
+
+    @[JSON::Field(key: "id")]
+    getter loc_id : ID
 
     @[JSON::Field(key: "accessibleToUser")]
     getter visible : Bool
@@ -46,11 +49,28 @@ module Arista
 
     getter children : Array(Location) { [] of Location }
 
+    @[JSON::Field(ignore_deserialize: true)]
+    property parent_id : Int64? = nil
+
     def geo_info : Coordinates?
       json = geo_info_raw
       return unless json
 
       GeoInfo.from_json(json).coordinates
+    end
+
+    def id
+      loc_id.id
+    end
+
+    def flatten : Array(Location)
+      result = [self]
+      children.each do |child|
+        child.parent_id = self.id
+        result.concat(child.flatten)
+      end
+      children.clear
+      result
     end
   end
 
