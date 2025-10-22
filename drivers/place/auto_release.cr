@@ -384,7 +384,6 @@ class Place::AutoRelease < PlaceOS::Driver
         (booking.booking_start - Time.utc.to_unix <= @auto_release.time_before(booking.booking_type) * 60) &&
         (Time.utc.to_unix - booking.booking_start <= @auto_release.time_after(booking.booking_type) * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is within the time_before window" }
-      end
 
 
         location = Time::Location.load(booking.timezone.presence || timezone.name)
