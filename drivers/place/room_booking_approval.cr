@@ -70,7 +70,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     logger.debug { "accepting recurring event #{recurring_event_id} on #{calendar_id}" }
 
     # Get the original event to find its ical_uid
-    original_event = calendar.get_event(calendar_id, recurring_event_id, user_id)
+    original_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id, recurring_event_id, user_id).get.to_json
     unless original_event.ical_uid
       logger.error { "Event #{recurring_event_id} has no ical_uid, cannot find recurring instances" }
       return
@@ -82,14 +82,14 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     end_time = period_end || (now + 1.year).to_unix
 
     # Find all instances of this recurring event
-    recurring_instances = calendar.list_events(
+    recurring_instances = Array(PlaceCalendar::Event).from_json calendar.list_events(
       calendar_id: calendar_id,
       period_start: start_time,
       period_end: end_time,
       user_id: user_id,
       include_cancelled: false,
       ical_uid: original_event.ical_uid
-    )
+    ).get.to_json
 
     # Accept each instance
     accepted_count = 0
