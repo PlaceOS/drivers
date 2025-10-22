@@ -94,7 +94,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
             desk["features"].as_a?.try(&.map(&.as_s).first?),
             level_code,
             building_code,
-            desk["assigned_to"]?.try(&.as_s?.presence),
+            desk["assigned_to"]?.try(&.as_s?.presence.try(&.downcase)),
             building.id,
             level.id
           )
@@ -176,8 +176,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
       break unless csv.next
       row = csv.row
       desk_id = row[0]
-      allocated_email = row[2]
-      bookable = !!allocated_email.presence || row[4].includes?("Hot")
+      allocated_email = row[2].downcase.presence
+      bookable = !!allocated_email || row[3].includes?("Hot")
       csv_allocations[desk_id] = Allocation.new(desk_id, row[1], allocated_email, bookable)
     end
 
@@ -218,6 +218,15 @@ class Place::Desk::Allocations < PlaceOS::Driver
     end
     logger.debug { "found #{removed_allocations} allocations to be removed" }
 
+    logger.debug do
+      String.build do |str|
+        str << "allocation changes:\n"
+        level_allocations.each do |level, allocations|
+          str << " - lvl #{level}: #{allocations.inspect}\n"
+        end
+      end
+    end
+
     # update the allocation metadata
     return if test
     level_allocations.each do |level_id, allocations|
@@ -243,7 +252,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       if email = allocation.email.presence
         # look up users name
         user_name = begin
-          staff_api.calendar(email).get["name"].as_s
+          calendar.get_user(email).get["name"].as_s
         rescue error
           logger.error(exception: error) { "failed to find allocation name for #{allocation.email}" }
           email.split("@")[0].split(' ').map(&.capitalize).join(' ')
@@ -394,18 +403,18 @@ class Place::Desk::Allocations < PlaceOS::Driver
     end
 
     # log the results
-    logger.debug do
-      String.build do |io|
-        io << "found #{removed_dangling} dangling bookings\n" unless removed_dangling.zero?
-        io << "checked #{assignments.size} assignments against #{bookings.size} bookings\n"
-        io << "failed to remove #{failed} bookings\n" unless failed.zero?
-        io << "removed #{deleted.size} incorrect assignments\n"
-        deleted.each do |booking_id, email|
-          io << "  - #{email}: #{booking_id}\n"
-        end
-        io << "found #{missing.size} missing assignments"
+    removed_log = String.build do |io|
+      io << "found #{removed_dangling} dangling bookings\n" unless removed_dangling.zero?
+      io << "checked #{assignments.size} assignments against #{bookings.size} bookings\n"
+      io << "failed to remove #{failed} bookings\n" unless failed.zero?
+      io << "removed #{deleted.size} incorrect assignments\n"
+      deleted.each do |booking_id, email|
+        io << "  - #{email}: #{booking_id}\n"
       end
+      io << "found #{missing.size} missing assignments"
     end
+    self["#{building_zone}-removed"] = removed_log
+    logger.debug { removed_log }
 
     logger.debug { "creating missing bookings..." } unless missing.size.zero?
 
@@ -444,14 +453,13 @@ class Place::Desk::Allocations < PlaceOS::Driver
       fixed += 1
     end
 
-    logger.debug do
-      String.build do |io|
-        io << "added #{fixed} missing bookings\n" unless missing.size.zero?
-        if !no_applied.size.zero?
-          io << "failed to apply #{no_applied.size} bookings\n"
-        end
-        io << "done!"
+    overview = String.build do |io|
+      io << "added #{fixed} missing bookings\n" unless missing.size.zero?
+      if !no_applied.size.zero?
+        io << "failed to apply #{no_applied.size} bookings\n"
       end
     end
+    self["#{building_zone}-added"] = overview
+    logger.debug { overview }
   end
 end

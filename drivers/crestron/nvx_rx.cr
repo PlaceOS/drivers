@@ -1,5 +1,6 @@
 require "./cres_next"
 require "placeos-driver/interface/switchable"
+require "uri"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   alias Input = String
@@ -136,6 +137,13 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   def set_osd_text(text : String, enabled : Bool = true)
     ws_update "/Osd/Text", text, name: :set_osd_text
     ws_update "/Osd/IsEnabled", enabled, name: :set_osd_enabled
+  end
+
+  def set_background_image(url : String, output_index : Int32 = 1)
+    uri = URI.parse(url)
+    raise ArgumentError.new("invalid URL provided: #{url}") unless uri.scheme.presence && uri.host.presence && uri.path.presence
+
+    ws_update "/BackgroundImage/Outputs/Output#{output_index}/RemoteServer/ServerPath", url, name: "set_output#{output_index}_image"
   end
 
   protected def switch_stream(stream_reference : String | Int32, layer : SwitchLayer)

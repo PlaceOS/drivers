@@ -107,8 +107,18 @@ class Place::UserGroupMappings < PlaceOS::Driver
     email = user[:login_name].presence || user[:email]
     logger.debug { "found placeos user info: #{user[:email]}, id #{user[:email]}" }
 
-    # Request user details from GraphAPI or Google
-    users_groups = calendar_api.get_groups(email).get
+    # Request user details from GraphAPI or Google    
+    begin
+      users_groups = calendar_api.get_groups(email).get
+    rescue error
+      if u = calendar_api.get_user(email).get
+        users_groups = calendar_api.get_groups(u["id"]).get
+      else
+        u = calendar_api.list_users(email, 1).get.as_a.first
+        users_groups = calendar_api.get_groups(u["id"]).get
+      end
+    end
+
     logger.debug { "found user groups: #{users_groups.to_pretty_json}" }
     users_groups = users_groups.as_a
 

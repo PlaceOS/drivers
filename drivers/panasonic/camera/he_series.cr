@@ -23,6 +23,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     presets:         {
       name: {pan: 1, tilt: 1, zoom: 1},
     },
+    http_max_requests: 10,
   })
 
   @pan : Int32 = 0
@@ -52,7 +53,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   def power(state : Bool)
     delay = 6.seconds if state
-    request("O", state ? 1 : 0, delay: delay) { |resp| parse_power resp }
+    request("O", state ? 1 : 0) { |resp| parse_power resp }
   end
 
   def power?
@@ -93,23 +94,11 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     # check if we want to stop panning
     if pan_speed == "50" && tilt_speed == "50"
       @panning = false
-      options = {
-        retries:     4,
-        priority:    queue.priority + 50,
-        clear_queue: true,
-        name:        :joystick,
-      }
     else
       @panning = true
-      options = {
-        retries:     0,
-        priority:    queue.priority + 10,
-        clear_queue: false,
-        name:        :joystick,
-      }
     end
 
-    request("PTS", "#{pan}#{tilt}", **options) do |resp|
+    request("PTS", "#{pan}#{tilt}", :joystick) do |resp|
       pan, tilt = resp[3..-1].scan(/.{2}/).flat_map(&.to_a)
       self[:pan_speed] = pan.not_nil!.to_i - MOVEMENT_STOPPED
       self[:tilt_speed] = tilt.not_nil!.to_i - MOVEMENT_STOPPED
@@ -193,18 +182,18 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
     case direction
     in .in?
-      move_zoom(@default_movement_speed // 2, priority: queue.priority + 9)
+      move_zoom(@default_movement_speed // 2)
     in .out?
-      move_zoom(-@default_movement_speed, priority: queue.priority + 9)
+      move_zoom(-@default_movement_speed)
     in .stop?
-      move_zoom(0, priority: queue.priority + 20)
+      move_zoom(0)
     end
   end
 
-  protected def move_zoom(speed : Int32, **options)
+  protected def move_zoom(speed : Int32)
     @zooming = speed != 0
     speed = MOVEMENT_STOPPED + speed
-    request("Z", speed.to_s.rjust(2, '0'), **options) do |resp|
+    request("Z", speed.to_s.rjust(2, '0')) do |resp|
       self[:zoom_speed] = resp[2..-1].to_i - MOVEMENT_STOPPED
     end
   end
@@ -214,7 +203,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
 
   def stop(index : Int32 | String = 0, emergency : Bool = false)
     joystick(0, 0)
-    move_zoom(0, priority: queue.priority + 20)
+    move_zoom(0)
   end
 
   # ======================
@@ -243,7 +232,7 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
   def pantilt(pan : Int32, tilt : Int32)
     pan_val = pan.to_s(16).upcase.rjust(4, '0')
     tilt_val = tilt.to_s(16).upcase.rjust(4, '0')
-    request("APC", "#{pan_val}#{tilt_val}", name: :pantilt) { |resp| parse_pantilt resp }
+    request("APC", "#{pan_val}#{tilt_val}", :pantilt) { |resp| parse_pantilt resp }
   end
 
   def pantilt?
@@ -263,50 +252,33 @@ class Panasonic::Camera::HESeries < PlaceOS::Driver
     end
   end
 
-  @mutex : Mutex = Mutex.new
-  @request_id : UInt64 = 0_u64
-
-  protected def request(cmd : String, data, **options, &callback : String -> _)
+  protected def request(cmd : String, data, name : Symbol? = nil, &callback : String -> _)
     request_string = "/cgi-bin/aw_ptz?cmd=%23#{cmd}#{data}&res=1"
 
-    queue.add(**options) do |task|
-      request_id = @mutex.synchronize do
-        @request_id = @request_id &+ 1_u64
-        @request_id
-      end
+    logger.debug { "requesting #{name}: #{request_string}" }
+    response = get(request_string)
 
-      logger.debug { "requesting #{options[:name]?}: #{request_string}" }
-      response = get(request_string)
-
-      # stop movement if this request was processed out of order
-      if request_id != @request_id
-        get("/cgi-bin/aw_ptz?cmd=%23PTS5050&res=1") unless @panning
-        get("/cgi-bin/aw_ptz?cmd=%23Z50&res=1") unless @zooming
-      end
-
-      if response.success?
-        body = response.body.downcase
-        if body.starts_with?("er")
-          case body[2]
-          when '1' then task.abort("unsupported command #{cmd}: #{body}")
-          when '2'
-            logger.warn { "camera was busy, attempting retry on #{cmd}" }
-            task.retry("camera busy, requested #{cmd}: #{body}")
-          when '3' then task.abort("query outside acceptable range, requested #{cmd}: #{body}")
-          end
-        else
-          begin
-            logger.debug { "received: #{body}" }
-            task.success callback.call(body)
-          rescue error
-            logger.error(exception: error) { "error processing response" }
-            task.abort error.message
-          end
+    if response.success?
+      body = response.body.downcase
+      if body.starts_with?("er")
+        case body[2]
+        when '1'
+          raise "unsupported command #{cmd}: #{body}"
+        when '2'
+          raise "camera was busy"
+        when '3'
+          raise "query outside acceptable range, requested #{cmd}: #{body}"
         end
       else
-        logger.error { "request failed with #{response.status_code}: #{response.body}" }
-        task.abort "request failed"
+        begin
+          logger.debug { "received: #{body}" }
+          callback.call(body)
+        rescue error
+          logger.error(exception: error) { "error processing response" }
+        end
       end
+    else
+      logger.error { "request failed with #{response.status_code}: #{response.body}" }
     end
   end
 

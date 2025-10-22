@@ -66,7 +66,7 @@ class Sony::Projector::Fh < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     set("blank", state ? "on" : "off").get
     self[:mute] = state
