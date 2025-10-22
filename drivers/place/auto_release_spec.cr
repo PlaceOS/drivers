@@ -1142,6 +1142,7 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp = exec(:pending_release).get
   pending_release = resp.not_nil!.as_a.map(&.as_h["title"])
   pending_release.should eq [
+    "ignore_after_hours",
     "notify_created_yesterday",
     "reject_created_yesterday",
     "outside_hours",
