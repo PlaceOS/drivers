@@ -5,7 +5,7 @@ class Arista::WifiWebhook < PlaceOS::Driver
   generic_name :Arista_Webhook
 
   default_settings({
-    debug:      false,
+    debug: false,
   })
 
   def on_update
