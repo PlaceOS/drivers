@@ -42,8 +42,10 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     nil
   end
 
-  def find_bookings_for_approval : Hash(String, Array(PlaceCalendar::Event))
-    results = {} of String => Array(PlaceCalendar::Event)
+  alias ApprovalCache = Hash(String, Array(PlaceCalendar::Event))
+
+  def find_bookings_for_approval : ApprovalCache
+    results = ApprovalCache.new
 
     systems.each do |level_id, system_ids|
       system_ids.each do |system_id|
@@ -61,53 +63,72 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def clear_cache(event_id : String? = nil)
+    if event_id
+      cache = self[:approval_required]? ? ApprovalCache.from_json(self[:approval_required].to_json) : ApprovalCache.new
+      new_cache = ApprovalCache.new
+      cache.each do |system_id, events|
+        new_cache[system_id] = events.reject { |event| event.id == event_id || event.recurring_event_id == event_id }
+      end
+
+      self[:approval_required] = new_cache
+    else
+      self[:approval_required] = ApprovalCache.new
+    end
+  end
+
+  @[Security(Level::Support)]
   def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
+    clear_cache(event_id: event_id)
   end
 
   @[Security(Level::Support)]
   def accept_recurring_event(calendar_id : String, recurring_event_id : String, user_id : String? = nil, period_start : Int64? = nil, period_end : Int64? = nil, notify : Bool = false, comment : String? = nil)
     logger.debug { "accepting recurring event #{recurring_event_id} on #{calendar_id}" }
 
-    # Get the original event to find its ical_uid
-    original_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id, recurring_event_id, user_id).get.to_json
-    unless original_event.ical_uid
-      logger.error { "Event #{recurring_event_id} has no ical_uid, cannot find recurring instances" }
-      return
-    end
+    if period_start || period_end
+      # Use provided dates or default to now and 1 year ahead
+      now = Time.utc
+      start_time = period_start || now.to_unix
+      end_time = period_end || (now + 1.year).to_unix
 
-    # Use provided dates or default to now and 1 year ahead
-    now = Time.utc
-    start_time = period_start || now.to_unix
-    end_time = period_end || (now + 1.year).to_unix
+      # Find all instances of this recurring event
+      events = Array(PlaceCalendar::Event).from_json calendar.list_events(
+        calendar_id: calendar_id,
+        period_start: start_time,
+        period_end: end_time,
+        user_id: user_id,
+        include_cancelled: false
+      ).get.to_json
+      logger.debug { "Found #{events.size} events on calendar #{calendar_id}" }
 
-    # Find all instances of this recurring event
-    recurring_instances = Array(PlaceCalendar::Event).from_json calendar.list_events(
-      calendar_id: calendar_id,
-      period_start: start_time,
-      period_end: end_time,
-      user_id: user_id,
-      include_cancelled: false,
-      ical_uid: original_event.ical_uid
-    ).get.to_json
+      recurring_instances = events.select { |event| event.recurring_event_id == recurring_event_id }
+      logger.info { "Found #{recurring_instances.size} instances of recurring event #{recurring_event_id}" }
 
-    # Accept each instance
-    accepted_count = 0
-    recurring_instances.each do |event|
-      begin
-        calendar.accept_event(calendar_id, event.id, user_id: user_id, notify: notify, comment: comment)
-        accepted_count += 1
-        logger.debug { "Accepted recurring event instance #{event.id}" }
-      rescue error
-        logger.warn(exception: error) { "Failed to accept recurring event instance #{event.id}" }
+      # Accept each instance
+      accepted_count = 0
+      recurring_instances.each do |event|
+        begin
+          calendar.accept_event(calendar_id, event.id, user_id: user_id, notify: notify, comment: comment)
+          accepted_count += 1
+          logger.debug { "Accepted recurring event instance #{event.id}" }
+        rescue error
+          logger.warn(exception: error) { "Failed to accept recurring event instance #{event.id}" }
+        end
       end
+
+      logger.info { "Accepted #{accepted_count} instances of recurring event #{recurring_event_id}" }
+    else
+      calendar.accept_event(calendar_id: calendar_id, event_id: recurring_event_id, user_id: user_id, notify: notify, comment: comment)
     end
 
-    logger.info { "Accepted #{accepted_count} instances of recurring event #{recurring_event_id}" }
+    clear_cache(event_id: recurring_event_id)
   end
 
   @[Security(Level::Support)]
   def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     calendar.decline_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
+    clear_cache(event_id: event_id)
   end
 end
