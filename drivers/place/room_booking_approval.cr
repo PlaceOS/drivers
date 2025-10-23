@@ -87,9 +87,10 @@ class Place::RoomBookingApproval < PlaceOS::Driver
       period_start: start_time,
       period_end: end_time,
       user_id: user_id,
-      include_cancelled: false,
-      # ical_uid: original_event.ical_uid
+      include_cancelled: false
     ).get.to_json
+    logger.debug { "Found #{events.size} events on calendar #{calendar_id}"}
+
     recurring_instances = events.select { |event| event.recurring_event_id == recurring_event_id }
     logger.info { "Found #{recurring_instances.size} instances of recurring event #{recurring_event_id}" }
 
