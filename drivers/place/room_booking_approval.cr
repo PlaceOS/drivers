@@ -129,5 +129,6 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   @[Security(Level::Support)]
   def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     calendar.decline_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
+    clear_cache(event_id: event_id)
   end
 end
