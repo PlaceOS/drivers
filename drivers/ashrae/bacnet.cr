@@ -36,9 +36,75 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   protected getter! udp_server : UDPSocket
   protected getter! bacnet_client : ::BACnet::Client::IPv4
-  protected getter! device_registry : ::BACnet::Client::DeviceRegistry
 
-  alias DeviceInfo = ::BACnet::Client::DeviceRegistry::DeviceInfo
+  # Object tracking for BACnet objects
+  class ObjectInfo
+    property object_ptr : ::BACnet::ObjectIdentifier
+    property name : String = ""
+    property unit : ::BACnet::Unit?
+    property value : ::BACnet::Object?
+    property changed : Time = Time.utc
+
+    def initialize(@object_ptr)
+    end
+
+    def object_type
+      @object_ptr.object_type
+    end
+
+    def instance_id
+      @object_ptr.instance_number
+    end
+
+    def sync_value(client : ::BACnet::Client::IPv4, link_address : Socket::IPAddress)
+      result = client.read_property(@object_ptr, ::BACnet::PropertyIdentifier::PropertyType::PresentValue, link_address: link_address).get
+      @value = client.parse_complex_ack(result)[:objects][0]?.try(&.as(::BACnet::Object))
+      @changed = Time.utc
+      @value
+    rescue error
+      raise error
+    end
+  end
+
+  # Device tracking for BACnet/IP
+  class DeviceInfo
+    property device_instance : UInt32
+    property ip_address : Socket::IPAddress
+    property network : UInt16?
+    property address : String?
+    property name : String = ""
+    property vendor_name : String = ""
+    property model_name : String = ""
+    property objects : Array(ObjectInfo) = [] of ObjectInfo
+
+    def initialize(@device_instance, @ip_address)
+    end
+
+    def object_ptr
+      ::BACnet::ObjectIdentifier.new(:device, @device_instance)
+    end
+
+    def link_address
+      @ip_address
+    end
+  end
+
+  alias ObjectType = ::BACnet::ObjectIdentifier::ObjectType
+
+  # Object types that have present values we can read
+  OBJECTS_WITH_VALUES = [
+    ObjectType::AnalogInput, ObjectType::AnalogOutput, ObjectType::AnalogValue,
+    ObjectType::BinaryInput, ObjectType::BinaryOutput, ObjectType::BinaryValue,
+    ObjectType::MultiStateInput, ObjectType::MultiStateOutput, ObjectType::MultiStateValue,
+    ObjectType::IntegerValue, ObjectType::LargeAnalogValue, ObjectType::PositiveIntegerValue,
+    ObjectType::Accumulator, ObjectType::PulseConverter, ObjectType::Loop,
+    ObjectType::Calendar, ObjectType::Command, ObjectType::LoadControl, ObjectType::AccessDoor,
+    ObjectType::LifeSafetyPoint, ObjectType::LifeSafetyZone, ObjectType::Schedule,
+    ObjectType::DatetimeValue, ObjectType::BitstringValue, ObjectType::OctetstringValue,
+    ObjectType::DateValue, ObjectType::DatetimePatternValue, ObjectType::TimePatternValue,
+    ObjectType::DatePatternValue, ObjectType::AlertEnrollment, ObjectType::Channel,
+    ObjectType::LightingOutput, ObjectType::CharacterStringValue, ObjectType::TimeValue,
+  ]
 
   @packets_processed : UInt64 = 0_u64
   @verbose_debug : Bool = false
@@ -62,7 +128,7 @@ class Ashrae::BACnet < PlaceOS::Driver
     queue.timeout = 2.seconds
 
     # Hook up the client to the transport
-    client = ::BACnet::Client::IPv4.new(0, 2.seconds)
+    client = ::BACnet::Client::IPv4.new(timeout: 2.seconds)
     client.on_transmit do |message, address|
       if address.address == Socket::IPAddress::BROADCAST
         if @bbmd_forwarding.size == 4
@@ -99,11 +165,6 @@ class Ashrae::BACnet < PlaceOS::Driver
       end
     end
     @bacnet_client = client
-
-    # Track the discovery of devices
-    registry = ::BACnet::Client::DeviceRegistry.new(client, logger)
-    registry.on_new_device { |device| new_device_found(device) }
-    @device_registry = registry
 
     spawn { process_data(server, client) }
     on_update
@@ -209,26 +270,137 @@ class Ashrae::BACnet < PlaceOS::Driver
   end
 
   def devices
-    device_registry.devices.map { |device| device_details device }
+    @mutex.synchronize { @devices.values }.map { |device| device_details device }
   end
 
   def query_known_devices
     sent = [] of UInt32
     @seen_devices.each_value do |info|
-      sent << info.id.not_nil!
-      logger.debug { "inspecting #{info.address} - #{info.id}" }
-      device_registry.inspect_device(info.identifier, info.net, info.addr, link_address: info.address)
+      if device_id = info.id
+        sent << device_id
+        addr = info.address
+        next unless addr.is_a?(Socket::IPAddress)
+        logger.debug { "inspecting #{addr} - #{device_id}" }
+        spawn { inspect_device(device_id, addr) }
+      end
     end
     devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
     devices.each do |info|
       if id = info.id
         next if id.in? sent
         sent << id
-        logger.debug { "inspecting #{info.address} - #{info.id}" }
-        device_registry.inspect_device(info.identifier, info.net, info.addr, link_address: info.address)
+        addr = info.address
+        next unless addr.is_a?(Socket::IPAddress)
+        logger.debug { "inspecting #{addr} - #{id}" }
+        spawn { inspect_device(id, addr) }
       end
     end
-    "inspected #{sent.size} devices"
+    "inspecting #{sent.size} devices"
+  end
+
+  # Custom device inspection - replaces the old DeviceRegistry.inspect_device
+  protected def inspect_device(device_id : UInt32, link_address : Socket::IPAddress)
+    # Check if we already have this device
+    existing = @mutex.synchronize { @devices[device_id]? }
+    return if existing && !existing.objects.empty?
+
+    device = existing || DeviceInfo.new(device_id, link_address)
+    client = bacnet_client
+    object_id = ::BACnet::ObjectIdentifier.new(:device, device_id)
+
+    # Query device properties
+    begin
+      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectName, link_address: link_address).get
+      device.name = client.parse_complex_ack(result)[:objects][0].value.as(String)
+    rescue error
+      logger.debug(exception: error) { "Failed to read object_name for device [#{device_id}]" }
+    end
+
+    begin
+      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::VendorName, link_address: link_address).get
+      device.vendor_name = client.parse_complex_ack(result)[:objects][0].value.as(String)
+    rescue error
+      logger.debug(exception: error) { "Failed to read vendor_name for device [#{device_id}]" }
+    end
+
+    begin
+      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ModelName, link_address: link_address).get
+      device.model_name = client.parse_complex_ack(result)[:objects][0].value.as(String)
+    rescue error
+      logger.debug(exception: error) { "Failed to read model_name for device [#{device_id}]" }
+    end
+
+    # Query object list
+    begin
+      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectList, 0, link_address: link_address).get
+      obj_list_item = client.parse_complex_ack(result)[:objects][0]
+
+      # Handle string vs integer for object count
+      max_objects = if obj_list_item.tag == 7 # CharacterString
+                      string_value = obj_list_item.to_encoded_string
+                      logger.warn { "Device [#{device_id}] returned string '#{string_value}' for ObjectList[0]" }
+                      string_value.to_u64? || 0_u64
+                    else
+                      obj_list_item.to_u64
+                    end
+
+      # Sanity check
+      if max_objects > 10_000
+        logger.warn { "Device [#{device_id}] reports #{max_objects} objects - too many, skipping" }
+        return
+      end
+
+      logger.debug { "Scanning #{max_objects} objects on device [#{device_id}]" }
+
+      # Scan objects
+      failed = 0
+      (2..max_objects).each do |index|
+        begin
+          result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectList, index, link_address: link_address).get
+          obj_id = client.parse_complex_ack(result)[:objects][0].to_object_id
+
+          # Skip device objects (sub-devices)
+          obj_type = obj_id.object_type
+          next if obj_type && obj_type.device?
+
+          # Create object info
+          obj_info = ObjectInfo.new(obj_id)
+
+          # Try to get object name
+          begin
+            name_result = client.read_property(obj_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectName, link_address: link_address).get
+            obj_info.name = client.parse_complex_ack(name_result)[:objects][0].value.as(String)
+          rescue
+            obj_info.name = "(unnamed)"
+          end
+
+          # Try to get units if applicable
+          if OBJECTS_WITH_VALUES.includes?(obj_type)
+            begin
+              unit_result = client.read_property(obj_id, ::BACnet::PropertyIdentifier::PropertyType::Units, link_address: link_address).get
+              unit_value = client.parse_complex_ack(unit_result)[:objects][0].to_i
+              obj_info.unit = ::BACnet::Unit.new(unit_value)
+            rescue
+              # Units not available
+            end
+          end
+
+          device.objects << obj_info
+        rescue error
+          logger.trace(exception: error) { "Failed to read object at index #{index}" }
+          failed += 1
+          break if failed > 2
+        end
+      end
+    rescue error
+      logger.debug(exception: error) { "Failed to read object_list for device [#{device_id}]" }
+    end
+
+    # Store the device
+    @mutex.synchronize { @devices[device_id] = device }
+    new_device_found(device)
+  rescue error
+    logger.error(exception: error) { "Failed to inspect device #{device_id}" }
   end
 
   def poll_device(device_id : UInt32)
@@ -236,13 +408,14 @@ class Ashrae::BACnet < PlaceOS::Driver
     return false unless device
 
     client = bacnet_client
+    link_address = device.link_address
     objects = @mutex.synchronize { device.objects.dup }
     objects.each do |obj|
-      next unless obj.object_type.in?(::BACnet::Client::DeviceRegistry::OBJECTS_WITH_VALUES)
+      next unless obj.object_type.in?(OBJECTS_WITH_VALUES)
       name = object_binding(device_id, obj)
       queue(name: name, priority: 0, timeout: 500.milliseconds) do |task|
         spawn_action(task) do
-          obj.sync_value(client)
+          obj.sync_value(client, link_address)
           self[name] = object_value(obj)
         end
       end
@@ -261,15 +434,14 @@ class Ashrae::BACnet < PlaceOS::Driver
     bacnet_client.who_is
   end
 
-  alias ObjectType = ::BACnet::ObjectIdentifier::ObjectType
-
   def update_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
+    device = get_device(device_id).not_nil!
     obj = get_object_details(device_id, instance_id, object_type)
     name = object_binding(device_id, obj)
 
     queue(name: name, priority: 50) do |task|
       spawn_action(task) do
-        obj.sync_value(bacnet_client)
+        obj.sync_value(bacnet_client, device.link_address)
         self[name] = object_value(obj)
       end
     end
@@ -281,90 +453,80 @@ class Ashrae::BACnet < PlaceOS::Driver
   end
 
   def write_real(device_id : UInt32, instance_id : UInt32, value : Float32, object_type : ObjectType = ObjectType::AnalogValue)
-    object = get_object_details(device_id, instance_id, object_type)
+    device = get_device(device_id).not_nil!
 
     queue(priority: 99) do |task|
       spawn_action(task) do
         bacnet_client.write_property(
           ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
           ::BACnet::Object.new.set_value(value),
-          network: object.network,
-          address: object.address,
-          link_address: object.link_address,
-        )
+          link_address: device.link_address,
+        ).get
       end
     end
     value
   end
 
   def write_double(device_id : UInt32, instance_id : UInt32, value : Float64, object_type : ObjectType = ObjectType::LargeAnalogValue)
-    object = get_object_details(device_id, instance_id, object_type)
+    device = get_device(device_id).not_nil!
 
     queue(priority: 99) do |task|
       spawn_action(task) do
         bacnet_client.write_property(
           ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
           ::BACnet::Object.new.set_value(value),
-          network: object.network,
-          address: object.address,
-          link_address: object.link_address,
-        )
+          link_address: device.link_address,
+        ).get
       end
     end
     value
   end
 
   def write_unsigned_int(device_id : UInt32, instance_id : UInt32, value : UInt64, object_type : ObjectType = ObjectType::PositiveIntegerValue)
-    object = get_object_details(device_id, instance_id, object_type)
+    device = get_device(device_id).not_nil!
 
     queue(priority: 99) do |task|
       spawn_action(task) do
         bacnet_client.write_property(
           ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
           ::BACnet::Object.new.set_value(value),
-          network: object.network,
-          address: object.address,
-          link_address: object.link_address,
-        )
+          link_address: device.link_address,
+        ).get
       end
     end
     value
   end
 
   def write_signed_int(device_id : UInt32, instance_id : UInt32, value : Int64, object_type : ObjectType = ObjectType::IntegerValue)
-    object = get_object_details(device_id, instance_id, object_type)
+    device = get_device(device_id).not_nil!
 
     queue(priority: 99) do |task|
       spawn_action(task) do
         bacnet_client.write_property(
           ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
           ::BACnet::Object.new.set_value(value),
-          network: object.network,
-          address: object.address,
-          link_address: object.link_address,
-        )
+          link_address: device.link_address,
+        ).get
       end
     end
     value
   end
 
   def write_string(device_id : UInt32, instance_id : UInt32, value : String, object_type : ObjectType = ObjectType::CharacterStringValue)
-    object = get_object_details(device_id, instance_id, object_type)
+    device = get_device(device_id).not_nil!
 
     queue(priority: 99) do |task|
       spawn_action(task) do
         bacnet_client.write_property(
           ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
           ::BACnet::Object.new.set_value(value),
-          network: object.network,
-          address: object.address,
-          link_address: object.link_address,
-        )
+          link_address: device.link_address,
+        ).get
       end
     end
     value
@@ -372,7 +534,7 @@ class Ashrae::BACnet < PlaceOS::Driver
 
   def write_binary(device_id : UInt32, instance_id : UInt32, value : Bool, object_type : ObjectType = ObjectType::BinaryValue)
     val = value ? 1 : 0
-    object = get_object_details(device_id, instance_id, object_type)
+    device = get_device(device_id).not_nil!
     val = ::BACnet::Object.new.set_value(val)
     val.short_tag = 9_u8
 
@@ -380,12 +542,10 @@ class Ashrae::BACnet < PlaceOS::Driver
       spawn_action(task) do
         bacnet_client.write_property(
           ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyType::PresentValue,
+          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
           val,
-          network: object.network,
-          address: object.address,
-          link_address: object.link_address,
-        )
+          link_address: device.link_address,
+        ).get
       end
     end
     value
@@ -453,7 +613,7 @@ class Ashrae::BACnet < PlaceOS::Driver
              else
                protocol.ip_address
              end
-        details = ::BACnet::Client::Message::IAm.parse(message)
+        details = bacnet_client.parse_i_am(message)
         device = details[:object_id].instance_number
         @seen_devices[device] = DeviceAddress.new(ip, device, details[:network], details[:address])
       end
@@ -620,7 +780,7 @@ class Ashrae::BACnet < PlaceOS::Driver
 
     if object.changed < 1.minutes.ago
       begin
-        object.sync_value(bacnet_client)
+        object.sync_value(bacnet_client, device.link_address)
       rescue error
         logger.warn(exception: error) { "failed to obtain latest value for sensor at #{mac}.#{id}" }
       end
