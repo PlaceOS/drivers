@@ -259,7 +259,7 @@ class Ashrae::BACnet < PlaceOS::Driver
       ip_address: device.ip_address.to_s,
       network:    device.network,
       address:    device.address,
-      id:         device.object_ptr.instance_number,
+      id:         device.device_instance,
 
       objects: device.objects.map { |obj|
         {
@@ -555,9 +555,9 @@ class Ashrae::BACnet < PlaceOS::Driver
     logger.debug { "new device found: #{device.name}, #{device.model_name} (#{device.vendor_name}) with #{device.objects.size} objects" }
     logger.debug { device.inspect } if @verbose_debug
 
-    @mutex.synchronize { @devices[device.object_ptr.instance_number] = device }
+    @mutex.synchronize { @devices[device.device_instance] = device }
 
-    device_id = device.object_ptr.instance_number
+    device_id = device.device_instance
     device.objects.each { |obj| self[object_binding(device_id, obj)] = object_value(obj) }
   end
 

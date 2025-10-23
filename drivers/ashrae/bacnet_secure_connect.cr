@@ -263,7 +263,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       vmac:    device.link_address_friendly,
       network: device.network,
       address: device.address,
-      id:      device.object_ptr.instance_number,
+      id:      device.device_instance,
 
       objects: device.objects.map { |obj|
         {
@@ -555,9 +555,9 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     logger.debug { "new device found: #{device.name}, #{device.model_name} (#{device.vendor_name}) with #{device.objects.size} objects" }
     logger.debug { device.inspect } if @verbose_debug
 
-    @mutex.synchronize { @devices[device.object_ptr.instance_number] = device }
+    @mutex.synchronize { @devices[device.device_instance] = device }
 
-    device_id = device.object_ptr.instance_number
+    device_id = device.device_instance
     device.objects.each { |obj| self[object_binding(device_id, obj)] = object_value(obj) }
   end
 
@@ -568,10 +568,21 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   def received(bytes, task)
     # will be a no-op, just here in case
     task.try &.success
-    logger.debug { "websocket sent: 0x#{bytes.hexstring}" }
 
-    message = IO::Memory.new(bytes).read_bytes(::BACnet::Message::Secure)
-    # logger.debug { "message: #{message.inspect}" }
+    message = begin
+      IO::Memory.new(bytes).read_bytes(::BACnet::Message::Secure)
+    rescue error
+      logger.warn(exception: error) { "error parsing bacnet packet: 0x#{bytes.hexstring}" }
+      raise error
+    end
+
+    logger.debug do
+      if message.data_link.request_type.encapsulated_npdu?
+        "received network message: #{message.application.class}"
+      else
+        "received network message: #{message.data_link.request_type}"
+      end
+    end
 
     # Let the client handle the message (important for promise resolution)
     bacnet_client.received message
