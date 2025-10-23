@@ -42,8 +42,10 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     nil
   end
 
-  def find_bookings_for_approval : Hash(String, Array(PlaceCalendar::Event))
-    results = {} of String => Array(PlaceCalendar::Event)
+  alias ApprovalCache = Hash(String, Array(PlaceCalendar::Event))
+
+  def find_bookings_for_approval : ApprovalCache
+    results = ApprovalCache.new
 
     systems.each do |level_id, system_ids|
       system_ids.each do |system_id|
@@ -61,8 +63,24 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
+  def clear_cache(event_id : String? = nil)
+    if event_id
+      cache = self[:approval_required]? ? ApprovalCache.from_json(self[:approval_required].to_json) : ApprovalCache.new
+      new_cache = ApprovalCache.new
+      cache.each do |system_id, events|
+        new_cache[system_id] = events.reject { |event| event.id == event_id || event.recurring_event_id == event_id }
+      end
+
+      self[:approval_required] = new_cache
+    else
+      self[:approval_required] = ApprovalCache.new
+    end
+  end
+
+  @[Security(Level::Support)]
   def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
     calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
+    clear_cache(event_id: event_id)
   end
 
   @[Security(Level::Support)]
@@ -104,6 +122,8 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     else
       calendar.accept_event(calendar_id: calendar_id, event_id: recurring_event_id, user_id: user_id, notify: notify, comment: comment)
     end
+
+    clear_cache(event_id: recurring_event_id)
   end
 
   @[Security(Level::Support)]
