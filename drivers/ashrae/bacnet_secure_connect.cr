@@ -75,7 +75,13 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       vmac: @vmac,
     )
     client.on_transmit do |message|
-      logger.debug { "request sent: #{message.inspect}" }
+      logger.debug do
+        if message.data_link.request_type.encapsulated_npdu?
+          "sending message: #{message.application.class}"
+        else
+          "sending network message: #{message.data_link.request_type}"
+        end
+      end
       send message
     end
 
@@ -578,7 +584,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
     logger.debug do
       if message.data_link.request_type.encapsulated_npdu?
-        "received network message: #{message.application.class}"
+        "received message: #{message.application.class}"
       else
         "received network message: #{message.data_link.request_type}"
       end
