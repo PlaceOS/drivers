@@ -53,6 +53,15 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
   def on_update
     @verbose_debug = setting?(Bool, :verbose_debug) || false
+
+    # Load known devices from settings and add to seen_devices if not already present
+    devices = setting?(Array(DeviceConfig), :known_devices) || [] of DeviceConfig
+    devices.each do |config|
+      device_id = config.device_instance
+      unless @seen_devices.has_key?(device_id)
+        @seen_devices[device_id] = config.to_device
+      end
+    end
   end
 
   @verbose_debug : Bool = false
@@ -279,28 +288,19 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   end
 
   def query_known_devices
-    sent = [] of UInt32
+    # Query all devices in seen_devices (which includes loaded known_devices from on_update)
+    count = 0
     @seen_devices.each_value do |info|
       device_id = info.device_instance
-      sent << device_id
       # Get VMAC bytes from the device info
       if vmac_hex = info.vmac
         vmac = vmac_hex.hexbytes
         logger.debug { "inspecting #{vmac.hexstring} - #{device_id}" }
         spawn { inspect_device(device_id, vmac) }
+        count += 1
       end
     end
-    devices = setting?(Array(DeviceConfig), :known_devices) || [] of DeviceConfig
-    devices.each do |config|
-      device_id = config.device_instance
-      next if device_id.in? sent
-      sent << device_id
-      # Get VMAC bytes from the config
-      vmac = config.vmac.hexbytes
-      logger.debug { "inspecting #{vmac.hexstring} - #{device_id}" }
-      spawn { inspect_device(device_id, vmac) }
-    end
-    "inspecting #{sent.size} devices"
+    "inspecting #{count} devices"
   end
 
   # Custom device inspection - replaces the old DeviceRegistry.inspect_device
@@ -571,7 +571,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     logger.debug { "websocket sent: 0x#{bytes.hexstring}" }
 
     message = IO::Memory.new(bytes).read_bytes(::BACnet::Message::Secure)
-    logger.debug { "message: #{message.inspect}" }
+    # logger.debug { "message: #{message.inspect}" }
 
     # Let the client handle the message (important for promise resolution)
     bacnet_client.received message
