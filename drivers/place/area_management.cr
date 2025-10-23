@@ -24,7 +24,7 @@ class Place::AreaManagement < PlaceOS::Driver
     # How many wireless devices should we ignore
     duplication_factor: 0.8,
 
-    # Driver to query
+    # Driver to query for location information
     location_service: "LocationServices",
     include_sensors:  true,
 
