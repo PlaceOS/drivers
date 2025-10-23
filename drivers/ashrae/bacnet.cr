@@ -198,6 +198,16 @@ class Ashrae::BACnet < PlaceOS::Driver
     @bbmd_ip = Socket::IPAddress.new(bbmd_ip, 0xBAC0) if bbmd_ip.presence
     @verbose_debug = setting?(Bool, :verbose_debug) || false
 
+    # Load known devices from settings and add to seen_devices if not already present
+    devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
+    devices.each do |device_addr|
+      if device_id = device_addr.id
+        unless @seen_devices.has_key?(device_id)
+          @seen_devices[device_id] = device_addr
+        end
+      end
+    end
+
     schedule.clear
     schedule.in(5.seconds) { query_known_devices }
 
@@ -274,28 +284,18 @@ class Ashrae::BACnet < PlaceOS::Driver
   end
 
   def query_known_devices
-    sent = [] of UInt32
+    # Query all devices in seen_devices (which includes loaded known_devices from on_update)
+    count = 0
     @seen_devices.each_value do |info|
       if device_id = info.id
-        sent << device_id
         addr = info.address
         next unless addr.is_a?(Socket::IPAddress)
         logger.debug { "inspecting #{addr} - #{device_id}" }
         spawn { inspect_device(device_id, addr) }
+        count += 1
       end
     end
-    devices = setting?(Array(DeviceAddress), :known_devices) || [] of DeviceAddress
-    devices.each do |info|
-      if id = info.id
-        next if id.in? sent
-        sent << id
-        addr = info.address
-        next unless addr.is_a?(Socket::IPAddress)
-        logger.debug { "inspecting #{addr} - #{id}" }
-        spawn { inspect_device(id, addr) }
-      end
-    end
-    "inspecting #{sent.size} devices"
+    "inspecting #{count} devices"
   end
 
   # Custom device inspection - replaces the old DeviceRegistry.inspect_device
