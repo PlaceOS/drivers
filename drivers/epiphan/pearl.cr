@@ -3,6 +3,7 @@
 # Device Models: Pearl-2, Pearl Mini
 # Protocol: HTTP/HTTPS REST API with Basic Authentication
 
+
 require "placeos-driver"
 require "./pearl_models"
 
@@ -50,11 +51,41 @@ class Epiphan::Pearl < PlaceOS::Driver
 
   def connected
     schedule.every(@poll_every.seconds) { poll_status }
-    schedule.in(2.seconds) { poll_status }
+    schedule.in(2.seconds) { 
+      poll_status 
+      get_firmware
+      get_connectivity_details
+    }
   end
 
   def disconnected
     schedule.clear
+  end
+
+  def get_firmware
+    response = get("/api/v2.0/system/firmware")
+
+    raise "Failed to get firmware details: #{response.status_code}" unless response.success?
+
+    firmware_response = Epiphan::PearlModels::FirmwareDetailsResponse.from_json(response.body.not_nil!)
+    raise "API returned error: #{firmware_response.status}" unless firmware_response.status == "ok"
+
+    firmware = firmware_response.result
+    self[:firmware] = firmware
+    firmware
+  end
+
+  def get_connectivity_details
+    response = get("/api/v2.0/system/connectivity/details")
+   
+    raise "Failed to get connectivity details: #{response.status_code}" unless response.success?
+
+    connectivity_response = Epiphan::PearlModels::ConnectivityDetailsResponse.from_json(response.body.not_nil!)
+    raise "API returned error: #{connectivity_response.status}" unless connectivity_response.status == "ok"
+
+    connectivity_details = connectivity_response.result
+    self[:connectivity_details] = connectivity_details
+    connectivity_details
   end
 
   def list_recorders
@@ -222,6 +253,27 @@ class Epiphan::Pearl < PlaceOS::Driver
     status
   end
 
+  def get_inputs_status
+    response = get("/api/v2.0/inputs/status")
+    raise "Failed to get inputs status: #{response.status_code}" unless response.success?
+    
+    status_response = Epiphan::PearlModels::InputStatusResponse.from_json(response.body.not_nil!)
+    raise "API returned error: #{status_response.status}" unless status_response.status == "ok"
+
+    input_status = status_response.result
+    status_response.result.each do |input|
+      is_active = false
+      if status = input.status
+        if video = status.video
+          is_active = (video.state == "active")
+        end
+      end
+      self["#{input.id}_video_status"] = is_active
+    end
+    input_status
+  end
+
+
   def list_publishers(channel_id : String)
     response = get("/api/v2.0/channels/#{channel_id}/publishers")
     raise "Failed to get publishers: #{response.status_code}" unless response.success?
@@ -281,6 +333,7 @@ class Epiphan::Pearl < PlaceOS::Driver
   private def poll_status
     begin
       get_system_status
+      get_inputs_status
       list_recorders
       get_active_recordings
       list_channels
