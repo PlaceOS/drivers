@@ -79,7 +79,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     title : String,
     approved : Bool,
     time_zone : String,
-    extension_data : Hash(String, JSON::Any)
+    extension_data : Hash(String, JSON::Any),
   )
     raise "bad data" unless user_id == "test-user" && asset_id == "place_desk"
     raise "bad data2" unless checked_in && title == "Cool Desk" && extension_data["deskAttributes"].as_a.map(&.as_s) == ["standing"]

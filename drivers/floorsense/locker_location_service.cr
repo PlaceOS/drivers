@@ -201,7 +201,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     locker_id : String | Int64? = nil,
 
     # attempts to create a booking that expires at the time specified
-    expires_at : Int64? = nil
+    expires_at : Int64? = nil,
   ) : PlaceLocker
     bank_id = get_locker_bank(locker_id.to_s)
     floorsense_user_id = get_floorsense_user(user_id)
@@ -231,7 +231,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     locker_id : String | Int64,
 
     # release / unshare just this user - otherwise release the whole locker
-    owner_id : String? = nil
+    owner_id : String? = nil,
   ) : Nil
     bank_id = get_locker_bank(locker_id.to_s)
     if place_id = owner_id.presence
@@ -275,7 +275,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     bank_id : String | Int64,
     locker_id : String | Int64,
     owner_id : String,
-    share_with : String
+    share_with : String,
   ) : Nil
     bank_id = get_locker_bank(locker_id.to_s)
     floorsense_user_id = get_floorsense_user(owner_id)
@@ -296,7 +296,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     locker_id : String | Int64,
     owner_id : String,
     # the individual you previously shared with (optional)
-    shared_with_id : String? = nil
+    shared_with_id : String? = nil,
   ) : Nil
     floorsense_user_id = get_floorsense_user(owner_id)
     bank_id = get_locker_bank(locker_id.to_s)
@@ -325,7 +325,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
   def locker_shared_with(
     bank_id : String | Int64,
     locker_id : String | Int64,
-    owner_id : String
+    owner_id : String,
   ) : Array(String)
     floorsense_user_id = get_floorsense_user(owner_id)
     bank_id = get_locker_bank(locker_id.to_s)
@@ -355,7 +355,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     # (can be ignored if not implemented)
     open_time : Int32 = 60,
     # optional pin code - if user entered from a kiosk
-    pin_code : String? = nil
+    pin_code : String? = nil,
   ) : Nil
     floorsense_user_id = get_floorsense_user(owner_id.to_s) if owner_id.presence
     floorsense.locker_unlock(

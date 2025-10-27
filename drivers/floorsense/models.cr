@@ -59,6 +59,17 @@ module Floorsense
     property info : T?
   end
 
+  class RoomStatus
+    include JSON::Serializable
+
+    property cached : Int64
+    property planid : Int32?
+    property name : String
+    property roomid : Int32
+    property occupiedcount : Int32
+    property capacity : Int32?
+  end
+
   class Setting
     include JSON::Serializable
 

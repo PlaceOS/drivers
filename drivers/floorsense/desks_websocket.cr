@@ -259,10 +259,19 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     parse response, Array(JSON::Any)
   end
 
+  def room_list(room_id : String | Int32 | Int64? = nil) : Array(RoomStatus)
+    query = URI::Params.build do |form|
+      form.add("roomid", room_id.to_s)
+    end
+
+    response = get("/restapi/room-status?#{query}", headers: default_headers)
+    parse response, Array(RoomStatus)
+  end
+
   def settings_list(
     group_id : Int32? = nil,
     user_group_id : Int32? = nil,
-    controller_id : String | Int32 | Int64? = nil
+    controller_id : String | Int32 | Int64? = nil,
   )
     query = URI::Params.build { |form|
       form.add("cid", controller_id.to_s) if controller_id
@@ -329,7 +338,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     led_colour : String? = nil,
     buzzer : String? = nil,
     usb_charging : String? = nil,
-    detect : Bool? = nil
+    detect : Bool? = nil,
   )
     lock = @locker_controllers[locker_key]
 
@@ -432,7 +441,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   def locker_unlock(
     locker_key : String,
     user_id : String? = nil,
-    pin : String? = nil
+    pin : String? = nil,
   )
     lock = @locker_controllers[locker_key]
 
@@ -460,7 +469,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   def locker_share(
     reservation_id : String,
     user_id : String,
-    duration : UInt32? = nil
+    duration : UInt32? = nil,
   )
     response = post("/restapi/res-share", headers: {
       "Accept"        => "application/json",
@@ -478,7 +487,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   # POST res-unshare
   def locker_unshare(
     reservation_id : String,
-    user_id : String
+    user_id : String,
   )
     response = post("/restapi/res-unshare", headers: {
       "Accept"        => "application/json",
@@ -516,7 +525,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     validperiod : Int32? = nil,
     restype : String? = nil,
     activatemessage : String? = nil,
-    vouchermessage : String? = nil
+    vouchermessage : String? = nil,
   )
     response = post("/restapi/res-unshare", headers: {
       "Accept"        => "application/json",
@@ -557,7 +566,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     notes : String? = nil,
     validfrom : Int64? = nil,
     validto : Int64? = nil,
-    duration : Int32? = nil
+    duration : Int32? = nil,
   )
     response = post("/restapi/res-unshare", headers: {
       "Accept"        => "application/json",
@@ -583,7 +592,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
   def voucher_activate(
     voucher_id : String,
-    pin : String
+    pin : String,
   )
     response = post("/restapi/voucher-activate", headers: {
       "Accept"        => "application/json",
@@ -598,7 +607,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
   def voucher(
     voucher_id : String,
-    pin : String
+    pin : String,
   )
     response = get("/restapi/voucher?vid=#{voucher_id}&pin=#{pin}", headers: default_headers)
     parse response, Voucher
@@ -652,7 +661,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     controller_id : String | Int32 | Int64 | Nil = nil,
     key : String | Nil = nil,
     eui64 : String | Nil = nil,
-    userpresent : Bool? = nil
+    userpresent : Bool? = nil,
   )
     response = post("/restapi/booking-activate", headers: {
       "Accept"        => "application/json",
@@ -672,7 +681,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     eui64 : String,
     key : String | Int64 | Nil = nil,
     cid : String? = nil,
-    uid : String? = nil
+    uid : String? = nil,
   )
     response = post("/restapi/desk-scan", headers: {
       "Accept"        => "application/json",
@@ -695,7 +704,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     starting : Int64? = nil,
     ending : Int64? = nil,
     time_zone : String? = nil,
-    booking_type : String = "advance"
+    booking_type : String = "advance",
   )
     desks_on_plan = desks(plan_id)
     desk = desks_on_plan.find(&.key.==(key))
@@ -738,7 +747,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
 
   def update_booking(
     booking_id : String | Int64,
-    privacy : Bool? = nil
+    privacy : Bool? = nil,
   )
     response = post("/restapi/booking", headers: {
       "Accept"        => "application/json",
@@ -755,12 +764,12 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   end
 
   def desk_list(controller_id : String | Int32 | Int64)
-      response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
-      parse response, Array(DeskInfo)
-    rescue error
-      # code 34 "unknown command" indicates the desk api is unavailable
-      raise error unless error.message.try &.includes?("34")
-      [] of DeskInfo
+    response = get("/restapi/desk-list?cid=#{controller_id}", headers: default_headers)
+    parse response, Array(DeskInfo)
+  rescue error
+    # code 34 "unknown command" indicates the desk api is unavailable
+    raise error unless error.message.try &.includes?("34")
+    [] of DeskInfo
   end
 
   def desk_info(desk_key : String)
@@ -808,7 +817,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     desk_height : DeskHeight | Int32? = nil,
     qi_mode : QiMode? = nil,
     reboot : Bool = false,
-    clean : Bool = false
+    clean : Bool = false,
   )
     controller_id = @desk_controllers[desk_key].controller_id
 
@@ -876,7 +885,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     description : String? = nil,
     extid : String? = nil,
     pin : String? = nil,
-    usertype : String = "user"
+    usertype : String = "user",
   )
     response = post("/restapi/user-create", headers: {
       "Accept"        => "application/json",
@@ -899,7 +908,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
   def create_rfid(
     user_id : String,
     card_number : String,
-    description : String? = nil
+    description : String? = nil,
   )
     response = post("/restapi/rfid-create", headers: {
       "Accept"        => "application/json",
@@ -1001,7 +1010,7 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     check_response(resp, &.not_nil!)
   end
 
-  protected def check_response(resp)
+  protected def check_response(resp, &)
     if resp.result
       yield resp.info
     else
