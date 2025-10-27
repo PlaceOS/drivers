@@ -139,7 +139,7 @@ shards:
 
   http_proxy:
     git: https://github.com/mamantoha/http_proxy.git
-    version: 0.13.0
+    version: 0.13.1
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -195,7 +195,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.6.3
+    version: 2.7.0
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
