@@ -20,6 +20,7 @@ end
 # :nodoc:
 class FloorsenseMock < DriverSpecs::MockDriver
   def room_list(room_id : String | Int32 | Int64? = nil)
+    raise "expected room id in test" unless room_id
     [{
       :cached        => Time.utc.to_unix,
       :name          => "test room",
