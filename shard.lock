@@ -195,7 +195,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.7.0
+    version: 2.8.1
 
   oq:
     git: https://github.com/blacksmoke16/oq.git

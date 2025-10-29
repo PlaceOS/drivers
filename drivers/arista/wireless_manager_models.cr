@@ -115,6 +115,24 @@ module Arista
     getter clients : Array(ClientDetails)
   end
 
+  struct Layout
+    include JSON::Serializable
+
+    getter type : String
+    getter calibrated : Bool
+    getter length : Float64
+    getter width : Float64
+    getter unit : Unit
+
+    # can download the image using this key:
+    # /new/wifi/api/sfiles?id=<image_key>
+    @[JSON::Field(key: "imageKey")]
+    getter image_key : String?
+
+    @[JSON::Field(key: "lastModifiedTime")]
+    getter last_modified : Int64
+  end
+
   struct ClientDetails
     include JSON::Serializable
 
