@@ -47,11 +47,6 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
       new_session
     end
 
-    # cleanup caches once a day
-    schedule.cron("0 3 * * *") do
-      @layout_cache = {} of String | Int64 => Layout
-    end
-
     polling_sec = setting?(UInt32, :polling_seconds) || 3_u32
     polling_locs = setting?(Array(Int64), :poll_locations) || [] of Int64
 
@@ -145,8 +140,6 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     end
   end
 
-  @layout_cache : Hash(String | Int64, Layout) = {} of String | Int64 => Layout
-
   # get the layout for each of the locations
   def layout(for_location : String | Int64) : Layout
     new_session unless authenticated?
@@ -156,11 +149,7 @@ class Arista::WirelessManagerAPI < PlaceOS::Driver
     end
 
     response = check get("/new/wifi/api/layouts?#{query}")
-    @layout_cache[for_location] = Layout.from_json(response.body)
-  end
-
-  def cached_layout(for_location : String | Int64) : Layout
-    @layout_cache[for_location]? || layout(for_location)
+    Layout.from_json(response.body)
   end
 
   def client_positions(at_location : String | Int64? = nil)
