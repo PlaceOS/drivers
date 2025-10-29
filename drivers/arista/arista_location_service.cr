@@ -25,14 +25,27 @@ class Arista::LocationService < PlaceOS::Driver
   # map_ids => data
   @floorplan_mappings : Hash(Int64, Hash(String, String | Int32)) = Hash(Int64, Hash(String, String | Int32)).new
 
-  # @floorplan_sizes = {} of String => MapImage
+  @floorplan_sizes = {} of Int64 => Layout
 
   def on_update
     @floorplan_mappings = setting?(Hash(Int64, Hash(String, String | Int32)), :floorplan_mappings) || @floorplan_mappings
 
-    # schedule.clear
-    # schedule.every(10.minutes) { sync_map_sizes }
-    # schedule.in(20.seconds) { sync_map_sizes }
+    # cleanup caches once a day
+    schedule.cron("0 3 * * *") do
+      @floorplan_sizes = {} of Int64 => Layout
+    end
+  end
+
+  def cached_layout(for_location : Int64) : Layout
+    @floorplan_sizes[for_location]? || Layout.from_json(arista.layout(for_location).get.to_json)
+  end
+
+  def get_floorplan_size(for_location : Int64)
+    layout = cached_layout(for_location)
+    {layout.width, layout.length}
+  rescue error
+    logger.warn(exception: error) { "error obtaining floorplan size for location #{for_location}" }
+    {50, 50}
   end
 
   # ============================
@@ -44,16 +57,14 @@ class Arista::LocationService < PlaceOS::Driver
     client = ClientDetails?.from_json arista.locate(email.presence || username.presence.as(String)).get.to_json
     return nil unless client
 
-    mappings = @floorplan_mappings[client.device.location.id]?
+    location_id = client.device.location.id
+    mappings = @floorplan_mappings[location_id]?
     return nil unless mappings
 
     building = mappings["building"]?.as(String?)
     level = mappings["level"]?.as(String?)
 
-    # TODO:: fix map width and heights
-    # map_width, map_height = get_floorplan_size(map_id, mappings)
-    map_width = 50
-    map_height = 50
+    map_width, map_height = get_floorplan_size(location_id)
 
     if coords = client.position.coordinates
       x = coords.x
@@ -130,9 +141,7 @@ class Arista::LocationService < PlaceOS::Driver
       mappings = @floorplan_mappings[map_id]
       building = mappings["building"]?.as(String?)
       level = mappings["level"]?.as(String?)
-      # map_width, map_height = get_floorplan_size(map_id, mappings)
-      map_width = 50
-      map_height = 50
+      map_width, map_height = get_floorplan_size(map_id)
 
       time = Time.utc.to_unix
 
@@ -170,10 +179,6 @@ class Arista::LocationService < PlaceOS::Driver
       end
     end
   end
-
-  # protected def get_floorplan_size(map_id, mappings)
-  #   {map_width, map_height}
-  # end
 
   def format_mac(address : String)
     address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
