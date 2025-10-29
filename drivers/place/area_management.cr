@@ -69,6 +69,7 @@ class Place::AreaManagement < PlaceOS::Driver
     desk_usage: Int32,
     capacity: LevelCapacity,
     sensors: Hash(String, Float64),
+    desk_checked_in: Int32,
   )
 
   getter? campus : Bool = false
@@ -425,6 +426,7 @@ class Place::AreaManagement < PlaceOS::Driver
     wireless_count = 0
     desk_count = 0
     desk_bookings = 0
+    desk_checked_in = 0
     xy_locs = locations.select do |loc|
       case loc["location"].as_s
       when "wireless"
@@ -436,7 +438,10 @@ class Place::AreaManagement < PlaceOS::Driver
         desk_count += 1 if (loc["at_location"]?.try(&.as_i?) || 0) > 0
         false
       when "booking"
-        desk_bookings += 1 if loc["type"].as_s == "desk"
+        if loc["type"].as_s == "desk"
+          desk_bookings += 1
+          desk_checked_in += 1 if loc["checked_in"]?.try(&.as_bool) == true
+        end
         false
       else
         false
@@ -462,6 +467,7 @@ class Place::AreaManagement < PlaceOS::Driver
       desk_usage:       desk_count,
       capacity:         details,
       sensors:          sensor_summary,
+      desk_checked_in:  desk_checked_in,
     }
 
     # we need to know the map dimensions to be able to count people in areas
@@ -586,7 +592,7 @@ class Place::AreaManagement < PlaceOS::Driver
     area.polygon.contains(x, y)
   end
 
-  protected def build_level_stats(wireless_devices, desk_bookings, desk_usage, capacity, sensors)
+  protected def build_level_stats(wireless_devices, desk_bookings, desk_usage, capacity, sensors, desk_checked_in)
     # raw data
     total_desks = capacity[:total_desks]
     total_capacity = capacity[:total_capacity]
@@ -607,8 +613,9 @@ class Place::AreaManagement < PlaceOS::Driver
     {
       "measurement"      => "level_summary",
       "desk_count"       => total_desks,
-      "desk_bookings"    => desk_bookings, # booked desks
-      "desk_usage"       => desk_usage,    # sensor detected someone at a desk
+      "desk_bookings"    => desk_bookings,   # booked desks
+      "desk_checked_in"  => desk_checked_in, # booked desks that were checked in
+      "desk_usage"       => desk_usage,      # sensor detected someone at a desk
       "device_capacity"  => total_capacity,
       "device_count"     => wireless_devices,
       "estimated_people" => adjusted_devices.to_i,
