@@ -7,7 +7,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
   include Interface::Powerable
   include Interface::Camera
 
-  # Discovery Information.
+  # Discovery Information
   generic_name :Camera
   descriptive_name "Aver 520 Pro Camera"
 
