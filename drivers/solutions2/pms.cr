@@ -176,7 +176,7 @@ class PMS < PlaceOS::Driver
       "Files" => files.map { |f| {"FileName" => f[:file_name], "Base64" => f[:base64]} }
     }.to_json
 
-    request("POST", "/api/vehicles/upload-documents/#{vehicle_id}")
+    request("POST", "/api/vehicles/upload-documents/#{vehicle_id}", payload)
   end
 
 
