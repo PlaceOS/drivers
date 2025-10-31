@@ -171,6 +171,15 @@ class PMS < PlaceOS::Driver
     request("GET", "/api/parking/full-notifications")
   end
 
+  def upload_vehicle_documents(vehicle_id : String, files : Array(NamedTuple(file_name: String, base64: String)))
+    payload = {
+      "Files" => files.map { |f| {"FileName" => f[:file_name], "Base64" => f[:base64]} }
+    }.to_json
+
+    request("POST", "/api/vehicles/upload-documents/#{vehicle_id}")
+  end
+
+
   private def request(method : String, resource : String, payload : String? = nil, params : Hash(String, String?) | URI::Params = URI::Params.new)
     headers = get_headers("application/x-www-form-urlencoded")
     logger.debug { {msg: "#{method} #{resource}:", headers: headers.to_json, payload: payload} } if @debug_payload
