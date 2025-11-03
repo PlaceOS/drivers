@@ -171,7 +171,7 @@ class PMS < PlaceOS::Driver
     request("GET", "/api/parking/full-notifications")
   end
 
-  def upload_vehicle_documents(vehicle_id : String, file_name : String, file_in_base64 : String)
+  def upload_vehicle_document(vehicle_id : String, file_name : String, file_in_base64 : String)
     method = "POST"
     resource = "/api/vehicles/upload-documents/#{vehicle_id}"
     payload = {
