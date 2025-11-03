@@ -171,14 +171,20 @@ class PMS < PlaceOS::Driver
     request("GET", "/api/parking/full-notifications")
   end
 
-  def upload_vehicle_documents(vehicle_id : String, files : Array(NamedTuple(file_name: String, base64: String)))
+  def upload_vehicle_documents(vehicle_id : String, file_name : String, file_in_base64 : String)
+    method = "POST"
+    resource = "/api/vehicles/upload-documents/#{vehicle_id}"
     payload = {
-      "Files" => files.map { |f| {"FileName" => f[:file_name], "Base64" => f[:base64]} }
+      "Files" => [{"FileName" => file_name, "Base64" => file_in_base64}]
     }.to_json
+    headers = get_headers
+    headers["Content-Length"] = payload.bytesize.to_s
 
-    request("POST", "/api/vehicles/upload-documents/#{vehicle_id}", payload)
+    logger.debug { {msg: "#{method} #{resource}:", headers: headers.to_json, payload: payload} } if @debug_payload
+    response = http(method: method, path: resource, headers: headers, body: payload)
+    logger.debug { "RESPONSE code: #{response.status_code}, body: #{response.body}" } if  @debug_payload
+    raise "failed to #{method} #{resource}, code #{response.status_code}, body: #{response.body}" unless response.success?
   end
-
 
   private def request(method : String, resource : String, payload : String? = nil, params : Hash(String, String?) | URI::Params = URI::Params.new)
     headers = get_headers("application/x-www-form-urlencoded")
