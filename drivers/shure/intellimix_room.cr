@@ -28,7 +28,7 @@ class Shure::IntellimixRoom < PlaceOS::Driver
     schedule.clear
   end
 
-  # Device Information
+  # Device Information:
   def get_device_info
     do_send "GET MODEL", name: :get_device_model, priority: 0
     do_send "GET FW_VER", name: :get_firmware_version, priority: 0
