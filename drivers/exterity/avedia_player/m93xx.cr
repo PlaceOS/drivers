@@ -95,7 +95,7 @@ class Exterity::AvediaPlayer::R93xx < PlaceOS::Driver
   def received(data, task)
     data = String.new(data).strip
 
-    logger.debug { "Exterity sent #{data}" }
+    logger.debug { "Exterity sent: #{data}" }
 
     if !@ready
       if data =~ /Run a Shell/i
