@@ -420,37 +420,43 @@ class Place::Desk::Allocations < PlaceOS::Driver
 
     # update the bookings with the new ids
     fixed = 0
-    no_applied = {} of String => String
+    no_applied = [] of String
     missing.each do |desk_id, details|
       logger.debug { "  - assigning #{desk_id} => #{details.assigned_email}" }
 
-      staff_api.create_booking(
-        asset_id: desk_id,
-        asset_ids: {desk_id},
-        asset_name: details.desk_name,
-        zones: parent_zones + [
-          building_zone,
-          details.level_zone,
-        ],
-        booking_start: booking_start.to_unix,
-        booking_end: booking_end.to_unix,
-        booking_type: "desk",
-        time_zone: timezone.name,
-        user_email: details.assigned_email,
-        user_id: details.assigned_email,
-        user_name: details.assigned_email,
-        title: "Desk Booking",
-        extension_data: {
-          "asset_name"  => details.desk_name,
-          "is_assigned" => true,
-          "assets"      => [] of String,
-          "tags"        => [] of String,
-        },
-        recurrence_type: "daily",
-        recurrence_days: 127
-      ).get unless test
+      begin
+        staff_api.create_booking(
+          asset_id: desk_id,
+          asset_ids: {desk_id},
+          asset_name: details.desk_name,
+          zones: parent_zones + [
+            building_zone,
+            details.level_zone,
+          ],
+          booking_start: booking_start.to_unix,
+          booking_end: booking_end.to_unix,
+          booking_type: "desk",
+          time_zone: timezone.name,
+          user_email: details.assigned_email,
+          user_id: details.assigned_email,
+          user_name: details.assigned_email,
+          title: "Desk Booking",
+          extension_data: {
+            "asset_name"  => details.desk_name,
+            "is_assigned" => true,
+            "assets"      => [] of String,
+            "tags"        => [] of String,
+          },
+          recurrence_type: "daily",
+          recurrence_days: 127,
+          limit_override: 1000,
+        ).get unless test
 
-      fixed += 1
+        fixed += 1
+      rescue error
+        Log.warn { "    FAILED assigning #{desk_id} => #{details.assigned_email}" }
+        no_applied << desk_id
+      end
     end
 
     overview = String.build do |io|
