@@ -706,7 +706,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "recurrence_interval"     => recurrence_interval,
       "recurrence_end"          => recurrence_end,
     }.compact.to_json)
-    raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}" unless response.success?
+    raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}\n#{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
