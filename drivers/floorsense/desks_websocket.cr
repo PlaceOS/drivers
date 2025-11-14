@@ -265,7 +265,12 @@ class Floorsense::DesksWebsocket < PlaceOS::Driver
     end
 
     response = get("/restapi/room-status?#{query}", headers: default_headers)
-    parse response, Array(RoomStatus)
+
+    if room_id
+      [parse(response, RoomStatus)]
+    else
+      parse response, Array(RoomStatus)
+    end
   end
 
   def settings_list(
