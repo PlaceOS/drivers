@@ -41,6 +41,7 @@ class Place::Bookings < PlaceOS::Driver
     room_image:  "https://domain.com/room_image.svg",
     _sensor_mac: "device-mac",
 
+    show_tentative_meetings:   false,
     hide_meeting_details:      false,
     hide_meeting_title:        false,
     enable_end_meeting_button: false,
@@ -71,6 +72,7 @@ class Place::Bookings < PlaceOS::Driver
   @include_cancelled_bookings : Bool = false
   @application_permissions : Bool = false
   @disable_book_now_host : Bool = false
+  @show_tentative_meetings : Bool = false
   @max_user_search_results : UInt32 = 20
   @poll_x_seconds_after_booking : UInt32 = 2
 
@@ -124,6 +126,7 @@ class Place::Bookings < PlaceOS::Driver
     @cache_days = cache_days.days
 
     @change_event_sync_delay = setting?(UInt32, :change_event_sync_delay) || 5_u32
+    @show_tentative_meetings = setting?(Bool, :show_tentative_meetings) || false
 
     # ensure we don't load any millisecond timestamps
     last_started = setting?(Int64, :last_booking_started) || 0_i64
@@ -326,6 +329,10 @@ class Place::Bookings < PlaceOS::Driver
         evt
       end
     }.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
+
+    if !@show_tentative_meetings
+      events.reject! { |evt| evt["status"]?.try(&.as_s?) == "tentative" }
+    end
 
     self[:bookings] = events
     check_current_booking(events)
