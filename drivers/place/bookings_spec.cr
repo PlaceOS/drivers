@@ -48,6 +48,8 @@ DriverSpecs.mock_driver "Place::Bookings" do
   bookings = status[:bookings].as_a
   bookings.size.should eq(3)
 
+  exec(:bookings_for, "lisa@external.com").get.as_a.size.should eq(1)
+
   status[:booked].should eq(false)
   status[:in_use].should eq(false)
   status[:pending].should eq(false)
@@ -117,7 +119,7 @@ class CalendarMock < DriverSpecs::MockDriver
     period_end : Int64,
     time_zone : String? = nil,
     user_id : String? = nil,
-    include_cancelled : Bool = false
+    include_cancelled : Bool = false,
   )
     self[:checked_calendar] = calendar_id
     @events

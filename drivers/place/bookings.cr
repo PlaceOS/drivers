@@ -41,11 +41,11 @@ class Place::Bookings < PlaceOS::Driver
     room_image:  "https://domain.com/room_image.svg",
     _sensor_mac: "device-mac",
 
-    show_tentative_meetings:   false,
-    hide_meeting_details:      false,
-    hide_meeting_title:        false,
-    enable_end_meeting_button: false,
-    max_user_search_results:   20,
+    show_tentative_meetings:      false,
+    hide_meeting_details:         false,
+    hide_meeting_title:           false,
+    enable_end_meeting_button:    false,
+    max_user_search_results:      20,
     poll_x_seconds_after_booking: 2,
 
     # use this to expose arbitrary fields to influx
@@ -302,6 +302,8 @@ class Place::Bookings < PlaceOS::Driver
     start_of_day = now.at_beginning_of_day.to_unix
     cache_period = start_of_day + @cache_days.to_i
 
+    system_id = JSON::Any.new(config.control_system.not_nil!.id)
+
     events = @calendar_ids.flat_map { |cal_id|
       logger.debug { "polling events #{cal_id}, from #{start_of_day}, to #{cache_period}, in #{@time_zone.name}" }
 
@@ -317,15 +319,18 @@ class Place::Bookings < PlaceOS::Driver
                      else
                        evt["visibility"]?.try &.as_s?.try &.downcase || "normal"
                      end
+
+        evt = evt.as_h
         if visibility == "private"
-          evt.as_h["title"] = JSON::Any.new("Private")
-          evt.as_h["host"] = JSON::Any.new("Private")
+          evt["title"] = JSON::Any.new("Private")
+          evt["host"] = JSON::Any.new("Private")
         elsif visibility == "personal"
-          evt.as_h["title"] = evt["host"]
+          evt["title"] = evt["host"]
         elsif visibility == "confidential"
-          evt.as_h["title"] = JSON::Any.new("Confidential")
-          evt.as_h["host"] = JSON::Any.new("Confidential")
+          evt["title"] = JSON::Any.new("Confidential")
+          evt["host"] = JSON::Any.new("Confidential")
         end
+        evt["system_id"] = system_id
         evt
       end
     }.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
@@ -339,6 +344,24 @@ class Place::Bookings < PlaceOS::Driver
     events
   ensure
     @polling = false
+  end
+
+  def bookings_for(email : String) : Array(JSON::Any)
+    bookings = self[:bookings]?.try(&.as_a?)
+    return [] of JSON::Any unless bookings
+    email = email.strip.downcase
+
+    bookings.select do |booking|
+      attendees = (booking["attendees"]?.try(&.as_a?) || [] of JSON::Any)
+      attend = Array(String).new(attendees.size + 1)
+      host = booking["host"]?.try(&.as_s?)
+      attend << host.downcase if host
+      attendees.each do |person|
+        pemail = person["email"]?.try(&.as_s?)
+        attend << pemail.downcase if pemail
+      end
+      attend.includes? email
+    end
   end
 
   protected def check_current_booking(bookings) : Nil
