@@ -126,19 +126,17 @@ module Panasonic::Projector
     property state : String # "on" or "off"
   end
 
-  # Response model for lights 
+  # Response model for lights
   struct LightsResponse
     include JSON::Serializable
-    
+
     property lights : Array(Panasonic::Projector::LightStatus)
   end
 
-    # Response model for temperaatures 
+  # Response model for temperaatures
   struct TemperaturesResponse
     include JSON::Serializable
-    
+
     property temperatures : Array(Panasonic::Projector::TemperatureInfo)
   end
-
-
 end

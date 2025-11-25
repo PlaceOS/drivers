@@ -347,7 +347,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     lights
   end
 
-  ## Remove
+  # # Remove
   def query_light(light_id : Int32)
     response = get_with_digest_auth("/lights#{light_id}")
 

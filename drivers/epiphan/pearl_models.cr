@@ -1,7 +1,6 @@
 require "json"
 
 module Epiphan::PearlModels
-  
   # Enum for recorder states
   enum RecorderState
     Started
@@ -52,8 +51,6 @@ module Epiphan::PearlModels
     getter product_name : String?
   end
 
-
-
   # Represents a recording channel/recorder
   class Recorder
     include JSON::Serializable
@@ -80,10 +77,9 @@ module Epiphan::PearlModels
     getter id : String?
     getter name : String?
     getter status : InputStatus?
-
   end
 
-    # Represents the status of an individual input
+  # Represents the status of an individual input
   class InputStatus
     include JSON::Serializable
 
@@ -118,7 +114,7 @@ module Epiphan::PearlModels
     getter codec : String?
     getter sample_rate : Int32?
     getter real_device_name : String?
-    getter error : String? 
+    getter error : String?
   end
 
   # Represents the connection status of an individual input
@@ -135,7 +131,6 @@ module Epiphan::PearlModels
 
     getter rms : Array(Float64)?
     getter peak : Array(Float64)?
-
   end
 
   # Represents a streaming channel
@@ -194,12 +189,12 @@ module Epiphan::PearlModels
   class SystemStatus
     include JSON::Serializable
 
-    getter cpuload : Int32?        # CPU load percentage
-    getter cpuload_high : Bool?    # CPU warning
-    getter cputemp : Int32?        # CPU temperature in Celsius
+    getter cpuload : Int32?           # CPU load percentage
+    getter cpuload_high : Bool?       # CPU warning
+    getter cputemp : Int32?           # CPU temperature in Celsius
     getter cputemp_threshold : Int32? # High CPU temperature threshold
-    getter date : Time?            # Current system time
-    getter uptime : Int64?         # System uptime in seconds
+    getter date : Time?               # Current system time
+    getter uptime : Int64?            # System uptime in seconds
   end
 
   # Response type aliases for specific endpoints

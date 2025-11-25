@@ -3,7 +3,6 @@
 # Device Models: Pearl-2, Pearl Mini
 # Protocol: HTTP/HTTPS REST API with Basic Authentication
 
-
 require "placeos-driver"
 require "./pearl_models"
 
@@ -51,8 +50,8 @@ class Epiphan::Pearl < PlaceOS::Driver
 
   def connected
     schedule.every(@poll_every.seconds) { poll_status }
-    schedule.in(2.seconds) { 
-      poll_status 
+    schedule.in(2.seconds) {
+      poll_status
       get_firmware
       get_connectivity_details
     }
@@ -77,7 +76,7 @@ class Epiphan::Pearl < PlaceOS::Driver
 
   def get_connectivity_details
     response = get("/api/v2.0/system/connectivity/details")
-   
+
     raise "Failed to get connectivity details: #{response.status_code}" unless response.success?
 
     connectivity_response = Epiphan::PearlModels::ConnectivityDetailsResponse.from_json(response.body.not_nil!)
@@ -256,7 +255,7 @@ class Epiphan::Pearl < PlaceOS::Driver
   def get_inputs_status
     response = get("/api/v2.0/inputs/status")
     raise "Failed to get inputs status: #{response.status_code}" unless response.success?
-    
+
     status_response = Epiphan::PearlModels::InputStatusResponse.from_json(response.body.not_nil!)
     raise "API returned error: #{status_response.status}" unless status_response.status == "ok"
 
@@ -272,7 +271,6 @@ class Epiphan::Pearl < PlaceOS::Driver
     end
     input_status
   end
-
 
   def list_publishers(channel_id : String)
     response = get("/api/v2.0/channels/#{channel_id}/publishers")

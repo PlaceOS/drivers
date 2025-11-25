@@ -36,14 +36,14 @@ class Catchbox::HubDSP < PlaceOS::Driver
   end
 
   def on_update
-  # Update poll interval in ms
-  @battery_poll_interval = setting?(Int32, :mics_battery_polling_interval) || 60000
-  @link_poll_interval = setting?(Int32, :mics_link_polling_interval) || 30000
-  @mic_subscription = setting?(Bool, :subscribe_mics_status) || false
+    # Update poll interval in ms
+    @battery_poll_interval = setting?(Int32, :mics_battery_polling_interval) || 60000
+    @link_poll_interval = setting?(Int32, :mics_link_polling_interval) || 30000
+    @mic_subscription = setting?(Bool, :subscribe_mics_status) || false
 
-  #resub with new values
-  subscribe_mic_battery_levels(@battery_poll_interval, @mic_subscription)
-  subscribe_mic_link_state(@link_poll_interval, @mic_subscription)
+    # resub with new values
+    subscribe_mic_battery_levels(@battery_poll_interval, @mic_subscription)
+    subscribe_mic_link_state(@link_poll_interval, @mic_subscription)
   end
 
   def connected
@@ -102,21 +102,21 @@ class Catchbox::HubDSP < PlaceOS::Driver
   end
 
   private def process_device(device : Device)
-    #process RX info
+    # process RX info
     self[:rx_device_type] = device.device_type if device.device_type
     self[:rx_device_name] = device.name if device.name
     self[:rx_firmware] = device.firmware_info if device.firmware_info
     self[:rx_serial] = device.serial if device.serial
 
-    #process RX link info
+    # process RX link info
     [
       {device.mic1_link_state, 1},
       {device.mic2_link_state, 2},
       {device.mic3_link_state, 3},
-      {device.mic4_link_state, 4}
+      {device.mic4_link_state, 4},
     ].each do |(state, num)|
       next unless state
-      
+
       self["mic#{num}_link_state"] = state
       if state.in?(LinkState::Connected, LinkState::Charging)
         query_tx_device_status(num)
@@ -204,12 +204,11 @@ class Catchbox::HubDSP < PlaceOS::Driver
   end
 
   def query_tx_device_status(index : Int32)
-      ["name", "firmware_info", "serial"].each do |field|
-        query = ({"tx#{index}" => {"device" => {field => nil}}})
-        send_request(query.to_json)
-      end
-  end 
-  
+    ["name", "firmware_info", "serial"].each do |field|
+      query = ({"tx#{index}" => {"device" => {field => nil}}})
+      send_request(query.to_json)
+    end
+  end
 
   def query_network_status
     ["mac", "ip_mode", "ip_address", "subnet", "gateway"].each do |field|
