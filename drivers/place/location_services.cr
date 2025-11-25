@@ -116,6 +116,39 @@ class Place::LocationServices < PlaceOS::Driver
     located
   end
 
+  struct User
+    include JSON::Serializable
+
+    getter name : String
+    getter email : String
+  end
+
+  def current_user : User
+    User.from_json staff_api.user(invoked_by_user_id).get.to_json
+  end
+
+  # returns a list of bookings the current user is attending
+  # during the current day
+  def my_bookings
+    user = current_user
+    results = [] of PlaceOS::Driver::Proxy::Drivers::Responses
+    email = user.email
+
+    # Map
+    systems.each do |level_id, system_ids|
+      level_id = JSON::Any.new level_id
+      system_ids.each do |system_id|
+        sys = system(system_id)
+        if sys.exists?("Bookings", 1)
+          results << sys.get("Bookings", 1).bookings_for(email)
+        end
+      end
+    end
+
+    # reduce
+    results.flat_map(&.get.as_a)
+  end
+
   # Will return an array of MAC address strings
   # lowercase with no seperation characters abcdeffd1234 etc
   def macs_assigned_to(email : String? = nil, username : String? = nil)
