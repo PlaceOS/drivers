@@ -131,7 +131,7 @@ class Place::LocationServices < PlaceOS::Driver
   # during the current day
   def my_bookings
     user = current_user
-    results = [] of PlaceOS::Driver::Proxy::Drivers::Responses
+    results = [] of Future::Compute(JSON::Any)
     email = user.email
 
     # Map
