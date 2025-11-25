@@ -12,7 +12,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   descriptive_name "Crestron NVX Receiver"
   generic_name :Decoder
   description <<-DESC
-    Crestron NVX network media decoder
+    Crestron NVX network media decoder.
   DESC
 
   uri_base "wss://192.168.0.5/websockify"
@@ -24,6 +24,8 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
 
   @subscriptions : Hash(String, JSON::Any) = {} of String => JSON::Any
   @audio_follows_video : Bool = true
+
+  MIN_SYNC_VERTICAL = 1080
 
   def connected
     super
@@ -103,9 +105,9 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
 
   def output_with_index(state : Bool, output_index : Int32, port_index : Int32?)
     logger.debug { "#{state ? "enabling" : "disabling"} output sync for output #{output_index}#{port_index ? " port #{port_index}" : ""}" }
-    # /Device/AvioV2/Outputs/Output1/OutputInfo/Ports/Port1/Digital/IsOutputDisabled   https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects-HD-PS/AvioV2.htm
+    # /AudioVideoInputOutput/Outputs/x/Ports/x/Hdmi/   https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/AudioVideoInputOutput.htm
     ws_update(
-      "/AvioV2/Outputs/Output#{output_index}/OutputInfo/Ports/Port#{port_index}/Digital/IsOutputDisabled",
+      "/AudioVideoInputOutput/Outputs/#{output_index}/Ports#{port_index ? "/#{port_index}/" : "/"}Hdmi/IsOutputDisabled",
       !state,
       name: :output
     )
@@ -135,6 +137,37 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   def query_osd_text
     query("/Osd/Text", name: "osd_text") do |text|
       self[:osd_text] = text
+    end
+  end
+
+  # Shared method to process input sync status
+  private def process_input_sync_status(inputs_hash)
+    return unless inputs_hash
+
+    inputs_hash.each do |input_name, input_val|
+      friendly_input = input_val["UserSpecifiedName"].as_s.downcase.delete(" ")
+      key = "#{friendly_input}_sync"
+
+      # Default to false
+      sync_detected = false
+
+      if ports = input_val.dig?("InputInfo", "Ports").try &.as_h?
+        ports.each do |_, port_val|
+          vr = port_val.dig?("VerticalResolution").try &.as_i?
+          if vr && vr >= MIN_SYNC_VERTICAL
+            sync_detected = true
+            break
+          end
+        end
+      end
+
+      self[key] = sync_detected
+    end
+  end
+
+  protected def query_input_state
+    query("/AvioV2/Inputs", name: "input_states", priority: 5) do |inputs, _task|
+      process_input_sync_status(inputs.as_h?) if inputs
     end
   end
 
@@ -299,5 +332,21 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     query_source_name_for(:audio)
     query_device_name
     query_osd_text
+    query_input_state
+  end
+
+  def received(data, task)
+    super
+
+    raw_json = String.new data
+    json = JSON.parse(raw_json)
+
+    begin
+      if inputs = json.dig?("Device", "AvioV2", "Inputs").try &.as_h?
+        process_input_sync_status(inputs)
+      end
+    rescue e
+      logger.debug { "unsolicited parse error: #{e.message}" }
+    end
   end
 end
