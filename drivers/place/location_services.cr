@@ -146,7 +146,7 @@ class Place::LocationServices < PlaceOS::Driver
     end
 
     # reduce
-    results.flat_map(&.get.as_a)
+    results.flat_map { |result| result.get.as_a rescue [] of JSON::Any }
   end
 
   # Will return an array of MAC address strings
