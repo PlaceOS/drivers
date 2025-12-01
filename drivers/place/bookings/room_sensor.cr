@@ -1,55 +1,68 @@
 require "placeos-driver"
-require "./models"
 require "placeos-driver/interface/sensor"
 
-class Floorsense::RoomSensorDriver < PlaceOS::Driver
+class Place::Bookings::RoomSensor < PlaceOS::Driver
   include Interface::Sensor
 
   # Discovery Information
-  descriptive_name "Floorsense Room Sensor"
+  descriptive_name "Area People Count"
   generic_name :Sensor
 
   default_settings({
-    _floorsense_system: "sys-12345",
-    _floorsense_module: "Floorsense",
-
-    floorsense_room_id: "1",
+    _area_management_system: "sys-12345",
+    _area_id:                "not required if matching system.map_id",
   })
 
   getter system_id : String = ""
-  getter module_name : String = ""
-  getter room_id : String = ""
+  getter area_id : String = ""
+
+  getter level_id : String do
+    (area_management.level_buildings.get.as_h.keys & config.control_system.not_nil!.zones).first
+  end
 
   def on_update
-    @system_id = setting?(String, :floorsense_system).presence || config.control_system.not_nil!.id
-    @module_name = setting?(String, :floorsense_module).presence || "Floorsense"
-    @room_id = setting(String | Int64, :floorsense_room_id).to_s
+    @system_id = setting?(String, :area_management_system).presence || config.control_system.not_nil!.id
+    @area_id = setting?(String, :area_id) || config.control_system.not_nil!.map_id.as(String)
 
     schedule.clear
     schedule.every(15.seconds + rand(1000).milliseconds) { update_sensor }
-    schedule.in(rand(200).milliseconds) { update_sensor }
+    schedule.in(1.second + rand(200).milliseconds) { update_sensor }
   end
 
-  private def floorsense
-    system(system_id)[module_name]
+  private def area_management
+    system(system_id).get("AreaManagement", 1)
   end
 
-  getter! status : RoomStatus
+  record AreaCounts, area_id : String, name : String, count : Float64, counter : Float64? do
+    include JSON::Serializable
+  end
 
-  def update_sensor : RoomStatus?
-    status = Array(RoomStatus).from_json floorsense.room_list(room_id).get.to_json
-    if state = status.first?
-      @status = state
+  record ZoneAreas, value : Array(AreaCounts) do
+    include JSON::Serializable
+  end
 
-      self[:last_changed] = state.cached
-      self[:presence] = state.occupiedcount > 0 ? 1.0 : 0.0
-      self[:people] = state.occupiedcount
+  getter! status : AreaCounts
+  @last_seen : Int64 = 0_i64
+
+  def update_sensor : AreaCounts?
+    id = area_id
+
+    if status = area_management.status?(ZoneAreas, "#{level_id}:areas").try(&.value.find { |area| area.area_id == id })
+      @status = status
+
+      count = status.counter || status.count
+      count = 0.0 if count < 0.0
+
+      self[:last_changed] = @last_seen = Time.utc.to_unix
+      self[:presence] = count.zero? ? 0.0 : 1.0
+      self[:people] = count
     else
       @status = nil
       self[:last_changed] = nil
       self[:presence] = nil
       self[:people] = nil
     end
+
     @status
   end
 
@@ -71,7 +84,7 @@ class Floorsense::RoomSensorDriver < PlaceOS::Driver
     end
 
     if mac
-      return NO_MATCH unless mac == "floorsense-#{sensor.roomid}"
+      return NO_MATCH unless mac == "area-#{sensor.area_id}"
     end
 
     return NO_MATCH if zone_id && !system.zones.includes?(zone_id)
@@ -84,7 +97,7 @@ class Floorsense::RoomSensorDriver < PlaceOS::Driver
     return nil unless id
     sensor = @status
     return nil unless sensor
-    return nil unless mac == "floorsense-#{sensor.roomid}"
+    return nil unless mac == "area-#{sensor.area_id}"
 
     case id
     when "people"
@@ -94,14 +107,18 @@ class Floorsense::RoomSensorDriver < PlaceOS::Driver
     end
   end
 
-  protected def build_sensor_details(room : RoomStatus, sensor : SensorType) : Detail
+  protected def build_sensor_details(room : AreaCounts, sensor : SensorType) : Detail
     id = "people"
+
+    count = status.counter || status.count
+    count = 0.0 if count < 0.0
+
     value = case sensor
             when .people_count?
-              room.occupiedcount.to_f64
+              count
             when .presence?
               id = "presence"
-              room.occupiedcount > 0 ? 1.0 : 0.0
+              count.zero? ? 0.0 : 1.0
             else
               raise "sensor type unavailable: #{sensor}"
             end
@@ -109,8 +126,8 @@ class Floorsense::RoomSensorDriver < PlaceOS::Driver
     detail = Detail.new(
       type: sensor,
       value: value,
-      last_seen: room.cached,
-      mac: "floorsense-#{room.roomid}",
+      last_seen: @last_seen,
+      mac: "area-#{room.area_id}",
       id: id,
       name: room.name,
       module_id: module_id,
@@ -119,7 +136,7 @@ class Floorsense::RoomSensorDriver < PlaceOS::Driver
     detail
   end
 
-  protected def build_sensors(room : RoomStatus, sensor : SensorType? = nil)
+  protected def build_sensors(room : AreaCounts, sensor : SensorType? = nil)
     if sensor
       [build_sensor_details(room, sensor)]
     else

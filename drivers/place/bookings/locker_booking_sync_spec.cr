@@ -286,7 +286,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     checked_in : Bool? = nil,
     include_checked_out : Bool? = nil,
     extension_data : JSON::Any? = nil,
-    deleted : Bool? = nil
+    deleted : Bool? = nil,
   )
     @query_calls += 1
     # return the bookings in the database
@@ -359,7 +359,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     recurrence_days : Int32? = nil,
     recurrence_nth_of_month : Int32? = nil,
     recurrence_interval : Int32? = nil,
-    recurrence_end : Int64? = nil
+    recurrence_end : Int64? = nil,
   )
     @created += 1
     id = rand(Int64::MAX)
@@ -523,7 +523,7 @@ class LockersMock < DriverSpecs::MockDriver
     locker_id : String | Int64? = nil,
 
     # attempts to create a booking that expires at the time specified
-    expires_at : Int64? = nil
+    expires_at : Int64? = nil,
   ) : PlaceLocker
     bank = locker_banks[bank_id.to_s]
     locker_id = locker_id ? locker_id : bank.locker_hash.values.select(&.not_allocated?).sample.id
@@ -542,7 +542,7 @@ class LockersMock < DriverSpecs::MockDriver
     locker_id : String | Int64,
 
     # release / unshare just this user - otherwise release the whole locker
-    owner_id : String? = nil
+    owner_id : String? = nil,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     if locker.allocated_to == owner_id
@@ -574,7 +574,7 @@ class LockersMock < DriverSpecs::MockDriver
     bank_id : String | Int64,
     locker_id : String | Int64,
     owner_id : String,
-    share_with : String
+    share_with : String,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -597,7 +597,7 @@ class LockersMock < DriverSpecs::MockDriver
     locker_id : String | Int64,
     owner_id : String,
     # the individual you previously shared with (optional)
-    shared_with_id : String? = nil
+    shared_with_id : String? = nil,
   ) : Nil
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -623,7 +623,7 @@ class LockersMock < DriverSpecs::MockDriver
   def locker_shared_with(
     bank_id : String | Int64,
     locker_id : String | Int64,
-    owner_id : String
+    owner_id : String,
   ) : Array(String)
     locker = locker_banks[bank_id.to_s].locker_hash[locker_id.to_s]
     perform_share = false
@@ -652,7 +652,7 @@ class LockersMock < DriverSpecs::MockDriver
     # (can be ignored if not implemented)
     open_time : Int32 = 60,
     # optional pin code - if user entered from a kiosk
-    pin_code : String? = nil
+    pin_code : String? = nil,
   ) : Nil
   end
 

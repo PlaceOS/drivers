@@ -7,7 +7,7 @@ DriverSpecs.mock_driver "Floorsense::RoomSensor" do
 
   sleep 200.milliseconds
 
-  status[:presence].should eq(true)
+  status[:presence].should eq(1)
   status[:people].should eq(3)
 
   sensors = exec(:sensors).get.not_nil!.as_a
