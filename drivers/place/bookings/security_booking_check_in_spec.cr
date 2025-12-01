@@ -45,7 +45,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     checked_in : Bool? = nil,
     include_checked_out : Bool? = nil,
     extension_data : JSON::Any? = nil,
-    deleted : Bool? = nil
+    deleted : Bool? = nil,
   )
     raise "unexpected bookings query" unless type == "desk" && zones.includes?("zone-building") && email == "user@email.com"
 
