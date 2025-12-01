@@ -59,7 +59,7 @@ class Lenel::OpenAccess::Client
   def login(
     username user_name : String,
     password : String,
-    directory_id : String?
+    directory_id : String?,
   )
     ~transport.post(
       path: "/authentication?version=1.0",
@@ -113,7 +113,7 @@ class Lenel::OpenAccess::Client
     filter : String? = nil,
     page_number : Int32? = nil,
     page_size : Int32? = nil,
-    order_by : String? = nil
+    order_by : String? = nil,
   ) : Array(T) forall T
     params = HTTP::Params.new
     args.merge(type_name: T.type_name).each do |key, val|
@@ -136,7 +136,7 @@ class Lenel::OpenAccess::Client
     filter : String? = nil,
     page_number : Int32? = nil,
     page_size : Int32? = 100,
-    order_by : String? = nil
+    order_by : String? = nil,
   )
     params = HTTP::Params.new
     args.each do |key, val|
@@ -185,7 +185,7 @@ class Lenel::OpenAccess::Client
     filter : String? = nil,
     page_number : Int32? = nil,
     page_size : Int32? = 100,
-    order_by : String? = nil
+    order_by : String? = nil,
   )
     params = HTTP::Params.new
     args.each do |key, val|

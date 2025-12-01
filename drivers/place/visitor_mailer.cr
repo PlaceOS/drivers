@@ -157,7 +157,6 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     @booking_space_name = setting?(String, :booking_space_name).presence || "Client Floor"
 
-
     @uri = URI.parse(setting?(String, :domain_uri) || "")
     @jwt_private_key = setting?(String, :jwt_private_key) || PlaceOS::Model::JWTBase.private_key
 
@@ -300,7 +299,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     visitor_name : String?,
     host_email : String?,
     event_title : String?,
-    event_start : Int64
+    event_start : Int64,
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -329,7 +328,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     host_email : String?,
     event_title : String?,
     event_start : Int64,
-    induction_status : Induction
+    induction_status : Induction,
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 

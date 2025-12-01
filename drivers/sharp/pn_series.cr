@@ -175,7 +175,7 @@ class Sharp::PnSeries < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     if layer == MuteLayer::Video
       logger.warn { "Sharp LCD requested to mute video which is unsupported" }

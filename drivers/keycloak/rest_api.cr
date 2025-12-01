@@ -65,7 +65,7 @@ class Keycloak::RestAPI < PlaceOS::Driver
     email : String? = nil,
     enabled_users_only : Bool = true,
     all_pages : Bool = false,
-    auth_token : String? = nil
+    auth_token : String? = nil,
   )
     user_token = "Bearer #{auth_token.presence || get_token}"
 

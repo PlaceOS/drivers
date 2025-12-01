@@ -120,7 +120,7 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     mute_audio(state) if layer.audio? || layer.audio_video?
   end

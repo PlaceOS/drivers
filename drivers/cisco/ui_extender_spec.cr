@@ -38,7 +38,7 @@ class VidConfMock < DriverSpecs::MockDriver
   def xcommand(
     command : String,
     multiline_body : String? = nil,
-    hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type
+    hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type,
   )
     puts "Running command: #{command} #{hash_args} + body #{multiline_body.try(&.size) || 0}"
   end

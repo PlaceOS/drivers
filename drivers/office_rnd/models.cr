@@ -94,7 +94,7 @@ module OfficeRnd
       @member_id : String? = nil,
       @description : String? = nil,
       @tentative : Bool? = nil,
-      @free : Bool? = nil
+      @free : Bool? = nil,
     )
       unless @member_id || @team_id
         raise "Booking requires at least one of team_id or member_id"

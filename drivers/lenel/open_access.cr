@@ -153,7 +153,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     personid : Int32,
     uselimit : Int32? = nil,
     activate : Time? = nil,
-    deactivate : Time? = nil
+    deactivate : Time? = nil,
   )
     logger.debug { "creating badge for cardholder #{personid}" }
     client.create Badge, **args
@@ -165,7 +165,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     personid : Int32,
     activate_epoch : Int32,
     deactivate_epoch : Int32,
-    uselimit : Int32? = nil
+    uselimit : Int32? = nil,
   )
     activate = Time.unix(activate_epoch)
     deactivate = Time.unix(deactivate_epoch)
@@ -186,7 +186,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     id : Int64? = nil,
     uselimit : Int32? = nil,
     activate : Time? = nil,
-    deactivate : Time? = nil
+    deactivate : Time? = nil,
   )
     logger.debug { "Updating badge #{badgekey}" }
     client.update Badge, **args
@@ -198,7 +198,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
     activate_epoch : Int32,
     deactivate_epoch : Int32,
     id : Int64? = nil,
-    uselimit : Int32? = nil
+    uselimit : Int32? = nil,
   )
     activate = Time.unix(activate_epoch)
     deactivate = Time.unix(deactivate_epoch)
@@ -264,7 +264,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   def create_cardholder(
     email : String,
     firstname : String,
-    lastname : String
+    lastname : String,
   )
     logger.debug { "creating cardholder record for #{email}" }
     unless client.count(Cardholder, filter: %(email = "#{email}")).zero?
@@ -297,7 +297,7 @@ class Lenel::OpenAccess < PlaceOS::Driver
   def list_events_in_range(
     filter : String,
     from : Time? = nil,
-    til : Time? = nil
+    til : Time? = nil,
   )
     til ||= Time.local
     from ||= til - 1.day

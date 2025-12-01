@@ -31,7 +31,7 @@ class MailerMock < DriverSpecs::MockDriver
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   )
     true
   end
@@ -46,7 +46,7 @@ class MailerMock < DriverSpecs::MockDriver
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   )
     self[:template] = template
     self[:to] = to
@@ -78,7 +78,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     created_after : Int64? = nil,
     approved : Bool? = nil,
     rejected : Bool? = nil,
-    checked_in : Bool? = nil
+    checked_in : Bool? = nil,
   )
     logger.debug { "Querying desk bookings!" }
 

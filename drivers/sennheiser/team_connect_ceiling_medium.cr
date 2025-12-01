@@ -46,7 +46,7 @@ class Sennheiser::TeamConnectCM < PlaceOS::Driver
   def_get :ssc_version, "/api/ssc/version"
   def_get :ssc_schema, "/api/ssc/schema"
   def_get :ssc_subscriptions, "/api/ssc/state/subscriptions"
-  
+
   # Device
   def_get :device_identity, "/api/device/identity"
 

@@ -41,7 +41,7 @@ class Display < DriverSpecs::MockDriver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     self[:mute] = state
     self[:mute0] = state

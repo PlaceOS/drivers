@@ -107,7 +107,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
     email = user[:login_name].presence || user[:email]
     logger.debug { "found placeos user info: #{user[:email]}, id #{user[:email]}" }
 
-    # Request user details from GraphAPI or Google    
+    # Request user details from GraphAPI or Google
     begin
       users_groups = calendar_api.get_groups(email).get
     rescue error

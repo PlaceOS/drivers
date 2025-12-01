@@ -15,7 +15,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       username: "zoom",
       password: "",
     },
-    enable_debug_logging: false,
+    enable_debug_logging:        false,
     milliseconds_until_response: 500,
   })
 
@@ -62,7 +62,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
   def fetch_initial_state
     bookings_update
     call_status
-  end 
+  end
 
   # =================
   # zCommand Methods - Meeting Control
@@ -85,7 +85,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       "endTime",
       "meetingName",
       "meetingNumber"
-    )}
+    ) }
   end
 
   # Update/refresh the meeting list from calendar
@@ -341,7 +341,7 @@ class Zoom::ZrCSAPI < PlaceOS::Driver
       "is_host",
       "is_in_waiting_room",
       "hand_status"
-    )}
+    ) }
   end
 
   private def expose_custom_call_state

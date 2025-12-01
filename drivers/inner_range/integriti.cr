@@ -794,7 +794,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     add : Bool = true,
     externally_managed : Bool = true,
     expires_at : Int64? = nil,
-    valid_from : Int64? = nil
+    valid_from : Int64? = nil,
   )
     payload = XML.build_fragment(indent: "  ") do |xml|
       xml.element("UserPermission") do
@@ -934,7 +934,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     site_id : String | Int64? = nil,
     # card template defines the type of card + site code / facility
     card_template : String? = nil, # TM2 for example
-    externally_managed : Bool? = nil
+    externally_managed : Bool? = nil,
   ) : String
     # wiegand_card = Wiegand::Wiegand26.from_components(facility, card_number).wiegand.to_s
 
@@ -1154,7 +1154,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     ending : Int64? = nil,
     partition_id : Int32? = nil,
     site_id : Int32? = nil,
-    externally_managed : Bool = true
+    externally_managed : Bool = true,
   ) : AccessDetails
     site_id ||= @default_site_id
     partition_id ||= @default_partition_id
@@ -1189,7 +1189,7 @@ class InnerRange::Integriti < PlaceOS::Driver
     card_number : String,
     partition_id : Int32? = nil,
     site_id : Int32? = nil,
-    externally_managed : Bool = true
+    externally_managed : Bool = true,
   )
     site_id ||= @default_site_id
     partition_id ||= @default_partition_id

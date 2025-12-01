@@ -23,7 +23,7 @@ class Microsoft::FindMe < PlaceOS::Driver
   protected def make_request(
     method, path, body : ::HTTP::Client::BodyType = nil,
     params : Hash(String, String?) = {} of String => String?,
-    headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new
+    headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new,
   ) : String
     logger.debug { "requesting: #{method} #{path}" }
 

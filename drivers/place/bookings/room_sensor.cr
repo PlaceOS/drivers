@@ -25,8 +25,8 @@ class Place::Bookings::RoomSensor < PlaceOS::Driver
     @area_id = setting?(String, :area_id) || config.control_system.not_nil!.map_id.as(String)
 
     schedule.clear
-    schedule.every(15.seconds + rand(1000).milliseconds) { update_sensor; nil }
-    schedule.in(rand(200).milliseconds) { update_sensor; nil }
+    schedule.every(15.seconds + rand(1000).milliseconds) { update_sensor }
+    schedule.in(rand(200).milliseconds) { update_sensor }
   end
 
   private def area_management

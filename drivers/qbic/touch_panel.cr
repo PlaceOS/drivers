@@ -128,7 +128,7 @@ class Qbic::TouchPanel < PlaceOS::Driver
     minor : UInt16? = nil,
     uuid : String? = nil,
     advertise_mode : AdvertiseMode? = nil,
-    power : Int8? = nil
+    power : Int8? = nil,
   )
     query("POST", "/v1/net/beacon/ibeacon", {
       enabled:        enabled ? "enabled" : "disabled",
@@ -151,7 +151,7 @@ class Qbic::TouchPanel < PlaceOS::Driver
     namespace : String? = nil,
     instance : String? = nil,
     advertise_mode : AdvertiseMode? = nil,
-    power : Int8? = nil
+    power : Int8? = nil,
   )
     query("POST", "/v1/net/beacon/eddystone_uid", {
       enabled:        enabled ? "enabled" : "disabled",
@@ -171,7 +171,7 @@ class Qbic::TouchPanel < PlaceOS::Driver
     enabled : Bool,
     url : String? = nil,
     advertise_mode : AdvertiseMode? = nil,
-    power : Int8? = nil
+    power : Int8? = nil,
   )
     query("POST", "/v1/net/beacon/eddystone_url", {
       enabled:        enabled ? "enabled" : "disabled",

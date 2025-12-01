@@ -113,7 +113,7 @@ module OfficeRnd
       range_end : Time = Time.utc + 24.hours,
       office_id : String? = nil,
       member_id : String? = nil,
-      team_id : String? = nil
+      team_id : String? = nil,
     ) : Array(Booking)
       time_span = (range_start..range_end)
       bookings(
@@ -136,7 +136,7 @@ module OfficeRnd
     def bookings(
       office_id : String? = nil,
       member_id : String? = nil,
-      team_id : String? = nil
+      team_id : String? = nil,
     )
       params = HTTP::Params.new
       params["office"] = office_id if office_id
@@ -170,7 +170,7 @@ module OfficeRnd
       member_id : String? = nil,
       description : String? = nil,
       tentative : Bool? = nil,
-      free : Bool? = nil
+      free : Bool? = nil,
     )
       create_bookings [Booking.new(
         resource_id: resource_id,
@@ -231,7 +231,7 @@ module OfficeRnd
       name : String? = nil,
       office_id : String? = nil,
       available_from : Time? = nil,
-      available_to : Time? = nil
+      available_to : Time? = nil,
     )
       type = Resource::Type.parse(type) if type.is_a?(String)
       params = HTTP::Params.new

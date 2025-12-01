@@ -95,7 +95,7 @@ class Delta::ZenPIRLocation < PlaceOS::Driver
 
     def initialize(
       @level, @map_id, @area_id, @capacity, @at_location,
-      @zen_device_id, @zen_object_id
+      @zen_device_id, @zen_object_id,
     )
     end
   end

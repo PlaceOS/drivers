@@ -71,7 +71,7 @@ class Juniper::Mist < PlaceOS::Driver
     spawn { rate_limiter } unless @channel.closed?
   end
 
-  protected def request(klass : Class)
+  protected def request(klass : Class, &)
     if (@wait_time * @queue_size) > 15.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end

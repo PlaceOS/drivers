@@ -82,7 +82,7 @@ class Extron::Matrix < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     output = index.to_u16
     return unless output > 0

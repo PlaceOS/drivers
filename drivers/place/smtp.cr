@@ -100,7 +100,7 @@ class Place::Smtp < PlaceOS::Driver
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   ) : Bool
     to = {to} unless to.is_a?(Array)
 

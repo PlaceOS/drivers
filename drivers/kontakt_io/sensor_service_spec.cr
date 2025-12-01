@@ -79,7 +79,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     bookable : Bool? = nil,
     features : String? = nil,
     limit : Int32 = 1000,
-    offset : Int32 = 0
+    offset : Int32 = 0,
   )
     [] of String
   end

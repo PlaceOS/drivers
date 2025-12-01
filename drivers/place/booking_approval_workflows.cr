@@ -387,7 +387,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
     approval_type,
     building_key,
     attachments,
-    args
+    args,
   )
     user_email = booking_details.user_email
     state = booking_details.process_state
@@ -742,7 +742,7 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
     support_email,
     attachments,
     start_of_day,
-    time_now
+    time_now,
   )
     bookings = staff_api.query_bookings(
       type: @booking_type,

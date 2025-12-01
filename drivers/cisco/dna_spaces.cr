@@ -184,18 +184,18 @@ class Cisco::DNASpaces < PlaceOS::Driver
   @devices : Hash(String, IotTelemetry | WebexTelemetryUpdate) = {} of String => IotTelemetry | WebexTelemetryUpdate
   @dev_lock : Mutex = Mutex.new
 
-  def locations
+  def locations(&)
     @loc_lock.synchronize { yield @locations }
   end
 
-  def devices
+  def devices(&)
     @dev_lock.synchronize { yield @devices }
   end
 
   @user_lookup : Hash(String, Set(String)) = {} of String => Set(String)
   @user_loc : Mutex = Mutex.new
 
-  def user_lookup
+  def user_lookup(&)
     @user_loc.synchronize { yield @user_lookup }
   end
 

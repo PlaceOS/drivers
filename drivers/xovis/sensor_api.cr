@@ -216,7 +216,7 @@ class Xovis::SensorAPI < PlaceOS::Driver
     document.xpath_nodes(path).first?.try(&.text.strip)
   end
 
-  protected def xpath_text(document, path)
+  protected def xpath_text(document, path, &)
     if node = document.xpath_nodes(path).first?
       yield node.text.strip
     end
