@@ -64,7 +64,7 @@ class Milesight::Webhook < PlaceOS::Driver
   end
 
   # ======================
-  # Sensor interface
+  # Sensor interface:
   # ======================
 
   protected def object_binding(device : Info, item : Item) : String
@@ -79,7 +79,7 @@ class Milesight::Webhook < PlaceOS::Driver
                     SensorType::Humidity
                   when .battery?
                     SensorType::Level
-                  when .people_counting?
+                  when .people_counting?, .periodic_counter?
                     SensorType::Counter
                   end
     return nil unless sensor_type
