@@ -41,29 +41,29 @@ class Place::Bookings::RoomSensor < PlaceOS::Driver
     include JSON::Serializable
   end
 
-  getter! status : AreaCounts
+  getter! counts : AreaCounts
   @last_seen : Int64 = 0_i64
 
   def update_sensor : AreaCounts?
     id = area_id
 
-    if status = area_management.status?(ZoneAreas, "#{level_id}:areas").try(&.value.find { |area| area.area_id == id })
-      @status = status
+    if counts = area_management.status?(ZoneAreas, "#{level_id}:areas").try(&.value.find { |area| area.area_id == id })
+      @counts = counts
 
-      count = status.counter || status.count
+      count = counts.counter || counts.count
       count = 0.0 if count < 0.0
 
       self[:last_changed] = @last_seen = Time.utc.to_unix
       self[:presence] = count.zero? ? 0.0 : 1.0
       self[:people] = count
     else
-      @status = nil
+      @counts = nil
       self[:last_changed] = nil
       self[:presence] = nil
       self[:people] = nil
     end
 
-    @status
+    @counts
   end
 
   # ======================
@@ -75,7 +75,7 @@ class Place::Bookings::RoomSensor < PlaceOS::Driver
 
   def sensors(type : String? = nil, mac : String? = nil, zone_id : String? = nil) : Array(Interface::Sensor::Detail)
     logger.debug { "sensors of type: #{type}, mac: #{mac}, zone_id: #{zone_id} requested" }
-    sensor = @status
+    sensor = @counts
     return NO_MATCH unless sensor
 
     if type
@@ -95,7 +95,7 @@ class Place::Bookings::RoomSensor < PlaceOS::Driver
   def sensor(mac : String, id : String? = nil) : Interface::Sensor::Detail?
     logger.debug { "sensor mac: #{mac}, id: #{id} requested" }
     return nil unless id
-    sensor = @status
+    sensor = @counts
     return nil unless sensor
     return nil unless mac == "area-#{sensor.area_id}"
 
@@ -110,7 +110,7 @@ class Place::Bookings::RoomSensor < PlaceOS::Driver
   protected def build_sensor_details(room : AreaCounts, sensor : SensorType) : Detail
     id = "people"
 
-    count = status.counter || status.count
+    count = room.counter || room.count
     count = 0.0 if count < 0.0
 
     value = case sensor
