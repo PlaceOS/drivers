@@ -171,7 +171,7 @@ class Vergesense::VergesenseAPI < PlaceOS::Driver
     end
   end
 
-  private def paginated_request(path)
+  private def paginated_request(path, &)
     max_pages = 100
     loop do
       response = get(path,

@@ -77,7 +77,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     responses
   end
 
-  protected def req(location : String)
+  protected def req(location : String, &)
     if (@wait_time * @queue_size) > 10.seconds
       raise "wait time would be exceeded for API request, #{@queue_size} requests already queued"
     end
@@ -115,7 +115,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     end
   end
 
-  protected def req_all_pages(location : String) : Nil
+  protected def req_all_pages(location : String, &) : Nil
     next_page = location
 
     loop do
@@ -153,7 +153,7 @@ class Cisco::Meraki::Dashboard < PlaceOS::Driver
     timespan : UInt32 = 900_u32,
     connection : ConnectionType? = nil,
     device_serial : String? = nil,
-    statuses : String = "Online"
+    statuses : String = "Online",
   )
     params = URI::Params.build do |form|
       form.add "perPage", "1000"

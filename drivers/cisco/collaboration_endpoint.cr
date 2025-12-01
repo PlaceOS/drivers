@@ -141,7 +141,7 @@ module Cisco::CollaborationEndpoint
     command : String,
     multiline_body : String? = nil,
     hash_args : Hash(String, JSON::Any::Type) = {} of String => JSON::Any::Type,
-    **kwargs
+    **kwargs,
   )
     request = XAPI.xcommand(command, **kwargs.merge({hash_args: hash_args}))
     name = if kwargs.empty?
@@ -186,7 +186,7 @@ module Cisco::CollaborationEndpoint
   def xconfiguration(
     path : String,
     hash_args : Hash(String, JSONBasic) = {} of String => JSONBasic,
-    **kwargs
+    **kwargs,
   )
     promises = hash_args.map do |setting, value|
       apply_configuration(path, setting, value)

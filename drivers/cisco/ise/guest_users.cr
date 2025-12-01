@@ -54,7 +54,7 @@ class Cisco::Ise::Guests < PlaceOS::Driver
     phone_number : String = "0123456789", # Mandatory, use a fake value as default
     sms_service_provider : String? = nil, # Use this param to override the setting
     guest_type : String? = nil,           # Mandatory but use this param to override the setting
-    portal_id : String? = nil             # Mandatory but use this param to override the setting
+    portal_id : String? = nil,            # Mandatory but use this param to override the setting
   )
     # Determine the name of the attendee for ISE
     guest_names = attendee_name.split

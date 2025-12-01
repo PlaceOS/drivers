@@ -224,7 +224,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   )
     mailer.send_mail(to, subject, message_plaintext, message_html, resource_attachments, attachments, cc, bcc, from, reply_to)
   end
@@ -238,7 +238,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   )
     zone_ids = if (zones = args["zone_ids"]?) && zones.is_a?(Array(String))
                  zones
@@ -291,7 +291,7 @@ class Place::TemplateMailer < PlaceOS::Driver
       @module_name : String,
       @name : String,
       @description : String? = nil,
-      @fields : Array(NamedTuple(name: String, description: String)) = [] of NamedTuple(name: String, description: String)
+      @fields : Array(NamedTuple(name: String, description: String)) = [] of NamedTuple(name: String, description: String),
     )
     end
   end

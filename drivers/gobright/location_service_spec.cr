@@ -95,7 +95,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
           {
             "id":                 "table-07.001.status",
             "name":               "Desk 07.001",
-            "departments":             ["HR"],
+            "departments":        ["HR"],
             "map_id":             "table-07.001.status",
             "bookable":           true,
             "gobright_desk_name": "desk-1",

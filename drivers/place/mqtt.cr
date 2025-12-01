@@ -123,7 +123,7 @@ class Place::MQTT < PlaceOS::Driver
     task.try &.success
   end
 
-  protected def perform_operation
+  protected def perform_operation(&)
     return yield unless @rate_limited
 
     if @queue_count >= @queue_size

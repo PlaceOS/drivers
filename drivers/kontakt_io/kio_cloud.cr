@@ -27,7 +27,8 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   protected def make_request(
     method, path, body : ::HTTP::Client::BodyType = nil,
     params : URI::Params = URI::Params.new,
-    headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new
+    headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new,
+    &
   ) : String
     # handle auth
     headers["Api-Key"] = @api_key
@@ -75,7 +76,7 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   protected def make_request(
     method, path, body : ::HTTP::Client::BodyType = nil,
     params : URI::Params = URI::Params.new,
-    headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new
+    headers : Hash(String, String) | HTTP::Headers = HTTP::Headers.new,
   ) : String
     make_request(method, path, body, params, headers) { nil }
   end

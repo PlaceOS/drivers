@@ -79,7 +79,7 @@ class Cisco::Ise::NetworkAccess < PlaceOS::Driver
     last_name : String? = nil,
     description : String? = nil,
     password : String? = nil,
-    identity_groups : Array(String) = [] of String
+    identity_groups : Array(String) = [] of String,
   )
     name ||= email
     password ||= generate_password(

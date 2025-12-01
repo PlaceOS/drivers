@@ -84,7 +84,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
       locker : Vecos::Locker,
       allocated : Bool = false,
       @building = nil,
-      @level = nil
+      @level = nil,
     )
       @locker_uid = locker.id
       @locker_id = locker.full_door_number
@@ -141,7 +141,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     locker_id : String | Int64? = nil,
 
     # attempts to create a booking that expires at the time specified
-    expires_at : Int64? = nil
+    expires_at : Int64? = nil,
   ) : PlaceLocker
     user_id = get_user_key(user_id)
     locker_id = locker_id ? lookup_id(locker_id.to_s) : nil
@@ -172,7 +172,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     locker_id : String | Int64,
 
     # release / unshare just this user - otherwise release the whole locker
-    owner_id : String? = nil
+    owner_id : String? = nil,
   ) : Nil
     locker_id = lookup_id(locker_id.to_s)
     owner_id = get_user_key(owner_id) if owner_id
@@ -192,7 +192,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     bank_id : String | Int64,
     locker_id : String | Int64,
     owner_id : String,
-    share_with : String
+    share_with : String,
   ) : Nil
     locker_id = lookup_id(locker_id.to_s)
     releezme.share_locker_with(locker_id, get_user_key(owner_id), get_user_key(share_with)).get
@@ -204,7 +204,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     locker_id : String | Int64,
     owner_id : String,
     # the individual you previously shared with
-    shared_with_id : String? = nil
+    shared_with_id : String? = nil,
   ) : Nil
     owner_id = get_user_key(owner_id)
     locker_id = lookup_id(locker_id.to_s)
@@ -226,7 +226,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   def locker_shared_with(
     bank_id : String | Int64,
     locker_id : String | Int64,
-    owner_id : String
+    owner_id : String,
   ) : Array(String)
     owner_id = get_user_key(owner_id)
     locker_id = lookup_id(locker_id.to_s)
@@ -245,7 +245,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     # (can be ignored if not implemented)
     open_time : Int32 = 60,
     # optional pin code - if user entered from a kiosk
-    pin_code : String? = nil
+    pin_code : String? = nil,
   ) : Nil
     locker_id = lookup_id(locker_id.to_s)
     releezme.locker_unlock(locker_id, pin_code).get

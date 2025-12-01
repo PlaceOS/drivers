@@ -37,7 +37,7 @@ class AWS::SnsSms < PlaceOS::Driver
     phone_numbers : String | Array(String),
     message : String,
     format : String? = "SMS",
-    source : String? = nil
+    source : String? = nil,
   )
     phone_numbers = [phone_numbers] unless phone_numbers.is_a?(Array)
 

@@ -191,7 +191,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
         "mac"         => booking.user_id,
         "staff_email" => booking.user_email,
         "staff_name"  => booking.user_name,
-        "map_id"      => map_mappings[booking.asset_id]?
+        "map_id"      => map_mappings[booking.asset_id]?,
       }.compact!
 
       # check for any custom data we want to include

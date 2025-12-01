@@ -195,7 +195,7 @@ shards:
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.8.1
+    version: 2.8.2
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
@@ -243,7 +243,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.15.0
+    version: 7.16.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -251,7 +251,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.76.2
+    version: 9.79.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -359,7 +359,7 @@ shards:
 
   upload-signer:
     git: https://github.com/spider-gazelle/upload-signer.git
-    version: 0.2.0+git.commit.fdf8a1b2886006777efd01d69450c2028e0cf21e
+    version: 0.2.1+git.commit.55191d74c9bb2c7c6813c3abd11fd80ccea0a29d
 
   xml_converter:
     git: https://github.com/mamantoha/xml_converter.git

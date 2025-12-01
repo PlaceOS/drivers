@@ -201,18 +201,18 @@ class Company3M::Displays::WallDisplay < PlaceOS::Driver
   class RequestPacket < BinData
     endian big
 
-    uint8 :header_start, value: ->{ 0x01_u8 }
-    uint8 :reserved, value: ->{ 0x30_u8 }
+    uint8 :header_start, value: -> { 0x01_u8 }
+    uint8 :reserved, value: -> { 0x30_u8 }
     enum_field UInt8, monitor_id : MonitorID = MonitorID::All
     enum_field UInt8, sender : MessageSender = MessageSender::PC
     enum_field UInt8, message_type : MessageType = MessageType::Command
-    string :message_length, value: ->{ 10.to_s(16).upcase.rjust(2, '0') }, length: ->{ 2 }
+    string :message_length, value: -> { 10.to_s(16).upcase.rjust(2, '0') }, length: -> { 2 }
 
-    uint8 :message_start, value: ->{ 0x02_u8 }
-    string :op_code_page, length: ->{ 2 }
-    string :op_code, length: ->{ 2 }
-    string :set_value, length: ->{ 4 }
-    uint8 :message_end, value: ->{ 0x03_u8 }
+    uint8 :message_start, value: -> { 0x02_u8 }
+    string :op_code_page, length: -> { 2 }
+    string :op_code, length: -> { 2 }
+    string :set_value, length: -> { 4 }
+    uint8 :message_end, value: -> { 0x03_u8 }
 
     def command=(command : Command)
       code = command.value.to_s(16).upcase.rjust(4, '0')
@@ -234,15 +234,15 @@ class Company3M::Displays::WallDisplay < PlaceOS::Driver
     enum_field UInt8, receiver : MessageSender = MessageSender::PC
     enum_field UInt8, monitor_id : MonitorID = MonitorID::All
     enum_field UInt8, message_type : MessageType = MessageType::Reply
-    string :message_length, length: ->{ 2 }
+    string :message_length, length: -> { 2 }
 
-    uint8 :message_start, value: ->{ 0x02_u8 }
+    uint8 :message_start, value: -> { 0x02_u8 }
     enum_field UInt16, result_code : ResultCode = ResultCode::Success
-    string :op_code_page, length: ->{ 2 }
-    string :op_code, length: ->{ 2 }
-    string :reply_type, length: ->{ 2 }
-    string :max_value, length: ->{ 4 }
-    string :current_value, length: ->{ 4 }
+    string :op_code_page, length: -> { 2 }
+    string :op_code, length: -> { 2 }
+    string :reply_type, length: -> { 2 }
+    string :max_value, length: -> { 4 }
+    string :current_value, length: -> { 4 }
     uint8 :message_end
     uint8 :bcc
     uint8 :delimiter

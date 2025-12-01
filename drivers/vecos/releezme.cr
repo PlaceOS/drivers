@@ -225,7 +225,7 @@ class Vecos::Releezme < PlaceOS::Driver
     location_id : String? = nil,
     bank_id : String? = nil,
     group_id : String? = nil,
-    locker_id : String? = nil
+    locker_id : String? = nil,
   )
     params = URI::Params.build do |form|
       form.add "externalUserId", user_id

@@ -175,14 +175,14 @@ class PMS < PlaceOS::Driver
     method = "POST"
     resource = "/api/vehicles/upload-documents/#{vehicle_id}"
     payload = {
-      "Files" => [{"FileName" => file_name, "Base64" => file_in_base64}]
+      "Files" => [{"FileName" => file_name, "Base64" => file_in_base64}],
     }.to_json
     headers = get_headers
     headers["Content-Length"] = payload.bytesize.to_s
 
     logger.debug { {msg: "#{method} #{resource}:", headers: headers.to_json, payload: payload} } if @debug_payload
     response = http(method: method, path: resource, headers: headers, body: payload)
-    logger.debug { "RESPONSE code: #{response.status_code}, body: #{response.body}" } if  @debug_payload
+    logger.debug { "RESPONSE code: #{response.status_code}, body: #{response.body}" } if @debug_payload
     raise "failed to #{method} #{resource}, code #{response.status_code}, body: #{response.body}" unless response.success?
   end
 
@@ -190,7 +190,7 @@ class PMS < PlaceOS::Driver
     headers = get_headers("application/x-www-form-urlencoded")
     logger.debug { {msg: "#{method} #{resource}:", headers: headers.to_json, payload: payload} } if @debug_payload
     response = http(method: method, path: resource, headers: headers, body: payload, params: params)
-    logger.debug { "RESPONSE code: #{response.status_code}, body: #{response.body}" } if  @debug_payload
+    logger.debug { "RESPONSE code: #{response.status_code}, body: #{response.body}" } if @debug_payload
     raise "failed to #{method} #{resource}, code #{response.status_code}, body: #{response.body}" unless response.success?
 
     JSON.parse(response.body)

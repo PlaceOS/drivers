@@ -120,7 +120,7 @@ class Zencontrol::AdvancedTPI < PlaceOS::Driver
     bit_field do
       bits 24, :data
     end
-    uint8 :checksum, value: ->{
+    uint8 :checksum, value: -> {
       version ^ sequence ^ command ^ address ^ (data >> 16 & 0xFF).to_u8 ^ (data >> 8 & 0xFF).to_u8 ^ (data & 0xFF).to_u8
     }
   end
@@ -177,8 +177,8 @@ class Zencontrol::AdvancedTPI < PlaceOS::Driver
     enum_field UInt8, type : ResponseType = ResponseType::Error
     uint8 :sequence
     uint8 :size
-    bytes :bytes, length: ->{ size }
-    uint8 :checksum, verify: ->{
+    bytes :bytes, length: -> { size }
+    uint8 :checksum, verify: -> {
       sum = type.to_u8 ^ sequence ^ size
       checksum == bytes.reduce(sum) { |acc, i| i ^ acc }
     }

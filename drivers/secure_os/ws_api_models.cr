@@ -21,7 +21,7 @@ module SecureOS
       @id : String,
       @action : Symbol,
       @states : Array(StateType)? = nil,
-      @events : Array(String)? = nil
+      @events : Array(String)? = nil,
     )
     end
   end

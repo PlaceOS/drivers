@@ -60,7 +60,7 @@ class Infosilem::Campus < PlaceOS::Driver
     allow_same_concurrent_import : Bool = false,
     queued_timeout : Int32 = 15,
     log_unchanged_rows : Bool = true,
-    log_rejected_records_xml : Bool = true
+    log_rejected_records_xml : Bool = true,
   )
     {
       "Username"                  => username,
@@ -100,7 +100,7 @@ class Infosilem::Campus < PlaceOS::Driver
     start_date : String = "",
     end_date : String = "",
     event_id : String = "",
-    activity_id : String = ""
+    activity_id : String = "",
   )
     {
       "ExportAsObject"   => export_as_object,

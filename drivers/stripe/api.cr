@@ -50,7 +50,7 @@ class Stripe::API < PlaceOS::Driver
     sepa_debit : Hash(String, String)? = nil,
     sofort : Hash(String, String)? = nil,
     us_bank_account : Hash(String, String)? = nil,
-    wechat_pay : Hash(String, String)? = nil
+    wechat_pay : Hash(String, String)? = nil,
   )
     payment_method = @client.not_nil!.payment_methods.create(type, billing_details, metadata, acss_debit, affirm, afterpay_clearpay, alipay, au_becs_debit, bacs_debit, bancontact, blik, boleto, card, customer_balance, eps, fpx, giropay, ideal, interac_present, klarna, konbini, link, oxxo, p24, paynow, promptpay, radar_options, sepa_debit, sofort, us_bank_account, wechat_pay)
     self["payment_method"] = payment_method

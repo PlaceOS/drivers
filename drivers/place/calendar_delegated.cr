@@ -149,7 +149,7 @@ STRING
     time_zone : String? = nil,
     user_id : String? = nil,
     include_cancelled : Bool = false,
-    act_as_user : String? = nil
+    act_as_user : String? = nil,
   )
     logger.debug { "listing events for #{calendar_id}" }
 
@@ -176,7 +176,7 @@ STRING
     event_id : String,
     user_id : String? = nil,
     notify : Bool = false,
-    act_as_user : String? = nil
+    act_as_user : String? = nil,
   )
     logger.debug { "deleting event #{event_id} on #{calendar_id}" }
 
@@ -220,7 +220,7 @@ STRING
     online_meeting_sip : String? = nil,
     online_meeting_phones : Array(String)? = nil,
     online_meeting_pin : String? = nil,
-    act_as_user : String? = nil
+    act_as_user : String? = nil,
   )
     calendar_id = calendar_id || user_id
     logger.debug { "creating event on #{calendar_id}" }

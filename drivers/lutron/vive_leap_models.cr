@@ -57,7 +57,7 @@ module Lutron
       url : String,
       req_type : CommuniqueType = CommuniqueType::ReadRequest,
       body = nil,
-      @header = {} of String => String
+      @header = {} of String => String,
     )
       @type = req_type.to_s
       @body = case body

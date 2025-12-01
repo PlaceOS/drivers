@@ -125,7 +125,7 @@ class Kaiterra::API < PlaceOS::Driver
 
   private def generate_url(
     path : String,
-    params : Hash(String, String) = {} of String => String
+    params : Hash(String, String) = {} of String => String,
   )
     params["key"] = @api_key
     encoded_params = URI::Params.encode(params)
@@ -133,7 +133,7 @@ class Kaiterra::API < PlaceOS::Driver
   end
 
   private def generate_headers(
-    headers : Hash(String, String) = {} of String => String
+    headers : Hash(String, String) = {} of String => String,
   )
     # Recommended to use this header in docs
     headers["Accept-Encoding"] = "gzip"

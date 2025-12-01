@@ -57,7 +57,7 @@ class StaffAPI < DriverSpecs::MockDriver
     rejected : Bool? = nil,
     checked_in : Bool? = nil,
     include_checked_out : Bool? = nil,
-    extension_data : JSON::Any? = nil
+    extension_data : JSON::Any? = nil,
   )
     [] of Nil
   end
@@ -81,7 +81,7 @@ class StaffAPI < DriverSpecs::MockDriver
     limit_override : Int64? = nil,
     event_id : String? = nil,
     ical_uid : String? = nil,
-    attendees : Array(JSON::Any)? = nil
+    attendees : Array(JSON::Any)? = nil,
   )
     true
   end

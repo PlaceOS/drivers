@@ -10,7 +10,7 @@ class PMSLogic < PlaceOS::Driver
   })
 
   accessor pms : PMS_1
-  
+
   def on_update
     poll_every_seconds : Int32 = setting?(Int32, :poll_every_seconds) || 300
     schedule.clear

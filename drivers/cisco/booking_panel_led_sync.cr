@@ -6,9 +6,9 @@ class Cisco::BookingPanelLedSync < PlaceOS::Driver
   description "Sync Cisco Webex Navigator Panel LED to Bookings.in_use status"
 
   default_settings({
-    led_color_when_room_booked: "Red",
+    led_color_when_room_booked:    "Red",
     led_color_when_room_available: "Green",
-    webex_panel_device_id: "Ensure this is set in each System's settings"
+    webex_panel_device_id:         "Ensure this is set in each System's settings",
   })
 
   accessor webex_xapi : CloudXAPI

@@ -223,13 +223,13 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   # serial => lux
   getter lux : Hash(String, Float64) = {} of String => Float64
 
-  protected def user_mac_mappings
+  protected def user_mac_mappings(&)
     @storage_lock.synchronize {
       yield @user_mac_mappings.not_nil!
     }
   end
 
-  protected def req(location : String)
+  protected def req(location : String, &)
     response = dashboard.fetch(location).get.as_s
     begin
       yield response
@@ -239,7 +239,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     end
   end
 
-  protected def req_all(location : String)
+  protected def req_all(location : String, &)
     dashboard.fetch_all(location).get.as_a.each { |resp| yield resp.as_s }
   end
 
@@ -298,7 +298,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     network_id : String? = nil,
     timespan : UInt32 = 900_u32,
     connection : ConnectionType? = nil,
-    device_serial : String? = nil
+    device_serial : String? = nil,
   )
     network_id = network_id.presence || @default_network
     Array(Client).from_json dashboard.poll_clients(network_id, timespan, connection, device_serial).get.to_json

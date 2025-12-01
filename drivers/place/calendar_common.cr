@@ -80,7 +80,7 @@ module Place::CalendarCommon
     end
   end
 
-  protected def client
+  protected def client(&)
     # office365 execute queries against the users mailbox and hence doesn't require rate limiting
     if @client.not_nil!.client_id == :office365
       return yield(@client.not_nil!)
@@ -131,7 +131,7 @@ module Place::CalendarCommon
     cc : String | Array(String) = [] of String,
     bcc : String | Array(String) = [] of String,
     from : String | Array(String) | Nil = nil,
-    reply_to : String | Array(String) | Nil = nil
+    reply_to : String | Array(String) | Nil = nil,
   )
     sender = case from
              in String
@@ -176,7 +176,7 @@ module Place::CalendarCommon
   @[PlaceOS::Driver::Security(Level::Support)]
   def get_members(
     group_id : String,
-    next_page : String? = nil
+    next_page : String? = nil,
   )
     logger.debug { "listing members of group: #{group_id}" }
 
@@ -204,7 +204,7 @@ module Place::CalendarCommon
     query : String? = nil,
     limit : Int32? = nil,
     filter : String? = nil,
-    next_page : String? = nil
+    next_page : String? = nil,
   )
     logger.debug { "listing user details, query #{query || filter}, limit #{limit} (next: #{!!next_page})" }
     users = client &.list_users(query, limit, filter: filter, next_link: next_page)
@@ -243,7 +243,7 @@ module Place::CalendarCommon
   @[PlaceOS::Driver::Security(Level::Support)]
   def list_groups(
     query : String? = nil,
-    filter : String? = nil
+    filter : String? = nil,
   )
     logger.debug { "listing groups, filtering by #{filter || query}, note: graphAPI only" }
     client do |_client|
@@ -351,7 +351,7 @@ module Place::CalendarCommon
     online_meeting_url : String? = nil,
     online_meeting_sip : String? = nil,
     online_meeting_phones : Array(String)? = nil,
-    online_meeting_pin : String? = nil
+    online_meeting_pin : String? = nil,
   )
     user_id = (user_id || @service_account.presence || calendar_id).not_nil!
     calendar_id = calendar_id || user_id

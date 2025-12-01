@@ -207,7 +207,7 @@ DriverSpecs.mock_driver "Sennheiser::SSCv2Driver" do
   parsed_error.error.should eq(404)
 
   # === Test AudioMuteable Interface ===
-  
+
   # Test mute_audio method (Interface::AudioMuteable)
   exec(:mute_audio, true)
   expect_http_request do |request, response|

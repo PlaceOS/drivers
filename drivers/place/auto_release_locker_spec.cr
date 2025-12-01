@@ -121,7 +121,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     created_after : Int64? = nil,
     approved : Bool? = nil,
     rejected : Bool? = nil,
-    checked_in : Bool? = nil
+    checked_in : Bool? = nil,
   )
     BOOKINGS
   end

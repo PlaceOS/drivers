@@ -155,7 +155,7 @@ class Amx::Svsi::NSeriesEncoder < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     address = index.is_a?(Int32) && (val = @encoders[index]? || @decoders[index]?) ? val : index.as(String)
     if state

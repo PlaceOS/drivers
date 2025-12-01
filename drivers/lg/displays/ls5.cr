@@ -119,7 +119,7 @@ class Lg::Displays::Ls5 < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     if layer.video? || layer.audio_video?
       do_send(Command::ScreenMute, state ? 1 : 0, name: "mute_video")

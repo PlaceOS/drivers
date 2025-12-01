@@ -14,6 +14,6 @@ class DispatchProtocol < BinData
   field message : MessageType = MessageType::RECEIVED
   field ip_address : String
   field id_or_port : UInt64
-  field data_size : UInt32, value: ->{ data.size }
-  field data : Bytes, length: ->{ data_size }
+  field data_size : UInt32, value: -> { data.size }
+  field data : Bytes, length: -> { data_size }
 end

@@ -2,14 +2,14 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Zoom::ZrCSAPI" do
   settings({
-    enable_debug_logging: true
+    enable_debug_logging: true,
   })
 
   # Initial connection sequence
   transmit "Welcome to ZAAPI\r\n"
   should_send "echo off\r\n"
   responds "OK\r\n"
-  should_send "format json\r\n"  
+  should_send "format json\r\n"
   responds "OK\r\n"
 
   exec(:bookings_list)
@@ -29,9 +29,9 @@ DriverSpecs.mock_driver "Zoom::ZrCSAPI" do
   responds "{\r\n  \"Call\": {\r\n    \"Status\": \"IN_MEETING\"\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zStatus\"\r\n}"
   transmit "{\r\n  \"Call\": {\r\n    \"Microphone\": {\r\n      \"Mute\": false\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
   transmit "{\r\n  \"Call\": {\r\n    \"Lock\": {\r\n      \"Enable\": false\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
-  transmit  "{\r\n  \"Call\": {\r\n    \"Layout\": {\r\n      \"Size\": \"Size1\"\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
+  transmit "{\r\n  \"Call\": {\r\n    \"Layout\": {\r\n      \"Size\": \"Size1\"\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
   transmit "{\r\n  \"Call\": {\r\n    \"ClosedCaption\": {\r\n      \"CanDisable\": false\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zStatus\"\r\n}"
-  transmit "{\r\n  \"Call\": {\r\n    \"Share\": {\r\n      \"Setting\": \"MULTI_SHARE\"\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}" 
+  transmit "{\r\n  \"Call\": {\r\n    \"Share\": {\r\n      \"Setting\": \"MULTI_SHARE\"\r\n    }\r\n  },\r\n  \"Status\": {\r\n    \"message\": \"\",\r\n    \"state\": \"OK\"\r\n  },\r\n  \"Sync\": false,\r\n  \"topKey\": \"Call\",\r\n  \"type\": \"zConfiguration\"\r\n}"
 
   exec(:dial_join_sip, "test@example.com", "SIP")
   should_send "zCommand Dial Join meetingAddress: test@example.com protocol: SIP\r\n"

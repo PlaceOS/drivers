@@ -23,7 +23,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
   @user_mac_mappings : PlaceOS::Driver::RedisStorage? = nil
   @ignore_usernames : Array(String) = [] of String
 
-  protected def user_mac_mappings
+  protected def user_mac_mappings(&)
     @storage_lock.synchronize {
       yield @user_mac_mappings.not_nil!
     }
@@ -87,7 +87,7 @@ class Juniper::MistWebsocket < PlaceOS::Driver
     @connected = false
   end
 
-  protected def request(klass : Class)
+  protected def request(klass : Class, &)
     headers = HTTP::Headers{
       "Authorization" => @api_token,
       "Content-Type"  => "application/json",

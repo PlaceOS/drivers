@@ -128,7 +128,7 @@ class Nec::Projector < PlaceOS::Driver
   def mute(
     state : Bool = true,
     index : Int32 | String = 0,
-    layer : MuteLayer = MuteLayer::AudioVideo
+    layer : MuteLayer = MuteLayer::AudioVideo,
   )
     if layer.video? || layer.audio_video?
       if state

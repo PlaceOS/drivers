@@ -282,13 +282,13 @@ class Cisco::UIExtender < PlaceOS::Driver
     end
   end
 
-  protected def each_mapping(async : Bool)
+  protected def each_mapping(async : Bool, &)
     device_mod = codec
     event_mappings.each { |(path, function, callback)| yield path, function, callback, device_mod }
   end
 
   # Perform an action for each event -> callback mapping.
-  protected def each_mapping
+  protected def each_mapping(&)
     device_mod = codec
     interactions = event_mappings.map do |(path, function, callback)|
       future = yield path, function, callback, device_mod

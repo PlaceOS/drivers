@@ -160,11 +160,11 @@ class Shure::IntellimixRoom < PlaceOS::Driver
   end
 
   # === Interface::AudioMuteable Implementation ===
-  
+
   def mute_audio(state : Bool = true, index : Int32 | String = 0)
     set_audio_mute(index.to_i, state)
   end
-  
+
   def mute(state : Bool = true)
     set_device_audio_mute(state)
   end

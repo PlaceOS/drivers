@@ -64,7 +64,7 @@ class Lutron::Lighting < PlaceOS::Driver
     device : Int32,
     level : Int32,
     rate : Int32 = 1000,
-    component : String = "output"
+    component : String = "output",
   )
     level = level.clamp(0, 100)
     seconds = rate / 1000

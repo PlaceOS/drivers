@@ -17,7 +17,7 @@ def generate_password(
   minimum_lowercase : Int32? = DEFAULT_PASSWORD_MINIMUM_LOWERCASE,
   minimum_uppercase : Int32? = DEFAULT_PASSWORD_MINIMUM_UPPERCASE,
   minimum_numbers : Int32? = DEFAULT_PASSWORD_MINIMUM_NUMBERS,
-  minimum_symbols : Int32? = DEFAULT_PASSWORD_MINIMUM_SYMBOLS
+  minimum_symbols : Int32? = DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
 ) : String
   length ||= DEFAULT_PASSWORD_LENGTH
   exclude ||= DEFAULT_PASSWORD_EXCLUDE
