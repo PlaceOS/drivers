@@ -5,61 +5,51 @@ require "bindata"
 
 module Milesight
   # item types
-  enum Types : UInt8
-    DigitalInput        = 0x00_u8 # 1 bytes
-    DigitalOutput       = 0x01_u8 # 1 bytes
-    AnalogInput         = 0x02_u8 # 2 bytes
-    AnalogOutput        = 0x03_u8 # 2 bytes
-    SerialNumber        = 0x08_u8 # 6 bytes
-    HardwareVersion     = 0x09_u8 # 6 bytes
-    RestartNotification = 0x0B_u8 # 4 bytes
-    TempAlarm           = 0x0D_u8 # 7 bytes
-    Illuminance         = 0x65_u8 # 2 bytes, 1 lux
-    Presence            = 0x66_u8 # 2 bytes
-    Temperature         = 0x67_u8 # 2 bytes, 0.1 °C, signed MSB (little-endian)
-    Humidity            = 0x68_u8 # 1 byte, 0.5 %RH
-    Accelerometer       = 0x71_u8 # 6 bytes
-    Barometer           = 0x73_u8 # 2 bytes
-    Battery             = 0x75_u8 # 1 bytes, 0-100%
-    Gyrometer           = 0x86_u8 # 6 bytes
-    GPSLocation         = 0x88_u8 # 9 bytes, lat, lon, altitude in meters
-    Timestamp           =    0xEF # 4 bytes, LE, seconds
-    DetectionStatus     = 0xF4_u8 # 2 bytes, 02 00=>Normal detection
-    PeopleCounting      = 0xFD_u8 # 2 bytes, LE
+  enum Types : UInt16
+    PowerOn         = 0xff0b # 1 byte
+    ProtocolVersion = 0xff01 # 1 byte
+    SerialNumber    = 0xff16 # 8 bytes
+    HardwareVersion = 0xff09 # 2 bytes
+    FirmwareVersion = 0xff0a # 2 bytes
+    DeviceType      = 0xff0f # 1 byte
+    PowerSupply     = 0xffcc # 1 byte
+
+    AccumulatedCounter = 0x04cc # 4 bytes (in + out)
+    PeriodicCounter    = 0x05cc # 4 bytes (in + out)
+    Temperature        = 0x0367 # 2 bytes, 0.1 °C, signed MSB (little-endian)
+    Humidity           = 0x0468 # 1 byte, 0.5 %RH
+    Battery            = 0x0175 # 1 bytes, 0-100%
+    Timestamp          = 0x0aEF # 4 bytes, LE, seconds
+    DetectionStatus    = 0x08F4 # 2 bytes, 02 00=>Normal detection
+    PeopleCounting     = 0x05FD # 2 bytes, LE
     # 4 bytes, first 2 bytes are enabled regions
     # second 2 bytes are occupancy of those regions
-    DeskOccupancy = 0xFE_u8
-    Illumination  = 0xFF_u8 # 1 byte, 0 == dim
+    DeskOccupancy = 0x06FE
+    Illumination  = 0x07FF # 1 byte, 0 == dim
   end
 
   class Item < BinData
     endian :big
 
-    field channel : UInt8
-    field dtype : UInt8
+    field channel_type : UInt16
 
     getter type : Types? do
-      Types.from_value(dtype) rescue nil
+      Types.from_value(channel_type) rescue nil
     end
 
     def byte_size : Int32?
       item_type = self.type
       return unless item_type
       case item_type
-      in .digital_input?, .digital_output?, .humidity?, .battery?, .illumination?
+      in .power_on?, .protocol_version?, .humidity?, .battery?, .illumination?, .device_type?, .power_supply?
         1
-      in .analog_input?, .analog_output?, .illuminance?,
-         .presence?, .temperature?, .barometer?, .detection_status?,
-         .people_counting?
+      in .hardware_version?, .firmware_version?, .temperature?,
+         .detection_status?, .people_counting?
         2
-      in .restart_notification?, .desk_occupancy?, .timestamp?
+      in .desk_occupancy?, .timestamp?, .accumulated_counter?, .periodic_counter?
         4
-      in .accelerometer?, .gyrometer?, .serial_number?, .hardware_version?
-        6
-      in .temp_alarm?
-        7
-      in .gps_location?
-        9
+      in .serial_number?
+        8
       end
     end
 
@@ -88,8 +78,15 @@ module Milesight
         Time.unix parse_uint32_le(bytes)
       when .humidity?
         bytes[0] / 2
-      when .illumination?, .battery?
+      when .accumulated_counter?, .periodic_counter?
+        in_count = parse_int16_le(bytes[0...2]).to_i
+        out_count = parse_int16_le(bytes[2...4]).to_i
+
+        in_count - out_count
+      when .illumination?, .battery?, .protocol_version?
         bytes[0]
+      when .power_on?
+        bytes[0] == 0xff_u8
       else
         bytes
       end
