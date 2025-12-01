@@ -93,7 +93,7 @@ class Milesight::Webhook < PlaceOS::Driver
     value = case raw_val
             when Float64
               raw_val
-            when Int16, UInt32, UInt8
+            when Int, Float
               raw_val.to_f64
             end
     return nil unless value
