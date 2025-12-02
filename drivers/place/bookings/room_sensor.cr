@@ -5,7 +5,8 @@ class Place::Bookings::RoomSensor < PlaceOS::Driver
   include Interface::Sensor
 
   # Discovery Information
-  descriptive_name "Area People Count"
+  descriptive_name "Area Room Sensor"
+  description "Exposes Area Management Areas as sensor data for use with the room events panel"
   generic_name :Sensor
 
   default_settings({
@@ -25,7 +26,7 @@ class Place::Bookings::RoomSensor < PlaceOS::Driver
     @area_id = setting?(String, :area_id) || config.control_system.not_nil!.map_id.as(String)
 
     schedule.clear
-    schedule.every(15.seconds + rand(1000).milliseconds) { update_sensor }
+    schedule.every(10.seconds + rand(1000).milliseconds) { update_sensor }
     schedule.in(rand(200).milliseconds) { update_sensor }
   end
 
