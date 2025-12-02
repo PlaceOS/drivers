@@ -192,18 +192,30 @@ class Place::BookingNotifier < PlaceOS::Driver
     booking_details = Booking.from_json payload
 
     # Only process booking types of interest
-    return unless booking_details.booking_type == @booking_type
+    unless booking_details.booking_type == @booking_type
+      logger.debug { "ignoring booking #{booking_details.id}: type '#{booking_details.booking_type}' != '#{@booking_type}'" }
+      return
+    end
 
     # Ignore when a bookings state is updated
-    return unless {"approved", "cancelled"}.includes?(booking_details.action)
+    unless {"approved", "cancelled", "metadata_changed"}.includes?(booking_details.action)
+      logger.debug { "ignoring booking #{booking_details.id}: action '#{booking_details.action}' not in allowed list" }
+      return
+    end
 
     # Ignore the same event in a short period of time
     previous = @debounce[booking_details.id]?
-    return if previous && previous[0] == booking_details.action
+    if previous && previous[0] == booking_details.action
+      logger.debug { "ignoring booking #{booking_details.id}: debounced action '#{booking_details.action}'" }
+      return
+    end
     @debounce[booking_details.id] = {booking_details.action, Time.utc.to_unix}
 
     building_zone, notify_details, attachments = get_building_name(booking_details.zones)
-    return unless notify_details && building_zone && attachments
+    unless notify_details && building_zone && attachments
+      logger.debug { "ignoring booking #{booking_details.id}: no notify details found for zones #{booking_details.zones}" }
+      return
+    end
 
     building_key = notify_details.name.downcase.gsub(' ', '_')
 
@@ -216,7 +228,10 @@ class Place::BookingNotifier < PlaceOS::Driver
     ending = Time.unix(booking_details.booking_end).in(location)
 
     # Ignore changes to meetings that have already ended
-    return if Time.utc > ending
+    if Time.utc > ending
+      logger.debug { "ignoring booking #{booking_details.id}: booking has already ended" }
+      return
+    end
 
     attach = attachments.first?
 
@@ -281,19 +296,25 @@ class Place::BookingNotifier < PlaceOS::Driver
     end
 
     if booking_details.action == "approved"
+      logger.debug { "sending approved notification for booking #{booking_details.id}" }
       mailer.send_template(
         to: send_to,
         template: {"bookings", third_party ? "booked_by_notify#{@template_suffix}" : "booking_notify#{@template_suffix}"},
         args: args,
         attachments: attachments
       )
-    else
+    elsif booking_details.action == "cancelled" || (booking_details.action == "metadata_changed" && booking_details.extension_data.dig?("details", "status").try(&.as_s) == "cancelled")
+      logger.debug { "sending cancelled notification for booking #{booking_details.id} (action: #{booking_details.action})" }
       mailer.send_template(
         to: send_to,
         template: {"bookings", "cancelled#{@template_suffix}"},
         args: args,
         attachments: attachments
       )
+    else
+      # metadata_changed but not a cancellation - skip notification
+      logger.debug { "ignoring booking #{booking_details.id}: metadata_changed action but status is '#{booking_details.extension_data.dig?("details", "status")}' (not cancelled)" }
+      return
     end
     staff_api.booking_state(booking_details.id, "notified", booking_details.instance).get
 
