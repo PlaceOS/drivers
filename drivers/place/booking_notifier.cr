@@ -295,8 +295,8 @@ class Place::BookingNotifier < PlaceOS::Driver
       send_to << email if email
     end
 
-    if booking_details.action == "approved"
-      logger.debug { "sending approved notification for booking #{booking_details.id}" }
+    if booking_details.action == "approved" || (booking_details.action == "metadata_changed" && booking_details.extension_data.dig?("details", "status").try(&.as_s) == "approved")
+      logger.debug { "sending approved notification for booking #{booking_details.id} (action: #{booking_details.action})" }
       mailer.send_template(
         to: send_to,
         template: {"bookings", third_party ? "booked_by_notify#{@template_suffix}" : "booking_notify#{@template_suffix}"},
@@ -312,8 +312,8 @@ class Place::BookingNotifier < PlaceOS::Driver
         attachments: attachments
       )
     else
-      # metadata_changed but not a cancellation - skip notification
-      logger.debug { "ignoring booking #{booking_details.id}: metadata_changed action but status is '#{booking_details.extension_data.dig?("details", "status")}' (not cancelled)" }
+      # metadata_changed but not an approval or cancellation - skip notification
+      logger.debug { "ignoring booking #{booking_details.id}: metadata_changed action but status is '#{booking_details.extension_data.dig?("details", "status")}' (not approved or cancelled)" }
       return
     end
     staff_api.booking_state(booking_details.id, "notified", booking_details.instance).get
