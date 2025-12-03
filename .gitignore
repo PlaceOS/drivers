@@ -12,3 +12,5 @@ lib
 .logs
 repositories/*
 src
+docker-compose.yml
+harness
