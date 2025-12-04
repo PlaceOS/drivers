@@ -17,6 +17,7 @@ class Place::Demo::Camera < PlaceOS::Driver
   def on_update
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:presets] = @presets.keys
+    logger.error { "UPDATE ERROR OUTPUT" }
   end
 
   # ====== Powerable Interface ======
@@ -26,6 +27,7 @@ class Place::Demo::Camera < PlaceOS::Driver
   end
 
   def power?
+    logger.error { "TESTING ERROR OUTPUT" }
     case status?(Bool, :power)
     when true
       true
