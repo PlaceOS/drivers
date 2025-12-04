@@ -79,7 +79,7 @@ class Milesight::Webhook < PlaceOS::Driver
                     SensorType::Humidity
                   when .battery?
                     SensorType::Level
-                  when .people_counting?, .periodic_counter?
+                  when .people_counting?, .accumulated_counter?
                     SensorType::Counter
                   end
     return nil unless sensor_type
