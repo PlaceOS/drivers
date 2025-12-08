@@ -95,7 +95,7 @@ shards:
 
   eventbus:
     git: https://github.com/spider-gazelle/eventbus.git
-    version: 1.0.0+git.commit.fab6102d472ce324db4df74c8df9f4a5fa22dafd
+    version: 1.0.1+git.commit.a707ac06aba16ba6070ff4972acfd839f1f05e15
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
@@ -227,7 +227,7 @@ shards:
 
   place_calendar:
     git: https://github.com/placeos/calendar.git
-    version: 4.28.0
+    version: 4.28.1
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
