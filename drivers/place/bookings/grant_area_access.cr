@@ -49,6 +49,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   @lookup_using_username : Bool = false
   @email_errors_to : String? = nil
+  @notify_no_swipe_card : Set(String) = Set(String).new
 
   def on_update
     @building_id = nil
@@ -220,6 +221,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     end
 
     @mutex.synchronize do
+      @notify_no_swipe_card = Set(String).new
       now = Time.local(timezone).at_beginning_of_day
       end_of_day = 3.days.from_now.in(timezone).at_end_of_day
 
@@ -298,6 +300,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
         rescue error
           access_required[user_email] = allocations[user_email]
           add.delete(user_email)
+          @notify_no_swipe_card << user_email
           msg = "failed to remove #{user_email} from security zones"
           errors << msg
           logger.warn(exception: error) { msg }
@@ -435,5 +438,14 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       errors:    issue_list,
       system_id: config.control_system.try(&.id),
     })
+
+    user_emails = @mutex.synchronize { @notify_no_swipe_card.to_a }
+
+    mailer.send_template(
+      to: [] of String,
+      template: {"security", "no_access_card_found"},
+      args: {} of String => String,
+      bcc: user_emails
+    ) unless user_emails.empty?
   end
 end
