@@ -304,6 +304,7 @@ class Place::Bookings < PlaceOS::Driver
 
     system_id = JSON::Any.new(config.control_system.not_nil!.id)
 
+    tentative_bookings = [] of Hash(String, JSON::Any)
     events = @calendar_ids.flat_map { |cal_id|
       logger.debug { "polling events #{cal_id}, from #{start_of_day}, to #{cache_period}, in #{@time_zone.name}" }
 
@@ -313,7 +314,7 @@ class Place::Bookings < PlaceOS::Driver
         cache_period,
         @time_zone.name,
         include_cancelled: @include_cancelled_bookings
-      ).get.as_a.map do |evt|
+      ).get.as_a.compact_map do |evt|
         visibility = if evt["private"].as_bool?
                        "private"
                      else
@@ -331,15 +332,18 @@ class Place::Bookings < PlaceOS::Driver
           evt["host"] = JSON::Any.new("Confidential")
         end
         evt["system_id"] = system_id
+
+        if evt["status"]?.try(&.as_s?) == "tentative"
+          tentative_bookings << evt
+          next nil unless @show_tentative_meetings
+        end
+
         evt
       end
     }.sort { |a, b| a["event_start"].as_i64 <=> b["event_start"].as_i64 }
 
-    if !@show_tentative_meetings
-      events.reject! { |evt| evt["status"]?.try(&.as_s?) == "tentative" }
-    end
-
     self[:bookings] = events
+    self[:tentative] = tentative_bookings
     check_current_booking(events)
     events
   ensure
@@ -429,9 +433,16 @@ class Place::Bookings < PlaceOS::Driver
       self[:current_booking] = booking
       self[:host_email] = booking["extension_data"]?.try(&.[]?("host_override")) || booking["host"]?
       self[:started_at] = start_time
-      self[:ending_at] = ending_at ? ending_at.as_i64 : (start_time + 24.hours.to_i)
+      ending_at_calc = ending_at ? ending_at.as_i64 : (start_time + 24.hours.to_i)
+      self[:ending_at] = ending_at_calc
       self[:all_day_event] = !ending_at
       self[:event_id] = booking["id"]?
+
+      self[:booking_details] = {
+        event_id:   booking["id"]?,
+        started_at: start_time,
+        ending_at:  ending_at_calc,
+      }
 
       @expose_for_analytics.each do |binding, path|
         begin
