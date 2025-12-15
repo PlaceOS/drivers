@@ -438,10 +438,14 @@ class Place::Bookings < PlaceOS::Driver
       self[:all_day_event] = !ending_at
       self[:event_id] = booking["id"]?
 
+      host_details = booking["extension_data"]?.try(&.[]?("host_override")) || booking["host"]?
+
       self[:booking_details] = {
         event_id:   booking["id"]?,
         started_at: start_time,
         ending_at:  ending_at_calc,
+        event_title: booking["title"]?,
+        event_host: host_details,
       }
 
       @expose_for_analytics.each do |binding, path|
