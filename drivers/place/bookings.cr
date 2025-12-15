@@ -84,6 +84,7 @@ class Place::Bookings < PlaceOS::Driver
   @sensor_stale_minutes : Time::Span = 8.minutes
   @perform_sensor_search : Bool = true
   @sensor_mac : String? = nil
+  @room_capacity : Int32 = 0
 
   def on_update
     schedule.clear
@@ -154,7 +155,7 @@ class Place::Bookings < PlaceOS::Driver
     # Write to redis last on the off chance there is a connection issue
     control_sys = config.control_system.not_nil!
     self[:room_name] = setting?(String, :room_name).presence || control_sys.display_name.presence || control_sys.name
-    self[:room_capacity] = setting?(Int32, :room_capacity) || control_sys.capacity
+    self[:room_capacity] = @room_capacity = setting?(Int32, :room_capacity) || control_sys.capacity || 0
     self[:default_title] = @default_title
     self[:disable_book_now_host] = @disable_book_now_host
     self[:disable_book_now] = @disable_book_now
@@ -446,6 +447,7 @@ class Place::Bookings < PlaceOS::Driver
         ending_at:  ending_at_calc,
         event_title: booking["title"]?,
         event_host: host_details,
+        room_capacity: @room_capacity,
       }
 
       @expose_for_analytics.each do |binding, path|
