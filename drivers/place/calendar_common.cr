@@ -421,6 +421,246 @@ module Place::CalendarCommon
     client &.delete_notifier(subscription)
   end
 
+  # =====================================================
+  # Microsoft Graph API - Intune Device Management
+  # =====================================================
+
+  # NOTE:: GraphAPI Only!
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def list_managed_devices(filter_device_name : String? = nil)
+    logger.debug { "listing managed devices, filter: #{filter_device_name}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        query_params = filter_device_name ? URI::Params{"filter" => "deviceName eq #{filter_device_name}"} : nil
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "GET",
+            path: "/v1.0/deviceManagement/managedDevices",
+            query: query_params
+          )
+        )
+        JSON.parse(response.body).as_h["value"]
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def list_users_managed_devices(user_id : String)
+    logger.debug { "listing managed devices for user: #{user_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "GET",
+            path: "/v1.0/users/#{user_id}/managedDevices"
+          )
+        )
+        JSON.parse(response.body).as_h["value"]
+      end
+    end
+  end
+
+  # =====================================================
+  # Microsoft Graph API - Planner
+  # =====================================================
+
+  # NOTE:: GraphAPI Only!
+  # List plans for a group
+  # https://learn.microsoft.com/en-us/graph/api/plannergroup-list-plans
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def list_plans(group_id : String)
+    logger.debug { "listing plans for group: #{group_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "GET",
+            path: "/v1.0/groups/#{group_id}/planner/plans"
+          )
+        )
+        JSON.parse(response.body).as_h["value"]
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  # Get a plan by ID
+  # https://learn.microsoft.com/en-us/graph/api/plannerplan-get
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def get_plan(plan_id : String)
+    logger.debug { "getting plan: #{plan_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "GET",
+            path: "/v1.0/planner/plans/#{plan_id}"
+          )
+        )
+        JSON.parse(response.body)
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  # Create a new plan
+  # https://learn.microsoft.com/en-us/graph/api/planner-post-plans
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def create_plan(group_id : String, title : String)
+    logger.debug { "creating plan '#{title}' for group: #{group_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        body = {
+          container: {
+            url: "https://graph.microsoft.com/v1.0/groups/#{group_id}",
+          },
+          title: title,
+        }.to_json
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "POST",
+            path: "/v1.0/planner/plans",
+            data: body
+          )
+        )
+        JSON.parse(response.body)
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  # List buckets for a plan
+  # https://learn.microsoft.com/en-us/graph/api/plannerplan-list-buckets
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def list_buckets(plan_id : String)
+    logger.debug { "listing buckets for plan: #{plan_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "GET",
+            path: "/v1.0/planner/plans/#{plan_id}/buckets"
+          )
+        )
+        JSON.parse(response.body).as_h["value"]
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  # Create a bucket in a plan
+  # https://learn.microsoft.com/en-us/graph/api/planner-post-buckets
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def create_bucket(plan_id : String, name : String, order_hint : String? = nil)
+    logger.debug { "creating bucket '#{name}' in plan: #{plan_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        body = {
+          name:      name,
+          planId:    plan_id,
+          orderHint: order_hint || " !",
+        }.to_json
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "POST",
+            path: "/v1.0/planner/buckets",
+            data: body
+          )
+        )
+        JSON.parse(response.body)
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  # List tasks for a plan
+  # https://learn.microsoft.com/en-us/graph/api/plannerplan-list-tasks
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def list_tasks(plan_id : String)
+    logger.debug { "listing tasks for plan: #{plan_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "GET",
+            path: "/v1.0/planner/plans/#{plan_id}/tasks"
+          )
+        )
+        JSON.parse(response.body).as_h["value"]
+      end
+    end
+  end
+
+  # NOTE:: GraphAPI Only!
+  # Create a task in a plan
+  # https://learn.microsoft.com/en-us/graph/api/planner-post-tasks
+  # assigned_to_user_ids: array of user IDs to assign the task to
+  # priority: 0-10 (0=highest, 10=lowest). 1=urgent, 3=important, 5=medium, 9=low
+  @[PlaceOS::Driver::Security(Level::Support)]
+  def create_task(
+    plan_id : String,
+    title : String,
+    bucket_id : String? = nil,
+    assigned_to_user_ids : Array(String)? = nil,
+    due_date_time : String? = nil,
+    start_date_time : String? = nil,
+    percent_complete : Int32? = nil,
+    priority : Int32? = nil,
+    order_hint : String? = nil,
+  )
+    logger.debug { "creating task '#{title}' in plan: #{plan_id}, note: graphAPI only" }
+    client do |_client|
+      if _client.client_id == :office365
+        office_client = _client.calendar.as(PlaceCalendar::Office365).client
+        body = JSON.build do |json|
+          json.object do
+            json.field "planId", plan_id
+            json.field "title", title
+            json.field "bucketId", bucket_id if bucket_id
+            json.field "dueDateTime", due_date_time if due_date_time
+            json.field "startDateTime", start_date_time if start_date_time
+            json.field "percentComplete", percent_complete if percent_complete
+            json.field "priority", priority if priority
+            json.field "orderHint", order_hint if order_hint
+
+            if assigned_to_user_ids && !assigned_to_user_ids.empty?
+              json.field "assignments" do
+                json.object do
+                  assigned_to_user_ids.each do |user_id|
+                    json.field user_id do
+                      json.object do
+                        json.field "@odata.type", "#microsoft.graph.plannerAssignment"
+                        json.field "orderHint", " !"
+                      end
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+
+        response = office_client.graph_request(
+          office_client.graph_http_request(
+            request_method: "POST",
+            path: "/v1.0/planner/tasks",
+            data: body
+          )
+        )
+        JSON.parse(response.body)
+      end
+    end
+  end
+
   protected def rate_limiter
     in_flight = @in_flight
     channel = @channel
