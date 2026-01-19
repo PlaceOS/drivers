@@ -397,6 +397,9 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           end
 
           device.objects << obj_info
+
+          # Yield periodically to prevent blocking other fibers
+          Fiber.yield if index % 10 == 0
         rescue error
           logger.trace(exception: error) { "Failed to read object at index #{index}" }
           failed += 1
