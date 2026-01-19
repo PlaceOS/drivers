@@ -106,6 +106,10 @@ class Ashrae::BACnet < PlaceOS::Driver
     ObjectType::LightingOutput, ObjectType::CharacterStringValue, ObjectType::TimeValue,
   ]
 
+  # Rate limiting for device inspections
+  MAX_CONCURRENT_INSPECTIONS = 5
+  @inspection_semaphore : Channel(Nil) = Channel(Nil).new(MAX_CONCURRENT_INSPECTIONS)
+
   @packets_processed : UInt64 = 0_u64
   @verbose_debug : Bool = false
   @bbmd_ip : Socket::IPAddress = Socket::IPAddress.new("127.0.0.1", 0xBAC0)
@@ -126,6 +130,9 @@ class Ashrae::BACnet < PlaceOS::Driver
     @udp_server = server
 
     queue.timeout = 2.seconds
+
+    # Initialize inspection semaphore
+    MAX_CONCURRENT_INSPECTIONS.times { @inspection_semaphore.send(nil) }
 
     # Hook up the client to the transport
     client = ::BACnet::Client::IPv4.new(timeout: 2.seconds)
@@ -291,11 +298,21 @@ class Ashrae::BACnet < PlaceOS::Driver
         addr = info.address
         next unless addr.is_a?(Socket::IPAddress)
         logger.debug { "inspecting #{addr} - #{device_id}" }
-        spawn { inspect_device(device_id, addr) }
+        spawn { inspect_device_with_limit(device_id, addr) }
         count += 1
       end
     end
     "inspecting #{count} devices"
+  end
+
+  # Wrapper to rate limit concurrent device inspections
+  protected def inspect_device_with_limit(device_id : UInt32, link_address : Socket::IPAddress)
+    @inspection_semaphore.receive  # Acquire semaphore
+    begin
+      inspect_device(device_id, link_address)
+    ensure
+      @inspection_semaphore.send(nil)  # Release semaphore
+    end
   end
 
   # Custom device inspection - replaces the old DeviceRegistry.inspect_device

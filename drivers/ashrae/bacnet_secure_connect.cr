@@ -38,6 +38,9 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     # don't wait for responses, the client will do that
     queue.wait = false
 
+    # Initialize inspection semaphore
+    MAX_CONCURRENT_INSPECTIONS.times { @inspection_semaphore.send(nil) }
+
     # generate a UUID and save it for future use if none exists already
     if uuid = setting?(String, :bacnet_sc_uuid)
       @uuid = UUID.new(uuid)
@@ -220,6 +223,10 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     ObjectType::LightingOutput, ObjectType::CharacterStringValue, ObjectType::TimeValue,
   ]
 
+  # Rate limiting for device inspections
+  MAX_CONCURRENT_INSPECTIONS = 5
+  @inspection_semaphore : Channel(Nil) = Channel(Nil).new(MAX_CONCURRENT_INSPECTIONS)
+
   @packets_processed : UInt64 = 0_u64
   @seen_devices : Hash(UInt32, ::BACnet::DiscoveryStore::Device) = {} of UInt32 => ::BACnet::DiscoveryStore::Device
   @devices : Hash(UInt32, DeviceInfo) = {} of UInt32 => DeviceInfo
@@ -302,11 +309,21 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       if vmac_hex = info.vmac
         vmac = vmac_hex.hexbytes
         logger.debug { "inspecting #{vmac.hexstring} - #{device_id}" }
-        spawn { inspect_device(device_id, vmac) }
+        spawn { inspect_device_with_limit(device_id, vmac) }
         count += 1
       end
     end
     "inspecting #{count} devices"
+  end
+
+  # Wrapper to rate limit concurrent device inspections
+  protected def inspect_device_with_limit(device_id : UInt32, vmac : Bytes)
+    @inspection_semaphore.receive  # Acquire semaphore
+    begin
+      inspect_device(device_id, vmac)
+    ensure
+      @inspection_semaphore.send(nil)  # Release semaphore
+    end
   end
 
   # Custom device inspection - replaces the old DeviceRegistry.inspect_device
