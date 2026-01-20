@@ -99,7 +99,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           schedule.every(poll_period.minutes) do
             logger.debug { "--- Polling all known bacnet devices" }
             keys = @mutex.synchronize { @devices.keys }
-            keys.each { |device_id| poll_device(device_id) }
+            keys.each { |device_id| perform_poll_device(device_id) }
           end
         end
 
@@ -293,20 +293,49 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     @mutex.synchronize { @devices.values }.map { |device| device_details device }
   end
 
+  getter? querying_devices : Bool = false
+
   def query_known_devices
-    # Query all devices in seen_devices (which includes loaded known_devices from on_update)
-    count = 0
-    @seen_devices.each_value do |info|
-      device_id = info.device_instance
-      # Get VMAC bytes from the device info
-      if vmac_hex = info.vmac
-        vmac = vmac_hex.hexbytes
-        logger.debug { "inspecting #{vmac.hexstring} - #{device_id}" }
-        spawn { inspect_device(device_id, vmac) }
-        count += 1
-      end
+    @mutex.synchronize do
+      return false if @querying_devices
+      @querying_devices = true
     end
-    "inspecting #{count} devices"
+
+    # Query all devices in seen_devices (which includes loaded known_devices from on_update)
+    channel = Channel(Tuple(UInt32, String)).new(3)
+
+    begin
+      # we could do something like 3.times here if we wanted to query more than one at a time
+      spawn do
+        loop do
+          details = channel.receive?
+          break unless details
+          dev_id, vmac_readable = details
+
+          logger.debug { "inspecting #{details[1]} - #{details[0]}" }
+
+          vmac = vmac_readable.hexbytes
+          inspect_device(dev_id, vmac)
+        end
+      end
+
+      count = 0
+      @seen_devices.each_value do |info|
+        device_id = info.device_instance
+        # Get VMAC bytes from the device info
+        if vmac_hex = info.vmac
+          channel.send({device_id, vmac_hex})
+          count += 1
+        end
+      end
+
+      "inspected #{count} devices"
+    ensure
+      channel.close
+    end
+    true
+  ensure
+    @mutex.synchronize { @querying_devices = false }
   end
 
   # Custom device inspection - replaces the old DeviceRegistry.inspect_device
@@ -414,7 +443,14 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     logger.error(exception: error) { "Failed to inspect device #{device_id}" }
   end
 
-  def poll_device(device_id : UInt32)
+  getter currently_polling : Hash(UInt32, Bool) = {} of UInt32 => Bool
+
+  protected def perform_poll_device(device_id : UInt32)
+    @mutex.synchronize do
+      return false if @currently_polling[device_id]?
+      @currently_polling[device_id] = true
+    end
+
     device = get_device(device_id)
     return false unless device
 
@@ -423,16 +459,22 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     objects = @mutex.synchronize { device.objects.dup }
     objects.each do |obj|
       next unless obj.object_type.in?(OBJECTS_WITH_VALUES)
+
       name = object_binding(device_id, obj)
-      queue(name: name, priority: 0, timeout: 500.milliseconds) do |task|
-        spawn_action(task) do
-          obj.sync_value(client, vmac)
-          self[name] = object_value(obj)
-        end
-      end
+      obj.sync_value(client, vmac)
+      self[name] = object_value(obj)
+      
       Fiber.yield
     end
     true
+  ensure
+    @mutex.synchronize { @currently_polling.delete(device_id) }
+  end
+
+  def poll_device(device_id : UInt32)
+    spawn { perform_poll_device(device_id) }
+    sleep 100.milliseconds
+    @currently_polling[device_id]? || false
   end
 
   protected def spawn_action(task, &block : -> Nil)
