@@ -312,10 +312,14 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           break unless details
           dev_id, vmac_readable = details
 
-          logger.debug { "inspecting #{details[1]} - #{details[0]}" }
+          begin
+            logger.debug { "inspecting #{dev_id} - #{vmac_readable}" }
 
-          vmac = vmac_readable.hexbytes
-          inspect_device(dev_id, vmac)
+            vmac = vmac_readable.hexbytes
+            inspect_device(dev_id, vmac)
+          rescue error
+            logger.error(exception: error) { "failed to inspect device #{dev_id} - #{vmac_readable}" }
+          end
         end
       end
 
@@ -454,19 +458,29 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     device = get_device(device_id)
     return false unless device
 
+    logger.debug { "    Polling #{device_id}..." }
+
     client = bacnet_client
     vmac = device.vmac
     objects = @mutex.synchronize { device.objects.dup }
+
+    synced = 0
     objects.each do |obj|
       next unless obj.object_type.in?(OBJECTS_WITH_VALUES)
 
       name = object_binding(device_id, obj)
       obj.sync_value(client, vmac)
       self[name] = object_value(obj)
+      synced += 1
       
       Fiber.yield
     end
+
+    logger.debug { "    Polled #{device_id}, #{synced} objects" }
     true
+  rescue error
+    logger.info(exception: error) { "    Polling #{device_id}, sync error" }
+    false
   ensure
     @mutex.synchronize { @currently_polling.delete(device_id) }
   end
