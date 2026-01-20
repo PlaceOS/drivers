@@ -99,10 +99,26 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
         poll_period = setting?(UInt32, :poll_period) || 3
         if poll_period > 0
-          schedule.every(poll_period.minutes) do
-            logger.debug { "--- Polling all known bacnet devices" }
-            keys = @mutex.synchronize { @devices.keys }
-            keys.each { |device_id| poll_device(device_id) }
+          # Stagger device polling across the poll period to avoid CPU spikes
+          keys = @mutex.synchronize { @devices.keys }
+          device_count = keys.size
+          
+          if device_count > 0
+            delay_between_devices = (poll_period.minutes.total_seconds / device_count).seconds
+            
+            keys.each_with_index do |device_id, index|
+              initial_delay = delay_between_devices * index
+              
+              schedule.in(initial_delay) do
+                schedule.every(poll_period.minutes) do
+                  if index == 0
+                    logger.debug { "--- Polling #{device_count} BACnet devices (every #{poll_period} minutes, #{delay_between_devices.total_seconds.round(1)}s between devices)" }
+                  end
+                  logger.debug { "Polling device #{device_id}" }
+                  poll_device(device_id)
+                end
+              end
+            end
           end
         end
 
