@@ -571,7 +571,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         n: name,
         e: email,
         p: 0,
-        r: [event_id, system_id, building_zone.id],
+        r: [event_id, system_id],
       },
     }
 
