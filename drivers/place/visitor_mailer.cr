@@ -565,7 +565,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       exp:   tomorrow_night.to_unix,
       jti:   UUID.random.to_s,
       aud:   @uri.try &.host,
-      scope: ["guest"],
+      scope: ["guest", "metadata"],
       sub:   guest_id,
       u:     {
         n: name,
