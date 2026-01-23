@@ -390,6 +390,10 @@ class Place::Meet < PlaceOS::Driver
           if remote_out = links[sys_id]?
             room.route(input, remote_out, max_dist, simulate, follow_additional_routes, true)
           end
+        else
+          # we're routing directly in this room but we want to simulate the route on the remote system
+          # so the UI stays up to date
+          room.route(input, output, max_dist, simulate: true, follow_additional_routes: false, called_from_join: true)
         end
       end
     end
