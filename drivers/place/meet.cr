@@ -389,6 +389,8 @@ class Place::Meet < PlaceOS::Driver
         if links = @linked_outputs[output]?
           if remote_out = links[sys_id]?
             room.route(input, remote_out, max_dist, simulate, follow_additional_routes, true)
+          else
+            room.route(input, output, max_dist, simulate: true, follow_additional_routes: false, called_from_join: true)
           end
         else
           # we're routing directly in this room but we want to simulate the route on the remote system
