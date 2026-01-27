@@ -29,6 +29,7 @@ module Aver
 
     use_json_discriminator "event", {
       "option" => EventOption,
+      "signal" => EventSignal,
     }
   end
 
@@ -59,5 +60,22 @@ module Aver
     include JSON::Serializable
 
     getter data : Option
+  end
+
+  enum SignalType
+    Login
+  end
+
+  struct Signal
+    include JSON::Serializable
+
+    getter option : SignalType
+    getter value : String
+  end
+
+  struct EventSignal < Event
+    include JSON::Serializable
+
+    getter data : Signal
   end
 end
