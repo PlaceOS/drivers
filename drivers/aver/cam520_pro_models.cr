@@ -36,6 +36,11 @@ module Aver
     PtzPS
     PtzTS
     PtzZS
+    PtzZ
+
+    # pushed by the camera
+    PtzPeopleCount
+    PtzMoving
   end
 
   struct Option
