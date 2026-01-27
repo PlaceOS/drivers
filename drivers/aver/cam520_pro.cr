@@ -249,10 +249,13 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
     @zooming = true
+    perform = 1
+
     case direction
     in .stop?
       dir = 0
       cmd = 2
+      perform = 2
       @zooming = false
     in .out?
       dir = 1
@@ -262,14 +265,18 @@ class Aver::Cam520Pro < PlaceOS::Driver
       cmd = 1
     end
 
-    response = post("/camera_move", body: {
-      method: "SetPtzf",
-      axis:   AxisSelect::Zoom.to_i,
-      dir:    dir,
-      cmd:    cmd,
-    }.to_json)
+    response = nil
 
-    parse(response, Nil)
+    perform.times do
+      response = post("/camera_move", body: {
+        method: "SetPtzf",
+        axis:   AxisSelect::Zoom.to_i,
+        dir:    dir,
+        cmd:    cmd,
+      }.to_json)
+    end
+
+    parse(response.as(HTTP::Client::Response), Nil)
   end
 
   def zoom_native(position : Int32)
