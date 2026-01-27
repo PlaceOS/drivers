@@ -128,6 +128,15 @@ class Aver::Cam520Pro < PlaceOS::Driver
           @panning = nil
         end
       end
+    in Signal
+      value = payload.value
+      case payload.option
+      in .login?
+        if value == "kicked"
+          # we need to re-establish the websocket for more messages
+          disconnect
+        end
+      end
     in Event
       raise "not possible"
     end
