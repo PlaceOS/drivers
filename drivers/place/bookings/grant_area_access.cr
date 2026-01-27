@@ -398,6 +398,12 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
           {name: "system_id", description: "the system with the BookingAreaAccess driver"},
         ]
       ),
+      TemplateFields.new(
+        trigger: {"security", "no_access_card_found"},
+        name: "User with no access card",
+        description: "Email sent to the user who can't be added to security groups as they probably don't have an active swipe card",
+        fields: [] of NamedTuple(name: String, description: String)
+      ),
     ]
   end
 
