@@ -111,13 +111,15 @@ class Aver::Cam520Pro < PlaceOS::Driver
     in Option
       value = payload.value.to_i
       case payload.option
-      in .ptz_ps?
+      in .ptz_p?, .ptz_ps?
         @pan_pos = value
-      in .ptz_ts?
+      in .ptz_t?, .ptz_ts?
         @tilt_pos = value
       in .ptz_z?, .ptz_zs?
         @zoom_pos = value
         self[:zoom] = value.to_f * (100.0 / @zoom_max.to_f)
+      in .ptz_dzs?
+        # digital zoom?
       in .ptz_people_count?
         self[:people_count] = value
       in .ptz_moving?
@@ -254,36 +256,32 @@ class Aver::Cam520Pro < PlaceOS::Driver
     zoom_native (percentage * @zoom_max.to_f).to_i
   end
 
+  @zooming_dir : Int32 = 0
+
   def zoom(direction : ZoomDirection, index : Int32 | String = 0)
     @zooming = true
-    perform = 1
 
     case direction
     in .stop?
-      dir = 0
+      dir = @zooming_dir
       cmd = 2
-      perform = 2
       @zooming = false
     in .out?
-      dir = 1
+      @zooming_dir = dir = 1
       cmd = 1
     in .in?
-      dir = 0
+      @zooming_dir = dir = 0
       cmd = 1
     end
 
-    response = nil
+    response = post("/camera_move", body: {
+      method: "SetPtzf",
+      axis:   AxisSelect::Zoom.to_i,
+      dir:    dir,
+      cmd:    cmd,
+    }.to_json)
 
-    perform.times do
-      response = post("/camera_move", body: {
-        method: "SetPtzf",
-        axis:   AxisSelect::Zoom.to_i,
-        dir:    dir,
-        cmd:    cmd,
-      }.to_json)
-    end
-
-    parse(response.as(HTTP::Client::Response), Nil)
+    parse(response, Nil)
   end
 
   def zoom_native(position : Int32)
