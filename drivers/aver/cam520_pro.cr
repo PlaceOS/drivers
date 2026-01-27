@@ -115,9 +115,16 @@ class Aver::Cam520Pro < PlaceOS::Driver
         @pan_pos = value
       in .ptz_ts?
         @tilt_pos = value
-      in .ptz_zs?
+      in .ptz_z?, .ptz_zs?
         @zoom_pos = value
         self[:zoom] = value.to_f * (100.0 / @zoom_max.to_f)
+      in .ptz_people_count?
+        self[:people_count] = value
+      in .ptz_moving?
+        if value.zero?
+          @zooming = false
+          @panning = nil
+        end
       end
     in Event
       raise "not possible"
