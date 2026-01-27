@@ -34,7 +34,12 @@ module Aver
 
   enum OptionType
     PtzPS
+    PtzP
     PtzTS
+    PtzT
+
+    # D for digital zoom
+    PtzDZS
     PtzZS
     PtzZ
 
