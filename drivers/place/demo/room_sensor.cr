@@ -27,8 +27,6 @@ class Place::Demo::RoomSensor < PlaceOS::Driver
     @sensor_id = setting?(String, :sensor_id) || module_id
     @timestamp = Time.utc.to_unix
     update_state
-
-    logger.error { "CAN WE SEE THIS?" }
   end
 
   def set_sensor(new_count : Int32)
