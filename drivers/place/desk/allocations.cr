@@ -117,7 +117,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       # HDR in features == Student
       desks.values.each do |desk|
         allocated_email = desk.allocation_email.presence
-        desk_type = if allocated_email.nil? && desk.bookable
+        desk_type = if allocated_email.nil? && desk.name ~= /hot/i
                       # hot desk
                       desk.features.try(&.downcase.includes?("hdr")) ? "Student Hot Desk" : "Staff Hot Desk"
                     elsif allocated_email

@@ -101,7 +101,7 @@ class Cisco::RoomKit < PlaceOS::Driver
     end
   end
 
-  map_status mic_mute: "Audio Microphones Mute"
+  map_status mic_mute: "Audio Microphones Mute Enabled"
   map_status volume: "Audio Volume"
   map_status speaker_track: "Cameras SpeakerTrack"
   map_status presence_detected: "RoomAnalytics PeoplePresence"
