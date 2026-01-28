@@ -177,6 +177,7 @@ module Place::CalendarCommon
   def get_members(
     group_id : String,
     next_page : String? = nil,
+    additional_fields : Array(String)? = nil,
   )
     logger.debug { "listing members of group: #{group_id}" }
 
@@ -187,7 +188,7 @@ module Place::CalendarCommon
         end
       end
     end
-    members = client &.get_members(group_id, next_link: next_page)
+    members = client &.get_members(group_id, next_link: next_page, additional_fields: additional_fields)
 
     if member = members.first?
       member.next_page = member.next_link
@@ -205,9 +206,10 @@ module Place::CalendarCommon
     limit : Int32? = nil,
     filter : String? = nil,
     next_page : String? = nil,
+    additional_fields : Array(String)? = nil,
   )
     logger.debug { "listing user details, query #{query || filter}, limit #{limit} (next: #{!!next_page})" }
-    users = client &.list_users(query, limit, filter: filter, next_link: next_page)
+    users = client &.list_users(query, limit, filter: filter, next_link: next_page, additional_fields: additional_fields)
     # next link is not returned to reduce payload size and used
     # in the staff API for setting a header
     if user = users.first?
@@ -217,9 +219,9 @@ module Place::CalendarCommon
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
-  def get_user(user_id : String)
+  def get_user(user_id : String, additional_fields : Array(String)? = nil)
     logger.debug { "getting user details for #{user_id}" }
-    client &.get_user_by_email(user_id)
+    client &.get_user_by_email(user_id, additional_fields: additional_fields)
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
