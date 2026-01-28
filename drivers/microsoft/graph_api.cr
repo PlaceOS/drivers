@@ -3,7 +3,7 @@ require "../place/calendar_common"
 class Microsoft::GraphAPI < PlaceOS::Driver
   include Place::CalendarCommon
 
-  # update to trigger build.
+  # update to trigger build
   descriptive_name "Microsoft Graph API"
   generic_name :Calendar
 
