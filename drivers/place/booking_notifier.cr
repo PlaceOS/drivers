@@ -8,9 +8,11 @@ require "uuid"
 
 require "./booking_model"
 require "./password_generator_helper"
+require "./bookings/asset_name_resolver"
 
 class Place::BookingNotifier < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
+  include Place::AssetNameResolver
 
   descriptive_name "Booking Notifier"
   generic_name :BookingNotifier
@@ -55,8 +57,16 @@ class Place::BookingNotifier < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
   accessor network_provider : NetworkAccess_1 # Written for Cisco ISE Driver, but ideally compatible with others
 
-  # We want to use the first driver in the system that is a mailer
+  # used by AssetNameResolver and LockerMetadataParser
+  accessor locations : LocationServices_1
+  getter building_id : String do
+    locations.building_id.get.as_s
+  end
+  getter levels : Array(String) do
+    staff_api.systems_in_building(building_id).get.as_h.keys
+  end
 
+  # We want to use the first driver in the system that is a mailer
   def mailer
     system.implementing(Interface::Mailer)[0]
   end
@@ -111,6 +121,9 @@ class Place::BookingNotifier < PlaceOS::Driver
   end
 
   def on_update
+    @building_id = nil
+    @levels = nil
+
     @booking_type = setting?(String, :booking_type).presence || "desk"
     @unique_templates = setting?(Bool, :unique_templates) || false
     @template_suffix = @unique_templates ? "_#{@booking_type}" : ""
@@ -145,6 +158,7 @@ class Place::BookingNotifier < PlaceOS::Driver
       {name: "end_datetime", description: "Booking end date and time (e.g., #{time_now.to_s(@date_time_format)})"},
       {name: "starting_unix", description: "Booking start time as Unix timestamp"},
       {name: "asset_id", description: "Identifier of the booked asset (e.g., desk)"},
+      {name: "asset_name", description: "Name of the booked asset"},
       {name: "user_id", description: "Identifier of the person the booking is for"},
       {name: "user_email", description: "Email of the person the booking is for"},
       {name: "user_name", description: "Name of the person the booking is for"},
@@ -262,6 +276,7 @@ class Place::BookingNotifier < PlaceOS::Driver
       starting_unix:  booking_details.booking_start,
 
       asset_id:   booking_details.asset_id,
+      asset_name: lookup_asset(asset_id: booking_details.asset_id, type: booking_details.booking_type, zones: booking_details.zones),
       user_id:    booking_details.user_id,
       user_email: booking_details.user_email,
       user_name:  booking_details.user_name,
