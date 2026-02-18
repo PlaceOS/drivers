@@ -26,6 +26,8 @@ services:
       CRYSTAL_PATH: lib:/lib/local-shards:/usr/share/crystal/src
       REDIS_URL: redis://redis:6379
       TZ: $TZ
+      PLACE_SMTP_HOST: smtp
+      PLACE_SMTP_PORT: 1025
     cap_add:
       - "SYS_PTRACE"
     security_opt:
@@ -72,3 +74,12 @@ services:
       - ${PWD}/shard.override.yml:/wd/shard.override.yml
       - ${PWD}/.shards:/wd/.shards
       - ${PWD}/lib:/wd/lib
+
+  smtp:
+    image: sj26/mailcatcher
+    hostname: smtp
+    restart: always
+    ports:
+      - 127.0.0.1:1080:1080
+      # - 127.0.0.1:1025:1025
+    # command: --ip 0.0.0.0
