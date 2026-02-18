@@ -477,7 +477,7 @@ class Place::VisitorMailer < PlaceOS::Driver
                  end
 
     guest_jwt = generate_guest_jwt(visitor_name || visitor_email, visitor_email, visitor_email, event_id, system_id || resource_id)
-    kiosk_url = "/visitor-kiosk/#/checkin/preferences?email=#{visitor_email}&jwt=#{guest_jwt}&event_id=#{event_id}"
+    kiosk_url = "/visitor-kiosk/?email=#{visitor_email}&token=#{guest_jwt}&event_id=#{event_id}#/checkin/preferences"
 
     mailer.send_template(
       visitor_email,
