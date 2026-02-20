@@ -133,7 +133,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
 
     # Build the list of placeos groups based on the mappings and update the user model
     # Don't remove any groups in the users profile that are in the ignore list, even if they are not in the users groups from the provider (AAD)
-    groups = user_json["groups"].as_a & @ignore_placeos_groups
+    groups = @ignore_placeos_groups & user_json["groups"].as_a
     @group_mappings.each { |group_id, place_group| groups << place_group[:place_id] if users_group_ids.includes? group_id }
     @group_prefixes.each do |group_prefix, place_group|
       users_group_names.each do |name|
