@@ -34,6 +34,9 @@ class Place::UserGroupMappings < PlaceOS::Driver
       },
     },
 
+    # Do not remove these PlaceOS groups when syncing, even if they are not in the users groups from the provider (AAD)
+    ignore_placeos_groups: ["group_id_to_ignore"],
+
     # authority id
     authority_id: "authority-12345",
   })
@@ -56,6 +59,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
   @authority_id : Array(String) = [] of String
   @group_mappings : Hash(String, Mapping) = {} of String => Mapping
   @group_prefixes : Hash(String, Prefix) = {} of String => Prefix
+  @ignore_placeos_groups : Array(String) = [] of String
   @users_checked : UInt64 = 0_u64
   @error_count : UInt64 = 0_u64
 
@@ -63,6 +67,7 @@ class Place::UserGroupMappings < PlaceOS::Driver
     @group_mappings = setting?(Hash(String, Mapping), :group_mappings) || {} of String => Mapping
     @group_prefixes = setting?(Hash(String, Prefix), :group_prefix) || {} of String => Prefix
     @group_prefixes = @group_prefixes.transform_keys(&.downcase)
+    @ignore_placeos_groups = setting?(Array(String), :ignore_placeos_groups) || [] of String
 
     authority_id = setting?(String | Array(String), :authority_id) || "authority-12345"
     case authority_id
@@ -125,8 +130,10 @@ class Place::UserGroupMappings < PlaceOS::Driver
     users_group_ids = users_groups.map { |group| group["id"].as_s }
     users_group_names = users_groups.map { |group| group["name"].as_s.downcase }
 
+
     # Build the list of placeos groups based on the mappings and update the user model
-    groups = [] of String
+    # Don't remove any groups in the users profile that are in the ignore list, even if they are not in the users groups from the provider (AAD)
+    groups = users_groups & @ignore_placeos_groups
     @group_mappings.each { |group_id, place_group| groups << place_group[:place_id] if users_group_ids.includes? group_id }
     @group_prefixes.each do |group_prefix, place_group|
       users_group_names.each do |name|
