@@ -2,10 +2,12 @@ require "placeos-driver"
 require "placeos-driver/interface/powerable"
 require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
+require "placeos-driver/interface/device_info"
 
 # Documentation: https://pro-bravia.sony.net/develop/integrate/rest-api/spec/
 
 class Sony::Displays::BraviaPro < PlaceOS::Driver
+  include Interface::DeviceInfo
   include Interface::Powerable
   include Interface::Muteable
 
@@ -111,6 +113,96 @@ class Sony::Displays::BraviaPro < PlaceOS::Driver
 
   def disconnected
     schedule.clear
+  end
+
+  struct SonyDescriptor
+    include JSON::Serializable
+
+    getter generation : String
+    getter product : String
+    getter serial : String
+    getter name : String
+    getter model : String
+
+    @[JSON::Field(key: "macAddr")]
+    getter mac_addr : String
+
+    @[JSON::Field(key: "fwVersion")]
+    getter fw_version : String
+
+    @[JSON::Field(key: "androidOs")]
+    getter android_os : String
+
+    @[JSON::Field(key: "webAppRuntimeVersion")]
+    getter web_app_runtime_version : String
+  end
+
+  struct SonyInterface
+    include JSON::Serializable
+
+    @[JSON::Field(key: "modelName")]
+    getter model_name : String
+
+    @[JSON::Field(key: "interfaceVersion")]
+    getter interface_version : String
+
+    @[JSON::Field(key: "productName")]
+    getter product_name : String
+
+    @[JSON::Field(key: "productCategory")]
+    getter product_category : String
+  end
+
+  def interface_details : SonyInterface
+    response = post("/sony/system",
+      headers: auth_headers,
+      body: {
+        method:  "getInterfaceInformation",
+        id:      33,
+        params:  [] of Nil,
+        version: "1.0",
+      }.to_json
+    )
+
+    if !response.success?
+      error = "getInterfaceInformation command failed: #{response.body}"
+      logger.warn { error }
+      raise error
+    end
+
+    Array(SonyInterface).from_json(response.body, root: "result").first
+  end
+
+  def device_info : Descriptor
+    interface = interface_details
+
+    response = post("/sony/system",
+      headers: auth_headers,
+      body: {
+        method:  "getSystemInformation",
+        id:      33,
+        params:  [] of Nil,
+        version: "1.7",
+      }.to_json
+    )
+
+    if !response.success?
+      error = "getSystemInformation command failed: #{response.body}"
+      logger.warn { error }
+      raise error
+    end
+
+    details = Array(SonyDescriptor).from_json(response.body, root: "result").first
+    ip_address = config.ip.presence || URI.parse(config.uri.as(String)).hostname
+
+    Descriptor.new(
+      make: "Sony",
+      model: "#{interface.product_category} #{interface.product_name} #{interface.model_name}",
+      serial: details.serial,
+      firmware: "#{details.fw_version}, generation #{details.generation}, android #{details.android_os}, web app #{details.web_app_runtime_version}",
+      mac_address: details.mac_addr,
+      ip_address: ip_address,
+    )
   end
 
   # Power Control

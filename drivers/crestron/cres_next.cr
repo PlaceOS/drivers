@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "placeos-driver/interface/device_info"
 require "json"
 require "path"
 require "uri"
@@ -11,6 +12,7 @@ require "./cres_next_auth"
 # Parent module for Crestron DM NVX devices.
 abstract class Crestron::CresNext < PlaceOS::Driver
   include Crestron::CresNextAuth
+  include Interface::DeviceInfo
 
   def websocket_headers
     authenticate
@@ -94,10 +96,44 @@ abstract class Crestron::CresNext < PlaceOS::Driver
   # ========================================
   # HTTP for updates and session maintenance
   # ========================================
-  def maintain_session
+  def maintain_session : Nil
+    device_info
+  end
+
+  def device_info : Descriptor
     response = get("/Device/DeviceInfo")
-    return logout unless response.success?
-    logger.debug { "Maintaining Session:\n#{response.body}" }
+    unless response.success?
+      authenticate
+      response = get("/Device/DeviceInfo")
+      raise "bad credentials, unauthenticated" unless response.success?
+    end
+    payload = JSON.parse(response.body)
+    logger.debug { "device details payload: #{payload.to_pretty_json}" }
+
+    # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/DeviceInfo.htm
+    ip_address = config.ip.presence || URI.parse(config.uri.as(String)).hostname
+
+    model = payload.dig("Device", "DeviceInfo", "Model").as_s
+    model_type = payload.dig?("Device", "DeviceInfo", "ModelSubType").try(&.as_s?)
+    model_type = " (#{model_type})" if model_type.presence
+    category = payload.dig("Device", "DeviceInfo", "Category").as_s
+
+    fw_version = payload.dig("Device", "DeviceInfo", "Version").as_s
+    hw_version = payload.dig("Device", "DeviceInfo", "DeviceVersion").as_s
+    puf_version = payload.dig("Device", "DeviceInfo", "PufVersion").as_s
+    build_date = payload.dig("Device", "DeviceInfo", "BuildDate").as_s
+    mac = payload.dig("Device", "DeviceInfo", "MacAddress").as_s
+    name = payload.dig?("Device", "DeviceInfo", "Name").try(&.as_s?).presence
+
+    Descriptor.new(
+      make: "Crestron",
+      model: "#{category} #{model}#{model_type}",
+      serial: payload.dig("Device", "DeviceInfo", "SerialNumber").as_s,
+      firmware: "#{fw_version}, device #{hw_version}, puf #{puf_version}, built #{build_date}",
+      mac_address: mac,
+      ip_address: ip_address,
+      hostname: name,
+    )
   end
 
   # payload is expected to be a hash or named tuple

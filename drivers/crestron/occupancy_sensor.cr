@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
+require "placeos-driver/interface/device_info"
 require "./cres_next_auth"
 
 # This device doesn't seem to support a websocket interface
@@ -8,6 +9,7 @@ require "./cres_next_auth"
 class Crestron::OccupancySensor < PlaceOS::Driver
   include Crestron::CresNextAuth
   include Interface::Sensor
+  include Interface::DeviceInfo
 
   descriptive_name "Crestron Occupancy Sensor"
   generic_name :Occupancy
@@ -37,7 +39,8 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     schedule.every(10.minutes) { authenticate }
 
     # sync device state every hour
-    schedule.every(1.hour) { poll_device_state }
+    # this is handled by Interface::DeviceInfo
+    # schedule.every(1.hour) { poll_device_state }
   end
 
   def on_update
@@ -51,7 +54,6 @@ class Crestron::OccupancySensor < PlaceOS::Driver
       return
     end
 
-    poll_device_state
     @lock.synchronize do
       if !@monitoring
         spawn { event_monitor }
@@ -61,20 +63,49 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   end
 
   def poll_device_state : Nil
+    device_info
+  end
+
+  def device_info : Descriptor
     response = get("/Device", concurrent: true)
     raise "unexpected response code: #{response.status_code}" unless response.success?
     payload = JSON.parse(response.body)
 
+    logger.debug { "device details payload: #{payload.to_pretty_json}" }
+
     @last_update = Time.utc.to_unix
     self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
     self[:presence] = @occupied ? 1.0 : 0.0
-    self[:mac] = @mac = format_mac payload.dig("Device", "DeviceInfo", "MacAddress").as_s
-    self[:name] = @name = payload.dig("Device", "DeviceInfo", "Name").as_s?
+    mac = payload.dig("Device", "DeviceInfo", "MacAddress").as_s
+    self[:mac] = @mac = format_mac(mac)
+    self[:name] = @name = payload.dig?("Device", "DeviceInfo", "Name").try(&.as_s?).presence
 
     update_sensor
 
     # Start long polling once we have state
     @poll_counter += 1
+
+    # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/DeviceInfo.htm
+    ip_address = config.ip.presence || URI.parse(config.uri.as(String)).hostname
+    model = payload.dig("Device", "DeviceInfo", "Model").as_s
+    model_type = payload.dig?("Device", "DeviceInfo", "ModelSubType").try(&.as_s?)
+    model_type = " (#{model_type})" if model_type.presence
+    category = payload.dig("Device", "DeviceInfo", "Category").as_s
+
+    fw_version = payload.dig("Device", "DeviceInfo", "Version").as_s
+    hw_version = payload.dig("Device", "DeviceInfo", "DeviceVersion").as_s
+    puf_version = payload.dig("Device", "DeviceInfo", "PufVersion").as_s
+    build_date = payload.dig("Device", "DeviceInfo", "BuildDate").as_s
+
+    Descriptor.new(
+      make: "Crestron",
+      model: "#{category} #{model}#{model_type}",
+      serial: payload.dig("Device", "DeviceInfo", "SerialNumber").as_s,
+      firmware: "#{fw_version}, device #{hw_version}, puf #{puf_version}, built #{build_date}",
+      mac_address: mac,
+      ip_address: ip_address,
+      hostname: @name,
+    )
   end
 
   protected def format_mac(address : String)

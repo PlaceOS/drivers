@@ -50,6 +50,8 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     }
   })
 
+  puts "==> authenticating"
+
   # expect authentication
   expect_http_request do |request, response|
     data = request.body.try(&.gets_to_end)
@@ -69,7 +71,19 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     end
   end
 
-  # expect a complete poll
+  puts "==> long poll fail"
+
+  # expect a series of long polls, this pauses it for 1 second
+  expect_http_request do |request, response|
+    if request.path == "/Device/Longpoll"
+      response.status_code = 500
+      response << %("error")
+    end
+  end
+
+  puts "==> fetching device details"
+  # perform a complete poll
+  resp = exec(:poll_device_state)
   expect_http_request do |request, response|
     if request.path == "/Device"
       response.status_code = 200
@@ -79,13 +93,15 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
       response << "badly formatted"
     end
   end
-
-  sleep 0.5
+  resp.get
   status[:occupied].should be_false
   status[:name].should eq "Room1-Sensor"
   status[:mac].should eq "00107fec2d72"
 
-  # followed by a series of long polls
+  sleep 1.01.seconds
+  puts "==> long polling"
+
+  # expect a series of long polls
   expect_http_request do |request, response|
     if request.path == "/Device/Longpoll"
       response.status_code = 200
@@ -96,7 +112,7 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     end
   end
 
-  sleep 0.5
+  sleep 0.5.seconds
   status[:occupied].should be_true
 
   resp = exec(:get_sensor_details).get.not_nil!
