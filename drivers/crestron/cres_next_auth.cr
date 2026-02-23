@@ -31,7 +31,8 @@ module Crestron::CresNextAuth
         @xsrf_token = response.headers["CREST-XSRF-TOKEN"]? || ""
         @authenticated = true
         begin
-          queue.set_connected(true) unless was_authenticated
+          queue.set_connected(true)
+          connected unless was_authenticated
         rescue
         end
         logger.debug { "Authenticated" }
