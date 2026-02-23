@@ -81,6 +81,8 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     end
   end
 
+  sleep 0.1.seconds
+
   puts "==> fetching device details"
   # perform a complete poll
   resp = exec(:poll_device_state)
@@ -98,7 +100,7 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
   status[:name].should eq "Room1-Sensor"
   status[:mac].should eq "00107fec2d72"
 
-  sleep 1.01.seconds
+  sleep 1.04.seconds
   puts "==> long polling"
 
   # expect a series of long polls
