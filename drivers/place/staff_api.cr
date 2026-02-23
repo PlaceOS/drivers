@@ -407,6 +407,24 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # Signage
+  # ===================================
+
+  # where display id is the signage system id
+  # returns nil if not modified
+  def signage_content(display_id : String, modified_since : Int64? = nil)
+    auth = authentication
+    if modified_since
+      auth["If-Modified-Since"] = HTTP.format_time(Time.unix(modified_since))
+    end
+    response = get("/api/engine/v2/signage/#{display_id}", headers: auth)
+    return nil if response.status.not_modified?
+    raise "fetching signage content failed #{response.status_code}\n#{response.body}" unless response.success?
+    # ::PlaceOS::Model::ControlSystem.from_json(response.body)
+    JSON::Any.from_json(response.body)
+  end
+
+  # ===================================
   # Guest details
   # ===================================
   @[Security(Level::Support)]
