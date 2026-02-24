@@ -176,6 +176,12 @@ class Place::BookingNotifier < PlaceOS::Driver
         fields: common_fields
       ),
       TemplateFields.new(
+        trigger: {"bookings", "rejected#{@template_suffix}"},
+        name: "Booking rejected notification#{@template_fields_suffix}",
+        description: "Notification when a booking is rejected",
+        fields: common_fields
+      ),
+      TemplateFields.new(
         trigger: {"bookings", "cancelled#{@template_suffix}"},
         name: "Booking cancelled#{@template_fields_suffix}",
         description: "Notification when a booking is cancelled",
@@ -198,7 +204,7 @@ class Place::BookingNotifier < PlaceOS::Driver
     end
 
     # Ignore when a bookings state is updated
-    unless {"approved", "cancelled", "metadata_changed"}.includes?(booking_details.action)
+    unless {"approved", "rejected", "cancelled", "metadata_changed"}.includes?(booking_details.action)
       logger.debug { "ignoring booking #{booking_details.id}: action '#{booking_details.action}' not in allowed list" }
       return
     end
@@ -300,6 +306,14 @@ class Place::BookingNotifier < PlaceOS::Driver
       mailer.send_template(
         to: send_to,
         template: {"bookings", third_party ? "booked_by_notify#{@template_suffix}" : "booking_notify#{@template_suffix}"},
+        args: args,
+        attachments: attachments
+      )
+    elsif booking_details.action == "rejected" || (booking_details.action == "metadata_changed" && booking_details.extension_data.dig?("details", "status").try(&.as_s) == "rejected")
+      logger.debug { "sending rejected notification for booking #{booking_details.id} (action: #{booking_details.action})" }
+      mailer.send_template(
+        to: send_to,
+        template: {"bookings", "rejected#{@template_suffix}"},
         args: args,
         attachments: attachments
       )
