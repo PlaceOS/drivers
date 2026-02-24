@@ -7,7 +7,7 @@ require "simple_retry"
 require "place_calendar"
 require "./booking_model"
 
-# This comment is to force a recompile of the driver with updated models
+# This comment is to force a recompile of the driver with updated models.
 
 class Place::StaffAPI < PlaceOS::Driver
   descriptive_name "PlaceOS Staff API"
