@@ -421,7 +421,49 @@ class Place::StaffAPI < PlaceOS::Driver
     return nil if response.status.not_modified?
     raise "fetching signage content failed #{response.status_code}\n#{response.body}" unless response.success?
     # ::PlaceOS::Model::ControlSystem.from_json(response.body)
-    JSON::Any.from_json(response.body)
+    response.body
+  end
+
+  alias PlaylistMedia = Hash(String, Tuple(::PlaceOS::Model::Playlist, Array(String)))
+
+  def signage_playlist(display_id : String, modified_since : Int64? = nil, timezone : String? = nil) : Array(::PlaceOS::Model::Playlist::Item)?
+    content = signage_content(display_id, modified_since)
+    return nil unless content
+    media = Array(::PlaceOS::Model::Playlist::Item).from_json(content, root: "playlist_media")
+    playlists = PlaylistMedia.from_json(content, root: "playlist_config").values
+
+    valid_media = [] of String
+
+    timezone = Time::Location.load(timezone) if timezone
+    now = timezone ? Time.local(timezone) : Time.utc
+    playlists.select! do |(playlist, media_ids)|
+      next false unless playlist.should_present?(now)
+      valid_media.concat media_ids
+      true
+    end
+
+    # grab the media that is valid
+    media = valid_media.compact_map { |id| media.find { |item| item.id == id } }
+
+    # reject any media that is not valid
+    now_unix = now.to_unix
+    media.reject! do |item|
+      starting = item.valid_from
+      ending = item.valid_until
+
+      next false if starting && starting > now_unix
+      next false if ending && ending <= now_unix
+      true
+    end
+
+    # return the remaining media list
+    media
+  end
+
+  def signage_download_url(upload_id : String)
+    uri = URI.parse(config.uri.as(String))
+    uri.path = "/api/engine/v2/uploads/#{upload_id}/download/#{@api_key}/false/image.jpg"
+    uri
   end
 
   # ===================================
