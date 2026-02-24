@@ -146,6 +146,8 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   # ====== Camera Interface ======
 
+  @pantilt_dir : Int32 = 0
+
   def joystick(pan_speed : Float64, tilt_speed : Float64, index : Int32 | String = 0)
     tilt_speed = -tilt_speed if @invert
 
@@ -161,19 +163,28 @@ class Aver::Cam520Pro < PlaceOS::Driver
       cmd = tilt_speed.zero? ? 2 : 1
     end
 
-    if @panning && @panning != axis
+    if cmd == 1 && @panning && @panning != axis
       # stop any previous move
+      stop_dir = @pantilt_dir
       spawn do
         post("/camera_move", body: {
           method: "SetPtzf",
           axis:   stop.to_i,
-          dir:    dir,
+          dir:    stop_dir,
           cmd:    2,
         }.to_json)
       end
     end
 
-    @panning = cmd == 1 ? axis : nil
+    if cmd == 1 # move
+      @panning = axis
+      @pantilt_dir = dir
+    else # stop, we need to use previous values
+      panning_axis = @panning
+      axis = panning_axis if panning_axis
+      @panning = nil
+      dir = @pantilt_dir
+    end
 
     # start moving in the desired direction
     response = post("/camera_move", body: {
@@ -338,36 +349,28 @@ class Aver::Cam520Pro < PlaceOS::Driver
   # ====== Stoppable Interface ======
 
   def stop(index : Int32 | String = 0, emergency : Bool = false)
-    # tilt
-    spawn do
+    if pan_axis = @panning
       post("/camera_move", body: {
         method: "SetPtzf",
-        axis:   AxisSelect::Tilt.to_i,
-        dir:    0,
+        axis:   pan_axis.to_i,
+        dir:    @pantilt_dir,
         cmd:    2,
       }.to_json)
-    end
-
-    # pan
-    spawn do
-      post("/camera_move", body: {
-        method: "SetPtzf",
-        axis:   AxisSelect::Pan.to_i,
-        dir:    0,
-        cmd:    2,
-      }.to_json)
+      @panning = nil
     end
 
     # zoom
-    response = post("/camera_move", body: {
-      method: "SetPtzf",
-      axis:   AxisSelect::Zoom.to_i,
-      dir:    0,
-      cmd:    2,
-    }.to_json)
+    if @zooming
+      response = post("/camera_move", body: {
+        method: "SetPtzf",
+        axis:   AxisSelect::Zoom.to_i,
+        dir:    @zooming_dir,
+        cmd:    2,
+      }.to_json)
+      @zooming = false
+    end
 
-    @zooming = false
-    parse(response, Nil)
+    true
   end
 
   # ====== Powerable Interface ======
