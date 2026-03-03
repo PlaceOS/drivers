@@ -138,7 +138,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     basic_check(response).success?
   end
 
-  def add_card(card : CardUpdate) : Int64
+  def add_card(card : CardUpdate) : Int64?
     response = post("/subscriberinterface/api/Card/Add", headers: subscriber_auth, body: card.to_json)
     resp = basic_check(response)
     raise "add card failed with: #{resp.to_pretty_json}\nadding: #{card.to_json}" unless resp.success?
