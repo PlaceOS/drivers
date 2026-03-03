@@ -102,7 +102,16 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     check(response, SingleSubscription).subscription
   end
 
+  # you can only delete expired subscriptions
   def delete_subscription(subscription_id : Int64) : Bool
+    sub = subscription(subscription_id)
+    if sub.valid?
+      sub.end_date = 2.days.ago
+      # in case they ever fix this bug we default to send product id
+      sub.send_product_id = sub.send_product_id || sub.receive_product_id
+      sub.receive_product_id = nil
+      update_subscription(sub)
+    end
     response = delete("/subscriberinterface/api/Subscription/Delete/#{subscription_id}", headers: subscriber_auth)
     basic_check(response)
   end

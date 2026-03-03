@@ -169,10 +169,10 @@ module Orbility
 
     # patching and viewing data have different names for the same field
     @[JSON::Field(key: "producId")]
-    getter receive_product_id : Int64?
+    property receive_product_id : Int64?
 
     @[JSON::Field(key: "productId")]
-    getter send_product_id : Int64?
+    property send_product_id : Int64?
 
     def product_id : Int64
       receive_product_id || send_product_id.as(Int64)
@@ -192,7 +192,7 @@ module Orbility
     getter start_date : Time
 
     @[JSON::Field(key: "validityEndDate", converter: Orbility::TimeConverter)]
-    getter end_date : Time
+    property end_date : Time
 
     @[JSON::Field(key: "cards")]
     getter! card_ids : Array(Int64)
