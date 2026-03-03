@@ -45,6 +45,8 @@ module Orbility
   struct Confirmation
     include JSON::Serializable
     include Success
+
+    getter id : Int64?
   end
 
   module CreatedConverter
@@ -145,6 +147,11 @@ module Orbility
     getter unique_id : String?
 
     getter emails : Array(String)
+
+    def initialize(@first_name, @name, @unique_id, @emails)
+      @company = false
+      @title = nil
+    end
   end
 
   struct Contract

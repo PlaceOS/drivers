@@ -43,7 +43,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     if !%klass.success?
       logger.info { "basic request failed with: #{%klass.to_pretty_json}" }
     end
-    %klass.success?
+    %klass
   end
 
   ##############################
@@ -113,17 +113,17 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       update_subscription(sub)
     end
     response = delete("/subscriberinterface/api/Subscription/Delete/#{subscription_id}", headers: subscriber_auth)
-    basic_check(response)
+    basic_check(response).success?
   end
 
-  def add_subscription(subscription : Subscription) : Bool
+  def add_subscription(subscription : Subscription) : Int64?
     response = post("/subscriberinterface/api/Subscription/Add", headers: subscriber_auth, body: subscription.to_json)
-    basic_check(response)
+    basic_check(response).id
   end
 
   def update_subscription(subscription : Subscription) : Bool
     response = put("/subscriberinterface/api/Subscription/Update", headers: subscriber_auth, body: subscription.to_json)
-    basic_check(response)
+    basic_check(response).success?
   end
 
   def card(card_id : Int64) : Card
@@ -133,17 +133,17 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
 
   def delete_card(card_id : Int64) : Bool
     response = delete("/subscriberinterface/api/Card/Delete/#{card_id}", headers: subscriber_auth)
-    basic_check(response)
+    basic_check(response).success?
   end
 
-  def add_card(card : CardUpdate) : Bool
+  def add_card(card : CardUpdate) : Int64?
     response = post("/subscriberinterface/api/Card/Add", headers: subscriber_auth, body: card.to_json)
-    basic_check(response)
+    basic_check(response).id
   end
 
   def update_card(card : CardUpdate) : Bool
     response = put("/subscriberinterface/api/Card/Update", headers: subscriber_auth, body: card.to_json)
-    basic_check(response)
+    basic_check(response).success?
   end
 
   ##############################
