@@ -160,14 +160,23 @@ module Orbility
     getter company : Person
   end
 
+  # example add {"ProductId":6,"contractNumber":6,"offerId":3,"validityStartDate":"2025-04-17T00:00:00","validityEndDate":"2050-01-01T00:00:00"}
   struct Subscription
     include JSON::Serializable
     include JSON::Serializable::Unmapped
 
     getter id : Int64?
 
+    # patching and viewing data have different names for the same field
     @[JSON::Field(key: "producId")]
-    getter product_id : Int64
+    getter receive_product_id : Int64?
+
+    @[JSON::Field(key: "productId")]
+    getter send_product_id : Int64?
+
+    def product_id : Int64
+      receive_product_id || send_product_id.as(Int64)
+    end
 
     @[JSON::Field(key: "contractNumber")]
     getter contract_id : Int64
