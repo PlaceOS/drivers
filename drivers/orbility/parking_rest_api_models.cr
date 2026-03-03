@@ -201,7 +201,8 @@ module Orbility
       (start_date...end_date).includes?(at)
     end
 
-    def initialize(@product_id, @contract_id, @offer_id, @start_date, @end_date, @id = nil)
+    def initialize(product_id : Int64, @contract_id, @offer_id, @start_date, @end_date, @id = nil)
+      @send_product_id = product_id
     end
   end
 
@@ -231,34 +232,36 @@ module Orbility
     getter subscription_id : Int64
 
     @[JSON::Field(key: "externalNumber")]
-    property access_card_no : String?
+    getter access_card_no : String?
 
     @[JSON::Field(key: "licencePlates")]
-    property licence_plates : Array(String)
+    getter licence_plates : Array(String) { [] of String }
 
     @[JSON::Field(key: "artificialPerson")]
-    property person : Person
+    getter person : Person
   end
 
+  # example add {"cardNumber": 4,"subscriptionId":4,"licencePlates":["test1"],"artificialPerson":{"isCompany": false, "name":"von Takach","firstName": "Steve", "companyNumber": "12345", "emails": ["steve@vontaka.ch"]}}
   struct CardUpdate
     include JSON::Serializable
 
     @[JSON::Field(key: "cardNumber")]
-    getter id : Int64?
+    getter id : Int64
 
     @[JSON::Field(key: "subscriptionId")]
     getter subscription_id : Int64
 
     @[JSON::Field(key: "externalNumber")]
-    property access_card_no : String?
+    getter access_card_no : String?
 
     @[JSON::Field(key: "licencePlates")]
-    property licence_plates : Array(String) = [] of String
+    getter licence_plates : Array(String) = [] of String
 
     @[JSON::Field(key: "artificialPerson")]
-    property person : Person
+    getter person : Person
 
-    def initialize(@subscription_id, @access_card_no, @licence_plates, @person, @id = nil)
+    def initialize(@subscription_id, @access_card_no, @licence_plates, @person, id : Int64? = nil)
+      @id = id || @subscription_id
     end
   end
 end
