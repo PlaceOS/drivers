@@ -64,6 +64,9 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       auth.expires # called just to set the expiry time
       @subscriber_auth = auth
 
+      # We need to do this as we get an error if we use the bearer token too soon! (WTF)
+      sleep 1.seconds
+
       HTTP::Headers{
         "Authorization" => "Bearer #{auth.user_token}",
       }
@@ -150,6 +153,9 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       auth = check(response, AuthResponse)
       auth.expires # called just to set the expiry time
       @prebooking_auth = auth
+
+      # We need to do this as we get an error if we use the bearer token too soon! (WTF)
+      sleep 1.seconds
 
       HTTP::Headers{
         "Authorization" => "Bearer #{auth.user_token}",
