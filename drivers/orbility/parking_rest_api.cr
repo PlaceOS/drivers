@@ -118,7 +118,9 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
 
   def add_subscription(subscription : Subscription) : Int64?
     response = post("/subscriberinterface/api/Subscription/Add", headers: subscriber_auth, body: subscription.to_json)
-    basic_check(response).id
+    resp = basic_check(response)
+    return resp.id if resp.success?
+    nil
   end
 
   def update_subscription(subscription : Subscription) : Bool
@@ -136,9 +138,11 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     basic_check(response).success?
   end
 
-  def add_card(card : CardUpdate) : Int64?
+  def add_card(card : CardUpdate) : Int64
     response = post("/subscriberinterface/api/Card/Add", headers: subscriber_auth, body: card.to_json)
-    basic_check(response).id
+    resp = basic_check(response)
+    raise "add card failed with: #{resp.to_pretty_json}\nadding: #{card.to_json}" unless resp.success?
+    resp.id
   end
 
   def update_card(card : CardUpdate) : Bool
