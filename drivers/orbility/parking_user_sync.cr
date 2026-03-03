@@ -124,7 +124,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     lookup = {} of String => Card
     cards.each do |card|
       person = card.person
-      if id = person.unique_id || card.access_card_no || person.emails.first?.try(&.downcase)
+      if id = person.comment || card.access_card_no || person.emails.first?.try(&.downcase)
         if existing = lookup[id]?
           @warnings << "duplicate card found #{card.id}: #{person.first_name} #{person.name} #{person.emails}"
           next
@@ -197,6 +197,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
 
     logger.debug { "Number of existing users in parking system: #{cards.size}" }
 
+    dir_count = 0
     dir_users = [] of String
     new_users = [] of DirUser
     update_users = [] of Tuple(DirUser, Card)
@@ -218,13 +219,16 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
 
           # check if the user is already in the parking system
           if swipe_card_number
+            dir_users << swipe_card_number
             parking_card = cards[user.id]? || cards[swipe_card_number]? || cards[username]?
           else
             parking_card = cards[user.id]? || cards[username]?
           end
 
           # store the checked emails and users that we need to add to the parking system
+          dir_count += 1
           dir_users << user.id
+          dir_users << username
           if parking_card
             if parking_card.access_card_no != swipe_card_number
               update_users << {user, parking_card}
@@ -251,7 +255,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     end
 
     logger.debug { "Number of users in Parking system: #{cards.size}" }
-    logger.debug { "Number of users in Directory: #{dir_users.size}" }
+    logger.debug { "Number of users in Directory: #{dir_count}" }
 
     # find all the users that need to be removed from parking
     removed = 0

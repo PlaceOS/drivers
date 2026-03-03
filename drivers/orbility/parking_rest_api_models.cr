@@ -143,12 +143,12 @@ module Orbility
     getter first_name : String?
     getter title : String?
 
-    @[JSON::Field(key: "companyNumber")]
-    getter unique_id : String?
+    # we'll store user ids here
+    getter comment : String?
 
     getter emails : Array(String)
 
-    def initialize(@first_name, @name, @unique_id, @emails)
+    def initialize(@first_name, @name, @comment, @emails)
       @company = false
       @title = nil
     end
