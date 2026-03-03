@@ -146,7 +146,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     if unmapped = user.unmapped
       license_plates = unmapped[car_license_ext]?.try(&.as_a.map(&.as_s)) || PLATES_DEFAULT
     end
-    license_plates
+    license_plates.reject! { |plate| plate.blank? || plate.size > 12 }
   end
 
   getter cached_security_ids : Hash(String, String | Int64) = {} of String => String | Int64
