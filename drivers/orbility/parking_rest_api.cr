@@ -32,7 +32,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     %response = {{ response }}
     raise "error: #{%response.status}\n#{%response.body}" unless %response.success?
     %klass = {{klass}}.from_json(%response.body)
-    raise "error: #{%klass}" unless %klass.success?
+    raise "error: #{%klass.to_pretty_json}" unless %klass.success?
     %klass
   end
 
@@ -40,6 +40,9 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     %response = {{ response }}
     raise "error: #{%response.status}\n#{%response.body}" unless %response.success?
     %klass = Confirmation.from_json(%response.body)
+    if !%klass.success?
+      logger.info { "basic request failed with: #{%klass.to_pretty_json}" }
+    end
     %klass.success?
   end
 
@@ -65,7 +68,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       @subscriber_auth = auth
 
       # We need to do this as we get an error if we use the bearer token too soon! (WTF)
-      sleep 1.seconds
+      sleep 3.seconds
 
       HTTP::Headers{
         "Authorization" => "Bearer #{auth.user_token}",
@@ -155,7 +158,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       @prebooking_auth = auth
 
       # We need to do this as we get an error if we use the bearer token too soon! (WTF)
-      sleep 1.seconds
+      sleep 3.seconds
 
       HTTP::Headers{
         "Authorization" => "Bearer #{auth.user_token}",
