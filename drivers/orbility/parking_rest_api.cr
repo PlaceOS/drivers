@@ -1,7 +1,7 @@
 require "placeos-driver"
 require "./parking_rest_api_models"
 
-# https://apim-dev-hub.developer.azure-api.net/api-details
+# https://apim-dev-hub.developer.azure-api.net/apis
 
 class Orbility::ParkingRestAPI < PlaceOS::Driver
   descriptive_name "Orbility Parking API"
