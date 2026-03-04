@@ -381,7 +381,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
         return if @sync_requests > 0
         @sync_requests += 1
       end
-      sleep 1
+      sleep 1.seconds
     else
       @sync_requests += 1
     end

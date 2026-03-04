@@ -244,6 +244,9 @@ module Orbility
     @[JSON::Field(key: "licencePlates")]
     getter licence_plates : Array(String) { [] of String }
 
+    @[JSON::Field(key: "isLicensePlateRegistered")]
+    getter? license_plate_registered : Bool
+
     @[JSON::Field(key: "artificialPerson")]
     getter person : Person
   end
@@ -264,11 +267,15 @@ module Orbility
     @[JSON::Field(key: "licencePlates")]
     getter licence_plates : Array(String) = [] of String
 
+    @[JSON::Field(key: "isLicensePlateRegistered")]
+    getter? license_plate_registered : Bool
+
     @[JSON::Field(key: "artificialPerson")]
     getter person : Person
 
     def initialize(@subscription_id, @access_card_no, @licence_plates, @person, id : Int64? = nil)
       @id = id || @subscription_id
+      @license_plate_registered = true
     end
   end
 end
