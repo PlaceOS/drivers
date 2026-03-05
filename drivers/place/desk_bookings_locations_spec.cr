@@ -2,8 +2,9 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
   system({
-    StaffAPI:       {StaffAPIMock},
-    AreaManagement: {AreaManagementMock},
+    StaffAPI:         {StaffAPIMock},
+    AreaManagement:   {AreaManagementMock},
+    LocationServices: {LocationServicesMock},
   })
 
   settings({
@@ -25,7 +26,7 @@ end
 
 # :nodoc:
 class StaffAPIMock < DriverSpecs::MockDriver
-  def query_bookings(type : String, zones : Array(String))
+  def query_bookings(type : String, zones : Array(String) = [] of String, period_start : Int64? = nil, period_end : Int64? = nil)
     logger.debug { "Querying desk bookings!" }
 
     now = Time.local
@@ -79,6 +80,13 @@ class StaffAPIMock < DriverSpecs::MockDriver
         tags: ["building"],
       }
     end
+  end
+end
+
+# :nodoc:
+class LocationServicesMock < DriverSpecs::MockDriver
+  def building_id
+    "zone-building"
   end
 end
 
