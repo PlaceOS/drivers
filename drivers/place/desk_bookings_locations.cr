@@ -13,7 +13,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
   accessor area_manager : AreaManagement_1
   accessor staff_api : StaffAPI_1
-  accessor location_service : LocationServices_1 # used by `zones` fallback and `map_ids`
+  accessor location_service : LocationServices_1
 
   default_settings({
     zone_filter: [] of String,
