@@ -179,6 +179,21 @@ module Place::Router::Core
     (mod.sys == system.id ? system : system mod.sys).get mod.name, mod.idx
   end
 
+  @routes_changed : UInt64 = 0_u64
+  @notify_route_change : ::PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+  @route_change_mutex : Mutex = Mutex.new
+
+  # debouce by a couple of seconds to encompass multiple changes
+  protected def notify_route_change
+    @route_change_mutex.synchronize do
+      @routes_changed += 1
+      @notify_route_change.try(&.cancel) rescue nil
+      @notify_route_change = schedule.in(2.seconds) do
+        self[:routes_changed] = @routes_changed
+      end
+    end
+  end
+
   # Routes signal from *input* to *output*.
   #
   # Performs all intermediate device interaction based on current system
@@ -270,6 +285,7 @@ module Place::Router::Core
       end
     end
 
+    notify_route_change
     :ok
   end
 end
