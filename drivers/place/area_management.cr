@@ -470,9 +470,10 @@ class Place::AreaManagement < PlaceOS::Driver
       desk_checked_in:  desk_checked_in,
     }
 
-    # Group desk bookings by desk ID for frontend tooltip support
+    # Group upcoming desk bookings by desk ID for frontend tooltip support
     desk_bookings_map = Hash(String, Array(Hash(String, JSON::Any))).new { |h, k| h[k] = [] of Hash(String, JSON::Any) }
-    locations.each do |loc|
+    upcoming = location_service.upcoming_bookings(level_id).get.as_a
+    upcoming.each do |loc|
       next unless loc["location"]?.try(&.as_s) == "booking" && loc["type"]?.try(&.as_s) == "desk"
       desk_id = loc["map_id"]?.try(&.as_s) || loc["asset_id"]?.try(&.as_s)
       next unless desk_id

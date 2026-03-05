@@ -158,6 +158,17 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     bookings = [] of Booking
     @bookings.each_value(&.each { |booking|
       next unless zone_id.in?(booking.zones)
+      next unless booking.in_progress?
+      bookings << booking
+    })
+    map_bookings(bookings)
+  end
+
+  def upcoming_bookings(zone_id : String)
+    logger.debug { "fetching upcoming bookings in zone #{zone_id}" }
+    bookings = [] of Booking
+    @bookings.each_value(&.each { |booking|
+      next unless zone_id.in?(booking.zones)
       bookings << booking
     })
     map_bookings(bookings)
