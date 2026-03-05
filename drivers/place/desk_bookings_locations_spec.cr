@@ -2,9 +2,8 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Place::DeskBookingsLocations" do
   system({
-    StaffAPI:         {StaffAPIMock},
-    AreaManagement:   {AreaManagementMock},
-    LocationServices: {LocationServicesMock},
+    StaffAPI:       {StaffAPIMock},
+    AreaManagement: {AreaManagementMock},
   })
 
   settings({
@@ -80,13 +79,6 @@ class StaffAPIMock < DriverSpecs::MockDriver
         tags: ["building"],
       }
     end
-  end
-end
-
-# :nodoc:
-class LocationServicesMock < DriverSpecs::MockDriver
-  def building_id
-    "zone-building"
   end
 end
 
