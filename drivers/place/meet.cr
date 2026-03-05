@@ -17,7 +17,7 @@ class Place::Meet < PlaceOS::Driver
   generic_name :System
   descriptive_name "Meeting room logic"
   description <<-DESC
-    Room level state and behaviours.
+    Room level state and behaviours
 
     This driver provides a high-level API for interaction with devices, systems \
     and integrations found within common workplace collaboration spaces
