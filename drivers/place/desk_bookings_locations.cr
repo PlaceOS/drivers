@@ -13,7 +13,7 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
   accessor area_manager : AreaManagement_1
   accessor staff_api : StaffAPI_1
-  accessor location_service : LocationServices_1
+  accessor location_service : LocationServices_1 # used by `zones` fallback and `map_ids`
 
   default_settings({
     zone_filter: [] of String,
@@ -44,7 +44,6 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     @zone_filter = setting?(Array(String), :zone_filter) || [] of String
     @zones = nil
     @building_id = nil
-    @timezone = nil
     @map_ids = nil
     @poll_rate = (setting?(Int32, :poll_rate) || 60).seconds
 
@@ -67,11 +66,6 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   end
 
   getter building_id : String { location_service.building_id.get.as_s }
-
-  protected getter timezone : Time::Location do
-    tz = staff_api.zone(building_id).get["timezone"]?.try(&.as_s?).presence || "UTC"
-    Time::Location.load(tz)
-  end
 
   # asset_id => map_id
   getter map_ids : Hash(String, String) do
@@ -243,14 +237,12 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   @known_users : Hash(String, Tuple(String, String)) = Hash(String, Tuple(String, String)).new
 
   def query_desk_bookings : Nil
-    now = Time.local(timezone)
-    day_start = now.at_beginning_of_day.to_unix
-    day_end = now.at_end_of_day.to_unix
+    period_end = (Time.utc + 24.hours).to_unix
 
     ids = Set(Int64).new
     bookings = [] of JSON::Any
     zones.each do |zone|
-      bookings.concat staff_api.query_bookings(type: @booking_type, period_start: day_start, period_end: day_end, zones: {zone}).get.as_a
+      bookings.concat staff_api.query_bookings(type: @booking_type, period_end: period_end, zones: {zone}).get.as_a
     rescue error
       logger.warn(exception: error) { "failed to query bookings in zone: #{zone}" }
     end
