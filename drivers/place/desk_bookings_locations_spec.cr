@@ -25,7 +25,7 @@ end
 
 # :nodoc:
 class StaffAPIMock < DriverSpecs::MockDriver
-  def query_bookings(type : String, zones : Array(String))
+  def query_bookings(type : String, zones : Array(String) = [] of String, period_start : Int64? = nil, period_end : Int64? = nil)
     logger.debug { "Querying desk bookings!" }
 
     now = Time.local
