@@ -87,7 +87,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
 
         desks.each do |desk|
           desk_id = desk["id"].as_s
-          response[desk_id] = Desk.new(
+          response[desk_id.downcase] = Desk.new(
             desk_id,
             desk["name"].as_s?.presence || desk["id"].as_s,
             desk["bookable"].as_bool,
@@ -178,7 +178,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
       desk_id = row[0]
       allocated_email = row[2].downcase.presence
       bookable = !!allocated_email || row[3].includes?("Hot")
-      csv_allocations[desk_id] = Allocation.new(desk_id, row[1], allocated_email, bookable)
+      csv_allocations[desk_id.downcase] = Allocation.new(desk_id, row[1], allocated_email, bookable)
     end
 
     level_allocations = Hash(String, Array(Allocation)).new do |hash, level_id|
@@ -240,12 +240,12 @@ class Place::Desk::Allocations < PlaceOS::Driver
     all_desks = staff_api.metadata(level_zone, "desks").get.dig?("desks", "details").try(&.as_a?)
     return unless all_desks
 
-    allocation_hash = allocations.to_h { |alloc| {alloc.desk_id, alloc} }
+    allocation_hash = allocations.to_h { |alloc| {alloc.desk_id.downcase, alloc} }
 
     # update the json with allocation changes
     updated_desks = all_desks.map do |desk|
       desk_id = desk["id"].as_s
-      allocation = allocation_hash[desk_id]?
+      allocation = allocation_hash[desk_id.downcase]?
       desk = desk.as_h
       next desk unless allocation
 
@@ -338,7 +338,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
           desk_name = desk["name"]?.try(&.as_s?) || desk_id
           details = AssignmentDetails.new(desk_id, assigned_email, assigned_name, level_zone, desk_name)
 
-          assignments[desk_id] = details
+          assignments[desk_id.downcase] = details
           assigned_to[assigned_email] << details
         end
       end
@@ -366,7 +366,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
     deleted = {} of Int64 => String
     failed = 0
     assignments.each do |desk_id, details|
-      booking = bookings.find { |book| book["asset_id"].as_s == desk_id }
+      case_id = details.desk_id
+      booking = bookings.find { |book| book["asset_id"].as_s == case_id }
       if booking.nil?
         missing[desk_id] = details
         next
@@ -381,7 +382,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
         staff_api.booking_delete(booking_id).get unless test
 
         deleted[booking_id] = booking_email
-        missing[desk_id] = details
+        missing[case_id] = details
       end
     end
 
