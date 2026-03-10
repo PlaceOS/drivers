@@ -230,7 +230,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
           dir_users << user.id
           dir_users << username
           if parking_card
-            if parking_card.access_card_no != swipe_card_number
+            if parking_card.access_card_no != swipe_card_number || !parking_card.first_use_type.entry_or_exit?
               update_users << {user, parking_card}
             else
               parking_licences = Set.new(parking_card.licence_plates)

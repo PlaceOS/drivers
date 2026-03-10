@@ -39,11 +39,11 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
   macro basic_check(response)
     %response = {{ response }}
     raise "error: #{%response.status}\n#{%response.body}" unless %response.success?
-    %klass = Confirmation.from_json(%response.body)
-    if !%klass.success?
-      logger.info { "basic request failed with: #{%klass.to_pretty_json}" }
+    %conf = Confirmation.from_json(%response.body)
+    if !%conf.success?
+      logger.info { "basic request failed with: #{%conf.to_pretty_json}" }
     end
-    %klass
+    %conf
   end
 
   ##############################
@@ -177,5 +177,37 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
         "Authorization" => "Bearer #{auth.user_token}",
       }
     end
+  end
+
+  def add_booking(booking : PreBooking) : String
+    response = post("/prebooking/api/PreBooking/Submit", headers: prebooking_auth, body: booking.to_json)
+    resp = basic_check(response)
+    raise "add booking failed with: #{resp.to_pretty_json}\nadding: #{booking.to_json}" unless resp.success?
+    resp.booking_number
+  end
+
+  def update_booking(booking : PreBooking) : String
+    response = post("/prebooking/api/PreBooking/Update", headers: prebooking_auth, body: booking.to_json)
+    resp = basic_check(response)
+    raise "add booking failed with: #{resp.to_pretty_json}\nadding: #{booking.to_json}" unless resp.success?
+    booking.id
+  end
+
+  def delete_booking(booking_id : String) : Bool
+    response = post("/prebooking/api/PreBooking/Cancel", headers: subscriber_auth, body: {bookingNumber: booking_id}.to_json)
+    basic_check(response).success?
+  end
+
+  def view_booking(booking_id : String) : BookingInfo
+    response = get("/prebooking/api/PreBooking/GetInfo/#{booking_id}", headers: subscriber_auth)
+    check(response, BookingInfo)
+  end
+
+  def qr_code(booking_id : String) : String
+    # creates a QR code like "MPK_RES=#{booking_id}" no validation on the booking number provided to the API
+    # recommend that we generate the QR code internally as the API is slow
+    response = get("/prebooking/api/PreBooking/GetBookingQRCode?bookingNumber=#{booking_id}", headers: subscriber_auth)
+    raise "QR code failed with: #{response.body} -- for: #{booking_id}" unless response.success?
+    String.from_json(response.body, root: "qrCodeBase64")
   end
 end

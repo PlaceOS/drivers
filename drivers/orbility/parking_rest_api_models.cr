@@ -34,7 +34,7 @@ module Orbility
       self.query_result || self.status == "OK"
     end
 
-    getter status : String
+    getter status : String?
     getter message : String?
 
     @[JSON::Field(key: "queryResult")]
@@ -47,6 +47,9 @@ module Orbility
     include Success
 
     getter id : Int64?
+
+    @[JSON::Field(key: "bookingNumber")]
+    getter! booking_number : String
   end
 
   module CreatedConverter
@@ -227,6 +230,16 @@ module Orbility
     getter subscription : Subscription
   end
 
+  enum FirstUseType
+    Entry
+    Exit
+    EntryOrExit
+
+    def to_json(json : JSON::Builder)
+      json.string(self.to_s)
+    end
+  end
+
   struct Card
     include JSON::Serializable
     include JSON::Serializable::Unmapped
@@ -249,6 +262,9 @@ module Orbility
 
     @[JSON::Field(key: "artificialPerson")]
     getter person : Person
+
+    @[JSON::Field(key: "firstUseType")]
+    getter first_use_type : FirstUseType = FirstUseType::EntryOrExit
   end
 
   # example add {"cardNumber": 4,"subscriptionId":4,"licencePlates":["test1"],"artificialPerson":{"isCompany": false, "name":"von Takach","firstName": "Steve", "companyNumber": "12345", "emails": ["steve@vontaka.ch"]}}
@@ -273,9 +289,90 @@ module Orbility
     @[JSON::Field(key: "artificialPerson")]
     getter person : Person
 
+    @[JSON::Field(key: "firstUseType")]
+    getter first_use_type : FirstUseType = FirstUseType::EntryOrExit
+
     def initialize(@subscription_id, @access_card_no, @licence_plates, @person, id : Int64? = nil)
       @id = id || @subscription_id
       @license_plate_registered = true
+      @first_use_type = FirstUseType::EntryOrExit
     end
+  end
+
+  ##############################
+  # PreBookings
+  ##############################
+
+  struct UserInfo
+    include JSON::Serializable
+
+    getter name : String
+
+    @[JSON::Field(key: "licensePlate")]
+    getter license_plate : String?
+
+    def initialize(@name, @license_plate = nil)
+    end
+  end
+
+  struct Access
+    include JSON::Serializable
+
+    enum Mode
+      OnePass
+      MultiPass
+
+      def to_json(json : JSON::Builder)
+        json.string(self.to_s)
+      end
+    end
+
+    @[JSON::Field(key: "accessMode")]
+    getter access_mode : Mode
+
+    def initialize(@access_mode)
+    end
+  end
+
+  struct PreBooking
+    include JSON::Serializable
+
+    @[JSON::Field(key: "bookingNumber")]
+    getter! id : String
+
+    @[JSON::Field(key: "startDate")]
+    getter start_date : Time
+
+    @[JSON::Field(key: "endDate")]
+    getter end_date : Time
+
+    getter category : Int32
+
+    @[JSON::Field(key: "userInfo")]
+    getter user_info : UserInfo
+
+    getter access : Access
+
+    def initialize(@start_date, @end_date, @user_info, @access, @category = 0, @id = nil)
+    end
+  end
+
+  struct BookingInfo
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+    include Success
+
+    def id : String
+      booking_number
+    end
+
+    @[JSON::Field(key: "licensePlate")]
+    getter license_plate : String?
+
+    @[JSON::Field(key: "actualEntry")]
+    getter actual_entry : String?
+
+    @[JSON::Field(key: "actualExit")]
+    getter actual_exit : String?
   end
 end
