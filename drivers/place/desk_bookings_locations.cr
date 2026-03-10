@@ -96,8 +96,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
 
     case event.action
     when "create"
-      return unless event.in_progress?
-      # Check if this event is happening now
+      # Include future bookings for today so "Free until..." can see upcoming bookings
+      return unless event.booking_end > Time.utc.to_unix
       logger.debug { "adding new booking" }
       @bookings[event.user_email] << event
     when "cancelled", "rejected"
@@ -109,9 +109,9 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
       return unless event.in_progress?
       @bookings[event.user_email].each { |booking| booking.checked_in = true if booking.id == event.id }
     when "changed"
-      # Check if this booking is for today and update as required
+      # Keep future bookings for today so "Free until..." can see upcoming bookings
       @bookings[event.user_email].reject! { |booking| booking.id == event.id }
-      @bookings[event.user_email] << event if event.in_progress?
+      @bookings[event.user_email] << event if event.booking_end > Time.utc.to_unix
     else
       # ignore the update (approve)
       logger.debug { "booking event was ignored" }
@@ -155,6 +155,17 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
     logger.debug { "searching devices in zone #{zone_id}" }
     return [] of Nil if location && location != "booking"
 
+    bookings = [] of Booking
+    @bookings.each_value(&.each { |booking|
+      next unless zone_id.in?(booking.zones)
+      next unless booking.in_progress?
+      bookings << booking
+    })
+    map_bookings(bookings)
+  end
+
+  def upcoming_bookings(zone_id : String)
+    logger.debug { "fetching upcoming bookings in zone #{zone_id}" }
     bookings = [] of Booking
     @bookings.each_value(&.each { |booking|
       next unless zone_id.in?(booking.zones)
@@ -237,10 +248,12 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   @known_users : Hash(String, Tuple(String, String)) = Hash(String, Tuple(String, String)).new
 
   def query_desk_bookings : Nil
+    period_end = (Time.utc + 24.hours).to_unix
+
     ids = Set(Int64).new
     bookings = [] of JSON::Any
     zones.each do |zone|
-      bookings.concat staff_api.query_bookings(type: @booking_type, zones: {zone}).get.as_a
+      bookings.concat staff_api.query_bookings(type: @booking_type, period_end: period_end, zones: {zone}).get.as_a
     rescue error
       logger.warn(exception: error) { "failed to query bookings in zone: #{zone}" }
     end

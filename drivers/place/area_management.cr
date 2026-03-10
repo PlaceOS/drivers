@@ -470,6 +470,28 @@ class Place::AreaManagement < PlaceOS::Driver
       desk_checked_in:  desk_checked_in,
     }
 
+    # Group upcoming desk bookings by desk ID for frontend tooltip support
+    desk_bookings_map = Hash(String, Array(Hash(String, JSON::Any))).new { |h, k| h[k] = [] of Hash(String, JSON::Any) }
+    upcoming = location_service.upcoming_bookings(level_id).get.as_a
+    upcoming.each do |loc|
+      next unless loc["location"]?.try(&.as_s) == "booking" && loc["type"]?.try(&.as_s) == "desk"
+      desk_id = loc["map_id"]?.try(&.as_s) || loc["asset_id"]?.try(&.as_s)
+      next unless desk_id
+
+      entry = {} of String => JSON::Any
+      {"booking_id", "started_at", "ends_at", "duration", "staff_name", "staff_email", "checked_in"}.each do |key|
+        if val = loc[key]?
+          entry[key] = val
+        end
+      end
+      desk_bookings_map[desk_id] << entry
+    end
+
+    # Sort bookings per desk by start time
+    desk_bookings_map.each_value(&.sort_by! { |b| b["started_at"]?.try(&.as_i64) || 0_i64 })
+
+    self["#{level_id}:desk_bookings"] = desk_bookings_map
+
     # we need to know the map dimensions to be able to count people in areas
     map_width = 100.0
     map_height = 100.0
