@@ -6,9 +6,13 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   generic_name :RoomBookingApproval
   description %(Room Booking approval for tentative events)
 
-  default_settings({} of String => String)
+  default_settings({
+    check_recurring_event_id: false, # fetches the event to verify the provided id is the series root.
+  })
 
   accessor calendar : Calendar_1
+
+  @check_recurring_event_id : Bool = false
 
   getter building_id : String { get_building_id.not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
@@ -16,6 +20,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   def on_update
     @building_id = nil
     @systems = nil
+    @check_recurring_event_id = setting?(Bool, :check_recurring_event_id) || false
 
     schedule.clear
     # used to detect changes in building configuration
@@ -88,6 +93,8 @@ class Place::RoomBookingApproval < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def accept_recurring_event(calendar_id : String, recurring_event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
+    recurring_event_id = resolve_recurring_event_id(calendar_id, recurring_event_id, user_id) if @check_recurring_event_id
+
     logger.debug { "accepting recurring event #{recurring_event_id} on #{calendar_id}" }
     calendar.accept_event(calendar_id: calendar_id, event_id: recurring_event_id, user_id: user_id, notify: notify, comment: comment)
     clear_cache(event_id: recurring_event_id)
@@ -101,8 +108,26 @@ class Place::RoomBookingApproval < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def decline_recurring_event(calendar_id : String, recurring_event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
+    recurring_event_id = resolve_recurring_event_id(calendar_id, recurring_event_id, user_id) if @check_recurring_event_id
+
     logger.debug { "declining recurring event #{recurring_event_id} on #{calendar_id}" }
     calendar.decline_event(calendar_id: calendar_id, event_id: recurring_event_id, user_id: user_id, notify: notify, comment: comment)
     clear_cache(event_id: recurring_event_id)
+  end
+
+  @[Security(Level::Support)]
+  def resolve_recurring_event_id(calendar_id : String, event_id : String, user_id : String? = nil) : String
+    event_user_id = user_id || calendar_id
+    response = calendar.get_event(user_id: event_user_id, id: event_id, calendar_id: calendar_id).get
+    place_event = PlaceCalendar::Event.from_json(response.to_json)
+    if (recurring_event_id = place_event.recurring_event_id.presence) && recurring_event_id != event_id
+      logger.debug { "provided id #{event_id} is a series occurrence, not the recurring event — using recurring event id #{recurring_event_id}" }
+      recurring_event_id
+    else
+      event_id
+    end
+  rescue error
+    logger.debug(exception: error) { "unable to verify recurring event id for #{event_id}" }
+    event_id
   end
 end
