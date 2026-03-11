@@ -16,16 +16,12 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
 
   @login : String = ""
   @password : String = ""
+  @api_key : String = ""
 
   def on_update
     @login = setting?(String, :login) || ""
     @password = setting?(String, :password) || ""
-
-    api_key = setting?(String, :api_key) || ""
-    transport.before_request do |request|
-      logger.debug { "requesting: #{request.method} #{request.path}?#{request.query}\n#{request.body}" }
-      request.headers["Ocp-Apim-Subscription-Key"] = api_key
-    end
+    @api_key = setting?(String, :api_key) || ""
   end
 
   macro check(response, klass)
@@ -68,20 +64,21 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       if token = @subscriber_auth
         return HTTP::Headers{
           "Authorization" => "Bearer #{token.user_token}",
+          "Ocp-Apim-Subscription-Key" => @api_key,
         } unless token.expired?
       end
 
       @subscriber_auth = nil
-      response = post("/subscriberinterface/api/Connection/Connect", body: Auth.new(@login, @password).to_json)
+      response = post("/subscriberinterface/api/Connection/Connect", headers: HTTP::Headers{
+        "Ocp-Apim-Subscription-Key" => @api_key
+      }, body: Auth.new(@login, @password).to_json)
       auth = check(response, AuthResponse)
       auth.expires # called just to set the expiry time
       @subscriber_auth = auth
 
-      # We need to do this as we get an error if we use the bearer token too soon! (WTF)
-      sleep 3.seconds
-
       HTTP::Headers{
         "Authorization" => "Bearer #{auth.user_token}",
+        "Ocp-Apim-Subscription-Key" => @api_key,
       }
     end
   end
@@ -171,20 +168,21 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       if token = @prebooking_auth
         return HTTP::Headers{
           "Authorization" => "Bearer #{token.user_token}",
+          "Ocp-Apim-Subscription-Key" => @api_key,
         } unless token.expired?
       end
 
       @prebooking_auth = nil
-      response = post("/prebooking/api/Connection/Connect", body: Auth.new(@login, @password).to_json)
+      response = post("/prebooking/api/Connection/Connect", headers: HTTP::Headers{
+        "Ocp-Apim-Subscription-Key" => @api_key
+      }, body: Auth.new(@login, @password).to_json)
       auth = check(response, AuthResponse)
       auth.expires # called just to set the expiry time
       @prebooking_auth = auth
 
-      # We need to do this as we get an error if we use the bearer token too soon! (WTF)
-      sleep 3.seconds
-
       HTTP::Headers{
         "Authorization" => "Bearer #{auth.user_token}",
+        "Ocp-Apim-Subscription-Key" => @api_key,
       }
     end
   end
