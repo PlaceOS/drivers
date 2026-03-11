@@ -310,7 +310,7 @@ module Orbility
 
     def initialize(@subscription_id, @access_card_no, @licence_plates, @person, id : Int64? = nil)
       @id = id || @subscription_id
-      @license_plate_registered = true
+      @license_plate_registered = !@licence_plates.empty?
       @first_use_type = FirstUseType::EntryOrExit
     end
   end
