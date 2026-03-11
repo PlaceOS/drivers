@@ -191,7 +191,7 @@ module Orbility
     include JSON::Serializable
     include JSON::Serializable::Unmapped
 
-    getter id : Int64?
+    getter! id : Int64
 
     # patching and viewing data have different names for the same field
     @[JSON::Field(key: "producId")]
