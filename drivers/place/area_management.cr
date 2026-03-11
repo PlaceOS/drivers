@@ -289,16 +289,16 @@ class Place::AreaManagement < PlaceOS::Driver
   protected def update_level_details(level_details, zone, metadata)
     return unless zone.tags.includes?("level")
 
-    if desks = metadata["desks"]?
+    desks_meta = metadata["desks"]?
+    if desks_meta && (desk_array = desks_meta.details.as_a?)
       desk_map = {} of String => String
 
       if @desk_id_mappings.empty?
-        ids = desks.details.as_a.map { |desk| desk["id"].as_s }
+        ids = desk_array.map { |desk| desk["id"].as_s }
       else
-        desk_details = desks.details.as_a
-        ids = Array(String).new(desk_details.size)
+        ids = Array(String).new(desk_array.size)
 
-        desk_details.each do |desk|
+        desk_array.each do |desk|
           desk_id = desk["id"].as_s
           ids << desk_id
           @desk_id_mappings.each do |mapping|
@@ -309,7 +309,7 @@ class Place::AreaManagement < PlaceOS::Driver
         end
       end
 
-      ids = desks.details.as_a.map { |desk| desk["id"].as_s }
+      ids = desk_array.map { |desk| desk["id"].as_s }
       level_details[zone.id] = {
         total_desks:    ids.size,
         total_capacity: zone.capacity,
@@ -317,6 +317,9 @@ class Place::AreaManagement < PlaceOS::Driver
         desk_mappings:  desk_map,
       }
     else
+      if desks_meta
+        logger.debug { "desks metadata for zone #{zone.id} has unexpected format: expected Array, got #{desks_meta.details.raw.class}" }
+      end
       level_details[zone.id] = {
         total_desks:    zone.count,
         total_capacity: zone.capacity,
