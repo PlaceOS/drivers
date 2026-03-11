@@ -31,7 +31,12 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
   macro check(response, klass)
     %response = {{ response }}
     raise "error: #{%response.status}\n#{%response.body}" unless %response.success?
-    %klass = {{klass}}.from_json(%response.body)
+    %klass = begin
+      {{klass}}.from_json(%response.body)
+    rescue error
+      logger.error { "error parsing response: #{%response.body}" }
+      raise error
+    end
     raise "error: #{%klass.to_pretty_json}" unless %klass.success?
     %klass
   end
@@ -39,7 +44,12 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
   macro basic_check(response)
     %response = {{ response }}
     raise "error: #{%response.status}\n#{%response.body}" unless %response.success?
-    %conf = Confirmation.from_json(%response.body)
+    %conf = begin
+      Confirmation.from_json(%response.body)
+    rescue error
+      logger.error { "error parsing response: #{%response.body}" }
+      raise error
+    end
     if !%conf.success?
       logger.info { "basic request failed with: #{%conf.to_pretty_json}" }
     end
