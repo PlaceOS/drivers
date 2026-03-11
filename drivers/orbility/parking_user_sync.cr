@@ -110,6 +110,22 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     spawn { perform_user_sync } if @sync_requests > 0
   end
 
+  def cleanup_subscriptions
+    removed = 0
+    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get.to_json)
+    subscriptions.each do |sub|
+      if sub.card_ids.empty?
+        begin
+          orbility.delete_subscription(sub.id).get
+          removed += 1
+        rescue error
+          logger.warn(exception: error) { "failed to remove sub #{sub.id}" }
+        end
+      end
+    end
+    removed
+  end
+
   @warnings : Array(String) = [] of String
 
   # Get existing parking card details
