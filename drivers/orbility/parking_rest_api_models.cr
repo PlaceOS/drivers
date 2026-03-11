@@ -58,16 +58,21 @@ module Orbility
     def self.from_json(value : JSON::PullParser) : Time
       str = value.read_string
 
-      # the milliseconds may not exist or are not padded
-      result = str.split('.', 2)
-      timemain = result[0]
-      if result.size == 1
-        split = "000"
-      else
-        split = result[1].ljust(3, '0')
+      begin
+        # the milliseconds may not exist or are not padded
+        result = str.split('.', 2)
+        timemain = result[0]
+        if result.size == 1
+          split = "000"
+        else
+          split = result[1].ljust(3, '0')
+        end
+        str = "#{timemain}.#{split}"
+        Time.parse(str, FORMAT, Time::Location::UTC)
+      rescue error
+        # puts "ERROR PARSING: #{str}"
+        raise error
       end
-      str = "#{timemain}.#{split}"
-      Time.parse(value.read_string, FORMAT, Time::Location::UTC)
     end
 
     def self.to_json(value : Time, json : JSON::Builder) : Nil
