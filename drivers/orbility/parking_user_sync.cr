@@ -10,7 +10,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
 
   descriptive_name "Orbility User Sync"
   generic_name :OrbilityUserSync
-  description %(Grabs users from active directory, looks up swipe card numbers from gallagher and syncs these to orbility)
+  description %(Grabs users from active directory, looks up swipe card numbers from gallagher and syncs these to orbility.)
 
   default_settings({
     # Azure user group we want to sync
