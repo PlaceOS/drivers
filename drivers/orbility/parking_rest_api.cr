@@ -47,7 +47,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
   end
 
   ##############################
-  # Subscriber Interface
+  # Subscriber Interface:
   ##############################
 
   @auth_lock : Mutex = Mutex.new
