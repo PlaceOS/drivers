@@ -29,9 +29,9 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     raise "error: #{%response.status}\n#{%response.body}" unless %response.success?
     %klass = begin
       {{klass}}.from_json(%response.body)
-    rescue error
+    rescue %error
       logger.error { "error parsing response: #{%response.body}" }
-      raise error
+      raise %error
     end
     raise "error: #{%klass.to_pretty_json}" unless %klass.success?
     %klass
@@ -42,9 +42,9 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     raise "error: #{%response.status}\n#{%response.body}" unless %response.success?
     %conf = begin
       Confirmation.from_json(%response.body)
-    rescue error
+    rescue %error
       logger.error { "error parsing response: #{%response.body}" }
-      raise error
+      raise %error
     end
     if !%conf.success?
       logger.info { "basic request failed with: #{%conf.to_pretty_json}" }
@@ -53,7 +53,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
   end
 
   ##############################
-  # Subscriber Interface:
+  # Subscriber Interface
   ##############################
 
   @auth_lock : Mutex = Mutex.new
@@ -63,21 +63,21 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     @auth_lock.synchronize do
       if token = @subscriber_auth
         return HTTP::Headers{
-          "Authorization" => "Bearer #{token.user_token}",
+          "Authorization"             => "Bearer #{token.user_token}",
           "Ocp-Apim-Subscription-Key" => @api_key,
         } unless token.expired?
       end
 
       @subscriber_auth = nil
       response = post("/subscriberinterface/api/Connection/Connect", headers: HTTP::Headers{
-        "Ocp-Apim-Subscription-Key" => @api_key
+        "Ocp-Apim-Subscription-Key" => @api_key,
       }, body: Auth.new(@login, @password).to_json)
       auth = check(response, AuthResponse)
       auth.expires # called just to set the expiry time
       @subscriber_auth = auth
 
       HTTP::Headers{
-        "Authorization" => "Bearer #{auth.user_token}",
+        "Authorization"             => "Bearer #{auth.user_token}",
         "Ocp-Apim-Subscription-Key" => @api_key,
       }
     end
@@ -167,21 +167,21 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     @auth_lock.synchronize do
       if token = @prebooking_auth
         return HTTP::Headers{
-          "Authorization" => "Bearer #{token.user_token}",
+          "Authorization"             => "Bearer #{token.user_token}",
           "Ocp-Apim-Subscription-Key" => @api_key,
         } unless token.expired?
       end
 
       @prebooking_auth = nil
       response = post("/prebooking/api/Connection/Connect", headers: HTTP::Headers{
-        "Ocp-Apim-Subscription-Key" => @api_key
+        "Ocp-Apim-Subscription-Key" => @api_key,
       }, body: Auth.new(@login, @password).to_json)
       auth = check(response, AuthResponse)
       auth.expires # called just to set the expiry time
       @prebooking_auth = auth
 
       HTTP::Headers{
-        "Authorization" => "Bearer #{auth.user_token}",
+        "Authorization"             => "Bearer #{auth.user_token}",
         "Ocp-Apim-Subscription-Key" => @api_key,
       }
     end
