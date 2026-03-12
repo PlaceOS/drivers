@@ -427,8 +427,8 @@ class Place::Desk::Allocations < PlaceOS::Driver
 
       begin
         staff_api.create_booking(
-          asset_id: desk_id,
-          asset_ids: {desk_id},
+          asset_id: details.desk_id,
+          asset_ids: {details.desk_id},
           asset_name: details.desk_name,
           zones: parent_zones + [
             building_zone,
