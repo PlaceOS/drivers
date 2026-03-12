@@ -381,6 +381,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
         # then we can add the current assignment to missing
         staff_api.booking_delete(booking_id).get unless test
 
+        logger.info { " * removed invalid assignment: booking #{booking_email.inspect} != assigned #{details.assigned_email.inspect}" }
         deleted[booking_id] = booking_email
         missing[case_id] = details
       end
@@ -389,7 +390,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
     # remove bookings that shouldn't exist
     removed_dangling = 0
     bookings.each do |booking|
-      asset_id = booking["asset_id"].as_s
+      asset_id = booking["asset_id"].as_s.downcase
       if assignments[asset_id]?.nil?
         booking_id = booking["id"].as_i64
         booking_email = booking["user_email"].as_s.strip.downcase
@@ -398,6 +399,7 @@ class Place::Desk::Allocations < PlaceOS::Driver
         # then we can add the current assignment to missing
         staff_api.booking_delete(booking_id).get unless test
 
+        logger.info { " * removed dangling assignment: desk_id #{asset_id}, previously assigned #{booking_email}" }
         removed_dangling += 1
         deleted[booking_id] = booking_email
       end
