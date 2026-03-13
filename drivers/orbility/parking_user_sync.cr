@@ -279,7 +279,8 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     removed = 0
     removed_errors = 0
 
-    remove_users = Set.new(cards.keys) - dir_users
+    # exclude fleet_vehicles from this removal
+    remove_users = Set.new(cards.keys.reject(&.starts_with?("fleet_vehicle-"))) - dir_users
     remove_users.each do |parking_card_id|
       card = cards[parking_card_id]
       begin
@@ -354,6 +355,8 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
       end
     end
 
+    fleet_added, fleet_removed, fleet_errors = sync_fleet_vehicles(cards)
+
     result = {
       removed:        removed,
       removed_errors: removed_errors,
@@ -361,12 +364,15 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
       added_errors:   added_errors,
       updated:        updated,
       update_errors:  update_errors,
+      fleet_added:    fleet_added,
+      fleet_removed:  fleet_removed,
+      fleet_errors:   fleet_errors,
       warnings:       @warnings,
     }
     @last_result = result
     self[:last_result] = result
     @warnings = [] of String
-    logger.info { "integriti user sync results: #{result}" }
+    logger.info { "parking user sync results: #{result}" }
     result
   end
 
@@ -377,6 +383,9 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     added_errors: Int32,
     updated: Int32,
     update_errors: Int32,
+    fleet_added: Int32,
+    fleet_removed: Int32,
+    fleet_errors: Int32,
     warnings: Array(String),
   )? = nil
 
@@ -405,6 +414,64 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
       license_plate = json["other_data"]["plate_number"].as_s
       Vehicle.new(vehicle_name, license_plate)
     end
+  end
+
+  protected def sync_fleet_vehicles(cards : Hash(String, Card)) : Tuple(Int32, Int32, Int32)
+    existing_keys = cards.keys.select(&.starts_with?("fleet_vehicle-"))
+    vehicles = fleet_vehicles
+
+    lookup = {} of String => Vehicle
+    vehicles.each do |vehicle|
+      lookup["fleet_vehicle-#{vehicle.license_plate}"] = vehicle
+    end
+    vehicle_keys = lookup.keys
+
+    add = vehicle_keys - existing_keys
+    remove = existing_keys - vehicle_keys
+    errors = 0
+
+    start_date = 1.week.ago
+    end_date = 30.years.from_now
+
+    add.each do |key|
+      vehicle = lookup[key]
+      begin
+        # create a subscription
+        sub = Subscription.new(orbility_product_id, orbility_contract_id, orbility_offer_id, start_date, end_date)
+        json = (orbility.add_subscription(sub).get rescue nil)
+
+        if json && json.raw
+          sub_id = Int64?.from_json(json.to_json)
+        end
+
+        if sub_id.nil?
+          errors += 1
+          logger.warn { "failed to create subscription for #{vehicle.vehicle_name} (#{vehicle.license_plate})" }
+          next
+        end
+
+        # create a card
+        person = Person.new("Fleet-Vehicle", vehicle.vehicle_name, "fleet_vehicle-#{vehicle.license_plate}", [] of String)
+        card = CardUpdate.new(sub_id, nil, [vehicle.license_plate], person)
+        orbility.add_card(card).get
+      rescue error
+        errors += 1
+        logger.warn(exception: error) { "failed to create card for #{vehicle.vehicle_name} (#{vehicle.license_plate})" }
+      end
+    end
+
+    remove.each do |key|
+      card = cards[key]
+      begin
+        orbility.delete_card(card.id).get
+        orbility.delete_subscription(card.subscription_id).get
+      rescue error
+        errors += 1
+        logger.warn(exception: error) { "failed to remove card #{card.id}: #{card.person.first_name} #{card.person.name}" }
+      end
+    end
+
+    {add.size, remove.size, errors}
   end
 
   # ===================
