@@ -1085,6 +1085,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params["order_id"] = order_id.to_s if order_id.presence
     params["barcode"] = barcode.to_s if barcode.presence
     params["serial_number"] = serial_number.to_s if serial_number.presence
+    params["limit"] = 1000
     logger.debug { "getting assets (#{params})" }
     response = get("/api/engine/v2/assets", params, headers: authentication)
     raise "issue getting assets: #{response.status_code}" unless response.success?
