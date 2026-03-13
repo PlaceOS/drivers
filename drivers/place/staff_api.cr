@@ -1054,6 +1054,44 @@ class Place::StaffAPI < PlaceOS::Driver
   end
 
   # ===================================
+  # ASSETS
+  # ===================================
+
+  def asset_categories(hidden : Bool? = nil)
+    params = URI::Params.new
+    params["hidden"] = hidden.to_s unless hidden.nil?
+    logger.debug { "getting asset categories (#{params})" }
+    response = get("/api/engine/v2/asset_categories", params, headers: authentication)
+    raise "issue getting asset categories: #{response.status_code}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def asset_types(category_id : String? = nil, zone_id : String? = nil, brand : String? = nil, model_number : String? = nil)
+    params = URI::Params.new
+    params["model_number"] = model_number.to_s if model_number.presence
+    params["category_id"] = category_id.to_s if category_id.presence
+    params["zone_id"] = zone_id.to_s if zone_id.presence
+    params["brand"] = brand.to_s if brand.presence
+    logger.debug { "getting asset types (#{params})" }
+    response = get("/api/engine/v2/asset_types", params, headers: authentication)
+    raise "issue getting asset types: #{response.status_code}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  def assets(type_id : String? = nil, zone_id : String? = nil, order_id : String? = nil, barcode : String? = nil, serial_number : String? = nil)
+    params = URI::Params.new
+    params["type_id"] = type_id.to_s if type_id.presence
+    params["zone_id"] = zone_id.to_s if zone_id.presence
+    params["order_id"] = order_id.to_s if order_id.presence
+    params["barcode"] = barcode.to_s if barcode.presence
+    params["serial_number"] = serial_number.to_s if serial_number.presence
+    logger.debug { "getting assets (#{params})" }
+    response = get("/api/engine/v2/assets", params, headers: authentication)
+    raise "issue getting assets: #{response.status_code}" unless response.success?
+    JSON.parse(response.body)
+  end
+
+  # ===================================
   # SURVEYS
   # ===================================
 
