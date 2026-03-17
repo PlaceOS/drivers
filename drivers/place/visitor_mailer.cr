@@ -25,9 +25,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     booking_space_name:        "Client Floor",
     determine_host_name_using: "calendar-driver",
 
-    send_reminders:                     "0 7 * * *",
-    reminder_template:                  "visitor",
-    event_template:                     "event",
+    send_reminders:    "0 7 * * *",
+    reminder_template: "visitor",
+    event_template:    "event",
     # also used when a new visitor is added to an existing booking
     booking_template:                   "booking",
     notify_checkin_template:            "notify_checkin",
