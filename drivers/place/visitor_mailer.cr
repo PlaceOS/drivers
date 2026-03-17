@@ -28,6 +28,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     send_reminders:                     "0 7 * * *",
     reminder_template:                  "visitor",
     event_template:                     "event",
+    # also used when a new visitor is added to an existing booking
     booking_template:                   "booking",
     notify_checkin_template:            "notify_checkin",
     notify_induction_accepted_template: "induction_accepted",
@@ -458,7 +459,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       TemplateFields.new(
         trigger: {"visitor_invited", @booking_template},
         name: "Visitor invited to booking",
-        description: "Initial invitation for a visitor with a space booking",
+        description: "Invitation for a visitor with a booking. Sent on initial booking creation and also when a new visitor is added to an existing booking",
         fields: invitation_fields + jwt_fields
       ),
       TemplateFields.new(
