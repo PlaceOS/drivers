@@ -982,6 +982,13 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
+  def booking_guests(booking_id : String | Int64)
+    logger.debug { "getting guests for booking #{booking_id}" }
+    response = get("/api/staff/v1/bookings/#{booking_id}/guests", headers: authentication)
+    raise "issue getting guests for booking #{booking_id}: #{response.status_code}" unless response.success?
+    JSON.parse(response.body)
+  end
+
   # lists asset IDs based on the parameters provided
   #
   # booking_type is required unless event_id or ical_uid is present

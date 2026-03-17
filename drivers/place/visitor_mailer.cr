@@ -34,6 +34,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     notify_induction_accepted_template: "induction_accepted",
     notify_induction_declined_template: "induction_declined",
     notify_original_host_template:      "notify_original_host",
+    # sent to all visitors when booking details change (date, time, location, etc.)
+    booking_changed_template:           "booking_changed",
     group_event_template:               "group_event",
     disable_qr_code:                    false,
     send_network_credentials:           false,
@@ -77,6 +79,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Booking host has been reassigned — notify the previous host
     monitor("staff/booking/host_changed") { |_subscription, payload| booking_host_changed_event(payload.gsub(/[^[:print:]]/, "")) }
 
+    # Booking details have changed — notify all visitors if relevant fields changed
+    monitor("staff/booking/changed") { |_subscription, payload| booking_changed_event(payload.gsub(/[^[:print:]]/, "")) }
+
     on_update
   end
 
@@ -115,6 +120,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @notify_induction_accepted_template : String = "induction_accepted"
   @notify_induction_declined_template : String = "induction_declined"
   @notify_original_host_template : String = "notify_original_host"
+  @booking_changed_template : String = "booking_changed"
   @group_event_template : String = "group_event"
   @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
@@ -143,6 +149,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @notify_induction_accepted_template = setting?(String, :induction_accepted) || "induction_accepted"
     @notify_induction_declined_template = setting?(String, :induction_declined) || "induction_declined"
     @notify_original_host_template = setting?(String, :notify_original_host_template) || "notify_original_host"
+    @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
@@ -501,7 +508,89 @@ class Place::VisitorMailer < PlaceOS::Driver
           {name: "event_time", description: "Time of the booking"},
         ]
       ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @booking_changed_template},
+        name: "Booking details changed notification",
+        description: "Notification sent to all visitors on a booking when details change (date, time, location, etc.)",
+        fields: common_fields + [
+          {name: "room_name", description: "Name of the room or area being visited"},
+          {name: "previous_event_date", description: "The original date of the booking before it was changed"},
+          {name: "previous_event_time", description: "The original time of the booking before it was changed"},
+        ]
+      ),
     ]
+  end
+
+  protected def booking_changed_event(payload)
+    logger.debug { "received booking changed payload: #{payload}" }
+    details = BookingChanged.from_json payload
+
+    # only respond to full changes, not metadata-only updates
+    return unless details.action == "changed"
+
+    # ensure the event is for this building
+    if zones = details.zones
+      check = [building_zone.id] + @parent_zone_ids
+
+      if (check & zones).empty?
+        logger.debug { "ignoring booking_changed event as does not match any zones: #{check}" }
+        return
+      end
+    end
+
+    # Check if any booking field that warrants a visitor notification has changed.
+    # Add new field comparisons here as more change notifications are introduced.
+    fields_changed = false
+
+    # Date changed: different calendar date
+    if prev_start = details.previous_booking_start
+      fields_changed = true if Time.unix(prev_start).in(@time_zone).date != Time.unix(details.booking_start).in(@time_zone).date
+    end
+
+    return unless fields_changed
+
+    guests = staff_api.booking_guests(details.id).get.as_a
+    guests.each do |guest|
+      visitor_email = guest["email"].as_s
+      visitor_name = guest["name"].as_s?
+
+      # don't email staff members
+      next if !@host_domain_filter.empty? && visitor_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
+
+      local_start_time = Time.unix(details.booking_start).in(@time_zone)
+
+      previous_date = details.previous_booking_start.try { |t| Time.unix(t).in(@time_zone).to_s(@date_format) }
+      previous_time = details.previous_booking_start.try { |t| Time.unix(t).in(@time_zone).to_s(@time_format) }
+
+      mailer.send_template(
+        visitor_email,
+        {"visitor_invited", @booking_changed_template},
+        {
+          visitor_email:       visitor_email,
+          visitor_name:        visitor_name,
+          host_name:           get_host_name(details.user_email),
+          host_email:          details.user_email,
+          room_name:           @booking_space_name,
+          building_name:       building_zone.display_name.presence || building_zone.name,
+          event_title:         details.title,
+          event_start:         local_start_time.to_s(@time_format),
+          event_date:          local_start_time.to_s(@date_format),
+          event_time:          local_start_time.to_s(@time_format),
+          previous_event_date: previous_date,
+          previous_event_time: previous_time,
+        }
+      )
+    rescue error
+      logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
+    end
+  rescue error
+    logger.error { error.inspect_with_backtrace }
+    self[:error_count] = @error_count += 1
+    self[:last_error] = {
+      error: error.message,
+      time:  Time.local.to_s,
+      user:  payload,
+    }
   end
 
   @[Security(Level::Support)]
