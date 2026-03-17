@@ -80,4 +80,26 @@ module Place
       booking_id.to_s
     end
   end
+
+  # Standalone model for the staff/booking/host_changed channel.
+  # Not a GuestNotification subclass because it has no attendee — it targets
+  # the previous host directly.
+  class BookingHostChanged
+    include JSON::Serializable
+
+    property action : String
+    property booking_id : Int64
+    property resource_id : String
+    property resource_ids : Array(String)
+    property event_title : String?
+    property event_summary : String
+    property event_starting : Int64
+    property previous_host_email : String
+    property new_host_email : String
+    property zones : Array(String)?
+
+    def event_id
+      booking_id.to_s
+    end
+  end
 end
