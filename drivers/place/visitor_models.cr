@@ -124,7 +124,6 @@ module Place
     # Add new previous_* fields here as more change notifications are introduced.
     property previous_booking_start : Int64?
     property previous_booking_end : Int64?
-    property previous_resource_id : String?
-    property previous_resource_ids : Array(String)?
+    property previous_zones : Array(String)?
   end
 end
