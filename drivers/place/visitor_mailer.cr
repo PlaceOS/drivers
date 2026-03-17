@@ -542,9 +542,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Add new field comparisons here as more change notifications are introduced.
     fields_changed = false
 
-    # Date changed: different calendar date
+    # Date or time changed
     if prev_start = details.previous_booking_start
-      fields_changed = true if Time.unix(prev_start).in(@time_zone).date != Time.unix(details.booking_start).in(@time_zone).date
+      fields_changed = true if prev_start != details.booking_start
     end
 
     return unless fields_changed
