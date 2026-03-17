@@ -32,6 +32,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     notify_checkin_template:            "notify_checkin",
     notify_induction_accepted_template: "induction_accepted",
     notify_induction_declined_template: "induction_declined",
+    notify_original_host_template:      "notify_original_host",
     group_event_template:               "group_event",
     disable_qr_code:                    false,
     send_network_credentials:           false,
@@ -72,6 +73,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     monitor("staff/guest/induction_accepted") { |_subscription, payload| guest_event(payload.gsub(/[^[:print:]]/, "")) }
     monitor("staff/guest/induction_declined") { |_subscription, payload| guest_event(payload.gsub(/[^[:print:]]/, "")) }
 
+    # Booking host has been reassigned — notify the previous host
+    monitor("staff/booking/host_changed") { |_subscription, payload| booking_host_changed_event(payload.gsub(/[^[:print:]]/, "")) }
+
     on_update
   end
 
@@ -109,6 +113,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @notify_checkin_template : String = "notify_checkin"
   @notify_induction_accepted_template : String = "induction_accepted"
   @notify_induction_declined_template : String = "induction_declined"
+  @notify_original_host_template : String = "notify_original_host"
   @group_event_template : String = "group_event"
   @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
@@ -136,6 +141,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @notify_checkin_template = setting?(String, :notify_checkin_template) || "notify_checkin"
     @notify_induction_accepted_template = setting?(String, :induction_accepted) || "induction_accepted"
     @notify_induction_declined_template = setting?(String, :induction_declined) || "induction_declined"
+    @notify_original_host_template = setting?(String, :notify_original_host_template) || "notify_original_host"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
@@ -350,6 +356,63 @@ class Place::VisitorMailer < PlaceOS::Driver
     )
   end
 
+  protected def booking_host_changed_event(payload)
+    logger.debug { "received booking host changed payload: #{payload}" }
+    details = BookingHostChanged.from_json payload
+
+    # ensure the event is for this building
+    if zones = details.zones
+      check = [building_zone.id] + @parent_zone_ids
+
+      if (check & zones).empty?
+        logger.debug { "ignoring host_changed event as does not match any zones: #{check}" }
+        return
+      end
+    end
+
+    send_original_host_email(
+      @notify_original_host_template,
+      details.previous_host_email,
+      details.new_host_email,
+      details.event_title || details.event_summary,
+      details.event_starting,
+    )
+  rescue error
+    logger.error { error.inspect_with_backtrace }
+    self[:error_count] = @error_count += 1
+    self[:last_error] = {
+      error: error.message,
+      time:  Time.local.to_s,
+      user:  payload,
+    }
+  end
+
+  @[Security(Level::Support)]
+  def send_original_host_email(
+    template : String,
+    previous_host_email : String,
+    new_host_email : String,
+    event_title : String?,
+    event_start : Int64,
+  )
+    local_start_time = Time.unix(event_start).in(@time_zone)
+
+    mailer.send_template(
+      previous_host_email,
+      {"visitor_invited", template},
+      {
+        previous_host_email: previous_host_email,
+        previous_host_name:  get_host_name(previous_host_email),
+        new_host_email:      new_host_email,
+        new_host_name:       get_host_name(new_host_email),
+        building_name:       building_zone.display_name.presence || building_zone.name,
+        event_title:         event_title,
+        event_date:          local_start_time.to_s(@date_format),
+        event_time:          local_start_time.to_s(@time_format),
+      }
+    )
+  end
+
   def template_fields : Array(TemplateFields)
     time_now = Time.utc.in(@time_zone)
     common_fields = [
@@ -421,6 +484,21 @@ class Place::VisitorMailer < PlaceOS::Driver
         name: "Visitor induction declined notification",
         description: "Notification to host when their visitor declines the induction",
         fields: induction_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_original_host_template},
+        name: "Original host reassigned notification",
+        description: "Notification to the original host when a booking's host is changed to someone else",
+        fields: [
+          {name: "previous_host_email", description: "Email address of the original host being replaced"},
+          {name: "previous_host_name", description: "Name of the original host being replaced"},
+          {name: "new_host_email", description: "Email address of the new host taking over the booking"},
+          {name: "new_host_name", description: "Name of the new host taking over the booking"},
+          {name: "building_name", description: "Name of the building where the booking occurs"},
+          {name: "event_title", description: "Title or purpose of the booking"},
+          {name: "event_date", description: "Date of the booking"},
+          {name: "event_time", description: "Time of the booking"},
+        ]
       ),
     ]
   end
