@@ -514,6 +514,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         description: "Notification sent to all visitors on a booking when details change (date, time, location, etc.)",
         fields: common_fields + [
           {name: "room_name", description: "Name of the room or area being visited"},
+          {name: "building_name", description: "Name of the building where the booking now occurs"},
           {name: "previous_event_date", description: "The original date of the booking before it was changed"},
           {name: "previous_event_time", description: "The original time of the booking before it was changed"},
         ]
@@ -545,6 +546,11 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Date or time changed
     if prev_start = details.previous_booking_start
       fields_changed = true if prev_start != details.booking_start
+    end
+
+    # Location changed: zones identify the building/room the visitor should attend
+    if prev_zones = details.previous_zones
+      fields_changed = true if prev_zones.sort != (details.zones || [] of String).sort
     end
 
     return unless fields_changed
