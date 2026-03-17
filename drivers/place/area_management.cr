@@ -318,7 +318,7 @@ class Place::AreaManagement < PlaceOS::Driver
       }
     else
       if desks_meta
-        logger.debug { "desks metadata for zone #{zone.id} has unexpected format: expected Array, got #{desks_meta.details.raw.class}" }
+        logger.warn { "desks metadata for zone #{zone.id} has unexpected format: expected Array, got #{desks_meta.details.raw.class}" }
       end
       level_details[zone.id] = {
         total_desks:    zone.count,
