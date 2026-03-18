@@ -237,6 +237,17 @@ class Place::LocationServices < PlaceOS::Driver
     located
   end
 
+  # Returns upcoming desk bookings for a zone, delegating to DeskBookings
+  def upcoming_bookings(zone_id : String)
+    logger.debug { "fetching upcoming bookings in zone #{zone_id}" }
+    if system.exists?(:DeskBookings)
+      system[:DeskBookings].upcoming_bookings(zone_id).get.as_a
+    else
+      logger.debug { "no DeskBookings module found in system" }
+      [] of JSON::Any
+    end
+  end
+
   # ===============================
   # Sensor data collection
   # ===============================
