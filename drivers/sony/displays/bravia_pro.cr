@@ -21,6 +21,7 @@ class Sony::Displays::BraviaPro < PlaceOS::Driver
   })
 
   enum Input
+    Hdmi
     Hdmi1
     Hdmi2
     Hdmi3
@@ -35,7 +36,7 @@ class Sony::Displays::BraviaPro < PlaceOS::Driver
 
     def to_api_uri : String
       case self
-      when .hdmi1?
+      when .hdmi1?, hdmi?
         "extInput:hdmi?port=1"
       when .hdmi2?
         "extInput:hdmi?port=2"

@@ -18,6 +18,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   generic_name :Display
 
   enum Input : UInt32
+    Hdmi = 10000_0000
     {% for idx in 0..3 %}
       Tv{{idx}}     = {{ idx }}
       Hdmi{{idx}}   = {{10000_0000 + idx}}
