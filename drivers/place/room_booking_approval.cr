@@ -86,13 +86,13 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
+  def accept_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = true, comment : String? = nil)
     calendar.accept_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
     clear_cache(event_id: event_id)
   end
 
   @[Security(Level::Support)]
-  def accept_recurring_event(calendar_id : String, recurring_event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
+  def accept_recurring_event(calendar_id : String, recurring_event_id : String, user_id : String? = nil, notify : Bool = true, comment : String? = nil)
     recurring_event_id = resolve_recurring_event_id(calendar_id, recurring_event_id, user_id) if @check_recurring_event_id
 
     logger.debug { "accepting recurring event #{recurring_event_id} on #{calendar_id}" }
@@ -101,13 +101,13 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   end
 
   @[Security(Level::Support)]
-  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
+  def decline_event(calendar_id : String, event_id : String, user_id : String? = nil, notify : Bool = true, comment : String? = nil)
     calendar.decline_event(calendar_id: calendar_id, event_id: event_id, user_id: user_id, notify: notify, comment: comment)
     clear_cache(event_id: event_id)
   end
 
   @[Security(Level::Support)]
-  def decline_recurring_event(calendar_id : String, recurring_event_id : String, user_id : String? = nil, notify : Bool = false, comment : String? = nil)
+  def decline_recurring_event(calendar_id : String, recurring_event_id : String, user_id : String? = nil, notify : Bool = true, comment : String? = nil)
     recurring_event_id = resolve_recurring_event_id(calendar_id, recurring_event_id, user_id) if @check_recurring_event_id
 
     logger.debug { "declining recurring event #{recurring_event_id} on #{calendar_id}" }
