@@ -5,7 +5,7 @@ require "placeos-driver/interface/muteable"
 # TCP Port: 2202
 
 class Shure::IntellimixRoom < PlaceOS::Driver
-  include Interface::AudioMuteable
+  include Interface::Muteable
 
   tcp_port 2202
   descriptive_name "Shure IntelliMix Room Audio Processor"
@@ -159,18 +159,25 @@ class Shure::IntellimixRoom < PlaceOS::Driver
     do_send "SET #{index.to_s(precision: 2)} DENOISER_LEVEL #{level}", name: :set_denoiser_level
   end
 
-  # === Interface::AudioMuteable Implementation ===
+  # === Interface::Muteable Implementation ===
 
-  def mute_audio(state : Bool = true, index : Int32 | String = 0)
-    set_audio_mute(index.to_i, state)
-  end
+  # this is defined in Interface::Muteable, calling mute function
+  # def mute_audio(state : Bool = true, index : Int32 | String = 0)
+  #  set_audio_mute(index.to_i, state)
+  # end
 
-  def mute(state : Bool = true)
-    set_device_audio_mute(state)
-  end
-
-  def unmute
-    set_device_audio_mute(false)
+  def mute(
+    state : Bool = true,
+    index : Int32 | String = 0,
+    layer : MuteLayer = MuteLayer::AudioVideo,
+  )
+    case layer
+    in .audio?, .audio_video?
+      # NOTE:: maybe we want to use index here?
+      set_device_audio_mute(state)
+    in .video?
+      # ignore
+    end
   end
 
   def received(bytes, task)
