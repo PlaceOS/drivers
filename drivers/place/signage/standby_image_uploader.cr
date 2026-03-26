@@ -5,7 +5,7 @@ require "place_calendar"
 class Place::ImageUploader < PlaceOS::Driver
   descriptive_name "Image Uploader"
   generic_name :ImageUploader
-  description %(takes images from digitial signage playlists assigned to rooms and applies them as standby images)
+  description %(takes images from digitial signage playlists and applies them as standby images)
 
   accessor location_services : LocationServices_1
   accessor staff_api : StaffAPI_1
