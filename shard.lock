@@ -11,7 +11,7 @@ shards:
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
-    version: 4.3.2
+    version: 4.3.3
 
   awscr-s3:
     git: https://github.com/taylorfinnell/awscr-s3.git
@@ -80,6 +80,10 @@ shards:
   desigo:
     git: https://github.com/place-technology/desigo.git
     version: 0.1.1
+
+  dns:
+    git: https://github.com/spider-gazelle/dns.git
+    version: 1.4.0
 
   dtls:
     git: https://github.com/spider-gazelle/crystal-dtls.git
@@ -183,7 +187,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.13.1
+    version: 1.14.1
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -191,11 +195,11 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.26.0
+    version: 1.26.1
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
-    version: 2.8.4
+    version: 2.8.5
 
   oq:
     git: https://github.com/blacksmoke16/oq.git
@@ -211,7 +215,7 @@ shards:
 
   perf_tools:
     git: https://github.com/crystal-lang/perf-tools.git
-    version: 0.1.0+git.commit.bcbb634307c85ff4a29ab5e2e881c3ffd862fdf0
+    version: 0.1.0+git.commit.e7c2ab8c94019e5ff58e5d9ad987109bc5532c16
 
   pg:
     git: https://github.com/will/crystal-pg.git
@@ -243,7 +247,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.19.0
+    version: 7.20.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -251,7 +255,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.83.1
+    version: 9.86.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
