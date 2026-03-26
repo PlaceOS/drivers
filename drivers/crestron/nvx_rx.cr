@@ -1,5 +1,6 @@
 require "./cres_next"
 require "placeos-driver/interface/switchable"
+require "placeos-driver/interface/standby_image"
 require "uri"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
@@ -7,6 +8,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   alias Output = Int32
   include Interface::Switchable(Input, Output)
   include Interface::InputSelection(Input)
+  include Interface::StandbyImage
   include Crestron::Receiver
 
   descriptive_name "Crestron NVX Receiver"
@@ -176,7 +178,8 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     ws_update "/Osd/IsEnabled", enabled, name: :set_osd_enabled
   end
 
-  def set_background_image(url : String, output_index : Int32 = 1)
+  def set_background_image(url : String, output_index : Int32? = nil) : Nil
+    output_index ||= 1
     uri = URI.parse(url)
     raise ArgumentError.new("invalid URL provided: #{url}") unless uri.scheme.presence && uri.host.presence && uri.path.presence
 
