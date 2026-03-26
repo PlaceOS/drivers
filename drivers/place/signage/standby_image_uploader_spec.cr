@@ -27,8 +27,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
   def signage_playlist(system_id : String, last_downloaded : Int64? = nil)
     [
       {
-        "id":       "item-1234",
-        "media_id": "upload-1234",
+        "id":         "item-1234",
+        "media_id":   "upload-1234",
+        "media_type": "image",
       },
     ]
   end
