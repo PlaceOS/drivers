@@ -60,9 +60,10 @@ class Place::RoomBookingApproval < PlaceOS::Driver
         begin
           sys = system(system_id)
           if sys.exists?("Bookings", 1)
-            if bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "tentative")
-              results[system_id] = bookings unless bookings.empty?
-            end
+            bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "bookings")
+            next unless bookings
+            bookings.select! { |event| event.status == "tentative" }
+            results[system_id] = bookings unless bookings.empty?
           end
         rescue error
           logger.warn(exception: error) { "unable to parse tentative bookings for #{system_id}" }
