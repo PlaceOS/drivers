@@ -8,11 +8,13 @@ class Place::RoomBookingApproval < PlaceOS::Driver
 
   default_settings({
     check_recurring_event_id: false, # fetches the event to verify the provided id is the series root.
+    check_bookings_every_minutes: 5
   })
 
   accessor calendar : Calendar_1
 
   @check_recurring_event_id : Bool = false
+  @booking_poll_rate : UInt32 = 5
 
   getter building_id : String { get_building_id.not_nil! }
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
@@ -21,13 +23,14 @@ class Place::RoomBookingApproval < PlaceOS::Driver
     @building_id = nil
     @systems = nil
     @check_recurring_event_id = setting?(Bool, :check_recurring_event_id) || false
+    @booking_poll_rate = setting?(UInt32, :check_bookings_every_minutes) || 5_u32
 
     schedule.clear
     # used to detect changes in building configuration
     schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
 
     # The search
-    schedule.every(5.minutes) { find_bookings_for_approval }
+    schedule.every(@booking_poll_rate.minutes) { find_bookings_for_approval }
   end
 
   # Finds the building ID for the current location services object
