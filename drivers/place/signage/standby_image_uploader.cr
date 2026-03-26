@@ -4,8 +4,8 @@ require "place_calendar"
 
 class Place::ImageUploader < PlaceOS::Driver
   descriptive_name "Image Uploader"
-  generic_name :StaffAPI
-  description %(helpers for requesting data held in the staff API.)
+  generic_name :ImageUploader
+  description %(takes images from digitial signage playlists assigned to rooms and applies them as standby images)
 
   accessor location_services : LocationServices_1
   accessor staff_api : StaffAPI_1
@@ -43,6 +43,13 @@ class Place::ImageUploader < PlaceOS::Driver
         logger.debug { "applying #{playlist.size} images to #{system_id}" }
       else
         logger.debug { "skipping update to #{system_id} as no changes" }
+        next
+      end
+
+      # remove the items that are not images
+      playlist.select! { |item| item["media_type"].as_s.downcase == "image" }
+      if playlist.empty?
+        logger.debug { "skipping update to #{system_id} as no media items" }
         next
       end
 
