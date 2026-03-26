@@ -1078,13 +1078,27 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
-  def assets(type_id : String? = nil, zone_id : String? = nil, order_id : String? = nil, barcode : String? = nil, serial_number : String? = nil)
+  def assets(
+    type_id : String? = nil,
+    zone_id : String? = nil,
+    order_id : String? = nil,
+    barcode : String? = nil,
+    serial_number : String? = nil,
+    bookable : Bool? = nil,
+    accessible : Bool? = nil,
+    features : Array(String)? = nil,
+    zones : Array(String)? = nil,
+  )
     params = URI::Params.new
     params["type_id"] = type_id.to_s if type_id.presence
     params["zone_id"] = zone_id.to_s if zone_id.presence
     params["order_id"] = order_id.to_s if order_id.presence
     params["barcode"] = barcode.to_s if barcode.presence
     params["serial_number"] = serial_number.to_s if serial_number.presence
+    params["bookable"] = bookable.to_s unless bookable.nil?
+    params["accessible"] = accessible.to_s unless accessible.nil?
+    params["features"] = features.join(',') if features && !features.empty?
+    params["zones"] = zones.join(',') if zones && !zones.empty?
     params["limit"] = 1000.to_s
     logger.debug { "getting assets (#{params})" }
     response = get("/api/engine/v2/assets", params, headers: authentication)
