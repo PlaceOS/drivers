@@ -135,7 +135,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       json = (security.card_holder_id_lookup(username).get rescue nil)
       if json && json.raw
         id = (String | Int64).from_json(json.to_json)
-        cached_user_lookups[email] = (String | Int64).from_json(json.to_json)
+        cached_user_lookups[email] = id
         return id
       end
     end
