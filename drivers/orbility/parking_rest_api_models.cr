@@ -333,6 +333,7 @@ module Orbility
 
   struct Access
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     enum Mode
       OnePass
@@ -346,12 +347,16 @@ module Orbility
     @[JSON::Field(key: "accessMode")]
     getter access_mode : Mode
 
-    def initialize(@access_mode)
+    @[JSON::Field(key: "productId")]
+    getter product_id : Int64?
+
+    def initialize(@access_mode, @product_id = nil)
     end
   end
 
   struct PreBooking
     include JSON::Serializable
+    include JSON::Serializable::Unmapped
 
     @[JSON::Field(key: "bookingNumber")]
     getter! id : String

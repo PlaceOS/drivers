@@ -490,7 +490,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
 
   def assigned_spaces : Array(DirUser)
     # TODO:: update the staff api so we can filter from the list of zones, not just zone_id
-    staff_api.assets(type_id: fleet_vehicle_asset_type).get.as_a.compact_map { |json|
+    staff_api.assets(type_id: space_assignment_asset_type).get.as_a.compact_map { |json|
       assigned_to = json["assigned_to"]?.try(&.as_s?).presence
       if assigned_to
         parking_bay = json["identifier"].as_s
