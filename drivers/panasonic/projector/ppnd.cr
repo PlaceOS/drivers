@@ -74,6 +74,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
       query_temperatures
       query_shutter_status
       query_freeze_status
+      query_errors
     end
   end
 
@@ -316,7 +317,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     response = get_with_digest_auth("/operating-mode")
 
     unless response.success?
-      raise "Signal query failed: #{response.status_code}"
+      raise "Operating mode query failed: #{response.status_code}"
     end
 
     JSON.parse(response.body)
@@ -346,7 +347,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     response = get_with_digest_auth("/schedule")
 
     unless response.success?
-      raise "Signal query failed: #{response.status_code}"
+      raise "Schedule query failed: #{response.status_code}"
     end
 
     JSON.parse(response.body)
@@ -359,7 +360,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
       raise "Error query failed: #{response.status_code}"
     end
 
-    errors = Array(Panasonic::Projector::ErrorStatus).from_json(response.body)
+    errors = Array(Panasonic::Projector::ErrorStatus).from_json(response.body, root: "errors")
     self[:errors] = errors
     self[:error_count] = errors.size
     self[:has_errors] = !errors.empty?
