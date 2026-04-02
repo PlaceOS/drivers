@@ -312,6 +312,46 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     result.infomation
   end
 
+  def query_operating_mode
+    response = get_with_digest_auth("/operating-mode")
+
+    unless response.success?
+      raise "Signal query failed: #{response.status_code}"
+    end
+
+    JSON.parse(response.body)
+  end
+
+  enum OpMode
+    Normal
+    Eco
+    Quiet
+    User1
+    User2
+    User3
+  end
+
+  def operating_mode(mode : OpMode)
+    body = %({"operating-mode-state": "#{mode.to_s.downcase}"})
+    response = put_with_digest_auth("/operating-mode", body)
+
+    unless response.success?
+      raise "Operating mode command failed: #{response.status_code} - #{response.body}"
+    end
+
+    JSON.parse(response.body)
+  end
+
+  def query_device_schedule
+    response = get_with_digest_auth("/schedule")
+
+    unless response.success?
+      raise "Signal query failed: #{response.status_code}"
+    end
+
+    JSON.parse(response.body)
+  end
+
   def query_errors
     response = get_with_digest_auth("/error")
 
