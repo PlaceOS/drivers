@@ -114,6 +114,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     when 503
       raise "Device unavailable (503)"
     else
+      logger.debug { "response: #{response.body}" }
       response
     end
   end
@@ -155,6 +156,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     when 409
       raise "Conflict - device busy (409)"
     else
+      logger.debug { "response: #{response.body}" }
       response
     end
   end
