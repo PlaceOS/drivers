@@ -1,5 +1,6 @@
 require "placeos-driver"
 require "placeos-driver/interface/powerable"
+require "placeos-driver/interface/muteable"
 require "placeos-driver/interface/switchable"
 require "http-client-digest_auth"
 require "./ppnd_models"
@@ -8,9 +9,11 @@ require "./ppnd_models"
 # Base URL: https://{ip-address}/api/v1/
 # Protocol: HTTP/HTTPS with JSON responses
 # Authentication: Digest
+# Change from version 2.99 => 3.00
 
 class Panasonic::Projector::PPND < PlaceOS::Driver
   include Interface::Powerable
+  include Interface::Muteable
 
   enum Input
     COMPUTER
@@ -72,7 +75,8 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
       query_power_status
       query_input_status
       query_temperatures
-      query_shutter_status
+      query_av_mute_status
+      query_lights
       query_errors
 
       # freeze not supported
@@ -166,7 +170,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
   # ====== Powerable Interface ======
 
   def power(state : Bool)
-    body = {state: state ? "on" : "standby"}.to_json
+    body = {"power-state": state ? "on" : "standby"}.to_json
     response = put_with_digest_auth("/power", body)
 
     unless response.success?
@@ -211,8 +215,10 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
   INPUT_REVERSE_MAPPING = INPUT_MAPPING.invert
 
   def switch_to(input : Input)
+    unmute if self[:mute]?
+
     input_str = INPUT_MAPPING[input]
-    body = {state: input_str}.to_json
+    body = {"input-state": input_str}.to_json
 
     response = put_with_digest_auth("/input", body)
 
@@ -241,36 +247,39 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
 
   # ====== Shutter Control ======
 
-  def mute(state : Bool)
-    body = {state: state ? "close" : "open"}.to_json
+  def mute(state : Bool = true,
+           index : Int32 | String = 0,
+           layer : MuteLayer = MuteLayer::AudioVideo,)
+    body = {"av-mute-state": state ? "on" : "off"}.to_json
 
-    response = put_with_digest_auth("/shutter", body)
+    response = put_with_digest_auth("/av-mute", body)
 
     unless response.success?
       raise "Shutter command failed: #{response.status_code} - #{response.body}"
     end
 
     result = Panasonic::Projector::ShutterState.from_json(response.body)
-    self[:mute] = result.state == "close"
+    self[:av_mute] = result.state == "on"
 
     result.state
   end
 
-  def query_shutter_status
-    response = get_with_digest_auth("/shutter")
+  def query_av_mute_status
+    response = get_with_digest_auth("/av-mute")
 
     unless response.success?
       raise "Shutter query failed: #{response.status_code}"
     end
 
     result = Panasonic::Projector::ShutterState.from_json(response.body)
-    self[:mute] = result.state == "close"
+    self[:av_mute] = result.state == "on"
 
     result.state
   end
 
   # ====== Freeze Control ======
 
+  # only accessible when the projector is on
   def freeze(state : Bool)
     body = {state: state ? "on" : "off"}.to_json
 
@@ -282,7 +291,6 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
 
     result = Panasonic::Projector::FreezeState.from_json(response.body)
     self[:freeze] = result.state == "on"
-    self[:frozen] = result.state == "on"
 
     result.state == "on"
   end
@@ -296,7 +304,6 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
 
     result = Panasonic::Projector::FreezeState.from_json(response.body)
     self[:freeze] = result.state == "on"
-    self[:frozen] = result.state == "on"
 
     result.state == "on"
   end
@@ -311,10 +318,10 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     end
 
     result = Panasonic::Projector::SignalInformation.from_json(response.body)
-    self[:signal_info] = result.infomation
-    self[:no_signal] = result.infomation == "NO SIGNAL"
+    self[:signal_info] = result.information
+    self[:no_signal] = result.information == "NO SIGNAL"
 
-    result.infomation
+    result.information
   end
 
   def query_operating_mode
@@ -385,28 +392,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     lights = lights_response.lights
     self[:lights] = lights
 
-    # Store individual light states
-    lights.each do |light|
-      self["light_#{light.light_id}_state"] = light.light_state
-      self["light_#{light.light_id}_runtime"] = light.light_runtime
-    end
-
     lights
-  end
-
-  # # Remove
-  def query_light(light_id : Int32)
-    response = get_with_digest_auth("/lights#{light_id}")
-
-    unless response.success?
-      raise "Light query failed: #{response.status_code}"
-    end
-
-    light = Panasonic::Projector::LightStatus.from_json(response.body)
-    self["light_#{light.light_id}_state"] = light.light_state
-    self["light_#{light.light_id}_runtime"] = light.light_runtime
-
-    light
   end
 
   def query_device_info
@@ -449,27 +435,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     temps = temps_response.temperatures
     self[:temperatures] = temps
 
-    # Store individual temperature readings
-    temps.each do |temp|
-      self["temp_#{temp.temperatures_id}_name"] = temp.temperatures_name
-      self["temp_#{temp.temperatures_id}_celsius"] = temp.temperatures_celsius
-    end
-
     temps
-  end
-
-  def query_temperature(temp_id : Int32)
-    response = get_with_digest_auth("/temperatures#{temp_id}")
-
-    unless response.success?
-      raise "Temperature query failed: #{response.status_code}"
-    end
-
-    temp = Panasonic::Projector::TemperatureInfo.from_json(response.body)
-    self["temp_#{temp.temperatures_id}_name"] = temp.temperatures_name
-    self["temp_#{temp.temperatures_id}_celsius"] = temp.temperatures_celsius
-
-    temp
   end
 
   # ====== Settings ======
