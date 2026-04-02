@@ -1134,10 +1134,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   include Interface::GuestBuildingAccess
 
   class Guest < AccessDetails
-    property user_id : String
-    property permission_id : String
-    property card_number : Int64?
-    property card_facility : Int64?
+    property card_hex : String?
 
     def initialize(@user_id, @permission_id, @card_hex, @card_number = nil, @card_facility = nil)
     end
@@ -1251,7 +1248,7 @@ class InnerRange::Integriti < PlaceOS::Driver
   @[PlaceOS::Driver::Security(Level::Support)]
   def revoke_guest_access(details : JSON::Any)
     details = Guest.from_json details.to_json
-    delete_permission(details.user_id, details.permission_id)
+    delete_permission(details.user_id.as(String), details.permission_id.as(String))
   end
 
   def guest_access_configured? : Bool
