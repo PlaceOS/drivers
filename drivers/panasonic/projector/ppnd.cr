@@ -17,6 +17,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
 
   enum Input
     COMPUTER
+    HDMI
     HDMI1
     HDMI2
     MemoryViewer
@@ -205,6 +206,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
 
   INPUT_MAPPING = {
     Input::COMPUTER     => "COMPUTER",
+    Input::HDMI         => "HDMI1", # HDMI defaults to 1
     Input::HDMI1        => "HDMI1",
     Input::HDMI2        => "HDMI2",
     Input::MemoryViewer => "MEMORY VIEWER",
