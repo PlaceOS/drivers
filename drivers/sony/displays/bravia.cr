@@ -17,9 +17,24 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   descriptive_name "Sony Bravia LCD Display"
   generic_name :Display
 
+  default_settings({
+    force_targets: false
+  })
+
+  @power_target : Bool? = nil
+  @input_target : Input? = nil
+  @force_target : Bool = false
+
+  def on_update
+    @power_target = nil
+    @input_target = nil
+
+    @force_target = setting?(Bool, :force_targets) || false
+  end
+
   enum Input : UInt32
-    Hdmi = 10000_0000
-    {% for idx in 0..3 %}
+    Hdmi = 10000_0001
+    {% for idx in 1..3 %}
       Tv{{idx}}     = {{ idx }}
       Hdmi{{idx}}   = {{10000_0000 + idx}}
       Mirror{{idx}} = {{50000_0000 + idx}}
@@ -40,6 +55,9 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   include Interface::InputSelection(Input)
 
   def switch_to(input : Input)
+    input = Input::Hdmi1 if input.hdmi?
+    @input_target = input
+
     logger.debug { "switching input to #{input}" }
     request(Command::Input, input.to_param)
     self[:input] = input.to_s
@@ -66,6 +84,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def power(state : Bool)
+    @power_target = state
     request(Command::Power, state)
     power?
   end
@@ -125,6 +144,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def do_poll
+    power?.get
     if self[:power]?
       input?
       mute?
@@ -156,8 +176,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     return task.try(&.abort("error")) if param.first? == MessageType::Error.value
     case MessageType.from_value?(data[2])
     when MessageType::Answer
-      update_status cmd, param
-      task.try &.success
+      result = update_status cmd, param
+      task.try &.success(result)
     when MessageType::Notify
       update_status cmd, param
     else
@@ -240,7 +260,18 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     parsed_data = convert_binary(param)
     case cmd
     when .power?
-      self[:power] = parsed_data.to_i == 1
+      power_on = parsed_data.to_i == 1
+      self[:power] = power_on
+
+      if power_target = @power_target
+        if power_on == power_target
+          @power_target = nil unless @force_target
+        else
+          power(power_target)
+        end
+      end
+
+      power_on
     when .mute?
       self[:mute] = parsed_data.to_i == 1
     when .audio_mute?
@@ -252,7 +283,18 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     when .mac_address?
       self[:mac_address] = parsed_data.split('#')[0]
     when .input?
-      self[:input] = Input.from_param(parsed_data[7..15])
+      current_input = Input.from_param(parsed_data[7..15])
+      self[:input] = current_input
+
+      if input_target = @input_target
+        if current_input == input_target
+          @input_target = nil unless @force_target
+        else
+          switch_to(input_target)
+        end
+      end
+
+      current_input
     end
   end
 end
