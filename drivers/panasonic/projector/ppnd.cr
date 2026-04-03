@@ -48,6 +48,9 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
   @api_version : String = "v1"
   @poll_interval : Int32 = 30
 
+  @power_target : Bool? = nil
+  @input_target : Input? = nil
+
   def on_load
     # Initialize digest auth
     @digest_auth = HTTP::Client::DigestAuth.new
@@ -58,6 +61,9 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
   end
 
   def on_update
+    @power_target = nil
+    @input_target = nil
+
     # Update digest auth credentials
     if auth_info = setting?(Hash(String, String), :digest_auth)
       @auth_uri.user = auth_info["username"]?
@@ -171,6 +177,8 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
   # ====== Powerable Interface ======
 
   def power(state : Bool)
+    @power_target = state
+
     body = {"power-state": state ? "on" : "standby"}.to_json
     response = put_with_digest_auth("/power", body)
 
@@ -196,8 +204,17 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     end
 
     result = Panasonic::Projector::PowerState.from_json(response.body)
+
     power_on = result.state == "on"
     self[:power] = power_on
+
+    if power_target = @power_target
+      if power_on == power_target
+        @power_target = nil
+      else
+        power(power_target)
+      end
+    end
 
     power_on
   end
@@ -206,7 +223,8 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
 
   INPUT_MAPPING = {
     Input::COMPUTER     => "COMPUTER",
-    Input::HDMI         => "HDMI1", # HDMI defaults to 1
+    # HDMI defaults to 1 as per input target below
+    # Input::HDMI         => "HDMI1",
     Input::HDMI1        => "HDMI1",
     Input::HDMI2        => "HDMI2",
     Input::MemoryViewer => "MEMORY VIEWER",
@@ -217,6 +235,9 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
   INPUT_REVERSE_MAPPING = INPUT_MAPPING.invert
 
   def switch_to(input : Input)
+    input = Input::HDMI1 if input.hdmi?
+    @input_target = input
+
     unmute if self[:mute]?
 
     input_str = INPUT_MAPPING[input]
@@ -242,9 +263,18 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     end
 
     result = Panasonic::Projector::InputState.from_json(response.body)
-    self[:input] = INPUT_REVERSE_MAPPING[result.state]?
+    current_input = INPUT_REVERSE_MAPPING[result.state]?
+    self[:input] = current_input
 
-    result.state
+    if input_target = @input_target
+      if current_input == input_target
+        @input_target = nil
+      else
+        switch_to(input_target)
+      end
+    end
+
+    current_input
   end
 
   # ====== Shutter Control ======
