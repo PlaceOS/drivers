@@ -328,7 +328,8 @@ class Nec::Projector < PlaceOS::Driver
     elsif (data[-2] & 0b1000000) > 0
       schedule.in(3.seconds) { power? }
     else # We are in a stable state!
-      if power_target = @power_target
+      power_target = @power_target
+      if !power_target.nil?
         if self[:power] == power_target
           @power_target = nil
         else # We are in an undesirable state and will try to correct it

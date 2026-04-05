@@ -263,7 +263,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
       power_on = parsed_data.to_i == 1
       self[:power] = power_on
 
-      if power_target = @power_target
+      power_target = @power_target
+      if !power_target.nil?
         if power_on == power_target
           @power_target = nil unless @force_target
         else
