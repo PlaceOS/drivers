@@ -225,7 +225,8 @@ class Panasonic::Display::Protocol2 < PlaceOS::Driver
       self[:power] = val.not_nil!.to_i == 1 if cmd == :power_query
 
       # Ensure selected power state is achieved
-      if power_target = @power_target
+      power_target = @power_target
+      if !power_target.nil?
         if self[:power] == power_target
           @power_target = nil
         else
