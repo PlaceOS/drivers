@@ -47,7 +47,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     end
 
     def to_param : String
-      value.to_s.rjust(5, '0')
+      value.to_s.rjust(16, '0')
     end
   end
 
