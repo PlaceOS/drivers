@@ -70,6 +70,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   def on_load
     self[:volume_min] = 0
     self[:volume_max] = 100
+    on_update
   end
 
   def connected
@@ -83,7 +84,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   def power(state : Bool)
     @power_target = state
     request(Command::Power, state)
-    power?
+    self[:power] = state
+    state
   end
 
   def power?
@@ -173,8 +175,17 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     return task.try(&.abort("error")) if param.first? == MessageType::Error.value
     case MessageType.from_value?(data[2])
     when MessageType::Answer
-      result = update_status cmd, param
-      task.try &.success(result)
+      # check if this is a response to a command
+      if task.name
+        if convert_binary(param).includes?("0")
+          task.try &.success(true)
+        else
+          task.try &.abort(false)
+        end
+      else
+        update_status cmd, param
+        task.try &.success(result)
+      end
     when MessageType::Notify
       update_status cmd, param
     else
@@ -239,8 +250,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   protected def request(command, parameter, **options)
     cmd = command.function
     parameter = parameter ? 1 : 0 if parameter.is_a?(Bool)
-    param = parameter.to_s.rjust(16, '0')
-    do_send(MessageType::Control, cmd, param, **options)
+    param = parameter.to_s.rjust(16, '0') 
+    do_send(MessageType::Control, cmd, param, **options.merge({name: command.to_s.downcase}))
   end
 
   protected def query(state, **options)
