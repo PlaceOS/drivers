@@ -21,15 +21,14 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     force_targets: false
   })
 
-  @power_target : Bool? = nil
-  @input_target : Input? = nil
-  @force_target : Bool = false
+  getter power_target : Bool? = nil
+  getter input_target : Input? = nil
+  getter force_target : Bool = false
 
   def on_update
-    @power_target = nil
-    @input_target = nil
-
     @force_target = setting?(Bool, :force_targets) || false
+    @power_target = nil unless @force_target
+    @input_target = nil unless @force_target
   end
 
   enum Input : UInt32
@@ -74,9 +73,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   end
 
   def connected
-    schedule.every(30.seconds, true) do
-      do_poll
-    end
+    schedule.every(30.seconds, true) { do_poll }
   end
 
   def disconnected
@@ -268,6 +265,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
         if power_on == power_target
           @power_target = nil unless @force_target
         else
+          logger.info { "forcing power state to: #{power_target}" }
           power(power_target)
         end
       end
