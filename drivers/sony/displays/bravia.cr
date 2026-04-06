@@ -54,7 +54,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   include Interface::InputSelection(Input)
 
   def switch_to(input : Input)
-    input = Input::Hdmi1 if input.hdmi?
+    input = Input::Hdmi if input.hdmi1?
     @input_target = input
 
     logger.debug { "switching input to #{input}" }
@@ -255,6 +255,8 @@ class Sony::Displays::Bravia < PlaceOS::Driver
 
   protected def update_status(cmd : Command, param)
     parsed_data = convert_binary(param)
+    logger.debug { "Sony status: #{cmd} = #{parsed_data}" }
+
     case cmd
     when .power?
       power_on = parsed_data.to_i == 1
@@ -289,6 +291,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
         if current_input == input_target
           @input_target = nil unless @force_target
         else
+          logger.info { "forcing input to: #{input_target}" }
           switch_to(input_target)
         end
       end
