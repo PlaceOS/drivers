@@ -176,14 +176,14 @@ class Sony::Displays::Bravia < PlaceOS::Driver
     case MessageType.from_value?(data[2])
     when MessageType::Answer
       # check if this is a response to a command
-      if task.name
+      if task.try(&.name)
         if convert_binary(param).includes?("0")
           task.try &.success(true)
         else
           task.try &.abort(false)
         end
       else
-        update_status cmd, param
+        result = update_status cmd, param
         task.try &.success(result)
       end
     when MessageType::Notify
