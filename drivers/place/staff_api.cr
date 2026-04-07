@@ -451,9 +451,9 @@ class Place::StaffAPI < PlaceOS::Driver
       starting = item.valid_from
       ending = item.valid_until
 
-      next false if starting && starting > now_unix
-      next false if ending && ending <= now_unix
-      true
+      next true if starting && starting > now_unix
+      next true if ending && ending <= now_unix
+      false
     end
 
     # return the remaining media list
