@@ -460,10 +460,10 @@ class Place::StaffAPI < PlaceOS::Driver
     media
   end
 
-  def signage_download_url(upload_id : String)
+  def signage_download_url(upload_id : String, ext : String = "jpg")
     uri = URI.parse(config.uri.as(String))
-    uri.path = "/api/engine/v2/uploads/#{upload_id}/download/#{@api_key}/false/image.jpg"
-    uri
+    uri.path = "/api/engine/v2/uploads/#{upload_id}/download/#{@api_key}/false/image.#{ext}"
+    uri.to_s
   end
 
   # ===================================
