@@ -481,8 +481,8 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   ASSIGNED_SPOTS = "_PARKING_SPACES_"
 
   protected getter space_assignment_asset_type : String do
-    cat = staff_api.asset_categories(hidden: true).get.as_a.find { |cat| cat["name"].as_s == ASSIGNED_SPOTS }
-    type = staff_api.asset_types(category_id: cat["id"].as_s).get.as_a.find! { |cat| cat["name"].as_s == ASSIGNED_SPOTS }
+    cat = staff_api.asset_categories(hidden: true).get.as_a.find! { |asset| asset["name"].as_s == ASSIGNED_SPOTS }
+    type = staff_api.asset_types(category_id: cat["id"].as_s).get.as_a.find! { |asset| asset["name"].as_s == ASSIGNED_SPOTS }
     type["id"].as_s
   end
 
