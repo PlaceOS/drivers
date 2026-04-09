@@ -4,6 +4,38 @@
 # `u`: fail script if a variable is unset (unitialized)
 set -eu
 
+# Holds the path to the saved .git worktree pointer while the harness runs.
+_WORKTREE_BACKUP=""
+
+# Restore the original git worktree .git file if we replaced it.
+# Safe to call even when no replacement was made.
+restore_git_worktree() {
+  if [ -n "${_WORKTREE_BACKUP}" ] && [ -f "${_WORKTREE_BACKUP}" ]; then
+    rm -rf "${PWD}/.git"
+    mv "${_WORKTREE_BACKUP}" "${PWD}/.git"
+    _WORKTREE_BACKUP=""
+  fi
+}
+
+# The test-harness needs a real git repo to read the current commit hash.
+# When running inside a git worktree the .git entry is a file (not a directory)
+# that points to an absolute path the container cannot see. Detect this and
+# temporarily replace it with a self-contained repo for the duration of the run.
+setup_git_for_harness() {
+  if [ -f "${PWD}/.git" ]; then
+    echo '░░░ Git worktree detected, creating temporary repo for harness...'
+    _WORKTREE_BACKUP="${PWD}/.git.worktree-bak"
+    cp "${PWD}/.git" "${_WORKTREE_BACKUP}"
+    rm "${PWD}/.git"
+    git -C "${PWD}" init -q
+    git -C "${PWD}" add -A
+    git -C "${PWD}" commit -q -m "temp: harness run"
+  fi
+}
+
+# Always restore the worktree pointer on exit (covers errors and Ctrl-C).
+trap restore_git_worktree EXIT
+
 say_done() {
   printf "░░░ Done.\n"
 }
@@ -56,6 +88,8 @@ format() {
 }
 
 report() {
+  setup_git_for_harness
+
   echo '░░░ PlaceOS Driver Compilation Report'
   echo '░░░ Pulling images...'
   docker compose pull &> /dev/null
