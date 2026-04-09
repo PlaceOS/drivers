@@ -6,6 +6,7 @@ require "link-header"
 require "simple_retry"
 require "place_calendar"
 require "./booking_model"
+require "base64"
 
 # This comment is to force a recompile of the driver with updated models.
 
@@ -460,8 +461,10 @@ class Place::StaffAPI < PlaceOS::Driver
     media
   end
 
+  @[Security(Level::Support)]
   def signage_download_url(upload_id : String, ext : String = "jpg")
     uri = URI.parse(config.uri.as(String))
+    upload_id = Base64.urlsafe_encode(upload_id, padding: false).gsub("-", "+")
     uri.path = "/api/engine/v2/uploads/#{upload_id}/download/#{@api_key}/false/image.#{ext}"
     uri.to_s
   end
