@@ -328,10 +328,16 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
           next
         end
 
-        # create a card
-        person = Person.new(first_name, last_name, user.id, [username, user_email].uniq!)
-        card = CardUpdate.new(sub_id, swipe_card_number, user_plates(user), person)
-        orbility.add_card(card).get
+        # cleanup subscription on failure
+        begin
+          # create a card
+          person = Person.new(first_name[0...20], last_name[0...20], user.id, [username, user_email].uniq!)
+          card = CardUpdate.new(sub_id, swipe_card_number, user_plates(user), person)
+          orbility.add_card(card).get
+        rescue error
+          orbility.delete_subscription(sub_id) rescue nil
+          raise error
+        end
 
         added += 1
       rescue error
@@ -400,6 +406,16 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     warnings: Array(String),
   )? = nil
 
+  def cleanup_empty_subscriptions
+    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get.to_json)
+    subscriptions.each do |sub|
+      if sub.card_ids.empty?
+        logger.debug { "Removing empty subscription #{sub.id}" }
+        orbility.delete_subscription(sub.id).get rescue nil
+      end
+    end
+  end
+
   # ===================
   # FLEET VEHICLES
   # ===================
@@ -462,7 +478,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
         end
 
         # create a card
-        person = Person.new("Fleet-Vehicle", vehicle.vehicle_name, "fleet_vehicle-#{vehicle.license_plate}", [] of String)
+        person = Person.new("Fleet-Vehicle", vehicle.vehicle_name[0...20], "fleet_vehicle-#{vehicle.license_plate}"[0...20], [] of String)
         card = CardUpdate.new(sub_id, nil, [vehicle.license_plate], person)
         orbility.add_card(card).get
       rescue error
