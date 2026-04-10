@@ -134,7 +134,8 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   @warnings : Array(String) = [] of String
 
   # Get existing parking card details
-  protected def get_card_details : Hash(String, Card)
+  @[Security(Level::Support)]
+  def get_card_details : Hash(String, Card)
     subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get.to_json)
     cards = subscriptions.compact_map do |sub|
       if card_id = sub.card_ids.first?
