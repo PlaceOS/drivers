@@ -225,7 +225,11 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     update_users = [] of Tuple(DirUser, Card)
 
     # get the list of users in the active directory (page by page)
-    users = Array(DirUser).from_json(directory.get_members(user_group_id, additional_fields: {car_license_ext}).get.to_json) + assigned_spaces
+    users = Array(DirUser).from_json(directory.get_members(user_group_id, additional_fields: {car_license_ext}).get.to_json)
+    
+    # we'll include assigned spaces in the first batch if syncing fleet vehicles
+    users.concat(assigned_spaces) if @sync_fleet_vehicles
+
     loop do
       # keep track of users that need to be created
       users.each do |user|
