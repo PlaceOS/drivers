@@ -30,6 +30,8 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     # staff offer 3
     orbility_offer_id: 3,
 
+    sync_fleet_vehicles: false,
+
     # use these for enabling push notifications
     _push_authority:        "authority-GAdySsf05mL",
     _push_notification_url: "https://placeos-dev.aca.im/api/engine/v2/notifications/office365",
@@ -48,6 +50,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   @syncing : Bool = false
   @sync_mutex : Mutex = Mutex.new
   @sync_requests : Int32 = 0
+  @sync_fleet_vehicles : Bool = false
 
   def on_update
     @time_zone_string = setting?(String, :time_zone).presence || config.control_system.not_nil!.timezone.presence || "GMT"
@@ -60,6 +63,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     @orbility_product_id = setting(Int64, :orbility_product_id)
     @orbility_contract_id = setting(Int64, :orbility_contract_id)
     @orbility_offer_id = setting(Int64, :orbility_offer_id)
+    @sync_fleet_vehicles = setting?(Bool, :sync_fleet_vehicles) || false
 
     @graph_group_id = nil
 
@@ -355,7 +359,13 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
       end
     end
 
-    fleet_added, fleet_removed, fleet_errors = sync_fleet_vehicles(cards)
+    if @sync_fleet_vehicles
+      fleet_added, fleet_removed, fleet_errors = sync_fleet_vehicles(cards)
+    else
+      fleet_added = 0
+      fleet_removed = 0
+      fleet_errors = 0
+    end
 
     result = {
       removed:        removed,
