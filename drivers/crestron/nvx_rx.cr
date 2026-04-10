@@ -183,8 +183,9 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     uri = URI.parse(url)
     raise ArgumentError.new("invalid URL provided: #{url}") unless uri.scheme.presence && uri.host.presence && uri.path.presence
 
-    ws_update "/BackgroundImage/Outputs/Output#{output_index}/RemoteServer/ServerPath", url, name: "set_output#{output_index}_image"
     ws_update "/BackgroundImage/Outputs/Output#{output_index}/IsEnabled", true, name: "set_output#{output_index}_image_enabled"
+    ws_update "/BackgroundImage/Outputs/Output#{output_index}/HostBackgroundImage", "Remote", name: "set_output#{output_index}_image_location"
+    ws_update "/BackgroundImage/Outputs/Output#{output_index}/RemoteServer/ServerPath", url, name: "set_output#{output_index}_image"
     ws_update "/BackgroundImage/Outputs/Output#{output_index}/RemoteServer/IsRefreshImageEnabled", false, name: "set_output#{output_index}_image_refresh"
   end
 
