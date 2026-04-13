@@ -50,7 +50,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     # https_private_key: "PEM format",
     # https_client_cert: "PEM format",
 
-    # obtain the list of these at: /api/events/groups/
+    # obtain the list of these at: /events/groups/
     event_mappings: [
       {
         group:  1,
@@ -203,15 +203,15 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   end
 
   getter! uri_base : String
-  getter access_groups_endpoint : String = "/api/access_groups"
-  getter access_zones_endpoint : String = "/api/access_zones"
-  getter alarm_zones_endpoint : String = "/api/alarm_zones"
-  getter cardholders_endpoint : String = "/api/cardholders"
-  getter divisions_endpoint : String = "/api/divisions"
-  getter card_types_endpoint : String = "/api/card_types"
-  getter events_endpoint : String = "/api/events"
-  getter pdfs_endpoint : String = "/api/personal_data_fields"
-  getter doors_endpoint : String = "/api/doors"
+  getter access_groups_endpoint : String = "/access_groups"
+  getter access_zones_endpoint : String = "/access_zones"
+  getter alarm_zones_endpoint : String = "/alarm_zones"
+  getter cardholders_endpoint : String = "/cardholders"
+  getter divisions_endpoint : String = "/divisions"
+  getter card_types_endpoint : String = "/card_types"
+  getter events_endpoint : String = "/events"
+  getter pdfs_endpoint : String = "/personal_data_fields"
+  getter doors_endpoint : String = "/doors"
 
   @fixed_pdf_id : String = ""
   @default_division : String? = nil
@@ -220,7 +220,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   @default_access_group : String? = nil
 
   def query_endpoints
-    response = get("/api", headers: @headers)
+    response = get("", headers: @headers)
     raise "endpoints request failed with #{response.status_code}\n#{response.body}" unless response.success?
     payload = JSON.parse response.body
 
@@ -293,17 +293,17 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   #        {
   #          "name": "email",
   #          "id": "5516",
-  #          "href": "https://localhost:8904/api/personal_data_fields/5516"
+  #          "href": "https://localhost:8904/personal_data_fields/5516"
   #        },
   #        {
   #          "name": "cellphone",
   #          "id": "9998",
-  #          "href": "https://localhost:8904/api/personal_data_fields/9998",
+  #          "href": "https://localhost:8904/personal_data_fields/9998",
   #          "serverDisplayName": "Site B"
   #        }
   #      ],
   #      "next": {
-  #        "href": "https://localhost:8904/api/personal_data_fields?pos=900&sort=id"
+  #        "href": "https://localhost:8904/personal_data_fields?pos=900&sort=id"
   #      }
   #    }
   def get_pdfs(name : String? = nil, exact_match : Bool = true)
