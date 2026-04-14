@@ -162,7 +162,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
 
   PLATES_DEFAULT = [] of String
 
-  # extract users number plates from Azure
+  # extract users number plates from Azure:
   protected def user_plates(user) : Array(String)
     license_plates = PLATES_DEFAULT
     if unmapped = user.unmapped
