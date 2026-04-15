@@ -36,7 +36,7 @@ DriverSpecs.mock_driver "Place::PublicEvents" do
   events[0]["event_end"].as_i64.should be > 0_i64
   events[0]["attendees"]?.should be_nil
   events[0]["host"]?.should be_nil
-  events[0]["body"]?.should be_nil
+  events[0]["body"]?.should_not be_nil
   events[0]["online_meeting_url"]?.should be_nil
   events[0]["creator"]?.should be_nil
 
@@ -85,6 +85,7 @@ class BookingsMock < DriverSpecs::MockDriver
         title: "Public Conference",
         event_start: now + 1.day,
         event_end: now + 1.day + 2.hours,
+        body: "Join us for the annual public conference.",
         attendees: [PlaceCalendar::Event::Attendee.new(name: "Internal Person", email: "internal@company.com")],
       ),
       PlaceCalendar::Event.new(

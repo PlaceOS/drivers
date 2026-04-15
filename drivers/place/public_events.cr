@@ -67,6 +67,7 @@ class Place::PublicEvents < PlaceOS::Driver
 
     getter id : String?
     getter title : String?
+    getter body : String?
     getter event_start : Int64
     getter event_end : Int64?
     getter location : String?
@@ -76,6 +77,7 @@ class Place::PublicEvents < PlaceOS::Driver
     def initialize(event : PlaceCalendar::Event)
       @id = event.id
       @title = event.title
+      @body = event.body
       @event_start = event.event_start.to_unix
       @event_end = event.event_end.try(&.to_unix)
       @location = event.location

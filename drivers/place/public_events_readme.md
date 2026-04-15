@@ -3,7 +3,7 @@
 Docs on the PlaceOS Public Events driver.
 This driver filters the Bookings event cache down to publicly visible events and handles guest registration, enabling unauthenticated access to selected calendar events.
 
-* Subscribes to the Bookings driver's `:bookings` status and filters events where `extended_properties["public"] == "true"`
+* Subscribes to the Bookings driver's `:bookings` status and filters events where `private` is `false`
 * Caches the filtered set of public events (with a reduced set of safe fields) as the `:public_events` status
 * Provides a `register_attendee` function for appending external (guest) attendees to a public event via the Calendar driver
 
@@ -21,8 +21,8 @@ The system must also have a calendar email configured (used as the `calendar_id`
 ## How It Works
 
 1. The Bookings driver polls the calendar and publishes all events to its `:bookings` status
-2. PublicEvents receives the update via the subscription binding and filters to events where `extended_properties["public"] == "true"`
-3. The filtered events are stored in `:public_events` with only safe, non-sensitive fields exposed: `id`, `title`, `event_start`, `event_end`, `location`, `timezone`, `all_day`
+2. PublicEvents receives the update via the subscription binding and filters to non-private events (`private == false`)
+3. The filtered events are stored in `:public_events` with only safe, non-sensitive fields exposed: `id`, `title`, `body`, `event_start`, `event_end`, `location`, `timezone`, `all_day`
 4. When a guest registers, `register_attendee` checks the event is in the public set, fetches it from the Calendar driver, appends the attendee, and writes it back
 
 
