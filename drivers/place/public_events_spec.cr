@@ -20,12 +20,12 @@ DriverSpecs.mock_driver "Place::PublicEvents" do
   events[0]["title"].as_s.should eq("Public Conference")
 
   # -----------------------------------------------------------------------
-  # Test 2: events without extended_properties.public are excluded
+  # Test 2: private events are excluded
   # -----------------------------------------------------------------------
   events.none? { |e| e["id"].as_s == "evt-private-no-ext" }.should be_true
 
   # -----------------------------------------------------------------------
-  # Test 3: events with extended_properties.public = false are excluded
+  # Test 3: events explicitly marked private are also excluded
   # -----------------------------------------------------------------------
   events.none? { |e| e["id"].as_s == "evt-private-explicit" }.should be_true
 
@@ -73,9 +73,8 @@ end
 # :nodoc:
 # Simulates the Bookings driver. Publishes a fixed set of three events on load
 # so the PublicEvents driver's subscription fires immediately:
-#   - one explicitly public      (should appear in the cache)
-#   - one with no properties     (should be excluded)
-#   - one explicitly non-public  (should be excluded)
+#   - one non-private event  (should appear in the cache)
+#   - two private events     (should be excluded)
 class BookingsMock < DriverSpecs::MockDriver
   def on_load
     now = Time.utc
@@ -86,7 +85,6 @@ class BookingsMock < DriverSpecs::MockDriver
         title: "Public Conference",
         event_start: now + 1.day,
         event_end: now + 1.day + 2.hours,
-        extended_properties: Hash(String, String?){"public" => "true"},
         attendees: [PlaceCalendar::Event::Attendee.new(name: "Internal Person", email: "internal@company.com")],
       ),
       PlaceCalendar::Event.new(
@@ -95,6 +93,7 @@ class BookingsMock < DriverSpecs::MockDriver
         title: "Internal Meeting",
         event_start: now + 2.days,
         event_end: now + 2.days + 1.hour,
+        private: true,
       ),
       PlaceCalendar::Event.new(
         id: "evt-private-explicit",
@@ -102,7 +101,7 @@ class BookingsMock < DriverSpecs::MockDriver
         title: "Executive Briefing",
         event_start: now + 3.days,
         event_end: now + 3.days + 1.hour,
-        extended_properties: Hash(String, String?){"public" => "false"},
+        private: true,
       ),
     ]
   end
