@@ -24,9 +24,7 @@ class Place::PublicEvents < PlaceOS::Driver
   end
 
   private def filter_and_cache : Array(PlaceCalendar::Event)
-    public_events = @all_bookings.select do |event|
-      event.extended_properties.try { |props| props["public"]? == "true" }
-    end
+    public_events = @all_bookings.reject(&.private?)
     @public_event_ids = public_events.compact_map(&.id).to_set
     self["public_events"] = public_events.map { |e| PublicEvent.new(e) }
     public_events
