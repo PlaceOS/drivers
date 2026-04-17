@@ -34,8 +34,12 @@ class StaffAPIMock < DriverSpecs::MockDriver
     ]
   end
 
-  def signage_download_url(id : String)
-    "https://background.image/url.jpg"
+  def upload_content_url(id : String)
+    "https://background.image.s3/bucket/folder/other.jpg"
+  end
+
+  def signage_download_url(id : String, ext : String = "png")
+    "https://background.image/url.#{ext}"
   end
 end
 
