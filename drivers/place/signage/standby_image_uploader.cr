@@ -63,7 +63,7 @@ class Place::ImageUploader < PlaceOS::Driver
         upload_id = playlist[item]["media_id"]
 
         # get the upload details
-        direct_url = URI.parse(staff_api.upload_content_url(upload_id).get.as(String))
+        direct_url = URI.parse(staff_api.upload_content_url(upload_id).get.as_s)
 
         # get a crestron friendly URL
         url = staff_api.signage_download_url(upload_id, direct_url.path.split(".")[-1]).get.as_s
