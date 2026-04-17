@@ -60,9 +60,13 @@ class Place::ImageUploader < PlaceOS::Driver
       receivers.each_with_index do |receiver, index|
         # select the item to be applied from the playlist
         item = index % playlist.size
+        upload_id = playlist[item]["media_id"]
+
+        # get the upload details
+        direct_url = URI.parse(staff_api.upload_content_url(upload_id).get.as(String))
 
         # get a crestron friendly URL
-        url = staff_api.signage_download_url(playlist[item]["media_id"]).get.as_s
+        url = staff_api.signage_download_url(upload_id, direct_url.path.split(".")[-1]).get.as_s
         logger.debug { "setting receiver#{index} to #{url}" }
 
         # apply it to the receiver
