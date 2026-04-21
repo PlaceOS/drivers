@@ -165,7 +165,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-old-building", "zone-old-room"],
   }.to_json
 
-  # Reset counters before publishing
+  # Ensure zone lookup counters are initialized before publishing
   system(:StaffAPI)[:zone_lookups].should_not be_nil
 
   publish("staff/booking/changed", changed_payload_with_zones)
