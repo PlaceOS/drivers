@@ -16,7 +16,9 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   @check_recurring_event_id : Bool = false
   @booking_poll_rate : UInt32 = 5
 
+  # ameba:disable Lint/NotNil
   getter building_id : String { get_building_id.not_nil! }
+  # ameba:disable Lint/NotNil
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   def on_update
@@ -27,7 +29,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
 
     schedule.clear
     # used to detect changes in building configuration
-    schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
+    schedule.every(1.hour) { @systems = get_systems_list.not_nil! } # ameba:disable Lint/NotNil
 
     # The search
     schedule.every(@booking_poll_rate.minutes) { find_bookings_for_approval }
@@ -55,7 +57,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   def find_bookings_for_approval : ApprovalCache
     results = ApprovalCache.new
 
-    systems.each do |level_id, system_ids|
+    systems.each do |_level_id, system_ids|
       system_ids.each do |system_id|
         begin
           sys = system(system_id)
