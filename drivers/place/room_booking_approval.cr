@@ -7,8 +7,8 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   description %(Room Booking approval for tentative events)
 
   default_settings({
-    check_recurring_event_id: false, # fetches the event to verify the provided id is the series root.
-    check_bookings_every_minutes: 5
+    check_recurring_event_id:     false, # fetches the event to verify the provided id is the series root.
+    check_bookings_every_minutes: 5,
   })
 
   accessor calendar : Calendar_1
@@ -60,7 +60,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
         begin
           sys = system(system_id)
           if sys.exists?("Bookings", 1)
-            bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "bookings")
+            bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "tentative")
             next unless bookings
             bookings.select! { |event| event.status == "tentative" }
             results[system_id] = bookings unless bookings.empty?
