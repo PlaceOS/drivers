@@ -561,13 +561,18 @@ class Place::VisitorMailer < PlaceOS::Driver
     previous_room_name = @booking_space_name
 
     if prev_zones = details.previous_zones
+      found_building = false
+      found_room = false
       prev_zones.each do |zone_id|
+        break if found_building && found_room
         begin
           zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
           if zone.tags.includes?(@invite_zone_tag)
             previous_building_name = zone.display_name.presence || zone.name
+            found_building = true
           else
             previous_room_name = zone.display_name.presence || zone.name
+            found_room = true
           end
         rescue error
           logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
