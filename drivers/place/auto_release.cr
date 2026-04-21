@@ -33,6 +33,7 @@ class Place::AutoRelease < PlaceOS::Driver
   })
 
   accessor staff_api : StaffAPI_1
+  accessor directory : Calendar_1
 
   getter building_zone : Zone { get_building_zone?.not_nil! }
 
@@ -192,6 +193,12 @@ class Place::AutoRelease < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def get_user_preferences?(user_id : String)
+    is_place_id = user_id.starts_with?("user-") || user_id.includes?("@")
+    if !is_place_id
+      if graph_user = (directory.get_user(user_id).get rescue nil)
+        user_id = graph_user["email"].as_s
+      end
+    end
     user = User.from_json staff_api.user(user_id).get.to_json
 
     work_preferences = user.work_preferences
