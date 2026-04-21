@@ -1247,6 +1247,7 @@ class Place::Meet < PlaceOS::Driver
 
   # run on system power on
   def apply_camera_defaults
+    self[:selected_camera] = nil
     system.all(vc_camera_module).power true
   end
 
