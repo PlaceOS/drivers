@@ -141,7 +141,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
 
   def on_update
-    @debug = setting?(Bool, :debug) || true
+    @debug = setting?(Bool, :debug) || false
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
@@ -189,7 +189,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   def control_system_zone_list
-    config.control_system.not_nil!.zones
+    config.control_system.not_nil!.zones # ameba:disable Lint/NotNil
   end
 
   protected def ensure_building_zone(zones) : Nil
