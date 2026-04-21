@@ -61,7 +61,9 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
 
   # used to coordinate the projector password hash
   @channel : Channel(String) = Channel(String).new
-  @stable_power : Bool = true
+
+  @power_target : Bool? = nil
+  @input_target : Inputs? = nil
 
   def on_update
     @username = setting?(String, :username) || "admin1"
@@ -69,7 +71,7 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
     @query_lamp_hours = setting?(Bool, :query_lamp_hours) || false
 
     schedule.clear
-    schedule.every(40.seconds) do
+    schedule.every(30.seconds) do
       power?(priority: 0)
       lamp_hours?(priority: 0, retries: 0) if @query_lamp_hours
     end
@@ -88,8 +90,8 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   RESPONSES = COMMANDS.to_h.invert
 
   def power(state : Bool)
-    self[:stable_power] = @stable_power = false
     self[:power_target] = state
+    @power_target = state
 
     if state
       logger.debug { "requested to power on" }
@@ -127,6 +129,8 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
   INPUT_LOOKUP = INPUTS.invert
 
   def switch_to(input : Inputs)
+    @input_target = input
+
     # Projector doesn't automatically unmute
     unmute if self[:mute]?
 
@@ -217,7 +221,16 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
     when :freeze
       self[:frozen] = val.not_nil!.to_i == 1
     when :input
-      self[:input] = INPUT_LOOKUP[val]
+      current_input = INPUT_LOOKUP[val]
+      self[:input] = current_input
+
+      if input_target = @input_target
+        if current_input == input_target
+          @input_target = nil
+        else
+          switch_to(input_target)
+        end
+      end
     when :mute
       state = self[:mute] = val.not_nil!.to_i == 1
       self[:mute0] = state
@@ -227,16 +240,18 @@ class Panasonic::Projector::NTControl < PlaceOS::Driver
       case task.name
       when "lamp"
         ival = resp[0].to_i
-        self[:power] = {1, 2}.includes?(ival)
+        power_state = {1, 2}.includes?(ival)
+        self[:power] = power_state
         self[:warming] = ival == 1
         self[:cooling] = ival == 3
 
-        # check target states here
-        if !@stable_power
-          if self[:power] == self[:power_target]
-            self[:stable_power] = @stable_power = true
+        # ensure power state is correct
+        power_target = @power_target
+        if !power_target.nil?
+          if power_state == power_target
+            self[:power_target] = @power_target = nil
           else
-            power self[:power_target].as_bool
+            power(power_target)
           end
         end
       when "lamp_hours"
