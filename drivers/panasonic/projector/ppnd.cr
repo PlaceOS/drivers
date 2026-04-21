@@ -223,7 +223,7 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
   # ====== Input Selection ======
 
   INPUT_MAPPING = {
-    Input::COMPUTER     => "COMPUTER",
+    Input::COMPUTER => "COMPUTER",
     # HDMI defaults to 1 as per input target below
     # Input::HDMI         => "HDMI1",
     Input::HDMI1        => "HDMI1",
@@ -424,6 +424,8 @@ class Panasonic::Projector::PPND < PlaceOS::Driver
     lights_response = LightsResponse.from_json(response.body)
     lights = lights_response.lights
     self[:lights] = lights
+
+    self[:lamp_usage] = lights[0].light_runtime
 
     lights
   end
