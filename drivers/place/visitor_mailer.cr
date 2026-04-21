@@ -47,6 +47,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     network_password_minimum_symbols:   DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
     network_group_ids:                  [] of String,
     debug:                              false,
+    zone_cache_timeout:                 300,
     host_domain_filter:                 [] of String,
 
     disable_event_visitors: true,
@@ -112,6 +113,9 @@ class Place::VisitorMailer < PlaceOS::Driver
   @booking_space_name : String = "Client Floor"
   @invite_zone_tag : String = "building"
 
+  @zone_cache : ZoneCache = ZoneCache.new
+  @zone_cache_timeout : Int64 = 300
+
   @reminder_template : String = "visitor"
   @send_reminders : String? = nil
   @event_template : String = "event"
@@ -173,6 +177,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     @uri = URI.parse(setting?(String, :domain_uri) || "")
     @jwt_private_key = setting?(String, :jwt_private_key) || PlaceOS::Model::JWTBase.private_key
+    @zone_cache_timeout = setting?(Int64, :zone_cache_timeout) || 300_i64
+    @zone_cache = ZoneCache.new
 
     zones = control_system_zone_list
     schedule.clear
@@ -195,7 +201,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   protected def find_building(zones : Array(String)) : ZoneDetails
     zones.each do |zone_id|
-      zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+      zone = fetch_zone(zone_id)
       if zone.tags.includes?(@invite_zone_tag)
         @building_zone = zone
         if @is_parent_zone && (child_zones = Array(ZoneDetails).from_json(staff_api.zones(parent: zone_id).get.to_json))
@@ -208,6 +214,26 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
     raise "no building zone found in System" unless @building_zone
     @building_zone.as(ZoneDetails)
+  end
+
+  # Fetch a zone from the cache, or from the API if not cached / expired.
+  # Follows the same pattern as TemplateMailer's template cache.
+  protected def fetch_zone(zone_id : String) : ZoneDetails
+    if (cached = @zone_cache[zone_id]?) && cached[0] > Time.utc.to_unix
+      cached[1]
+    else
+      zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+      @zone_cache[zone_id] = {Time.utc.to_unix + @zone_cache_timeout, zone}
+      zone
+    end
+  end
+
+  def clear_zone_cache(zone_id : String? = nil)
+    if zone_id && !zone_id.blank?
+      @zone_cache.delete(zone_id)
+    else
+      @zone_cache = ZoneCache.new
+    end
   end
 
   protected def guest_event(payload)
@@ -566,7 +592,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       prev_zones.each do |zone_id|
         break if found_building && found_room
         begin
-          zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+          zone = fetch_zone(zone_id)
           if zone.tags.includes?(@invite_zone_tag)
             previous_building_name = zone.display_name.presence || zone.name
             found_building = true
@@ -793,6 +819,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     property tags : Array(String)
     property parent_id : String?
   end
+
+  #                      zone_id,     timeout, zone
+  alias ZoneCache = Hash(String, Tuple(Int64, ZoneDetails))
 
   class SystemDetails
     include JSON::Serializable

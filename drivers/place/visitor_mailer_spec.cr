@@ -252,8 +252,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq 2
 
   # ------------------------------------------------------------------
-  # Test 4: Short-circuit — with 3 previous zones (building, room, extra)
-  #         only 2 zone lookups are needed for previous zone resolution
+  # Test 4: Zone caching — zone-old-building and zone-old-room were
+  #         already looked up (and cached) in Test 1, so repeating them
+  #         here should require zero new API calls.
   # ------------------------------------------------------------------
 
   lookups_before = system(:StaffAPI)[:zone_lookups].as_i
@@ -282,10 +283,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq 3
 
   lookups_after = system(:StaffAPI)[:zone_lookups].as_i
-  # Should have looked up exactly 2 previous zones (building + room) plus 1 for booking_guests flow = 2
-  # The third zone (zone-extra) should have been skipped due to short-circuit
+  # zone-old-building and zone-old-room are served from the zone cache
+  # (populated during Test 1), so no new API calls are made.
+  # The third zone (zone-extra) is never reached due to short-circuit.
   previous_zone_lookups = lookups_after - lookups_before
-  previous_zone_lookups.should eq 2
+  previous_zone_lookups.should eq 0
 
   # Verify the resolved names are still correct
   args3 = system(:Mailer)[:last_args]
