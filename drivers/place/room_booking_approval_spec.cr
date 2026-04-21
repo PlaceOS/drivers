@@ -40,11 +40,11 @@ class BookingsMock < DriverSpecs::MockDriver
       event_start: 1.hour.ago.to_unix,
       event_end:   1.hour.from_now.to_unix,
       id:          "tentative-event-id",
-      host:        "GradyA@0cbfs.onmicrosoft.com",
+      host:        "jane@example.com",
       title:       "Approval Test",
       attendees:   [{
-        name:            "Approval Room 5",
-        email:           "testroom5@0cbfs.onmicrosoft.com",
+        name:            "Room 5",
+        email:           "room5@example.com",
         response_status: "tentative",
         resource:        true,
       }],
@@ -70,9 +70,8 @@ DriverSpecs.mock_driver "Place::RoomBookingApproval" do
 
   approval = status["approval_required"].as_h
 
-  # The tentative event should appear in approval_required.
-  # Bug: the driver reads from the "bookings" status (which excludes tentative
-  # events by default) instead of the "tentative" status, so this key is missing.
+  # Tentative events should appear in approval_required,
+  # read from the "tentative" status key (not "bookings").
   approval.has_key?("spec_runner_system").should be_true
   events = approval["spec_runner_system"].as_a
   events.size.should eq(1)
