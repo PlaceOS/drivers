@@ -136,6 +136,12 @@ abstract class Crestron::CresNext < PlaceOS::Driver
     )
   end
 
+  @[Security(Level::Administrator)]
+  def reboot(now : Bool = false)
+    sleep rand(5000).milliseconds unless now
+    ws_update "/DeviceOperations/Reboot", true, name: "reboot"
+  end
+
   # payload is expected to be a hash or named tuple
   protected def update(path : String, value, **options)
     request_path = Path["/Device"].join(path).to_s
