@@ -53,13 +53,17 @@ shards:
     git: https://github.com/spider-gazelle/connect-proxy.git
     version: 2.0.3
 
+  cookie_jar:
+    git: https://github.com/mamantoha/http-cookie_jar.git
+    version: 0.1.0
+
   crc16:
     git: https://github.com/maiha/crc16.cr.git
     version: 0.1.0
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.6.2
+    version: 1.7.0
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -183,7 +187,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.14.1
+    version: 1.14.2
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -243,7 +247,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.20.2
+    version: 7.21.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -251,11 +255,11 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.86.0
+    version: 9.86.2
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
-    version: 0.3.0
+    version: 0.2.4
 
   priority-queue:
     git: https://github.com/spider-gazelle/priority-queue.git
@@ -282,16 +286,16 @@ shards:
     version: 1.0.1
 
   redis:
-    git: https://github.com/stefanwille/crystal-redis.git
-    version: 2.7.0+git.commit.e81d33945592688c07add1274b811c06d0e4ee26
+    git: https://github.com/place-labs/crystal-redis.git
+    version: 2.9.1+git.commit.95ec396dd6fdd772d2cbe0bb14ede7e96e6270df
 
   redis-cluster:
     git: https://github.com/place-labs/redis-cluster.cr.git
-    version: 0.8.10
+    version: 0.8.11
 
   redis_service_manager:
     git: https://github.com/place-labs/redis_service_manager.git
-    version: 3.3.0
+    version: 3.3.1
 
   rendezvous-hash:
     git: https://github.com/caspiano/rendezvous-hash.git
