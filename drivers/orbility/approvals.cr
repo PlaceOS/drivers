@@ -232,13 +232,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   protected def auto_approve?(booking : Booking) : Bool
     # check booked_by and
-    user_emails = {booking.booked_by_email.downcase, booking.user_email.downcase}
+    user_emails = [booking.booked_by_email.downcase, booking.user_email.downcase].uniq!
 
     # check if booking user is in the auto approval group
     approved_groups = @auto_approval_groups
     if !approved_groups.empty?
       groups = user_emails.flat_map do |user_email|
-        calendar.get_groups(user_email).get.as_a
+        # could be an external user so need to handle a bad response
+        calendar.get_groups(user_email).get.as_a rescue [] of JSON::Any
       end
 
       groups.each do |group|
