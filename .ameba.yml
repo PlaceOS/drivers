@@ -63,3 +63,8 @@ Lint/ShadowingOuterLocalVar:
   - drivers/cisco/switch/snooping_catalyst.cr
   Enabled: true
   Severity: Warning
+
+Naming/AccessorMethodName:
+  Description: Disallows getter method names prefixed with `get_` or setter method names prefixed with `set_`
+  Enabled: false
+  Severity: Convention
