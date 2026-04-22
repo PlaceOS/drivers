@@ -380,7 +380,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       period_start: starting,
       period_end: ending,
       limit: 10_000,
-    ).get.to_json).sort! { |a, b| a.created.as(Int64) <=> b.created.as(Int64) }
+    ).get.to_json).reject(&.instance).sort! { |a, b| a.created.as(Int64) <=> b.created.as(Int64) }
 
     bookings.each do |booking|
       if booking.asset_ids.first.starts_with?("unallocated")
@@ -409,6 +409,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     ).get.to_json)
 
     bookings.each do |booking|
+      next if booking.instance
       cleanup_parking(booking, rejected: true)
     end
 
@@ -423,6 +424,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     ).get.to_json)
 
     bookings.each do |booking|
+      next if booking.instance
       cleanup_parking(booking, rejected: false)
     end
   end
