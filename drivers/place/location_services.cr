@@ -130,14 +130,12 @@ class Place::LocationServices < PlaceOS::Driver
   # returns a list of bookings the current user is attending
   # during the current day
   def my_bookings
-    user = current_user
-    results = [] of Future::Compute(JSON::Any)
-    email = user.email
-    bookings_for(email)
+    bookings_for current_user.email
   end
 
   def bookings_for(email : String)
     email = email.downcase
+    results = [] of Future::Compute(JSON::Any)
 
     # Map
     systems.each do |level_id, system_ids|
