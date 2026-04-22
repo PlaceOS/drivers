@@ -133,6 +133,11 @@ class Place::LocationServices < PlaceOS::Driver
     user = current_user
     results = [] of Future::Compute(JSON::Any)
     email = user.email
+    bookings_for(email)
+  end
+
+  def bookings_for(email : String)
+    email = email.downcase
 
     # Map
     systems.each do |level_id, system_ids|
