@@ -7,8 +7,8 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   description %(Room Booking approval for tentative events)
 
   default_settings({
-    check_recurring_event_id: false, # fetches the event to verify the provided id is the series root.
-    check_bookings_every_minutes: 5
+    check_recurring_event_id:     false, # fetches the event to verify the provided id is the series root.
+    check_bookings_every_minutes: 5,
   })
 
   accessor calendar : Calendar_1
@@ -16,7 +16,9 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   @check_recurring_event_id : Bool = false
   @booking_poll_rate : UInt32 = 5
 
+  # ameba:disable Lint/NotNil
   getter building_id : String { get_building_id.not_nil! }
+  # ameba:disable Lint/NotNil
   getter systems : Hash(String, Array(String)) { get_systems_list.not_nil! }
 
   def on_update
@@ -27,7 +29,7 @@ class Place::RoomBookingApproval < PlaceOS::Driver
 
     schedule.clear
     # used to detect changes in building configuration
-    schedule.every(1.hour) { @systems = get_systems_list.not_nil! }
+    schedule.every(1.hour) { @systems = get_systems_list.not_nil! } # ameba:disable Lint/NotNil
 
     # The search
     schedule.every(@booking_poll_rate.minutes) { find_bookings_for_approval }
@@ -55,12 +57,12 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   def find_bookings_for_approval : ApprovalCache
     results = ApprovalCache.new
 
-    systems.each do |level_id, system_ids|
+    systems.each do |_level_id, system_ids|
       system_ids.each do |system_id|
         begin
           sys = system(system_id)
           if sys.exists?("Bookings", 1)
-            bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "bookings")
+            bookings = sys.get("Bookings", 1).status?(Array(PlaceCalendar::Event), "tentative")
             next unless bookings
             bookings.select! { |event| event.status == "tentative" }
             results[system_id] = bookings unless bookings.empty?
