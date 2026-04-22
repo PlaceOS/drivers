@@ -47,6 +47,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     network_password_minimum_symbols:   DEFAULT_PASSWORD_MINIMUM_SYMBOLS,
     network_group_ids:                  [] of String,
     debug:                              false,
+    zone_cache_timeout:                 300,
     host_domain_filter:                 [] of String,
 
     disable_event_visitors: true,
@@ -112,6 +113,9 @@ class Place::VisitorMailer < PlaceOS::Driver
   @booking_space_name : String = "Client Floor"
   @invite_zone_tag : String = "building"
 
+  @zone_cache : ZoneCache = ZoneCache.new
+  @zone_cache_timeout : Int64 = 300
+
   @reminder_template : String = "visitor"
   @send_reminders : String? = nil
   @event_template : String = "event"
@@ -137,7 +141,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
 
   def on_update
-    @debug = setting?(Bool, :debug) || true
+    @debug = setting?(Bool, :debug) || false
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
@@ -173,8 +177,10 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     @uri = URI.parse(setting?(String, :domain_uri) || "")
     @jwt_private_key = setting?(String, :jwt_private_key) || PlaceOS::Model::JWTBase.private_key
+    @zone_cache_timeout = setting?(Int64, :zone_cache_timeout) || 300_i64
+    @zone_cache = ZoneCache.new
 
-    zones = config.control_system.not_nil!.zones
+    zones = control_system_zone_list
     schedule.clear
     if reminders = @send_reminders
       schedule.cron(reminders, @time_zone) { send_reminder_emails }
@@ -183,7 +189,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   def control_system_zone_list
-    config.control_system.not_nil!.zones
+    config.control_system.not_nil!.zones # ameba:disable Lint/NotNil
   end
 
   protected def ensure_building_zone(zones) : Nil
@@ -195,7 +201,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   protected def find_building(zones : Array(String)) : ZoneDetails
     zones.each do |zone_id|
-      zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+      zone = fetch_zone(zone_id)
       if zone.tags.includes?(@invite_zone_tag)
         @building_zone = zone
         if @is_parent_zone && (child_zones = Array(ZoneDetails).from_json(staff_api.zones(parent: zone_id).get.to_json))
@@ -208,6 +214,26 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
     raise "no building zone found in System" unless @building_zone
     @building_zone.as(ZoneDetails)
+  end
+
+  # Fetch a zone from the cache, or from the API if not cached / expired.
+  # Follows the same pattern as TemplateMailer's template cache.
+  protected def fetch_zone(zone_id : String) : ZoneDetails
+    if (cached = @zone_cache[zone_id]?) && cached[0] > Time.utc.to_unix
+      cached[1]
+    else
+      zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+      @zone_cache[zone_id] = {Time.utc.to_unix + @zone_cache_timeout, zone}
+      zone
+    end
+  end
+
+  def clear_zone_cache(zone_id : String? = nil)
+    if zone_id && !zone_id.blank?
+      @zone_cache.delete(zone_id)
+    else
+      @zone_cache = ZoneCache.new
+    end
   end
 
   protected def guest_event(payload)
@@ -514,9 +540,10 @@ class Place::VisitorMailer < PlaceOS::Driver
         description: "Notification sent to all visitors on a booking when details change (date, time, location, etc.)",
         fields: common_fields + [
           {name: "room_name", description: "Name of the room or area being visited"},
-          {name: "building_name", description: "Name of the building where the booking now occurs"},
           {name: "previous_event_date", description: "The original date of the booking before it was changed"},
           {name: "previous_event_time", description: "The original time of the booking before it was changed"},
+          {name: "previous_room_name", description: "The original room or area name before the booking was moved"},
+          {name: "previous_building_name", description: "The original building name before the booking was moved"},
         ]
       ),
     ]
@@ -555,6 +582,30 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     return unless fields_changed
 
+    # Resolve previous location names from previous zones
+    previous_building_name = building_zone.display_name.presence || building_zone.name
+    previous_room_name = @booking_space_name
+
+    if prev_zones = details.previous_zones
+      found_building = false
+      found_room = false
+      prev_zones.each do |zone_id|
+        break if found_building && found_room
+        begin
+          zone = fetch_zone(zone_id)
+          if zone.tags.includes?(@invite_zone_tag)
+            previous_building_name = zone.display_name.presence || zone.name
+            found_building = true
+          else
+            previous_room_name = zone.display_name.presence || zone.name
+            found_room = true
+          end
+        rescue error
+          logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
+        end
+      end
+    end
+
     guests = staff_api.booking_guests(details.id).get.as_a
     guests.each do |guest|
       visitor_email = guest["email"].as_s
@@ -565,25 +616,27 @@ class Place::VisitorMailer < PlaceOS::Driver
 
       local_start_time = Time.unix(details.booking_start).in(@time_zone)
 
-      previous_date = details.previous_booking_start.try { |t| Time.unix(t).in(@time_zone).to_s(@date_format) }
-      previous_time = details.previous_booking_start.try { |t| Time.unix(t).in(@time_zone).to_s(@time_format) }
+      previous_date = details.previous_booking_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
+      previous_time = details.previous_booking_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@time_format) }
 
       mailer.send_template(
         visitor_email,
         {"visitor_invited", @booking_changed_template},
         {
-          visitor_email:       visitor_email,
-          visitor_name:        visitor_name,
-          host_name:           get_host_name(details.user_email),
-          host_email:          details.user_email,
-          room_name:           @booking_space_name,
-          building_name:       building_zone.display_name.presence || building_zone.name,
-          event_title:         details.title,
-          event_start:         local_start_time.to_s(@time_format),
-          event_date:          local_start_time.to_s(@date_format),
-          event_time:          local_start_time.to_s(@time_format),
-          previous_event_date: previous_date,
-          previous_event_time: previous_time,
+          visitor_email:          visitor_email,
+          visitor_name:           visitor_name,
+          host_name:              get_host_name(details.user_email),
+          host_email:             details.user_email,
+          room_name:              @booking_space_name,
+          building_name:          building_zone.display_name.presence || building_zone.name,
+          event_title:            details.title,
+          event_start:            local_start_time.to_s(@time_format),
+          event_date:             local_start_time.to_s(@date_format),
+          event_time:             local_start_time.to_s(@time_format),
+          previous_event_date:    previous_date,
+          previous_event_time:    previous_time,
+          previous_room_name:     previous_room_name,
+          previous_building_name: previous_building_name,
         }
       )
     rescue error
@@ -687,7 +740,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       zones: {building_zone.id}
     ).get.as_a
 
-    guests.uniq! { |g| g["email"].as_s.downcase }
+    guests.uniq! { |guest| guest["email"].as_s.downcase }
     guests.each do |guest|
       begin
         if event = guest["event"]?
@@ -767,6 +820,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     property parent_id : String?
   end
 
+  #                      zone_id,     timeout, zone
+  alias ZoneCache = Hash(String, Tuple(Int64, ZoneDetails))
+
   class SystemDetails
     include JSON::Serializable
 
@@ -778,7 +834,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   protected def get_room_details(system_id : String, retries = 0)
     SystemDetails.from_json staff_api.get_system(system_id).get.to_json
-  rescue error
+  rescue
     raise "issue loading system details #{system_id}" if retries > 3
     sleep 1.second
     get_room_details(system_id, retries + 1)
@@ -790,14 +846,14 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   protected def get_host_name_from_calendar_driver(host_email)
     calendar.get_user(host_email).get["name"]
-  rescue error
+  rescue
     logger.error { "issue loading host details #{host_email}" }
-    return "your host"
+    "your host"
   end
 
   protected def get_host_name_from_staff_api_driver(host_email, retries = 0)
     staff_api.staff_details(host_email).get["name"].as_s.split('(')[0]
-  rescue error
+  rescue
     if retries > 3
       logger.error { "issue loading host details #{host_email}" }
       return "your host"
