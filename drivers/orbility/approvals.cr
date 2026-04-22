@@ -306,11 +306,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   # creates a pre-booking and saves the parking ID to the booking
   protected def create_parking_booking(booking : Booking)
-    user_json = calendar.get_user(booking.user_email, additional_fields: {car_license_ext}).get.to_json rescue nil
-    license_plate = if user_json
-                      user = DirUser.from_json(user_json)
-                      user_plates(user).first?
-                    end
+    license_plate = booking.extension_data["plate_number"]?.try(&.as_s).presence
+    license_plate = nil if license_plate && license_plate.size > 12
+
+    if license_plate.nil?
+      user_json = calendar.get_user(booking.user_email, additional_fields: {car_license_ext}).get.to_json rescue nil
+      license_plate = if user_json
+                        user = DirUser.from_json(user_json)
+                        user_plates(user).first?
+                      end
+    end
 
     booking_number = orbility.add_booking(Orbility::PreBooking.new(
       start_date: Time.unix(booking.booking_start),
@@ -383,7 +388,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
         check_approval(booking)
       else
         # the booking state will prevent duplicate emails being sent
-        approved_email(booking)
+        if booking.extension_data.has_key?("orbility_id")
+          approved_email(booking)
+        else
+          create_parking_booking(booking)
+        end
       end
     end
 
@@ -479,14 +488,18 @@ class Place::Parking::Approvals < PlaceOS::Driver
     local_start_time = Time.unix(booking.booking_start).in(@timezone)
     local_end_time = Time.unix(booking.booking_end).in(@timezone)
 
-    qr_content = "MPK_RES=#{booking.extension_data["orbility_id"].as_s}"
-    attach = [
-      {
-        file_name:  "qr.png",
-        content:    qr_content,
-        content_id: user_email,
-      },
-    ]
+    if json = booking.extension_data["orbility_id"]?
+      qr_content = "MPK_RES=#{json.as_s}"
+      attach = [
+        {
+          file_name:  "qr.png",
+          content:    qr_content,
+          content_id: user_email,
+        },
+      ]
+    else
+      logger.warn { "no orbility booking for approved parking: #{user_email} @ #{local_start_time}" }
+    end
 
     event_span = local_end_time - local_start_time
     event_period = if booking.all_day || event_span == 24.hours
