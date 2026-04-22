@@ -374,14 +374,14 @@ module Orbility
     @[JSON::Field(key: "endDate")]
     getter end_date : Time
 
-    getter category : Int32
+    getter category : Int32?
 
     @[JSON::Field(key: "userInfo")]
     getter user_info : UserInfo
 
     getter access : Access
 
-    def initialize(@start_date, @end_date, @user_info, @access, @category = 0, @id = nil)
+    def initialize(@start_date, @end_date, @user_info, @access, @category = nil, @id = nil)
     end
   end
 
