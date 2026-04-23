@@ -255,7 +255,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
 
     # check if they don't work in the building and have an event
-    booked_user = user_emails[1]
+    booked_user = user_emails.last
     !assigned_desks.includes?(booked_user) && !location.bookings_for(booked_user).get.as_a.empty?
   end
 
