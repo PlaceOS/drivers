@@ -170,8 +170,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def booking_changed(event)
     return unless event.booking_type == BOOKING_TYPE
     return unless event.zones.includes?(building_id)
+    return if event.recurring? # this will be an allocated parking spot
 
-    logger.debug { "booking_changed: parking request is in this building" }
+    logger.debug { "booking_changed: parking request is in this building\n#{event}" }
 
     case event.action
     when "create"
