@@ -37,7 +37,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     # sent to all visitors when booking details change (date, time, location, etc.)
     booking_changed_template:           "booking_changed",
     group_event_template:               "group_event",
-    disable_qr_code:                    false,
+    disable_qr_code:                    true,
     send_network_credentials:           false,
     network_password_length:            DEFAULT_PASSWORD_LENGTH,
     network_password_exclude:           DEFAULT_PASSWORD_EXCLUDE,
@@ -97,7 +97,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   @visitor_emails_sent : UInt64 = 0_u64
   @visitor_email_errors : UInt64 = 0_u64
-  @disable_qr_code : Bool = false
+  @disable_qr_code : Bool = true
   @host_domain_filter : Array(String) = [] of String
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
@@ -155,7 +155,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @notify_original_host_template = setting?(String, :notify_original_host_template) || "notify_original_host"
     @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
-    @disable_qr_code = setting?(Bool, :disable_qr_code) || false
+    @disable_qr_code = setting?(Bool, :disable_qr_code) || true
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
     @network_password_length = setting?(Int32, :password_length) || DEFAULT_PASSWORD_LENGTH
