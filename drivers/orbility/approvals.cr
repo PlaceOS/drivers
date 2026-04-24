@@ -183,9 +183,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
       # when "changed"
       # we're ignoring change events
     else
-      # ignore the update (approve)
       logger.debug { "booking event #{event.action} was ignored" }
-      return
+
+      # ensures emails are sent in a timely fashion after approvals
+      # will trigger this process a second time with no actions
+      # but that seems acceptable
+      spawn { process_parking_bookings }
     end
   end
 
@@ -385,6 +388,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     ).get.to_json).reject(&.instance).sort! { |a, b| a.created.as(Int64) <=> b.created.as(Int64) }
 
     bookings.each do |booking|
+      next if booking.rejected || booking.deleted
+
       if booking.asset_ids.first.starts_with?("unallocated")
         # attempt to allocate / approve them
         check_approval(booking)
@@ -426,7 +431,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     ).get.to_json)
 
     bookings.each do |booking|
-      next if booking.instance
+      next if booking.instance || booking.rejected
       cleanup_parking(booking, rejected: false)
     end
   end
