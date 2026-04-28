@@ -424,12 +424,13 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   # FLEET VEHICLES
   # ===================
 
+  CATEGORY_PARKING = "_PARKING_"
   FLEET_VEHICLES = "_PARKING_FLEET_VEHICLES_"
 
   protected getter building_id : String { location_services.building_id.get.as_s }
 
   protected getter fleet_vehicle_asset_type : String do
-    cat = staff_api.asset_categories(hidden: true).get.as_a.find! { |cat| cat["name"].as_s == FLEET_VEHICLES }
+    cat = staff_api.asset_categories(hidden: true).get.as_a.find! { |cat| cat["name"].as_s == CATEGORY_PARKING }
     type = staff_api.asset_types(category_id: cat["id"].as_s).get.as_a.find! { |cat| cat["name"].as_s == FLEET_VEHICLES }
     type["id"].as_s
   end
@@ -512,7 +513,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   ASSIGNED_SPOTS = "_PARKING_SPACES_"
 
   protected getter space_assignment_asset_type : String do
-    cat = staff_api.asset_categories(hidden: true).get.as_a.find! { |asset| asset["name"].as_s == ASSIGNED_SPOTS }
+    cat = staff_api.asset_categories(hidden: true).get.as_a.find! { |asset| asset["name"].as_s == CATEGORY_PARKING }
     type = staff_api.asset_types(category_id: cat["id"].as_s).get.as_a.find! { |asset| asset["name"].as_s == ASSIGNED_SPOTS }
     type["id"].as_s
   end
