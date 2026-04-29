@@ -464,7 +464,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @[Security(Level::Support)]
   def signage_download_url(upload_id : String, ext : String = "jpg")
     uri = URI.parse(config.uri.as(String))
-    upload_id = Base64.urlsafe_encode(upload_id, padding: false).gsub("-", "+")
+    upload_id = Base64.urlsafe_encode(upload_id, padding: false)
     api_key = Base64.urlsafe_encode(@api_key, padding: false)
     uri.path = "/api/engine/v2/uploads/#{upload_id}/download/#{api_key}/false/i.#{ext}"
     uri.to_s
