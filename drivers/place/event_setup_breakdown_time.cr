@@ -152,7 +152,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     staff_api.patch_event_metadata(system_id: system_id, event_id: signal.event_id, metadata: NamedTuple.new, ical_uid: signal.event_ical_uid, setup_time: event.setup_time, breakdown_time: event.breakdown_time, setup_event_id: event.setup_event_id, breakdown_event_id: event.breakdown_event_id).get
   end
 
-  class PlaceCalendar::Event
+  class ::PlaceCalendar::Event
     property setup_time : Int64? = nil
     property breakdown_time : Int64? = nil
     property setup_event_id : String? = nil
@@ -192,7 +192,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     property event_ical_uid : String
     property host : String?
     property resource : String
-    property event : PlaceCalendar::Event
+    property event : ::PlaceCalendar::Event
     property ext_data : JSON::Any?
   end
 
