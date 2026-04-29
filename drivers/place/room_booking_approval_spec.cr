@@ -301,6 +301,42 @@ DriverSpecs.mock_driver "Place::RoomBookingApproval" do
   remaining.size.should eq(2)
 
   # ===================================================================
+  # accept_event / decline_event — also trigger debounced Bookings re-poll
+  # ===================================================================
+
+  settings({
+    disable_refresh_bookings: false,
+  })
+
+  sleep 0.5
+
+  exec(:find_bookings_for_approval).get
+
+  poll_before = system(:Bookings_1)[:poll_events_calls].as_i
+
+  exec(:accept_event,
+    calendar_id: "room5@example.com",
+    event_id: "tentative-event-1",
+  ).get
+
+  exec(:decline_event,
+    calendar_id: "room5@example.com",
+    event_id: "tentative-event-4",
+  ).get
+
+  sleep 11
+
+  # The debounced refresh should have triggered poll_events.
+  system(:Bookings_1)[:poll_events_calls].as_i.should be >= (poll_before + 1)
+
+  # Re-disable for the remaining non-debounce tests.
+  settings({
+    disable_refresh_bookings: true,
+  })
+
+  sleep 0.5
+
+  # ===================================================================
   # accept_recurring_event — with check_recurring_event_id: false (default)
   # Accepts a series by recurring_event_id and clears all occurrences.
   # ===================================================================
