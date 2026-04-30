@@ -556,12 +556,10 @@ class Place::VisitorMailer < PlaceOS::Driver
     logger.debug { "received booking changed payload: #{payload}" }
     details = BookingChanged.from_json payload
 
-    # Ignore create / cancel signals — only updates can carry visitor-relevant changes.
-    # We intentionally do NOT filter on action == "changed" because the bookings
-    # controller may label the signal "metadata_changed" even when visitor-relevant
-    # fields (time, location) have changed.  The field-diff check below is the
-    # authoritative gate.
-    return if details.action.in?("create", "cancelled")
+    # Only process actions that can carry visitor-relevant changes.
+    # Using an allowlist ensures new action types (e.g. "approved", "rejected",
+    # "checked_in") are ignored by default and don't trigger spurious emails.
+    return unless details.action.in?("changed", "metadata_changed")
 
     # ensure the event is for this building
     if zones = details.zones
@@ -617,41 +615,15 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
 
     guests = staff_api.booking_guests(details.id).get.as_a
-    guests.each do |guest|
-      visitor_email = guest["email"].as_s
-      visitor_name = guest["name"].as_s?
-
-      # don't email staff members
-      next if !@host_domain_filter.empty? && visitor_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
-
-      local_start_time = Time.unix(details.booking_start).in(@time_zone)
-
-      previous_date = details.previous_booking_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
-      previous_time = details.previous_booking_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@time_format) }
-
-      mailer.send_template(
-        visitor_email,
-        {"visitor_invited", @booking_changed_template},
-        {
-          visitor_email:          visitor_email,
-          visitor_name:           visitor_name,
-          host_name:              get_host_name(details.user_email),
-          host_email:             details.user_email,
-          room_name:              @booking_space_name,
-          building_name:          building_zone.display_name.presence || building_zone.name,
-          event_title:            details.title,
-          event_start:            local_start_time.to_s(@time_format),
-          event_date:             local_start_time.to_s(@date_format),
-          event_time:             local_start_time.to_s(@time_format),
-          previous_event_date:    previous_date,
-          previous_event_time:    previous_time,
-          previous_room_name:     previous_room_name,
-          previous_building_name: previous_building_name,
-        }
-      )
-    rescue error
-      logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
-    end
+    send_booking_changed_emails(
+      guests,
+      details.user_email,
+      details.booking_start,
+      details.title,
+      details.previous_booking_start,
+      previous_building_name,
+      previous_room_name,
+    )
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -710,42 +682,47 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     return unless fields_changed
 
-    guests = staff_api.event_guests(details.event_id, details.system_id).get.as_a
-    guests.each do |guest|
-      visitor_email = guest["email"].as_s
-      visitor_name = guest["name"].as_s?
+    # Resolve previous location names from previous_system_id when room changed.
+    # Default previous_room_name to "unknown" when we know there was a different
+    # previous system — if the lookup succeeds it will be overwritten with the
+    # real name; if it fails (rescue) the "unknown" default is preserved and the
+    # recipient can see that the original location could not be determined.
+    previous_building_name = building_zone.display_name.presence || building_zone.name
+    previous_room_name = @booking_space_name
 
-      # don't email staff members
-      next if !@host_domain_filter.empty? && visitor_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
-
-      local_start_time = Time.unix(details.event_start).in(@time_zone)
-
-      previous_date = details.previous_event_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
-      previous_time = details.previous_event_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@time_format) }
-
-      mailer.send_template(
-        visitor_email,
-        {"visitor_invited", @booking_changed_template},
-        {
-          visitor_email:          visitor_email,
-          visitor_name:           visitor_name,
-          host_name:              get_host_name(details.host),
-          host_email:             details.host,
-          room_name:              @booking_space_name,
-          building_name:          building_zone.display_name.presence || building_zone.name,
-          event_title:            details.title,
-          event_start:            local_start_time.to_s(@time_format),
-          event_date:             local_start_time.to_s(@date_format),
-          event_time:             local_start_time.to_s(@time_format),
-          previous_event_date:    previous_date,
-          previous_event_time:    previous_time,
-          previous_room_name:     @booking_space_name,
-          previous_building_name: building_zone.display_name.presence || building_zone.name,
-        }
-      )
-    rescue error
-      logger.warn(exception: error) { "failed to send event_changed email to #{visitor_email}" }
+    if (prev_sys_id = details.previous_system_id) && prev_sys_id != details.system_id
+      previous_room_name = "unknown"
+      begin
+        prev_sys = get_room_details(prev_sys_id)
+        previous_room_name = prev_sys.display_name.presence || prev_sys.name
+        if prev_zones = prev_sys.zones
+          prev_zones.each do |zone_id|
+            begin
+              zone = fetch_zone(zone_id)
+              if zone.tags.includes?(@invite_zone_tag)
+                previous_building_name = zone.display_name.presence || zone.name
+                break
+              end
+            rescue error
+              logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
+            end
+          end
+        end
+      rescue error
+        logger.warn(exception: error) { "error looking up previous system #{prev_sys_id}" }
+      end
     end
+
+    guests = staff_api.event_guests(details.event_id, details.system_id).get.as_a
+    send_booking_changed_emails(
+      guests,
+      details.host,
+      details.event_start,
+      details.title,
+      details.previous_event_start,
+      previous_building_name,
+      previous_room_name,
+    )
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -754,6 +731,55 @@ class Place::VisitorMailer < PlaceOS::Driver
       time:  Time.local.to_s,
       user:  payload,
     }
+  end
+
+  # Sends booking-changed notification emails to each visitor in the guest list.
+  # Used by both `booking_changed_event` and `event_changed_event` to avoid
+  # duplicating the per-guest iteration and template-argument construction.
+  private def send_booking_changed_emails(
+    guests : Array(JSON::Any),
+    host_email : String,
+    event_start : Int64,
+    event_title : String?,
+    previous_start : Int64?,
+    previous_building_name : String,
+    previous_room_name : String,
+  )
+    guests.each do |guest|
+      visitor_email = guest["email"].as_s
+      visitor_name = guest["name"].as_s?
+
+      # don't email staff members
+      next if !@host_domain_filter.empty? && visitor_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
+
+      local_start_time = Time.unix(event_start).in(@time_zone)
+
+      previous_date = previous_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
+      previous_time = previous_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@time_format) }
+
+      mailer.send_template(
+        visitor_email,
+        {"visitor_invited", @booking_changed_template},
+        {
+          visitor_email:          visitor_email,
+          visitor_name:           visitor_name,
+          host_name:              get_host_name(host_email),
+          host_email:             host_email,
+          room_name:              @booking_space_name,
+          building_name:          building_zone.display_name.presence || building_zone.name,
+          event_title:            event_title,
+          event_start:            local_start_time.to_s(@time_format),
+          event_date:             local_start_time.to_s(@date_format),
+          event_time:             local_start_time.to_s(@time_format),
+          previous_event_date:    previous_date,
+          previous_event_time:    previous_time,
+          previous_room_name:     previous_room_name,
+          previous_building_name: previous_building_name,
+        }
+      )
+    rescue error
+      logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
+    end
   end
 
   @[Security(Level::Support)]
@@ -934,6 +960,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     property name : String
     property display_name : String?
     property map_id : String?
+    property zones : Array(String)?
   end
 
   protected def get_room_details(system_id : String, retries = 0)

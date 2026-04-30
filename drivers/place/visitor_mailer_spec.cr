@@ -141,6 +141,19 @@ class StaffAPIMock < DriverSpecs::MockDriver
       },
     ]
   end
+
+  def get_system(id : String, complete : Bool = false)
+    case id
+    when "sys-room1"
+      {id: "sys-room1", name: "Room 1", display_name: "Conference Room 1", map_id: nil, zones: ["zone-building", "zone-room"]}
+    when "sys-old-room"
+      {id: "sys-old-room", name: "Room 202", display_name: "Old Conference Room 202", map_id: nil, zones: ["zone-old-building", "zone-old-room"]}
+    when "sys-error"
+      raise "system not found: #{id}"
+    else
+      {id: id, name: "Unknown Room", display_name: nil, map_id: nil, zones: [] of String}
+    end
+  end
 end
 
 DriverSpecs.mock_driver "Place::VisitorMailer" do
@@ -764,4 +777,101 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
   system(:Mailer)[:last_args]["event_title"].should eq "End Time Only Event"
+
+  # ------------------------------------------------------------------
+  # Test 18: event_changed with location change — previous_room_name and
+  #          previous_building_name show the PREVIOUS location, not the
+  #          current one. previous_system_id differs from system_id.
+  # ------------------------------------------------------------------
+
+  event_changed_prev_location = {
+    action:             "update",
+    system_id:          "sys-room1",
+    event_id:           "evt-108",
+    event_ical_uid:     "ical-108",
+    host:               "host@example.com",
+    resource:           "room1@example.com",
+    title:              "Location Change Meeting",
+    event_start:        now + 3600,
+    event_end:          now + 7200,
+    zones:              ["zone-building", "zone-room"],
+    previous_system_id: "sys-old-room",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_prev_location)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 14
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  args18 = system(:Mailer)[:last_args]
+  args18["event_title"].should eq "Location Change Meeting"
+  # previous location should come from the previous system (sys-old-room), NOT the current
+  args18["previous_room_name"].should eq "Old Conference Room 202"
+  args18["previous_building_name"].should eq "Previous Building"
+  # current location should remain correct
+  args18["room_name"].should eq "Client Floor"
+  args18["building_name"].should eq "Main Building"
+
+  # ------------------------------------------------------------------
+  # Test 18b: event_changed with an unresolvable previous_system_id.
+  #           get_room_details retries 4× with 1-second delays before
+  #           giving up, so previous_room_name must fall back to "unknown"
+  #           rather than silently showing the current room.
+  # Note: this test requires a longer sleep to accommodate the retries.
+  # ------------------------------------------------------------------
+
+  event_changed_error_system = {
+    action:             "update",
+    system_id:          "sys-room1",
+    event_id:           "evt-109",
+    event_ical_uid:     "ical-109",
+    host:               "host@example.com",
+    resource:           "room1@example.com",
+    title:              "Error System Meeting",
+    event_start:        now + 3600,
+    event_end:          now + 7200,
+    zones:              ["zone-building", "zone-room"],
+    previous_system_id: "sys-error",
+  }.to_json
+
+  count_before_18b = system(:Mailer)[:send_count].as_i
+  publish("staff/event/changed", event_changed_error_system)
+  sleep 6.0 # allow for 4× 1-second retries inside get_room_details
+
+  system(:Mailer)[:send_count].should eq count_before_18b + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  args18b = system(:Mailer)[:last_args]
+  args18b["event_title"].should eq "Error System Meeting"
+  args18b["previous_room_name"].should eq "unknown"
+
+  # ------------------------------------------------------------------
+  # Test 19: booking_changed with action "approved" that contains
+  #          previous_* field differences must NOT send an email.
+  #          Only "changed" and "metadata_changed" actions are relevant.
+  # ------------------------------------------------------------------
+
+  approved_payload_with_diff = {
+    action:                 "approved",
+    id:                     108_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Approved Booking",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  count_before_approved = system(:Mailer)[:send_count].as_i
+  publish("staff/booking/changed", approved_payload_with_diff)
+  sleep 0.5
+
+  # "approved" is not a visitor-notification action — no email should be sent
+  system(:Mailer)[:send_count].should eq count_before_approved
 end
