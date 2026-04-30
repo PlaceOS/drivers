@@ -83,6 +83,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Booking details have changed — notify all visitors if relevant fields changed
     monitor("staff/booking/changed") { |_subscription, payload| booking_changed_event(payload.gsub(/[^[:print:]]/, "")) }
 
+    # Calendar event details have changed — notify visitors / previous host
+    monitor("staff/event/changed") { |_subscription, payload| event_changed_event(payload.gsub(/[^[:print:]]/, "")) }
+
     on_update
   end
 
@@ -641,6 +644,97 @@ class Place::VisitorMailer < PlaceOS::Driver
       )
     rescue error
       logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
+    end
+  rescue error
+    logger.error { error.inspect_with_backtrace }
+    self[:error_count] = @error_count += 1
+    self[:last_error] = {
+      error: error.message,
+      time:  Time.local.to_s,
+      user:  payload,
+    }
+  end
+
+  protected def event_changed_event(payload)
+    logger.debug { "received event changed payload: #{payload}" }
+    details = EventChanged.from_json payload
+
+    # only respond to updates, not creates or cancellations
+    return unless details.action == "update"
+
+    # ensure the event is for this building
+    if zones = details.zones
+      check = [building_zone.id] + @parent_zone_ids
+
+      if (check & zones).empty?
+        logger.debug { "ignoring event_changed as does not match any zones: #{check}" }
+        return
+      end
+    end
+
+    # --- Host change notification (ticket #1) ---
+    if prev_host = details.previous_host_email
+      if prev_host.downcase != details.host.downcase
+        send_original_host_email(
+          @notify_original_host_template,
+          prev_host,
+          details.host,
+          details.title,
+          details.event_start,
+        )
+      end
+    end
+
+    # --- Date / time / location change notification (tickets #3, #4, #5) ---
+    fields_changed = false
+
+    # Date or time changed
+    if prev_start = details.previous_event_start
+      fields_changed = true if prev_start != details.event_start
+    end
+
+    # Location changed (system_id represents the room)
+    if prev_sys = details.previous_system_id
+      fields_changed = true if prev_sys != details.system_id
+    end
+
+    return unless fields_changed
+
+    guests = staff_api.event_guests(details.event_id, details.system_id).get.as_a
+    guests.each do |guest|
+      visitor_email = guest["email"].as_s
+      visitor_name = guest["name"].as_s?
+
+      # don't email staff members
+      next if !@host_domain_filter.empty? && visitor_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
+
+      local_start_time = Time.unix(details.event_start).in(@time_zone)
+
+      previous_date = details.previous_event_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
+      previous_time = details.previous_event_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@time_format) }
+
+      mailer.send_template(
+        visitor_email,
+        {"visitor_invited", @booking_changed_template},
+        {
+          visitor_email:          visitor_email,
+          visitor_name:           visitor_name,
+          host_name:              get_host_name(details.host),
+          host_email:             details.host,
+          room_name:              @booking_space_name,
+          building_name:          building_zone.display_name.presence || building_zone.name,
+          event_title:            details.title,
+          event_start:            local_start_time.to_s(@time_format),
+          event_date:             local_start_time.to_s(@date_format),
+          event_time:             local_start_time.to_s(@time_format),
+          previous_event_date:    previous_date,
+          previous_event_time:    previous_time,
+          previous_room_name:     @booking_space_name,
+          previous_building_name: building_zone.display_name.presence || building_zone.name,
+        }
+      )
+    rescue error
+      logger.warn(exception: error) { "failed to send event_changed email to #{visitor_email}" }
     end
   rescue error
     logger.error { error.inspect_with_backtrace }
