@@ -238,6 +238,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
   end
 
   protected def auto_approve?(booking : Booking) : Bool
+    # was the booking was manually approved (then we want to move to the next step)
+    return true if booking.approved
+
     # check booked_by and
     user_emails = [booking.booked_by_email.downcase, booking.user_email.downcase].uniq!
 
