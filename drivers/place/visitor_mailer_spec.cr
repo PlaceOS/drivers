@@ -346,4 +346,118 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 0.5
 
   system(:Mailer)[:send_count].should eq 3
+
+  # ==================================================================
+  # booking_host_changed_event tests
+  # ==================================================================
+
+  # ------------------------------------------------------------------
+  # Test 7: booking_host_changed — sends email to previous host
+  # ------------------------------------------------------------------
+
+  host_changed_payload = {
+    action:              "host_changed",
+    booking_id:          200_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_title:         "Team Standup",
+    event_summary:       "Team Standup Description",
+    event_starting:      now + 3600,
+    previous_host_email: "old-host@example.com",
+    new_host_email:      "new-host@example.com",
+    zones:               ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_payload)
+  sleep 1.5
+
+  # Email should be sent to the previous host
+  system(:Mailer)[:send_count].should eq 4
+  system(:Mailer)[:last_to].should eq "old-host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  # Verify all template args
+  args7 = system(:Mailer)[:last_args]
+  args7["previous_host_email"].should eq "old-host@example.com"
+  args7["previous_host_name"].should eq "Host User"
+  args7["new_host_email"].should eq "new-host@example.com"
+  args7["new_host_name"].should eq "Host User"
+  args7["building_name"].should eq "Main Building"
+  args7["event_title"].should eq "Team Standup"
+  args7["event_date"].should_not be_nil
+  args7["event_time"].should_not be_nil
+
+  # ------------------------------------------------------------------
+  # Test 8: booking_host_changed — wrong zone is ignored
+  # ------------------------------------------------------------------
+
+  host_changed_wrong_zone = {
+    action:              "host_changed",
+    booking_id:          201_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_title:         "Wrong Zone Meeting",
+    event_summary:       "Wrong Zone Meeting",
+    event_starting:      now + 3600,
+    previous_host_email: "old-host@example.com",
+    new_host_email:      "new-host@example.com",
+    zones:               ["zone-other-building"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_wrong_zone)
+  sleep 0.5
+
+  # Count should not have increased — event was for a different building
+  system(:Mailer)[:send_count].should eq 4
+
+  # ------------------------------------------------------------------
+  # Test 9: booking_host_changed — nil zones skips zone filter
+  # ------------------------------------------------------------------
+
+  host_changed_no_zones = {
+    action:              "host_changed",
+    booking_id:          202_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_title:         "No Zone Meeting",
+    event_summary:       "No Zone Meeting",
+    event_starting:      now + 7200,
+    previous_host_email: "old-host2@example.com",
+    new_host_email:      "new-host2@example.com",
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_no_zones)
+  sleep 1.5
+
+  # When zones are nil, zone filtering is skipped — email should be sent
+  system(:Mailer)[:send_count].should eq 5
+  system(:Mailer)[:last_to].should eq "old-host2@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  # ------------------------------------------------------------------
+  # Test 10: booking_host_changed — event_title nil falls back to
+  #          event_summary
+  # ------------------------------------------------------------------
+
+  host_changed_no_title = {
+    action:              "host_changed",
+    booking_id:          203_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_summary:       "Fallback Summary Title",
+    event_starting:      now + 3600,
+    previous_host_email: "old-host3@example.com",
+    new_host_email:      "new-host3@example.com",
+    zones:               ["zone-building"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_no_title)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 6
+  system(:Mailer)[:last_to].should eq "old-host3@example.com"
+
+  args10 = system(:Mailer)[:last_args]
+  # event_title is nil in the payload, so it falls back to event_summary
+  args10["event_title"].should eq "Fallback Summary Title"
 end
