@@ -153,8 +153,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     @event_template = setting?(String, :event_template) || "event"
     @booking_template = setting?(String, :booking_template) || "booking"
     @notify_checkin_template = setting?(String, :notify_checkin_template) || "notify_checkin"
-    @notify_induction_accepted_template = setting?(String, :induction_accepted) || "induction_accepted"
-    @notify_induction_declined_template = setting?(String, :induction_declined) || "induction_declined"
+    @notify_induction_accepted_template = setting?(String, :notify_induction_accepted_template) || "induction_accepted"
+    @notify_induction_declined_template = setting?(String, :notify_induction_declined_template) || "induction_declined"
     @notify_original_host_template = setting?(String, :notify_original_host_template) || "notify_original_host"
     @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
@@ -556,8 +556,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     logger.debug { "received booking changed payload: #{payload}" }
     details = BookingChanged.from_json payload
 
-    # only respond to full changes, not metadata-only updates
-    return unless details.action == "changed"
+    # Ignore create / cancel signals — only updates can carry visitor-relevant changes.
+    # We intentionally do NOT filter on action == "changed" because the bookings
+    # controller may label the signal "metadata_changed" even when visitor-relevant
+    # fields (time, location) have changed.  The field-diff check below is the
+    # authoritative gate.
+    return if details.action.in?("create", "cancelled")
 
     # ensure the event is for this building
     if zones = details.zones

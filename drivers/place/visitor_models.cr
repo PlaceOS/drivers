@@ -92,7 +92,7 @@ module Place
     property resource_id : String
     property resource_ids : Array(String)
     property event_title : String?
-    property event_summary : String
+    property event_summary : String?
     property event_starting : Int64
     property previous_host_email : String
     property new_host_email : String

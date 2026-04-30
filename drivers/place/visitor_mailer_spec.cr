@@ -358,6 +358,39 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   system(:Mailer)[:send_count].should eq 3
 
+  # ------------------------------------------------------------------
+  # Test 6b: booking_changed with "metadata_changed" action but time
+  #          window actually shrunk (e.g. 9am–5pm → 10am–4pm).
+  #          The driver should still send the notification because the
+  #          previous values differ from the current values.
+  # ------------------------------------------------------------------
+
+  changed_payload_shrunk = {
+    action:                 "metadata_changed",
+    id:                     106_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Shrunk Window Meeting",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 14400,
+  }.to_json
+
+  publish("staff/booking/changed", changed_payload_shrunk)
+  sleep 1.5
+
+  # Even though the action is "metadata_changed", the time genuinely
+  # changed so visitors must be notified.
+  system(:Mailer)[:send_count].should eq 4
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_args]["event_title"].should eq "Shrunk Window Meeting"
+
   # ==================================================================
   # booking_host_changed_event tests
   # ==================================================================
@@ -383,7 +416,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.5
 
   # Email should be sent to the previous host
-  system(:Mailer)[:send_count].should eq 4
+  system(:Mailer)[:send_count].should eq 5
   system(:Mailer)[:last_to].should eq "old-host@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
 
@@ -419,7 +452,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 0.5
 
   # Count should not have increased — event was for a different building
-  system(:Mailer)[:send_count].should eq 4
+  system(:Mailer)[:send_count].should eq 5
 
   # ------------------------------------------------------------------
   # Test 9: booking_host_changed — nil zones skips zone filter
@@ -441,7 +474,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.5
 
   # When zones are nil, zone filtering is skipped — email should be sent
-  system(:Mailer)[:send_count].should eq 5
+  system(:Mailer)[:send_count].should eq 6
   system(:Mailer)[:last_to].should eq "old-host2@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
 
@@ -465,12 +498,39 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/booking/host_changed", host_changed_no_title)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 6
+  system(:Mailer)[:send_count].should eq 7
   system(:Mailer)[:last_to].should eq "old-host3@example.com"
 
   args10 = system(:Mailer)[:last_args]
   # event_title is nil in the payload, so it falls back to event_summary
   args10["event_title"].should eq "Fallback Summary Title"
+
+  # ------------------------------------------------------------------
+  # Test 10b: booking_host_changed — both event_title and event_summary
+  #           are null (booking has no title or description).  Must not
+  #           crash during deserialisation.
+  # ------------------------------------------------------------------
+
+  host_changed_nil_summary = {
+    action:              "host_changed",
+    booking_id:          204_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_starting:      now + 3600,
+    previous_host_email: "old-host4@example.com",
+    new_host_email:      "new-host4@example.com",
+    zones:               ["zone-building"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_nil_summary)
+  sleep 1.5
+
+  # Email should still be sent — event_title falls back to nil gracefully
+  system(:Mailer)[:send_count].should eq 8
+  system(:Mailer)[:last_to].should eq "old-host4@example.com"
+
+  args10b = system(:Mailer)[:last_args]
+  args10b["event_title"].raw.should be_nil
 
   # ==================================================================
   # event_changed_event tests (staff/event/changed)
@@ -500,7 +560,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.5
 
   # Visitor should receive a booking_changed email
-  system(:Mailer)[:send_count].should eq 7
+  system(:Mailer)[:send_count].should eq 9
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
 
@@ -535,7 +595,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_location)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 8
+  system(:Mailer)[:send_count].should eq 10
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
 
@@ -564,7 +624,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_host)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 9
+  system(:Mailer)[:send_count].should eq 11
   system(:Mailer)[:last_to].should eq "old-organiser@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
 
@@ -595,7 +655,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 0.5
 
   # No email — create events have no previous state to diff against
-  system(:Mailer)[:send_count].should eq 9
+  system(:Mailer)[:send_count].should eq 11
 
   # ------------------------------------------------------------------
   # Test 15: event_changed — wrong zone is ignored
@@ -619,7 +679,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_wrong_zone)
   sleep 0.5
 
-  system(:Mailer)[:send_count].should eq 9
+  system(:Mailer)[:send_count].should eq 11
 
   # ------------------------------------------------------------------
   # Test 16: event_changed — no actual changes (previous == current)
@@ -644,5 +704,5 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_no_diff)
   sleep 0.5
 
-  system(:Mailer)[:send_count].should eq 9
+  system(:Mailer)[:send_count].should eq 11
 end
