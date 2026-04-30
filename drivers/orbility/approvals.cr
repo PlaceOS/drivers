@@ -170,16 +170,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def booking_changed(event)
     return unless event.booking_type == BOOKING_TYPE
     return unless event.zones.includes?(building_id)
-    return if event.recurring? # this will be an allocated parking spot
 
-    logger.debug { "booking_changed: parking request is in this building\n#{event}" }
+    booking = Booking.from_json(staff_api.get_booking(event.id).get.to_json)
+
+    return if booking.recurring? # this will be an allocated parking spot
+
+    logger.debug { "booking_changed: parking request is in this building\n#{booking.pretty_inspect}" }
 
     case event.action
     when "create"
       return if event.approved
-      @sync_mutex.synchronize { check_approval(event) }
+      @sync_mutex.synchronize { check_approval(booking) }
     when "cancelled", "rejected"
-      @sync_mutex.synchronize { cleanup_parking(event, event.action == "rejected") }
+      @sync_mutex.synchronize { cleanup_parking(booking, event.action == "rejected") }
       # when "changed"
       # we're ignoring change events
     else
