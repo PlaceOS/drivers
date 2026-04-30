@@ -581,6 +581,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     if prev_start = details.previous_booking_start
       fields_changed = true if prev_start != details.booking_start
     end
+    if prev_end = details.previous_booking_end
+      fields_changed = true if prev_end != details.booking_end
+    end
 
     # Location changed: zones identify the building/room the visitor should attend
     if prev_zones = details.previous_zones
@@ -695,6 +698,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Date or time changed
     if prev_start = details.previous_event_start
       fields_changed = true if prev_start != details.event_start
+    end
+    if prev_end = details.previous_event_end
+      fields_changed = true if prev_end != details.event_end
     end
 
     # Location changed (system_id represents the room)

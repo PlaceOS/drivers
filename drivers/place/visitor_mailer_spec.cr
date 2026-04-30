@@ -391,6 +391,36 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
   system(:Mailer)[:last_args]["event_title"].should eq "Shrunk Window Meeting"
 
+  # ------------------------------------------------------------------
+  # Test 6c: booking_changed with end-time-only change.
+  #          Start time and zones are the same, only the end time moved
+  #          earlier (e.g. 5pm → 3pm).  Visitors should still be notified.
+  # ------------------------------------------------------------------
+
+  changed_payload_end_only = {
+    action:                 "metadata_changed",
+    id:                     107_i64,
+    booking_type:           "desk",
+    booking_start:          now + 3600,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "End Time Only Change",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 14400,
+  }.to_json
+
+  publish("staff/booking/changed", changed_payload_end_only)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 5
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_args]["event_title"].should eq "End Time Only Change"
+
   # ==================================================================
   # booking_host_changed_event tests
   # ==================================================================
@@ -416,7 +446,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.5
 
   # Email should be sent to the previous host
-  system(:Mailer)[:send_count].should eq 5
+  system(:Mailer)[:send_count].should eq 6
   system(:Mailer)[:last_to].should eq "old-host@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
 
@@ -452,7 +482,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 0.5
 
   # Count should not have increased — event was for a different building
-  system(:Mailer)[:send_count].should eq 5
+  system(:Mailer)[:send_count].should eq 6
 
   # ------------------------------------------------------------------
   # Test 9: booking_host_changed — nil zones skips zone filter
@@ -474,7 +504,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.5
 
   # When zones are nil, zone filtering is skipped — email should be sent
-  system(:Mailer)[:send_count].should eq 6
+  system(:Mailer)[:send_count].should eq 7
   system(:Mailer)[:last_to].should eq "old-host2@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
 
@@ -498,7 +528,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/booking/host_changed", host_changed_no_title)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 7
+  system(:Mailer)[:send_count].should eq 8
   system(:Mailer)[:last_to].should eq "old-host3@example.com"
 
   args10 = system(:Mailer)[:last_args]
@@ -526,7 +556,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.5
 
   # Email should still be sent — event_title falls back to nil gracefully
-  system(:Mailer)[:send_count].should eq 8
+  system(:Mailer)[:send_count].should eq 9
   system(:Mailer)[:last_to].should eq "old-host4@example.com"
 
   args10b = system(:Mailer)[:last_args]
@@ -560,7 +590,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.5
 
   # Visitor should receive a booking_changed email
-  system(:Mailer)[:send_count].should eq 9
+  system(:Mailer)[:send_count].should eq 10
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
 
@@ -595,7 +625,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_location)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 10
+  system(:Mailer)[:send_count].should eq 11
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
 
@@ -624,7 +654,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_host)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 11
+  system(:Mailer)[:send_count].should eq 12
   system(:Mailer)[:last_to].should eq "old-organiser@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
 
@@ -655,7 +685,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 0.5
 
   # No email — create events have no previous state to diff against
-  system(:Mailer)[:send_count].should eq 11
+  system(:Mailer)[:send_count].should eq 12
 
   # ------------------------------------------------------------------
   # Test 15: event_changed — wrong zone is ignored
@@ -679,7 +709,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_wrong_zone)
   sleep 0.5
 
-  system(:Mailer)[:send_count].should eq 11
+  system(:Mailer)[:send_count].should eq 12
 
   # ------------------------------------------------------------------
   # Test 16: event_changed — no actual changes (previous == current)
@@ -704,5 +734,34 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_no_diff)
   sleep 0.5
 
-  system(:Mailer)[:send_count].should eq 11
+  system(:Mailer)[:send_count].should eq 12
+
+  # ------------------------------------------------------------------
+  # Test 17: event_changed with end-time-only change.
+  #          Start time and system_id are the same, only the end time
+  #          moved earlier.  Visitors should still be notified.
+  # ------------------------------------------------------------------
+
+  event_changed_end_only = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-106",
+    event_ical_uid:       "ical-106",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "End Time Only Event",
+    event_start:          now + 3600,
+    event_end:            now + 7200,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 10800,
+  }.to_json
+
+  publish("staff/event/changed", event_changed_end_only)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 13
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_args]["event_title"].should eq "End Time Only Event"
 end
