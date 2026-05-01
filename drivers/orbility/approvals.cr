@@ -111,10 +111,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Parking Spaces
   # ===================================
 
-  PARKING_SPACES = "_PARKING_SPACES_"
+  PARKING_CATEGORY = "_PARKING_"
+  PARKING_SPACES   = "_PARKING_SPACES_"
 
   protected getter parking_spaces_asset_type : String do
-    category = staff_api.asset_categories(hidden: true).get.as_a.find { |cat| cat["name"].as_s == PARKING_SPACES }
+    category = staff_api.asset_categories(hidden: true).get.as_a.find { |cat| cat["name"].as_s == PARKING_CATEGORY }
     raise "no parking space asset category (#{PARKING_SPACES})" unless category
     type = staff_api.asset_types(category_id: category["id"].as_s).get.as_a.find! { |cat| cat["name"].as_s == PARKING_SPACES }
     type["id"].as_s
@@ -129,7 +130,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
   end
 
   # ===================================
-  # Assigned desks
+  # Assigned desks (used to check if user works in the building)
   # TODO:: migrate to asset version
   # ===================================
 
