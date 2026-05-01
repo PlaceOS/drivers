@@ -22,6 +22,15 @@ restore_git_worktree() {
 # that points to an absolute path the container cannot see. Detect this and
 # temporarily replace it with a self-contained repo for the duration of the run.
 setup_git_for_harness() {
+  # Recover from a previous run that was killed before the EXIT trap could fire.
+  # If the backup exists, the current .git is a leftover temp repo — restore the
+  # real worktree pointer before proceeding.
+  if [ -f "${PWD}/.git.worktree-bak" ]; then
+    echo '░░░ Stale worktree backup found — restoring from previous interrupted run...'
+    rm -rf "${PWD}/.git"
+    mv "${PWD}/.git.worktree-bak" "${PWD}/.git"
+  fi
+
   if [ -f "${PWD}/.git" ]; then
     echo '░░░ Git worktree detected, creating temporary repo for harness...'
     _WORKTREE_BACKUP="${PWD}/.git.worktree-bak"

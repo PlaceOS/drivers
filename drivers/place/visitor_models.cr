@@ -92,7 +92,7 @@ module Place
     property resource_id : String
     property resource_ids : Array(String)
     property event_title : String?
-    property event_summary : String
+    property event_summary : String?
     property event_starting : Int64
     property previous_host_email : String
     property new_host_email : String
@@ -125,5 +125,28 @@ module Place
     property previous_booking_start : Int64?
     property previous_booking_end : Int64?
     property previous_zones : Array(String)?
+  end
+
+  # Standalone model for the staff/event/changed channel.
+  # Used to notify visitors when calendar event details they care about have changed.
+  class EventChanged
+    include JSON::Serializable
+
+    property action : String
+    property system_id : String
+    property event_id : String
+    property event_ical_uid : String?
+    property host : String
+    property resource : String?
+    property title : String?
+    property event_start : Int64
+    property event_end : Int64
+    property zones : Array(String)?
+
+    # Previous values — only present when action is "update" and the meta was persisted.
+    property previous_event_start : Int64?
+    property previous_event_end : Int64?
+    property previous_system_id : String?
+    property previous_host_email : String?
   end
 end
