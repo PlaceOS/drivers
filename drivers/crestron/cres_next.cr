@@ -48,13 +48,25 @@ abstract class Crestron::CresNext < PlaceOS::Driver
       raw_json = String.new(data)
       logger.debug { "Crestron sent: #{raw_json}" }
 
-      # check if the response path is included
-      unless parts.map(&.in?(raw_json)).includes?(false)
-        # Just grab the relevant data as the response is deeply nested
-        json = JSON.parse(raw_json)
-        tokens.each { |key| json = json[key] }
-        block.call json, task
-        task.success json
+      # The device occasionally returns multiple JSON objects in a single
+      # frame (e.g. an "Actions"/"Results" ack followed by the state update),
+      # separated by a blank line. Parse each line independently.
+      raw_json.each_line do |line|
+        line = line.strip
+        next if line.empty?
+
+        # only consider lines that include the full response path
+        next unless parts.all? { |p| line.includes?(p) }
+
+        begin
+          json = JSON.parse(line)
+          tokens.each { |key| json = json[key] }
+          block.call json, task
+          task.success json
+          break
+        rescue error
+          logger.warn(exception: error) { "failed to parse Crestron query response line: #{line}" }
+        end
       end
     end
   end
@@ -75,8 +87,19 @@ abstract class Crestron::CresNext < PlaceOS::Driver
       raw_json = String.new(data)
       logger.debug { "Crestron sent: #{raw_json}" }
 
-      if raw_json.includes? %("Results":)
-        task.success JSON.parse(raw_json)
+      # The device may bundle the Actions/Results ack with a state update in
+      # the same frame, so we walk each line and only parse the ack line.
+      raw_json.each_line do |line|
+        line = line.strip
+        next if line.empty?
+        next unless line.includes? %("Results":)
+
+        begin
+          task.success JSON.parse(line)
+          break
+        rescue error
+          logger.warn(exception: error) { "failed to parse Crestron ws update response: #{line}" }
+        end
       end
     end
   end
