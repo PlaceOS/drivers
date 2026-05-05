@@ -10,16 +10,16 @@ DriverSpecs.mock_driver "Exterity::AvediaPlayer::R92xx" do
 
   status[:ready].should eq(false)
   responds("Exterity Control Interface\r")
-  sleep(2)
+
   status[:ready].should eq(true)
 
   exec(:version)
   responds("^SoftwareVersion:123!\r")
-  sleep(2)
+
   status[:version].should eq("123")
 
   exec(:tv_info)
   responds("^tv_info:a,b,c,d,e,f,g!\r")
-  sleep(2)
+
   status[:tv_info].should eq("a,b,c,d,e,f,g")
 end

@@ -4,7 +4,7 @@ DriverSpecs.mock_driver "Denon::Amplifier::AvReceiver" do
   ####
   # POWER
   #
-  sleep 1.second
+
   # query power
   exec(:power?)
   should_send("PW?")
@@ -24,7 +24,7 @@ DriverSpecs.mock_driver "Denon::Amplifier::AvReceiver" do
   ####
   # INPUT
   #
-  sleep 1.second
+
   # query input > DVD
   exec(:input?)
   should_send("SI?")
@@ -39,7 +39,7 @@ DriverSpecs.mock_driver "Denon::Amplifier::AvReceiver" do
   ####
   # VOLUME
   #
-  sleep 1.second
+
   # query
   exec(:volume?)
   should_send("MV?")
@@ -54,7 +54,7 @@ DriverSpecs.mock_driver "Denon::Amplifier::AvReceiver" do
   ####
   # MUTE
   #
-  sleep 1.second
+
   # query
   exec(:mute?)
   should_send("MU?")

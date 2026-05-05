@@ -15,7 +15,6 @@ DriverSpecs.mock_driver "Sharp::PnSeries" do
   })
 
   # Retrying send_credentials
-  sleep 5
   should_send("user\x0D\x0A")
   responds("OK\x0D\x0A")
   should_send("pass\x0D\x0A")
@@ -43,7 +42,7 @@ DriverSpecs.mock_driver "Sharp::PnSeries" do
   should_send("INPS0010\x0D\x0A")
   responds("WAIT\x0D\x0A")
   responds("OK\x0D\x0A")
-  sleep 2
+
   should_send("INPS????\x0D\x0A")
   responds("INPS  10\x0D\x0A")
   status[:input].should eq("HDMI")

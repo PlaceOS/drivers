@@ -105,8 +105,6 @@ DriverSpecs.mock_driver "Cisco::Meraki::Locations" do
     StaffAPI:   {StaffAPIMock},
   })
 
-  sleep 0.5
-
   # Should standardise the format of MAC addresses
   exec(:format_mac, "0x12:34:A6-789B").get.should eq %(1234a6789b)
 

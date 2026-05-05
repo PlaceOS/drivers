@@ -31,7 +31,7 @@ DriverSpecs.mock_driver "ScreenTechnics::Connect" do
     # * stop command
     # * down command
     # * status request
-    sleep 1.second
+
     should_send("36, 19\r\n", timeout: 1.second)
     responds("136, 1, 19\r\n")
 
@@ -41,7 +41,6 @@ DriverSpecs.mock_driver "ScreenTechnics::Connect" do
     # Execute the emergency stop and request another down request
     exec(:stop, index: 2, emergency: true) do |response|
       exec(:move, "Down", 2)
-      sleep 500.milliseconds
 
       # --> respond to the down command
       responds("133, 1, 19, 1\r\n")

@@ -2,7 +2,6 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Cisco::Switch::SnoopingCatalyst" do
   transmit "SG-MARWFA61301>"
-  sleep 1.5.seconds
 
   should_send "show interfaces status\n"
   transmit "show interfaces status\n"
@@ -30,8 +29,6 @@ Te4/1/4                      connected    trunk        full    10G SFP-10GBase-S
 Po1                          connected    trunk      a-full  a-10G
 )
 
-  sleep 3.1.seconds
-
   should_send "show mac address-table\n"
   transmit "show mac address-table\n"
 
@@ -39,8 +36,6 @@ Po1                          connected    trunk      a-full  a-10G
 33    e4b9.7aa5.aa7f    STATIC      Gi3/0/8
 10    f4db.e618.10a4    DYNAMIC     Te2/0/40
 )
-
-  sleep 3.1.seconds
 
   should_send "show ip dhcp snooping binding\n"
   transmit %(MacAddress          IpAddress        Lease(sec)  Type           VLAN  Interface
