@@ -651,7 +651,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    # --- Host change notification (ticket #1) ---
+    # --- Host change notification
     if prev_host = details.previous_host_email
       if prev_host.downcase != details.host.downcase
         send_original_host_email(
@@ -664,7 +664,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    # --- Date / time / location change notification (tickets #3, #4, #5) ---
+    # --- Date / time / location change notification
     fields_changed = false
 
     # Date or time changed
@@ -734,8 +734,6 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   # Sends booking-changed notification emails to each visitor in the guest list.
-  # Used by both `booking_changed_event` and `event_changed_event` to avoid
-  # duplicating the per-guest iteration and template-argument construction.
   private def send_booking_changed_emails(
     guests : Array(JSON::Any),
     host_email : String,
