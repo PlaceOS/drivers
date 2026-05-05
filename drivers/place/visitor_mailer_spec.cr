@@ -130,6 +130,30 @@ class StaffAPIMock < DriverSpecs::MockDriver
       },
     ]
   end
+
+  def event_guests(event_id : String, system_id : String)
+    [
+      {
+        email:          "visitor@external.com",
+        name:           "Visitor One",
+        checked_in:     false,
+        visit_expected: true,
+      },
+    ]
+  end
+
+  def get_system(id : String, complete : Bool = false)
+    case id
+    when "sys-room1"
+      {id: "sys-room1", name: "Room 1", display_name: "Conference Room 1", map_id: nil, zones: ["zone-building", "zone-room"]}
+    when "sys-old-room"
+      {id: "sys-old-room", name: "Room 202", display_name: "Old Conference Room 202", map_id: nil, zones: ["zone-old-building", "zone-old-room"]}
+    when "sys-error"
+      raise "system not found: #{id}"
+    else
+      {id: id, name: "Unknown Room", display_name: nil, map_id: nil, zones: [] of String}
+    end
+  end
 end
 
 DriverSpecs.mock_driver "Place::VisitorMailer" do
@@ -346,4 +370,508 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 0.5
 
   system(:Mailer)[:send_count].should eq 3
+
+  # ------------------------------------------------------------------
+  # Test 6b: booking_changed with "metadata_changed" action but time
+  #          window actually shrunk (e.g. 9am–5pm → 10am–4pm).
+  #          The driver should still send the notification because the
+  #          previous values differ from the current values.
+  # ------------------------------------------------------------------
+
+  changed_payload_shrunk = {
+    action:                 "metadata_changed",
+    id:                     106_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Shrunk Window Meeting",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 14400,
+  }.to_json
+
+  publish("staff/booking/changed", changed_payload_shrunk)
+  sleep 1.5
+
+  # Even though the action is "metadata_changed", the time genuinely
+  # changed so visitors must be notified.
+  system(:Mailer)[:send_count].should eq 4
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_args]["event_title"].should eq "Shrunk Window Meeting"
+
+  # ------------------------------------------------------------------
+  # Test 6c: booking_changed with end-time-only change.
+  #          Start time and zones are the same, only the end time moved
+  #          earlier (e.g. 5pm → 3pm).  Visitors should still be notified.
+  # ------------------------------------------------------------------
+
+  changed_payload_end_only = {
+    action:                 "metadata_changed",
+    id:                     107_i64,
+    booking_type:           "desk",
+    booking_start:          now + 3600,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "End Time Only Change",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 14400,
+  }.to_json
+
+  publish("staff/booking/changed", changed_payload_end_only)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 5
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_args]["event_title"].should eq "End Time Only Change"
+
+  # ==================================================================
+  # booking_host_changed_event tests
+  # ==================================================================
+
+  # ------------------------------------------------------------------
+  # Test 7: booking_host_changed — sends email to previous host
+  # ------------------------------------------------------------------
+
+  host_changed_payload = {
+    action:              "host_changed",
+    booking_id:          200_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_title:         "Team Standup",
+    event_summary:       "Team Standup Description",
+    event_starting:      now + 3600,
+    previous_host_email: "old-host@example.com",
+    new_host_email:      "new-host@example.com",
+    zones:               ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_payload)
+  sleep 1.5
+
+  # Email should be sent to the previous host
+  system(:Mailer)[:send_count].should eq 6
+  system(:Mailer)[:last_to].should eq "old-host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  # Verify all template args
+  args7 = system(:Mailer)[:last_args]
+  args7["previous_host_email"].should eq "old-host@example.com"
+  args7["previous_host_name"].should eq "Host User"
+  args7["new_host_email"].should eq "new-host@example.com"
+  args7["new_host_name"].should eq "Host User"
+  args7["building_name"].should eq "Main Building"
+  args7["event_title"].should eq "Team Standup"
+  args7["event_date"].should_not be_nil
+  args7["event_time"].should_not be_nil
+
+  # ------------------------------------------------------------------
+  # Test 8: booking_host_changed — wrong zone is ignored
+  # ------------------------------------------------------------------
+
+  host_changed_wrong_zone = {
+    action:              "host_changed",
+    booking_id:          201_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_title:         "Wrong Zone Meeting",
+    event_summary:       "Wrong Zone Meeting",
+    event_starting:      now + 3600,
+    previous_host_email: "old-host@example.com",
+    new_host_email:      "new-host@example.com",
+    zones:               ["zone-other-building"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_wrong_zone)
+  sleep 0.5
+
+  # Count should not have increased — event was for a different building
+  system(:Mailer)[:send_count].should eq 6
+
+  # ------------------------------------------------------------------
+  # Test 9: booking_host_changed — nil zones skips zone filter
+  # ------------------------------------------------------------------
+
+  host_changed_no_zones = {
+    action:              "host_changed",
+    booking_id:          202_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_title:         "No Zone Meeting",
+    event_summary:       "No Zone Meeting",
+    event_starting:      now + 7200,
+    previous_host_email: "old-host2@example.com",
+    new_host_email:      "new-host2@example.com",
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_no_zones)
+  sleep 1.5
+
+  # When zones are nil, zone filtering is skipped — email should be sent
+  system(:Mailer)[:send_count].should eq 7
+  system(:Mailer)[:last_to].should eq "old-host2@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  # ------------------------------------------------------------------
+  # Test 10: booking_host_changed — event_title nil falls back to
+  #          event_summary
+  # ------------------------------------------------------------------
+
+  host_changed_no_title = {
+    action:              "host_changed",
+    booking_id:          203_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_summary:       "Fallback Summary Title",
+    event_starting:      now + 3600,
+    previous_host_email: "old-host3@example.com",
+    new_host_email:      "new-host3@example.com",
+    zones:               ["zone-building"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_no_title)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 8
+  system(:Mailer)[:last_to].should eq "old-host3@example.com"
+
+  args10 = system(:Mailer)[:last_args]
+  # event_title is nil in the payload, so it falls back to event_summary
+  args10["event_title"].should eq "Fallback Summary Title"
+
+  # ------------------------------------------------------------------
+  # Test 10b: booking_host_changed — both event_title and event_summary
+  #           are null (booking has no title or description).  Must not
+  #           crash during deserialisation.
+  # ------------------------------------------------------------------
+
+  host_changed_nil_summary = {
+    action:              "host_changed",
+    booking_id:          204_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_starting:      now + 3600,
+    previous_host_email: "old-host4@example.com",
+    new_host_email:      "new-host4@example.com",
+    zones:               ["zone-building"],
+  }.to_json
+
+  publish("staff/booking/host_changed", host_changed_nil_summary)
+  sleep 1.5
+
+  # Email should still be sent — event_title falls back to nil gracefully
+  system(:Mailer)[:send_count].should eq 9
+  system(:Mailer)[:last_to].should eq "old-host4@example.com"
+
+  args10b = system(:Mailer)[:last_args]
+  args10b["event_title"].raw.should be_nil
+
+  # ==================================================================
+  # event_changed_event tests (staff/event/changed)
+  # ==================================================================
+
+  # ------------------------------------------------------------------
+  # Test 11: event_changed with time change — sends booking_changed
+  #          emails to all visitors on the event
+  # ------------------------------------------------------------------
+
+  event_changed_time = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-100",
+    event_ical_uid:       "ical-100",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Quarterly Review",
+    event_start:          now + 7200,
+    event_end:            now + 10800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 7200,
+  }.to_json
+
+  publish("staff/event/changed", event_changed_time)
+  sleep 1.5
+
+  # Visitor should receive a booking_changed email
+  system(:Mailer)[:send_count].should eq 10
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  args11 = system(:Mailer)[:last_args]
+  args11["host_name"].should eq "Host User"
+  args11["host_email"].should eq "host@example.com"
+  args11["event_title"].should eq "Quarterly Review"
+  args11["building_name"].should eq "Main Building"
+  # previous dates should be present
+  args11["previous_event_date"].should_not be_nil
+  args11["previous_event_time"].should_not be_nil
+
+  # ------------------------------------------------------------------
+  # Test 12: event_changed with location change (system_id differs) —
+  #          sends booking_changed emails to visitors
+  # ------------------------------------------------------------------
+
+  event_changed_location = {
+    action:             "update",
+    system_id:          "sys-room1",
+    event_id:           "evt-101",
+    event_ical_uid:     "ical-101",
+    host:               "host@example.com",
+    resource:           "room1@example.com",
+    title:              "Sprint Planning",
+    event_start:        now + 3600,
+    event_end:          now + 7200,
+    zones:              ["zone-building", "zone-room"],
+    previous_system_id: "sys-old-room",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_location)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 11
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  args12 = system(:Mailer)[:last_args]
+  args12["event_title"].should eq "Sprint Planning"
+
+  # ------------------------------------------------------------------
+  # Test 13: event_changed with host change — sends host-change
+  #          notification to the previous host
+  # ------------------------------------------------------------------
+
+  event_changed_host = {
+    action:              "update",
+    system_id:           "sys-room1",
+    event_id:            "evt-102",
+    event_ical_uid:      "ical-102",
+    host:                "new-organiser@example.com",
+    resource:            "room1@example.com",
+    title:               "Design Review",
+    event_start:         now + 3600,
+    event_end:           now + 7200,
+    zones:               ["zone-building"],
+    previous_host_email: "old-organiser@example.com",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_host)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 12
+  system(:Mailer)[:last_to].should eq "old-organiser@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  args13 = system(:Mailer)[:last_args]
+  args13["previous_host_email"].should eq "old-organiser@example.com"
+  args13["new_host_email"].should eq "new-organiser@example.com"
+  args13["event_title"].should eq "Design Review"
+
+  # ------------------------------------------------------------------
+  # Test 14: event_changed — action "create" is ignored (no previous
+  #          values to compare)
+  # ------------------------------------------------------------------
+
+  event_created_payload = {
+    action:         "create",
+    system_id:      "sys-room1",
+    event_id:       "evt-103",
+    event_ical_uid: "ical-103",
+    host:           "host@example.com",
+    resource:       "room1@example.com",
+    title:          "New Meeting",
+    event_start:    now + 3600,
+    event_end:      now + 7200,
+    zones:          ["zone-building"],
+  }.to_json
+
+  publish("staff/event/changed", event_created_payload)
+  sleep 0.5
+
+  # No email — create events have no previous state to diff against
+  system(:Mailer)[:send_count].should eq 12
+
+  # ------------------------------------------------------------------
+  # Test 15: event_changed — wrong zone is ignored
+  # ------------------------------------------------------------------
+
+  event_changed_wrong_zone = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-104",
+    event_ical_uid:       "ical-104",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Offsite Meeting",
+    event_start:          now + 7200,
+    event_end:            now + 10800,
+    zones:                ["zone-other-building"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 7200,
+  }.to_json
+
+  publish("staff/event/changed", event_changed_wrong_zone)
+  sleep 0.5
+
+  system(:Mailer)[:send_count].should eq 12
+
+  # ------------------------------------------------------------------
+  # Test 16: event_changed — no actual changes (previous == current)
+  #          does not send email
+  # ------------------------------------------------------------------
+
+  event_changed_no_diff = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-105",
+    event_ical_uid:       "ical-105",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Unchanged Meeting",
+    event_start:          now + 3600,
+    event_end:            now + 7200,
+    zones:                ["zone-building"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 7200,
+  }.to_json
+
+  publish("staff/event/changed", event_changed_no_diff)
+  sleep 0.5
+
+  system(:Mailer)[:send_count].should eq 12
+
+  # ------------------------------------------------------------------
+  # Test 17: event_changed with end-time-only change.
+  #          Start time and system_id are the same, only the end time
+  #          moved earlier.  Visitors should still be notified.
+  # ------------------------------------------------------------------
+
+  event_changed_end_only = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-106",
+    event_ical_uid:       "ical-106",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "End Time Only Event",
+    event_start:          now + 3600,
+    event_end:            now + 7200,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 10800,
+  }.to_json
+
+  publish("staff/event/changed", event_changed_end_only)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 13
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_args]["event_title"].should eq "End Time Only Event"
+
+  # ------------------------------------------------------------------
+  # Test 18: event_changed with location change — previous_room_name and
+  #          previous_building_name show the PREVIOUS location, not the
+  #          current one. previous_system_id differs from system_id.
+  # ------------------------------------------------------------------
+
+  event_changed_prev_location = {
+    action:             "update",
+    system_id:          "sys-room1",
+    event_id:           "evt-108",
+    event_ical_uid:     "ical-108",
+    host:               "host@example.com",
+    resource:           "room1@example.com",
+    title:              "Location Change Meeting",
+    event_start:        now + 3600,
+    event_end:          now + 7200,
+    zones:              ["zone-building", "zone-room"],
+    previous_system_id: "sys-old-room",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_prev_location)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq 14
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  args18 = system(:Mailer)[:last_args]
+  args18["event_title"].should eq "Location Change Meeting"
+  # previous location should come from the previous system (sys-old-room), NOT the current
+  args18["previous_room_name"].should eq "Old Conference Room 202"
+  args18["previous_building_name"].should eq "Previous Building"
+  # current location should remain correct
+  args18["room_name"].should eq "Client Floor"
+  args18["building_name"].should eq "Main Building"
+
+  # ------------------------------------------------------------------
+  # Test 18b: event_changed with an unresolvable previous_system_id.
+  #           get_room_details retries 4× with 1-second delays before
+  #           giving up, so previous_room_name must fall back to "unknown"
+  #           rather than silently showing the current room.
+  # Note: this test requires a longer sleep to accommodate the retries.
+  # ------------------------------------------------------------------
+
+  event_changed_error_system = {
+    action:             "update",
+    system_id:          "sys-room1",
+    event_id:           "evt-109",
+    event_ical_uid:     "ical-109",
+    host:               "host@example.com",
+    resource:           "room1@example.com",
+    title:              "Error System Meeting",
+    event_start:        now + 3600,
+    event_end:          now + 7200,
+    zones:              ["zone-building", "zone-room"],
+    previous_system_id: "sys-error",
+  }.to_json
+
+  count_before_18b = system(:Mailer)[:send_count].as_i
+  publish("staff/event/changed", event_changed_error_system)
+  sleep 6.0 # allow for 4× 1-second retries inside get_room_details
+
+  system(:Mailer)[:send_count].should eq count_before_18b + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  args18b = system(:Mailer)[:last_args]
+  args18b["event_title"].should eq "Error System Meeting"
+  args18b["previous_room_name"].should eq "unknown"
+
+  # ------------------------------------------------------------------
+  # Test 19: booking_changed with action "approved" that contains
+  #          previous_* field differences must NOT send an email.
+  #          Only "changed" and "metadata_changed" actions are relevant.
+  # ------------------------------------------------------------------
+
+  approved_payload_with_diff = {
+    action:                 "approved",
+    id:                     108_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Approved Booking",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  count_before_approved = system(:Mailer)[:send_count].as_i
+  publish("staff/booking/changed", approved_payload_with_diff)
+  sleep 0.5
+
+  # "approved" is not a visitor-notification action — no email should be sent
+  system(:Mailer)[:send_count].should eq count_before_approved
 end
