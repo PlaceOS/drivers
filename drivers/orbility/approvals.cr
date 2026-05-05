@@ -5,6 +5,9 @@ require "place_calendar"
 require "../place/booking_model"
 require "./parking_rest_api_models"
 
+require "goban"
+require "goban/exporters/png"
+
 # reserved parking spaces
 # check if any of these have been made available
 # fetch the parking bookings
@@ -505,11 +508,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
     local_end_time = Time.unix(booking.booking_end).in(@timezone)
 
     if json = booking.extension_data["orbility_id"]?
-      qr_content = "MPK_RES=#{json.as_s}"
+      qr = Goban::QR.encode_string("MPK_RES=#{json.as_s}", Goban::ECC::Level::Medium)
+      io = IO::Memory.new
+      Goban::PNGExporter.export(qr, io, 500)
+
       attach = [
         {
           file_name:  "qr.png",
-          content:    qr_content,
+          content:    Base64.strict_encode(io),
           content_id: user_email,
         },
       ]
