@@ -330,8 +330,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
 
     booking_number = orbility.add_booking(Orbility::PreBooking.new(
-      start_date: Time.unix(booking.booking_start),
-      end_date: Time.unix(booking.booking_end),
+      start_date: Time.unix(booking.booking_start).in(@timezone),
+      end_date: Time.unix(booking.booking_end).in(@timezone),
       user_info: Orbility::UserInfo.new(booking.user_name, license_plate),
       access: Orbility::Access.new(:multi_pass, @orbility_product_id),
     )).get.as_s
