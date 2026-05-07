@@ -21,7 +21,7 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   end
 
   default_settings({
-    # how many minutes until we want to prompt the user
+    # how many minutes until we want to prompt the user.
     prompt_after:    10,
     auto_cancel:     false,
     decline_message: "optionally use this instead of a custom email template",
