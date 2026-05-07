@@ -165,6 +165,12 @@ module Gallagher
 
     property from : Time? = nil
     property until : Time? = nil
+
+    def expired? : Bool
+      expires = self.until
+      return false unless expires
+      expires < Time.now
+    end
   end
 
   class CardholderAccessGroup

@@ -299,8 +299,8 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
           end
         rescue error
           access_required[user_email] = allocations[user_email]
+          @notify_no_swipe_card << user_email if add.includes?(user_email)
           add.delete(user_email)
-          @notify_no_swipe_card << user_email
           msg = "failed to remove #{user_email} from security zones"
           errors << msg
           logger.warn(exception: error) { msg }
@@ -320,6 +320,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             rescue error
               # remove the user from the recorded zone so it can be added in a later sync
               access_required[user_email].delete zone
+              @notify_no_swipe_card << user_email
               msg = "failed to add #{user_email} to security zone: #{zone}"
               errors << msg
               logger.warn(exception: error) { msg }
