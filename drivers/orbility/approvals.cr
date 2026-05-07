@@ -319,8 +319,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     license_plates.reject! { |plate| plate.blank? || plate.size > 12 }
   end
 
-  # creates a pre-booking and saves the parking ID to the booking
-  protected def create_parking_booking(booking : Booking)
+  protected def get_license_plate(booking : Booking) : String?
     license_plate = booking.extension_data["plate_number"]?.try(&.as_s).presence
     license_plate = nil if license_plate && license_plate.size > 12
 
@@ -331,6 +330,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
                         user_plates(user).first?
                       end
     end
+
+    license_plate
+  end
+
+  # creates a pre-booking and saves the parking ID to the booking
+  protected def create_parking_booking(booking : Booking)
+    license_plate = get_license_plate(booking)
 
     booking_number = orbility.add_booking(Orbility::PreBooking.new(
       start_date: Time.unix(booking.booking_start).in(@timezone),
@@ -348,7 +354,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     ).get
 
     # email QR code to user
-    approved_email(booking)
+    approved_email(booking, license_plate)
   end
 
   # ===================================
@@ -406,7 +412,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
       else
         # the booking state will prevent duplicate emails being sent
         if booking.extension_data.has_key?("orbility_id")
-          approved_email(booking)
+          license_plate = get_license_plate(booking)
+          approved_email(booking, license_plate)
         else
           create_parking_booking(booking)
         end
@@ -471,6 +478,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
         trigger: {"parking_request", "approved"},
         name: "Parking Approved",
         description: "Provides the recipient a QR code for free parking at the specified time",
+        fields: common_fields + [{name: "license_plate", description: "The license plate associated with the booking"}]
+      ),
+      TemplateFields.new(
+        trigger: {"parking_request", "approved_no_plate"},
+        name: "Parking Approved, No License Plate",
+        description: "Provides the recipient a QR code for free parking, no lisence plate provided",
         fields: common_fields
       ),
       TemplateFields.new(
@@ -500,7 +513,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     ]
   end
 
-  protected def approved_email(booking : Booking)
+  protected def approved_email(booking : Booking, license_plate : String?)
     return if booking.process_state == "qr_sent"
 
     user_email = booking.user_email
@@ -530,6 +543,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
                      "#{event_span.total_hours}hours"
                    end
 
+    email_type = license_plate.presence ? "approved" : "approved_no_plate"
+
     mailer.send_template(
       user_email,
       {"parking_request", "approved"}, # Template selection: "visitor_invited" action, "visitor" email
@@ -540,6 +555,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       parking_start: local_start_time.to_s(@time_format),
       parking_date:  local_start_time.to_s(@date_format),
       parking_time:  event_period,
+      license_plate: license_plate,
     },
       attach
     )
