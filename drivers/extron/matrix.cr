@@ -20,7 +20,7 @@ class Extron::Matrix < PlaceOS::Driver
       password: :extron,
     },
 
-    # if using telnet, use this setting
+    # if using telnet, use this setting.
     password: :extron,
   })
 
