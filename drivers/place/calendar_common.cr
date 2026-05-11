@@ -67,8 +67,8 @@ module Place::CalendarCommon
 
       # Work around crystal limitation of splatting a union
       @client = begin
-        config = setting(GoogleParams, :calendar_config)
-        cli = ::PlaceCalendar::Client.new(**config)
+        cal_config = setting(GoogleParams, :calendar_config)
+        cli = ::PlaceCalendar::Client.new(**cal_config)
 
         # only google uses the rate limiter
         @channel = Channel(Nil).new(9)
@@ -76,8 +76,8 @@ module Place::CalendarCommon
         spawn { rate_limiter }
         cli
       rescue
-        config = setting(OfficeParams, :calendar_config)
-        ::PlaceCalendar::Client.new(**config)
+        cal_config = setting(OfficeParams, :calendar_config)
+        ::PlaceCalendar::Client.new(**cal_config)
       end
       logger.debug { "update applied successfully" }
     rescue error
