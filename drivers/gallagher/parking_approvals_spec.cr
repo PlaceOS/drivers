@@ -15,12 +15,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     poll_rate:            999_999,
     cache_days:           14,
     auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["zone-carpriority", "zone-other"],
-    bike_zone_priority:   ["zone-bikepriority"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
     parking_areas:        {
-      "zone-carpriority"  => "gallagher-car-group",
-      "zone-bikepriority" => "gallagher-bike-group",
-      "zone-other"        => "gallagher-other-group",
+      "zone-level-B1" => "gallagher-group1",
+      "zone-level-B2" => "gallagher-group2",
+      "zone-level-B3" => "gallagher-group3",
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
@@ -40,31 +40,31 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   default_spaces = [
     {
       id: "asset-car_a", identifier: "BM2.001",
-      assigned_to: "", zones: ["zone-carpriority"],
-      features: ["Max height 2.1m"], notes: "Car",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 2.1m", "carpriority"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-car_b", identifier: "BM2.002",
-      assigned_to: "", zones: ["zone-other"],
-      features: ["Max height 1.95m"], notes: "Car",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 1.95m", "carpriority"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-bike_a", identifier: "BM2.M9",
-      assigned_to: "", zones: ["zone-bikepriority"],
-      features: [] of String, notes: "Bike",
+      assigned_to: "", zones: ["zone-building", "zone-level-B3"],
+      features: ["bikepriority"] of String, notes: "Bike",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-acrod_a", identifier: "BM2.D1",
-      assigned_to: "", zones: ["zone-carpriority"],
-      features: ["ACROD"], notes: "Car",
+      assigned_to: "", zones: ["zone-building", "zone-level-B3"],
+      features: ["ACROD", "shared"], notes: "Car",
       security_system_groups: ["gallagher-acrod-group"], bookable: true,
     },
     {
       id: "asset-assigned_a", identifier: "BM2.X1",
-      assigned_to: "fixed.user@example.com", zones: ["zone-carpriority"],
+      assigned_to: "fixed.user@example.com", zones: ["zone-building", "zone-level-B3"],
       features: [] of String, notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
@@ -138,7 +138,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.approved.includes?(1001_i64).should eq(true)
   # priority zones are populated first - asset-car_a comes before asset-car_b
   staff.last_update_for(1001_i64).should eq("asset-car_a")
-  gallagher.access_for("ch-normal").should contain("gallagher-car-group")
+  gallagher.access_for("ch-normal").should contain("gallagher-group1")
   mailer.last_template.should eq(["parking_request", "approved"])
   mailer.last_to.should eq("normal.user@example.com")
   staff.last_state(1001_i64).should eq("access_granted")
@@ -159,7 +159,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
 
   staff.last_update_for(2001_i64).should eq("asset-bike_a")
-  gallagher.access_for("ch-biker").should contain("gallagher-bike-group")
+  gallagher.access_for("ch-biker").should contain("gallagher-group3")
 
   # ===========================================================
   # Test 3: after-hours booking, not approved -> manual approval email,
@@ -198,7 +198,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
 
   staff.last_update_for(4001_i64).should eq("asset-car_a")
-  gallagher.access_for("ch-afterhours").should contain("gallagher-car-group")
+  gallagher.access_for("ch-afterhours").should contain("gallagher-group1")
   staff.last_state(4001_i64).should eq("access_granted")
 
   # ===========================================================
@@ -231,7 +231,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # priority.user took asset-car_a
   staff.last_update_for(5003_i64).should eq("asset-car_a")
   staff.approved.includes?(5003_i64).should eq(true)
-  gallagher.access_for("ch-priority").should contain("gallagher-car-group")
+  gallagher.access_for("ch-priority").should contain("gallagher-group1")
 
   # normal.user got displaced (asset_id set back to unallocated-displaced-)
   displaced = staff.last_update_for(5001_i64).not_nil!
@@ -297,7 +297,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  gallagher.access_for("ch-fixed").should contain("gallagher-car-group")
+  gallagher.access_for("ch-fixed").should contain("gallagher-group3")
 
   # ===========================================================
   # Test 9: diff/apply — once a booking is gone the user is removed
@@ -315,7 +315,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  gallagher.access_for("ch-normal").should contain("gallagher-car-group")
+  gallagher.access_for("ch-normal").should contain("gallagher-group1")
 
   # next run with no bookings — user should lose access
   staff.reset_calls
@@ -325,7 +325,84 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  gallagher.access_for("ch-normal").should_not contain("gallagher-car-group")
+  gallagher.access_for("ch-normal").should_not contain("gallagher-group1")
+
+  # ===========================================================
+  # Test 10: feature-priority sort actually drives selection.
+  # Spaces are deliberately listed in reverse priority order so the test
+  # would fail if we fell back to asset-list order:
+  #   1. no-feature  (priority idx = Int32::MAX)
+  #   2. shared      (priority idx 1 — second in car_zone_priority)
+  #   3. carpriority (priority idx 0 — first in car_zone_priority)
+  # Three sequential single-booking sweeps should allocate them in priority
+  # order: carpriority -> shared -> no-feature.
+  # ===========================================================
+
+  priority_test_spaces = [
+    {
+      id: "asset-no_pref", identifier: "BM2.N1",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: [] of String, notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-shared_pref", identifier: "BM2.S1",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["shared"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-high_pref", identifier: "BM2.H1",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(priority_test_spaces.to_json)
+
+  prio_start = now + 3600 * 80
+  prio_end = prio_start + 3600
+
+  # 1st request — must go to the "carpriority" space (idx 0) even though
+  # it is listed LAST among the assets
+  staff.reset_calls
+  mailer.reset
+  staff.set_bookings([
+    build_booking.call(10001_i64, "normal.user@example.com",
+      prio_start, prio_end, "unallocated-10001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.last_update_for(10001_i64).should eq("asset-high_pref")
+
+  # 2nd request overlaps the first — high_pref is occupied so the next-best
+  # remaining space is "shared" (idx 1), not the no-feature space
+  staff.reset_calls
+  mailer.reset
+  staff.set_bookings([
+    build_booking.call(10001_i64, "normal.user@example.com",
+      prio_start, prio_end, "asset-high_pref", true, ext_car),
+    build_booking.call(10002_i64, "biker@example.com",
+      prio_start, prio_end, "unallocated-10002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.last_update_for(10002_i64).should eq("asset-shared_pref")
+
+  # 3rd request overlapping both — only the no-feature space remains
+  staff.reset_calls
+  mailer.reset
+  staff.set_bookings([
+    build_booking.call(10001_i64, "normal.user@example.com",
+      prio_start, prio_end, "asset-high_pref", true, ext_car),
+    build_booking.call(10002_i64, "biker@example.com",
+      prio_start, prio_end, "asset-shared_pref", true, ext_car),
+    build_booking.call(10003_i64, "acrod.user@example.com",
+      prio_start, prio_end, "unallocated-10003", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.last_update_for(10003_i64).should eq("asset-no_pref")
 end
 
 # :nodoc:

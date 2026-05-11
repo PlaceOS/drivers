@@ -36,7 +36,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # ordered AD groups (highest priority first). Group id or email.
     auto_approval_groups: ["azure_group_email_or_id"],
 
-    # zone preference for car bookings, in order
+    # ordered list of parking-space FEATURE names that determine allocation
+    # preference (earlier = higher priority). Matched against `space.features`,
+    # not the asset's zones.
     car_zone_priority:  [] of String,
     bike_zone_priority: [] of String,
 
@@ -650,19 +652,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   protected def sort_by_zone_priority(spaces : Array(ParkingSpace), booking : Booking) : Array(ParkingSpace)
     vehicle = VehicleType.parse_request(booking.extension_data["vehicle_type"]?.try(&.as_s?))
-    priority_zones = case vehicle
-                     when VehicleType::Bike
-                       @bike_zone_priority
-                     else
-                       @car_zone_priority
-                     end
+    priority_features = case vehicle
+                        when VehicleType::Bike
+                          @bike_zone_priority
+                        else
+                          @car_zone_priority
+                        end
 
-    return spaces if priority_zones.empty?
+    return spaces if priority_features.empty?
 
     spaces.sort_by do |space|
       idx = Int32::MAX
-      priority_zones.each_with_index do |z, i|
-        if space.zones.includes?(z)
+      priority_features.each_with_index do |feature, i|
+        if space.features.includes?(feature)
           idx = i
           break
         end
