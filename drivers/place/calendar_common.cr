@@ -35,54 +35,54 @@ module Place::CalendarCommon
     @wait_time : Time::Span = 300.milliseconds
 
     @mailer_from : String? = nil
-  end
+  
+    def on_unload
+      @in_flight.close
+      @channel.close
+    end
 
-  def on_unload
-    @in_flight.close
-    @channel.close
-  end
+    def on_update
+      logger.debug { "update received #{config.settings.to_pretty_json}" }
 
-  def on_update
-    logger.debug { "update received #{config.settings.to_pretty_json}" }
-
-    if proxy_config = setting?(NamedTuple(host: String, port: Int32, auth: NamedTuple(username: String, password: String)?), :proxy)
-      ConnectProxy.proxy_uri = "http://#{proxy_config[:host]}:#{proxy_config[:port]}"
-      if proxy_auth = proxy_config[:auth]
-        ConnectProxy.username = proxy_auth[:username]
-        ConnectProxy.password = proxy_auth[:password]
+      if proxy_config = setting?(NamedTuple(host: String, port: Int32, auth: NamedTuple(username: String, password: String)?), :proxy)
+        ConnectProxy.proxy_uri = "http://#{proxy_config[:host]}:#{proxy_config[:port]}"
+        if proxy_auth = proxy_config[:auth]
+          ConnectProxy.username = proxy_auth[:username]
+          ConnectProxy.password = proxy_auth[:password]
+        end
       end
+
+      ConnectProxy.verify_tls = !!setting?(Bool, :proxy_verify_tls)
+      ConnectProxy.disable_crl_checks = !!setting?(Bool, :proxy_disable_crl)
+
+      @service_account = setting?(String, :calendar_service_account).presence
+      @rate_limit = setting?(Int32, :rate_limit) || 10
+      @wait_time = 1.second / @rate_limit
+
+      @mailer_from = setting?(String, :mailer_from).presence || @service_account
+      @templates = setting?(Templates, :email_templates) || Templates.new
+
+      @in_flight.close
+      @channel.close
+
+      # Work around crystal limitation of splatting a union
+      @client = begin
+        config = setting(GoogleParams, :calendar_config)
+        cli = ::PlaceCalendar::Client.new(**config)
+
+        # only google uses the rate limiter
+        @channel = Channel(Nil).new(9)
+        @in_flight = Channel(Nil).new(10)
+        spawn { rate_limiter }
+        cli
+      rescue
+        config = setting(OfficeParams, :calendar_config)
+        ::PlaceCalendar::Client.new(**config)
+      end
+      logger.debug { "update applied successfully" }
+    rescue error
+      logger.debug(exception: error) { "failed to apply settings: #{config.settings.to_pretty_json}" }
     end
-
-    ConnectProxy.verify_tls = !!setting?(Bool, :proxy_verify_tls)
-    ConnectProxy.disable_crl_checks = !!setting?(Bool, :proxy_disable_crl)
-
-    @service_account = setting?(String, :calendar_service_account).presence
-    @rate_limit = setting?(Int32, :rate_limit) || 10
-    @wait_time = 1.second / @rate_limit
-
-    @mailer_from = setting?(String, :mailer_from).presence || @service_account
-    @templates = setting?(Templates, :email_templates) || Templates.new
-
-    @in_flight.close
-    @channel.close
-
-    # Work around crystal limitation of splatting a union
-    @client = begin
-      config = setting(GoogleParams, :calendar_config)
-      cli = ::PlaceCalendar::Client.new(**config)
-
-      # only google uses the rate limiter
-      @channel = Channel(Nil).new(9)
-      @in_flight = Channel(Nil).new(10)
-      spawn { rate_limiter }
-      cli
-    rescue
-      config = setting(OfficeParams, :calendar_config)
-      ::PlaceCalendar::Client.new(**config)
-    end
-    logger.debug { "update applied successfully" }
-  rescue error
-    logger.debug(exception: error) { "failed to apply settings: #{config.settings.to_pretty_json}" }
   end
 
   protected def check_client : ::PlaceCalendar::Client
