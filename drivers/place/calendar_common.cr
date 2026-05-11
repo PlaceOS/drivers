@@ -43,6 +43,8 @@ module Place::CalendarCommon
   end
 
   def on_update
+    logger.debug { "update received #{config.settings.to_pretty_json}" }
+
     if proxy_config = setting?(NamedTuple(host: String, port: Int32, auth: NamedTuple(username: String, password: String)?), :proxy)
       ConnectProxy.proxy_uri = "http://#{proxy_config[:host]}:#{proxy_config[:port]}"
       if proxy_auth = proxy_config[:auth]
@@ -78,6 +80,9 @@ module Place::CalendarCommon
       config = setting(OfficeParams, :calendar_config)
       ::PlaceCalendar::Client.new(**config)
     end
+    logger.debug { "update applied successfully" }
+  rescue error
+    logger.debug(exception: error) { "failed to apply settings: #{config.settings.to_pretty_json}" }
   end
 
   protected def check_client : ::PlaceCalendar::Client
