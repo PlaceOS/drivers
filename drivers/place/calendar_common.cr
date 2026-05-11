@@ -80,10 +80,18 @@ module Place::CalendarCommon
     end
   end
 
+  protected def check_client : ::PlaceCalendar::Client
+    client_ref = @client
+    raise "no API client available. Check driver settings" unless client_ref
+    client_ref
+  end
+
   protected def client(&)
+    client_ref = check_client
+
     # office365 execute queries against the users mailbox and hence doesn't require rate limiting
-    if @client.not_nil!.client_id == :office365
-      return yield(@client.not_nil!)
+    if client_ref.client_id == :office365
+      return yield(client_ref)
     end
 
     if (@wait_time * @queue_size) > 90.seconds
@@ -96,7 +104,7 @@ module Place::CalendarCommon
 
     begin
       @queue_lock.synchronize { @queue_size -= 1; @flight_size += 1 }
-      result = yield @client.not_nil!
+      result = yield client_ref
       result
     ensure
       @in_flight.receive
@@ -280,7 +288,7 @@ module Place::CalendarCommon
 
     logger.debug { "listing events for #{calendar_id}" }
 
-    _client = @client.not_nil!
+    _client = check_client
     events = if _client.client_id == :google
                _client.calendar.as(PlaceCalendar::Google).list_events(user_id, calendar_id,
                  period_start: period_start,
@@ -396,7 +404,7 @@ module Place::CalendarCommon
 
   # returns: google or office365
   def calendar_service_name
-    @client.not_nil!.client_id
+    check_client.client_id
   end
 
   @[PlaceOS::Driver::Security(Level::Support)]
