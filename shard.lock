@@ -247,7 +247,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.21.2
+    version: 7.22.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -255,7 +255,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.90.0
+    version: 9.90.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -291,11 +291,11 @@ shards:
 
   redis-cluster:
     git: https://github.com/place-labs/redis-cluster.cr.git
-    version: 0.8.11
+    version: 0.8.12
 
   redis_service_manager:
     git: https://github.com/place-labs/redis_service_manager.git
-    version: 3.3.1
+    version: 3.4.0
 
   rendezvous-hash:
     git: https://github.com/caspiano/rendezvous-hash.git
