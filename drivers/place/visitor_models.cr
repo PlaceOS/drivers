@@ -136,11 +136,11 @@ module Place
     property system_id : String
     property event_id : String
     property event_ical_uid : String?
-    property host : String
+    property host : String?
     property resource : String?
     property title : String?
-    property event_start : Int64
-    property event_end : Int64
+    property event_start : Int64?
+    property event_end : Int64?
     property zones : Array(String)?
 
     # Previous values — only present when action is "update" and the meta was persisted.
