@@ -641,6 +641,13 @@ class Place::VisitorMailer < PlaceOS::Driver
     # only respond to updates, not creates or cancellations
     return unless details.action == "update"
 
+    # These fields may be missing from some payloads (e.g. cancelled events,
+    # metadata-only updates) so the model marks them nilable.
+    host = details.host
+    event_start = details.event_start
+    event_end = details.event_end
+    return unless host && event_start && event_end
+
     # ensure the event is for this building
     if zones = details.zones
       check = [building_zone.id] + @parent_zone_ids
@@ -653,13 +660,13 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # --- Host change notification
     if prev_host = details.previous_host_email
-      if prev_host.downcase != details.host.downcase
+      if prev_host.downcase != host.downcase
         send_original_host_email(
           @notify_original_host_template,
           prev_host,
-          details.host,
+          host,
           details.title,
-          details.event_start,
+          event_start,
         )
       end
     end
@@ -669,10 +676,10 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # Date or time changed
     if prev_start = details.previous_event_start
-      fields_changed = true if prev_start != details.event_start
+      fields_changed = true if prev_start != event_start
     end
     if prev_end = details.previous_event_end
-      fields_changed = true if prev_end != details.event_end
+      fields_changed = true if prev_end != event_end
     end
 
     # Location changed (system_id represents the room)
@@ -716,8 +723,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     guests = staff_api.event_guests(details.event_id, details.system_id).get.as_a
     send_booking_changed_emails(
       guests,
-      details.host,
-      details.event_start,
+      host,
+      event_start,
       details.title,
       details.previous_event_start,
       previous_building_name,
