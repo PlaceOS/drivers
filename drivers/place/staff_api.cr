@@ -993,9 +993,13 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
-  def event_guests(event_id : String, system_id : String)
+  def event_guests(event_id : String, system_id : String, ical_uid : String? = nil)
     logger.debug { "getting guests for event #{event_id} in system #{system_id}" }
-    response = get("/api/staff/v1/events/#{event_id}/guests?system_id=#{system_id}", headers: authentication)
+    params = URI::Params.build do |form|
+      form.add "system_id", system_id
+      form.add "ical_uid", ical_uid if ical_uid
+    end
+    response = get("/api/staff/v1/events/#{event_id}/guests?#{params}", headers: authentication)
     raise "issue getting guests for event #{event_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
