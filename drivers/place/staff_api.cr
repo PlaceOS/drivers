@@ -997,7 +997,7 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "getting guests for event #{event_id} in system #{system_id}" }
     params = URI::Params.build do |form|
       form.add "system_id", system_id
-      form.add "ical_uid", ical_uid if ical_uid
+      form.add "ical_uid", ical_uid.to_s if ical_uid.presence
     end
     response = get("/api/staff/v1/events/#{event_id}/guests?#{params}", headers: authentication)
     raise "issue getting guests for event #{event_id}: #{response.status_code}" unless response.success?
