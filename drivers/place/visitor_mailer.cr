@@ -720,7 +720,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    guests = staff_api.event_guests(details.event_id, details.system_id).get.as_a
+    guests = staff_api.event_guests(details.event_id, details.system_id, details.event_ical_uid).get.as_a
     send_booking_changed_emails(
       guests,
       host,

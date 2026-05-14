@@ -131,7 +131,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     ]
   end
 
-  def event_guests(event_id : String, system_id : String)
+  def event_guests(event_id : String, system_id : String, ical_uid : String? = nil)
     [
       {
         email:          "visitor@external.com",
