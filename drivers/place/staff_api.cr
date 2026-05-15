@@ -986,9 +986,10 @@ class Place::StaffAPI < PlaceOS::Driver
     JSON.parse(response.body)
   end
 
-  def booking_guests(booking_id : String | Int64)
+  def booking_guests(booking_id : String | Int64, include_linked : Bool = false)
     logger.debug { "getting guests for booking #{booking_id}" }
-    response = get("/api/staff/v1/bookings/#{booking_id}/guests", headers: authentication)
+    params = include_linked ? "?include_linked=true" : ""
+    response = get("/api/staff/v1/bookings/#{booking_id}/guests#{params}", headers: authentication)
     raise "issue getting guests for booking #{booking_id}: #{response.status_code}" unless response.success?
     JSON.parse(response.body)
   end
