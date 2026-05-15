@@ -134,6 +134,15 @@ class StaffAPIMock < DriverSpecs::MockDriver
       else
         [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool)
       end
+    when 301
+      if include_linked
+        [
+          {email: "visitor-dup@external.com", name: "Visitor Dup A", checked_in: false, visit_expected: true},
+          {email: "VISITOR-DUP@external.com", name: "Visitor Dup B", checked_in: false, visit_expected: true},
+        ]
+      else
+        [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool)
+      end
     else
       [{email: "visitor@external.com", name: "Visitor One", checked_in: false, visit_expected: true}]
     end
@@ -927,4 +936,71 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   args20 = system(:Mailer)[:last_args]
   args20["event_title"].should eq "Group Visit"
   args20["host_email"].should eq "host@example.com"
+
+  # ------------------------------------------------------------------
+  # Test 21: deduplication — the mock for booking 301 returns two guests
+  #          with the same email address (different cases) when
+  #          include_linked is true.  The driver's uniq! should collapse
+  #          them into a single email.
+  # ------------------------------------------------------------------
+
+  count_before_dedup = system(:Mailer)[:send_count].as_i
+
+  dedup_payload = {
+    action:                 "changed",
+    id:                     301_i64,
+    booking_type:           "group",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "host@example.com[2026-05-15]",
+    resource_ids:           ["host@example.com[2026-05-15]"],
+    user_email:             "host@example.com",
+    title:                  "Dedup Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  publish("staff/booking/changed", dedup_payload)
+  sleep 1.5
+
+  # Two guests with the same email (case-insensitive) should be
+  # deduplicated to a single notification.
+  system(:Mailer)[:send_count].should eq count_before_dedup + 1
+  system(:Mailer)[:last_to].should eq "visitor-dup@external.com"
+
+  # ------------------------------------------------------------------
+  # Test 22: non-group booking should NOT pass include_linked.  The
+  #          mock for booking 300 returns an empty guest list when
+  #          include_linked is false, so if the driver incorrectly
+  #          passes include_linked: true for a non-group type the
+  #          assertion below would fail (2 emails would be sent).
+  # ------------------------------------------------------------------
+
+  count_before_non_group = system(:Mailer)[:send_count].as_i
+
+  non_group_payload = {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Desk Booking",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  publish("staff/booking/changed", non_group_payload)
+  sleep 0.5
+
+  # Booking 300 with include_linked: false returns no guests, so no
+  # emails should be sent.  This proves the driver does not pass
+  # include_linked: true for non-group booking types.
+  system(:Mailer)[:send_count].should eq count_before_non_group
 end
