@@ -51,6 +51,10 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   @email_errors_to : String? = nil
   @notify_no_swipe_card : Set(String) = Set(String).new
 
+  def notify_no_swipe_card
+    @mutex.synchronize { @notify_no_swipe_card.to_a }
+  end
+
   def on_update
     @building_id = nil
     @timezone = nil
@@ -328,6 +332,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
           end
         rescue error
           access_required.delete(user_email)
+          @notify_no_swipe_card << user_email
           msg = "failed to add #{user_email} to security zones"
           errors << msg
           logger.warn(exception: error) { msg }
@@ -446,7 +451,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       system_id: config.control_system.try(&.id),
     })
 
-    user_emails = @mutex.synchronize { @notify_no_swipe_card.to_a }
+    user_emails = notify_no_swipe_card
 
     mailer.send_template(
       to: [] of String,
