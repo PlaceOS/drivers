@@ -120,15 +120,23 @@ class StaffAPIMock < DriverSpecs::MockDriver
     end
   end
 
-  def booking_guests(booking_id : Int64)
-    [
-      {
-        email:          "visitor@external.com",
-        name:           "Visitor One",
-        checked_in:     false,
-        visit_expected: true,
-      },
-    ]
+  # When include_linked is true, parent group bookings (e.g. id 300) return
+  # guests from all child bookings in a single response — just like the real
+  # staff-api endpoint.
+  def booking_guests(booking_id : Int64, include_linked : Bool? = nil)
+    case booking_id
+    when 300
+      if include_linked
+        [
+          {email: "visitor-a@external.com", name: "Visitor A", checked_in: false, visit_expected: true},
+          {email: "visitor-b@external.com", name: "Visitor B", checked_in: false, visit_expected: true},
+        ]
+      else
+        [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool)
+      end
+    else
+      [{email: "visitor@external.com", name: "Visitor One", checked_in: false, visit_expected: true}]
+    end
   end
 
   def event_guests(event_id : String, system_id : String, ical_uid : String? = nil)
@@ -874,4 +882,83 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   # "approved" is not a visitor-notification action — no email should be sent
   system(:Mailer)[:send_count].should eq count_before_approved
+
+  # ==================================================================
+  # Group booking linked-guest tests
+  # ==================================================================
+
+  # ------------------------------------------------------------------
+  # Test 20: booking_changed for a parent "group" booking.  The driver
+  #          passes include_linked: true so the API aggregates guests
+  #          from child bookings into a single response.  The mock
+  #          returns 2 unique guests for booking 300 when the flag is
+  #          set, simulating this aggregation.
+  # ------------------------------------------------------------------
+
+  count_before_group = system(:Mailer)[:send_count].as_i
+
+  group_changed_payload = {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "group",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "host@example.com[2026-05-15]",
+    resource_ids:           ["host@example.com[2026-05-15]"],
+    user_email:             "host@example.com",
+    title:                  "Group Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  publish("staff/booking/changed", group_changed_payload)
+  sleep 1.5
+
+  # The mock returns 2 unique guests for booking 300 with
+  # include_linked: true, so 2 emails should be sent.
+  system(:Mailer)[:send_count].should eq count_before_group + 2
+
+  # Last email should be to visitor-b (second child processed)
+  system(:Mailer)[:last_to].should eq "visitor-b@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  args20 = system(:Mailer)[:last_args]
+  args20["event_title"].should eq "Group Visit"
+  args20["host_email"].should eq "host@example.com"
+
+  # ------------------------------------------------------------------
+  # Test 21: non-group booking should NOT pass include_linked.  The
+  #          mock for booking 300 returns an empty guest list when
+  #          include_linked is false, so if the driver incorrectly
+  #          passes include_linked: true for a non-group type the
+  #          assertion below would fail (2 emails would be sent).
+  # ------------------------------------------------------------------
+
+  count_before_non_group = system(:Mailer)[:send_count].as_i
+
+  non_group_payload = {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Desk Booking",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  publish("staff/booking/changed", non_group_payload)
+  sleep 0.5
+
+  # Booking 300 with include_linked: false returns no guests, so no
+  # emails should be sent.  This proves the driver does not pass
+  # include_linked: true for non-group booking types.
+  system(:Mailer)[:send_count].should eq count_before_non_group
 end

@@ -614,7 +614,10 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    guests = staff_api.booking_guests(details.id).get.as_a
+    # include_linked: true ensures guests from child bookings (e.g. per-visitor
+    # bookings under a group parent) are returned in a single request.
+    guests = staff_api.booking_guests(details.id, include_linked: details.booking_type == "group").get.as_a
+
     send_booking_changed_emails(
       guests,
       details.user_email,
