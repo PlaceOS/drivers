@@ -884,14 +884,15 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq count_before_approved
 
   # ==================================================================
-  # Group booking child-guest fallback tests
+  # Group booking linked-guest tests
   # ==================================================================
 
   # ------------------------------------------------------------------
-  # Test 20: booking_changed for a parent "group" booking whose guests
-  #          live on child "visitor" bookings.  The driver should fall
-  #          back to fetching guests from linked_bookings when
-  #          booking_guests returns empty for the parent.
+  # Test 20: booking_changed for a parent "group" booking.  The driver
+  #          passes include_linked: true so the API aggregates guests
+  #          from child bookings into a single response.  The mock
+  #          returns 2 unique guests for booking 300 when the flag is
+  #          set, simulating this aggregation.
   # ------------------------------------------------------------------
 
   count_before_group = system(:Mailer)[:send_count].as_i
@@ -915,8 +916,8 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/booking/changed", group_changed_payload)
   sleep 1.5
 
-  # Two child bookings (301, 302) each have one unique guest, so two
-  # emails should be sent.
+  # The mock returns 2 unique guests for booking 300 with
+  # include_linked: true, so 2 emails should be sent.
   system(:Mailer)[:send_count].should eq count_before_group + 2
 
   # Last email should be to visitor-b (second child processed)
