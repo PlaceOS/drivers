@@ -123,7 +123,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
   # When include_linked is true, parent group bookings (e.g. id 300) return
   # guests from all child bookings in a single response — just like the real
   # staff-api endpoint.
-  def booking_guests(booking_id : Int64, include_linked : Bool = false)
+  def booking_guests(booking_id : Int64, include_linked : Bool? = nil)
     case booking_id
     when 300
       if include_linked
