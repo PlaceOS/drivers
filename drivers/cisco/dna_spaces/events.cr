@@ -140,3 +140,17 @@ class Cisco::DNASpaces::WebexTelemetryUpdateWrapper < Cisco::DNASpaces::Events
   @[JSON::Field(key: "webexTelemetryUpdate")]
   getter payload : WebexTelemetryUpdate
 end
+
+class Cisco::DNASpaces::SpaceOccupancyWrapper < Cisco::DNASpaces::Events
+  getter eventType : String = "SPACE_OCCUPANCY"
+
+  @[JSON::Field(key: "spaceOccupancy")]
+  getter payload : SpaceOccupancy
+end
+
+class Cisco::DNASpaces::SpaceOccupancyChangeWrapper < Cisco::DNASpaces::Events
+  getter eventType : String = "SPACE_OCCUPANCY_CHANGE"
+
+  @[JSON::Field(key: "spaceOccupancyChange")]
+  getter payload : SpaceOccupancy
+end

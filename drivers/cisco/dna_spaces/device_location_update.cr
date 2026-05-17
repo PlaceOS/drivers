@@ -39,6 +39,10 @@ class Cisco::DNASpaces::DeviceLocationUpdate
     true
   end
 
+  def device_mac
+    device.mac_address
+  end
+
   @[JSON::Field(ignore: true)]
   @location_mappings : Hash(String, String)? = nil
 

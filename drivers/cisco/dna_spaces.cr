@@ -179,9 +179,9 @@ class Cisco::DNASpaces < PlaceOS::Driver
   end
 
   # MAC Address => Location (including user)
-  @locations : Hash(String, DeviceLocationUpdate | IotTelemetry | WebexTelemetryUpdate) = {} of String => DeviceLocationUpdate | IotTelemetry | WebexTelemetryUpdate
+  @locations : Hash(String, DeviceLocationUpdate | IotTelemetry | WebexTelemetryUpdate | SpaceOccupancy) = {} of String => DeviceLocationUpdate | IotTelemetry | WebexTelemetryUpdate | SpaceOccupancy
   @loc_lock : Mutex = Mutex.new
-  @devices : Hash(String, IotTelemetry | WebexTelemetryUpdate) = {} of String => IotTelemetry | WebexTelemetryUpdate
+  @devices : Hash(String, IotTelemetry | WebexTelemetryUpdate | SpaceOccupancy) = {} of String => IotTelemetry | WebexTelemetryUpdate | SpaceOccupancy
   @dev_lock : Mutex = Mutex.new
 
   def locations(&)
@@ -288,19 +288,20 @@ class Cisco::DNASpaces < PlaceOS::Driver
           when DeviceEntry
             # This is used entirely for
             @description_lock.synchronize { payload.location.descriptions(@location_descriptions) }
-          when DeviceLocationUpdate, IotTelemetry, WebexTelemetryUpdate
+          when DeviceLocationUpdate, IotTelemetry, WebexTelemetryUpdate, SpaceOccupancy
             device_mac = format_mac(payload.device.mac_address)
 
             # we want timestamps in seconds
-            payload.last_seen = payload.last_seen // 1000
+            temp_seen = payload.last_seen
+            payload.last_seen = (temp_seen.zero? ? event.record_timestamp : temp_seen) // 1000
 
             case payload
-            when IotTelemetry
+            in IotTelemetry, SpaceOccupancy
               self[device_mac] = payload
               devices { |dev| dev[device_mac] = payload }
 
               next unless payload.has_position?
-            when WebexTelemetryUpdate
+            in WebexTelemetryUpdate
               if webex_obj = devices { |dev| dev[device_mac]? }
                 webex_obj = webex_obj.as(WebexTelemetryUpdate)
                 webex_obj.device = payload.device
@@ -314,6 +315,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
               end
               payload.update_telemetry
               self[device_mac] = payload
+            in DeviceLocationUpdate
             end
 
             # Keep track of device location
@@ -353,10 +355,10 @@ class Cisco::DNASpaces < PlaceOS::Driver
             end
 
             # Maintain user lookup
-            if payload.raw_user_id.presence
-              user_id = format_username(payload.raw_user_id)
+            if raw_user_id = payload.raw_user_id.presence
+              user_id = format_username(raw_user_id)
 
-              if existing && payload.raw_user_id != existing.raw_user_id
+              if existing && raw_user_id != existing.raw_user_id
                 old_user_id = format_username(existing.raw_user_id)
 
                 user_lookup do |lookup|
@@ -446,7 +448,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
 
       macs.compact_map { |mac|
         if location = locate_mac(mac)
-          next if location.is_a?(WebexTelemetryUpdate)
+          next if location.is_a?(WebexTelemetryUpdate) || location.is_a?(SpaceOccupancy)
           if location.last_seen > location_max_age
             # we update the mac_address to a formatted version
             location.device.mac_address = mac
@@ -604,32 +606,36 @@ class Cisco::DNASpaces < PlaceOS::Driver
       end
 
       locations.compact_map do |loc|
-        next if loc.is_a?(WebexTelemetryUpdate)
-        lat = loc.latitude
-        lon = loc.longitude
+        case loc
+        in DeviceLocationUpdate, IotTelemetry
+          lat = loc.latitude
+          lon = loc.longitude
 
-        {
-          location:         :wireless,
-          coordinates_from: "top-left",
-          x:                loc.x_pos - offset_x,
-          y:                loc.y_pos - offset_y,
-          lon:              lon,
-          lat:              lat,
-          s2_cell_id:       S2Cells.at(lat, lon).parent(@s2_level).to_token,
-          mac:              loc.device.mac_address,
-          variance:         loc.unc,
-          last_seen:        loc.last_seen,
-          map_width:        map_width,
-          map_height:       map_height,
-          ssid:             loc.ssid,
-          manufacturer:     loc.device.manufacturer,
-          os:               loc.device.os,
-        }
+          {
+            location:         :wireless,
+            coordinates_from: "top-left",
+            x:                loc.x_pos - offset_x,
+            y:                loc.y_pos - offset_y,
+            lon:              lon,
+            lat:              lat,
+            s2_cell_id:       S2Cells.at(lat, lon).parent(@s2_level).to_token,
+            mac:              loc.device.mac_address,
+            variance:         loc.unc,
+            last_seen:        loc.last_seen,
+            map_width:        map_width,
+            map_height:       map_height,
+            ssid:             loc.ssid,
+            manufacturer:     loc.device.manufacturer,
+            os:               loc.device.os,
+          }
+        in WebexTelemetryUpdate, SpaceOccupancy
+        end
       end
     }
   end
 
   def format_mac(address : String)
+    return address if address.starts_with?("location-")
     address.gsub(/(0x|[^0-9A-Fa-f])*/, "").downcase
   end
 

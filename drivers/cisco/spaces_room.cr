@@ -54,6 +54,6 @@ class Cisco::SpacesRoom < PlaceOS::Driver
     return nil unless id
     return nil unless mac == @room_id
 
-    Interface::Sensor::Detail?.from_json(cisco_spaces.sensors(@room_id, id).get.to_json)
+    Interface::Sensor::Detail?.from_json(cisco_spaces.sensor(@room_id, id).get.to_json)
   end
 end
