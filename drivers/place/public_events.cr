@@ -1,7 +1,9 @@
 require "placeos-driver"
 require "place_calendar"
+require "placeos-models"
 
 # Filters Bookings event cache down to public events for unauthenticated access.
+# Only includes events where the PlaceOS metadata permission is set to PUBLIC.
 # Uses the Calendar driver for guest registration.
 class Place::PublicEvents < PlaceOS::Driver
   descriptive_name "PlaceOS Public Events"
@@ -11,22 +13,27 @@ class Place::PublicEvents < PlaceOS::Driver
   accessor bookings : Bookings_1
   accessor calendar : Calendar_1
 
-  @all_bookings : Array(PlaceCalendar::Event) = [] of PlaceCalendar::Event
+  @all_bookings : Array(PublicEvent) = [] of PublicEvent
   @public_event_ids : Set(String) = Set(String).new
 
   bind Bookings_1, :bookings, :on_bookings_change
 
   private def on_bookings_change(_subscription, new_value : String)
-    @all_bookings = Array(PlaceCalendar::Event).from_json(new_value)
+    @all_bookings = Array(PublicEvent).from_json(new_value)
     filter_and_cache
   rescue error
     logger.warn(exception: error) { "failed to process bookings update" }
   end
 
-  private def filter_and_cache : Array(PlaceCalendar::Event)
-    public_events = @all_bookings.reject(&.private?)
+  private def filter_and_cache : Array(PublicEvent)
+    logger.debug { "received #{@all_bookings.size} total events from bookings" }
+
+    public_events = @all_bookings.select(&.permission.public?)
+
+    logger.debug { "#{public_events.size} events have PUBLIC permission" }
+
     @public_event_ids = public_events.compact_map(&.id).to_set
-    self["public_events"] = public_events.map { |e| PublicEvent.new(e) }
+    self["public_events"] = public_events
     public_events
   end
 
@@ -61,6 +68,8 @@ class Place::PublicEvents < PlaceOS::Driver
     true
   end
 
+  alias Permission = PlaceOS::Model::EventMetadata::Permission
+
   # Fields that are safe to expose publicly.
   private struct PublicEvent
     include JSON::Serializable
@@ -72,17 +81,9 @@ class Place::PublicEvents < PlaceOS::Driver
     getter event_end : Int64?
     getter location : String?
     getter timezone : String?
-    getter? all_day : Bool
+    getter? all_day : Bool = false
 
-    def initialize(event : PlaceCalendar::Event)
-      @id = event.id
-      @title = event.title
-      @body = event.body
-      @event_start = event.event_start.to_unix
-      @event_end = event.event_end.try(&.to_unix)
-      @location = event.location
-      @timezone = event.timezone
-      @all_day = event.all_day?
-    end
+    @[JSON::Field(ignore_serialize: true)]
+    getter permission : Permission = Permission::PRIVATE
   end
 end
