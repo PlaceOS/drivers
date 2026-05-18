@@ -2,6 +2,7 @@ require "placeos-driver"
 require "placeos-driver/interface/switchable"
 require "placeos-driver/interface/muteable"
 require "./nvx_models"
+require "promise"
 
 class Crestron::VirtualSwitcher < PlaceOS::Driver
   descriptive_name "Crestron Virtual Switcher"
