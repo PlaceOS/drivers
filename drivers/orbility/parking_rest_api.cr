@@ -218,4 +218,57 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     raise "QR code failed with: #{response.body} -- for: #{booking_id}" unless response.success?
     String.from_json(response.body, root: "qrCodeBase64")
   end
+
+  ##############################
+  # Crossings
+  ##############################
+
+  @crossings_auth : AuthResponse? = nil
+
+  protected def crossings_auth : HTTP::Headers
+    @auth_lock.synchronize do
+      if token = @crossings_auth
+        return HTTP::Headers{
+          "Authorization"             => "Bearer #{token.user_token}",
+          "Ocp-Apim-Subscription-Key" => @api_key,
+        } unless token.expired?
+      end
+
+      @crossings_auth = nil
+      response = post("/crossings/api/Connection/Connect", headers: HTTP::Headers{
+        "Ocp-Apim-Subscription-Key" => @api_key,
+      }, body: Auth.new(@login, @password).to_json)
+      auth = check(response, AuthResponse)
+      auth.expires # called just to set the expiry time
+      @crossings_auth = auth
+
+      HTTP::Headers{
+        "Authorization"             => "Bearer #{auth.user_token}",
+        "Ocp-Apim-Subscription-Key" => @api_key,
+      }
+    end
+  end
+
+  def crossings(starting : Time, ending : Time, start_index : Int32? = nil, max_results : Int32 = 1000) : Array(Crossing)
+    crossings = [] of Crossing
+
+    loop do
+      params = URI::Params.build do |form|
+        form.add("startDate", starting.to_rfc3339)
+        form.add("endDate", ending.to_rfc3339)
+        form.add("startIndex", start_index.to_s) if start_index
+        form.add("maxResults", max_results.to_s)
+      end
+
+      response = get("/crossings/api/Crossings/GetCrossings?#{params}", headers: crossings_auth)
+      result = check(response, CrossingResult)
+      crossings.concat(result.crossings)
+
+      break if result.crossings.empty? || crossings.size >= result.results_count
+
+      start_index = crossings.size
+    end
+
+    crossings
+  end
 end

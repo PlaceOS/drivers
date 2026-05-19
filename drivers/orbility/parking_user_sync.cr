@@ -226,7 +226,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
 
     # get the list of users in the active directory (page by page)
     users = Array(DirUser).from_json(directory.get_members(user_group_id, additional_fields: {car_license_ext}).get.to_json)
-    
+
     # we'll include assigned spaces in the first batch if syncing fleet vehicles
     users.concat(assigned_spaces) if @sync_fleet_vehicles
 
@@ -425,7 +425,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   # ===================
 
   CATEGORY_PARKING = "_PARKING_"
-  FLEET_VEHICLES = "_PARKING_FLEET_VEHICLES_"
+  FLEET_VEHICLES   = "_PARKING_FLEET_VEHICLES_"
 
   protected getter building_id : String { location_services.building_id.get.as_s }
 

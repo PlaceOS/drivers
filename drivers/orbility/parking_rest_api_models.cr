@@ -403,4 +403,98 @@ module Orbility
     @[JSON::Field(key: "actualExit")]
     getter actual_exit : String?
   end
+
+  ##############################
+  # Crossings
+  ##############################
+
+  enum CrossingStatus
+    Entered
+    Paid
+    Exited
+    Closed
+  end
+
+  # used for calculations
+  struct CrossingSmall
+    include JSON::Serializable
+
+    getter status : CrossingStatus
+    getter time : Time
+    getter license_plate : String?
+    getter paid_amount : Int32?
+
+    def counter
+      case status
+      in .entered?
+        1
+      in .exited?
+        -1
+      in .paid?, .closed?, Nil
+        0
+      end
+    end
+
+    def initialize(@status, @time, @license_plate, @paid_amount)
+    end
+  end
+
+  struct Crossing
+    include JSON::Serializable
+    include JSON::Serializable::Unmapped
+
+    @[JSON::Field(key: "carId")]
+    getter car_id : Int64?
+
+    @[JSON::Field(key: "crossingId")]
+    getter crossing_id : Int64?
+
+    getter status : CrossingStatus?
+
+    @[JSON::Field(key: "entryDate")]
+    getter entry_time : Time?
+
+    @[JSON::Field(key: "entryLicensePlateNumber")]
+    getter entry_license_plate : String?
+
+    @[JSON::Field(key: "exitDate")]
+    getter exit_time : Time?
+
+    @[JSON::Field(key: "exitLicensePlateNumber")]
+    getter exit_license_plate : String?
+
+    @[JSON::Field(key: "paidAmount")]
+    getter paid_amount : Int32?
+
+    def license_plate : String?
+      exit_license_plate || entry_license_plate
+    end
+
+    def to_small : CrossingSmall?
+      if exitt = exit_time
+        CrossingSmall.new(exitt, :exited, license_plate, paid_amount)
+      elsif entryt = entry_time
+        CrossingSmall.new(entryt, :entered, entry_license_plate, paid_amount)
+      end
+    end
+  end
+
+  struct CrossingResult
+    include JSON::Serializable
+
+    @[JSON::Field(key: "startIndex")]
+    getter start_index : Int32?
+
+    @[JSON::Field(key: "endIndex")]
+    getter end_index : Int32?
+
+    @[JSON::Field(key: "resultsCount")]
+    getter results_count : Int32
+
+    getter crossings : Array(Crossing)
+
+    def success? : Bool
+      true
+    end
+  end
 end
