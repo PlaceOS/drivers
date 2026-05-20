@@ -34,14 +34,17 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   @monitoring : Bool = false
   @lock : Mutex = Mutex.new
 
+  def on_load
+  end
+
   def on_update
-    authenticate
+    connected
   end
 
   def connected
     schedule.clear
     schedule.every(10.minutes) { authenticate }
-    spawn { authenticate }
+    schedule.in(1.second) { authenticate }
   end
 
   protected def on_authenticated : Nil
