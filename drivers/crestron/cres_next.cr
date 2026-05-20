@@ -126,11 +126,8 @@ abstract class Crestron::CresNext < PlaceOS::Driver
 
   def device_info : Descriptor
     response = get("/Device/DeviceInfo")
-    unless response.success?
-      authenticate
-      response = get("/Device/DeviceInfo")
-      raise "bad credentials, unauthenticated" unless response.success?
-    end
+    raise "bad credentials, unauthenticated" unless response.success?
+
     payload = JSON.parse(response.body)
     logger.debug { "device details payload: #{payload.to_pretty_json}" }
 

@@ -80,7 +80,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     update_sensor
 
-    # Start long polling once we have state
+    # Start long polling once we have state.
     @poll_counter += 1
 
     # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/DeviceInfo.htm
