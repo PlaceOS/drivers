@@ -37,14 +37,18 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   def on_load
   end
 
+  @authenticating : Bool = false
+
   def on_update
+    @authenticating = false
     connected
   end
 
   def connected
     schedule.clear
     schedule.every(10.minutes) { authenticate }
-    schedule.in(1.second) { authenticate }
+    schedule.in(1.second) { authenticate } unless @authenticating
+    @authenticating = true
   end
 
   protected def on_authenticated : Nil
