@@ -4,7 +4,7 @@ require "placeos-driver/interface/device_info"
 require "./cres_next_auth"
 
 # This device doesn't seem to support a websocket interface
-# and relies on long polling.
+# and relies on long polling
 
 class Crestron::OccupancySensor < PlaceOS::Driver
   include Crestron::CresNextAuth
@@ -34,26 +34,17 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   @monitoring : Bool = false
   @lock : Mutex = Mutex.new
 
-  def on_load
-    # re-authenticate every 10 minutes
-    schedule.every(10.minutes) { authenticate }
-
-    # sync device state every hour
-    # this is handled by Interface::DeviceInfo
-    # schedule.every(1.hour) { poll_device_state }
-  end
-
   def on_update
     authenticate
   end
 
   def connected
-    if !authenticated?
-      # connected is called again by the authenticate function.
-      spawn { authenticate }
-      return
-    end
+    schedule.clear
+    schedule.every(10.minutes) { authenticate }
+    spawn { authenticate }
+  end
 
+  protected def on_authenticated : Nil
     @lock.synchronize do
       if !@monitoring
         spawn { event_monitor }

@@ -25,6 +25,7 @@ abstract class Crestron::CresNext < PlaceOS::Driver
   end
 
   def connected
+    schedule.clear
     schedule.every(10.minutes) { maintain_session }
   end
 
