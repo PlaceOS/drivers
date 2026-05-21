@@ -710,12 +710,12 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     return unless fields_changed
 
-    # Previous location — "unknown" fallback is preserved if the lookup fails
-    # so recipients can see the original location couldn't be determined.
     previous_building_name = building_zone.display_name.presence || building_zone.name
     previous_room_name = @booking_space_name
 
     if (prev_sys_id = details.previous_system_id) && prev_sys_id != details.system_id
+      # Use "unknown" as the fallback so a failed lookup surfaces in the email
+      # rather than silently showing the current room name.
       previous_room_name = "unknown"
       previous_room_name, previous_building_name = resolve_system_location_names(prev_sys_id, previous_room_name, previous_building_name)
     end
