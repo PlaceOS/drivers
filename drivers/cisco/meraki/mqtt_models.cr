@@ -23,11 +23,11 @@ module Cisco::Meraki
     @[JSON::Field(key: "time")]
     getter time_string : String?
 
-    getter desks : Array(Tuple(Float64, Float64,  # left
-Float64, Float64,                                 # center
-Float64, Float64,                                 # right
-Float64                                           # occupancy
-))
+    getter desks : Array(Tuple(Float64, Float64, # left
+                               Float64, Float64, # center
+                               Float64, Float64, # right
+                               Float64           # occupancy
+    ))
   end
 
   class LuxLevel

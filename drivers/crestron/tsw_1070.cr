@@ -45,12 +45,12 @@ class Crestron::Tsw1070 < PlaceOS::Driver
   end
 
   def connected
-    if !authenticated?
-      # connected is called again by the authenticate function
-      spawn { authenticate }
-      return
-    end
+    schedule.clear
+    schedule.every(10.minutes) { authenticate }
+    spawn { authenticate }
+  end
 
+  protected def on_authenticated : Nil
     poll_device_info
     @lock.synchronize do
       if !@monitoring

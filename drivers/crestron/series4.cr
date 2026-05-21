@@ -28,8 +28,12 @@ class Crestron::Series4 < PlaceOS::Driver
   end
 
   def connected
+    schedule.clear
     schedule.every(10.minutes, immediate: true) { authenticate }
     schedule.every(1.hour, immediate: true) { get_device_info }
+  end
+
+  protected def on_authenticated : Nil
   end
 
   def disconnected

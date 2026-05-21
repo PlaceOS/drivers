@@ -29,8 +29,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
 
   MIN_SYNC_VERTICAL = 1080
 
-  def connected
-    super
+  protected def on_authenticated : Nil
     audio_follows_video = setting?(Bool, :audio_follows_video)
     @audio_follows_video = audio_follows_video.nil? ? true : audio_follows_video
 

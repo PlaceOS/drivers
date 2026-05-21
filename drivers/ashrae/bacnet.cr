@@ -10,7 +10,7 @@ class Ashrae::BACnet < PlaceOS::Driver
   descriptive_name "BACnet Connector"
   description %(BACnet IPv4 data available to other drivers in PlaceOS)
 
-  # Hookup dispatch to the BACnet BBMD device
+  # Hookup dispatch to the BACnet BBMD device.
   uri_base "ws://dispatch/api/dispatch/v1/udp_dispatch?port=47808&accept=192.168.0.1"
 
   default_settings({

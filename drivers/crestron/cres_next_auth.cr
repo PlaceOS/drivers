@@ -5,6 +5,8 @@ module Crestron::CresNextAuth
 
   getter? authenticated : Bool = false
 
+  abstract def on_authenticated : Nil
+
   def authenticate : Nil
     logger.debug { "Authenticating" }
     was_authenticated = @authenticated
@@ -32,7 +34,7 @@ module Crestron::CresNextAuth
         @authenticated = true
         begin
           queue.set_connected(true)
-          connected unless was_authenticated
+          spawn { on_authenticated } unless was_authenticated
         rescue
         end
         logger.debug { "Authenticated" }

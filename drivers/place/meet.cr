@@ -297,6 +297,7 @@ class Place::Meet < PlaceOS::Driver
       end
     {% end %}
 
+    @ignore_update = Time.utc.to_unix
     define_setting(:active_state, state)
     state
   end
