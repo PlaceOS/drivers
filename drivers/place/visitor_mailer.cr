@@ -54,6 +54,11 @@ class Place::VisitorMailer < PlaceOS::Driver
     invite_zone_tag:        "building",
     is_campus:              false,
 
+    # Suppresses the `booking` template when the booking has an
+    # extension_data.parent_id (i.e. auto-created from a calendar event that
+    # already triggers the `event` template).
+    skip_event_linked_booking_email: true,
+
     domain_uri:      "https://example.com/",
     jwt_private_key: PlaceOS::Model::JWTBase.private_key,
   })
@@ -139,6 +144,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @network_password_minimum_symbols : Int32 = DEFAULT_PASSWORD_MINIMUM_SYMBOLS
   @network_group_ids = [] of String
   @disable_event_visitors : Bool = true
+  @skip_event_linked_booking_email : Bool = true
 
   @uri : URI = URI.new
   @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
@@ -170,6 +176,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
     @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
     @disable_event_visitors = setting?(Bool, :disable_event_visitors) || false
+    skip_event_linked = setting?(Bool, :skip_event_linked_booking_email)
+    @skip_event_linked_booking_email = skip_event_linked.nil? ? true : skip_event_linked
     @invite_zone_tag = setting?(String, :invite_zone_tag) || "building"
     @is_parent_zone = setting?(Bool, :is_campus) || false
 
@@ -306,7 +314,17 @@ class Place::VisitorMailer < PlaceOS::Driver
     in BookingGuest
       area_name = @booking_space_name
       template = @booking_template
-      booking_type = staff_api.get_booking(guest_details.booking_id).get["booking_type"].as_s
+      booking = staff_api.get_booking(guest_details.booking_id).get
+
+      if @skip_event_linked_booking_email
+        parent_id = booking.dig?("extension_data", "parent_id").try(&.as_s?)
+        if parent_id && !parent_id.empty?
+          logger.debug { "skipping booking_created email for booking #{guest_details.booking_id} as it is linked to event #{parent_id}" }
+          return
+        end
+      end
+
+      booking_type = booking["booking_type"].as_s
       template = @group_event_template if booking_type == "group-event"
     in GuestNotification
       # should never get here
@@ -692,36 +710,19 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     return unless fields_changed
 
-    # Resolve previous location names from previous_system_id when room changed.
-    # Default previous_room_name to "unknown" when we know there was a different
-    # previous system — if the lookup succeeds it will be overwritten with the
-    # real name; if it fails (rescue) the "unknown" default is preserved and the
-    # recipient can see that the original location could not be determined.
+    # Previous location — "unknown" fallback is preserved if the lookup fails
+    # so recipients can see the original location couldn't be determined.
     previous_building_name = building_zone.display_name.presence || building_zone.name
     previous_room_name = @booking_space_name
 
     if (prev_sys_id = details.previous_system_id) && prev_sys_id != details.system_id
       previous_room_name = "unknown"
-      begin
-        prev_sys = get_room_details(prev_sys_id)
-        previous_room_name = prev_sys.display_name.presence || prev_sys.name
-        if prev_zones = prev_sys.zones
-          prev_zones.each do |zone_id|
-            begin
-              zone = fetch_zone(zone_id)
-              if zone.tags.includes?(@invite_zone_tag)
-                previous_building_name = zone.display_name.presence || zone.name
-                break
-              end
-            rescue error
-              logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
-            end
-          end
-        end
-      rescue error
-        logger.warn(exception: error) { "error looking up previous system #{prev_sys_id}" }
-      end
+      previous_room_name, previous_building_name = resolve_system_location_names(prev_sys_id, previous_room_name, previous_building_name)
     end
+
+    current_building_name = building_zone.display_name.presence || building_zone.name
+    current_room_name = @booking_space_name
+    current_room_name, current_building_name = resolve_system_location_names(details.system_id, current_room_name, current_building_name)
 
     guests = staff_api.event_guests(details.event_id, details.system_id, details.event_ical_uid).get.as_a
     send_booking_changed_emails(
@@ -732,6 +733,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       details.previous_event_start,
       previous_building_name,
       previous_room_name,
+      current_building_name,
+      current_room_name,
     )
   rescue error
     logger.error { error.inspect_with_backtrace }
@@ -743,7 +746,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     }
   end
 
-  # Sends booking-changed notification emails to each visitor in the guest list.
+  # `building_name` / `room_name` override the current location names; when
+  # omitted they fall back to `building_zone` / `@booking_space_name` (used by
+  # the booking flow, which has no system_id to resolve from).
   private def send_booking_changed_emails(
     guests : Array(JSON::Any),
     host_email : String,
@@ -752,7 +757,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     previous_start : Int64?,
     previous_building_name : String,
     previous_room_name : String,
+    building_name : String? = nil,
+    room_name : String? = nil,
   )
+    resolved_building_name = building_name || (building_zone.display_name.presence || building_zone.name)
+    resolved_room_name = room_name || @booking_space_name
+
     guests.each do |guest|
       visitor_email = guest["email"].as_s
       visitor_name = guest["name"].as_s?
@@ -773,8 +783,8 @@ class Place::VisitorMailer < PlaceOS::Driver
           visitor_name:           visitor_name,
           host_name:              get_host_name(host_email),
           host_email:             host_email,
-          room_name:              @booking_space_name,
-          building_name:          building_zone.display_name.presence || building_zone.name,
+          room_name:              resolved_room_name,
+          building_name:          resolved_building_name,
           event_title:            event_title,
           event_start:            local_start_time.to_s(@time_format),
           event_date:             local_start_time.to_s(@date_format),
@@ -788,6 +798,35 @@ class Place::VisitorMailer < PlaceOS::Driver
     rescue error
       logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
     end
+  end
+
+  # Returns `{room_name, building_name}` for `system_id`, falling back to the
+  # supplied values (and logging a warning) if any lookup fails.
+  private def resolve_system_location_names(system_id : String, fallback_room : String, fallback_building : String) : {String, String}
+    room_name = fallback_room
+    building_name = fallback_building
+
+    begin
+      sys = get_room_details(system_id)
+      room_name = sys.display_name.presence || sys.name
+      if zones = sys.zones
+        zones.each do |zone_id|
+          begin
+            zone = fetch_zone(zone_id)
+            if zone.tags.includes?(@invite_zone_tag)
+              building_name = zone.display_name.presence || zone.name
+              break
+            end
+          rescue error
+            logger.warn(exception: error) { "error looking up zone #{zone_id} for system #{system_id}" }
+          end
+        end
+      end
+    rescue error
+      logger.warn(exception: error) { "error looking up system #{system_id}" }
+    end
+
+    {room_name, building_name}
   end
 
   @[Security(Level::Support)]
