@@ -67,6 +67,15 @@ class StaffAPI < DriverSpecs::MockDriver
     self[:last_booking_zones] = [] of String
     self[:last_booking_type] = ""
     self[:bookings_deleted] = [] of Int64
+    self[:armed_existing_desk] = false
+  end
+
+  # spec-only hook: arm/disarm the mock so query_bookings returns an existing
+  # desk booking. Default off so create-booking tests don't trip the conflict
+  # check; armed for the my_bookings test and the conflict-rejection test.
+  def arm_existing_desk_booking(value : Bool) : Bool
+    self[:armed_existing_desk] = value
+    value
   end
 
   def zones(
@@ -211,8 +220,11 @@ class StaffAPI < DriverSpecs::MockDriver
     self[:last_query_zones] = zones
     self[:last_query_type] = type || ""
 
-    # only return bookings when called at the org level (mirrors my_bookings)
-    if type == "desk" && zones.includes?("zone-org")
+    # return an existing desk booking only when the spec has explicitly armed
+    # it via arm_existing_desk_booking, so the regular create-booking tests
+    # don't accidentally trip the conflict check.
+    armed = self[:armed_existing_desk]?.try(&.as_bool) || false
+    if type == "desk" && zones.includes?("zone-org") && armed
       return [
         {
           id:              500_i64,
@@ -273,6 +285,8 @@ class StaffAPI < DriverSpecs::MockDriver
     self[:last_booking_type] = booking_type
     self[:last_booking_asset] = asset_id
     self[:last_booking_timezone] = time_zone || ""
+    self[:last_booking_start] = booking_start || 0_i64
+    self[:last_booking_end] = booking_end || 0_i64
     {id: self[:bookings_created].as_i.to_i64 + 999_i64}
   end
 
@@ -362,15 +376,20 @@ DriverSpecs.mock_driver "Place::Campus" do
   end
 
   it "my_bookings queries with the org id as the zone filter" do
-    bookings = exec(:my_bookings).get.as_a
-    system(:StaffAPI)[:last_query_zones].as_a.map(&.as_s).should eq ["zone-org"]
+    system(:StaffAPI).as(StaffAPI).arm_existing_desk_booking(true)
+    begin
+      bookings = exec(:my_bookings).get.as_a
+      system(:StaffAPI)[:last_query_zones].as_a.map(&.as_s).should eq ["zone-org"]
 
-    bookings.size.should be > 0
-    booking = bookings.first
-    booking["building_id"].as_s.should eq "zone-building-a"
-    booking["building_name"].as_s.should eq "Sydney Tower"
-    booking["level_id"].as_s.should eq "zone-level-a1"
-    booking["asset_id"].as_s.should eq "desk-a1-02"
+      bookings.size.should be > 0
+      booking = bookings.first
+      booking["building_id"].as_s.should eq "zone-building-a"
+      booking["building_name"].as_s.should eq "Sydney Tower"
+      booking["level_id"].as_s.should eq "zone-level-a1"
+      booking["asset_id"].as_s.should eq "desk-a1-02"
+    ensure
+      system(:StaffAPI).as(StaffAPI).arm_existing_desk_booking(false)
+    end
   end
 
   it "book_relative writes level, building and org into the booking zones" do
@@ -447,6 +466,106 @@ DriverSpecs.mock_driver "Place::Campus" do
     zones.should contain "zone-org"
     # a level from building B must have been selected
     zones.should contain "zone-level-b1"
+  end
+
+  it "rejects a new desk booking when the user already has an overlapping desk booking" do
+    system(:StaffAPI).as(StaffAPI).arm_existing_desk_booking(true)
+    begin
+      expect_raises(Exception, /already have a desk booking/) do
+        exec(
+          :book_relative,
+          building_id: "zone-building-a",
+          booking_type: "desk",
+          asset_id: "desk-a1-01",
+          level_id: "zone-level-a1",
+          day_offset: 1,
+          number_of_days: 1,
+        ).get
+      end
+    ensure
+      system(:StaffAPI).as(StaffAPI).arm_existing_desk_booking(false)
+    end
+  end
+
+  it "snaps a today booking start time to the next 10-minute interval" do
+    # the building's timezone determines whether today bookings are still
+    # permitted - the driver only allows them before 6pm local time. Pick the
+    # building whose local time is currently before that cutoff.
+    sydney = Time::Location.load("Australia/Sydney")
+    ny = Time::Location.load("America/New_York")
+
+    building_id, tz = if Time.local(sydney).hour < 18
+                        {"zone-building-a", sydney}
+                      elsif Time.local(ny).hour < 18
+                        {"zone-building-b", ny}
+                      else
+                        {nil, nil}
+                      end
+
+    if building_id && tz
+      before_unix = Time.utc.to_unix
+      exec(
+        :book_relative,
+        building_id: building_id,
+        booking_type: "parking", # parking skips the desk-conflict check
+        asset_id: "park-1",
+        level_id: building_id == "zone-building-a" ? "zone-level-a1" : "zone-level-b1",
+        day_offset: 0,
+        number_of_days: 1,
+      ).get
+
+      booking_start = system(:StaffAPI)[:last_booking_start].as_i64
+      # aligned to a 10-minute boundary (works for whole-hour TZ offsets)
+      (booking_start % 600).should eq 0
+      # not in the past
+      booking_start.should be >= before_unix
+      # within ~11 minutes of now (i.e. the next 10-min interval, not 8am)
+      (booking_start - before_unix).should be < 11 * 60
+    end
+  end
+
+  it "applies an explicit booking_start and booking_end window to each day" do
+    tz = Time::Location.load("Australia/Sydney")
+    # pick a date well into the future so the past-booking check never trips
+    date = Time.local(2030, 6, 17, 0, 0, 0, location: tz)
+    start_time = Time.local(2030, 6, 17, 9, 30, 0, location: tz)
+    end_time = Time.local(2030, 6, 17, 13, 15, 0, location: tz)
+
+    exec(
+      :book_on,
+      building_id: "zone-building-a",
+      booking_type: "parking",
+      asset_id: "park-1",
+      level_id: "zone-level-a1",
+      date: date,
+      number_of_days: 1,
+      booking_start: start_time,
+      booking_end: end_time,
+    ).get
+
+    system(:StaffAPI)[:last_booking_start].as_i64.should eq start_time.to_unix
+    system(:StaffAPI)[:last_booking_end].as_i64.should eq end_time.to_unix
+  end
+
+  it "rejects an explicit booking window where end is not after start" do
+    tz = Time::Location.load("Australia/Sydney")
+    date = Time.local(2030, 6, 18, 0, 0, 0, location: tz)
+    start_time = Time.local(2030, 6, 18, 13, 0, 0, location: tz)
+    end_time = Time.local(2030, 6, 18, 9, 0, 0, location: tz)
+
+    expect_raises(Exception, /end time .* must be after start time/) do
+      exec(
+        :book_on,
+        building_id: "zone-building-a",
+        booking_type: "parking",
+        asset_id: "park-1",
+        level_id: "zone-level-a1",
+        date: date,
+        number_of_days: 1,
+        booking_start: start_time,
+        booking_end: end_time,
+      ).get
+    end
   end
 
   it "cancel_bookings deletes a booking owned by the user" do

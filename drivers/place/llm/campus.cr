@@ -37,6 +37,8 @@ class Place::Campus < PlaceOS::Driver
       str << "Note: when booking a meeting room, preference one on the same level or closest level to my desk booking in the same building, if I have one, unless I specify a specific level. Also try to pick a room with an appropriate capacity.\n"
       str << "once candidate meeting rooms have been found, you can include the list of resource emails when getting schedules to see which rooms are available\n"
       str << "this capability also supports managing desk bookings and inviting visitors to a building\n"
+      str << "the user can only hold one desk booking for themselves per day across the entire organisation - if they already have an overlapping desk booking the request will be rejected with the existing booking's details, ask them to cancel it first\n"
+      str << "when the user asks to book a desk for today, the booking start will automatically snap to the next 10 minute interval to avoid booking a time already in the past\n"
       str << "please cancel any bookings made on the incorrect day"
     end
   end
@@ -164,8 +166,17 @@ class Place::Campus < PlaceOS::Driver
     desks.sample(5)
   end
 
-  @[Description("books an asset, such as a desk or car parking space, in the specified building for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
-  def book_relative(building_id : String, booking_type : String, asset_id : String, level_id : String, day_offset : Int32 = 0, number_of_days : Int32 = 1)
+  @[Description("books an asset, such as a desk or car parking space, in the specified building for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk. Optional booking_start and booking_end (ISO 8601 with timezone) override the default times; for multi-day bookings the time-of-day from each is applied to every day.")]
+  def book_relative(
+    building_id : String,
+    booking_type : String,
+    asset_id : String,
+    level_id : String,
+    day_offset : Int32 = 0,
+    number_of_days : Int32 = 1,
+    booking_start : Time? = nil,
+    booking_end : Time? = nil,
+  )
     logger.debug { "booking relative #{booking_type}, asset #{asset_id} in building #{building_id} on level #{level_id}, day offset #{day_offset} for num days #{number_of_days}" }
 
     # ensure the level id exists
@@ -192,10 +203,10 @@ class Place::Campus < PlaceOS::Driver
     end
 
     ids = (day_offset...(day_offset + number_of_days)).map do |offset|
-      # calculate the offset time
-      days = offset.days
-      starting = now + days
-      ending = now.at_end_of_day + days
+      day_beginning = now + offset.days
+      starting, ending = resolve_booking_window(day_beginning, current_time, tz, booking_start, booking_end)
+
+      reject_existing_desk_booking(starting, ending, me.email, tz) if booking_type == "desk"
 
       resp = staff_api.create_booking(
         booking_type: booking_type,
@@ -219,8 +230,17 @@ class Place::Campus < PlaceOS::Driver
     }
   end
 
-  @[Description("books an asset, such as a desk or car parking space, in the specified building for the number of days specified, the start date must be in ISO 8601 format with the correct timezone. For desk bookings use booking_type: desk")]
-  def book_on(building_id : String, booking_type : String, asset_id : String, level_id : String, date : Time, number_of_days : Int32 = 1)
+  @[Description("books an asset, such as a desk or car parking space, in the specified building for the number of days specified, the start date must be in ISO 8601 format with the correct timezone. For desk bookings use booking_type: desk. Optional booking_start and booking_end (ISO 8601 with timezone) override the default times; for multi-day bookings the time-of-day from each is applied to every day.")]
+  def book_on(
+    building_id : String,
+    booking_type : String,
+    asset_id : String,
+    level_id : String,
+    date : Time,
+    number_of_days : Int32 = 1,
+    booking_start : Time? = nil,
+    booking_end : Time? = nil,
+  )
     logger.debug { "booking on #{booking_type}, asset #{asset_id} in building #{building_id} on level #{level_id}, date #{date} for num days #{number_of_days}" }
 
     # ensure the level id exists
@@ -246,10 +266,10 @@ class Place::Campus < PlaceOS::Driver
     end
 
     ids = (0...number_of_days).map do |offset|
-      # calculate the offset time
-      days = offset.days
-      starting = now + days
-      ending = now.at_end_of_day + days
+      day_beginning = now + offset.days
+      starting, ending = resolve_booking_window(day_beginning, current_time, tz, booking_start, booking_end)
+
+      reject_existing_desk_booking(starting, ending, me.email, tz) if booking_type == "desk"
 
       resp = staff_api.create_booking(
         booking_type: booking_type,
@@ -287,8 +307,17 @@ class Place::Campus < PlaceOS::Driver
     "bookings have been removed"
   end
 
-  @[Description("book a visitor to the specified building")]
-  def invite(building_id : String, visitor_name : String, visitor_email : String, day_offset : Int32 = 0, date : Time? = nil, number_of_days : Int32 = 1)
+  @[Description("book a visitor to the specified building. Optional booking_start and booking_end (ISO 8601 with timezone) override the default times; for multi-day bookings the time-of-day from each is applied to every day.")]
+  def invite(
+    building_id : String,
+    visitor_name : String,
+    visitor_email : String,
+    day_offset : Int32 = 0,
+    date : Time? = nil,
+    number_of_days : Int32 = 1,
+    booking_start : Time? = nil,
+    booking_end : Time? = nil,
+  )
     logger.debug { "inviting visitor to building #{building_id} #{visitor_name}: #{visitor_email}, day offset #{day_offset} for num days #{number_of_days}" }
 
     # select a random level in the requested building
@@ -311,10 +340,8 @@ class Place::Campus < PlaceOS::Driver
     visitor_email = visitor_email.downcase
 
     ids = (day_offset...(day_offset + number_of_days)).map do |offset|
-      # calculate the offset time
-      days = offset.days
-      starting = now + days
-      ending = now.at_end_of_day + days
+      day_beginning = now + offset.days
+      starting, ending = resolve_booking_window(day_beginning, current_time, tz, booking_start, booking_end)
 
       resp = staff_api.create_booking(
         booking_type: "visitor",
@@ -465,6 +492,75 @@ class Place::Campus < PlaceOS::Driver
       @level_name = level.display_name || level.name
       @building_id = building.id
       @building_name = building.display_name || building.name
+    end
+  end
+
+  # Returns the start time to use for a booking on the given day.
+  # For today, snaps forward to the next 10-minute interval so we never book
+  # a slot that has already started. For future days, returns the start of day.
+  protected def booking_start_time(day_beginning : Time, current_time : Time) : Time
+    return day_beginning unless day_beginning == current_time.at_beginning_of_day
+
+    remainder = current_time.minute % 10
+    add_minutes = remainder == 0 ? 10 : (10 - remainder)
+    current_time.at_beginning_of_minute + add_minutes.minutes
+  end
+
+  # Builds the {starting, ending} window for a single day of a booking.
+  # If the caller supplied an explicit start/end Time, the time-of-day part is
+  # applied to that day (so multi-day requests reuse the same daily window).
+  # Otherwise the defaults apply: start = next-10-min for today / day start for
+  # other days, end = end of day.
+  protected def resolve_booking_window(day_beginning : Time, current_time : Time, tz : Time::Location, booking_start : Time?, booking_end : Time?) : {Time, Time}
+    starting = if bs = booking_start
+                 apply_time_of_day(day_beginning, bs.in(tz))
+               else
+                 booking_start_time(day_beginning, current_time)
+               end
+
+    ending = if be = booking_end
+               apply_time_of_day(day_beginning, be.in(tz))
+             else
+               day_beginning.at_end_of_day
+             end
+
+    raise "booking end time #{ending} must be after start time #{starting}" if ending <= starting
+    raise "booking start time #{starting} is in the past" if starting < current_time
+
+    {starting, ending}
+  end
+
+  # Combines the date part of day_beginning with the time-of-day from time.
+  protected def apply_time_of_day(day_beginning : Time, time : Time) : Time
+    day_beginning + time.hour.hours + time.minute.minutes + time.second.seconds
+  end
+
+  # Raises if the user already has a desk booking (across any building in the
+  # org) that overlaps the requested window. Only desk bookings where the user
+  # is the booked-for party are considered - bookings made on behalf of someone
+  # else don't count.
+  protected def reject_existing_desk_booking(starting : Time, ending : Time, user_email : String, tz : Time::Location)
+    existing = staff_api.query_bookings(
+      type: "desk",
+      period_start: starting.to_unix,
+      period_end: ending.to_unix,
+      zones: {org.id},
+      email: user_email
+    ).get.as_a
+
+    conflicting = existing.find do |b|
+      b["user_email"].as_s.downcase == user_email.downcase
+    end
+    return unless conflicting
+
+    friendly = to_friendly_booking(conflicting)
+    if friendly
+      raise "you already have a desk booking on #{friendly.starting.to_s("%F")} for desk #{friendly.asset_id} in #{friendly.building_name} (#{friendly.level_name}) from #{friendly.starting.to_s("%H:%M")} to #{friendly.ending.to_s("%H:%M")}. Cancel that booking first if you'd like to book a different desk for the same day."
+    else
+      asset = conflicting["asset_id"].as_s
+      s = Time.unix(conflicting["booking_start"].as_i64).in(tz)
+      e = Time.unix(conflicting["booking_end"].as_i64).in(tz)
+      raise "you already have a desk booking on #{s.to_s("%F")} for desk #{asset} from #{s.to_s("%H:%M")} to #{e.to_s("%H:%M")}. Cancel that booking first if you'd like to book a different desk for the same day."
     end
   end
 
