@@ -593,7 +593,7 @@ class Place::Campus < PlaceOS::Driver
 
   # cache of buildings under the org keyed by zone id
   getter all_buildings : Hash(String, Zone) do
-    list = Array(Zone).from_json(staff_api.zones(parent: org.id, tags: {"building"}).get.to_json)
+    list = Array(Zone).from_json(staff_api.zones(tags: {"building"}).get.to_json)
     list.each_with_object({} of String => Zone) { |z, h| h[z.id] = z }
   end
 
