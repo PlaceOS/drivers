@@ -31,7 +31,7 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
 
   include Interface::InputSelection(Input)
 
-  # Discovery Information
+  # Discovery Information:
   tcp_port 1515
   descriptive_name "Samsung Simplified Control Set"
   generic_name :Display

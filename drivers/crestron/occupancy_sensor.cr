@@ -4,7 +4,7 @@ require "placeos-driver/interface/device_info"
 require "./cres_next_auth"
 
 # This device doesn't seem to support a websocket interface
-# and relies on long polling
+# and relies on long polling.
 
 class Crestron::OccupancySensor < PlaceOS::Driver
   include Crestron::CresNextAuth

@@ -247,7 +247,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.23.0
+    version: 7.24.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -347,7 +347,7 @@ shards:
 
   tasker:
     git: https://github.com/spider-gazelle/tasker.git
-    version: 2.1.4
+    version: 3.0.0
 
   telnet:
     git: https://github.com/spider-gazelle/telnet.cr.git
