@@ -49,6 +49,20 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
       self[:subscriptions] = @subscriptions = subs.as_h
     end
 
+    # Refresh state now that we're authenticated. The *recurring* polls live in
+    # `connected` (see below) - not here - so they can't accumulate.
+    update_source_info
+  end
+
+  # The recurring background polls are registered here rather than in
+  # `on_authenticated`. `connected` runs `schedule.clear` (via super) on every
+  # (re)connect, so the schedules are re-armed cleanly. `on_authenticated` fires
+  # on the independent HTTP-auth lifecycle, so registering recurring tasks there
+  # meant each re-auth added schedules that were never cleared - leaking
+  # schedules (and, under the old per-timer scheduler, a fiber each).
+  def connected
+    super
+
     # Background poll for subscription changes.
     schedule.every(1.hour) do
       query("/XioSubscription/Subscriptions", priority: 5) do |subs|
@@ -57,7 +71,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     end
 
     # Background poll to remain in sync with any external routing changes
-    schedule.every(5.minutes, immediate: true) { update_source_info }
+    schedule.every(5.minutes) { update_source_info }
   end
 
   def switch_to(input : Input)

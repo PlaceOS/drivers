@@ -28,8 +28,22 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
       self[:WARN] = "device configured as a #{mode}. Expecting Transmitter"
     end
 
+    # Refresh state now that we're authenticated. The *recurring* poll lives in
+    # `connected` (see below) - not here - so it can't accumulate.
+    update_source_info
+  end
+
+  # The recurring background poll is registered here rather than in
+  # `on_authenticated`. `connected` runs `schedule.clear` (via super) on every
+  # (re)connect, so the schedule is re-armed cleanly. `on_authenticated` fires
+  # on the independent HTTP-auth lifecycle, so registering a recurring task
+  # there meant each re-auth added another schedule that was never cleared -
+  # leaking schedules (and, under the old per-timer scheduler, a fiber each).
+  def connected
+    super
+
     # Background poll to remain in sync with any external routing changes
-    schedule.every(5.minutes, immediate: true) { update_source_info }
+    schedule.every(5.minutes) { update_source_info }
   end
 
   def switch_to(input : Input)
