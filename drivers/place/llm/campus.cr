@@ -14,7 +14,8 @@ class Place::Campus < PlaceOS::Driver
 
   default_settings({
     # fallback if there isn't one on the zone
-    time_zone: "Australia/Sydney",
+    time_zone:     "Australia/Sydney",
+    prompt_tweaks: "",
   })
 
   @fallback_timezone : Time::Location = Time::Location::UTC
@@ -22,6 +23,7 @@ class Place::Campus < PlaceOS::Driver
   def on_update
     timezone = config.control_system.not_nil!.timezone.presence || setting?(String, :time_zone).presence || "Australia/Sydney"
     @fallback_timezone = Time::Location.load(timezone)
+    @capabilities = nil
   end
 
   # =========================
@@ -39,7 +41,9 @@ class Place::Campus < PlaceOS::Driver
       str << "this capability also supports managing desk bookings and inviting visitors to a building\n"
       str << "the user can only hold one desk booking for themselves per day across the entire organisation - if they already have an overlapping desk booking the request will be rejected with the existing booking's details, ask them to cancel it first\n"
       str << "when the user asks to book a desk for today, the booking start will automatically snap to the next 10 minute interval to avoid booking a time already in the past\n"
-      str << "please cancel any bookings made on the incorrect day"
+      str << "cancel any bookings made on the incorrect day.\n"
+      str << "do not ask for booking confirmations, once you have enough information, be assertive and perform the requested action.\n"
+      str << (setting?(String, :prompt_tweaks).presence || "")
     end
   end
 
