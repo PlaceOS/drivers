@@ -43,6 +43,7 @@ class Place::Campus < PlaceOS::Driver
       str << "when the user asks to book a desk for today, the booking start will automatically snap to the next 10 minute interval to avoid booking a time already in the past\n"
       str << "cancel any bookings made on the incorrect day.\n"
       str << "do not ask for booking confirmations, once you have enough information, be assertive and perform the requested action.\n"
+      str << "use your intuition and be decisive, if the user requests the 'first floor' and there is a 'level 1' these are the same thing.\n"
       str << (setting?(String, :prompt_tweaks).presence || "")
     end
   end
@@ -196,15 +197,15 @@ class Place::Campus < PlaceOS::Driver
     raise "booking in the past is not permitted" unless day_offset > 0 || (day_offset == 0 && current_time.hour < 18)
 
     # ensure the asset exists if we can check for it
+    desk = nil
     case booking_type
     when "desk"
       all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
       raise "no desks found on level #{level_id}, ensure this id is correct" unless all_desks
       desks = Array(Desk).from_json(all_desks.to_json)
       desk = desks.find { |d| d.id == asset_id }
-
-      raise "could not find a desk with id: #{asset_id}" unless desk
     end
+    raise "could not find a desk with id: #{asset_id}" unless desk
 
     ids = (day_offset...(day_offset + number_of_days)).map do |offset|
       day_beginning = now + offset.days
@@ -221,6 +222,7 @@ class Place::Campus < PlaceOS::Driver
         zones: {level_id, building_id, org.id},
         booking_start: starting.to_unix,
         booking_end: ending.to_unix,
+        title: desk.name || asset_id,
         time_zone: tz.to_s,
         utm_source: "chatgpt"
       )
@@ -259,15 +261,15 @@ class Place::Campus < PlaceOS::Driver
     raise "booking in the past is not permitted" unless current_time < now || (current_time - now) < 18.hours
 
     # ensure the asset exists if we can check for it
+    desk = nil
     case booking_type
     when "desk"
       all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
       raise "no desks found on level #{level_id}, ensure this id is correct" unless all_desks
       desks = Array(Desk).from_json(all_desks.to_json)
       desk = desks.find { |d| d.id == asset_id }
-
-      raise "could not find a desk with id: #{asset_id}" unless desk
     end
+    raise "could not find a desk with id: #{asset_id}" unless desk
 
     ids = (0...number_of_days).map do |offset|
       day_beginning = now + offset.days
@@ -284,6 +286,7 @@ class Place::Campus < PlaceOS::Driver
         zones: {level_id, building_id, org.id},
         booking_start: starting.to_unix,
         booking_end: ending.to_unix,
+        title: desk.name || asset_id,
         time_zone: tz.to_s,
         utm_source: "chatgpt"
       )
@@ -396,6 +399,7 @@ class Place::Campus < PlaceOS::Driver
     include JSON::Serializable
 
     getter id : String
+    getter name : String?
     getter groups : Array(String) = [] of String
     getter features : Array(String) = [] of String
   end
