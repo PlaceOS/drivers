@@ -20,7 +20,7 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
 
   protected def on_authenticated : Nil
     # NVX hardware can be confiured a either a RX or TX unit - check this
-    # device is in the correct mode.
+    # device is in the correct mode
     query("/DeviceSpecific/DeviceMode") do |mode|
       # "DeviceMode":"Transmitter|Receiver",
       next if mode == "Transmitter"

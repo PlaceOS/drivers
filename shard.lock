@@ -11,7 +11,7 @@ shards:
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
-    version: 4.3.3
+    version: 4.4.2
 
   awscr-s3:
     git: https://github.com/taylorfinnell/awscr-s3.git
@@ -247,7 +247,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.24.0
+    version: 7.24.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
@@ -255,7 +255,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.91.0
+    version: 9.92.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -320,6 +320,10 @@ shards:
   sabo:
     git: https://github.com/place-technology/sabo.git
     version: 0.1.0+git.commit.7886f23f60611c8bb820e5184110537811da5b6b
+
+  sanitize:
+    git: https://github.com/straight-shoota/sanitize.git
+    version: 0.1.0+git.commit.c17d933fed22c6d3d615cca91a895166414389af
 
   simple_retry:
     git: https://github.com/spider-gazelle/simple_retry.git

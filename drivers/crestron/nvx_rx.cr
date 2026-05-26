@@ -1,6 +1,7 @@
 require "./cres_next"
 require "placeos-driver/interface/switchable"
 require "placeos-driver/interface/standby_image"
+require "placeos-driver/stats"
 require "uri"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
@@ -34,7 +35,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     @audio_follows_video = audio_follows_video.nil? ? true : audio_follows_video
 
     # NVX hardware can be confiured a either a RX or TX unit - check this
-    # device is in the correct mode.
+    # device is in the correct mode
     # https://sdkcon78221.crestron.com/sdk/DM_NVX_REST_API/Content/Topics/Objects/DeviceSpecific.htm?Highlight=DeviceMode
     query("/DeviceSpecific/DeviceMode") do |mode|
       # "DeviceMode":"Transmitter|Receiver",
@@ -380,5 +381,13 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
         logger.debug { "unsolicited parse error: #{e.message}" }
       end
     end
+  end
+
+  def __stat_mem__
+    ::PlaceOS::Driver::Stats.memory_usage
+  end
+
+  def __stat_protocol__
+    ::PlaceOS::Driver::Stats.protocol_tracking
   end
 end
