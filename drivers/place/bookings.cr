@@ -2,6 +2,7 @@ require "placeos-driver"
 require "place_calendar"
 require "placeos-driver/interface/locatable"
 require "placeos-driver/interface/sensor"
+require "placeos-driver/stats"
 
 class Place::Bookings < PlaceOS::Driver
   include Interface::Locatable
@@ -1005,5 +1006,13 @@ class Place::Bookings < PlaceOS::Driver
         logger.error(exception: error) { "invalid syllabus plus resource id #{resource_id} in #{config.control_system.not_nil!.name}" }
       end
     end
+  end
+
+  def __stat_mem__
+    ::PlaceOS::Driver::Stats.memory_usage
+  end
+
+  def __stat_fiber__
+    ::PlaceOS::Driver::Stats.fiber_breakdown
   end
 end

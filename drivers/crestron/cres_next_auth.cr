@@ -34,7 +34,7 @@ module Crestron::CresNextAuth
         @authenticated = true
         begin
           queue.set_connected(true)
-          spawn { on_authenticated } unless was_authenticated
+          spawn(name: "on-authenticated") { on_authenticated } unless was_authenticated
         rescue
         end
         logger.debug { "Authenticated" }

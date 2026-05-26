@@ -387,7 +387,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     ::PlaceOS::Driver::Stats.memory_usage
   end
 
-  def __stat_protocol__
-    ::PlaceOS::Driver::Stats.protocol_tracking
+  def __stat_fiber__
+    ::PlaceOS::Driver::Stats.fiber_breakdown
   end
 end
