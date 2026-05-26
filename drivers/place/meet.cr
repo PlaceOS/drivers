@@ -161,7 +161,7 @@ class Place::Meet < PlaceOS::Driver
   @startup_exec : Array(AccessoryComplex::Exec)? = nil
   @shutown_exec : Array(AccessoryComplex::Exec)? = nil
 
-  # core includes: 'current_routes' hash
+  # core includes: 'current_routes' hash.
   # but we override it here for LLM integration
   @[Description("obtain the current routes, output => input")]
   getter current_routes : Hash(String, String?) = {} of String => String?
