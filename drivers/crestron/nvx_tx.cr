@@ -29,7 +29,7 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
     end
 
     # Refresh state now that we're authenticated. The *recurring* poll lives in
-    # `connected` (see below) - not here - so it can't accumulate.
+    # `connected` (see below) - not here - so it can't accumulate
     update_source_info
   end
 
