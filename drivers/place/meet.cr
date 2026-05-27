@@ -159,7 +159,7 @@ class Place::Meet < PlaceOS::Driver
   @auto_route_on_join : Bool = false
 
   @startup_exec : Array(AccessoryComplex::Exec)? = nil
-  @shutown_exec : Array(AccessoryComplex::Exec)? = nil
+  @shutdown_exec : Array(AccessoryComplex::Exec)? = nil
 
   # core includes: 'current_routes' hash.
   # but we override it here for LLM integration
@@ -184,7 +184,8 @@ class Place::Meet < PlaceOS::Driver
     @auto_route_on_join = setting?(Bool, :auto_route_on_join) || false
 
     @startup_exec = setting?(Array(AccessoryComplex::Exec), :startup_exec)
-    @shutown_exec = setting?(Array(AccessoryComplex::Exec), :shutown_exec)
+    # shutown_exec was a previous spelling mistake, here for backwards compatibility
+    @shutdown_exec = setting?(Array(AccessoryComplex::Exec), :shutdown_exec) || setting?(Array(AccessoryComplex::Exec), :shutown_exec)
 
     self[:active] = setting?(Bool, :active_state)
 
@@ -283,7 +284,7 @@ class Place::Meet < PlaceOS::Driver
       end
       sys[@local_vidconf].hangup if sys.exists?(@local_vidconf)
 
-      perform_executes(@shutown_exec)
+      perform_executes(@shutdown_exec)
     end
 
     remotes_before.each { |room| room.power(state, unlink) }
@@ -297,7 +298,8 @@ class Place::Meet < PlaceOS::Driver
       end
     {% end %}
 
-    @ignore_update = Time.utc.to_unix
+    # better to not be ignored
+    # @ignore_update = Time.utc.to_unix
     define_setting(:active_state, state)
     state
   end
