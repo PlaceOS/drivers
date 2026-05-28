@@ -139,20 +139,39 @@ class StaffAPIMock < DriverSpecs::MockDriver
       else
         [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool)
       end
+    when 301
+      # Simulates the host being stored as a visit_expected attendee
+      # alongside a real external visitor (mirrors what events.cr does
+      # when it appends the host with visit_expected: true).
+      [
+        {email: "host@example.com", name: "Host User", checked_in: false, visit_expected: true},
+        {email: "visitor@external.com", name: "Visitor One", checked_in: false, visit_expected: true},
+      ]
     else
       [{email: "visitor@external.com", name: "Visitor One", checked_in: false, visit_expected: true}]
     end
   end
 
   def event_guests(event_id : String, system_id : String, ical_uid : String? = nil)
-    [
-      {
-        email:          "visitor@external.com",
-        name:           "Visitor One",
-        checked_in:     false,
-        visit_expected: true,
-      },
-    ]
+    case event_id
+    when "evt-host-in-guests"
+      # Mirrors the production scenario where events.cr stores the host
+      # as an attendee (visit_expected: true), so they appear in the
+      # event guest list alongside real visitors.
+      [
+        {email: "host@example.com", name: "Host User", checked_in: false, visit_expected: true},
+        {email: "visitor@external.com", name: "Visitor One", checked_in: false, visit_expected: true},
+      ]
+    else
+      [
+        {
+          email:          "visitor@external.com",
+          name:           "Visitor One",
+          checked_in:     false,
+          visit_expected: true,
+        },
+      ]
+    end
   end
 
   def get_system(id : String, complete : Bool = false)
@@ -1074,4 +1093,284 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq count_before_opt_out + 1
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
   system(:Mailer)[:last_to].should eq "visitor@external.com"
+
+  # ==================================================================
+  # skip_host_email tests (PPT-2375)
+  # ==================================================================
+  #
+  # When events.cr / bookings.cr add the host as an attendee with
+  # visit_expected: true, the host ends up in the guest list and would
+  # otherwise receive their own visitor / check-in / booking_changed
+  # emails.  The skip_host_email setting (default true) filters them out
+  # in the driver — Office 365 mail is out of scope.
+
+  # ------------------------------------------------------------------
+  # Test 25: guest_event — host listed as attendee on a booking is
+  #          NOT sent the visitor invite (skip_host_email default true)
+  # ------------------------------------------------------------------
+
+  count_before_host_attendee = system(:Mailer)[:send_count].as_i
+
+  host_as_attendee_payload = {
+    action:         "booking_created",
+    booking_id:     700_i64,
+    resource_id:    "host@example.com",
+    event_title:    "Self-Invited Booking",
+    event_summary:  "Self-Invited Booking",
+    event_starting: now + 3600,
+    attendee_name:  "Host User",
+    attendee_email: "host@example.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/attending", host_as_attendee_payload)
+  sleep 0.5
+
+  # Default skip_host_email: true means no email is sent to the host
+  system(:Mailer)[:send_count].should eq count_before_host_attendee
+
+  # ------------------------------------------------------------------
+  # Test 26: guest_event — host check is case-insensitive
+  # ------------------------------------------------------------------
+
+  count_before_case = system(:Mailer)[:send_count].as_i
+
+  host_case_payload = {
+    action:         "booking_created",
+    booking_id:     701_i64,
+    resource_id:    "host@example.com",
+    event_title:    "Case Booking",
+    event_summary:  "Case Booking",
+    event_starting: now + 3600,
+    attendee_name:  "Host User",
+    attendee_email: "Host@Example.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/attending", host_case_payload)
+  sleep 0.5
+
+  system(:Mailer)[:send_count].should eq count_before_case
+
+  # ------------------------------------------------------------------
+  # Test 27: guest_event — real visitor still receives invite when host
+  #          is filtered (sanity check that the host filter doesn't
+  #          over-match)
+  # ------------------------------------------------------------------
+
+  count_before_visitor = system(:Mailer)[:send_count].as_i
+
+  visitor_only_payload = {
+    action:         "booking_created",
+    booking_id:     702_i64,
+    resource_id:    "visitor@external.com",
+    event_title:    "Real Visitor Booking",
+    event_summary:  "Real Visitor Booking",
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/attending", visitor_only_payload)
+  sleep 0.5
+
+  system(:Mailer)[:send_count].should eq count_before_visitor + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
+
+  # ------------------------------------------------------------------
+  # Test 28: send_booking_changed_emails (via event_changed_event) —
+  #          host present in event_guests is NOT sent the
+  #          booking_changed email, but real visitors still are.
+  # ------------------------------------------------------------------
+
+  count_before_evt_host = system(:Mailer)[:send_count].as_i
+
+  event_changed_host_in_guests = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-host-in-guests",
+    event_ical_uid:       "ical-host-in-guests",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Mixed Guests Meeting",
+    event_start:          now + 7200,
+    event_end:            now + 10800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 7200,
+  }.to_json
+
+  publish("staff/event/changed", event_changed_host_in_guests)
+  sleep 1.5
+
+  # event_guests mock returns BOTH host and visitor for evt-host-in-guests,
+  # but only the visitor should receive the booking_changed email.
+  system(:Mailer)[:send_count].should eq count_before_evt_host + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  # ------------------------------------------------------------------
+  # Test 29: send_booking_changed_emails (via booking_changed_event) —
+  #          same filtering applies when the booking_guests response
+  #          contains the host.
+  # ------------------------------------------------------------------
+
+  count_before_bk_host = system(:Mailer)[:send_count].as_i
+
+  booking_changed_host_in_guests = {
+    action:                 "changed",
+    id:                     301_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Mixed Guests Booking",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  publish("staff/booking/changed", booking_changed_host_in_guests)
+  sleep 1.5
+
+  # booking_guests mock for id 301 returns BOTH host and visitor,
+  # but only the visitor should receive the booking_changed email.
+  system(:Mailer)[:send_count].should eq count_before_bk_host + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  # ------------------------------------------------------------------
+  # Test 30: notify_original_host email is unaffected by
+  #          skip_host_email — sending an email to the previous host
+  #          is the entire point of that template, even though the
+  #          recipient happens to be a host.
+  # ------------------------------------------------------------------
+
+  count_before_prev_host = system(:Mailer)[:send_count].as_i
+
+  prev_host_payload = {
+    action:              "host_changed",
+    booking_id:          702_i64,
+    resource_id:         "desk-1",
+    resource_ids:        ["desk-1"],
+    event_title:         "Reassigned Booking",
+    event_summary:       "Reassigned Booking",
+    event_starting:      now + 3600,
+    previous_host_email: "prev-host@example.com",
+    new_host_email:      "new-host@example.com",
+    zones:               ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/booking/host_changed", prev_host_payload)
+  sleep 1.5
+
+  # Previous-host notification still fires regardless of skip_host_email
+  system(:Mailer)[:send_count].should eq count_before_prev_host + 1
+  system(:Mailer)[:last_to].should eq "prev-host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  # ------------------------------------------------------------------
+  # Test 31: opt-out (skip_host_email: false) restores legacy behaviour
+  #          — the host receives the visitor invite when listed as an
+  #          attendee.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    skip_host_email:    false,
+  })
+  sleep 1.0
+
+  count_before_optout = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", host_as_attendee_payload)
+  sleep 0.5
+
+  system(:Mailer)[:send_count].should eq count_before_optout + 1
+  system(:Mailer)[:last_to].should eq "host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
+
+  # And the host now also receives booking_changed emails when present
+  # in the guest list
+  count_before_optout_bc = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", event_changed_host_in_guests)
+  sleep 1.5
+
+  # Both host AND visitor receive the booking_changed email
+  system(:Mailer)[:send_count].should eq count_before_optout_bc + 2
+
+  # ------------------------------------------------------------------
+  # Test 32: induction template settings (PPT-2375 bug fix)
+  #          Verify that custom `notify_induction_accepted_template` and
+  #          `notify_induction_declined_template` settings are actually
+  #          picked up.  Previously on_update read the wrong setting keys
+  #          (:induction_accepted / :induction_declined) so any override
+  #          silently fell back to the defaults.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:                           "GMT",
+    booking_space_name:                 "Client Floor",
+    invite_zone_tag:                    "building",
+    notify_induction_accepted_template: "custom_accepted",
+    notify_induction_declined_template: "custom_declined",
+  })
+  sleep 1.0
+
+  count_before_induction_accept = system(:Mailer)[:send_count].as_i
+
+  induction_accepted_payload = {
+    action:         "induction_accepted",
+    induction:      "ACCEPTED",
+    booking_id:     800_i64,
+    resource_id:    "desk-1",
+    resource_ids:   ["desk-1"],
+    event_title:    "Induction Booking",
+    event_summary:  "Induction Booking",
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/induction_accepted", induction_accepted_payload)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq count_before_induction_accept + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "custom_accepted"]
+
+  count_before_induction_decline = system(:Mailer)[:send_count].as_i
+
+  induction_declined_payload = {
+    action:         "induction_declined",
+    induction:      "DECLINED",
+    booking_id:     801_i64,
+    resource_id:    "desk-1",
+    resource_ids:   ["desk-1"],
+    event_title:    "Induction Booking",
+    event_summary:  "Induction Booking",
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/induction_declined", induction_declined_payload)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq count_before_induction_decline + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "custom_declined"]
 end
