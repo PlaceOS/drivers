@@ -30,9 +30,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # auto-allocation runs every 3 hours by default (in minutes)
     poll_rate: 180,
 
-    # max days ahead we'll auto-approve. Capped at 14
-    cache_days: 14,
-
     # ordered AD groups (highest priority first). Group id or email.
     auto_approval_groups: ["azure_group_email_or_id"],
 
@@ -61,9 +58,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     date_format:      "%A, %-d %B",
   })
 
-  # max days we will look ahead regardless of cache_days setting
-  MAX_LOOKAHEAD_DAYS = 14
-  BOOKING_TYPE       = "parking"
+  BOOKING_TYPE = "parking"
 
   @timezone : Time::Location = Time::Location::UTC
   @poll_rate : Time::Span = 180.minutes
@@ -76,7 +71,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
   # rather than exclusivity so they are not added here.
   @exclusive_features : Array(String) = [] of String
-  @approval_period : Int32 = 14
 
   # gallagher group_id => { user_email => cardholder_id }
   # tracks ONLY users we explicitly granted access to. Users who were already
@@ -126,8 +120,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
-
-    @approval_period = (setting?(Int32, :cache_days) || MAX_LOOKAHEAD_DAYS).clamp(1, MAX_LOOKAHEAD_DAYS)
 
     # invalidate caches dependent on settings
     @building_zone = nil
@@ -283,7 +275,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   protected def run_allocation
     starting = Time.utc.to_unix
-    ending = @approval_period.days.from_now.to_unix
+    # only allocate bookings up to the end of the upcoming Friday (local time)
+    ending = next_friday_cutoff.to_unix
 
     spaces = parking_spaces
     spaces_by_id = spaces.each_with_object({} of String => ParkingSpace) { |s, h| h[s.id] = s }
@@ -345,6 +338,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # against @access_granted and apply only the additions/removals we own.
     desired_access = build_desired_access(booking_meta, spaces_by_id, assigned_spaces)
     apply_access_changes(desired_access)
+  end
+
+  # End of the upcoming Friday (23:59:59) in the configured timezone. When the
+  # current day is already Friday this returns the end of today; on Sat/Sun it
+  # rolls forward to the next week's Friday.
+  protected def next_friday_cutoff : Time
+    now = Time.local(@timezone)
+    days_until_friday = (Time::DayOfWeek::Friday.value - now.day_of_week.value) % 7
+    (now + days_until_friday.days).at_end_of_day
   end
 
   # Walk the final booking + permanent-assignment state and emit the gallagher

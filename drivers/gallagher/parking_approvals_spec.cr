@@ -455,6 +455,31 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
   mailer.send_count.should eq(1)
+
+  # ===========================================================
+  # Test 12: the allocation window ends at the upcoming Friday 23:59 in the
+  # configured timezone (control_system timezone is Australia/Sydney in specs).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  staff.set_bookings("[]")
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  tz = Time::Location.load("Australia/Sydney")
+  now_local = Time.local(tz)
+  days_until_friday = (Time::DayOfWeek::Friday.value - now_local.day_of_week.value) % 7
+  expected_end = (now_local + days_until_friday.days).at_end_of_day
+
+  period_end = staff.last_query_period_end.not_nil!
+  period_end.should eq(expected_end.to_unix)
+
+  cutoff = Time.unix(period_end).in(tz)
+  cutoff.day_of_week.should eq(Time::DayOfWeek::Friday)
+  cutoff.hour.should eq(23)
+  cutoff.minute.should eq(59)
 end
 
 # :nodoc:
@@ -468,6 +493,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
   # own process_state column). The state IS reflected on the next query_bookings
   # re-fetch, so the driver's duplicate-email guards work as in production.
   @states : Hash(String, String) = {} of String => String
+  # records the period_end passed to the most recent query_bookings call so
+  # tests can assert the allocation window
+  getter last_query_period_end : Int64? = nil
 
   def on_load
     self[:zone_lookups] = 0
@@ -562,6 +590,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
     asset_id : String? = nil,
     limit : Int32? = nil,
   )
+    @last_query_period_end = period_end
+
     # overlay any persisted per-instance process_state, mirroring how the
     # backend reflects booking_state writes on the next fetch
     bookings = JSON.parse(@bookings_json).as_a.map do |booking|
