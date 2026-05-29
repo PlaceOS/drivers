@@ -3,6 +3,10 @@ require "placeos-driver/interface/switchable"
 require "placeos-driver/interface/standby_image"
 require "placeos-driver/stats"
 require "uri"
+require "mime"
+require "openssl"
+require "http/client"
+require "http/formdata"
 
 class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   alias Input = String
@@ -198,15 +202,62 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     ws_update "/BackgroundImage/Outputs/Output#{output_index}/IsEnabled", state, name: "set_output#{output_index}_image_enabled"
   end
 
+  # The decoder hosts uploaded background images locally under this path,
+  # using fixed image "slots" (Image01..ImageNN). We always use Image01.
+  UPLOAD_DIR  = "/data/web/tmp/Images/Local/"
+  UPLOAD_SLOT = "Image01"
+
   @[Security(Level::Administrator)]
   def set_background_image(url : String, output_index : Int32? = nil) : Nil
     output_index ||= 1
     uri = URI.parse(url)
     raise ArgumentError.new("invalid URL provided: #{url}") unless uri.scheme.presence && uri.host.presence && uri.path.presence
 
-    ws_update "/BackgroundImage/Outputs/Output#{output_index}/HostBackgroundImage", "Remote", name: "set_output#{output_index}_image_location"
-    ws_update "/BackgroundImage/Outputs/Output#{output_index}/RemoteServer/ServerPath", url, name: "set_output#{output_index}_image"
-    ws_update "/BackgroundImage/Outputs/Output#{output_index}/RemoteServer/IsRefreshImageEnabled", false, name: "set_output#{output_index}_image_refresh"
+    # The NVX's remote-server image pull is too limited, so instead we download
+    # the image ourselves and upload it onto the device for local hosting.
+    image_name = File.basename(uri.path)
+    raise ArgumentError.new("could not determine image filename from URL: #{url}") if image_name.empty?
+
+    upload_local_image(uri, image_name)
+
+    # Point the output at the freshly uploaded local image.
+    ws_update "/BackgroundImage/Outputs/Output#{output_index}/HostBackgroundImage", "Local", name: "set_output#{output_index}_image_location"
+    ws_update "/BackgroundImage/Outputs/Output#{output_index}/Local/ImageName", image_name, name: "set_output#{output_index}_image"
+  end
+
+  # Streams the image from *uri* straight into a multipart/form-data upload to
+  # the decoder, storing it in the local image slot (`UPLOAD_SLOT`).
+  #
+  # The download response body is piped directly into the multipart body as it
+  # arrives, so we never hold a second copy of the image data.
+  protected def upload_local_image(uri : URI, image_name : String) : Nil
+    request_payload = %({"Device":{"ImageMgmnt":{"LocalImages":{"#{UPLOAD_SLOT}":{"UploadFile":#{image_name.to_json},"UploadFilePath":#{UPLOAD_DIR.to_json}}}}}})
+
+    body = IO::Memory.new
+    content_type = ""
+    tls = uri.scheme == "https" ? OpenSSL::SSL::Context::Client.insecure : nil
+
+    HTTP::Client.get(uri, tls: tls) do |source|
+      raise "failed to download background image from #{uri}: HTTP #{source.status_code}" unless source.success?
+
+      mime = source.headers["Content-Type"]?.presence || MIME.from_filename?(image_name) || "application/octet-stream"
+
+      HTTP::FormData.build(body) do |form|
+        form.field "UploadFilePath", UPLOAD_DIR
+        form.field "RequestPayload", request_payload
+        # pipe the download stream directly into the multipart body
+        form.file "UploadImage", source.body_io, HTTP::FormData::FileMetadata.new(filename: image_name), HTTP::Headers{"Content-Type" => mime}
+        content_type = form.content_type
+      end
+    end
+
+    response = post("/Device", body: body.to_slice, headers: HTTP::Headers{
+      "Content-Type"     => content_type,
+      "CREST-XSRF-TOKEN" => @xsrf_token,
+    })
+
+    raise "failed to upload background image to device: HTTP #{response.status_code}\n#{response.body}" unless response.success?
+    logger.debug { "uploaded background image #{image_name}: #{response.body}" }
   end
 
   protected def switch_stream(stream_reference : String | Int32, layer : SwitchLayer)
