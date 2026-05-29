@@ -9,7 +9,7 @@ require "../place/booking_model"
 #
 # Spaces are tracked via the staff API and access is granted via Gallagher
 # security groups (mapped through `parking_areas` setting or per-asset via
-# `security_system_groups`).
+# `security_system_groups`)
 class Place::Parking::Approvals < PlaceOS::Driver
   include PlaceOS::Driver::Interface::MailerTemplates
 

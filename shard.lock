@@ -63,7 +63,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.7.0
+    version: 1.8.0
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -147,7 +147,7 @@ shards:
 
   http_proxy:
     git: https://github.com/mamantoha/http_proxy.git
-    version: 0.14.0
+    version: 0.15.1
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
@@ -191,7 +191,7 @@ shards:
 
   neuroplastic:
     git: https://github.com/spider-gazelle/neuroplastic.git
-    version: 1.14.2
+    version: 1.15.0
 
   ntlm:
     git: https://github.com/spider-gazelle/ntlm.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.93.0
+    version: 9.95.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git

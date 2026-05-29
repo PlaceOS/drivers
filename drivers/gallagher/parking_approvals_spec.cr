@@ -403,6 +403,58 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
   staff.last_update_for(10003_i64).should eq("asset-no_pref")
+
+  # ===========================================================
+  # Test 11: approved email sends exactly ONCE across repeated polls for a
+  # recurring booking instance. Regression guard for the duplicate-email bug:
+  # the dedup relies on process_state, which must be persisted + reflected
+  # PER INSTANCE (booking instances carry their own process_state). The mock
+  # reflects booking_state writes per "id:instance" on re-fetch, so polling
+  # the same already-allocated instance repeatedly must not re-notify.
+  # NOTE: reset_calls is intentionally NOT called between polls so the
+  # persisted per-instance state carries across sweeps (as in production).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  staff.set_assets(default_spaces.to_json)
+
+  recurring_instance = {
+    id:              11001_i64,
+    instance:        now + 3600 * 90, # recurring instance identifier
+    booking_type:    "parking",
+    booking_start:   now + 3600 * 90,
+    booking_end:     now + 3600 * 91,
+    asset_id:        "asset-car_a",
+    asset_ids:       ["asset-car_a"],
+    user_id:         "user-11001",
+    user_email:      "normal.user@example.com",
+    user_name:       "normal.user@example.com",
+    booked_by_email: "normal.user@example.com",
+    booked_by_name:  "normal.user@example.com",
+    zones:           ["zone-building"],
+    created:         now,
+    approved:        true,
+    rejected:        false,
+    deleted:         false,
+    extension_data:  ext_car,
+  }
+  staff.set_bookings([recurring_instance].to_json)
+
+  # first sweep emails exactly once and records access_granted on the instance
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.send_count.should eq(1)
+  mailer.last_template.should eq(["parking_request", "approved"])
+  staff.last_state(11001_i64, now + 3600 * 90).should eq("access_granted")
+
+  # subsequent sweeps must NOT re-send — the per-instance process_state is
+  # reflected on re-fetch and guards the email
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.send_count.should eq(1)
 end
 
 # :nodoc:
@@ -411,7 +463,11 @@ class StaffAPIMock < DriverSpecs::MockDriver
   @bookings_json : String = "[]"
   @updates : Hash(Int64, String) = {} of Int64 => String
   @approved_set : Array(Int64) = [] of Int64
-  @states : Hash(Int64, String) = {} of Int64 => String
+  # process_state keyed by "id:instance" so per-recurring-instance state is
+  # tracked independently, matching the backend (booking_instances carry their
+  # own process_state column). The state IS reflected on the next query_bookings
+  # re-fetch, so the driver's duplicate-email guards work as in production.
+  @states : Hash(String, String) = {} of String => String
 
   def on_load
     self[:zone_lookups] = 0
@@ -428,7 +484,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
   def reset_calls
     @updates = {} of Int64 => String
     @approved_set = [] of Int64
-    @states = {} of Int64 => String
+    @states = {} of String => String
   end
 
   def last_update_for(booking_id : Int64) : String?
@@ -439,8 +495,17 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @approved_set
   end
 
+  private def state_key(booking_id, instance) : String
+    "#{booking_id}:#{instance}"
+  end
+
+  # convenience for the common nil-instance bookings used across most tests
   def last_state(booking_id : Int64) : String?
-    @states[booking_id]?
+    @states[state_key(booking_id, nil)]?
+  end
+
+  def last_state(booking_id : Int64, instance : Int64?) : String?
+    @states[state_key(booking_id, instance)]?
   end
 
   def zone(zone_id : String)
@@ -497,7 +562,20 @@ class StaffAPIMock < DriverSpecs::MockDriver
     asset_id : String? = nil,
     limit : Int32? = nil,
   )
-    JSON.parse(@bookings_json)
+    # overlay any persisted per-instance process_state, mirroring how the
+    # backend reflects booking_state writes on the next fetch
+    bookings = JSON.parse(@bookings_json).as_a.map do |booking|
+      id = booking["id"].as_i64
+      inst = booking["instance"]?.try(&.as_i64?)
+      if state = @states[state_key(id, inst)]?
+        hash = booking.as_h.dup
+        hash["process_state"] = JSON::Any.new(state)
+        JSON::Any.new(hash)
+      else
+        booking
+      end
+    end
+    JSON::Any.new(bookings)
   end
 
   def get_booking(booking_id : String | Int64, instance : Int64? = nil)
@@ -537,7 +615,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
   end
 
   def booking_state(booking_id : String | Int64, state : String, instance : Int64? = nil)
-    @states[booking_id.to_s.to_i64] = state
+    @states[state_key(booking_id.to_s.to_i64, instance)] = state
     true
   end
 end
@@ -634,6 +712,10 @@ class MailerMock < DriverSpecs::MockDriver
 
   def last_to
     self[:last_to]
+  end
+
+  def send_count : Int32
+    self[:send_count]?.try(&.as_i) || 0
   end
 
   def send_template(
