@@ -15,6 +15,8 @@ class Place::StaffAPI < PlaceOS::Driver
   generic_name :StaffAPI
   description %(helpers for requesting data held in the staff API.)
 
+  alias ExecResponse = ::PlaceOS::Driver::Proxy::ExecResponse
+
   # The PlaceOS API
   uri_base "https://staff"
 
@@ -122,7 +124,7 @@ class Place::StaffAPI < PlaceOS::Driver
   def auth_authority
     response = get("/auth/authority")
     raise "unexpected response for /auth/authority: #{response.status_code}\n#{response.body}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   def domain : String
@@ -352,7 +354,7 @@ class Place::StaffAPI < PlaceOS::Driver
     response = get("/api/engine/v2/uploads?#{params}", headers: authentication)
     raise "uploads request failed #{response.status_code}\n#{response.body}" unless response.success?
 
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   enum UploadPermissions
@@ -391,7 +393,7 @@ class Place::StaffAPI < PlaceOS::Driver
 
     # Looks like: {type: "chunked_upload" | "direct_upload", upload_id: "upload-1234", residence: "S3" | "AzureStorage",
     # signature: {verb: "PUT", url: "https://signed.url/file", headers: {"Content-Type": "image/jpeg"}}}
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   # returns a temporary URL where you can download the upload contents
@@ -610,7 +612,7 @@ class Place::StaffAPI < PlaceOS::Driver
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     # no need to parse the response
-    ::PlaceOS::Driver::Proxy::ExecResponse.new response.body
+    ExecResponse.new response.body
   end
 
   def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil, setup_time : Int64? = nil, breakdown_time : Int64? = nil, setup_event_id : String? = nil, breakdown_event_id : String? = nil)
@@ -625,7 +627,7 @@ class Place::StaffAPI < PlaceOS::Driver
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
 
     # no need to parse the response
-    ::PlaceOS::Driver::Proxy::ExecResponse.new response.body
+    ExecResponse.new response.body
   end
 
   # Search for metadata that exists on events to obtain the event information.
@@ -775,7 +777,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "recurrence_end"          => recurrence_end,
     }.compact.to_json)
     raise "issue creating #{booking_type} booking, starting #{booking_start}, asset #{asset_id}: #{response.status_code}\n#{response.body}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   @[Security(Level::Support)]
@@ -823,7 +825,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "recurrence_end" => recurrence_end,
     }.compact.to_json)
     raise "issue updating booking #{booking_id}: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   @[Security(Level::Support)]
@@ -894,7 +896,128 @@ class Place::StaffAPI < PlaceOS::Driver
 
     response = patch("/api/staff/v1/bookings/#{booking_id}/ext_data/#{instance}?#{params}", headers: authentication, body: extension_data.to_json)
     raise "issue updating booking #{booking_id}.#{instance}: #{response.status_code}\n#{response.body}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
+  end
+
+  # ===================================
+  # Mail Queue
+  # ===================================
+
+  # querys GET /api/engine/v2/emails/ index route
+  # lists queued / processed mail, filtered server side via Elasticsearch
+  @[Security(Level::Support)]
+  def email_query(
+    group_id : String? = nil,
+    zones : Array(String) = [] of String,
+    source_service : String? = nil,
+    source_reference : String? = nil,
+    authority_id : String? = nil,
+    user_id : String? = nil,
+    include_expired : Bool = false,
+    include_rejected : Bool = false,
+    unsent_only : Bool = false,
+    # the following are unix epoch seconds
+    sent_after : Int64? = nil,
+    sent_before : Int64? = nil,
+    send_at_after : Int64? = nil,
+    limit : Int32? = nil,
+  )
+    limit ||= @query_limit
+
+    params = URI::Params.build do |form|
+      form.add "group_id", group_id.to_s if group_id.presence
+      form.add "zones", zones.join(",") unless zones.empty?
+      form.add "source_service", source_service.to_s if source_service.presence
+      form.add "source_reference", source_reference.to_s if source_reference.presence
+      form.add "authority_id", authority_id.to_s if authority_id.presence
+      form.add "user_id", user_id.to_s if user_id.presence
+      form.add "include_expired", include_expired.to_s
+      form.add "include_rejected", include_rejected.to_s
+      form.add "unsent_only", unsent_only.to_s
+      form.add "sent_after", Time.unix(sent_after).to_rfc3339 if sent_after
+      form.add "sent_before", Time.unix(sent_before).to_rfc3339 if sent_before
+      form.add "send_at_after", Time.unix(send_at_after).to_rfc3339 if send_at_after
+      form.add "limit", limit.to_s
+    end
+
+    logger.debug { "requesting engine/v2/emails: #{params}" }
+
+    emails = [] of JSON::Any
+    next_request = "/api/engine/v2/emails/?#{params}"
+
+    loop do
+      response = get(next_request, headers: authentication)
+      raise "issue loading list of emails: #{response.status_code}" unless response.success?
+      links = LinkHeader.new(response)
+
+      new_emails = JSON.parse(response.body).as_a
+      emails.concat new_emails
+
+      last_req = next_request
+      next_request = links["next"]?
+      break if next_request.nil? || new_emails.empty? || last_req == next_request
+    end
+
+    logger.debug { "emails count: #{emails.size}" }
+
+    emails
+  end
+
+  # GET /api/engine/v2/emails/:id
+  @[Security(Level::Support)]
+  def email_fetch(id : String)
+    logger.debug { "fetching email #{id}" }
+    response = get("/api/engine/v2/emails/#{id}", headers: authentication)
+    raise "issue fetching email #{id}: #{response.status_code}" unless response.success?
+    ExecResponse.new(response.body)
+  end
+
+  # DELETE /api/engine/v2/emails/:id
+  @[Security(Level::Support)]
+  def email_delete(id : String) : Bool
+    logger.debug { "deleting email #{id}" }
+    response = delete("/api/engine/v2/emails/#{id}", headers: authentication)
+    raise "issue deleting email #{id}: #{response.status_code}" unless response.success?
+    true
+  end
+
+  # POST /api/engine/v2/emails/:id/reject
+  # marks a mail as rejected so it will not be sent
+  @[Security(Level::Support)]
+  def email_reject(id : String, rejected_reason : String? = nil)
+    logger.debug { "rejecting email #{id}" }
+    params = URI::Params.build do |form|
+      form.add "rejected_reason", rejected_reason.to_s if rejected_reason.presence
+    end
+    response = post("/api/engine/v2/emails/#{id}/reject?#{params}", headers: authentication)
+    raise "issue rejecting email #{id}: #{response.status_code}" unless response.success?
+    ExecResponse.new(response.body)
+  end
+
+  # POST /api/engine/v2/emails/:id/sent
+  # marks a mail as sent
+  @[Security(Level::Support)]
+  def email_sent(id : String, sent_by : String? = nil)
+    logger.debug { "marking email #{id} as sent" }
+    params = URI::Params.build do |form|
+      form.add "sent_by", sent_by.to_s if sent_by.presence
+    end
+    response = post("/api/engine/v2/emails/#{id}/sent?#{params}", headers: authentication)
+    raise "issue marking email #{id} as sent: #{response.status_code}" unless response.success?
+    ExecResponse.new(response.body)
+  end
+
+  # DELETE /api/engine/v2/emails/cleanup
+  # deletes all sent, rejected and expired mail for an authority
+  @[Security(Level::Administrator)]
+  def email_cleanup(authority_id : String? = nil) : Bool
+    logger.debug { "cleaning up emails for authority #{authority_id || "current"}" }
+    params = URI::Params.build do |form|
+      form.add "authority_id", authority_id.to_s if authority_id.presence
+    end
+    response = delete("/api/engine/v2/emails/cleanup?#{params}", headers: authentication)
+    raise "issue cleaning up emails: #{response.status_code}" unless response.success?
+    true
   end
 
   # ===================================
@@ -987,7 +1110,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params = "?instance=#{instance}" if instance
     response = get("/api/staff/v1/bookings/#{booking_id}#{params}", headers: authentication)
     raise "issue getting booking #{booking_id}: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   def booking_guests(booking_id : String | Int64, include_linked : Bool? = nil)
@@ -995,7 +1118,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params = include_linked ? "?include_linked=true" : ""
     response = get("/api/staff/v1/bookings/#{booking_id}/guests#{params}", headers: authentication)
     raise "issue getting guests for booking #{booking_id}: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   def event_guests(event_id : String, system_id : String, ical_uid : String? = nil)
@@ -1006,7 +1129,7 @@ class Place::StaffAPI < PlaceOS::Driver
     end
     response = get("/api/staff/v1/events/#{event_id}/guests?#{params}", headers: authentication)
     raise "issue getting guests for event #{event_id}: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   # lists asset IDs based on the parameters provided
@@ -1065,7 +1188,7 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "requesting staff/v1/bookings/booked: #{params}" }
     response = get("/api/staff/v1/bookings/booked?#{params}", headers: authentication)
     raise "issue getting booked assets: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   # ===================================
@@ -1090,7 +1213,7 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "getting asset categories (#{params})" }
     response = get("/api/engine/v2/asset_categories", params, headers: authentication)
     raise "issue getting asset categories: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   def asset_types(category_id : String? = nil, zone_id : String? = nil, brand : String? = nil, model_number : String? = nil)
@@ -1102,7 +1225,7 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "getting asset types (#{params})" }
     response = get("/api/engine/v2/asset_types", params, headers: authentication)
     raise "issue getting asset types: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   def assets(
@@ -1130,7 +1253,7 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "getting assets (#{params})" }
     response = get("/api/engine/v2/assets", params, headers: authentication)
     raise "issue getting assets: #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   # ===================================
@@ -1144,7 +1267,7 @@ class Place::StaffAPI < PlaceOS::Driver
     params["sent"] = sent.to_s unless sent.nil?
     response = get("/api/staff/v1/surveys/invitations", params, headers: authentication)
     raise "issue getting survey invitations (survey #{survey_id}, sent #{sent}): #{response.status_code}" unless response.success?
-    JSON.parse(response.body)
+    ExecResponse.new(response.body)
   end
 
   @[Security(Level::Support)]
