@@ -196,7 +196,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
   # grab building zone from the current system
   protected def find_building(zones : Array(String)) : Nil
     zones.each do |zone_id|
-      zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+      zone = ZoneDetails.from_json staff_api.zone(zone_id).get_json
       if zone.tags.includes?("building")
         @building_zone = zone.id
         break
@@ -301,7 +301,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     device_serial : String? = nil,
   )
     network_id = network_id.presence || @default_network
-    Array(Client).from_json dashboard.poll_clients(network_id, timespan, connection, device_serial).get.to_json
+    Array(Client).from_json dashboard.poll_clients(network_id, timespan, connection, device_serial).get_json
   end
 
   @client_details : Hash(String, Client) = {} of String => Client
@@ -1025,7 +1025,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
         ports = @port_status[serial]
         mappings = @wired_desks[serial]
 
-        Array(PortStatusResponse).from_json(dashboard.ports_statuses(serial).get.to_json).each do |port|
+        Array(PortStatusResponse).from_json(dashboard.ports_statuses(serial).get_json).each do |port|
           # ensure the port has a desk mapping
           desk_id = mappings.ports[port.port]?
           next unless desk_id
@@ -1298,7 +1298,7 @@ class Cisco::Meraki::Locations < PlaceOS::Driver
     desk_mappings = Hash(String, Array(CameraZone)).new
     @floor_lookup.keys.each do |serial|
       begin
-        desk_mappings[serial] = Array(CameraZone).from_json(dashboard.get_zones(serial).get.to_json).reject!(&.id.==("0"))
+        desk_mappings[serial] = Array(CameraZone).from_json(dashboard.get_zones(serial).get_json).reject!(&.id.==("0"))
       rescue error
         logger.warn(exception: error) { "fetching zones for camera: #{serial}" }
       end

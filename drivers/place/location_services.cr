@@ -124,7 +124,7 @@ class Place::LocationServices < PlaceOS::Driver
   end
 
   def current_user : User
-    User.from_json staff_api.user(invoked_by_user_id).get.to_json
+    User.from_json staff_api.user(invoked_by_user_id).get_json
   end
 
   # returns a list of bookings the current user is attending
@@ -135,7 +135,7 @@ class Place::LocationServices < PlaceOS::Driver
 
   def bookings_for(email : String)
     email = email.downcase
-    results = [] of Future::Compute(JSON::Any)
+    results = [] of PlaceOS::Driver::Proxy::ExecResponse
 
     # Map
     systems.each do |level_id, system_ids|
@@ -148,8 +148,22 @@ class Place::LocationServices < PlaceOS::Driver
       end
     end
 
-    # reduce
-    results.flat_map { |result| result.get.as_a rescue [] of JSON::Any }
+    # reduce without json parsing, same result as
+    # results.flat_map { |result| result.get.as_a rescue [] of JSON::Any }
+    flattened = String.build do |str|
+      str << '['
+      size = 0
+      results.each do |result|
+        response = result.get_json rescue nil
+        next unless response
+
+        str << response[1..-2]
+        str << ','
+      end
+      str.back(1) unless size.zero?
+      str << ']'
+    end
+    ::PlaceOS::Driver::Proxy::ExecResponse.new(flattened)
   end
 
   # Will return an array of MAC address strings

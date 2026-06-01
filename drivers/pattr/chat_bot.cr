@@ -71,7 +71,7 @@ class Pattr::ChatBot < PlaceOS::Driver
     searches.each do |(username, queries)|
       locations = {} of String => PlaceLocationResult
       queries.each do |results|
-        Array(PlaceLocationResult).from_json(results.get.to_json).map do |location|
+        Array(PlaceLocationResult).from_json(results.get_json).map do |location|
           locations[location.location] = location
         end
       end

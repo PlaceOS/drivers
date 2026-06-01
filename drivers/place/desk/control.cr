@@ -92,7 +92,7 @@ class Place::Desk::Control < PlaceOS::Driver
       ChildMetadata.from_json(staff_api.metadata_children(
         zone_id,
         METADATA_KEY
-      ).get.to_json)
+      ).get_json)
     end
 
     desks = {} of String => String

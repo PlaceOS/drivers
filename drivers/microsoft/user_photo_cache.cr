@@ -80,9 +80,9 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
 
   protected def get_members(next_page = nil)
     if @user_group_id.presence
-      Array(DirUser).from_json directory.get_members(graph_group_id, next_page).get.to_json
+      Array(DirUser).from_json directory.get_members(graph_group_id, next_page).get_json
     else
-      Array(DirUser).from_json directory.list_users(next_page: next_page).get.to_json
+      Array(DirUser).from_json directory.list_users(next_page: next_page).get_json
     end
   end
 
@@ -152,7 +152,7 @@ class Microsoft::UserPhotoCache < PlaceOS::Driver
   )? = nil
 
   def sync_user(email : String)
-    user = DirUser.from_json directory.get_user(email).get.to_json
+    user = DirUser.from_json directory.get_user(email).get_json
     # raise "user is suspended" if user.suspended
 
     user_email = user.email.strip.downcase

@@ -113,7 +113,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
   protected def get_place_booking(freespace_booking, floor_details) : Booking?
     if desc = freespace_booking.desc
-      Booking.from_json staff_api.get_booking(desc.to_i64).get.to_json
+      Booking.from_json staff_api.get_booking(desc.to_i64).get_json
     else
       search_place_booking(freespace_booking, floor_details)
     end
@@ -254,7 +254,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     start_of_day = Time.local(@time_zone).at_beginning_of_day
     tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day - 1.minute
 
-    raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get.to_json
+    raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get_json
     Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
       current.concat bookings
     end
@@ -720,7 +720,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     floor_details = @floor_mappings[booking.planid.to_s]?
     return unless floor_details
-    booking.user = User.from_json floorsense.get_user(booking.uid).get.to_json
+    booking.user = User.from_json floorsense.get_user(booking.uid).get_json
 
     user_id = booking.user.not_nil!.desc
     user_email = booking.user.not_nil!.email.try &.downcase
@@ -798,7 +798,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   private def booking_confirmed(_subscription, event_info)
     event = JSON.parse(event_info)
     logger.debug { "Booking confirmed event: #{event}" }
-    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get.to_json
+    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get_json
     logger.debug { "Floor_Booking: #{booking}" }
     floor_details = @floor_mappings[booking.planid.to_s]?
     logger.debug { "floor_details: #{floor_details}" }
@@ -806,7 +806,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
 
     begin
       if desc = booking.desc
-        place_booking = Booking.from_json staff_api.get_booking(desc.to_i64).get.to_json
+        place_booking = Booking.from_json staff_api.get_booking(desc.to_i64).get_json
         logger.debug { "place_booking: #{place_booking}" }
         staff_api.booking_check_in(place_booking.id, booking.confirmed, utm_source: DESK_SOURCE_EXTENSION_DATA_MODIFICATION) unless place_booking.checked_in?
 
@@ -820,7 +820,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
   private def booking_released(_subscription, event_info)
     logger.debug { "Booking released event: #{event_info.to_json}" }
     event = JSON.parse(event_info)
-    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get.to_json
+    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get_json
     floor_details = @floor_mappings[booking.planid.to_s]?
     unless floor_details
       logger.warn { "No floor details found for planid #{booking.planid}" }
@@ -864,7 +864,7 @@ class Floorsense::CustomBookingsSync < PlaceOS::Driver
     if desc.nil?
       search_booking_by_floorsense_id(floorsense_booking, floor_details)
     else
-      Booking.from_json staff_api.get_booking(desc.to_i64).get.to_json
+      Booking.from_json staff_api.get_booking(desc.to_i64).get_json
     end
   rescue ArgumentError
     # in case the description was unexpectedly not an int64 (adhoc for instance)

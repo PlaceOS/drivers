@@ -211,7 +211,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
       user_id: floorsense_user_id,
       duration: duration,
       controller_id: bank_id
-    ).get.to_json
+    ).get_json
 
     level = nil
     @zone_mappings.each do |level_zone, controllers|
@@ -242,7 +242,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
       active: true,
       user_id: floorsense_user_id,
       controller_id: bank_id
-    ).get.to_json).find! { |booking| booking.key == locker_id }
+    ).get_json).find! { |booking| booking.key == locker_id }
 
     floorsense.locker_release(reservation.reservation_id).get
   end
@@ -254,7 +254,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     Array(LockerBooking).from_json(floorsense.locker_reservations(
       active: true,
       user_id: floorsense_user_id
-    ).get.to_json).compact_map do |floor_booking|
+    ).get_json).compact_map do |floor_booking|
       level = nil
       @zone_mappings.each do |level_zone, controllers|
         if floor_booking.controller_id.in?(controllers)
@@ -285,7 +285,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
       active: true,
       user_id: floorsense_user_id,
       controller_id: bank_id
-    ).get.to_json).find! { |booking| booking.key == locker_id }
+    ).get_json).find! { |booking| booking.key == locker_id }
 
     floorsense.locker_share(reservation.reservation_id, share_with).get
   end
@@ -306,7 +306,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
          user_id: floorsense_user_id,
          controller_id: bank_id,
          shared: true,
-       ).get.to_json).find { |booking| booking.key == locker_id }
+       ).get_json).find { |booking| booking.key == locker_id }
       res_id = reservation.reservation_id
       if shared_with = shared_with_id.presence
         shared_with_id = get_floorsense_user(shared_with)
@@ -335,7 +335,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
          user_id: floorsense_user_id,
          controller_id: bank_id,
          shared: true,
-       ).get.to_json).find { |booking| booking.key == locker_id }
+       ).get_json).find { |booking| booking.key == locker_id }
       return floorsense.locker_shared?(reservation.reservation_id).get.as_a.map do |shared_with|
         get_place_user_id shared_with["uid"].as_s
       end
@@ -385,7 +385,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     floor_mac = URI::Params.parse mac_address
     controller_id = floor_mac["lc"]
     locker_key = floor_mac["lk"]
-    reservations = Array(LockerBooking).from_json(floorsense.locker_reservations(active: true, controller_id: controller_id).get.to_json)
+    reservations = Array(LockerBooking).from_json(floorsense.locker_reservations(active: true, controller_id: controller_id).get_json)
 
     if reservation = reservations.find { |booking| booking.key == locker_key }
       {
@@ -419,7 +419,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
 
     building = @zone_building
     controller_list.flat_map do |controller_id|
-      bookings = Array(LockerBooking).from_json(floorsense.locker_reservations(active: true, controller_id: controller_id).get.to_json)
+      bookings = Array(LockerBooking).from_json(floorsense.locker_reservations(active: true, controller_id: controller_id).get_json)
       bookings.map do |booking|
         PlaceLocker.new(get_locker_bank(booking.key), booking, @zone_building, zone_id)
       end
@@ -432,7 +432,7 @@ class Floorsense::LockerLocationService < PlaceOS::Driver
     floor = floorsense
     @zone_mappings.each_value do |controllers|
       controllers.each do |controller_id|
-        bookings = Array(LockerBooking).from_json(floor.locker_reservations(active: true, controller_id: controller_id).get.to_json)
+        bookings = Array(LockerBooking).from_json(floor.locker_reservations(active: true, controller_id: controller_id).get_json)
         bookings.each do |booking|
           begin
             floor.locker_release(booking.reservation_id).get

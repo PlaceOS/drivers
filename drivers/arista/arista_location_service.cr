@@ -37,7 +37,7 @@ class Arista::LocationService < PlaceOS::Driver
   end
 
   def cached_layout(for_location : Int64) : Layout
-    @floorplan_sizes[for_location]? || Layout.from_json(arista.layout(for_location).get.to_json)
+    @floorplan_sizes[for_location]? || Layout.from_json(arista.layout(for_location).get_json)
   end
 
   def get_floorplan_size(for_location : Int64)
@@ -54,7 +54,7 @@ class Arista::LocationService < PlaceOS::Driver
 
   # array of devices and their x, y coordinates, that are associated with this user
   def locate_user(email : String? = nil, username : String? = nil)
-    client = ClientDetails?.from_json arista.locate(email.presence || username.presence.as(String)).get.to_json
+    client = ClientDetails?.from_json arista.locate(email.presence || username.presence.as(String)).get_json
     return nil unless client
 
     location_id = client.device.location.id
@@ -109,7 +109,7 @@ class Arista::LocationService < PlaceOS::Driver
   # return `nil` or `{"location": "wireless", "assigned_to": "bob123", "mac_address": "abcd"}`
   def check_ownership_of(mac_address : String) : OwnershipMAC?
     lookup = format_mac(mac_address)
-    client = ClientDetails?.from_json arista.ownership_of(lookup).get.to_json
+    client = ClientDetails?.from_json arista.ownership_of(lookup).get_json
     return nil unless client
 
     if user = client.device.username

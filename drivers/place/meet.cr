@@ -508,7 +508,7 @@ class Place::Meet < PlaceOS::Driver
 
     # merge in joined room help
     remote_rooms.each do |room|
-      help.merge! Help.from_json(room.local_help.get.to_json)
+      help.merge! Help.from_json(room.local_help.get_json)
     end
 
     self[:help] = help
@@ -521,7 +521,7 @@ class Place::Meet < PlaceOS::Driver
 
     # merge in joined room tabs
     remote_rooms.each do |room|
-      remote_tabs = Array(Tab).from_json(room.local_tabs.get.to_json)
+      remote_tabs = Array(Tab).from_json(room.local_tabs.get_json)
       remote_tabs.each do |remote_tab|
         next if remote_tab.merge_on_join == false
 
@@ -887,7 +887,7 @@ class Place::Meet < PlaceOS::Driver
         # merge in joined room mics
         remote_rooms.each do |room|
           begin
-            remote_area = LightingArea.from_json(room.local_lighting_area.get.to_json)
+            remote_area = LightingArea.from_json(room.local_lighting_area.get_json)
             light_area = light_area.join_with(remote_area)
           rescue error
             logger.warn(exception: error) { "ignoring lighting config in room #{room.name} (#{room.id})" }
@@ -914,7 +914,7 @@ class Place::Meet < PlaceOS::Driver
     # merge all the faders onto the joined touch panels
     levels = @local_light_levels.try(&.dup) || [] of LightingLevel
     remote_systems.each do |remote|
-      if remote_levels = Array(LightingLevel)?.from_json(remote.room_logic.local_light_levels.get.to_json)
+      if remote_levels = Array(LightingLevel)?.from_json(remote.room_logic.local_light_levels.get_json)
         levels.concat(remote_levels)
       end
     end
@@ -1025,7 +1025,7 @@ class Place::Meet < PlaceOS::Driver
   protected def update_available_accessories
     accessories = @local_accessories.dup
     remote_systems.each do |remote|
-      remote_accessories = Array(Accessory).from_json(remote.room_logic.local_accessories.get.to_json)
+      remote_accessories = Array(Accessory).from_json(remote.room_logic.local_accessories.get_json)
       accessories.concat(remote_accessories.map! { |acc|
         acc.remote = remote.system_id
         acc
@@ -1082,7 +1082,7 @@ class Place::Meet < PlaceOS::Driver
 
     # merge in joined room mics
     remote_rooms.each do |room|
-      local.concat Array(Microphone).from_json(room.local_mics.get.to_json)
+      local.concat Array(Microphone).from_json(room.local_mics.get_json)
     end
 
     # expose the details to the UI

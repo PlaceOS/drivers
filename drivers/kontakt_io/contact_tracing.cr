@@ -34,7 +34,7 @@ class KontaktIO::ContactTracing < PlaceOS::Driver
     macs.each do |mac|
       begin
         periods.each do |(starting, ending)|
-          raw_report = kontakt.colocations(mac, starting, ending).get.to_json
+          raw_report = kontakt.colocations(mac, starting, ending).get_json
           locations.concat Array(Tracking).from_json(raw_report)
         end
       rescue error

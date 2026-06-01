@@ -354,7 +354,7 @@ class Place::AreaManagement < PlaceOS::Driver
   protected def sync_level_details
     buildings = if campus?
                   # building_id here is actually the campus id
-                  Array(Zone).from_json(staff_api.zones(parent: building_id).get.to_json).map(&.id)
+                  Array(Zone).from_json(staff_api.zones(parent: building_id).get_json).map(&.id)
                 else
                   [building_id]
                 end
@@ -364,7 +364,7 @@ class Place::AreaManagement < PlaceOS::Driver
 
     buildings.each do |b_id|
       # Attempt to obtain the latest version of the metadata
-      response = ChildMetadata.from_json(staff_api.metadata_children(b_id).get.to_json)
+      response = ChildMetadata.from_json(staff_api.metadata_children(b_id).get_json)
       response.each do |meta|
         level_buildings[meta[:zone].id] = b_id
         update_level_details(level_details, meta[:zone], meta[:metadata])
@@ -595,12 +595,12 @@ class Place::AreaManagement < PlaceOS::Driver
 
   def request_level_locations(level_id : String, sensor_data : Array(SensorDetail)? = nil, overview : Bool = true) : Nil
     @update_lock.synchronize do
-      zone = Zone.from_json(staff_api.zone(level_id).get.to_json)
+      zone = Zone.from_json(staff_api.zone(level_id).get_json)
       if !zone.tags.includes?("level")
         logger.warn { "attempted to update location for #{zone.name} (#{level_id}) which is not tagged as a level" }
         return
       end
-      metadata = Metadata.from_json(staff_api.metadata(level_id).get.to_json)
+      metadata = Metadata.from_json(staff_api.metadata(level_id).get_json)
 
       update_level_details @level_details, zone, metadata
       update_level_locations @level_counts, level_id, @level_details[level_id], sensor_data

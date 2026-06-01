@@ -577,7 +577,7 @@ class Place::Campus < PlaceOS::Driver
   end
 
   def current_user : User
-    User.from_json staff_api.user(invoked_by_user_id).get.to_json
+    User.from_json staff_api.user(invoked_by_user_id).get_json
   end
 
   # org-wide timezone fallback - used for org-level queries like my_bookings
@@ -601,7 +601,7 @@ class Place::Campus < PlaceOS::Driver
 
   # cache of buildings under the org keyed by zone id
   getter all_buildings : Hash(String, Zone) do
-    list = Array(Zone).from_json(staff_api.zones(tags: {"building"}).get.to_json)
+    list = Array(Zone).from_json(staff_api.zones(tags: {"building"}).get_json)
     list.each_with_object({} of String => Zone) { |z, h| h[z.id] = z }
   end
 
@@ -615,7 +615,7 @@ class Place::Campus < PlaceOS::Driver
   protected def all_levels(building_id : String) : Array(Zone)
     @all_levels_cache[building_id] ||= begin
       bld = building(building_id)
-      [bld] + Array(Zone).from_json(staff_api.zones(parent: bld.id, tags: {"level"}).get.to_json).sort_by(&.name)
+      [bld] + Array(Zone).from_json(staff_api.zones(parent: bld.id, tags: {"level"}).get_json).sort_by(&.name)
     end
   end
 

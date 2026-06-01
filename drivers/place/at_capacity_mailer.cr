@@ -127,7 +127,7 @@ class Place::AtCapacityMailer < PlaceOS::Driver
       period_start: Time.utc.to_unix,
       period_end: (Time.utc + @time_window_hours.hours).to_unix,
       zones: @zones,
-    ).get.to_json
+    ).get_json
 
     logger.debug { "found #{asset_ids.size} booked assets" }
 
@@ -186,7 +186,7 @@ class Place::AtCapacityMailer < PlaceOS::Driver
   end
 
   def fetch_zone(zone_id : String) : Zone
-    @zone_cache[zone_id] ||= Zone.from_json staff_api.zone(zone_id).get.to_json
+    @zone_cache[zone_id] ||= Zone.from_json staff_api.zone(zone_id).get_json
   rescue error
     logger.warn(exception: error) { "unable to find zone #{zone_id}" }
     Zone.new(id: zone_id)

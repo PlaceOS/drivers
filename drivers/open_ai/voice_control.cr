@@ -33,7 +33,7 @@ class OpenAI::VoiceControlInterface < PlaceOS::Driver
 
   def request(text : String)
     messages = [PROMPT] + custom_prompts + [OpenAI::Message.new(:user, "The Request: #{text}")]
-    choices = Array(MessageChoice).from_json language_model.chat(llm_model_id, messages).get.to_json
+    choices = Array(MessageChoice).from_json language_model.chat(llm_model_id, messages).get_json
     # select choice (typically just the first one)
     # parse the response (prompt should ensure it responds using JSON)
     # perform request actions:

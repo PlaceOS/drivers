@@ -57,7 +57,7 @@ class KontaktIO::SensorService < PlaceOS::Driver
   @occupancy_cache : Hash(Int64, RoomOccupancy) = {} of Int64 => RoomOccupancy
 
   protected def update_cache(_sub, _event)
-    @occupancy_cache = Hash(Int64, RoomOccupancy).from_json kontakt_io.occupancy_cache.get.to_json
+    @occupancy_cache = Hash(Int64, RoomOccupancy).from_json kontakt_io.occupancy_cache.get_json
   end
 
   # System id => Map ID

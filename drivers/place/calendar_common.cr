@@ -35,7 +35,7 @@ module Place::CalendarCommon
     @wait_time : Time::Span = 300.milliseconds
 
     @mailer_from : String? = nil
-  
+
     def on_unload
       @in_flight.close
       @channel.close

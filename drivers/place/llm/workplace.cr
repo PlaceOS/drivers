@@ -91,7 +91,7 @@ class Place::Workplace < PlaceOS::Driver
   end
 
   getter all_levels : Array(Zone) do
-    [building] + Array(Zone).from_json(staff_api.zones(parent: building.id, tags: {"level"}).get.to_json).sort_by(&.name)
+    [building] + Array(Zone).from_json(staff_api.zones(parent: building.id, tags: {"level"}).get_json).sort_by(&.name)
   end
 
   @[Description("returns the list of meeting rooms in the building filtering by capacity or level")]
@@ -446,7 +446,7 @@ class Place::Workplace < PlaceOS::Driver
   end
 
   def current_user : User
-    User.from_json staff_api.user(invoked_by_user_id).get.to_json
+    User.from_json staff_api.user(invoked_by_user_id).get_json
   end
 
   getter timezone : Time::Location do

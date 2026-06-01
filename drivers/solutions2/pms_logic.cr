@@ -18,7 +18,7 @@ class PMSLogic < PlaceOS::Driver
   end
 
   def get_parking_status
-    parking_slots = Array(ParkingStatus).from_json(pms.available_slots.get.to_json)
+    parking_slots = Array(ParkingStatus).from_json(pms.available_slots.get_json)
     self[:parking_slots_status] = parking_slots
     parking_slots
   end

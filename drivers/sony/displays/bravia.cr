@@ -18,7 +18,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   generic_name :Display
 
   default_settings({
-    force_targets: false
+    force_targets: false,
   })
 
   getter power_target : Bool? = nil
@@ -250,7 +250,7 @@ class Sony::Displays::Bravia < PlaceOS::Driver
   protected def request(command, parameter, **options)
     cmd = command.function
     parameter = parameter ? 1 : 0 if parameter.is_a?(Bool)
-    param = parameter.to_s.rjust(16, '0') 
+    param = parameter.to_s.rjust(16, '0')
     do_send(MessageType::Control, cmd, param, **options.merge({name: command.to_s.downcase}))
   end
 

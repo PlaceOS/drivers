@@ -41,11 +41,11 @@ class Place::Desk::Allocations < PlaceOS::Driver
   end
 
   getter buildings : Hash(String, Zone) do
-    Array(Zone).from_json(staff_api.zones(tags: {"building"}).get.to_json).sort_by(&.name).to_h { |zone| {zone.id, zone} }
+    Array(Zone).from_json(staff_api.zones(tags: {"building"}).get_json).sort_by(&.name).to_h { |zone| {zone.id, zone} }
   end
 
   getter all_levels : Array(Zone) do
-    Array(Zone).from_json(staff_api.zones(tags: {"level"}).get.to_json).sort_by(&.name)
+    Array(Zone).from_json(staff_api.zones(tags: {"level"}).get_json).sort_by(&.name)
   end
 
   struct Desk

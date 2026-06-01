@@ -56,7 +56,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     end
 
     # skip if no changes
-    if meta = Array(EventMetadata).from_json(staff_api.query_metadata(system_id: system_id, event_ref: [signal.event_id, signal.event_ical_uid]).get.to_json).first?
+    if meta = Array(EventMetadata).from_json(staff_api.query_metadata(system_id: system_id, event_ref: [signal.event_id, signal.event_ical_uid]).get_json).first?
       if meta.setup_time == event.setup_time &&
          meta.setup_event_id == event.setup_event_id &&
          (
@@ -88,7 +88,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     # create/update setup event
     if (setup_time = event.setup_time) && setup_time > 0
       if setup_event_id = event.setup_event_id
-        setup_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id: calendar_id, event_id: setup_event_id).get.to_json
+        setup_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id: calendar_id, event_id: setup_event_id).get_json
         setup_event.event_start = event_start - setup_time.minutes
         setup_event.event_end = event_start
         setup_event.body = "<<<#{linked_events.to_json}}>>>"
@@ -102,7 +102,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
           event_end: event_start.to_unix,
           description: "<<<#{linked_events.to_json}}>>>",
           attendees: [PlaceCalendar::Event::Attendee.new(name: calendar_id, email: calendar_id, response_status: "accepted", resource: true, organizer: true)],
-        ).get.to_json
+        ).get_json
 
         linked_events.setup_event_id = setup_event.id
         logger.debug { "created setup event #{setup_event.id} on #{calendar_id}" }
@@ -120,7 +120,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
     # create/update breakdown event
     if (breakdown_time = event.breakdown_time) && breakdown_time > 0
       if breakdown_event_id = event.breakdown_event_id
-        breakdown_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id: calendar_id, event_id: breakdown_event_id).get.to_json
+        breakdown_event = PlaceCalendar::Event.from_json calendar.get_event(calendar_id: calendar_id, event_id: breakdown_event_id).get_json
         breakdown_event.event_start = event_end
         breakdown_event.event_end = event_end + breakdown_time.minutes
         breakdown_event.body = "<<<#{linked_events.to_json}}>>>"
@@ -134,7 +134,7 @@ class Place::EventSetupBreakdownTime < PlaceOS::Driver
           event_end: (event_end + breakdown_time.minutes).to_unix,
           description: "<<<#{linked_events.to_json}}>>>",
           attendees: [PlaceCalendar::Event::Attendee.new(name: calendar_id, email: calendar_id, response_status: "accepted", resource: true, organizer: true)],
-        ).get.to_json
+        ).get_json
 
         logger.debug { "created breakdown event #{breakdown_event.id} on #{calendar_id}" }
         event.breakdown_event_id = breakdown_event.id

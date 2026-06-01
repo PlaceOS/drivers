@@ -142,7 +142,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
     # grab current locker allocations
     locker_systems = locker_locations
     lockers = locker_systems.flat_map do |locker_system|
-      Array(PlaceLocker).from_json locker_system.device_locations(level_id).get.to_json
+      Array(PlaceLocker).from_json locker_system.device_locations(level_id).get_json
     end
 
     logger.debug { "found #{lockers.size} locker allocations -- id:#{unique_id}" }
@@ -209,7 +209,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
       # check if the locker is allocated to the current user (booking_state update may have failed earlier)
       if locker.nil? && (found = lockers.find { |lock| lock.locker_id == asset_id })
         locker = locker_systems.flat_map { |locker_system|
-          Array(PlaceLocker).from_json locker_system.lockers_allocated_to(place_user_id).get.to_json
+          Array(PlaceLocker).from_json locker_system.lockers_allocated_to(place_user_id).get_json
         }.select! { |lock| lock.locker_id == asset_id }.first?
 
         if locker
@@ -317,7 +317,7 @@ class Place::Bookings::LockerBookingSync < PlaceOS::Driver
   protected def check_allocation(booking : Booking)
     return unless booking.booking_type == "locker"
     if zone = (booking.zones & levels).first?
-      booking = Booking.from_json staff_api.get_booking(booking.id, booking.instance).get.to_json
+      booking = Booking.from_json staff_api.get_booking(booking.id, booking.instance).get_json
       # only sync level if the update is a create (unsynced) or the ending of a booking
       if has_allocation?(booking).nil? || booking.deleted == true || booking.rejected == true || !booking.checked_out_at.nil?
         queue_sync_level(zone)

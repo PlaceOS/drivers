@@ -57,7 +57,7 @@ class GoBright::LocationService < PlaceOS::Driver
   end
 
   getter level_details : Hash(String, LevelCapacity) do
-    Hash(String, LevelCapacity).from_json area_management.level_details.get.to_json
+    Hash(String, LevelCapacity).from_json area_management.level_details.get_json
   end
 
   # Finds the building ID for the current location services object
@@ -74,7 +74,7 @@ class GoBright::LocationService < PlaceOS::Driver
 
   def cache_space_details
     space_details = {} of String => Space
-    Array(Space).from_json(gobright.spaces.get.to_json).each do |space|
+    Array(Space).from_json(gobright.spaces.get_json).each do |space|
       space_details[space.id] = space
     end
     @space_details = space_details
@@ -175,7 +175,7 @@ class GoBright::LocationService < PlaceOS::Driver
     end.to_h
 
     # mark if the space is occupied
-    occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id, @default_space_type).get.to_json)
+    occupancy = Array(Occupancy).from_json(gobright.live_occupancy(gobright_location_id, @default_space_type).get_json)
     occupancy.each do |details|
       space = spaces[details.id]?
       next unless space
@@ -209,7 +209,7 @@ class GoBright::LocationService < PlaceOS::Driver
     return spaces if location && location != "booking"
 
     # mark if the desk is booked
-    bookings = Array(Occurrence).from_json(gobright.bookings(1.minutes.ago.to_unix, 10.minutes.from_now.to_unix, gobright_location_id).get.to_json)
+    bookings = Array(Occurrence).from_json(gobright.bookings(1.minutes.ago.to_unix, 10.minutes.from_now.to_unix, gobright_location_id).get_json)
 
     lookup = {} of String => Occurrence
     booking_locs = bookings.compact_map do |occurrence|

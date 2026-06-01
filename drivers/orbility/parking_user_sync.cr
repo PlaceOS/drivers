@@ -117,7 +117,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
 
   def cleanup_subscriptions
     removed = 0
-    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get.to_json)
+    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get_json)
     subscriptions.each do |sub|
       if sub.card_ids.empty?
         begin
@@ -136,10 +136,10 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   # Get existing parking card details
   @[Security(Level::Support)]
   def get_card_details : Hash(String, Card)
-    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get.to_json)
+    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get_json)
     cards = subscriptions.compact_map do |sub|
       if card_id = sub.card_ids.first?
-        Card.from_json(orbility.card(card_id).get.to_json)
+        Card.from_json(orbility.card(card_id).get_json)
       end
     end
 
@@ -225,7 +225,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
     update_users = [] of Tuple(DirUser, Card)
 
     # get the list of users in the active directory (page by page)
-    users = Array(DirUser).from_json(directory.get_members(user_group_id, additional_fields: {car_license_ext}).get.to_json)
+    users = Array(DirUser).from_json(directory.get_members(user_group_id, additional_fields: {car_license_ext}).get_json)
 
     # we'll include assigned spaces in the first batch if syncing fleet vehicles
     users.concat(assigned_spaces) if @sync_fleet_vehicles
@@ -278,7 +278,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
       # ensure we don't blow any request limits
       logger.debug { "fetching next page..." }
       sleep 500.milliseconds
-      users = Array(DirUser).from_json directory.get_members(user_group_id, next_page, {car_license_ext}).get.to_json
+      users = Array(DirUser).from_json directory.get_members(user_group_id, next_page, {car_license_ext}).get_json
     end
 
     logger.debug { "Number of users in Parking system: #{cards.size}" }
@@ -411,7 +411,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
   )? = nil
 
   def cleanup_empty_subscriptions
-    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get.to_json)
+    subscriptions = Array(Subscription).from_json(orbility.subscriptions(orbility_contract_id).get_json)
     subscriptions.each do |sub|
       if sub.card_ids.empty?
         logger.debug { "Removing empty subscription #{sub.id}" }
@@ -529,7 +529,7 @@ class Orbility::ParkingUserSync < PlaceOS::Driver
         Assigned.new(parking_bay, assigned_to)
       end
     }.compact_map { |assignment|
-      user_json = directory.get_user(assignment.assigned_to, additional_fields: {car_license_ext}).get.to_json rescue nil
+      user_json = directory.get_user(assignment.assigned_to, additional_fields: {car_license_ext}).get_json rescue nil
       if user_json
         user = DirUser.from_json(user_json)
         user.name = "#{user.name} (#{assignment.parking_bay})"

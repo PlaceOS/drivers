@@ -291,7 +291,7 @@ STRING
       return
     end
 
-    present = (Float64 | Nil).from_json(bookings.people_present?.get.to_json)
+    present = (Float64 | Nil).from_json(bookings.people_present?.get_json)
     if present.nil? || present > 0.0
       logger.debug { "not prompting as people present or presence is unknown: #{present.inspect}" }
       return
@@ -370,7 +370,7 @@ STRING
 
     user = meeting.attendees.find { |attendee| attendee.email.downcase == host_email }
     begin
-      user ||= PlaceCalendar::User.from_json(calendar.get_user(host_email).get.to_json)
+      user ||= PlaceCalendar::User.from_json(calendar.get_user(host_email).get_json)
     rescue
     end
     user ||= FallbackUser.new(host_email.split('@').first.split(/\.|_/).map(&.capitalize).join(' '))

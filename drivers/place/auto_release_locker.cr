@@ -56,7 +56,7 @@ class Place::AutoReleaseLocker < PlaceOS::Driver
       period_start: Time.utc.to_unix,
       period_end: (Time.utc + @time_window_hours.hours).to_unix,
       zones: [building_id],
-    ).get.to_json
+    ).get_json
     logger.debug { "found #{bookings.size} #{@booking_type} bookings" }
 
     bookings

@@ -83,7 +83,7 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
   end
 
   getter building_zone : ZoneDetails do
-    ZoneDetails.from_json staff_api.zone(building_id).get.to_json
+    ZoneDetails.from_json staff_api.zone(building_id).get_json
   end
 
   protected def guest_checked_in(payload)

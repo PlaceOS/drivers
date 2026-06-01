@@ -46,7 +46,7 @@ class Place::BookingApprover < PlaceOS::Driver
     return if booking.action == "cancelled" || booking.action == "rejected"
 
     if booking.action != "create"
-      booking = Booking.from_json(staff_api.get_booking(booking.id).get.to_json)
+      booking = Booking.from_json(staff_api.get_booking(booking.id).get_json)
     end
 
     if !@approve_zones.empty?
@@ -84,7 +84,7 @@ class Place::BookingApprover < PlaceOS::Driver
       zones: [get_building_id],
       approved: false,
       period_end: 8.weeks.from_now.to_unix
-    ).get.to_json
+    ).get_json
 
     bookings.each do |booking|
       booking.action = "create"

@@ -114,7 +114,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
     floor_details = @floor_mappings[booking.planid.to_s]?
     return unless floor_details
-    booking.user = User.from_json floorsense.get_user(booking.uid).get.to_json
+    booking.user = User.from_json floorsense.get_user(booking.uid).get_json
 
     user_email = booking.user.not_nil!.email.try &.downcase
 
@@ -150,7 +150,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
   private def booking_released(_subscription, event_info)
     event = JSON.parse(event_info)
-    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get.to_json
+    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get_json
     floor_details = @floor_mappings[booking.planid.to_s]?
     return unless floor_details
 
@@ -173,13 +173,13 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
   private def booking_confirmed(_subscription, event_info)
     event = JSON.parse(event_info)
-    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get.to_json
+    booking = BookingStatus.from_json floorsense.get_booking(event["bkid"]).get_json
     floor_details = @floor_mappings[booking.planid.to_s]?
     return unless floor_details
 
     begin
       if desc = booking.desc
-        place_booking = Booking.from_json staff_api.get_booking(desc.to_i64).get.to_json
+        place_booking = Booking.from_json staff_api.get_booking(desc.to_i64).get_json
         staff_api.booking_check_in(place_booking.id, booking.confirmed)
 
         area_management.update_available([floor_details[:level_id]])
@@ -211,7 +211,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
       codes: {49, 50, 53},
       after: @last_event_at,
       limit: 500
-    ).get.to_json
+    ).get_json
 
     # it returns all the events that happened at the time specified
     # some of these might have happened before this event id
@@ -224,7 +224,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     @last_event_id = events.last.eventid
     events.each do |event|
       begin
-        booking = BookingStatus.from_json floorsense.get_booking(event.bkid).get.to_json
+        booking = BookingStatus.from_json floorsense.get_booking(event.bkid).get_json
         floor_details = @floor_mappings[booking.planid.to_s]?
         next unless floor_details
 
@@ -283,7 +283,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
           # find placeos booking (should only fail here for adhoc which are already checked in)
           begin
             if desc = booking.desc
-              place_booking = Booking.from_json staff_api.get_booking(desc.to_i64).get.to_json
+              place_booking = Booking.from_json staff_api.get_booking(desc.to_i64).get_json
               staff_api.booking_check_in(place_booking.id, booking.confirmed)
             end
           rescue ArgumentError
@@ -298,7 +298,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
 
   protected def get_place_booking(freespace_booking, floor_details) : Booking?
     if desc = freespace_booking.desc
-      Booking.from_json staff_api.get_booking(desc.to_i64).get.to_json
+      Booking.from_json staff_api.get_booking(desc.to_i64).get_json
     else
       search_place_booking(freespace_booking, floor_details)
     end
@@ -606,7 +606,7 @@ class Floorsense::BookingsSync < PlaceOS::Driver
     start_of_day = Time.local(@time_zone).at_beginning_of_day
     tomorrow_night = (start_of_day.at_end_of_day + 1.hour).at_end_of_day
 
-    raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get.to_json
+    raw_bookings = floorsense.bookings(plan_id, start_of_day.to_unix, tomorrow_night.to_unix).get_json
     Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
       current << bookings.first unless bookings.empty?
     end

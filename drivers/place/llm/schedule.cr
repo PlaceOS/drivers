@@ -328,7 +328,7 @@ class Place::Schedule < PlaceOS::Driver
   end
 
   def current_user : User
-    User.from_json staff_api.user(invoked_by_user_id).get.to_json
+    User.from_json staff_api.user(invoked_by_user_id).get_json
   end
 
   getter timezone : Time::Location do
@@ -372,7 +372,7 @@ class Place::Schedule < PlaceOS::Driver
   record AccessToken, token : String, expires : Int64? { include JSON::Serializable }
 
   protected def get_users_access_token
-    AccessToken.from_json staff_api.user_resource_token.get.to_json
+    AccessToken.from_json staff_api.user_resource_token.get_json
   end
 
   protected def place_calendar_client : ::PlaceCalendar::Client

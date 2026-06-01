@@ -472,7 +472,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       obj.sync_value(client, vmac)
       self[name] = object_value(obj)
       synced += 1
-      
+
       Fiber.yield
     end
 

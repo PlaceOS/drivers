@@ -215,7 +215,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       zone = fetch_zone(zone_id)
       if zone.tags.includes?(@invite_zone_tag)
         @building_zone = zone
-        if @is_parent_zone && (child_zones = Array(ZoneDetails).from_json(staff_api.zones(parent: zone_id).get.to_json))
+        if @is_parent_zone && (child_zones = Array(ZoneDetails).from_json(staff_api.zones(parent: zone_id).get_json))
           @parent_zone_ids = child_zones.map(&.id)
         else
           @parent_zone_ids = [] of String
@@ -233,7 +233,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     if (cached = @zone_cache[zone_id]?) && cached[0] > Time.utc.to_unix
       cached[1]
     else
-      zone = ZoneDetails.from_json staff_api.zone(zone_id).get.to_json
+      zone = ZoneDetails.from_json staff_api.zone(zone_id).get_json
       @zone_cache[zone_id] = {Time.utc.to_unix + @zone_cache_timeout, zone}
       zone
     end
@@ -1011,7 +1011,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   protected def get_room_details(system_id : String, retries = 0)
-    SystemDetails.from_json staff_api.get_system(system_id).get.to_json
+    SystemDetails.from_json staff_api.get_system(system_id).get_json
   rescue
     raise "issue loading system details #{system_id}" if retries > 3
     sleep 1.second

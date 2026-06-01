@@ -109,7 +109,7 @@ class Delta::UNOnext < PlaceOS::Driver
   # ===================================
 
   protected def build_sensor_details(device_id : UInt32, index : UInt32, building : String? = nil, level : String? = nil) : Detail?
-    prop = Models::ValueProperty.from_json delta_api.get_object_value(@site_name, device_id, "analog-value", index).get.to_json
+    prop = Models::ValueProperty.from_json delta_api.get_object_value(@site_name, device_id, "analog-value", index).get_json
     return nil if (prop.out_of_service.try(&.value.as_i?) || 1) != 0
 
     value = prop.present_value.try do |pv|
@@ -169,7 +169,7 @@ class Delta::UNOnext < PlaceOS::Driver
     all_objects = manager_mappings.each do |man_map|
       man_map.managers.each do |id|
         begin
-          Array(Models::Object).from_json(delta_api.list_device_objects(site, id).get.to_json)
+          Array(Models::Object).from_json(delta_api.list_device_objects(site, id).get_json)
             .select(&.display_name.includes?("UnoNext"))
             .each do |object|
               # skip the data points we don't care about

@@ -49,7 +49,7 @@ class Microsoft::FindMeLocationService < PlaceOS::Driver
   def locate_user(email : String? = nil, username : String? = nil)
     logger.debug { "searching for #{email}, #{username}" }
 
-    locations_raw = findme.user_details(username).get.to_json
+    locations_raw = findme.user_details(username).get_json
     locations = Array(Microsoft::Location).from_json locations_raw
 
     locations = locations.compact_map do |location|
@@ -78,7 +78,7 @@ class Microsoft::FindMeLocationService < PlaceOS::Driver
   def macs_assigned_to(email : String? = nil, username : String? = nil) : Array(String)
     logger.debug { "listing MAC addresses assigned to #{email}, #{username}" }
 
-    active_users_raw = findme.user_details(username || email).get.to_json
+    active_users_raw = findme.user_details(username || email).get_json
     active_users = Array(Microsoft::Location).from_json active_users_raw
 
     found = [] of String
@@ -91,7 +91,7 @@ class Microsoft::FindMeLocationService < PlaceOS::Driver
   def check_ownership_of(mac_address : String) : OwnershipMAC?
     logger.debug { "searching for owner of #{mac_address}" }
 
-    active_users_raw = findme.user_details(mac_address).get.to_json
+    active_users_raw = findme.user_details(mac_address).get_json
     active_users = Array(Microsoft::Location).from_json active_users_raw
 
     if user_details = active_users[0]?
@@ -112,7 +112,7 @@ class Microsoft::FindMeLocationService < PlaceOS::Driver
 
     findme_building = findme_details[:building]
     findme_level = findme_details[:level]
-    active_users_raw = findme.users_on(findme_building, findme_level).get.to_json
+    active_users_raw = findme.users_on(findme_building, findme_level).get_json
     active_users = Array(Microsoft::Location).from_json active_users_raw
 
     locations = active_users.compact_map do |loc|

@@ -533,7 +533,7 @@ class Place::Chat::HealthRooms < PlaceOS::Driver
   end
 
   protected def notify_load_notifications(meeting)
-    system_info = meeting.system || PlaceOS::Driver::DriverModel::ControlSystem.from_json(staff_api.get_system(meeting.system_id).get.to_json)
+    system_info = meeting.system || PlaceOS::Driver::DriverModel::ControlSystem.from_json(staff_api.get_system(meeting.system_id).get_json)
     room_settings = meeting.room_settings || notify_config(meeting.system_id, meeting.timezone)
     meeting.room_settings = room_settings
     meeting.system = system_info

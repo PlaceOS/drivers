@@ -200,7 +200,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   end
 
   protected def has_access?(security, zone_id, user_id) : Bool
-    has_access = (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id, user_id).get.to_json)
+    has_access = (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id, user_id).get_json)
     !!has_access
   end
 

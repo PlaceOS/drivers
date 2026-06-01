@@ -116,7 +116,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
   protected def get_group_id(user_id, bank_id)
     section_id = releezme.bank(bank_id).get["SectionId"].as_s
-    groups = Array(LockerBankAndLockerGroup).from_json releezme.section_banks_allocatable(section_id, user_id).get.to_json
+    groups = Array(LockerBankAndLockerGroup).from_json releezme.section_banks_allocatable(section_id, user_id).get_json
     group = groups.find { |group| group.locker_bank.id == bank_id }
     raise "there are no lockers available to the user in the selected locker bank" unless group
     group.locker_group.id
@@ -156,11 +156,11 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
                 end
       PlaceLocker.new(Vecos::Booking.from_json booking.to_json)
     elsif locker_id
-      vlocker = Vecos::Locker.from_json releezme.locker_allocate(locker_id, user_id).get.to_json
+      vlocker = Vecos::Locker.from_json releezme.locker_allocate(locker_id, user_id).get_json
       PlaceLocker.new(vlocker, true)
     else
       group_id = get_group_id(user_id, bank_id)
-      vlocker = Vecos::Locker.from_json releezme.locker_allocate_random(bank_id, group_id, user_id).get.to_json
+      vlocker = Vecos::Locker.from_json releezme.locker_allocate_random(bank_id, group_id, user_id).get_json
       PlaceLocker.new(vlocker, true)
     end
   end
@@ -183,7 +183,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   @[Security(Level::Administrator)]
   def lockers_allocated_to(user_id : String) : Array(PlaceLocker)
     user_id = get_user_key user_id
-    lockers = Array(Vecos::Locker).from_json releezme.lockers_allocated_to(user_id).get.to_json
+    lockers = Array(Vecos::Locker).from_json releezme.lockers_allocated_to(user_id).get_json
     lockers.map { |locker| PlaceLocker.new(locker, true) }
   end
 
@@ -212,7 +212,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
     # we need the internal id if we want to unshare an individual
     if shared_with_id
       shared_with_external_id = get_user_key(shared_with_id)
-      shared_with = Array(Vecos::LockerUsers).from_json releezme.locker_shared_with?(locker_id, owner_id).get.to_json
+      shared_with = Array(Vecos::LockerUsers).from_json releezme.locker_shared_with?(locker_id, owner_id).get_json
       shared_user = shared_with.find { |user| user.user_id == shared_with_external_id }
       return unless shared_user
       shared_with_id = shared_user.id
@@ -230,7 +230,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
   ) : Array(String)
     owner_id = get_user_key(owner_id)
     locker_id = lookup_id(locker_id.to_s)
-    shared_with = Array(Vecos::LockerUsers).from_json releezme.locker_shared_with?(locker_id, owner_id).get.to_json
+    shared_with = Array(Vecos::LockerUsers).from_json releezme.locker_shared_with?(locker_id, owner_id).get_json
     shared_with.map { |user| user.email || user.user_id }
   end
 
@@ -285,13 +285,13 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
 
     # grab all the lockers for the current zone_id
     releexme_section_id = @floor_mappings[zone_id]
-    banks = Array(Vecos::LockerBank).from_json releezme.section_locker_banks(releexme_section_id).get.to_json
+    banks = Array(Vecos::LockerBank).from_json releezme.section_locker_banks(releexme_section_id).get_json
 
     if @door_number_lookup && @last_mapped < 3.hour.ago
       # periodically save the locker name => id mappings in redis
       @last_mapped = Time.utc
       banks.flat_map do |bank|
-        lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get.to_json
+        lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get_json
         lockers.map do |locker|
           self[locker.full_door_number.downcase] = locker.id
           PlaceLocker.new(locker, building: building_id, level: zone_id)
@@ -299,7 +299,7 @@ class Vecos::ReleezmeLocations < PlaceOS::Driver
       end
     else
       banks.flat_map do |bank|
-        lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get.to_json
+        lockers = Array(Vecos::Locker).from_json releezme.bank_lockers(bank.id).get_json
         lockers.map { |locker| PlaceLocker.new(locker, building: building_id, level: zone_id) }
       end
     end

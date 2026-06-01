@@ -169,7 +169,7 @@ class Floorsense::LocationService < PlaceOS::Driver
 
     building = @building_mappings[zone_id]?
 
-    raw_desks = floorsense.desks(plan_id).get.to_json
+    raw_desks = floorsense.desks(plan_id).get_json
     desks = Array(DeskStatus).from_json(raw_desks).compact_map do |desk|
       @eui64_to_desk_id[desk.eui64] = desk.key
 
@@ -194,7 +194,7 @@ class Floorsense::LocationService < PlaceOS::Driver
     current = [] of BookingStatus
 
     if @include_bookings
-      raw_bookings = floorsense.bookings(plan_id).get.to_json
+      raw_bookings = floorsense.bookings(plan_id).get_json
       Hash(String, Array(BookingStatus)).from_json(raw_bookings).each_value do |bookings|
         current << bookings.first unless bookings.empty?
       end

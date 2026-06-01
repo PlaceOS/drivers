@@ -43,7 +43,7 @@ class Juniper::MistLocationService < PlaceOS::Driver
 
   protected def sync_map_sizes
     maps = {} of String => MapImage
-    Array(Map).from_json(mist.maps.get.to_json).each do |map|
+    Array(Map).from_json(mist.maps.get_json).each do |map|
       unless map.is_a?(MapImage)
         # TODO:: it might be possible to work out the size based on geo coordinates.
         logger.warn { "mist map #{map.id} is not an image, cannot determine size" }
@@ -60,7 +60,7 @@ class Juniper::MistLocationService < PlaceOS::Driver
 
   # array of devices and their x, y coordinates, that are associated with this user
   def locate_user(email : String? = nil, username : String? = nil)
-    clients = Array(Client).from_json mist.locate(username.presence || email.presence.not_nil!).get.to_json
+    clients = Array(Client).from_json mist.locate(username.presence || email.presence.not_nil!).get_json
 
     ignore_older = @max_location_age.ago.to_unix
     clients.compact_map { |client|

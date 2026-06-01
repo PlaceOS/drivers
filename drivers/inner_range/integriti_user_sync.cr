@@ -140,7 +140,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
     new_users = [] of DirUser
 
     # get the list of users in the active directory (page by page)
-    users = Array(DirUser).from_json directory.get_members(user_group_id).get.to_json
+    users = Array(DirUser).from_json directory.get_members(user_group_id).get_json
     loop do
       # keep track of users that need to be created
       users.each do |user|
@@ -167,7 +167,7 @@ class InnerRange::IntegritiUserSync < PlaceOS::Driver
       # ensure we don't blow any request limits
       logger.debug { "fetching next page..." }
       sleep 500.milliseconds
-      users = Array(DirUser).from_json directory.get_members(user_group_id, next_page).get.to_json
+      users = Array(DirUser).from_json directory.get_members(user_group_id, next_page).get_json
     end
 
     logger.debug { "Number of users in Integrity security group: #{email_to_user_id.size}" }

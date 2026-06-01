@@ -147,7 +147,7 @@ class Place::AutoRelease < PlaceOS::Driver
 
   # Finds the building zone for the current location services object
   def get_building_zone? : Zone?
-    zones = Array(Zone).from_json staff_api.zones(tags: "building").get.to_json
+    zones = Array(Zone).from_json staff_api.zones(tags: "building").get_json
     zone_ids = zones.map(&.id)
     zone_id = (zone_ids & system.zones).first
     zones.find { |zone| zone.id == zone_id }
@@ -179,7 +179,7 @@ class Place::AutoRelease < PlaceOS::Driver
         period_start: Time.utc.to_unix,
         period_end: (Time.utc + @time_window_hours.hours).to_unix,
         zones: [building_zone.id],
-      ).get.to_json
+      ).get_json
       results += bookings.select { |booking| !booking.checked_in }
     end
 
@@ -199,7 +199,7 @@ class Place::AutoRelease < PlaceOS::Driver
         user_id = graph_user["email"].as_s
       end
     end
-    user = User.from_json staff_api.user(user_id).get.to_json
+    user = User.from_json staff_api.user(user_id).get_json
 
     work_preferences = user.work_preferences
     work_preferences = @auto_release.default_work_preferences if work_preferences.empty?

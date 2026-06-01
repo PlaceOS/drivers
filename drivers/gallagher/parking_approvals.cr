@@ -201,7 +201,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   @building_zone : ZoneDetails? = nil
   getter building_zone : ZoneDetails do
-    ZoneDetails.from_json staff_api.zone(building_id).get.to_json
+    ZoneDetails.from_json staff_api.zone(building_id).get_json
   end
 
   @parking_spaces_asset_type : String? = nil
@@ -216,7 +216,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # All parking spaces in the building (assigned + bookable)
   def parking_spaces : Array(ParkingSpace)
     Array(ParkingSpace).from_json(
-      staff_api.assets(type_id: parking_spaces_asset_type, zones: {building_id}).get.to_json
+      staff_api.assets(type_id: parking_spaces_asset_type, zones: {building_id}).get_json
     )
   rescue error
     logger.error(exception: error) { "failed to query parking spaces" }
@@ -481,7 +481,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       period_start: starting,
       period_end: ending,
       limit: 10_000,
-    ).get.to_json)
+    ).get_json)
   rescue error
     logger.error(exception: error) { "failed to query parking bookings" }
     [] of Booking

@@ -107,7 +107,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
   getter! car_license_ext : String
   getter building_id : String { location.building_id.get.as_s }
   getter building_zone : ZoneDetails do
-    ZoneDetails.from_json staff_api.zone(building_id).get.to_json
+    ZoneDetails.from_json staff_api.zone(building_id).get_json
   end
 
   # ===================================
@@ -175,7 +175,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     return unless event.booking_type == BOOKING_TYPE
     return unless event.zones.includes?(building_id)
 
-    booking = Booking.from_json(staff_api.get_booking(event.id).get.to_json)
+    booking = Booking.from_json(staff_api.get_booking(event.id).get_json)
 
     return if booking.recurring? # this will be an allocated parking spot
 
@@ -324,7 +324,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     license_plate = nil if license_plate && license_plate.size > 12
 
     if license_plate.nil?
-      user_json = calendar.get_user(booking.user_email, additional_fields: {car_license_ext}).get.to_json rescue nil
+      user_json = calendar.get_user(booking.user_email, additional_fields: {car_license_ext}).get_json rescue nil
       license_plate = if user_json
                         user = DirUser.from_json(user_json)
                         user_plates(user).first?
@@ -401,7 +401,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       period_start: starting,
       period_end: ending,
       limit: 10_000,
-    ).get.to_json).reject(&.instance).sort! { |a, b| a.created.as(Int64) <=> b.created.as(Int64) }
+    ).get_json).reject(&.instance).sort! { |a, b| a.created.as(Int64) <=> b.created.as(Int64) }
 
     bookings.each do |booking|
       next if booking.rejected || booking.deleted
@@ -430,7 +430,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       period_end: ending,
       limit: 10_000,
       rejected: true
-    ).get.to_json)
+    ).get_json)
 
     bookings.each do |booking|
       next if booking.instance
@@ -445,7 +445,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       period_end: ending,
       limit: 10_000,
       deleted: true,
-    ).get.to_json)
+    ).get_json)
 
     bookings.each do |booking|
       next if booking.instance || booking.rejected

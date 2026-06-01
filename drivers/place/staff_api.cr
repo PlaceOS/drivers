@@ -608,7 +608,9 @@ class Place::StaffAPI < PlaceOS::Driver
     end
     response = patch("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?#{params}", headers: authentication, body: metadata.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
-    JSON::Any.from_json(response.body)
+
+    # no need to parse the response
+    ::PlaceOS::Driver::Proxy::ExecResponse.new response.body
   end
 
   def replace_event_metadata(system_id : String, event_id : String, metadata : JSON::Any, ical_uid : String? = nil, setup_time : Int64? = nil, breakdown_time : Int64? = nil, setup_event_id : String? = nil, breakdown_event_id : String? = nil)
@@ -621,7 +623,9 @@ class Place::StaffAPI < PlaceOS::Driver
     end
     response = put("/api/staff/v1/events/#{event_id}/metadata/#{system_id}?#{params}", headers: authentication, body: metadata.to_json)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
-    JSON::Any.from_json(response.body)
+
+    # no need to parse the response
+    ::PlaceOS::Driver::Proxy::ExecResponse.new response.body
   end
 
   # Search for metadata that exists on events to obtain the event information.

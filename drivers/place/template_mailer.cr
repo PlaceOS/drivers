@@ -129,13 +129,13 @@ class Place::TemplateMailer < PlaceOS::Driver
     system.implementing(Interface::MailerTemplates).each do |driver|
       # next if the driver is turned off, or anything else goes wrong
       begin
-        driver_template_fields = Array(TemplateFields).from_json driver.template_fields.get.to_json
+        driver_template_fields = Array(TemplateFields).from_json driver.template_fields.get_json
       rescue error
         logger.warn(exception: error) { "unable to get template fields from module #{driver.module_id}" }
         next
       end
 
-      driver_template_fields = Array(TemplateFields).from_json driver.template_fields.get.to_json
+      driver_template_fields = Array(TemplateFields).from_json driver.template_fields.get_json
       driver_template_fields.each do |field_list|
         template_fields["#{field_list[:trigger].join(SEPERATOR)}"] = MetadataTemplateFields.new(
           module_name: driver.module_name,

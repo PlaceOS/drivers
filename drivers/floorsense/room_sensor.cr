@@ -37,7 +37,7 @@ class Floorsense::RoomSensorDriver < PlaceOS::Driver
   getter! status : RoomStatus
 
   def update_sensor : RoomStatus?
-    status = Array(RoomStatus).from_json floorsense.room_list(room_id).get.to_json
+    status = Array(RoomStatus).from_json floorsense.room_list(room_id).get_json
     if state = status.first?
       @status = state
 

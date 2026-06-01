@@ -112,7 +112,7 @@ class Delta::ZenPIRLocation < PlaceOS::Driver
     all_objects = pir_mappings.each do |pir_map|
       pir_map.pirs.each do |pir|
         begin
-          prop = Models::ValueProperty.from_json delta_api.get_object_value(site, device_id, "binary-value", pir.pir).get.to_json
+          prop = Models::ValueProperty.from_json delta_api.get_object_value(site, device_id, "binary-value", pir.pir).get_json
           next if (prop.out_of_service.try(&.value.as_i?) || 1) != 0
 
           state = prop.present_value.try do |pv|

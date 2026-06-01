@@ -55,7 +55,7 @@ class Place::DeskBookingWebhook < PlaceOS::Driver
     period_start = Time.utc.to_unix
     period_end = @time_period.from_now.to_unix
     zones = [@building]
-    payload = staff_api.query_bookings(@booking_category, period_start, period_end, zones).get.to_json
+    payload = staff_api.query_bookings(@booking_category, period_start, period_end, zones).get_json
 
     headers = HTTP::Headers.new
     @custom_headers.each { |key, value| headers[key] = value }
