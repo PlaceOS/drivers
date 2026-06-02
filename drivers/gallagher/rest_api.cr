@@ -21,6 +21,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   default_settings({
     api_key:         "your api key",
     unique_pdf_name: "email",
+    _fixed_pdf_id:   "33694",
 
     # The division to pass when creating cardholders.
     default_division_href: "",
@@ -187,15 +188,24 @@ class Gallagher::RestAPI < PlaceOS::Driver
     if api_version >= SemanticVersion.parse("8.10.0")
       @card_types_endpoint = get_path payload["features"]["cardTypes"]["assign"]["href"].as_s
       @pdfs_endpoint = get_path payload["features"]["personalDataFields"]["personalDataFields"]["href"].as_s
-      response = get(@pdfs_endpoint, {"name" => @unique_pdf_name}, @headers)
+      lookup_pdf_id
     else
       @card_types_endpoint = get_path payload["features"]["cardTypes"]["cardTypes"]["href"].as_s
       @pdfs_endpoint = get_path payload["features"]["items"]["items"]["href"].as_s
-      response = get(@pdfs_endpoint, {
-        "name" => @unique_pdf_name,
-        "type" => "33",
-      }, @headers)
+      lookup_pdf_id("33")
     end
+  end
+
+  protected def lookup_pdf_id(pdf_type = nil)
+    if fixed_id = setting?(String, :fixed_pdf_id).presence
+      @fixed_pdf_id = fixed_id
+      return
+    end
+
+    response = get(@pdfs_endpoint, {
+      "name" => @unique_pdf_name,
+      "type" => pdf_type,
+    }.compact, @headers)
 
     if response.success?
       logger.debug { "PDFS request returned:\n#{response.body}" }
