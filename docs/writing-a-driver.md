@@ -319,7 +319,11 @@ Cross system communication is possible if you know the ID of the remote system.
 # actions that you might perform on the local system
 sys = system("sys-12345")
 
-sys.name #=> "Name of remote system"
+sys.perform_action # does not check if action succeeded
+sys.perform_action.get # => JSON::Any response or raises remote exception
+sys.perform_action.get_json # => returns the raw json of the response
+
+sys.name.get.as_s #=> "Name of remote system"
 sys[:Display_2][:power] #=> true
 ```
 
