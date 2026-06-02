@@ -480,6 +480,411 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   cutoff.day_of_week.should eq(Time::DayOfWeek::Friday)
   cutoff.hour.should eq(23)
   cutoff.minute.should eq(59)
+
+  # ===========================================================
+  # Directory-resolved Gallagher lookups (employeeId via MS Graph).
+  # A single bookable car space mapped to gallagher-group1 is reused.
+  # ===========================================================
+
+  emp_spaces = [
+    {
+      id: "asset-emp_a", identifier: "EMP.001",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+
+  default_grp = [{id: "group-default", email: "default@grp.com"}]
+
+  # regression guard: with a blank gallagher_id_field (Tests 1-12) the directory
+  # is NEVER consulted — get_user must not have been called, so the captured
+  # additional_fields stays nil (the mock only sets it on a get_user call)
+  calendar.last_additional_fields.should be_nil
+
+  # enable directory resolution: look users up in the directory and read their
+  # "employeeId" from unmapped, then query Gallagher with that value
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "zone-level-B1" => "gallagher-group1",
+      "zone-level-B2" => "gallagher-group2",
+      "zone-level-B3" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 4, name: "Max height 1.95m"},
+      {id: 5, name: "Max height 2.1m"},
+    ],
+    gallagher_id_field: "employeeId",
+  })
+  sleep 100.milliseconds
+
+  # ===========================================================
+  # Test 13: cardholder resolved via the employee id (NOT the email)
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(emp_spaces.to_json)
+
+  calendar.set_user_employee_id("philip@example.com", "HI200761")
+  gallagher.set_cardholder("HI200761", "ch-philip")
+  # a DIFFERENT cardholder is registered under the email — if the driver wrongly
+  # looked Gallagher up by email this one would receive access instead
+  gallagher.set_cardholder("philip@example.com", "ch-email-philip")
+  calendar.set_groups("philip@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(13001_i64, "philip@example.com",
+      now + 3600 * 5, now + 3600 * 6, "asset-emp_a", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # access is granted to the employee-id-resolved cardholder
+  gallagher.access_for("ch-philip").should contain("gallagher-group1")
+  # the email-keyed cardholder was NOT granted access (email path not taken)
+  gallagher.access_for("ch-email-philip").should be_empty
+  # the directory was queried for the configured field (defaulted from id field)
+  calendar.last_additional_fields.should eq(["employeeId"])
+  status[:lookup_error_count].as_i.should eq(0)
+
+  # ===========================================================
+  # Test 14: employee id resolves but Gallagher has no cardholder -> error
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(emp_spaces.to_json)
+
+  calendar.set_user_employee_id("nocard@example.com", "HI999999")
+  # deliberately no gallagher cardholder registered for HI999999
+  calendar.set_groups("nocard@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(14001_i64, "nocard@example.com",
+      now + 3600 * 5, now + 3600 * 6, "asset-emp_a", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  status[:lookup_error_count].as_i.should eq(1)
+  err = status[:lookup_errors].as_a.first
+  err["email"].as_s.should eq("nocard@example.com")
+  err["employee_id"].as_s.should eq("HI999999")
+  err["reason"].as_s.should eq("no gallagher cardholder found")
+
+  # ===========================================================
+  # Test 15: directory yields no employee id -> error; cleared next sync
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(emp_spaces.to_json)
+
+  # user with no employeeId surfaced by the directory (default get_user payload)
+  calendar.set_groups("noemp@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(15001_i64, "noemp@example.com",
+      now + 3600 * 5, now + 3600 * 6, "asset-emp_a", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  status[:lookup_error_count].as_i.should eq(1)
+  missing = status[:lookup_errors].as_a.first
+  missing["email"].as_s.should eq("noemp@example.com")
+  missing["employee_id"].raw.should be_nil
+  missing["reason"].as_s.should eq("directory field 'employeeId' not found for user")
+
+  # a subsequent sync with a fully-resolvable user clears the prior errors
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+
+  calendar.set_user_employee_id("resolves@example.com", "HI111111")
+  gallagher.set_cardholder("HI111111", "ch-resolves")
+  calendar.set_groups("resolves@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(15002_i64, "resolves@example.com",
+      now + 3600 * 5, now + 3600 * 6, "asset-emp_a", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  status[:lookup_error_count].as_i.should eq(0)
+  gallagher.access_for("ch-resolves").should contain("gallagher-group1")
+
+  # ===========================================================
+  # Test 16: a numeric directory employeeId resolves to an Int64 Gallagher
+  # cardholder id (exercises the JSON-number paths in unmapped_value and the
+  # .as_i64? branch of the cardholder lookup).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(emp_spaces.to_json)
+
+  # directory surfaces employeeId as a JSON number; Gallagher returns an Int64 id
+  calendar.set_user_employee_id("numeric@example.com", 5005_i64)
+  gallagher.set_cardholder("5005", 9001_i64)
+  calendar.set_groups("numeric@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(16001_i64, "numeric@example.com",
+      now + 3600 * 5, now + 3600 * 6, "asset-emp_a", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # membership is keyed by the resolved Int64 cardholder id (9001)
+  gallagher.access_for("9001").should contain("gallagher-group1")
+  status[:lookup_error_count].as_i.should eq(0)
+
+  # ===========================================================
+  # Test 17: the same unresolvable user across multiple bookings in one sync
+  # produces a SINGLE error (per-sync dedup via @failed_lookups), not one per
+  # booking.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(emp_spaces.to_json)
+
+  # no employeeId in the directory -> every lookup for this user fails
+  calendar.set_groups("dedupe@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(17001_i64, "dedupe@example.com",
+      now + 3600 * 5, now + 3600 * 6, "asset-emp_a", true, ext_car),
+    build_booking.call(17002_i64, "dedupe@example.com",
+      now + 3600 * 7, now + 3600 * 8, "asset-emp_a", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # two bookings, same failing user -> exactly one recorded error
+  status[:lookup_error_count].as_i.should eq(1)
+  status[:lookup_errors].as_a.first["email"].as_s.should eq("dedupe@example.com")
+
+  # ===========================================================
+  # Test 18: a user with no Gallagher card has their booking WITHHELD (not
+  # approved/allocated), is notified once, persisted to the no-card list, and is
+  # only allocated once a card exists (and then dropped from the list).
+  # ===========================================================
+
+  # --- sweep 1: no card -> withhold + notify once ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(emp_spaces.to_json)
+
+  calendar.set_user_employee_id("waiting@example.com", "HI777")
+  # no gallagher cardholder registered for HI777 -> user has no card
+  calendar.set_groups("waiting@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(18001_i64, "waiting@example.com",
+      now + 3600 * 5, now + 3600 * 6, "unallocated-18001", false, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # withheld: not approved, not allocated
+  staff.approved.includes?(18001_i64).should eq(false)
+  staff.last_update_for(18001_i64).should be_nil
+  # notified once via the no_card template
+  mailer.last_template.should eq(["parking_request", "no_card"])
+  mailer.last_to.should eq("waiting@example.com")
+  mailer.send_count.should eq(1)
+  # recorded on the persisted no-card list
+  status[:users_without_cards].as_a.map(&.as_s).should contain("waiting@example.com")
+
+  # --- sweep 2: still no card -> NOT re-notified (already on the list) ---
+  staff.reset_calls
+  mailer.reset
+  staff.set_bookings([
+    build_booking.call(18001_i64, "waiting@example.com",
+      now + 3600 * 5, now + 3600 * 6, "unallocated-18001", false, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.approved.includes?(18001_i64).should eq(false)
+  mailer.send_count.should eq(0)
+
+  # --- sweep 3: user now has a card -> allocated, approved, removed from list ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("HI777", "ch-waiting")
+  staff.set_bookings([
+    build_booking.call(18001_i64, "waiting@example.com",
+      now + 3600 * 5, now + 3600 * 6, "unallocated-18001", false, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.approved.includes?(18001_i64).should eq(true)
+  staff.last_update_for(18001_i64).should eq("asset-emp_a")
+  gallagher.access_for("ch-waiting").should contain("gallagher-group1")
+  mailer.last_template.should eq(["parking_request", "approved"])
+  # dropped from the no-card list once a card exists
+  status[:users_without_cards].as_a.map(&.as_s).should_not contain("waiting@example.com")
+
+  # ===========================================================
+  # Test 19: requested field casing differs from the unmapped key.
+  # MS Graph returns "employeeId" for a requested "employeeid" — the
+  # case-insensitive unmapped read must still resolve the cardholder.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "zone-level-B1" => "gallagher-group1",
+      "zone-level-B2" => "gallagher-group2",
+      "zone-level-B3" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 4, name: "Max height 1.95m"},
+      {id: 5, name: "Max height 2.1m"},
+    ],
+    gallagher_id_field: "employeeid",
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(emp_spaces.to_json)
+
+  # config requests lowercase "employeeid" but the directory surfaces camelCase
+  calendar.set_user_employee_id("jane@example.com", "HI300002", key: "employeeId")
+  gallagher.set_cardholder("HI300002", "ch-jane")
+  calendar.set_groups("jane@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(16001_i64, "jane@example.com",
+      now + 3600 * 5, now + 3600 * 6, "asset-emp_a", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  gallagher.access_for("ch-jane").should contain("gallagher-group1")
+  calendar.last_additional_fields.should eq(["employeeid"])
+  status[:lookup_error_count].as_i.should eq(0)
+
+  # ===========================================================
+  # Test 20: with all spaces full across MULTIPLE priority levels, a high
+  # priority request preempts the LOWEST-priority occupant (not just any lower
+  # one), so only a single user is displaced — no cascade. Back on the
+  # email-lookup config for clarity.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "zone-level-B1" => "gallagher-group1",
+      "zone-level-B2" => "gallagher-group2",
+      "zone-level-B3" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 4, name: "Max height 1.95m"},
+      {id: 5, name: "Max height 2.1m"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+
+  # two car spaces; the MID holder sits in the MORE-preferred space (carpriority)
+  # and the LOW holder in the less-preferred (shared). The old "first lower
+  # occupant" logic would wrongly bump MID (preferred space, found first);
+  # the correct logic bumps LOW (lowest priority).
+  prio_spaces = [
+    {
+      id: "asset-prefa", identifier: "PA",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-prefb", identifier: "PB",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["shared"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(prio_spaces.to_json)
+
+  # three priority tiers: top (group-priority=2) > mid (group-default=1) > low (no group=0)
+  calendar.set_groups("top.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("mid.user@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
+  calendar.set_groups("low.user@example.com", [] of NamedTuple(id: String, email: String))
+  gallagher.set_cardholder("top.user@example.com", "ch-top")
+  gallagher.set_cardholder("mid.user@example.com", "ch-mid")
+  gallagher.set_cardholder("low.user@example.com", "ch-low")
+
+  cstart = now + 3600 * 400
+  cend = cstart + 3600
+  staff.set_bookings([
+    # MID holds the preferred space, LOW holds the less-preferred one
+    build_booking.call(80001_i64, "mid.user@example.com",
+      cstart, cend, "asset-prefa", true, ext_car),
+    build_booking.call(80002_i64, "low.user@example.com",
+      cstart, cend, "asset-prefb", true, ext_car),
+    # TOP requests during the same window with nothing free
+    build_booking.call(80003_i64, "top.user@example.com",
+      cstart, cend, "unallocated-80003", false, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # TOP takes the LOW holder's space (lowest priority displaced)
+  staff.last_update_for(80003_i64).should eq("asset-prefb")
+  staff.approved.includes?(80003_i64).should eq(true)
+
+  # LOW is the one displaced + emailed + moved to the wait list
+  staff.last_update_for(80002_i64).not_nil!.starts_with?("unallocated-displaced").should eq(true)
+  staff.last_state(80002_i64).should eq("wait_list")
+  mailer.sent?("low.user@example.com", "parking_request", "displaced").should eq(true)
+
+  # MID is untouched — keeps the preferred space, never displaced
+  staff.last_update_for(80001_i64).should be_nil
+  staff.last_state(80001_i64).should eq("access_granted")
+  mailer.sent?("mid.user@example.com", "parking_request", "displaced").should eq(false)
 end
 
 # :nodoc:
@@ -653,6 +1058,9 @@ end
 # :nodoc:
 class CalendarMock < DriverSpecs::MockDriver
   @groups : Hash(String, String) = {} of String => String
+  # email => full user JSON (with an unmapped object for directory id fields)
+  @users : Hash(String, String) = {} of String => String
+  @last_additional_fields : Array(String)? = nil
 
   def set_groups(user_email : String, groups_json : String)
     @groups[user_email.downcase] = groups_json
@@ -667,17 +1075,55 @@ class CalendarMock < DriverSpecs::MockDriver
     raw ? JSON.parse(raw) : JSON.parse("[]")
   end
 
+  # register a user with an employee id surfaced via unmapped (mirrors MS Graph)
+  def set_user_employee_id(user_email : String, employee_id : String, key : String = "employeeId")
+    @users[user_email.downcase] = {
+      email:    user_email,
+      name:     user_email,
+      unmapped: {key => employee_id},
+    }.to_json
+  end
+
+  # variant where the directory surfaces the id as a JSON number
+  def set_user_employee_id(user_email : String, employee_id : Int64, key : String = "employeeId")
+    @users[user_email.downcase] = {
+      email:    user_email,
+      name:     user_email,
+      unmapped: {key => employee_id},
+    }.to_json
+  end
+
+  # register an arbitrary user JSON payload (e.g. one missing the employee id)
+  def set_user(user_email : String, user_json : String)
+    @users[user_email.downcase] = user_json
+  end
+
+  def last_additional_fields : Array(String)?
+    @last_additional_fields
+  end
+
   def get_user(user_id : String, additional_fields : Array(String)? = nil)
-    {email: user_id, name: user_id}
+    @last_additional_fields = additional_fields
+    if raw = @users[user_id.downcase]?
+      JSON.parse(raw)
+    else
+      JSON.parse({email: user_id, name: user_id}.to_json)
+    end
   end
 end
 
 # :nodoc:
 class GallagherMock < DriverSpecs::MockDriver
-  @cardholders : Hash(String, String) = {} of String => String
+  # value may be a String or Int64 cardholder id (the real interface returns
+  # `String | Int64 | Nil`), so the integer path can be exercised
+  @cardholders : Hash(String, String | Int64) = {} of String => String | Int64
   @memberships : Hash(String, Array(String)) = {} of String => Array(String)
 
   def set_cardholder(email : String, cardholder_id : String)
+    @cardholders[email.downcase] = cardholder_id
+  end
+
+  def set_cardholder(email : String, cardholder_id : Int64)
     @cardholders[email.downcase] = cardholder_id
   end
 
@@ -748,6 +1194,11 @@ class MailerMock < DriverSpecs::MockDriver
     self[:send_count]?.try(&.as_i) || 0
   end
 
+  # was a specific (to, template) pair sent since the last reset?
+  def sent?(to : String, ns : String, name : String) : Bool
+    @sent.any? { |s| s[:to] == to && s[:template] == {ns, name} }
+  end
+
   def send_template(
     to : String | Array(String),
     template : Tuple(String, String),
@@ -759,8 +1210,10 @@ class MailerMock < DriverSpecs::MockDriver
     from : (String | Array(String))? = nil,
     reply_to : (String | Array(String))? = nil,
   )
+    recipient = to.is_a?(String) ? to : (to.first? || "")
+    @sent << {to: recipient, template: template}
     self[:last_template] = template
-    self[:last_to] = to.is_a?(String) ? to : to.first?
+    self[:last_to] = recipient
     self[:send_count] = (self[:send_count]?.try(&.as_i) || 0) + 1
     true
   end

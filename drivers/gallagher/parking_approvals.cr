@@ -42,6 +42,18 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # zone_id (placeos) => gallagher access group id
     parking_areas: {} of String => String,
 
+    # When set, Gallagher cardholders are resolved by first looking the user up
+    # in the directory (MS Graph) and reading this field from `user.unmapped`
+    # (e.g. an "employeeId" custom attribute), then querying Gallagher with that
+    # value. Leave blank to query Gallagher directly by email.
+    gallagher_id_field: "",
+
+    # Directory `additional_fields` requested when resolving a user (e.g.
+    # ["employeeid"]). Defaults to [gallagher_id_field] when blank. Override
+    # only if the requested field name differs from the unmapped key returned
+    # (MS Graph may camelCase a requested "employeeid" to "employeeId").
+    directory_lookup_fields: [] of String,
+
     # used to resolve booking.extension_data["space_restrictions"] -> feature name
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
@@ -71,6 +83,46 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
   # rather than exclusivity so they are not added here.
   @exclusive_features : Array(String) = [] of String
+
+  # directory (MS Graph) field whose value identifies the user in Gallagher.
+  # When blank, Gallagher is queried directly by email.
+  @gallagher_id_field : String? = nil
+  # additional_fields requested from the directory when resolving a user
+  @directory_lookup_fields : Array(String) = [] of String
+
+  # cardholder lookup failures recorded during the current sync (cleared at the
+  # start of each run, surfaced via the :lookup_errors status for reporting)
+  @lookup_errors : Array(LookupError) = [] of LookupError
+  # emails that already failed to resolve this sync — avoids repeating the
+  # directory/Gallagher calls (and duplicate error records) for a user that
+  # appears across multiple bookings in the same run
+  @failed_lookups : Set(String) = Set(String).new
+
+  # Users (downcased emails) we could not resolve to a Gallagher cardholder.
+  # Persisted to settings so the "no access card" notification is sent only once
+  # per user (until they get a card and are removed). A booking for one of these
+  # users is withheld (not approved/allocated) until they have a card.
+  @no_card_users : Array(String) = [] of String
+  @no_card_mutex : Mutex = Mutex.new
+
+  # A user we could not resolve to a Gallagher cardholder. `employee_id` is the
+  # resolved directory value when available (nil when the directory lookup
+  # itself failed to yield one).
+  struct LookupError
+    include JSON::Serializable
+
+    getter email : String
+
+    # always present in the JSON (null when the directory lookup yielded no id)
+    # so reporting consumers see a stable schema
+    @[JSON::Field(emit_null: true)]
+    getter employee_id : String?
+
+    getter reason : String
+
+    def initialize(@email, @employee_id, @reason)
+    end
+  end
 
   # gallagher group_id => { user_email => cardholder_id }
   # tracks ONLY users we explicitly granted access to. Users who were already
@@ -121,14 +173,30 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
 
-    # invalidate caches dependent on settings
+    @gallagher_id_field = setting?(String, :gallagher_id_field).presence
+    lookup_fields = setting?(Array(String), :directory_lookup_fields) || [] of String
+    # default the requested directory fields to the id field itself
+    if lookup_fields.empty? && (field = @gallagher_id_field)
+      lookup_fields = [field]
+    end
+    @directory_lookup_fields = lookup_fields
+
+    # invalidate caches dependent on settings (the cardholder cache may have been
+    # populated via a different lookup mechanism before the settings changed)
     @building_zone = nil
     @parking_spaces_asset_type = nil
+    @cardholder_cache = {} of String => String | Int64
 
     # restore tracked gallagher access from persisted setting so we know what
     # we previously granted across driver restarts
     @host_access_mutex.synchronize do
       @access_granted = setting?(Hash(String, Hash(String, String | Int64)), :access_granted) || {} of String => Hash(String, String | Int64)
+    end
+
+    # restore the persisted list of users with no Gallagher card so we don't
+    # re-notify them every restart
+    @no_card_mutex.synchronize do
+      @no_card_users = setting?(Array(String), :users_without_cards) || [] of String
     end
 
     schedule.clear
@@ -260,12 +328,17 @@ class Place::Parking::Approvals < PlaceOS::Driver
         @syncing = true
         @sync_requests = 0
         run_allocation
+      rescue error
+        # never let a sweep failure escape as an unhandled fiber exception
+        # (process_parking_bookings is also invoked from spawn in booking_changed)
+        logger.error(exception: error) { "parking allocation run failed" }
       ensure
         @syncing = false
+        # service any request that coalesced while we were running, even on error
+        spawn { process_parking_bookings } if @sync_requests > 0
       end
     end
 
-    spawn { process_parking_bookings } if @sync_requests > 0
     "parking allocated"
   end
 
@@ -274,6 +347,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # ===================================
 
   protected def run_allocation
+    # reset per-sync cardholder lookup error tracking
+    @lookup_errors = [] of LookupError
+    @failed_lookups = Set(String).new
+
     starting = Time.utc.to_unix
     # only allocate bookings up to the end of the upcoming Friday (local time)
     ending = next_friday_cutoff.to_unix
@@ -338,6 +415,18 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # against @access_granted and apply only the additions/removals we own.
     desired_access = build_desired_access(booking_meta, spaces_by_id, assigned_spaces)
     apply_access_changes(desired_access)
+
+    # surface cardholder lookup failures for reporting
+    publish_lookup_errors
+  end
+
+  protected def publish_lookup_errors : Nil
+    logger.info { "allocation run: #{@lookup_errors.size} cardholder lookup error(s)" } unless @lookup_errors.empty?
+    self[:lookup_error_count] = @lookup_errors.size
+    self[:lookup_errors] = @lookup_errors
+    self[:users_without_cards] = @no_card_mutex.synchronize { @no_card_users.dup }
+  rescue error
+    logger.warn(exception: error) { "failed to publish lookup errors" }
   end
 
   # End of the upcoming Friday (23:59:59) in the configured timezone. When the
@@ -388,11 +477,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return
     end
 
+    # nil means we could not resolve the user to a Gallagher cardholder; the
+    # failure has already been logged + recorded for reporting
     cardholder_id = lookup_cardholder(user_email)
-    if cardholder_id.nil?
-      logger.warn { "no gallagher cardholder for #{user_email}" }
-      return
-    end
+    return if cardholder_id.nil?
 
     email_key = user_email.downcase
     group_ids.each do |gid|
@@ -539,6 +627,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def handle_allocated_booking(booking : Booking, space : ParkingSpace) : Nil
     return if booking.process_state == "access_granted"
 
+    # withhold approval until the user can actually be granted Gallagher access
+    return unless ensure_user_has_card(booking)
+
     logger.debug { "approval/email for already-allocated booking #{booking.id} (#{booking.user_email}) on space #{space.id}" }
 
     # If the booking has not been approved yet, approve it
@@ -566,6 +657,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     bookable_spaces : Array(ParkingSpace),
     current_allocations : Hash(String, Tuple(Booking, Int32)),
   ) : Nil
+    # withhold allocation until the user can actually be granted Gallagher access
+    return unless ensure_user_has_card(booking)
+
     request_type = booking.extension_data["request_type"]?.try(&.as_s?)
 
     # After hours bookings cannot be auto-approved
@@ -592,18 +686,28 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return
     end
 
-    # No free space — try preemption (find lower priority allocation we can displace)
-    target_asset = compatible.find do |space|
+    # No free space — preempt the LOWEST-priority overlapping occupant. Bumping
+    # a mid-priority user would let them, in turn, preempt someone below them,
+    # cascading several users through displacement (and displacement emails) in
+    # a single run. Always displacing the least-privileged occupant keeps it to
+    # a single move.
+    candidates = compatible.compact_map do |space|
       conflict = current_allocations[space.id]?
-      conflict && conflict[1] < priority && bookings_overlap?(booking, conflict[0])
+      next unless conflict
+      next unless conflict[1] < priority && bookings_overlap?(booking, conflict[0])
+      {space, conflict}
     end
 
-    if target_asset
-      conflict = current_allocations[target_asset.id]
+    # lowest occupant priority wins; ties keep zone-preference order (compatible
+    # is already feature-priority sorted and min_by? is stable)
+    target = candidates.min_by? { |(_space, conflict)| conflict[1] }
+
+    if target
+      target_space, conflict = target
       logger.info { "preempting booking #{conflict[0].id} (priority #{conflict[1]}) for higher priority booking #{booking.id} (priority #{priority})" }
-      displace_booking(conflict[0], target_asset)
-      current_allocations.delete(target_asset.id)
-      allocate(booking, target_asset, current_allocations, priority)
+      displace_booking(conflict[0], target_space)
+      current_allocations.delete(target_space.id)
+      allocate(booking, target_space, current_allocations, priority)
     else
       logger.debug { "no preemption candidate for booking #{booking.id}, sending wait list email" }
       wait_list_email(booking)
@@ -735,6 +839,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     space.zones.compact_map { |zone_id| @parking_areas[zone_id]? }
   end
 
+  # user_email (downcased) => cardholder_id; only successful lookups are cached
   @cardholder_cache : Hash(String, String | Int64) = {} of String => String | Int64
 
   protected def lookup_cardholder(user_email : String) : String | Int64 | Nil
@@ -742,22 +847,143 @@ class Place::Parking::Approvals < PlaceOS::Driver
     if cached = @cardholder_cache[user_email]?
       return cached
     end
+    # already failed (and recorded) earlier in this sync — don't retry/re-record
+    return nil if @failed_lookups.includes?(user_email)
 
-    json = gallagher.card_holder_id_lookup(user_email).get
-    raw = json.raw
-    return nil if raw.nil?
-
-    case raw
-    when String
-      @cardholder_cache[user_email] = raw
-    when Int
-      @cardholder_cache[user_email] = raw.to_i64
-    else
-      nil
+    # value we query Gallagher with: the resolved directory id (e.g. employeeId)
+    # when configured, otherwise the email itself
+    lookup_value = gallagher_lookup_value(user_email)
+    if lookup_value.nil?
+      @failed_lookups << user_email
+      return nil
     end
+
+    id_raw = gallagher.card_holder_id_lookup(lookup_value).get
+    # a blank string id is not a valid grant target — treat it as "no card"
+    id = id_raw.as_s?.presence || id_raw.as_i64?
+    if id.nil?
+      # the user has no card in Gallagher
+      logger.warn { "no gallagher cardholder for #{user_email} (lookup: #{lookup_value})" }
+      employee_id = @gallagher_id_field ? lookup_value : nil
+      record_lookup_error(user_email, employee_id, "no gallagher cardholder found")
+      @failed_lookups << user_email
+      return nil
+    end
+
+    @cardholder_cache[user_email] = id
+    # the user now has a card — drop them from the persisted no-card list
+    remove_from_no_card_list(user_email)
+    id
   rescue error
     logger.warn(exception: error) { "cardholder lookup failed for #{user_email}" }
+    record_lookup_error(user_email, nil, "cardholder lookup error: #{error.message}")
+    @failed_lookups << user_email
     nil
+  end
+
+  # Guard used by the allocation passes: returns true when the user has a
+  # Gallagher card (so the booking may be approved/allocated). When false the
+  # booking is withheld and the user is notified once that they have no card.
+  protected def ensure_user_has_card(booking : Booking) : Bool
+    return true if lookup_cardholder(booking.user_email)
+    notify_no_card(booking)
+    false
+  end
+
+  # Notify a user (once) that no Gallagher access card could be found for them,
+  # and persist them onto the no-card list so we don't re-notify each sweep.
+  protected def notify_no_card(booking : Booking) : Nil
+    email = booking.user_email.downcase
+
+    already_listed = @no_card_mutex.synchronize { @no_card_users.includes?(email) }
+    return if already_listed
+
+    logger.info { "withholding parking for #{email}: no gallagher access card" }
+    mailer.send_template(
+      booking.user_email,
+      {"parking_request", "no_card"},
+      common_template_args(booking),
+    )
+
+    @no_card_mutex.synchronize do
+      @no_card_users << email unless @no_card_users.includes?(email)
+      persist_no_card_users
+    end
+  rescue error
+    logger.warn(exception: error) { "failed to notify no-card user #{booking.user_email}" }
+  end
+
+  protected def remove_from_no_card_list(user_email : String) : Nil
+    email = user_email.downcase
+    removed = @no_card_mutex.synchronize do
+      if @no_card_users.includes?(email)
+        @no_card_users.delete(email)
+        persist_no_card_users
+        true
+      else
+        false
+      end
+    end
+    logger.debug { "#{email} now has a gallagher card, removed from no-card list" } if removed
+  rescue error
+    logger.warn(exception: error) { "failed to update no-card list for #{user_email}" }
+  end
+
+  # caller must hold @no_card_mutex
+  protected def persist_no_card_users : Nil
+    define_setting(:users_without_cards, @no_card_users)
+  rescue error
+    logger.warn(exception: error) { "failed to persist users_without_cards setting" }
+  end
+
+  # The value used to query Gallagher for a cardholder id. With a directory id
+  # field configured we look the user up in the directory (MS Graph) and read
+  # that field from `unmapped`; otherwise the email is used directly. Returns
+  # nil (recording an error) when a configured directory field can't be resolved.
+  protected def gallagher_lookup_value(user_email : String) : String?
+    field = @gallagher_id_field
+    return user_email if field.nil?
+
+    user_json = calendar.get_user(user_email, additional_fields: @directory_lookup_fields).get_json
+    user = ::PlaceCalendar::User.from_json(user_json)
+    value = unmapped_value(user.unmapped, field)
+
+    if value.nil? || value.empty?
+      logger.warn { "no '#{field}' directory field for #{user_email}" }
+      record_lookup_error(user_email, nil, "directory field '#{field}' not found for user")
+      return nil
+    end
+    value
+  rescue error
+    logger.warn(exception: error) { "directory lookup failed for #{user_email}" }
+    record_lookup_error(user_email, nil, "directory lookup failed: #{error.message}")
+    nil
+  end
+
+  # Read a value from `unmapped`, tolerating MS Graph casing differences (a
+  # requested "employeeid" is returned as "employeeId"). Numeric ids are
+  # stringified so a field surfaced as a JSON number is still usable.
+  protected def unmapped_value(unmapped : Hash(String, JSON::Any)?, field : String) : String?
+    return nil unless unmapped
+    raw = unmapped[field]?
+    if raw.nil?
+      down = field.downcase
+      if entry = unmapped.find { |(key, _value)| key.downcase == down }
+        raw = entry[1]
+      end
+    end
+    return nil if raw.nil?
+
+    case value = raw.raw
+    when String then value.presence
+    when Int    then value.to_s
+    when Float  then value.to_i64.to_s
+    else             nil
+    end
+  end
+
+  protected def record_lookup_error(email : String, employee_id : String?, reason : String) : Nil
+    @lookup_errors << LookupError.new(email, employee_id, reason)
   end
 
   # ===================================
@@ -805,6 +1031,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
         trigger: {"parking_request", "rejected"},
         name: "Parking Rejected",
         description: "Notifies the recipient that their parking booking has been rejected",
+        fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"parking_request", "no_card"},
+        name: "Parking No Access Card",
+        description: "Notifies the recipient that their parking can't be set up because no Gallagher access card (or employee id) was found for them — sent once until they have a card",
         fields: common_fields
       ),
     ]
