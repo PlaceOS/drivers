@@ -495,7 +495,7 @@ class Gallagher::RestAPI < PlaceOS::Driver
   def add_access_group_member(group_id : String | Int32, cardholder_id : String | Int32, from_unix : Int64? = nil, until_unix : Int64? = nil)
     from_time = Time.unix(from_unix) if from_unix
     until_time = Time.unix(until_unix) if until_unix
-    group = CardholderAccessGroup.new({href: "#{@uri_base}#{@access_groups_endpoint}/#{group_id}".as(String?), name: nil.as(String?)})
+    group = CardholderAccessGroup.new({href: "#{@uri_base}#{@access_groups_endpoint}/#{group_id}".as(String?), name: nil.as(String?)}, from_time, until_time)
     update_cardholder(cardholder_id, access_groups: [group])
   end
 

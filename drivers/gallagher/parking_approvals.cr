@@ -42,6 +42,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # zone_id (placeos) => gallagher access group id
     parking_areas: {} of String => String,
 
+    # minutes before a booking's start that Gallagher access should begin. The
+    # access window ends at the booking end. Changing this only affects future
+    # grants (existing grants are matched/removed by their end time, not start).
+    access_minutes_before: 30,
+
     # When set, Gallagher cardholders are resolved by first looking the user up
     # in the directory (MS Graph) and reading this field from `user.unmapped`
     # (e.g. an "employeeId" custom attribute), then querying Gallagher with that
@@ -78,6 +83,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @car_zone_priority : Array(String) = [] of String
   @bike_zone_priority : Array(String) = [] of String
   @parking_areas : Hash(String, String) = {} of String => String
+  # minutes of access granted before a booking starts (access ends at booking end)
+  @access_minutes_before : Int32 = 30
   @restriction_lookup : Hash(Int64, String) = {} of Int64 => String
   # restriction features that completely exclude a space from non-matching bookings
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
@@ -124,12 +131,72 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
   end
 
-  # gallagher group_id => { user_email => cardholder_id }
-  # tracks ONLY users we explicitly granted access to. Users who were already
-  # members of a group when we tried to grant them access are not tracked
-  # (so we never remove access we didn't add)
-  @access_granted : Hash(String, Hash(String, String | Int64)) = {} of String => Hash(String, String | Int64)
+  # A Gallagher access grant we made. Booking grants are time-bounded
+  # (until_unix = booking end); permanent (assigned-space) grants have a nil
+  # window. `from_unix` is recomputed each sweep from access_minutes_before and
+  # is only used when (re)adding — it is intentionally NOT persisted so changing
+  # access_minutes_before doesn't orphan tracked grants (we match on until).
+  struct Grant
+    include JSON::Serializable
+
+    getter email : String
+    getter cardholder_id : String | Int64
+
+    @[JSON::Field(emit_null: true)]
+    getter until_unix : Int64?
+
+    @[JSON::Field(ignore: true)]
+    getter from_unix : Int64?
+
+    def initialize(@email, @cardholder_id, @until_unix, @from_unix = nil)
+    end
+  end
+
+  # gallagher group_id => { grant_key => Grant }, where grant_key combines the
+  # user email and the grant's until time so a user can hold several distinct
+  # time windows in one group (e.g. parking on several days of the week).
+  # Tracks ONLY grants we made; users already a member with a matching window
+  # are left untouched (we never remove access we didn't add).
+  @access_granted : Hash(String, Hash(String, Grant)) = {} of String => Hash(String, Grant)
   @host_access_mutex : Mutex = Mutex.new
+
+  protected def grant_key(email : String, until_unix : Int64?) : String
+    "#{email.downcase}|#{until_unix}"
+  end
+
+  # Restore @access_granted from settings, tolerating the legacy pre-window
+  # format (group => { email => cardholder_id }). Legacy entries become
+  # permanent grants (nil window); the next sweep's diff then removes them and
+  # re-adds the correct time-bounded grants.
+  protected def restore_access_granted : Hash(String, Hash(String, Grant))
+    empty = {} of String => Hash(String, Grant)
+    raw = setting?(JSON::Any, :access_granted)
+    return empty unless raw
+    json = raw.to_json
+
+    begin
+      return Hash(String, Hash(String, Grant)).from_json(json)
+    rescue
+      # not the current format — try the legacy one below
+    end
+
+    begin
+      legacy = Hash(String, Hash(String, String | Int64)).from_json(json)
+      migrated = {} of String => Hash(String, Grant)
+      legacy.each do |group, users|
+        bucket = migrated[group] = {} of String => Grant
+        users.each do |email, cardholder_id|
+          bucket[grant_key(email, nil)] = Grant.new(email, cardholder_id, nil)
+        end
+      end
+      logger.info { "migrated legacy access_granted (#{migrated.size} group(s)) to time-windowed format" }
+      return migrated
+    rescue error
+      logger.warn(exception: error) { "could not restore access_granted, starting fresh" }
+    end
+
+    empty
+  end
 
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
@@ -157,6 +224,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     raw_areas = setting?(Hash(String, String | Int64), :parking_areas) || {} of String => String | Int64
     @parking_areas = raw_areas.transform_values(&.to_s)
+
+    @access_minutes_before = setting?(Int32, :access_minutes_before) || 30
 
     @restriction_lookup = {} of Int64 => String
     if restrictions = setting?(Array(NamedTuple(id: Int64, name: String)), :request_space_restrictions)
@@ -190,7 +259,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # restore tracked gallagher access from persisted setting so we know what
     # we previously granted across driver restarts
     @host_access_mutex.synchronize do
-      @access_granted = setting?(Hash(String, Hash(String, String | Int64)), :access_granted) || {} of String => Hash(String, String | Int64)
+      @access_granted = restore_access_granted
     end
 
     # restore the persisted list of users with no Gallagher card so we don't
@@ -445,8 +514,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     booking_meta : Array(Tuple(Booking, Int32)),
     spaces_by_id : Hash(String, ParkingSpace),
     assigned_spaces : Array(ParkingSpace),
-  ) : Hash(String, Hash(String, String | Int64))
-    desired = {} of String => Hash(String, String | Int64)
+  ) : Hash(String, Hash(String, Grant))
+    desired = {} of String => Hash(String, Grant)
 
     booking_meta.each do |(booking, _priority)|
       next if booking.rejected || booking.deleted
@@ -454,22 +523,30 @@ class Place::Parking::Approvals < PlaceOS::Driver
       next if asset_id.nil? || asset_id.starts_with?("unallocated")
       space = spaces_by_id[asset_id]?
       next unless space
-      record_desired_access(desired, booking.user_email, space)
+
+      # time-bounded access: from a configurable margin before the booking
+      # starts, until the booking ends
+      until_unix = booking.booking_end
+      from_unix = booking.booking_start - @access_minutes_before.to_i64 * 60
+      record_desired_access(desired, booking.user_email, space, until_unix, from_unix)
     end
 
     assigned_spaces.each do |space|
       assignee = space.assigned_to
       next unless assignee && !assignee.empty?
-      record_desired_access(desired, assignee, space)
+      # permanent assignments are standing access, not a booking — no time window
+      record_desired_access(desired, assignee, space, nil, nil)
     end
 
     desired
   end
 
   protected def record_desired_access(
-    desired : Hash(String, Hash(String, String | Int64)),
+    desired : Hash(String, Hash(String, Grant)),
     user_email : String,
     space : ParkingSpace,
+    until_unix : Int64?,
+    from_unix : Int64?,
   ) : Nil
     group_ids = gallagher_group_ids_for(space)
     if group_ids.empty?
@@ -483,65 +560,84 @@ class Place::Parking::Approvals < PlaceOS::Driver
     return if cardholder_id.nil?
 
     email_key = user_email.downcase
+    key = grant_key(email_key, until_unix)
     group_ids.each do |gid|
-      bucket = desired[gid] ||= {} of String => String | Int64
-      bucket[email_key] = cardholder_id
+      bucket = desired[gid] ||= {} of String => Grant
+      # Two bookings for the same user that map to the same group AND share an
+      # end time collapse onto one grant key (we match/remove by until only).
+      # Keep the EARLIEST start so the single granted window still spans both
+      # bookings — otherwise the later start would deny entry during the gap.
+      from = if existing = bucket[key]?
+               earliest_from(existing.from_unix, from_unix)
+             else
+               from_unix
+             end
+      bucket[key] = Grant.new(email_key, cardholder_id, until_unix, from)
     end
   end
 
-  # Diff desired against @access_granted:
-  #  - users no longer required have their access removed
-  #  - new users are granted access, unless they were ALREADY a group member
-  #    (someone else gave them access — we don't take responsibility for them)
-  #  - users present in both are left untouched
+  # the earlier (smaller) of two optional start times; nil only when both nil
+  protected def earliest_from(a : Int64?, b : Int64?) : Int64?
+    return b if a.nil?
+    return a if b.nil?
+    Math.min(a, b)
+  end
+
+  # Diff desired against @access_granted (keyed by user email + access window):
+  #  - grants no longer required have their access removed (matched by until)
+  #  - new grants are added, unless the cardholder already holds that exact
+  #    window (someone else granted it — we don't take responsibility for it)
+  #  - grants present in both are left untouched
+  # Booking grants are time-bounded (add with from/until); we match and remove
+  # by until only so a changed access_minutes_before never orphans a grant.
   # Updates @access_granted with the resulting tracked state and persists it.
-  protected def apply_access_changes(desired : Hash(String, Hash(String, String | Int64))) : Nil
+  protected def apply_access_changes(desired : Hash(String, Hash(String, Grant))) : Nil
     all_groups = (@access_granted.keys + desired.keys).uniq
-    new_state = {} of String => Hash(String, String | Int64)
+    new_state = {} of String => Hash(String, Grant)
 
     all_groups.each do |group_id|
-      new_users = desired[group_id]? || {} of String => String | Int64
-      old_users = @access_granted[group_id]? || {} of String => String | Int64
+      new_grants = desired[group_id]? || {} of String => Grant
+      old_grants = @access_granted[group_id]? || {} of String => Grant
 
-      tracked = {} of String => String | Int64
+      tracked = {} of String => Grant
 
-      # remove users we previously granted but that are no longer required
-      (old_users.keys - new_users.keys).each do |email|
-        cardholder_id = old_users[email]
+      # remove grants we previously made but that are no longer required
+      (old_grants.keys - new_grants.keys).each do |key|
+        grant = old_grants[key]
         begin
-          gallagher.zone_access_remove_member(group_id, cardholder_id).get
-          logger.debug { "removed #{email} from gallagher group #{group_id}" }
+          gallagher.zone_access_remove_member(group_id, grant.cardholder_id, nil, grant.until_unix).get
+          logger.debug { "removed #{grant.email} from gallagher group #{group_id} (until #{grant.until_unix})" }
         rescue error
-          logger.warn(exception: error) { "failed removing #{email} from gallagher group #{group_id}" }
+          logger.warn(exception: error) { "failed removing #{grant.email} from gallagher group #{group_id}" }
         end
       end
 
-      # users in both — already granted by us, keep tracking, no API call
-      (new_users.keys & old_users.keys).each do |email|
-        tracked[email] = new_users[email]
+      # grants in both — already made by us, keep tracking, no API call
+      (new_grants.keys & old_grants.keys).each do |key|
+        tracked[key] = new_grants[key]
       end
 
-      # new users — grant access, but skip those who were already members
-      (new_users.keys - old_users.keys).each do |email|
-        cardholder_id = new_users[email]
+      # new grants — add, but skip a cardholder already holding that window
+      (new_grants.keys - old_grants.keys).each do |key|
+        grant = new_grants[key]
         begin
           already_member = nil.as(JSON::Any::Type)
           begin
-            already_member = gallagher.zone_access_member?(group_id, cardholder_id).get.raw
+            already_member = gallagher.zone_access_member?(group_id, grant.cardholder_id, nil, grant.until_unix).get.raw
           rescue
             already_member = nil
           end
 
           if already_member
-            logger.debug { "#{email} already a member of gallagher group #{group_id}, leaving untouched" }
+            logger.debug { "#{grant.email} already has access to gallagher group #{group_id} (until #{grant.until_unix}), leaving untouched" }
             next
           end
 
-          gallagher.zone_access_add_member(group_id, cardholder_id).get
-          tracked[email] = cardholder_id
-          logger.debug { "granted #{email} access to gallagher group #{group_id}" }
+          gallagher.zone_access_add_member(group_id, grant.cardholder_id, grant.from_unix, grant.until_unix).get
+          tracked[key] = grant
+          logger.debug { "granted #{grant.email} access to gallagher group #{group_id} (from #{grant.from_unix} until #{grant.until_unix})" }
         rescue error
-          logger.warn(exception: error) { "failed adding #{email} to gallagher group #{group_id}" }
+          logger.warn(exception: error) { "failed adding #{grant.email} to gallagher group #{group_id}" }
         end
       end
 

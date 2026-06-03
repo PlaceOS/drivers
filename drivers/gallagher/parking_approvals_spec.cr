@@ -885,6 +885,337 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(80001_i64).should be_nil
   staff.last_state(80001_i64).should eq("access_granted")
   mailer.sent?("mid.user@example.com", "parking_request", "displaced").should eq(false)
+
+  # ===========================================================
+  # Time-bounded access. Reconfigure with a known access_minutes_before and a
+  # single car space mapped to gallagher-group1 (email-lookup path).
+  # ===========================================================
+
+  win_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "zone-level-B1" => "gallagher-group1",
+      "zone-level-B2" => "gallagher-group2",
+      "zone-level-B3" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 4, name: "Max height 1.95m"},
+      {id: 5, name: "Max height 2.1m"},
+    ],
+    access_minutes_before: 45,
+  }
+  settings(win_settings)
+  sleep 100.milliseconds
+
+  win_spaces = [
+    {
+      id: "asset-win", identifier: "WIN",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+
+  # ===========================================================
+  # Test 21: a booking grants a time-bounded window — until == booking end,
+  # from == booking start - access_minutes_before*60.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(win_spaces.to_json)
+
+  gallagher.set_cardholder("win.user@example.com", "ch-win")
+  calendar.set_groups("win.user@example.com", default_grp.to_json)
+
+  wstart = now + 3600_i64 * 100
+  wend = wstart + 3600_i64
+  staff.set_bookings([
+    build_booking.call(21001_i64, "win.user@example.com",
+      wstart, wend, "asset-win", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  gallagher.access_for("ch-win").should contain("gallagher-group1")
+  # exactly one window, ending at the booking end
+  gallagher.untils_for("ch-win", "gallagher-group1").should eq([wend])
+  # start margin honours access_minutes_before (45 min)
+  gallagher.from_for("ch-win", "gallagher-group1", wend).should eq(wstart - 45_i64 * 60)
+
+  # ===========================================================
+  # Test 22: when the booking is gone, the windowed grant is removed (matched
+  # by until). NOTE: gallagher is NOT reset so we observe the removal.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  staff.set_bookings("[]")
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  gallagher.access_for("ch-win").should be_empty
+
+  # ===========================================================
+  # Test 23: a user with two bookings (different days) in the same group holds
+  # two distinct windows — one per booking end.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  multi_spaces = [
+    {
+      id: "asset-m1", identifier: "M1",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-m2", identifier: "M2",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["shared"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(multi_spaces.to_json)
+  gallagher.set_cardholder("multi.user@example.com", "ch-multi")
+  calendar.set_groups("multi.user@example.com", default_grp.to_json)
+
+  d1s = now + 3600_i64 * 120
+  d1e = d1s + 3600_i64
+  d2s = now + 3600_i64 * 144
+  d2e = d2s + 3600_i64
+  staff.set_bookings([
+    build_booking.call(23001_i64, "multi.user@example.com",
+      d1s, d1e, "asset-m1", true, ext_car),
+    build_booking.call(23002_i64, "multi.user@example.com",
+      d2s, d2e, "asset-m2", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # both bookings map to gallagher-group1 — two distinct end windows tracked
+  multi_untils = gallagher.untils_for("ch-multi", "gallagher-group1")
+  multi_untils.size.should eq(2)
+  multi_untils.compact.sort.should eq([d1e, d2e].sort)
+
+  # ===========================================================
+  # Test 24: a permanently-assigned space grants standing (unbounded) access —
+  # the window's until is nil (general access).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  assigned_only = [
+    {
+      id: "asset-perm", identifier: "PERM",
+      assigned_to: "perm.user@example.com", zones: ["zone-building", "zone-level-B1"],
+      features: [] of String, notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(assigned_only.to_json)
+  gallagher.set_cardholder("perm.user@example.com", "ch-perm")
+  calendar.set_groups("perm.user@example.com", default_grp.to_json)
+  staff.set_bookings("[]")
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  gallagher.access_for("ch-perm").should contain("gallagher-group1")
+  gallagher.untils_for("ch-perm", "gallagher-group1").should eq([nil])
+
+  # ===========================================================
+  # Test 25: access_minutes_before is configurable — a different value changes
+  # the grant's start margin (and only the margin; until still == booking end).
+  # ===========================================================
+
+  settings(win_settings.merge({access_minutes_before: 10}))
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(win_spaces.to_json)
+  gallagher.set_cardholder("margin.user@example.com", "ch-margin")
+  calendar.set_groups("margin.user@example.com", default_grp.to_json)
+
+  mstart = now + 3600_i64 * 160
+  mend = mstart + 3600_i64
+  staff.set_bookings([
+    build_booking.call(25001_i64, "margin.user@example.com",
+      mstart, mend, "asset-win", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  gallagher.untils_for("ch-margin", "gallagher-group1").should eq([mend])
+  gallagher.from_for("ch-margin", "gallagher-group1", mend).should eq(mstart - 10_i64 * 60)
+
+  # ===========================================================
+  # Test 26: two same-user bookings in the same group sharing an end time but
+  # with DIFFERENT starts collapse to one window — keep the EARLIEST start so
+  # the granted window spans both (no access gap). Regression for the grant_key
+  # collision (email|until) merge.
+  # ===========================================================
+
+  settings(win_settings) # access_minutes_before back to 45
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  # two car spaces, both -> gallagher-group1 (zone-level-B1)
+  collide_spaces = [
+    {
+      id: "asset-c1", identifier: "C1",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-c2", identifier: "C2",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["shared"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(collide_spaces.to_json)
+  gallagher.set_cardholder("collide.user@example.com", "ch-collide")
+  calendar.set_groups("collide.user@example.com", default_grp.to_json)
+
+  shared_end = now + 3600_i64 * 180
+  early_start = shared_end - 3600_i64 * 6 # earlier start
+  late_start = shared_end - 3600_i64 * 2  # later start, same end
+  staff.set_bookings([
+    build_booking.call(26001_i64, "collide.user@example.com",
+      early_start, shared_end, "asset-c1", true, ext_car),
+    build_booking.call(26002_i64, "collide.user@example.com",
+      late_start, shared_end, "asset-c2", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # exactly one window (collapsed), ending at the shared end
+  gallagher.untils_for("ch-collide", "gallagher-group1").should eq([shared_end])
+  # and it spans BOTH bookings: from == earliest start - margin (45m)
+  gallagher.from_for("ch-collide", "gallagher-group1", shared_end).should eq(early_start - 45_i64 * 60)
+
+  # ===========================================================
+  # Test 27: a rescheduled booking (moved end time) moves the window — the old
+  # until is removed and exactly the new one remains. No gallagher.reset between
+  # the two sweeps so the removal is observable.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(win_spaces.to_json)
+  gallagher.set_cardholder("resched.user@example.com", "ch-resched")
+  calendar.set_groups("resched.user@example.com", default_grp.to_json)
+
+  rstart = now + 3600_i64 * 200
+  rend = rstart + 3600_i64
+  staff.set_bookings([
+    build_booking.call(27001_i64, "resched.user@example.com",
+      rstart, rend, "asset-win", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  gallagher.untils_for("ch-resched", "gallagher-group1").should eq([rend])
+
+  # reschedule the SAME booking to a later end (no reset)
+  rend2 = rend + 3600_i64 * 24
+  staff.set_bookings([
+    build_booking.call(27001_i64, "resched.user@example.com",
+      rstart, rend2, "asset-win", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # old window gone, exactly one new window at the moved end
+  gallagher.untils_for("ch-resched", "gallagher-group1").should eq([rend2])
+  gallagher.from_for("ch-resched", "gallagher-group1", rend2).should eq(rstart - 45_i64 * 60)
+
+  # ===========================================================
+  # Test 28: changing access_minutes_before must NOT orphan or duplicate an
+  # already-tracked grant — the window key (email|until) is unchanged, so the
+  # grant stays in the no-API-call branch and its original start is preserved.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(win_spaces.to_json)
+  gallagher.set_cardholder("stable.user@example.com", "ch-stable")
+  calendar.set_groups("stable.user@example.com", default_grp.to_json)
+
+  sstart = now + 3600_i64 * 240
+  ssend = sstart + 3600_i64
+  staff.set_bookings([
+    build_booking.call(28001_i64, "stable.user@example.com",
+      sstart, ssend, "asset-win", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  gallagher.untils_for("ch-stable", "gallagher-group1").should eq([ssend])
+  gallagher.from_for("ch-stable", "gallagher-group1", ssend).should eq(sstart - 45_i64 * 60)
+
+  # change ONLY the margin and re-sweep the SAME booking, WITHOUT gallagher.reset
+  settings(win_settings.merge({access_minutes_before: 10}))
+  sleep 100.milliseconds
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # untouched: one window, original 45m start margin preserved (no re-add)
+  gallagher.untils_for("ch-stable", "gallagher-group1").should eq([ssend])
+  gallagher.from_for("ch-stable", "gallagher-group1", ssend).should eq(sstart - 45_i64 * 60)
+
+  # ===========================================================
+  # Test 29: a legacy (pre-window) access_granted setting is migrated to a
+  # permanent grant, then reconciled to a time window on the next sweep.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(win_spaces.to_json)
+  gallagher.set_cardholder("legacy.user@example.com", "ch-legacy")
+  calendar.set_groups("legacy.user@example.com", default_grp.to_json)
+  # the cardholder already holds the GENERAL membership the legacy entry tracks
+  gallagher.zone_access_add_member("gallagher-group1", "ch-legacy", nil, nil)
+
+  # seed the PRE-WINDOW legacy format (group => { email => cardholder_id }) in
+  # the SAME settings() call so it isn't overwritten; back to 45m margin
+  settings(win_settings.merge({
+    access_granted: {"gallagher-group1" => {"legacy.user@example.com" => "ch-legacy"}},
+  }))
+  sleep 100.milliseconds
+
+  lstart = now + 3600_i64 * 260
+  lend = lstart + 3600_i64
+  staff.set_bookings([
+    build_booking.call(29001_i64, "legacy.user@example.com",
+      lstart, lend, "asset-win", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the migrated permanent (nil) grant is removed; a single time window remains
+  gallagher.untils_for("ch-legacy", "gallagher-group1").should eq([lend])
+  gallagher.from_for("ch-legacy", "gallagher-group1", lend).should eq(lstart - 45_i64 * 60)
 end
 
 # :nodoc:
@@ -1117,7 +1448,22 @@ class GallagherMock < DriverSpecs::MockDriver
   # value may be a String or Int64 cardholder id (the real interface returns
   # `String | Int64 | Nil`), so the integer path can be exercised
   @cardholders : Hash(String, String | Int64) = {} of String => String | Int64
-  @memberships : Hash(String, Array(String)) = {} of String => Array(String)
+
+  # a single time-bounded (or permanent) access grant, mirroring a Gallagher
+  # cardholder access-group entry
+  struct Membership
+    include JSON::Serializable
+
+    getter zone : String
+    getter from : Int64?
+    getter until_u : Int64?
+
+    def initialize(@zone, @from, @until_u)
+    end
+  end
+
+  # cardholder_id => grants
+  @memberships : Hash(String, Array(Membership)) = Hash(String, Array(Membership)).new
 
   def set_cardholder(email : String, cardholder_id : String)
     @cardholders[email.downcase] = cardholder_id
@@ -1128,32 +1474,64 @@ class GallagherMock < DriverSpecs::MockDriver
   end
 
   def reset
-    @memberships = {} of String => Array(String)
+    @memberships = Hash(String, Array(Membership)).new
   end
 
+  # zone ids the cardholder currently has any access to (de-duplicated)
   def access_for(cardholder_id : String) : Array(String)
-    @memberships[cardholder_id]? || [] of String
+    (@memberships[cardholder_id]? || [] of Membership).map(&.zone).uniq!
+  end
+
+  # all until-windows recorded for a cardholder in a given zone
+  def untils_for(cardholder_id : String, zone : String) : Array(Int64?)
+    (@memberships[cardholder_id]? || [] of Membership).select { |m| m.zone == zone }.map(&.until_u)
+  end
+
+  # the from-window recorded for a cardholder in a given zone/until (nil if none)
+  def from_for(cardholder_id : String, zone : String, until_u : Int64?) : Int64?
+    (@memberships[cardholder_id]? || [] of Membership).find { |m| m.zone == zone && m.until_u == until_u }.try(&.from)
   end
 
   def card_holder_id_lookup(email : String)
     @cardholders[email.downcase]?
   end
 
-  def zone_access_member?(zone_id : String | Int64, card_holder_id : String | Int64)
+  # mirrors Gallagher's access_group_member? window matching.
+  # NOTE: the driver always passes from=nil to member?/remove (it matches on
+  # until only — see parking_approvals.cr), so the from+until branch below is
+  # never exercised via the driver; it's kept for full API fidelity.
+  private def window_match?(m : Membership, from_unix : Int64?, until_unix : Int64?) : Bool
+    if from_unix || until_unix
+      if from_unix && until_unix
+        m.from == from_unix && m.until_u == until_unix
+      elsif from_unix
+        m.from == from_unix
+      else
+        m.until_u == until_unix
+      end
+    else
+      # general access has no end window
+      m.until_u.nil?
+    end
+  end
+
+  def zone_access_member?(zone_id : String | Int64, card_holder_id : String | Int64, from_unix : Int64? = nil, until_unix : Int64? = nil)
     list = @memberships[card_holder_id.to_s]?
     return nil unless list
-    list.includes?(zone_id.to_s) ? "href-#{zone_id}-#{card_holder_id}" : nil
+    match = list.find { |m| m.zone == zone_id.to_s && window_match?(m, from_unix, until_unix) }
+    match ? "href-#{zone_id}-#{card_holder_id}-#{until_unix}" : nil
   end
 
   def zone_access_add_member(zone_id : String | Int64, card_holder_id : String | Int64, from_unix : Int64? = nil, until_unix : Int64? = nil)
-    list = @memberships[card_holder_id.to_s] ||= [] of String
-    list << zone_id.to_s unless list.includes?(zone_id.to_s)
+    list = @memberships[card_holder_id.to_s] ||= [] of Membership
+    exists = list.any? { |m| m.zone == zone_id.to_s && m.from == from_unix && m.until_u == until_unix }
+    list << Membership.new(zone_id.to_s, from_unix, until_unix) unless exists
     true
   end
 
-  def zone_access_remove_member(zone_id : String | Int64, card_holder_id : String | Int64)
+  def zone_access_remove_member(zone_id : String | Int64, card_holder_id : String | Int64, from_unix : Int64? = nil, until_unix : Int64? = nil)
     list = @memberships[card_holder_id.to_s]?
-    list.try(&.delete(zone_id.to_s))
+    list.try(&.reject! { |m| m.zone == zone_id.to_s && window_match?(m, from_unix, until_unix) })
     true
   end
 end
