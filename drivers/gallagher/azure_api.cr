@@ -282,6 +282,9 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   end
 
   protected def get_path(uri : String) : String
+    if (actual_base = @custom_href_base) && uri.starts_with?(actual_base)
+      uri = uri[actual_base.size..-1]
+    end
     path = URI.parse(uri).request_target.as(String)
     return path if path.ends_with?('/')
     "#{path}/"
@@ -427,7 +430,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     short_name : String? = nil,
     division_href : String? = nil,
   )
-    url = href ? get_path(href) : "#{@cardholders_endpoint}/#{id.not_nil!}"
+    url = href ? get_path(href) : "#{@cardholders_endpoint}/#{id.not_nil!}/"
 
     if cards || remove_cards || update_cards
       card_updates = {} of String => Array(Card)
