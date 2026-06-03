@@ -29,6 +29,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
 
     unique_pdf_name: "email",
     _fixed_pdf_id:   "33694",
+    _custom_href_base: "https://internal-domain:8904/api",
 
     # The division to pass when creating cardholders.
     default_division_href: "",
@@ -124,6 +125,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   @azure_client_id : String = ""
   @azure_client_secret : String = ""
   @azure_scopes : String = ""
+  @custom_href_base : String? = nil
 
   def on_update
     uri = URI.parse(config.uri.not_nil!)
@@ -134,6 +136,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     @azure_client_id = setting(String, :azure_client_id)
     @azure_client_secret = setting(String, :azure_client_secret)
     @azure_scopes = setting(String, :azure_scopes)
+    @custom_href_base = setting(String?, :custom_href_base)
 
     @door_event_channel = setting?(String, :door_event_channel) || "event"
 
@@ -538,7 +541,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   def add_access_group_member(group_id : String | Int32, cardholder_id : String | Int32, from_unix : Int64? = nil, until_unix : Int64? = nil)
     from_time = Time.unix(from_unix) if from_unix
     until_time = Time.unix(until_unix) if until_unix
-    group = CardholderAccessGroup.new({href: "#{@uri_base}#{@access_groups_endpoint}#{group_id}/".as(String?), name: nil.as(String?)})
+    group = CardholderAccessGroup.new({href: "#{@custom_href_base || @uri_base}#{@access_groups_endpoint}#{group_id}/".as(String?), name: nil.as(String?)})
     update_cardholder(cardholder_id, access_groups: [group])
   end
 
