@@ -75,7 +75,7 @@ shards:
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
-    version: 0.13.1
+    version: 0.14.0
 
   debug:
     git: https://github.com/sija/debug.cr.git
@@ -223,7 +223,7 @@ shards:
 
   pg:
     git: https://github.com/will/crystal-pg.git
-    version: 0.29.0
+    version: 0.30.0
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
@@ -251,7 +251,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.26.3
+    version: 7.26.4
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
