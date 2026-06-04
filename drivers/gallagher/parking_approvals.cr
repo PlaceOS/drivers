@@ -476,10 +476,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
         next
       end
 
-      # the space can't grant access (already reported) — don't approve/email a
-      # booking for an inaccessible spot
+      # the space can no longer grant access (already reported) — move the
+      # booking off it (to the wait list, notifying the user). The second pass
+      # then re-allocates it to an accessible space this run, or leaves it
+      # wait-listed if none is free. displace_booking also resets process_state
+      # so the re-allocation's "approved" email can fire.
       if unmapped_space_ids.includes?(space.id)
-        logger.warn { "booking #{booking.id} is on space #{space.id} with no gallagher group; skipping" }
+        logger.warn { "booking #{booking.id} is on space #{space.id} with no gallagher group; moving off it" }
+        displace_booking(booking, space)
+        current_allocations.delete(space.id)
         next
       end
 
@@ -951,7 +956,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # gallagher access group / zone id).
   protected def gallagher_group_ids_for(space : ParkingSpace) : Array(String)
     return space.security_system_groups.dup unless space.security_system_groups.empty?
-    space.features.compact_map { |feature| @parking_areas[feature]? }
+    space.features.compact_map { |feature| @parking_areas[feature]? }.uniq!
   end
 
   # A parking space that resolves to no Gallagher group (so access can't be

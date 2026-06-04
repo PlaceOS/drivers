@@ -1342,8 +1342,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-only-unmapped")
 
   # ===========================================================
-  # Test 33: an already-allocated booking sitting on an unmapped space is NOT
-  # approved (can't grant access) and the space is reported.
+  # Test 33: an already-allocated booking on an unmapped space (with no
+  # accessible alternative) is moved off it to the wait list + notified, not
+  # approved, and the space is reported.
   # ===========================================================
 
   staff.reset_calls
@@ -1362,18 +1363,24 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
 
   staff.approved.includes?(33001_i64).should eq(false)
+  # moved off the inaccessible spot to the wait list and notified
+  staff.last_update_for(33001_i64).not_nil!.starts_with?("unallocated-displaced").should eq(true)
+  staff.last_state(33001_i64).should eq("wait_list")
+  mailer.sent?("bad.user@example.com", "parking_request", "displaced").should eq(true)
   gallagher.access_for("ch-bad").should be_empty
   status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-only-unmapped")
 
   # ===========================================================
-  # Test 34: a space whose features map to MULTIPLE groups grants access to ALL
-  # of them; duplicate feature->group mappings are de-duplicated (.uniq!).
+  # Test 34: a space whose features map to MULTIPLE distinct groups grants
+  # access to ALL of them (fan-out). Two features mapping to the SAME group
+  # still yield a single grant for that group (no double-grant). When every
+  # space is mapped the :spaces_without_groups report is cleared.
   # ===========================================================
 
   settings(win_settings.merge({
     parking_areas: {
       "Open Basement"   => "gallagher-group1",
-      "Annex"           => "gallagher-group1", # same group as Open Basement (dup)
+      "Annex"           => "gallagher-group1", # second feature -> same group
       "Secure Basement" => "gallagher-group3",
     },
   }))
@@ -1403,8 +1410,109 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  # access granted to BOTH groups, group1 appears once despite two features (uniq)
+  # access granted to BOTH mapped groups (fan-out)
   gallagher.access_for("ch-mg").sort.should eq(["gallagher-group1", "gallagher-group3"])
+  # the two features mapping to group1 yield exactly ONE group1 grant
+  gallagher.membership_count("ch-mg", "gallagher-group1").should eq(1)
+  gallagher.membership_count("ch-mg", "gallagher-group3").should eq(1)
+  # every space is mapped now, so the report is cleared
+  status[:spaces_without_group_count].as_i.should eq(0)
+  status[:spaces_without_groups].as_a.should be_empty
+
+  # ===========================================================
+  # Test 35: a permanently-assigned space with no gallagher group is reported
+  # (assigned spaces are not allocated, so they're not "excluded", but the
+  # misconfiguration is still surfaced) and the assignee gets no access.
+  # ===========================================================
+
+  settings(win_settings)
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  assigned_unmapped = [
+    {
+      id: "asset-assigned-unmapped", identifier: "AU",
+      assigned_to: "au.user@example.com", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car", # no area feature -> no group
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(assigned_unmapped.to_json)
+  gallagher.set_cardholder("au.user@example.com", "ch-au")
+  calendar.set_groups("au.user@example.com", default_grp.to_json)
+  staff.set_bookings("[]")
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-assigned-unmapped")
+  gallagher.access_for("ch-au").should be_empty
+
+  # ===========================================================
+  # Test 36: a booking already granted on a space whose mapping has been removed
+  # (the space is now unmapped) is moved off it (notified) and re-allocated to
+  # another accessible space; its Gallagher access follows the new space's
+  # group. Single sweep: the prior grant is seeded into access_granted (and a
+  # live Gallagher membership) the way a previous mapped sweep would have left
+  # it. (win_settings' parking_areas has no "Temp" key, so asset-temp is
+  # unmapped; "Secure Basement" -> group3.)
+  # ===========================================================
+
+  tstart = now + 3600_i64 * 360
+  tend = tstart + 3600_i64
+
+  settings(win_settings.merge({
+    access_granted: {
+      "gallagher-group1" => {
+        "trans.user@example.com|#{tend}" => {
+          email:         "trans.user@example.com",
+          cardholder_id: "ch-trans",
+          until_unix:    tend,
+        },
+      },
+    },
+  }))
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("trans.user@example.com", "ch-trans")
+  calendar.set_groups("trans.user@example.com", default_grp.to_json)
+  # the prior grant's live Gallagher membership (group1, window ending tend)
+  gallagher.zone_access_add_member("gallagher-group1", "ch-trans", tstart - 45_i64 * 60, tend)
+
+  trans_spaces = [
+    {
+      id: "asset-temp", identifier: "TEMP",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Temp"], notes: "Car", # "Temp" not in parking_areas -> unmapped
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-spare", identifier: "SPARE",
+      assigned_to: "", zones: ["zone-building", "zone-level-B3"],
+      features: ["Secure Basement"], notes: "Car", # -> group3, kept free
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(trans_spaces.to_json)
+  staff.set_bookings([
+    build_booking.call(36001_i64, "trans.user@example.com",
+      tstart, tend, "asset-temp", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # moved off the now-unmapped asset-temp (notified) and re-allocated to spare
+  mailer.sent?("trans.user@example.com", "parking_request", "displaced").should eq(true)
+  staff.last_update_for(36001_i64).should eq("asset-spare")
+  staff.approved.includes?(36001_i64).should eq(true)
+  # access followed the move: group1 (old spot) removed, group3 (new spot) added
+  gallagher.access_for("ch-trans").should eq(["gallagher-group3"])
+  status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-temp")
 end
 
 # :nodoc:
@@ -1669,6 +1777,12 @@ class GallagherMock < DriverSpecs::MockDriver
   # zone ids the cardholder currently has any access to (de-duplicated)
   def access_for(cardholder_id : String) : Array(String)
     (@memberships[cardholder_id]? || [] of Membership).map(&.zone).uniq!
+  end
+
+  # raw membership-row count for a (cardholder, zone) — access_for de-duplicates
+  # zones, so use this to detect a double-grant of the same group
+  def membership_count(cardholder_id : String, zone : String) : Int32
+    (@memberships[cardholder_id]? || [] of Membership).count { |m| m.zone == zone }
   end
 
   # all until-windows recorded for a cardholder in a given zone
