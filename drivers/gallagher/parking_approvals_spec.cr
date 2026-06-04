@@ -119,6 +119,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   ext_bike = {"vehicle_type" => JSON::Any.new("motorcycle"), "request_type" => JSON::Any.new("standard")}
   ext_after_hours_car = {"vehicle_type" => JSON::Any.new("car"), "request_type" => JSON::Any.new("after_hours")}
   ext_acrod = {"vehicle_type" => JSON::Any.new("car"), "space_restrictions" => JSON::Any.new(1_i64)}
+  # height restrictions: id 4 => "Max height 1.95m", id 5 => "Max height 2.1m"
+  ext_h195 = {"vehicle_type" => JSON::Any.new("car"), "space_restrictions" => JSON::Any.new(4_i64)}
+  ext_h210 = {"vehicle_type" => JSON::Any.new("car"), "space_restrictions" => JSON::Any.new(5_i64)}
 
   # ===========================================================
   # Test 1: simple car booking gets allocated
@@ -136,8 +139,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   staff.last_update_for(1001_i64).should_not be_nil
   staff.approved.includes?(1001_i64).should eq(true)
-  # priority zones are populated first - asset-car_a comes before asset-car_b
-  staff.last_update_for(1001_i64).should eq("asset-car_a")
+  # both car spaces share the carpriority zone, so the smaller-height space
+  # (car_b, 1.95m) is preferred over car_a (2.1m) to keep taller spaces free
+  staff.last_update_for(1001_i64).should eq("asset-car_b")
   gallagher.access_for("ch-normal").should contain("gallagher-group1")
   mailer.last_template.should eq(["parking_request", "approved"])
   mailer.last_to.should eq("normal.user@example.com")
@@ -197,7 +201,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  staff.last_update_for(4001_i64).should eq("asset-car_a")
+  # smaller-height car_b preferred within the shared carpriority zone
+  staff.last_update_for(4001_i64).should eq("asset-car_b")
   gallagher.access_for("ch-afterhours").should contain("gallagher-group1")
   staff.last_state(4001_i64).should eq("access_granted")
 
@@ -1513,6 +1518,146 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # access followed the move: group1 (old spot) removed, group3 (new spot) added
   gallagher.access_for("ch-trans").should eq(["gallagher-group3"])
   status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-temp")
+
+  # ===========================================================
+  # Test 37: zone priority is PRIMARY, height is the tie-breaker. A 1.95m
+  # booking has a 1.95m space free in the less-preferred zone AND a 2.1m space
+  # free in the preferred zone. The preferred-zone 2.1m space wins — zone beats
+  # the closer height fit (user priority -> zone -> height).
+  # ===========================================================
+
+  settings(win_settings)
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  height_spaces = [
+    {
+      # exact height fit but in the less-preferred zone (shared idx 1); listed first
+      id: "asset-h195", identifier: "H195",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 1.95m", "shared", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      # taller but in the more-preferred zone (carpriority idx 0)
+      id: "asset-h210", identifier: "H210",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 2.1m", "carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(height_spaces.to_json)
+  gallagher.set_cardholder("h.user@example.com", "ch-h")
+  calendar.set_groups("h.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(37001_i64, "h.user@example.com",
+      now + 3600_i64 * 380, now + 3600_i64 * 381, "unallocated-37001", false, ext_h195),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # preferred zone wins even though the other space is a closer height fit
+  staff.last_update_for(37001_i64).should eq("asset-h210")
+
+  # ===========================================================
+  # Test 38: a height booking still matches a TALLER space when no exact fit is
+  # free (equal-or-greater matching).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  only_tall = [
+    {
+      id: "asset-only210", identifier: "ONLY210",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 2.1m", "carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(only_tall.to_json)
+  gallagher.set_cardholder("t.user@example.com", "ch-t")
+  calendar.set_groups("t.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(38001_i64, "t.user@example.com",
+      now + 3600_i64 * 400, now + 3600_i64 * 401, "unallocated-38001", false, ext_h195),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the 1.95m booking fits the taller 2.1m space
+  staff.last_update_for(38001_i64).should eq("asset-only210")
+
+  # ===========================================================
+  # Test 39: a space SHORTER than the required height is not a match — a 2.1m
+  # vehicle can't use a 1.95m space, so it goes to the wait list.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  only_short = [
+    {
+      id: "asset-only195", identifier: "ONLY195",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 1.95m", "carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(only_short.to_json)
+  gallagher.set_cardholder("s.user@example.com", "ch-s")
+  calendar.set_groups("s.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(39001_i64, "s.user@example.com",
+      now + 3600_i64 * 420, now + 3600_i64 * 421, "unallocated-39001", false, ext_h210),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(39001_i64).should be_nil
+  staff.last_state(39001_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 40: a standard (non-restricted) car also prefers the SMALLEST height
+  # within its zone, keeping taller spaces free for taller vehicles. Two
+  # carpriority spaces (2.1m listed first, 1.95m second) -> the 1.95m wins.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  std_spaces = [
+    {
+      id: "asset-tall", identifier: "TALL",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 2.1m", "carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-short", identifier: "SHORT",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 1.95m", "carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(std_spaces.to_json)
+  gallagher.set_cardholder("std.user@example.com", "ch-std")
+  calendar.set_groups("std.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(40001_i64, "std.user@example.com",
+      now + 3600_i64 * 440, now + 3600_i64 * 441, "unallocated-40001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # standard car takes the shorter space, leaving the 2.1m space for taller vehicles
+  staff.last_update_for(40001_i64).should eq("asset-short")
 end
 
 # :nodoc:

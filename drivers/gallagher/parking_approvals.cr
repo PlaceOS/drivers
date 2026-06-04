@@ -92,6 +92,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
   # rather than exclusivity so they are not added here.
   @exclusive_features : Array(String) = [] of String
+  # height restriction names ordered by id (strictly increasing height); the
+  # index is the relative height rank used for ">= match" and closest-fit sorting
+  @height_features : Array(String) = [] of String
 
   # directory (MS Graph) field whose value identifies the user in Gallagher.
   # When blank, Gallagher is queried directly by email.
@@ -239,6 +242,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # Other named restrictions (ACROD, "Small car only", etc.) reserve a space
     # for matching bookings only.
     @exclusive_features = @restriction_lookup.values.reject(&.starts_with?("Max height"))
+
+    # height restriction names ordered by id (= strictly increasing height). The
+    # index in this list is a space's / booking's relative height rank: a space
+    # accommodates a booking when its rank is >= the booking's required rank.
+    @height_features = @restriction_lookup.to_a
+      .select { |(_id, name)| name.starts_with?("Max height") }
+      .sort_by! { |(id, _name)| id }
+      .map { |(_id, name)| name }
 
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
@@ -785,7 +796,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return
     end
 
-    compatible = sort_by_zone_priority(compatible_spaces(booking, bookable_spaces), booking)
+    compatible = prioritise_spaces(compatible_spaces(booking, bookable_spaces), booking)
     if compatible.empty?
       logger.warn { "no compatible spaces for booking #{booking.id} (vehicle/restriction filter)" }
       wait_list_email(booking)
@@ -814,8 +825,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {space, conflict}
     end
 
-    # lowest occupant priority wins; ties keep zone-preference order (compatible
-    # is already feature-priority sorted and min_by? is stable)
+    # lowest occupant priority wins; ties keep allocation-preference order
+    # (compatible is already sorted by zone then height, and min_by? returns the
+    # first minimum)
     target = candidates.min_by? { |(_space, conflict)| conflict[1] }
 
     if target
@@ -858,13 +870,22 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     restriction_id = booking.extension_data["space_restrictions"]?.try(&.as_i64?)
     restriction_name = restriction_id ? @restriction_lookup[restriction_id]? : nil
+    req_height = restriction_name ? @height_features.index(restriction_name) : nil
 
     spaces.select do |space|
       vehicle_ok = vehicle.nil? || vehicle.matches_notes?(space.notes)
 
-      restriction_ok = if restriction_name
+      restriction_ok = if req_height
+                         # height restriction: a space accommodates the booking
+                         # when its max height is equal to OR greater than the
+                         # requested one (heights are ranked by id order)
+                         sh = space_height_index(space)
+                         !sh.nil? && sh >= req_height
+                       elsif restriction_name
+                         # exclusive restriction (ACROD, Small car only): exact match
                          space.features.includes?(restriction_name)
                        else
+                         # no restriction: avoid exclusive-only spaces
                          (space.features & @exclusive_features).empty?
                        end
 
@@ -872,7 +893,20 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
   end
 
-  protected def sort_by_zone_priority(spaces : Array(ParkingSpace), booking : Booking) : Array(ParkingSpace)
+  # The space's max height rank (highest "Max height" feature it carries), or nil
+  # if the space has no height feature.
+  protected def space_height_index(space : ParkingSpace) : Int32?
+    space.features.compact_map { |feature| @height_features.index(feature) }.max?
+  end
+
+  # Order candidate spaces best-first: configured zone/feature preference first,
+  # then the SMALLEST height (a space with no height feature sorts last). Handing
+  # out the shortest space that works keeps taller spaces for taller vehicles —
+  # this applies to standard cars too, not just height-restricted bookings. For
+  # a height-restricted booking the candidates are already filtered to a height
+  # >= the requested one, so "smallest height" is the closest fit.
+  # Overall allocation order: user priority (booking order) -> zone -> height.
+  protected def prioritise_spaces(spaces : Array(ParkingSpace), booking : Booking) : Array(ParkingSpace)
     vehicle = VehicleType.parse_request(booking.extension_data["vehicle_type"]?.try(&.as_s?))
     priority_features = case vehicle
                         when VehicleType::Bike
@@ -881,17 +915,20 @@ class Place::Parking::Approvals < PlaceOS::Driver
                           @car_zone_priority
                         end
 
-    return spaces if priority_features.empty?
-
     spaces.sort_by do |space|
-      idx = Int32::MAX
+      # primary: configured zone/feature preference
+      zone_index = Int32::MAX
       priority_features.each_with_index do |feature, i|
         if space.features.includes?(feature)
-          idx = i
+          zone_index = i
           break
         end
       end
-      idx
+
+      # secondary: smallest height first (a space with no height feature sorts last)
+      height_key = space_height_index(space) || Int32::MAX
+
+      {zone_index, height_key}
     end
   end
 
