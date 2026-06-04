@@ -18,9 +18,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     car_zone_priority:    ["carpriority", "shared"],
     bike_zone_priority:   ["bikepriority", "shared"],
     parking_areas:        {
-      "zone-level-B1" => "gallagher-group1",
-      "zone-level-B2" => "gallagher-group2",
-      "zone-level-B3" => "gallagher-group3",
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
@@ -41,19 +41,19 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-car_a", identifier: "BM2.001",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["Max height 2.1m", "carpriority"], notes: "Car",
+      features: ["Max height 2.1m", "carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-car_b", identifier: "BM2.002",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["Max height 1.95m", "carpriority"], notes: "Car",
+      features: ["Max height 1.95m", "carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-bike_a", identifier: "BM2.M9",
       assigned_to: "", zones: ["zone-building", "zone-level-B3"],
-      features: ["bikepriority"] of String, notes: "Bike",
+      features: ["bikepriority", "Secure Basement"], notes: "Bike",
       security_system_groups: [] of String, bookable: true,
     },
     {
@@ -65,7 +65,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-assigned_a", identifier: "BM2.X1",
       assigned_to: "fixed.user@example.com", zones: ["zone-building", "zone-level-B3"],
-      features: [] of String, notes: "Car",
+      features: ["Secure Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -342,19 +342,19 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-no_pref", identifier: "BM2.N1",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: [] of String, notes: "Car",
+      features: ["Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-shared_pref", identifier: "BM2.S1",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["shared"], notes: "Car",
+      features: ["shared", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-high_pref", identifier: "BM2.H1",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["carpriority"], notes: "Car",
+      features: ["carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -490,7 +490,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-emp_a", identifier: "EMP.001",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["carpriority"], notes: "Car",
+      features: ["carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -510,9 +510,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     car_zone_priority:    ["carpriority", "shared"],
     bike_zone_priority:   ["bikepriority", "shared"],
     parking_areas:        {
-      "zone-level-B1" => "gallagher-group1",
-      "zone-level-B2" => "gallagher-group2",
-      "zone-level-B3" => "gallagher-group3",
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
@@ -764,9 +764,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     car_zone_priority:    ["carpriority", "shared"],
     bike_zone_priority:   ["bikepriority", "shared"],
     parking_areas:        {
-      "zone-level-B1" => "gallagher-group1",
-      "zone-level-B2" => "gallagher-group2",
-      "zone-level-B3" => "gallagher-group3",
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
@@ -812,9 +812,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     car_zone_priority:    ["carpriority", "shared"],
     bike_zone_priority:   ["bikepriority", "shared"],
     parking_areas:        {
-      "zone-level-B1" => "gallagher-group1",
-      "zone-level-B2" => "gallagher-group2",
-      "zone-level-B3" => "gallagher-group3",
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
@@ -836,13 +836,13 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-prefa", identifier: "PA",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["carpriority"], notes: "Car",
+      features: ["carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-prefb", identifier: "PB",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["shared"], notes: "Car",
+      features: ["shared", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -897,9 +897,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     car_zone_priority:    ["carpriority", "shared"],
     bike_zone_priority:   ["bikepriority", "shared"],
     parking_areas:        {
-      "zone-level-B1" => "gallagher-group1",
-      "zone-level-B2" => "gallagher-group2",
-      "zone-level-B3" => "gallagher-group3",
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
@@ -915,7 +915,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-win", identifier: "WIN",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["carpriority"], notes: "Car",
+      features: ["carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -975,13 +975,13 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-m1", identifier: "M1",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["carpriority"], notes: "Car",
+      features: ["carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-m2", identifier: "M2",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["shared"], notes: "Car",
+      features: ["shared", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -1020,7 +1020,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     {
       id: "asset-perm", identifier: "PERM",
       assigned_to: "perm.user@example.com", zones: ["zone-building", "zone-level-B1"],
-      features: [] of String, notes: "Car",
+      features: ["Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -1076,18 +1076,18 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.reset_calls
   mailer.reset
   gallagher.reset
-  # two car spaces, both -> gallagher-group1 (zone-level-B1)
+  # two car spaces, both -> gallagher-group1 (feature "Open Basement")
   collide_spaces = [
     {
       id: "asset-c1", identifier: "C1",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["carpriority"], notes: "Car",
+      features: ["carpriority", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
     {
       id: "asset-c2", identifier: "C2",
       assigned_to: "", zones: ["zone-building", "zone-level-B1"],
-      features: ["shared"], notes: "Car",
+      features: ["shared", "Open Basement"], notes: "Car",
       security_system_groups: [] of String, bookable: true,
     },
   ]
@@ -1216,6 +1216,195 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # the migrated permanent (nil) grant is removed; a single time window remains
   gallagher.untils_for("ch-legacy", "gallagher-group1").should eq([lend])
   gallagher.from_for("ch-legacy", "gallagher-group1", lend).should eq(lstart - 45_i64 * 60)
+
+  # ===========================================================
+  # Test 30: group resolution is by FEATURE, not zone. A space sitting in
+  # zone-level-B1 but carrying the "Secure Basement" feature maps to that
+  # feature's group (group3) — proving parking_areas keys are matched against
+  # space.features. (Under the old zone-based logic the space's zones would not
+  # match any parking_areas key, so the user would get no access at all.)
+  # ===========================================================
+
+  settings(win_settings) # feature-based parking_areas, 45m margin
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  feature_space = [
+    {
+      id: "asset-feat", identifier: "FEAT",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"], # zone says B1...
+      features: ["carpriority", "Secure Basement"],               # ...feature says Secure Basement
+      notes: "Car", security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(feature_space.to_json)
+  gallagher.set_cardholder("feat.user@example.com", "ch-feat")
+  calendar.set_groups("feat.user@example.com", default_grp.to_json)
+
+  fstart = now + 3600_i64 * 280
+  fend = fstart + 3600_i64
+  staff.set_bookings([
+    build_booking.call(30001_i64, "feat.user@example.com",
+      fstart, fend, "asset-feat", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the "Secure Basement" feature maps to group3 — and ONLY group3 (under the
+  # old zone-based mapping the B1 zone would have matched no parking_areas key
+  # at all, so the user would have gotten no access)
+  gallagher.access_for("ch-feat").should eq(["gallagher-group3"])
+
+  # ===========================================================
+  # Test 31: a space whose features resolve to NO gallagher group is EXCLUDED
+  # from allocation (even though it is the more-preferred spot) and reported in
+  # :spaces_without_groups; the booking lands on the mapped space instead.
+  # ===========================================================
+
+  settings(win_settings) # feature-based parking_areas, 45m margin
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  mixed_spaces = [
+    {
+      # no area feature + no override -> resolves to NO group. "carpriority"
+      # makes it the MORE-preferred spot, so picking it would prove a bug.
+      id: "asset-unmapped", identifier: "UNMAP",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-mapped", identifier: "MAP",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["shared", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(mixed_spaces.to_json)
+  gallagher.set_cardholder("mix.user@example.com", "ch-mix")
+  calendar.set_groups("mix.user@example.com", default_grp.to_json)
+
+  xstart = now + 3600_i64 * 300
+  xend = xstart + 3600_i64
+  staff.set_bookings([
+    build_booking.call(31001_i64, "mix.user@example.com",
+      xstart, xend, "unallocated-31001", false, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # allocated to the MAPPED space, not the (more preferred) unmapped one
+  staff.last_update_for(31001_i64).should eq("asset-mapped")
+  gallagher.access_for("ch-mix").should contain("gallagher-group1")
+  # the unmapped space is reported
+  reported = status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }
+  reported.should contain("asset-unmapped")
+  reported.should_not contain("asset-mapped")
+  status[:spaces_without_group_count].as_i.should eq(1)
+
+  # ===========================================================
+  # Test 32: when the ONLY compatible space is unmapped, nothing is allocated
+  # (the booking goes to the wait list) and the space is reported.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  only_unmapped = [
+    {
+      id: "asset-only-unmapped", identifier: "ONLY",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(only_unmapped.to_json)
+  gallagher.set_cardholder("wl.user@example.com", "ch-wl")
+  calendar.set_groups("wl.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(32001_i64, "wl.user@example.com",
+      now + 3600_i64 * 320, now + 3600_i64 * 321, "unallocated-32001", false, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(32001_i64).should be_nil
+  staff.last_state(32001_i64).should eq("wait_list")
+  status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-only-unmapped")
+
+  # ===========================================================
+  # Test 33: an already-allocated booking sitting on an unmapped space is NOT
+  # approved (can't grant access) and the space is reported.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(only_unmapped.to_json)
+  gallagher.set_cardholder("bad.user@example.com", "ch-bad")
+  calendar.set_groups("bad.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(33001_i64, "bad.user@example.com",
+      now + 3600_i64 * 320, now + 3600_i64 * 321, "asset-only-unmapped", false, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.approved.includes?(33001_i64).should eq(false)
+  gallagher.access_for("ch-bad").should be_empty
+  status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-only-unmapped")
+
+  # ===========================================================
+  # Test 34: a space whose features map to MULTIPLE groups grants access to ALL
+  # of them; duplicate feature->group mappings are de-duplicated (.uniq!).
+  # ===========================================================
+
+  settings(win_settings.merge({
+    parking_areas: {
+      "Open Basement"   => "gallagher-group1",
+      "Annex"           => "gallagher-group1", # same group as Open Basement (dup)
+      "Secure Basement" => "gallagher-group3",
+    },
+  }))
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  multigroup_spaces = [
+    {
+      id: "asset-multi", identifier: "MULTI",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      # two features -> group1 (Open Basement + Annex), one -> group3
+      features: ["carpriority", "Open Basement", "Annex", "Secure Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(multigroup_spaces.to_json)
+  gallagher.set_cardholder("mg.user@example.com", "ch-mg")
+  calendar.set_groups("mg.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(34001_i64, "mg.user@example.com",
+      now + 3600_i64 * 340, now + 3600_i64 * 341, "asset-multi", true, ext_car),
+  ].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # access granted to BOTH groups, group1 appears once despite two features (uniq)
+  gallagher.access_for("ch-mg").sort.should eq(["gallagher-group1", "gallagher-group3"])
 end
 
 # :nodoc:

@@ -39,7 +39,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     car_zone_priority:  [] of String,
     bike_zone_priority: [] of String,
 
-    # zone_id (placeos) => gallagher access group id
+    # parking-space FEATURE name => gallagher access group / zone id. A space's
+    # features (e.g. "Open Basement", "Secure Basement") are matched against
+    # these keys to find which Gallagher group(s) to grant access to.
     parking_areas: {} of String => String,
 
     # minutes before a booking's start that Gallagher access should begin. The
@@ -426,10 +428,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     spaces = parking_spaces
     spaces_by_id = spaces.each_with_object({} of String => ParkingSpace) { |s, h| h[s.id] = s }
-    bookable_spaces = spaces.select { |s| s.bookable && s.assigned_to.presence.nil? }
+
+    # Spaces that resolve to no Gallagher group can't grant access. Report them
+    # (so the misconfiguration is visible) and exclude bookable ones from
+    # allocation, so no booking is placed on a spot the user can't get into.
+    unmapped_space_ids = report_spaces_without_groups(spaces)
+
+    bookable_spaces = spaces.select { |s| s.bookable && s.assigned_to.presence.nil? && !unmapped_space_ids.includes?(s.id) }
     assigned_spaces = spaces.select { |s| s.assigned_to.presence }
 
-    logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned" }
+    logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned, #{unmapped_space_ids.size} without a gallagher group" }
 
     bookings = fetch_bookings(starting, ending)
     logger.debug { "allocation run: processing #{bookings.size} active bookings" }
@@ -465,6 +473,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
       space = spaces_by_id[asset_id]?
       if space.nil?
         logger.warn { "booking #{booking.id} references unknown parking space #{asset_id}" }
+        next
+      end
+
+      # the space can't grant access (already reported) — don't approve/email a
+      # booking for an inaccessible spot
+      if unmapped_space_ids.includes?(space.id)
+        logger.warn { "booking #{booking.id} is on space #{space.id} with no gallagher group; skipping" }
         next
       end
 
@@ -550,7 +565,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
   ) : Nil
     group_ids = gallagher_group_ids_for(space)
     if group_ids.empty?
-      logger.warn { "no gallagher group configured for space #{space.id} (zones: #{space.zones})" }
+      logger.warn { "no gallagher group configured for space #{space.id} (features: #{space.features})" }
       return
     end
 
@@ -930,9 +945,47 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Gallagher access management
   # ===================================
 
+  # The Gallagher access groups a space belongs to: a per-asset
+  # security_system_groups override if present, otherwise resolved by matching
+  # the space's FEATURES against the `parking_areas` mapping (feature name =>
+  # gallagher access group / zone id).
   protected def gallagher_group_ids_for(space : ParkingSpace) : Array(String)
     return space.security_system_groups.dup unless space.security_system_groups.empty?
-    space.zones.compact_map { |zone_id| @parking_areas[zone_id]? }
+    space.features.compact_map { |feature| @parking_areas[feature]? }
+  end
+
+  # A parking space that resolves to no Gallagher group (so access can't be
+  # granted for it). Surfaced via the :spaces_without_groups status for the
+  # misconfiguration to be fixed.
+  struct SpaceReport
+    include JSON::Serializable
+
+    getter id : String
+
+    @[JSON::Field(emit_null: true)]
+    getter identifier : String?
+
+    getter features : Array(String)
+
+    def initialize(@id, @identifier, @features)
+    end
+  end
+
+  # Publish (as status) the spaces with no resolvable Gallagher group and return
+  # the set of their ids so the run can exclude/skip them. Recomputed each run,
+  # so a space drops off the report as soon as its mapping exists.
+  protected def report_spaces_without_groups(spaces : Array(ParkingSpace)) : Set(String)
+    unmapped = spaces.select { |space| gallagher_group_ids_for(space).empty? }
+    unless unmapped.empty?
+      logger.warn { "#{unmapped.size} parking space(s) have no gallagher group: #{unmapped.map(&.id)}" }
+    end
+    begin
+      self[:spaces_without_groups] = unmapped.map { |space| SpaceReport.new(space.id, space.identifier, space.features) }
+      self[:spaces_without_group_count] = unmapped.size
+    rescue error
+      logger.warn(exception: error) { "failed to publish spaces_without_groups status" }
+    end
+    unmapped.map(&.id).to_set
   end
 
   # user_email (downcased) => cardholder_id; only successful lookups are cached
