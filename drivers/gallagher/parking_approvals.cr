@@ -1193,13 +1193,34 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {name: "space_identifier", description: "Identifier of the allocated parking space"},
     ]
 
-    [
+    # The generic approval template is always advertised: it is the fallback for
+    # spaces whose granted group is not a parking_areas area (e.g. a per-asset
+    # security_system_groups override) and #approved_email sends it when
+    # approval_group_id returns nil.
+    approved_templates = [
       TemplateFields.new(
         trigger: {"parking_request", "approved"},
         name: "Parking Approved",
         description: "Notifies the recipient that their parking is approved and access has been granted",
         fields: common_fields
       ),
+    ]
+
+    # Plus one approval template per Gallagher access group referenced by
+    # `parking_areas`, so each parking area can have a distinct approval email.
+    # The trigger embeds the group id (matching #approved_email); the description
+    # is prefixed with the FIRST feature name mapping to that group.
+    @parking_areas.values.uniq.each do |group_id|
+      feature_name = @parking_areas.key_for?(group_id) || group_id
+      approved_templates << TemplateFields.new(
+        trigger: {"parking_request", "approved_#{group_id}"},
+        name: "Parking Approved - #{feature_name}",
+        description: "Approval for #{feature_name} - Notifies the recipient that their parking is approved and access has been granted",
+        fields: common_fields
+      )
+    end
+
+    approved_templates + [
       TemplateFields.new(
         trigger: {"parking_request", "wait_list"},
         name: "Parking Wait List",
@@ -1254,12 +1275,30 @@ class Place::Parking::Approvals < PlaceOS::Driver
     }
   end
 
+  # The Gallagher group id whose per-area approval template should be used for
+  # this space, or nil to use the generic "approved" template. Derived from the
+  # SAME resolved access groups as the grant (#gallagher_group_ids_for) so the
+  # email never describes a group the user wasn't granted, and chosen by
+  # `parking_areas` configuration order so the choice is deterministic when a
+  # space spans multiple areas. A space granted only via a per-asset
+  # security_system_groups override resolves to no parking_areas group and so
+  # returns nil (generic template) — template_fields can't advertise a per-area
+  # template for override groups, which live on the asset and aren't known here.
+  protected def approval_group_id(space : ParkingSpace) : String?
+    granted = gallagher_group_ids_for(space)
+    @parking_areas.values.find { |group_id| granted.includes?(group_id) }
+  end
+
   protected def approved_email(booking : Booking, space : ParkingSpace) : Nil
     return if booking.process_state == "access_granted"
 
+    # per-parking-area trigger so each area can have its own approval email
+    group_id = approval_group_id(space)
+    template = group_id ? "approved_#{group_id}" : "approved"
+
     mailer.send_template(
       booking.user_email,
-      {"parking_request", "approved"},
+      {"parking_request", template},
       common_template_args(booking, space),
     )
 

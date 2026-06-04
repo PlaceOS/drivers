@@ -143,7 +143,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # (car_b, 1.95m) is preferred over car_a (2.1m) to keep taller spaces free
   staff.last_update_for(1001_i64).should eq("asset-car_b")
   gallagher.access_for("ch-normal").should contain("gallagher-group1")
-  mailer.last_template.should eq(["parking_request", "approved"])
+  # approval email uses the per-area trigger (Open Basement -> gallagher-group1)
+  mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
   mailer.last_to.should eq("normal.user@example.com")
   staff.last_state(1001_i64).should eq("access_granted")
 
@@ -164,6 +165,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   staff.last_update_for(2001_i64).should eq("asset-bike_a")
   gallagher.access_for("ch-biker").should contain("gallagher-group3")
+  # a different parking area (Secure Basement -> group3) -> a different trigger
+  mailer.last_template.should eq(["parking_request", "approved_gallagher-group3"])
 
   # ===========================================================
   # Test 3: after-hours booking, not approved -> manual approval email,
@@ -289,6 +292,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(7001_i64).should eq("asset-acrod_a")
   # uses the per-asset security_system_groups override
   gallagher.access_for("ch-acrod").should contain("gallagher-acrod-group")
+  # the override group is not a parking_areas area, so the approval email falls
+  # back to the generic "approved" template (no per-area template for overrides)
+  mailer.last_template.should eq(["parking_request", "approved"])
 
   # ===========================================================
   # Test 8: permanently assigned space grants gallagher access
@@ -450,7 +456,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
   mailer.send_count.should eq(1)
-  mailer.last_template.should eq(["parking_request", "approved"])
+  mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
   staff.last_state(11001_i64, now + 3600 * 90).should eq("access_granted")
 
   # subsequent sweeps must NOT re-send — the per-instance process_state is
@@ -753,7 +759,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.approved.includes?(18001_i64).should eq(true)
   staff.last_update_for(18001_i64).should eq("asset-emp_a")
   gallagher.access_for("ch-waiting").should contain("gallagher-group1")
-  mailer.last_template.should eq(["parking_request", "approved"])
+  mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
   # dropped from the no-card list once a card exists
   status[:users_without_cards].as_a.map(&.as_s).should_not contain("waiting@example.com")
 
@@ -1658,6 +1664,109 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   # standard car takes the shorter space, leaving the 2.1m space for taller vehicles
   staff.last_update_for(40001_i64).should eq("asset-short")
+
+  # ===========================================================
+  # Test 41: template_fields generates ONE approval template per Gallagher group
+  # referenced by parking_areas. Two features mapping to the same group collapse
+  # to a single template whose description is prefixed with the FIRST matching
+  # feature name.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "VIP Basement"    => "gallagher-group1", # same group as Open Basement
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  templates = JSON.parse(exec(:template_fields).get.to_json).as_a
+  approved = templates.select { |t| t["trigger"].as_a[1].as_s.starts_with?("approved_") }
+
+  # one template per UNIQUE group (the two group1 features collapse to one),
+  # in parking_areas insertion order
+  approved.map { |t| t["trigger"].as_a[1].as_s }.should eq([
+    "approved_gallagher-group1", "approved_gallagher-group3",
+  ])
+
+  # description + name prefixed with the FIRST feature mapping to group1
+  g1 = approved.find { |t| t["trigger"].as_a[1].as_s == "approved_gallagher-group1" }.not_nil!
+  g1["name"].as_s.should eq("Parking Approved - Open Basement")
+  g1["description"].as_s.should eq(
+    "Approval for Open Basement - Notifies the recipient that their parking is approved and access has been granted")
+
+  g3 = approved.find { |t| t["trigger"].as_a[1].as_s == "approved_gallagher-group3" }.not_nil!
+  g3["description"].as_s.should eq(
+    "Approval for Secure Basement - Notifies the recipient that their parking is approved and access has been granted")
+
+  # the generic approval template is always advertised (override fallback) and
+  # the non-approval templates are still present
+  other_triggers = templates.map { |t| t["trigger"].as_a[1].as_s }
+  other_triggers.should contain("approved")
+  other_triggers.should contain("wait_list")
+  other_triggers.should contain("no_card")
+
+  # ===========================================================
+  # Test 42: a space spanning MULTIPLE parking areas picks the approval template
+  # by parking_areas CONFIGURATION order (deterministic), not by the order the
+  # features happen to appear on the asset. Access is still granted to all areas.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  multi_area = [
+    {
+      id: "asset-multi", identifier: "MULTI",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      # Mezzanine (group2) listed BEFORE Open Basement (group1); config order
+      # privileges Open Basement, so the email must key to group1
+      features: ["Mezzanine", "Open Basement", "carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(multi_area.to_json)
+  gallagher.set_cardholder("multi.user@example.com", "ch-multi")
+  calendar.set_groups("multi.user@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(42001_i64, "multi.user@example.com",
+      now + 3600_i64 * 460, now + 3600_i64 * 461, "unallocated-42001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(42001_i64).should eq("asset-multi")
+  # access granted to BOTH mapped areas
+  access = gallagher.access_for("ch-multi")
+  access.should contain("gallagher-group1")
+  access.should contain("gallagher-group2")
+  # but the approval email keys to the config-order-first area (Open Basement)
+  mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
 end
 
 # :nodoc:
