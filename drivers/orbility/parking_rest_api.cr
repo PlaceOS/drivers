@@ -249,13 +249,13 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
     end
   end
 
-  def crossings(starting : Time, ending : Time, start_index : Int32? = nil, max_results : Int32 = 1000) : Array(Crossing)
+  def crossings(starting : Time, ending : Time? = nil, start_index : Int32? = nil, max_results : Int32 = 1000) : Array(Crossing)
     crossings = [] of Crossing
 
     loop do
       params = URI::Params.build do |form|
         form.add("startDate", starting.to_rfc3339)
-        form.add("endDate", ending.to_rfc3339)
+        form.add("endDate", ending.to_rfc3339) if ending
         form.add("startIndex", start_index.to_s) if start_index
         form.add("maxResults", max_results.to_s)
       end
