@@ -103,7 +103,7 @@ shards:
 
   eventbus:
     git: https://github.com/spider-gazelle/eventbus.git
-    version: 1.0.1+git.commit.a707ac06aba16ba6070ff4972acfd839f1f05e15
+    version: 1.0.2+git.commit.1cec22837b2dfa7110376cff55c14ce57050eb9a
 
   exception_page:
     git: https://github.com/crystal-loot/exception_page.git
@@ -251,7 +251,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 7.26.4
+    version: 7.27.0
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git
