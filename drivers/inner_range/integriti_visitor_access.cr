@@ -138,8 +138,8 @@ class InnerRange::IntegritiBookingCheckin < PlaceOS::Driver
     # this would be the data in HEX
     # data = raw.to_s(16).upcase.rjust(6, '0')
 
-    # payload in decimal (format expects the \r\n)
-    data = "#{raw.to_s}\r\n"
+    # payload in decimal (no terminating chars even though documented \r\n)
+    data = raw.to_s
 
     # create QR code
     qr_png = mailer.generate_png_qrcode(text: data, size: 256).get.as_s
