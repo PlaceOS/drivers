@@ -263,7 +263,6 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
       response = get("/crossings/api/Crossings/GetCrossings?#{params}", headers: crossings_auth)
       result = check(response, CrossingResult)
       crossings.concat(result.crossings)
-
       break if result.crossings.empty? || crossings.size >= result.results_count
 
       start_index = crossings.size

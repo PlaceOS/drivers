@@ -451,13 +451,13 @@ module Orbility
 
     getter status : CrossingStatus?
 
-    @[JSON::Field(key: "entryDate")]
+    @[JSON::Field(key: "entryDate", converter: Orbility::TimeConverter)]
     getter entry_time : Time?
 
     @[JSON::Field(key: "entryLicensePlateNumber")]
     getter entry_license_plate : String?
 
-    @[JSON::Field(key: "exitDate")]
+    @[JSON::Field(key: "exitDate", converter: Orbility::TimeConverter)]
     getter exit_time : Time?
 
     @[JSON::Field(key: "exitLicensePlateNumber")]
@@ -471,10 +471,16 @@ module Orbility
     end
 
     def to_small : CrossingSmall?
-      if exitt = exit_time
-        CrossingSmall.new(exitt, :exited, license_plate, paid_amount)
-      elsif entryt = entry_time
-        CrossingSmall.new(entryt, :entered, entry_license_plate, paid_amount)
+      case status
+      when Nil
+      when .exited?
+        if exitt = exit_time
+          CrossingSmall.new(:exited, exitt, license_plate, paid_amount)
+        end
+      when .entered?
+        if entryt = entry_time
+          CrossingSmall.new(:entered, entryt, entry_license_plate, paid_amount)
+        end
       end
     end
   end
