@@ -702,7 +702,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   def init_crossings_tracking
     @crossings = setting?(CrossTrack, :crossings) || CrossTrack.new
-    schedule.cron("*/15 * * *") { update_crossings }
+    cron = setting?(String, :analytics_cron) || "*/15 * * * *"
+    schedule.cron(cron) { update_crossings }
   end
 
   def update_crossings
