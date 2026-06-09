@@ -241,13 +241,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # height restrictions ("Max height ...") describe capacity, not exclusivity.
     # Other named restrictions (ACROD, "Small car only", etc.) reserve a space
     # for matching bookings only.
-    @exclusive_features = @restriction_lookup.values.reject(&.starts_with?("Max height"))
+    @exclusive_features = @restriction_lookup.values.reject do |name|
+      name.starts_with?("Max") || name.starts_with?("Small")
+    end
 
     # height restriction names ordered by id (= strictly increasing height). The
     # index in this list is a space's / booking's relative height rank: a space
     # accommodates a booking when its rank is >= the booking's required rank.
     @height_features = @restriction_lookup.to_a
-      .select { |(_id, name)| name.starts_with?("Max height") }
+      .select { |(_id, name)| name.starts_with?("Max") || name.starts_with?("Small") }
       .sort_by! { |(id, _name)| id }
       .map { |(_id, name)| name }
 
