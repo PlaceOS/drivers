@@ -40,7 +40,7 @@ dependencies:
 
   placeos-driver:
     github: placeos/driver
-    version: ~> 7.1
+    version: ">= 7.1"
 
   # The PlaceOS API client
   placeos:

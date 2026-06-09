@@ -47,6 +47,9 @@ services:
       GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
       PLACEOS_BUILD_LOCAL: 1
       PLACEOS_ENABLE_TRACE: 1
+      # driver specs launch every driver against a mock raw TCP server, so all
+      # transports need to be compiled into driver binaries built for testing
+      PLACEOS_ALL_TRANSPORTS: 1
       TZ: $TZ
       BUILD_SERVICE_DISABLED: ${BUILD_SERVICE_DISABLED:-true}
 
