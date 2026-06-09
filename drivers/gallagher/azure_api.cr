@@ -27,8 +27,8 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     azure_client_secret:     "8Q~6Em",
     azure_scopes:            "api://68",
 
-    unique_pdf_name: "email",
-    _fixed_pdf_id:   "33694",
+    unique_pdf_name:   "email",
+    _fixed_pdf_id:     "33694",
     _custom_href_base: "https://internal-domain:8904/api",
 
     # The division to pass when creating cardholders.
@@ -823,7 +823,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   # using an email address, lookup the security system id for a user
   @[Security(Level::Support)]
   def card_holder_id_lookup(email : String) : String | Int64 | Nil
-    query_cardholders(email, @unique_pdf_name).first?.try(&.id)
+    query_cardholders(email, @fixed_pdf_id ? nil : @unique_pdf_name).first?.try(&.id)
   end
 
   # given a card holder id, lookup the details of the card holder

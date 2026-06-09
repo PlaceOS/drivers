@@ -882,7 +882,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
                          # when its max height is equal to OR greater than the
                          # requested one (heights are ranked by id order)
                          sh = space_height_index(space)
-                         !sh.nil? && sh >= req_height
+                         if sh
+                           sh >= req_height
+                         else
+                           logger.warn { "space #{space.identifier} (#{space.id}) has no height indicator" }
+                           false
+                         end
                        elsif restriction_name
                          # exclusive restriction (ACROD, Small car only): exact match
                          space.features.includes?(restriction_name)
