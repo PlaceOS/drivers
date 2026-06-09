@@ -87,14 +87,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @parking_areas : Hash(String, String) = {} of String => String
   # minutes of access granted before a booking starts (access ends at booking end)
   @access_minutes_before : Int32 = 30
-  @restriction_lookup : Hash(Int64, String) = {} of Int64 => String
+  getter restriction_lookup : Hash(Int64, String) = {} of Int64 => String
   # restriction features that completely exclude a space from non-matching bookings
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
   # rather than exclusivity so they are not added here.
-  @exclusive_features : Array(String) = [] of String
+  getter exclusive_features : Array(String) = [] of String
   # height restriction names ordered by id (strictly increasing height); the
   # index is the relative height rank used for ">= match" and closest-fit sorting
-  @height_features : Array(String) = [] of String
+  getter height_features : Array(String) = [] of String
 
   # directory (MS Graph) field whose value identifies the user in Gallagher.
   # When blank, Gallagher is queried directly by email.
