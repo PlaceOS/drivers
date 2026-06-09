@@ -190,7 +190,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     case event.action
     when "create"
       return if event.approved
-      @sync_mutex.synchronize { check_approval(booking) }
+      # @sync_mutex.synchronize { check_approval(booking) }
+
+      # ensure only one place bookings can be approved.
+      # prevents race conditions
+      spawn { process_parking_bookings }
     when "cancelled", "rejected"
       @sync_mutex.synchronize { cleanup_parking(booking, event.action == "rejected") }
       # when "changed"
