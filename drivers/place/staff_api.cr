@@ -824,7 +824,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "instance"       => instance,
       "recurrence_end" => recurrence_end,
     }.compact.to_json)
-    raise "issue updating booking #{booking_id}: #{response.status_code}" unless response.success?
+    raise "issue updating booking #{booking_id}: #{response.status_code}\n#{response.body}" unless response.success?
     ExecResponse.new(response.body)
   end
 
