@@ -738,7 +738,6 @@ class Place::StaffAPI < PlaceOS::Driver
     now = time_zone ? Time.local(Time::Location.load(time_zone)) : Time.local
     booking_start ||= now.at_beginning_of_day.to_unix
     booking_end ||= now.at_end_of_day.to_unix
-
     checked_in_at = now.to_unix if checked_in
 
     logger.debug { "creating a #{booking_type} booking, starting #{booking_start}, asset #{asset_id}" }
