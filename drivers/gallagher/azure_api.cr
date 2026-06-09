@@ -139,6 +139,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     @custom_href_base = setting(String?, :custom_href_base)
 
     @door_event_channel = setting?(String, :door_event_channel) || "event"
+    @fixed_pdf_id = setting?(String, :fixed_pdf_id).presence || ""
 
     new_map = {} of String => EventMap
     (setting?(Array(EventMap), :event_mappings) || [] of EventMap).each do |event|
@@ -823,7 +824,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   # using an email address, lookup the security system id for a user
   @[Security(Level::Support)]
   def card_holder_id_lookup(email : String) : String | Int64 | Nil
-    query_cardholders(email, @fixed_pdf_id ? nil : @unique_pdf_name).first?.try(&.id)
+    query_cardholders(email, @fixed_pdf_id.presence ? nil : @unique_pdf_name).first?.try(&.id)
   end
 
   # given a card holder id, lookup the details of the card holder
