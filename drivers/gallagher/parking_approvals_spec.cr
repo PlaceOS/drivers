@@ -1767,6 +1767,233 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   access.should contain("gallagher-group2")
   # but the approval email keys to the config-order-first area (Open Basement)
   mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
+
+  # ===========================================================
+  # Test 43: a space holding MULTIPLE bookings (different days) must be busy for
+  # a new booking overlapping ANY of them — not just the last one tracked.
+  # b1 (Mon) and b2 (Tue) both hold the space; a same-priority booking
+  # overlapping b1 must NOT be allocated on top (production clash bug).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  calendar.set_groups("clash.user@example.com", default_grp.to_json)
+  gallagher.set_cardholder("clash.user@example.com", "ch-clash")
+
+  solo_space = [
+    {
+      id: "asset-solo", identifier: "SOLO",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(solo_space.to_json)
+
+  mon_start = now + 3600_i64 * 470
+  mon_end = now + 3600_i64 * 471
+  tue_start = now + 3600_i64 * 494
+  tue_end = now + 3600_i64 * 495
+
+  staff.set_bookings([
+    build_booking.call(43001_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-solo", true, ext_car),
+    build_booking.call(43002_i64, "normal.user@example.com",
+      tue_start, tue_end, "asset-solo", true, ext_car),
+    build_booking.call(43003_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-43003", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the overlapping booking must be wait-listed, NOT allocated over b1
+  staff.last_update_for(43003_i64).should be_nil
+  staff.last_state(43003_i64).should eq("wait_list")
+  # the existing bookings keep the space (no displacement at equal priority)
+  staff.last_update_for(43001_i64).should be_nil
+  staff.last_update_for(43002_i64).should be_nil
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+
+  # ===========================================================
+  # Test 44: preemption must displace the OVERLAPPING occupant even when the
+  # space also holds other (non-overlapping) bookings — and the displacement
+  # must complete before the higher-priority booking is allocated.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+
+  staff.set_bookings([
+    build_booking.call(44001_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-solo", true, ext_car),
+    build_booking.call(44002_i64, "normal.user@example.com",
+      tue_start, tue_end, "asset-solo", true, ext_car),
+    build_booking.call(44003_i64, "priority.user@example.com",
+      mon_start, mon_end, "unallocated-44003", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the overlapping lower-priority occupant was moved off FIRST
+  staff.last_update_for(44001_i64).should eq("unallocated-displaced-44001")
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(true)
+  # then the higher-priority booking took the space
+  staff.last_update_for(44003_i64).should eq("asset-solo")
+  # the non-overlapping Tuesday booking is untouched
+  staff.last_update_for(44002_i64).should be_nil
+
+  # ===========================================================
+  # Test 45: if the displacement FAILS (staff API error) the space is still
+  # held — the higher-priority booking must NOT be allocated on top of it.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+  staff.fail_update_for(45001_i64)
+
+  staff.set_bookings([
+    build_booking.call(45001_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-solo", true, ext_car),
+    build_booking.call(45002_i64, "priority.user@example.com",
+      mon_start, mon_end, "unallocated-45002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # displacement failed -> occupant keeps the space, no displaced email
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+  # the higher-priority booking is wait-listed instead of double-booked
+  staff.last_update_for(45002_i64).should be_nil
+  staff.last_state(45002_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 46: a FAILED allocate (staff API rejects the update) must not leave the
+  # local booking claiming the space — no approval and no Gallagher access.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+  staff.fail_update_for(46001_i64)
+
+  staff.set_bookings([
+    build_booking.call(46001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-46001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.approved.includes?(46001_i64).should eq(false)
+  mailer.sent?("clash.user@example.com", "parking_request", "approved_gallagher-group1").should eq(false)
+  # no access granted for a space the booking never got
+  gallagher.access_for("ch-clash").should eq([] of String)
+
+  # ===========================================================
+  # Test 47: a REJECTED booking still carrying an asset id does not occupy the
+  # space — a new overlapping booking is allocated onto it and the rejected
+  # user is never "displaced" or emailed.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+
+  rejected_booking = {
+    id:              47001_i64,
+    booking_type:    "parking",
+    booking_start:   mon_start,
+    booking_end:     mon_end,
+    asset_id:        "asset-solo",
+    asset_ids:       ["asset-solo"],
+    user_id:         "user-47001",
+    user_email:      "normal.user@example.com",
+    user_name:       "normal.user@example.com",
+    booked_by_email: "normal.user@example.com",
+    booked_by_name:  "normal.user@example.com",
+    zones:           ["zone-building"],
+    created:         now - 1000_i64 + 47001_i64,
+    approved:        true,
+    rejected:        true,
+    deleted:         false,
+    extension_data:  ext_car,
+  }
+  staff.set_bookings([
+    rejected_booking,
+    build_booking.call(47002_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-47002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the space is free despite the rejected booking's asset id
+  staff.last_update_for(47002_i64).should eq("asset-solo")
+  # the rejected booking is untouched: not displaced, no email
+  staff.last_update_for(47001_i64).should be_nil
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+
+  # ===========================================================
+  # Test 48: preemption commits before notifying — when the preemptor's own
+  # allocate FAILS after the occupant was moved off, the occupant is restored
+  # to the space and never receives a displaced email (no email churn).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+  staff.fail_update_for(48002_i64)
+
+  staff.set_bookings([
+    build_booking.call(48001_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-solo", true, ext_car),
+    build_booking.call(48002_i64, "priority.user@example.com",
+      mon_start, mon_end, "unallocated-48002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the occupant was rolled back onto the space, with no displaced email
+  staff.last_update_for(48001_i64).should eq("asset-solo")
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+  # the preemptor is wait-listed, not double-booked
+  staff.last_update_for(48002_i64).should be_nil
+  staff.last_state(48002_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 49: with MULTIPLE overlapping occupants, a failed displacement stops
+  # the preemption immediately — later occupants are never touched.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+  staff.fail_update_for(49001_i64)
+
+  staff.set_bookings([
+    build_booking.call(49001_i64, "normal.user@example.com",
+      mon_start, mon_start + 3600_i64, "asset-solo", true, ext_car),
+    build_booking.call(49002_i64, "normal.user@example.com",
+      mon_start + 3600_i64, mon_start + 7200_i64, "asset-solo", true, ext_car),
+    build_booking.call(49003_i64, "priority.user@example.com",
+      mon_start, mon_start + 7200_i64, "unallocated-49003", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # first displacement failed -> the second occupant was never displaced
+  staff.last_update_for(49002_i64).should be_nil
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+  # the preemptor is wait-listed
+  staff.last_update_for(49003_i64).should be_nil
+  staff.last_state(49003_i64).should eq("wait_list")
 end
 
 # :nodoc:
@@ -1800,6 +2027,15 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @updates = {} of Int64 => String
     @approved_set = [] of Int64
     @states = {} of String => String
+    @fail_updates = [] of Int64
+  end
+
+  # booking ids whose update_booking calls should fail (simulating the staff
+  # API rejecting the change, e.g. a clashing booking)
+  @fail_updates : Array(Int64) = [] of Int64
+
+  def fail_update_for(booking_id : Int64)
+    @fail_updates << booking_id
   end
 
   def last_update_for(booking_id : Int64) : String?
@@ -1916,8 +2152,10 @@ class StaffAPIMock < DriverSpecs::MockDriver
     instance : Int64? = nil,
     recurrence_end : Int64? = nil,
   )
+    id = booking_id.to_s.to_i64
+    raise "simulated update_booking failure for #{id}" if @fail_updates.includes?(id)
     if asset_id
-      @updates[booking_id.to_s.to_i64] = asset_id
+      @updates[id] = asset_id
     end
     true
   end

@@ -468,12 +468,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
       cmp == 0 ? (a[0].created || 0_i64) <=> (b[0].created || 0_i64) : cmp
     end
 
-    # Track current allocations: asset_id => {booking, priority}
-    current_allocations = {} of String => Tuple(Booking, Int32)
+    # Track current allocations: asset_id => ALL bookings holding that asset.
+    # The allocation window spans several days, so one space legitimately holds
+    # multiple bookings (different days) — every one of them must be visible to
+    # the busy/preemption checks or a new booking can be allocated on top of an
+    # existing one (clashing bookings).
+    current_allocations = {} of String => Array(Tuple(Booking, Int32))
     booking_meta.each do |(booking, priority)|
+      # rejected/cancelled bookings may still carry an asset id — they don't
+      # occupy the space (they'd block free spots and could be "displaced")
+      next if booking.rejected || booking.deleted
       asset_id = booking.asset_ids.first?
       next if asset_id.nil? || asset_id.starts_with?("unallocated")
-      current_allocations[asset_id] = {booking, priority}
+      (current_allocations[asset_id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
     end
 
     # First pass: ensure already-allocated bookings are approved + emailed.
@@ -496,8 +503,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
       # so the re-allocation's "approved" email can fire.
       if unmapped_space_ids.includes?(space.id)
         logger.warn { "booking #{booking.id} is on space #{space.id} with no gallagher group; moving off it" }
-        displace_booking(booking, space)
-        current_allocations.delete(space.id)
+        # this displacement is always final (the space can't grant access)
+        if displace_booking(booking, space)
+          finalise_displacement(booking)
+          remove_allocation(current_allocations, space.id, booking)
+        end
         next
       end
 
@@ -784,7 +794,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     booking : Booking,
     priority : Int32,
     bookable_spaces : Array(ParkingSpace),
-    current_allocations : Hash(String, Tuple(Booking, Int32)),
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
   ) : Nil
     # withhold allocation until the user can actually be granted Gallagher access
     return unless ensure_user_has_card(booking)
@@ -815,29 +825,61 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return
     end
 
-    # No free space — preempt the LOWEST-priority overlapping occupant. Bumping
-    # a mid-priority user would let them, in turn, preempt someone below them,
-    # cascading several users through displacement (and displacement emails) in
-    # a single run. Always displacing the least-privileged occupant keeps it to
-    # a single move.
+    # No free space — preempt the overlapping occupant(s) of a compatible space.
+    # A space is only a candidate when EVERY booking overlapping our window has a
+    # lower priority (all of them must move for the space to be free). Choosing
+    # the space whose highest overlapping priority is lowest displaces the
+    # least-privileged users; bumping a mid-priority user would let them, in
+    # turn, preempt someone below them, cascading displacements in a single run.
     candidates = compatible.compact_map do |space|
-      conflict = current_allocations[space.id]?
-      next unless conflict
-      next unless conflict[1] < priority && bookings_overlap?(booking, conflict[0])
-      {space, conflict}
+      occupants = current_allocations[space.id]?
+      next unless occupants
+      conflicts = occupants.select { |(other, _other_priority)| bookings_overlap?(booking, other) }
+      next if conflicts.empty?
+      next unless conflicts.all? { |(_other, other_priority)| other_priority < priority }
+      {space, conflicts}
     end
 
-    # lowest occupant priority wins; ties keep allocation-preference order
+    # lowest (max) occupant priority wins; ties keep allocation-preference order
     # (compatible is already sorted by zone then height, and min_by? returns the
     # first minimum)
-    target = candidates.min_by? { |(_space, conflict)| conflict[1] }
+    target = candidates.min_by? { |(_space, conflicts)| conflicts.max_of { |(_other, other_priority)| other_priority } }
 
     if target
-      target_space, conflict = target
-      logger.info { "preempting booking #{conflict[0].id} (priority #{conflict[1]}) for higher priority booking #{booking.id} (priority #{priority})" }
-      displace_booking(conflict[0], target_space)
-      current_allocations.delete(target_space.id)
-      allocate(booking, target_space, current_allocations, priority)
+      target_space, conflicts = target
+
+      # The space must be fully freed BEFORE we allocate over it — a failed
+      # displacement means the occupant still holds the space server-side and
+      # allocating would create clashing bookings. Displaced users are NOT
+      # notified yet: if the preemption can't complete, the moves are rolled
+      # back invisibly instead of churning displaced/approved emails.
+      displaced = [] of Tuple(Booking, Int32)
+      freed = true
+      conflicts.each do |(conflict_booking, conflict_priority)|
+        logger.info { "preempting booking #{conflict_booking.id} (priority #{conflict_priority}) for higher priority booking #{booking.id} (priority #{priority})" }
+        if displace_booking(conflict_booking, target_space)
+          remove_allocation(current_allocations, target_space.id, conflict_booking)
+          displaced << {conflict_booking, conflict_priority}
+        else
+          # don't displace further users for a preemption that can't proceed
+          freed = false
+          break
+        end
+      end
+
+      allocate(booking, target_space, current_allocations, priority) if freed
+
+      # allocate mutates the booking only on success, so this confirms the
+      # preemption actually stuck
+      if booking.asset_ids.first? == target_space.id
+        displaced.each { |(displaced_booking, _p)| finalise_displacement(displaced_booking) }
+      else
+        logger.warn { "could not move booking #{booking.id} onto space #{target_space.id}; restoring #{displaced.size} displaced booking(s)" }
+        displaced.each do |(displaced_booking, displaced_priority)|
+          restore_allocation(displaced_booking, displaced_priority, target_space, current_allocations)
+        end
+        wait_list_email(booking)
+      end
     else
       logger.debug { "no preemption candidate for booking #{booking.id}, sending wait list email" }
       wait_list_email(booking)
@@ -846,15 +888,30 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.error(exception: error) { "failed to process unallocated booking #{booking.id}" }
   end
 
-  # Find bookings whose asset_ids are in-use at the same time as `booking`
+  # Remove one booking from an asset's tracked allocations (after displacement)
+  protected def remove_allocation(
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
+    asset_id : String,
+    booking : Booking,
+  ) : Nil
+    return unless occupants = current_allocations[asset_id]?
+    occupants.reject! { |(other, _)| other.id == booking.id && other.instance == booking.instance }
+    current_allocations.delete(asset_id) if occupants.empty?
+  end
+
+  # Find assets in-use at the same time as `booking` — an asset is busy if ANY
+  # of the bookings holding it overlaps the requested window
   protected def busy_asset_ids_during(
     booking : Booking,
-    current_allocations : Hash(String, Tuple(Booking, Int32)),
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
   ) : Set(String)
     busy = Set(String).new
-    current_allocations.each do |asset_id, (other, _)|
-      next if other.id == booking.id
-      busy << asset_id if bookings_overlap?(booking, other)
+    current_allocations.each do |asset_id, occupants|
+      overlapping = occupants.any? do |(other, _other_priority)|
+        next false if other.id == booking.id && other.instance == booking.instance
+        bookings_overlap?(booking, other)
+      end
+      busy << asset_id if overlapping
     end
     busy
   end
@@ -946,48 +1003,98 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def allocate(
     booking : Booking,
     space : ParkingSpace,
-    current_allocations : Hash(String, Tuple(Booking, Int32)),
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
     priority : Int32,
   ) : Nil
     logger.debug { "allocating booking #{booking.id} -> space #{space.id}" }
-    booking.asset_id = space.id
-    booking.asset_ids = [space.id]
 
+    # use get_json where we don't care about the response data
+    # it will still raise if there is an error but not waste CPU
+    # on parsing the JSON payload
     staff_api.update_booking(
       booking_id: booking.id,
       asset_id: space.id,
       instance: booking.instance,
-    ).get
+    ).get_json
+
+    # only reflect the allocation locally once the API accepted it — the local
+    # booking state feeds the busy checks and the end-of-run Gallagher access
+    # reconciliation, so a failed update must not look like a held space (or
+    # grant access to a space the booking never got)
+    booking.asset_id = space.id
+    booking.asset_ids = [space.id]
+    (current_allocations[space.id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
 
     staff_api.approve(booking.id, booking.instance).get
     booking.approved = true
 
-    current_allocations[space.id] = {booking, priority}
     approved_email(booking, space)
   rescue error
     logger.error(exception: error) { "failed to allocate booking #{booking.id} to space #{space.id}" }
   end
 
-  protected def displace_booking(booking : Booking, space : ParkingSpace) : Nil
+  # Move a booking off its space on the staff API. Returns true when the
+  # booking no longer holds the space; on failure the local booking state is
+  # left holding the space (matching the server), so the busy checks and access
+  # reconciliation still see it as occupied — callers must NOT allocate over it.
+  #
+  # Does NOT notify or reset process_state: callers confirm the displacement is
+  # final (e.g. the preempting allocate succeeded) and then call
+  # finalise_displacement — or roll the move back with restore_allocation
+  # without the user ever having been emailed.
+  protected def displace_booking(booking : Booking, space : ParkingSpace) : Bool
     logger.info { "displacing booking #{booking.id} (#{booking.user_email}) from space #{space.id}" }
 
     placeholder = "unallocated-displaced-#{booking.id}"
-    booking.asset_id = placeholder
-    booking.asset_ids = [placeholder]
 
     begin
       staff_api.update_booking(
         booking_id: booking.id,
         asset_id: placeholder,
         instance: booking.instance,
-      ).get
+      ).get_json
     rescue error
-      logger.warn(exception: error) { "failed to revert booking #{booking.id} asset_id" }
+      logger.warn(exception: error) { "failed to move booking #{booking.id} off space #{space.id}; leaving the allocation in place" }
+      return false
     end
 
-    displaced_email(booking)
+    booking.asset_id = placeholder
+    booking.asset_ids = [placeholder]
+    true
   rescue error
     logger.error(exception: error) { "failed to displace booking #{booking.id}" }
+    false
+  end
+
+  # A displacement is final: reset the process_state FIRST (so a mailer failure
+  # can't leave a stale "access_granted" suppressing the wait-list email now and
+  # the approved email when the booking is re-allocated), then notify the user.
+  protected def finalise_displacement(booking : Booking) : Nil
+    update_state(booking, "wait_list")
+    displaced_email(booking)
+  end
+
+  # Undo a not-yet-finalised displacement: put the booking back on its space
+  # (server + local + tracking). No emails were sent, so a successful restore is
+  # invisible to the user. If the restore itself fails the booking is left
+  # unallocated and the remainder of this pass (or the next sweep) re-allocates.
+  protected def restore_allocation(
+    booking : Booking,
+    priority : Int32,
+    space : ParkingSpace,
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
+  ) : Nil
+    staff_api.update_booking(
+      booking_id: booking.id,
+      asset_id: space.id,
+      instance: booking.instance,
+    ).get_json
+
+    booking.asset_id = space.id
+    booking.asset_ids = [space.id]
+    (current_allocations[space.id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
+  rescue error
+    logger.warn(exception: error) { "failed to restore booking #{booking.id} to space #{space.id}; leaving unallocated for re-allocation" }
   end
 
   # ===================================
@@ -1352,8 +1459,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {"parking_request", "displaced"},
       common_template_args(booking),
     )
-
-    update_state(booking, "wait_list")
   rescue error
     logger.warn(exception: error) { "failed to send displaced email for booking #{booking.id}" }
   end
