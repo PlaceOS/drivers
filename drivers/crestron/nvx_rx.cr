@@ -220,8 +220,17 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
 
     upload_local_image(uri, image_name)
 
+    # typically take 100ms after successful upload to actually be ready
+    sleep 1.second
+
     # Point the output at the freshly uploaded local image.
     ws_update "/BackgroundImage/Outputs/Output#{output_index}/HostBackgroundImage", "Local", name: "set_output#{output_index}_image_location"
+    set_background_image_name(image_name, output_index)
+  end
+
+  @[Security(Level::Administrator)]
+  def set_background_image_name(image_name : String, output_index : Int32? = nil) : Nil
+    output_index ||= 1
     ws_update "/BackgroundImage/Outputs/Output#{output_index}/Local/ImageName", image_name, name: "set_output#{output_index}_image"
   end
 
