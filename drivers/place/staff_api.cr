@@ -41,7 +41,7 @@ class Place::StaffAPI < PlaceOS::Driver
   @period_end_default_in_min : Int32? = nil
 
   def on_update
-    # x-api-key is the preferred method for API access
+    # x-api-key is the preferred method for API access.
     @api_key = setting(String, :api_key) || ""
     @access_expires = 30.years.from_now if @api_key.presence
 
