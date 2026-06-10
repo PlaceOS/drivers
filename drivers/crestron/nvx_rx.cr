@@ -373,7 +373,7 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     Video
   end
 
-  # Build friendly source names based on a device state.
+  # Build friendly source names based on a device state
   #
   # Maps all streams into `Stream1`...`StreamN` style names based on
   # subscriptions. Local inputs (`Input1`, `Input2`, `AnalogueAudio` etc) are

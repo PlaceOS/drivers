@@ -375,7 +375,7 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   # ====== Powerable Interface ======
 
-  # dummy interface as no power command, camera is always on
+  # dummy interface as no power command, camera is always on.
   def power(state : Bool)
     state
   end

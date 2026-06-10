@@ -135,7 +135,7 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
 
             # Device returns inputs as "input0", "input1" ... "inputN" within
             # long poll responses, but appears to reference these same inputs
-            # as "input-1", "input-2" ... "input-N" within direct state queries.
+            # as "input-1", "input-2" ... "input-N" within direct state queries
             idx = case name
                   when /input(\d+)/
                     # increment by 1
