@@ -94,7 +94,11 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
     expect_http_request do |request, response|
       request.method.should eq("POST")
       request.path.should eq("/Device")
-      (request.headers["Content-Type"]? || "").should start_with("multipart/form-data")
+      content_type = request.headers["Content-Type"]? || ""
+      content_type.should start_with("multipart/form-data")
+      # the NVX parser requires an unquoted boundary parameter
+      content_type.should contain("boundary=")
+      content_type.should_not contain(%(boundary="))
       request.headers["CREST-XSRF-TOKEN"]?.should eq("1234")
 
       body = request.body.try(&.gets_to_end) || ""

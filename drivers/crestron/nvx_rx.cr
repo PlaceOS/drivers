@@ -234,25 +234,30 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     request_payload = %({"Device":{"ImageMgmnt":{"LocalImages":{"#{UPLOAD_SLOT}":{"UploadFile":#{image_name.to_json},"UploadFilePath":#{UPLOAD_DIR.to_json}}}}}})
 
     body = IO::Memory.new
-    content_type = ""
     tls = uri.scheme == "https" ? OpenSSL::SSL::Context::Client.insecure : nil
+
+    # Use an explicit boundary so we can advertise it *unquoted* in the
+    # Content-Type header below. The NVX's multipart parser does not strip
+    # quotes (like a browser/curl), so the quoted form `HTTP::FormData` emits
+    # by default isn't recognised as an upload - the device then falls back to
+    # a plain config-set and rejects the payload ("unsupported property").
+    boundary = MIME::Multipart.generate_boundary
 
     HTTP::Client.get(uri, tls: tls) do |source|
       raise "failed to download background image from #{uri}: HTTP #{source.status_code}" unless source.success?
 
       mime = source.headers["Content-Type"]?.presence || MIME.from_filename?(image_name) || "application/octet-stream"
 
-      HTTP::FormData.build(body) do |form|
+      HTTP::FormData.build(body, boundary) do |form|
         form.field "UploadFilePath", UPLOAD_DIR
         form.field "RequestPayload", request_payload
         # pipe the download stream directly into the multipart body
         form.file "UploadImage", source.body_io, HTTP::FormData::FileMetadata.new(filename: image_name), HTTP::Headers{"Content-Type" => mime}
-        content_type = form.content_type
       end
     end
 
     response = post("/Device", body: body.to_slice, headers: HTTP::Headers{
-      "Content-Type"     => content_type,
+      "Content-Type"     => "multipart/form-data; boundary=#{boundary}",
       "CREST-XSRF-TOKEN" => @xsrf_token,
     })
 
