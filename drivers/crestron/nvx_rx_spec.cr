@@ -74,17 +74,19 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
   # ------------------------------------------------------------------
 
   # Serve the source image from a local HTTP server so the driver can download
-  # it (this stands in for the remote image host).
-  image_payload = "PNG-IMAGE-DATA"
+  # it (this stands in for the remote image host). It returns a generic
+  # `application/octet-stream` like the PlaceOS uploads endpoint, so we can prove
+  # the upload uses the filename-derived `image/*` type instead.
+  image_payload = "JPEG-IMAGE-DATA"
   image_server = HTTP::Server.new do |context|
-    context.response.content_type = "image/png"
+    context.response.content_type = "application/octet-stream"
     context.response.print image_payload
   end
   image_addr = image_server.bind_unused_port
   spawn { image_server.listen }
   Fiber.yield
 
-  image_url = "http://127.0.0.1:#{image_addr.port}/i.png"
+  image_url = "http://127.0.0.1:#{image_addr.port}/i.jpg"
 
   begin
     exec(:set_background_image, image_url)
@@ -105,20 +107,22 @@ DriverSpecs.mock_driver "Crestron::NvxRx" do
       body.should contain(%(name="UploadFilePath"))
       body.should contain("/data/web/tmp/Images/Local/")
       body.should contain(%("Image01"))
-      body.should contain(%("UploadFile":"i.png"))
-      body.should contain(%(filename="i.png"))
-      body.should contain("image/png")
+      body.should contain(%("UploadFile":"i.jpg"))
+      body.should contain(%(filename="i.jpg"))
+      # filename-derived content type wins over the generic download header
+      body.should contain("image/jpeg")
+      body.should_not contain("application/octet-stream")
       body.should contain(image_payload)
 
       response.status_code = 200
-      response.print %({"Actions":[{"Operation":"SetPartial","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFile","StatusId":9,"StatusInfo":"i.png:Success"}],"TargetObject":"ImageMgmnt","Version":"2.1.0"}]})
+      response.print %({"Actions":[{"Operation":"SetPartial","Results":[{"Path":"Device.ImageMgmnt.LocalImages.Image01","Property":"UploadFile","StatusId":9,"StatusInfo":"i.jpg:Success"}],"TargetObject":"ImageMgmnt","Version":"2.1.0"}]})
     end
 
     # Then it points the output at the freshly uploaded local image.
     should_send %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"HostBackgroundImage":"Local"}}}}})
     responds %({"Actions":[{"Results":[{"StatusId":9}]}]})
 
-    should_send %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"Local":{"ImageName":"i.png"}}}}}})
+    should_send %({"Device":{"BackgroundImage":{"Outputs":{"Output1":{"Local":{"ImageName":"i.jpg"}}}}}})
     responds %({"Actions":[{"Results":[{"StatusId":9}]}]})
   ensure
     image_server.close

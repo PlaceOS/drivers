@@ -246,7 +246,11 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
     HTTP::Client.get(uri, tls: tls) do |source|
       raise "failed to download background image from #{uri}: HTTP #{source.status_code}" unless source.success?
 
-      mime = source.headers["Content-Type"]?.presence || MIME.from_filename?(image_name) || "application/octet-stream"
+      # Prefer the image type derived from the filename: download hosts (e.g.
+      # the PlaceOS uploads endpoint, backed by blob storage) commonly serve a
+      # generic `application/octet-stream`, which the NVX rejects - it wants a
+      # real `image/*` content type for the upload part.
+      mime = MIME.from_filename?(image_name).presence || source.headers["Content-Type"]?.presence || "application/octet-stream"
 
       HTTP::FormData.build(body, boundary) do |form|
         form.field "UploadFilePath", UPLOAD_DIR
