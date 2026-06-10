@@ -11,7 +11,8 @@ class Place::ImageUploader < PlaceOS::Driver
   accessor staff_api : StaffAPI_1
 
   default_settings({
-    signage_sync_cron: "0 3 * * *",
+    signage_sync_cron: "0 2 * * *",
+    apply_exactly:     false,
   })
 
   def get_all_systems_in_building : Array(String)
@@ -19,10 +20,13 @@ class Place::ImageUploader < PlaceOS::Driver
     location_services.get_systems_list.get.as_h.values.flat_map(&.as_a).map(&.as_s)
   end
 
+  @apply_exactly : Bool = false
+
   def on_update
     signage_sync_cron = setting?(String, :signage_sync_cron)
     return unless signage_sync_cron
 
+    apply_exactly = setting?(Bool, :apply_exactly) || false
     timezone = config.control_system.try(&.timezone).presence
     location = timezone ? Time::Location.load(timezone) : Time::Location.local
 
@@ -57,7 +61,10 @@ class Place::ImageUploader < PlaceOS::Driver
       receivers = system(system_id).implementing(Interface::StandbyImage)
       logger.debug { "found #{receivers.size} devices to apply images" }
 
+      list_len = playlist.size
       receivers.each_with_index do |receiver, index|
+        break if @apply_exactly && list_len == index
+
         # select the item to be applied from the playlist
         item = index % playlist.size
         upload_id = playlist[item]["media_id"]
