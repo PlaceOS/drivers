@@ -622,7 +622,7 @@ class Place::Meet < PlaceOS::Driver
 
     getter name : String? = nil
     property level_id : String | Array(String)? = nil
-    getter mute_id : String | Array(String)? { level_id }
+    property mute_id : String | Array(String)? { level_id }
 
     getter default_muted : Bool? = nil
     getter default_level : Float64? = nil
@@ -1085,8 +1085,25 @@ class Place::Meet < PlaceOS::Driver
       local.concat Array(Microphone).from_json(room.local_mics.get_json)
     end
 
+    # mics sharing a name represent the same mic exposed by multiple rooms
+    # combine them into a single entry with the level and mute ids merged
+    merged = [] of Microphone
+    local.each do |mic|
+      index = mic.name.try { |name| merged.index { |existing| existing.name == name } }
+      if index
+        # work on a copy so the local room config is not modified
+        existing = merged[index].dup
+        mute_ids = (fader_ids(existing.mute_id) + fader_ids(mic.mute_id)).uniq
+        existing.level_id = (fader_ids(existing.level_id) + fader_ids(mic.level_id)).uniq
+        existing.mute_id = mute_ids
+        merged[index] = existing
+      else
+        merged << mic
+      end
+    end
+
     # expose the details to the UI
-    @available_mics = local
+    @available_mics = merged
     self[:microphones] = @available_mics.map do |mic|
       level_id = mic.level_id
       mute_id = mic.mute_id
@@ -1106,6 +1123,14 @@ class Place::Meet < PlaceOS::Driver
         max_level:      mic.max_level,
         rooms:          mic.rooms,
       }
+    end
+  end
+
+  protected def fader_ids(id : String | Array(String)?) : Array(String)
+    case id
+    in String        then [id]
+    in Array(String) then id.dup
+    in Nil           then [] of String
     end
   end
 

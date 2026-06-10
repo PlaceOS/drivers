@@ -68,7 +68,12 @@ DriverSpecs.mock_driver "Place::Meet" do
       },
       Switcher_1: ["*Foo", "*Bar"],
     },
-    local_outputs: ["Display_1"],
+    local_outputs:     ["Display_1"],
+    local_microphones: [
+      {name: "Handheld", level_id: "fader1", mute_id: "mute1"},
+      {name: "Handheld", level_id: ["fader2"]},
+      {name: "Ceiling", level_id: "fader3"},
+    ],
   })
 
   # Give the settings time to load
@@ -79,8 +84,22 @@ DriverSpecs.mock_driver "Place::Meet" do
   status["outputs"].as_a.should contain("Display_1")
   status["output/Display_1"]["inputs"].should eq(["Foo", "Bar"])
 
+  # mics with the same name should be merged into a single entry
+  mics = status["microphones"].as_a
+  mics.size.should eq 2
+  mics[0]["name"].should eq "Handheld"
+  mics[0]["level_id"].should eq ["fader1", "fader2"]
+  mics[0]["mute_id"].should eq ["mute1", "fader2"]
+  mics[1]["name"].should eq "Ceiling"
+  mics[1]["level_id"].should eq ["fader3"]
+  mics[1]["mute_id"].should eq ["fader3"]
+
   exec(:power, true).get
   status["active"]?.should eq true
+
+  # powering on persists active_state which triggers an async settings
+  # update, allow the resulting signal graph reload to complete
+  sleep 0.5
 
   exec(:route, "Foo", "Display_1").get
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])

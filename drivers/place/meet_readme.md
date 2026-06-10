@@ -491,6 +491,8 @@ local_microphones:
 
 ```
 
+Microphones with the same name in a room join will be merged (level and mute ids).
+
 ## Joining Config
 
 Where systems can be merged you can define the various modes that are supported between the rooms.
