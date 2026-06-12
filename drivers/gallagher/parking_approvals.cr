@@ -249,7 +249,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       end
     end
     # height restrictions ("Max height ...") describe capacity, not exclusivity.
-    # Other named restrictions (ACROD, "Small car only", etc.) reserve a space
+    # Other named restrictions (ACROD, etc.) reserve a space
     # for matching bookings only.
     @exclusive_features = @restriction_lookup.values.reject do |name|
       name.starts_with?("Max") || name.starts_with?("Small")
@@ -820,11 +820,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
 
     compatible = prioritise_spaces(compatible_spaces(booking, bookable_spaces), booking)
-    if compatible.empty?
-      logger.warn { "no compatible spaces for booking #{booking.id} (vehicle/restriction filter)" }
-      wait_list_email(booking)
-      return
-    end
 
     # Filter out spaces in-use during this booking's window. Each instance of a
     # recurring booking is allocated independently (booking_instances persist a
@@ -832,6 +827,21 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # busy days.
     busy_assets = busy_asset_ids_during(booking, current_allocations)
     available = compatible.reject { |s| busy_assets.includes?(s.id) }
+
+    # Restriction requests (ACROD etc.) are best-effort: when no matching space
+    # is free the restriction is ignored and a regular space provided instead.
+    # Height requirements are ALWAYS enforced — they never fall back.
+    if available.empty? && exclusive_request?(booking)
+      logger.debug { "no restricted spaces available for booking #{booking.id}; falling back to regular spaces" }
+      compatible = prioritise_spaces(compatible_spaces(booking, bookable_spaces, ignore_exclusive: true), booking)
+      available = compatible.reject { |s| busy_assets.includes?(s.id) }
+    end
+
+    if compatible.empty?
+      logger.warn { "no compatible spaces for booking #{booking.id} (vehicle/restriction filter)" }
+      wait_list_email(booking)
+      return
+    end
 
     if !available.empty?
       space = available.first
@@ -948,12 +958,26 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Compatibility filter
   # ===================================
 
-  protected def compatible_spaces(booking : Booking, spaces : Array(ParkingSpace)) : Array(ParkingSpace)
+  # Does the booking request a restriction feature (ACROD, Small car only, ...)
+  # rather than a height class? These are best-effort and may fall back to a
+  # regular space; height requirements never do.
+  protected def exclusive_request?(booking : Booking) : Bool
+    restriction_id = booking.extension_data["space_restrictions"]?.try(&.as_i64?)
+    return false unless restriction_id
+    return false unless name = @restriction_lookup[restriction_id]?
+    !@height_features.includes?(name)
+  end
+
+  protected def compatible_spaces(booking : Booking, spaces : Array(ParkingSpace), ignore_exclusive : Bool = false) : Array(ParkingSpace)
     vehicle = VehicleType.parse_request(booking.extension_data["vehicle_type"]?.try(&.as_s?))
 
     restriction_id = booking.extension_data["space_restrictions"]?.try(&.as_i64?)
     restriction_name = restriction_id ? @restriction_lookup[restriction_id]? : nil
     req_height = restriction_name ? @height_features.index(restriction_name) : nil
+
+    # a restriction request may be ignored (regular-space fallback) — a height
+    # requirement is never dropped
+    restriction_name = nil if ignore_exclusive && req_height.nil?
 
     spaces.select do |space|
       vehicle_ok = vehicle.nil? || vehicle.matches_notes?(space.notes)

@@ -2202,6 +2202,119 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-ghost")
   staff.last_update_for(54001_i64).should be_nil
   mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+
+  # ===========================================================
+  # Test 55: an ACROD request with all ACROD spaces taken falls back to a
+  # regular space instead of being wait-listed.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 4, name: "Max height 1.95m"},
+      {id: 5, name: "Max height 2.1m"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  fallback_spaces = [
+    {
+      id: "asset-acrod_x", identifier: "AX",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["ACROD", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    solo_space[0], # regular: carpriority + Open Basement
+  ]
+  staff.set_assets(fallback_spaces.to_json)
+
+  staff.set_bookings([
+    # the only ACROD space is already taken for the window
+    build_booking.call(55000_i64, "acrod.user@example.com",
+      mon_start, mon_end, "asset-acrod_x", true, ext_acrod),
+    build_booking.call(55001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-55001", false, ext_acrod),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the restriction is dropped and a regular space provided
+  staff.last_update_for(55001_i64).should eq("asset-solo")
+  staff.approved.includes?(55001_i64).should eq(true)
+  # the existing ACROD allocation is untouched
+  staff.last_update_for(55000_i64).should be_nil
+
+  # ===========================================================
+  # Test 56: an ACROD request when NO ACROD spaces exist at all also falls back
+  # to a regular space.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json) # only the regular space
+
+  staff.set_bookings([
+    build_booking.call(56001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-56001", false, ext_acrod),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(56001_i64).should eq("asset-solo")
+  staff.last_state(56001_i64).should eq("access_granted")
+
+  # ===========================================================
+  # Test 57: height requirements NEVER fall back — when the only fitting space
+  # is taken, the booking is wait-listed even though shorter and regular spaces
+  # are free.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  height_fallback_spaces = [
+    {
+      id: "asset-tall210x", identifier: "T210X",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 2.1m", "carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-short195x", identifier: "S195X",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["Max height 1.95m", "carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    solo_space[0], # regular space with no height indicator
+  ]
+  staff.set_assets(height_fallback_spaces.to_json)
+
+  staff.set_bookings([
+    # the only space fitting a 2.1m vehicle is taken (same priority -> no preempt)
+    build_booking.call(57000_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-tall210x", true, ext_car),
+    build_booking.call(57001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-57001", false, ext_h210),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # no fallback to the shorter or regular space — wait-listed
+  staff.last_update_for(57001_i64).should be_nil
+  staff.last_state(57001_i64).should eq("wait_list")
 end
 
 # :nodoc:
