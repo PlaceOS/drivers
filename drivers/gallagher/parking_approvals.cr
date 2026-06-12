@@ -49,6 +49,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # grants (existing grants are matched/removed by their end time, not start).
     access_minutes_before: 30,
 
+    # when false, existing allocations are never displaced: higher priority
+    # bookings wait for a free space instead of bumping lower priority users,
+    # and bookings on spaces that lose their gallagher mapping stay put (still
+    # reported via the spaces_without_groups status)
+    allow_displacement: true,
+
     # When set, Gallagher cardholders are resolved by first looking the user up
     # in the directory (MS Graph) and reading this field from `user.unmapped`
     # (e.g. an "employeeId" custom attribute), then querying Gallagher with that
@@ -87,6 +93,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @parking_areas : Hash(String, String) = {} of String => String
   # minutes of access granted before a booking starts (access ends at booking end)
   @access_minutes_before : Int32 = 30
+  # when false no booking is ever moved off its space (no preemption, no
+  # unmapped-space moves)
+  @allow_displacement : Bool = true
   getter restriction_lookup : Hash(Int64, String) = {} of Int64 => String
   # restriction features that completely exclude a space from non-matching bookings
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
@@ -231,6 +240,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @parking_areas = raw_areas.transform_values(&.to_s)
 
     @access_minutes_before = setting?(Int32, :access_minutes_before) || 30
+    @allow_displacement = setting?(Bool, :allow_displacement) != false
 
     @restriction_lookup = {} of Int64 => String
     if restrictions = setting?(Array(NamedTuple(id: Int64, name: String)), :request_space_restrictions)
@@ -771,7 +781,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     logger.debug { "approval/email for already-allocated booking #{booking.id} (#{booking.user_email}) on space #{space.id}" }
 
-    # If the booking has not been approved yet, approve it
+    # If the booking has not been approved yet, approve it (persisted
+    # per-instance for recurring bookings)
     unless booking.approved
       begin
         staff_api.approve(booking.id, booking.instance).get
@@ -815,13 +826,24 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return
     end
 
-    # Filter out spaces in-use during this booking's window
+    # Filter out spaces in-use during this booking's window. Each instance of a
+    # recurring booking is allocated independently (booking_instances persist a
+    # per-instance asset override), so a series can split across spaces on
+    # busy days.
     busy_assets = busy_asset_ids_during(booking, current_allocations)
     available = compatible.reject { |s| busy_assets.includes?(s.id) }
 
     if !available.empty?
       space = available.first
       allocate(booking, space, current_allocations, priority)
+      return
+    end
+
+    # displacement trial: when disabled, occupants are never bumped — the
+    # booking waits for a space to free up instead
+    unless @allow_displacement
+      logger.debug { "no free space for booking #{booking.id} and displacement is disabled, sending wait list email" }
+      wait_list_email(booking)
       return
     end
 
@@ -888,7 +910,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.error(exception: error) { "failed to process unallocated booking #{booking.id}" }
   end
 
-  # Remove one booking from an asset's tracked allocations (after displacement)
+  # Remove one booking instance from an asset's tracked allocations (after
+  # displacement). Instances of a recurring booking are independent — each has
+  # its own persisted asset override — so match on (id, instance).
   protected def remove_allocation(
     current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
     asset_id : String,
@@ -1008,6 +1032,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
   ) : Nil
     logger.debug { "allocating booking #{booking.id} -> space #{space.id}" }
 
+    # booking_instances persist per-instance asset overrides (nil inherits the
+    # parent), so a recurring instance is allocated independently of its
+    # siblings — the instance arg routes the update to the override row.
     # use get_json where we don't care about the response data
     # it will still raise if there is an error but not waste CPU
     # on parsing the JSON payload
@@ -1025,6 +1052,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     booking.asset_ids = [space.id]
     (current_allocations[space.id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
 
+    # approval is also persisted per instance
     staff_api.approve(booking.id, booking.instance).get
     booking.approved = true
 
@@ -1043,11 +1071,18 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # finalise_displacement — or roll the move back with restore_allocation
   # without the user ever having been emailed.
   protected def displace_booking(booking : Booking, space : ParkingSpace) : Bool
+    unless @allow_displacement
+      logger.info { "displacement disabled; leaving booking #{booking.id} on space #{space.id}" }
+      return false
+    end
+
     logger.info { "displacing booking #{booking.id} (#{booking.user_email}) from space #{space.id}" }
 
     placeholder = "unallocated-displaced-#{booking.id}"
 
     begin
+      # per-instance: only this occurrence moves off the space; other instances
+      # of a recurring booking keep their own asset overrides
       staff_api.update_booking(
         booking_id: booking.id,
         asset_id: placeholder,
@@ -1084,6 +1119,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     space : ParkingSpace,
     current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
   ) : Nil
+    # per-instance, matching displace_booking
     staff_api.update_booking(
       booking_id: booking.id,
       asset_id: space.id,

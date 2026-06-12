@@ -259,7 +259,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.95.0
+    version: 9.97.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git

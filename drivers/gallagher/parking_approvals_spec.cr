@@ -1994,6 +1994,214 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # the preemptor is wait-listed
   staff.last_update_for(49003_i64).should be_nil
   staff.last_state(49003_i64).should eq("wait_list")
+
+  # helper to build a recurring booking instance (same id, per-instance window)
+  build_instance = ->(id : Int64, instance : Int64, user : String, starting : Int64, ending : Int64, asset_id : String, approved : Bool) do
+    {
+      id:              id,
+      instance:        instance,
+      booking_type:    "parking",
+      booking_start:   starting,
+      booking_end:     ending,
+      asset_id:        asset_id,
+      asset_ids:       [asset_id],
+      user_id:         "user-#{id}",
+      user_email:      user,
+      user_name:       user,
+      booked_by_email: user,
+      booked_by_name:  user,
+      zones:           ["zone-building"],
+      created:         now - 1000_i64 + id,
+      approved:        approved,
+      rejected:        false,
+      deleted:         false,
+      extension_data:  ext_car,
+    }
+  end
+
+  # ===========================================================
+  # Test 50: a RECURRING booking expands to several instances all holding the
+  # parent's space (different days). A new booking overlapping ANY instance must
+  # be wait-listed — the exact production clash shape.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+
+  staff.set_bookings([
+    build_instance.call(50001_i64, mon_start, "normal.user@example.com",
+      mon_start, mon_end, "asset-solo", true),
+    build_instance.call(50001_i64, tue_start, "normal.user@example.com",
+      tue_start, tue_end, "asset-solo", true),
+    build_booking.call(50002_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-50002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the booking overlapping the Monday instance is wait-listed, not double-booked
+  staff.last_update_for(50002_i64).should be_nil
+  staff.last_state(50002_i64).should eq("wait_list")
+  # the recurring series keeps the space
+  staff.last_update_for(50001_i64).should be_nil
+
+  # ===========================================================
+  # Test 51: recurring instances are allocated INDEPENDENTLY — each day's
+  # instance gets its own per-instance asset update (booking_instances persist
+  # asset overrides), so a series can split across spaces when one space is
+  # busy on one of its days.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  two_spaces = [
+    solo_space[0],
+    {
+      id: "asset-solo2", identifier: "SOLO2",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(two_spaces.to_json)
+
+  staff.set_bookings([
+    # asset-solo is taken on Tuesday only
+    build_booking.call(51000_i64, "normal.user@example.com",
+      tue_start, tue_end, "asset-solo", true, ext_car),
+    # recurring series needing Monday AND Tuesday
+    build_instance.call(51001_i64, mon_start, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-51001", false),
+    build_instance.call(51001_i64, tue_start, "clash.user@example.com",
+      tue_start, tue_end, "unallocated-51001", false),
+    # same-priority booking created later, overlapping Tuesday: both spaces are
+    # then busy on Tuesday -> wait list
+    build_booking.call(51002_i64, "normal.user@example.com",
+      tue_start, tue_end, "unallocated-51002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # Monday instance takes the preferred space (free on Monday); the Tuesday
+  # instance splits onto the other space — each via its OWN instance update
+  staff.update_for(51001_i64, mon_start).should eq("asset-solo")
+  staff.update_for(51001_i64, tue_start).should eq("asset-solo2")
+  # approval is persisted per instance too
+  staff.approved_instance?(51001_i64, mon_start).should eq(true)
+  staff.approved_instance?(51001_i64, tue_start).should eq(true)
+
+  # the instances' windows block the later booking from both spaces
+  staff.last_update_for(51002_i64).should be_nil
+  staff.last_state(51002_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 52: preemption displaces ONLY the overlapping instance of a recurring
+  # occupant — the other day's instance keeps its space and state.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+
+  staff.set_bookings([
+    build_instance.call(52001_i64, mon_start, "normal.user@example.com",
+      mon_start, mon_end, "asset-solo", true),
+    build_instance.call(52001_i64, tue_start, "normal.user@example.com",
+      tue_start, tue_end, "asset-solo", true),
+    build_booking.call(52002_i64, "priority.user@example.com",
+      tue_start, tue_end, "unallocated-52002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # only the Tuesday instance was displaced, via a per-instance update
+  staff.update_for(52001_i64, tue_start).should eq("unallocated-displaced-52001")
+  staff.update_for(52001_i64, mon_start).should be_nil
+  # Tuesday's process_state reset; Monday keeps its access_granted state
+  staff.last_state(52001_i64, tue_start).should eq("wait_list")
+  staff.last_state(52001_i64, mon_start).should eq("access_granted")
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(true)
+  # the higher-priority booking took the space for Tuesday
+  staff.last_update_for(52002_i64).should eq("asset-solo")
+
+  # ===========================================================
+  # Test 53: allow_displacement: false disables preemption — a higher priority
+  # booking waits for a free space instead of bumping the occupant.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    allow_displacement: false,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(solo_space.to_json)
+
+  staff.set_bookings([
+    build_booking.call(53001_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-solo", true, ext_car),
+    build_booking.call(53002_i64, "priority.user@example.com",
+      mon_start, mon_end, "unallocated-53002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the occupant keeps the space: no displacement, no displaced email
+  staff.last_update_for(53001_i64).should be_nil
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+  # the higher priority booking is wait-listed instead
+  staff.last_update_for(53002_i64).should be_nil
+  staff.last_state(53002_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 54: allow_displacement: false also keeps a booking on a space that has
+  # no gallagher mapping — it is reported but the user is not moved.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  ghost_space = [
+    {
+      id: "asset-ghost", identifier: "GHOST",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      # "Mystery Zone" is not a parking_areas key and there is no
+      # security_system_groups override -> no gallagher group resolvable
+      features: ["Mystery Zone", "carpriority"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(ghost_space.to_json)
+
+  staff.set_bookings([
+    build_booking.call(54001_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-ghost", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # reported as misconfigured, but the booking is NOT moved off the space
+  status[:spaces_without_groups].as_a.map { |s| s["id"].as_s }.should contain("asset-ghost")
+  staff.last_update_for(54001_i64).should be_nil
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
 end
 
 # :nodoc:
@@ -2028,6 +2236,36 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @approved_set = [] of Int64
     @states = {} of String => String
     @fail_updates = [] of Int64
+    @update_instances = {} of Int64 => String
+    @approve_instances = {} of Int64 => String
+    @updates_by_instance = {} of String => String
+    @approved_instances = [] of String
+  end
+
+  # the `instance` param of the last update_booking / approve call per booking,
+  # recorded as .inspect ("nil" when the call was parent-level)
+  @update_instances : Hash(Int64, String) = {} of Int64 => String
+  @approve_instances : Hash(Int64, String) = {} of Int64 => String
+  # per-(booking, instance) records so recurring instances can be asserted
+  # independently
+  @updates_by_instance : Hash(String, String) = {} of String => String
+  @approved_instances : Array(String) = [] of String
+
+  def last_update_instance_for(booking_id : Int64) : String?
+    @update_instances[booking_id]?
+  end
+
+  def last_approve_instance_for(booking_id : Int64) : String?
+    @approve_instances[booking_id]?
+  end
+
+  # asset set by update_booking for a specific (booking, instance), nil if never called
+  def update_for(booking_id : Int64, instance : Int64?) : String?
+    @updates_by_instance["#{booking_id}:#{instance}"]?
+  end
+
+  def approved_instance?(booking_id : Int64, instance : Int64?) : Bool
+    @approved_instances.includes?("#{booking_id}:#{instance}")
   end
 
   # booking ids whose update_booking calls should fail (simulating the staff
@@ -2156,12 +2394,17 @@ class StaffAPIMock < DriverSpecs::MockDriver
     raise "simulated update_booking failure for #{id}" if @fail_updates.includes?(id)
     if asset_id
       @updates[id] = asset_id
+      @update_instances[id] = instance.inspect
+      @updates_by_instance["#{id}:#{instance}"] = asset_id
     end
     true
   end
 
   def approve(booking_id : String | Int64, instance : Int64? = nil)
-    @approved_set << booking_id.to_s.to_i64
+    id = booking_id.to_s.to_i64
+    @approved_set << id
+    @approve_instances[id] = instance.inspect
+    @approved_instances << "#{id}:#{instance}"
     true
   end
 
