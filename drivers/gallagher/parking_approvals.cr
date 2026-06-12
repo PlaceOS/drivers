@@ -551,13 +551,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.warn(exception: error) { "failed to publish lookup errors" }
   end
 
-  # End of the upcoming Friday (23:59:59) in the configured timezone. When the
-  # current day is already Friday this returns the end of today; on Sat/Sun it
-  # rolls forward to the next week's Friday.
+  # 13:00 on the upcoming Friday in the configured timezone. On Sat/Sun this
+  # rolls forward to the next week's Friday, and once Friday 13:00 has passed
+  # it also rolls to the following Friday — otherwise the allocation window
+  # would end in the past and nothing would be processed.
   protected def next_friday_cutoff : Time
     now = Time.local(@timezone)
     days_until_friday = (Time::DayOfWeek::Friday.value - now.day_of_week.value) % 7
-    (now + days_until_friday.days).at_end_of_day
+    friday = now + days_until_friday.days
+    cutoff = Time.local(friday.year, friday.month, friday.day, 13, 0, 0, location: @timezone)
+    cutoff <= now ? cutoff.shift(days: 7) : cutoff
   end
 
   # Walk the final booking + permanent-assignment state and emit the gallagher

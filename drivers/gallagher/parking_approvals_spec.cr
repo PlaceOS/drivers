@@ -468,8 +468,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   mailer.send_count.should eq(1)
 
   # ===========================================================
-  # Test 12: the allocation window ends at the upcoming Friday 23:59 in the
+  # Test 12: the allocation window ends at the upcoming Friday 13:00 in the
   # configured timezone (control_system timezone is Australia/Sydney in specs).
+  # Once Friday 13:00 has passed the window rolls to the following Friday.
   # ===========================================================
 
   staff.reset_calls
@@ -482,15 +483,19 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   tz = Time::Location.load("Australia/Sydney")
   now_local = Time.local(tz)
   days_until_friday = (Time::DayOfWeek::Friday.value - now_local.day_of_week.value) % 7
-  expected_end = (now_local + days_until_friday.days).at_end_of_day
+  friday_local = now_local + days_until_friday.days
+  expected_end = Time.local(friday_local.year, friday_local.month, friday_local.day, 13, 0, 0, location: tz)
+  expected_end = expected_end.shift(days: 7) if expected_end <= now_local
 
   period_end = staff.last_query_period_end.not_nil!
   period_end.should eq(expected_end.to_unix)
 
   cutoff = Time.unix(period_end).in(tz)
   cutoff.day_of_week.should eq(Time::DayOfWeek::Friday)
-  cutoff.hour.should eq(23)
-  cutoff.minute.should eq(59)
+  cutoff.hour.should eq(13)
+  cutoff.minute.should eq(0)
+  # the window always ends in the future
+  (cutoff > now_local).should eq(true)
 
   # ===========================================================
   # Directory-resolved Gallagher lookups (employeeId via MS Graph).
