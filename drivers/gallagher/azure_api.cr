@@ -26,6 +26,9 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     azure_client_id:         "d3f2b-d2d-a68-bd9-b98283",
     azure_client_secret:     "8Q~6Em",
     azure_scopes:            "api://68",
+    # override the token grant URL, e.g. for a token proxy
+    # relative paths are routed via the driver transport
+    _azure_token_endpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token",
 
     unique_pdf_name:   "email",
     _fixed_pdf_id:     "33694",
@@ -136,7 +139,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     @azure_client_id = setting(String, :azure_client_id)
     @azure_client_secret = setting(String, :azure_client_secret)
     @azure_scopes = setting(String, :azure_scopes)
-    @custom_href_base = setting(String?, :custom_href_base)
+    @custom_href_base = setting?(String, :custom_href_base)
 
     @door_event_channel = setting?(String, :door_event_channel) || "event"
     @fixed_pdf_id = setting?(String, :fixed_pdf_id).presence || ""
@@ -153,12 +156,16 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     @default_facility_code = setting?(String, :default_facility_code)
     @default_card_type = setting?(String, :default_card_type_href)
     @default_access_group = setting?(String, :default_access_group_href)
-    @disabled_card_value = setting(String?, :disabled_card_value) || "Disabled (manually)"
+    @disabled_card_value = setting?(String, :disabled_card_value) || "Disabled (manually)"
+    @azure_token_endpoint = setting?(String, :azure_token_endpoint)
 
-    @headers = {
-      "Content-Type"              => "application/json",
-      "Ocp-Apim-Subscription-Key" => @azure_apim_subscription,
-    }
+    # credentials may have changed, allow immediate re-authentication
+    @auth_failures = 0
+    @request_auth_failures = 0
+    @next_auth_attempt = nil
+
+    # NOTE:: must preserve the Authorization header, the token is still valid
+    update_headers
   end
 
   def connected
@@ -171,40 +178,183 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     end
   end
 
+  # =====================
+  # Token / authentication management
+  # =====================
+
   getter expires : Time? = nil
+  @access_token : String? = nil
+  @azure_token_endpoint : String? = nil
+
+  # consecutive token grant failures
+  getter auth_failures : Int32 = 0
+  # consecutive 401 responses despite a successful token grant (i.e. bad APIM key)
+  @request_auth_failures : Int32 = 0
+  # once auth has failed, no token requests are made before this time
+  @next_auth_attempt : Time? = nil
+  @last_forced_reauth : Time = Time.unix(0)
+  @auth_mutex : Mutex = Mutex.new
+  @auth_retry : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+  @auth_refresh : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+
+  # back to back attempts before the driver is marked offline
+  MAX_AUTH_ATTEMPTS = 3
 
   def ensure_authenticated : Nil
     if expires = @expires
-      # we check every 10minutes
-      return if expires > 11.minutes.from_now
+      # renew with a safety margin so requests don't race token expiry
+      return if expires > 5.minutes.from_now
     end
+    authenticate
+  end
 
-    response = HTTP::Client.post(
-      "https://login.microsoftonline.com/#{@azure_tenant_id}/oauth2/v2.0/token",
-      headers: HTTP::Headers{
-        "Content-Type" => "application/x-www-form-urlencoded",
-      },
-      body: URI::Params.build do |form|
-        form.add "client_id", @azure_client_id
-        form.add "scope", @azure_scopes
-        form.add "client_secret", @azure_client_secret
-        form.add "grant_type", "client_credentials"
+  # force a new token grant, useful if credentials have been rotated
+  @[Security(Level::Support)]
+  def renew_authentication : Nil
+    @expires = nil
+    authenticate
+  end
+
+  protected def authenticate : Nil
+    @auth_mutex.synchronize do
+      # another fiber may have refreshed the token while we were waiting
+      if expires = @expires
+        return if expires > 5.minutes.from_now
       end
-    )
+
+      # don't spam the token endpoint once we're in a failed state
+      if (next_attempt = @next_auth_attempt) && Time.utc < next_attempt
+        raise "authentication suspended after repeated failures (#{@auth_failures} token grant failures, #{@request_auth_failures} unauthorised requests), next attempt #{next_attempt}"
+      end
+
+      MAX_AUTH_ATTEMPTS.times do |attempt|
+        begin
+          request_token
+          @auth_failures = 0
+          @next_auth_attempt = nil
+          @auth_retry.try &.cancel
+          @auth_retry = nil
+          self[:authentication] = "authenticated"
+          set_connected_state true
+          schedule_token_refresh
+          return
+        rescue error
+          @auth_failures += 1
+          logger.warn(exception: error) { "authentication attempt failed (#{@auth_failures} consecutive failures)" }
+
+          if @auth_failures > 2
+            self[:authentication] = "failed: #{error.message}"
+            set_connected_state false
+          end
+
+          if attempt == MAX_AUTH_ATTEMPTS - 1
+            schedule_auth_retry
+            raise error
+          end
+        end
+      end
+    end
+  end
+
+  protected def request_token : Nil
+    token_headers = {"Content-Type" => "application/x-www-form-urlencoded"}
+    response = if (endpoint = @azure_token_endpoint.presence) && endpoint.starts_with?('/')
+                 # relative paths are routed via the transport (used in specs)
+                 post(endpoint, headers: token_headers, body: token_request_body)
+               else
+                 url = @azure_token_endpoint.presence || "https://login.microsoftonline.com/#{@azure_tenant_id}/oauth2/v2.0/token"
+                 HTTP::Client.post(url, headers: HTTP::Headers{"Content-Type" => "application/x-www-form-urlencoded"}, body: token_request_body)
+               end
     raise "error authenticating #{response.status}\n##{response.body}" unless response.success?
 
     token = OAuth2::AccessToken::Bearer.from_json(response.body)
+    @access_token = token.access_token
     @expires = if expires_in = token.expires_in
                  expires_in.seconds.from_now
                else
                  1.hour.from_now
                end
+    update_headers
+  end
 
-    @headers = {
+  protected def token_request_body : String
+    URI::Params.build do |form|
+      form.add "client_id", @azure_client_id
+      form.add "scope", @azure_scopes
+      form.add "client_secret", @azure_client_secret
+      form.add "grant_type", "client_credentials"
+    end
+  end
+
+  protected def update_headers : Nil
+    headers = {
       "Content-Type"              => "application/json",
       "Ocp-Apim-Subscription-Key" => @azure_apim_subscription,
-      "Authorization"             => "Bearer #{token.access_token}",
     }
+    if token = @access_token
+      headers["Authorization"] = "Bearer #{token}"
+    end
+    @headers = headers
+  end
+
+  # proactively renew the token before it expires so we stay authenticated
+  protected def schedule_token_refresh : Nil
+    @auth_refresh.try &.cancel
+    @auth_refresh = nil
+    return unless expires = @expires
+
+    refresh_in = expires - Time.utc - 5.minutes
+    refresh_in = 1.minute if refresh_in < 1.minute
+    @auth_refresh = schedule.in(refresh_in) do
+      @auth_refresh = nil
+      ensure_authenticated
+    end
+  end
+
+  # periodically retry auth once failed, backing off so we don't get banned
+  protected def schedule_auth_retry : Nil
+    delay = ({@auth_failures, @request_auth_failures}.max - 2).clamp(1, 10).minutes
+    @next_auth_attempt = delay.from_now
+    @auth_retry.try &.cancel
+    @auth_retry = schedule.in(delay) do
+      @auth_retry = nil
+      @next_auth_attempt = nil
+      authenticate
+    end
+  end
+
+  # makes an authenticated request, recovering from early token invalidation
+  protected def with_auth(& : -> HTTP::Client::Response) : HTTP::Client::Response
+    ensure_authenticated
+    response = yield
+
+    if response.status_code == 401
+      # the token may have been revoked early, re-authenticate and replay.
+      # throttled so a misconfigured APIM key can't spam the token endpoint
+      if @last_forced_reauth < 30.seconds.ago
+        @last_forced_reauth = Time.utc
+        logger.warn { "request was unauthorised (401), re-authenticating" }
+        @expires = nil
+        authenticate
+        response = yield
+      end
+
+      if response.status_code == 401
+        @request_auth_failures += 1
+        if @request_auth_failures > 2
+          self[:authentication] = "failed: requests unauthorised (401) despite token grants succeeding, check the APIM subscription key"
+          set_connected_state false
+          # stop sending requests until the next scheduled auth retry
+          @expires = nil
+          schedule_auth_retry
+        end
+      end
+    elsif @request_auth_failures > 0
+      @request_auth_failures = 0
+      self[:authentication] = "authenticated"
+    end
+
+    response
   end
 
   getter! uri_base : String
@@ -225,7 +375,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   @default_access_group : String? = nil
 
   def query_endpoints
-    response = get("", headers: @headers)
+    response = with_auth { get("", headers: @headers) }
     raise "endpoints request failed with #{response.status_code}\n#{response.body}" unless response.success?
     payload = JSON.parse response.body
 
@@ -266,10 +416,12 @@ class Gallagher::AzureAPI < PlaceOS::Driver
       return
     end
 
-    response = get(@pdfs_endpoint, {
-      "name" => @unique_pdf_name,
-      "type" => pdf_type,
-    }.compact, @headers)
+    response = with_auth do
+      get(@pdfs_endpoint, {
+        "name" => @unique_pdf_name,
+        "type" => pdf_type,
+      }.compact, @headers)
+    end
 
     if response.success?
       logger.debug { "PDFS request returned:\n#{response.body}" }
@@ -294,7 +446,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   def get_alarm_zones(name : String? = nil, exact_match : Bool = true)
     # surround the parameter with double quotes for an exact match
     name = %("#{name}") if name && exact_match
-    response = get(@alarm_zones_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    response = with_auth { get(@alarm_zones_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact) }
     raise "alarm zones request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(JSON::Any, response.body)
   end
@@ -328,26 +480,26 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   def get_pdfs(name : String? = nil, exact_match : Bool = true)
     # surround the parameter with double quotes for an exact match
     name = %("#{name}") if name && exact_match
-    response = get(@pdfs_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    response = with_auth { get(@pdfs_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact) }
     raise "PDFS request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(PDF, response.body)
   end
 
   def get_pdf(user_id : String, pdf_id : String | UInt64)
-    response = get("#{@cardholders_endpoint}#{user_id}/personal_data/#{pdf_id}/", headers: @headers)
+    response = with_auth { get("#{@cardholders_endpoint}#{user_id}/personal_data/#{pdf_id}/", headers: @headers) }
     raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
     response.body
   end
 
   def get_base64_pdf(user_id : String, pdf_id : String | UInt64)
-    response = get("#{@cardholders_endpoint}#{user_id}/personal_data/#{pdf_id}/", headers: @headers)
+    response = with_auth { get("#{@cardholders_endpoint}#{user_id}/personal_data/#{pdf_id}/", headers: @headers) }
     raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
 
     Base64.strict_encode(response.body)
   end
 
   def get_cardholder(id : String | Int32)
-    response = get("#{@cardholders_endpoint}#{id}/", headers: @headers)
+    response = with_auth { get("#{@cardholders_endpoint}#{id}/", headers: @headers) }
     raise "cardholder request failed with #{response.status_code}\n#{response.body}" unless response.success?
     Cardholder.from_json(response.body)
   end
@@ -359,20 +511,20 @@ class Gallagher::AzureAPI < PlaceOS::Driver
       "top"  => "10000",
     }
 
-    response = get(@cardholders_endpoint, query, headers: @headers)
+    response = with_auth { get(@cardholders_endpoint, query, headers: @headers) }
     raise "cardholder query request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(Cardholder, response.body)
   end
 
   def query_card_types
-    response = get(@card_types_endpoint, {"top" => "10000"}, headers: @headers)
+    response = with_auth { get(@card_types_endpoint, {"top" => "10000"}, headers: @headers) }
     raise "card types request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(CardType, response.body)
   end
 
   def get_card_type(id : String | Int32 | Nil = nil)
     card = id || @default_card_type || raise("no default card type provided")
-    response = get("#{@card_types_endpoint}#{card}/", headers: @headers)
+    response = with_auth { get("#{@card_types_endpoint}#{card}/", headers: @headers) }
     raise "card type request failed with #{response.status_code}\n#{response.body}" unless response.success?
     CardType.from_json(response.body)
   end
@@ -410,7 +562,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
       payload = "#{payload[0..-2]},#{pdfs.transform_keys { |key| "@#{key}" }.to_json[1..-1]}"
     end
 
-    response = post(@cardholders_endpoint, headers: @headers, body: payload)
+    response = with_auth { post(@cardholders_endpoint, headers: @headers, body: payload) }
     Cardholder.from_json process(response)
   end
 
@@ -458,7 +610,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
       payload = "#{payload[0..-2]},#{pdfs.transform_keys { |key| "@#{key}" }.to_json[1..-1]}"
     end
 
-    response = patch(url, headers: @headers, body: payload)
+    response = with_auth { patch(url, headers: @headers, body: payload) }
     result = process(response)
     result.presence && Cardholder.from_json(result)
   end
@@ -471,7 +623,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   end
 
   def delete_card(href : String)
-    response = delete(get_path(href), headers: @headers)
+    response = with_auth { delete(get_path(href), headers: @headers) }
     raise "failed to delete card #{href}" unless response.success?
   end
 
@@ -487,7 +639,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   end
 
   def get_access_group(id : String)
-    response = get("#{@access_groups_endpoint}#{id}/", headers: @headers)
+    response = with_auth { get("#{@access_groups_endpoint}#{id}/", headers: @headers) }
     raise "access group request failed with #{response.status_code}\n#{response.body}" unless response.success?
     AccessGroup.from_json(response.body)
   end
@@ -495,13 +647,13 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   def get_access_groups(name : String? = nil, exact_match : Bool = true)
     # surround the parameter with double quotes for an exact match
     name = %("#{name}") if name && exact_match
-    response = get(@access_groups_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    response = with_auth { get(@access_groups_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact) }
     raise "access groups request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(AccessGroup, response.body)
   end
 
   def get_access_group_members(id : String)
-    response = get("#{@access_groups_endpoint}#{id}/cardholders/", headers: @headers)
+    response = with_auth { get("#{@access_groups_endpoint}#{id}/cardholders/", headers: @headers) }
     raise "access group members request failed with #{response.status_code}\n#{response.body}" unless response.success?
     json = response.body
     begin
@@ -553,7 +705,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
 
   def remove_access_group_member(group_id : String | Int32, cardholder_id : String | Int32, from_unix : Int64? = nil, until_unix : Int64? = nil) : Bool
     if href = access_group_member?(group_id, cardholder_id, from_unix, until_unix)
-      response = delete(get_path(href), headers: @headers)
+      response = with_auth { delete(get_path(href), headers: @headers) }
       raise "remove access group member request failed with #{response.status_code}\n#{response.body}" unless response.success?
       true
     else
@@ -573,7 +725,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   end
 
   def get_division(id : String)
-    response = get("#{@divisions_endpoint}#{id}/", headers: @headers)
+    response = with_auth { get("#{@divisions_endpoint}#{id}/", headers: @headers) }
     raise "division request failed with #{response.status_code}\n#{response.body}" unless response.success?
     JSON.parse(response.body)
   end
@@ -581,7 +733,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   def get_divisions(name : String? = nil, exact_match : Bool = true)
     # surround the parameter with double quotes for an exact match
     name = %("#{name}") if name && exact_match
-    response = get(@divisions_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    response = with_auth { get(@divisions_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact) }
     raise "divisions request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(JSON::Any, response.body)
   end
@@ -589,7 +741,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   def get_zones(name : String? = nil, exact_match : Bool = true)
     # surround the parameter with double quotes for an exact match
     name = %("#{name}") if name && exact_match
-    response = get(@access_zones_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact)
+    response = with_auth { get(@access_zones_endpoint, headers: @headers, params: {"top" => "10000", "name" => name}.compact) }
     raise "zones request failed with #{response.status_code}\n#{response.body}" unless response.success?
     get_results(JSON::Any, response.body)
   end
@@ -597,41 +749,41 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   # forces a zone to be free, that is doors are unlocked
   @[Security(Level::Support)]
   def free_zone(zone_id : String | Int32) : Bool?
-    response = post("#{@access_zones_endpoint}#{zone_id}/free/", headers: @headers)
+    response = with_auth { post("#{@access_zones_endpoint}#{zone_id}/free/", headers: @headers) }
     response.success?
   end
 
   # forces a zone to be secure and require a swipe card to access
   @[Security(Level::Support)]
   def secure_zone(zone_id : String | Int32) : Bool?
-    response = post("#{@access_zones_endpoint}#{zone_id}/secure/", headers: @headers)
+    response = with_auth { post("#{@access_zones_endpoint}#{zone_id}/secure/", headers: @headers) }
     response.success?
   end
 
   # returns the zone to it's default scheduled state, removing any overrides
   @[Security(Level::Support)]
   def reset_zone(zone_id : String | Int32) : Bool?
-    response = post("#{@access_zones_endpoint}#{zone_id}/cancel/", headers: @headers)
+    response = with_auth { post("#{@access_zones_endpoint}#{zone_id}/cancel/", headers: @headers) }
     response.success?
   end
 
   # returns the zone details
   @[Security(Level::Support)]
   def get_access_zone(zone_id : String | Int32) : JSON::Any
-    response = get("#{@access_zones_endpoint}#{zone_id}/", headers: @headers)
+    response = with_auth { get("#{@access_zones_endpoint}#{zone_id}/", headers: @headers) }
     raise "zone request failed with #{response.status_code}\n#{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
   @[Security(Level::Support)]
   def get_events
-    response = get(@events_endpoint, headers: @headers)
+    response = with_auth { get(@events_endpoint, headers: @headers) }
     raise "events request failed with #{response.status_code}\n#{response.body}" unless response.success?
     JSON.parse(response.body)
   end
 
   def get_event_groups
-    response = get("#{@events_endpoint}groups/", headers: @headers)
+    response = with_auth { get("#{@events_endpoint}groups/", headers: @headers) }
     raise "event groups request failed with #{response.status_code}\n#{response.body}" unless response.success?
     JSON.parse(response.body)
   end
@@ -656,14 +808,14 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   end
 
   protected def get_raw(href : String)
-    response = get(get_path(href), headers: @headers)
+    response = with_auth { get(get_path(href), headers: @headers) }
     raise "raw request failed with #{response.status_code}\n#{response.body}" unless response.success?
     response.body
   end
 
   @[Security(Level::Support)]
   def get_href(href : String)
-    response = get(get_path(href), headers: @headers)
+    response = with_auth { get(get_path(href), headers: @headers) }
     raise "generic request failed with #{response.status_code}\n#{response.body}" unless response.success?
     JSON.parse(response.body)
   end
@@ -675,7 +827,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
 
   protected def process(response) : String
     if response.status.created?
-      response = get(get_path(response.headers["Location"]), headers: @headers)
+      response = with_auth { get(get_path(response.headers["Location"]), headers: @headers) }
     end
 
     case response.status
@@ -700,13 +852,13 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   class BadRequest < Exception; end
 
   def doors
-    response = get(@doors_endpoint, headers: @headers)
+    response = with_auth { get(@doors_endpoint, headers: @headers) }
     raise "cardholder PDF request failed with #{response.status_code}\n#{response.body}" unless response.success?
     NamedTuple(results: Array(DoorDetails)).from_json(response.body)[:results]
   end
 
   def door(id : String | Int64)
-    response = get("#{@doors_endpoint}#{id}/", headers: @headers)
+    response = with_auth { get("#{@doors_endpoint}#{id}/", headers: @headers) }
     raise "door lookup request failed with #{response.status_code}\n#{response.body}" unless response.success?
     DoorDetails.from_json(response.body)
   end
@@ -743,7 +895,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
 
   @[Security(Level::Support)]
   def unlock(door_id : String) : Bool?
-    response = post("#{@doors_endpoint}#{door_id}/open/", headers: @headers)
+    response = with_auth { post("#{@doors_endpoint}#{door_id}/open/", headers: @headers) }
     response.success?
   end
 
@@ -760,7 +912,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
       begin
         logger.debug { "checking for events #{uri.request_target}" }
 
-        response = get(uri.request_target, headers: @headers, concurrent: true)
+        response = with_auth { get(uri.request_target, headers: @headers, concurrent: true) }
         if response.success?
           logger.debug { "new event: #{response.body}" }
           events_resp = Events.from_json(response.body)
