@@ -2320,6 +2320,146 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # no fallback to the shorter or regular space — wait-listed
   staff.last_update_for(57001_i64).should be_nil
   staff.last_state(57001_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 58: a space that looks free to the driver but is booked server-side
+  # (clash / 409) is skipped — the booking lands on the next free space instead
+  # of failing. (Our busy view is zone-scoped + capped, so this can happen.)
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  two_regular = [
+    {
+      id: "asset-r1", identifier: "R1",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-r2", identifier: "R2",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(two_regular.to_json)
+  # the preferred space is booked outside the driver's view
+  staff.clash_update_for(58001_i64, "asset-r1")
+
+  staff.set_bookings([
+    build_booking.call(58001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-58001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # skipped the clashing space, allocated to the next free one
+  staff.last_update_for(58001_i64).should eq("asset-r2")
+  staff.approved.includes?(58001_i64).should eq(true)
+  gallagher.access_for("ch-clash").should contain("gallagher-group1")
+
+  # ===========================================================
+  # Test 59: when the only free space clashes server-side, the booking is
+  # wait-listed (not crashed, no access granted).
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # only asset-r1
+  staff.clash_update_for(59001_i64, "asset-r1")
+
+  staff.set_bookings([
+    build_booking.call(59001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-59001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(59001_i64).should be_nil
+  staff.last_state(59001_i64).should eq("wait_list")
+  gallagher.access_for("ch-clash").should eq([] of String)
+
+  # ===========================================================
+  # Test 60: the production scenario — an ACROD request falls back to a regular
+  # space that is booked server-side. The clash is handled gracefully (the
+  # booking is wait-listed) instead of erroring on a clashing allocation.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # only a regular space, no ACROD
+  staff.clash_update_for(60001_i64, "asset-r1")
+
+  staff.set_bookings([
+    build_booking.call(60001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-60001", false, ext_acrod),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # fell back to the regular space, hit the server clash, wait-listed cleanly
+  staff.last_update_for(60001_i64).should be_nil
+  staff.last_state(60001_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 61: a space that clashes server-side during preemption is not targeted
+  # again by later bookings — the displaced occupant isn't churned in and out
+  # repeatedly. Two higher-priority bookings contend for one space held by a
+  # lower-priority booking, but the space rejects every allocation.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # only asset-r1
+  # asset-r1 is booked server-side for the preemptors (invisible to the driver)
+  staff.clash_update_for(61001_i64, "asset-r1")
+  staff.clash_update_for(61002_i64, "asset-r1")
+
+  staff.set_bookings([
+    # low priority occupant holds the space
+    build_booking.call(61000_i64, "normal.user@example.com",
+      mon_start, mon_end, "asset-r1", true, ext_car),
+    # two higher priority bookings both want it
+    build_booking.call(61001_i64, "priority.user@example.com",
+      mon_start, mon_end, "unallocated-61001", false, ext_car),
+    build_booking.call(61002_i64, "priority.user@example.com",
+      mon_start, mon_end, "unallocated-61002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the occupant was displaced + restored exactly once (by the first preemptor);
+  # the second preemptor saw the space as occupied and didn't churn it again
+  staff.update_count_for(61000_i64).should eq(2)
+  staff.last_update_for(61000_i64).should eq("asset-r1")
+  # the occupant kept its space, never notified of a (rolled-back) displacement
+  mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(false)
+  # both preemptors are wait-listed (the space genuinely wasn't free)
+  staff.last_update_for(61001_i64).should be_nil
+  staff.last_update_for(61002_i64).should be_nil
+  staff.last_state(61001_i64).should eq("wait_list")
+  staff.last_state(61002_i64).should eq("wait_list")
 end
 
 # :nodoc:
@@ -2358,6 +2498,22 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @approve_instances = {} of Int64 => String
     @updates_by_instance = {} of String => String
     @approved_instances = [] of String
+    @clash_updates = Set(String).new
+    @update_calls = {} of Int64 => Int32
+  end
+
+  # (booking_id, asset_id) pairs the staff API should reject as a clashing
+  # booking (HTTP 409) — simulating a space booked outside the driver's view
+  @clash_updates : Set(String) = Set(String).new
+  # count of (successful) update_booking calls per booking id
+  @update_calls : Hash(Int64, Int32) = {} of Int64 => Int32
+
+  def clash_update_for(booking_id : Int64, asset_id : String)
+    @clash_updates << "#{booking_id}:#{asset_id}"
+  end
+
+  def update_count_for(booking_id : Int64) : Int32
+    @update_calls[booking_id]? || 0
   end
 
   # the `instance` param of the last update_booking / approve call per booking,
@@ -2510,10 +2666,14 @@ class StaffAPIMock < DriverSpecs::MockDriver
   )
     id = booking_id.to_s.to_i64
     raise "simulated update_booking failure for #{id}" if @fail_updates.includes?(id)
+    if asset_id && @clash_updates.includes?("#{id}:#{asset_id}")
+      raise "issue updating booking #{id}: 409 Conflicting booking"
+    end
     if asset_id
       @updates[id] = asset_id
       @update_instances[id] = instance.inspect
       @updates_by_instance["#{id}:#{instance}"] = asset_id
+      @update_calls[id] = (@update_calls[id]? || 0) + 1
     end
     true
   end

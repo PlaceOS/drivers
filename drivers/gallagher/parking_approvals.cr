@@ -846,10 +846,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return
     end
 
-    if !available.empty?
-      space = available.first
-      allocate(booking, space, current_allocations, priority)
-      return
+    # Try the free spaces in preference order. allocate marks any space the
+    # server rejects as clashing (busy) and returns false, so we just move on to
+    # the next candidate — preventing the "allocated onto an already-booked
+    # space" failures our zone-scoped busy view can't predict.
+    available.each do |space|
+      return if allocate(booking, space, current_allocations, priority)
     end
 
     # displacement trial: when disabled, occupants are never bumped — the
@@ -902,11 +904,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
         end
       end
 
-      allocate(booking, target_space, current_allocations, priority) if freed
-
-      # allocate mutates the booking only on success, so this confirms the
-      # preemption actually stuck
-      if booking.asset_ids.first? == target_space.id
+      # allocate can still fail (e.g. the freed space has another occupant our
+      # zone-scoped view never saw); only notify the displaced users once the
+      # preemption actually sticks
+      allocated = freed && allocate(booking, target_space, current_allocations, priority)
+      if allocated
         displaced.each { |(displaced_booking, _p)| finalise_displacement(displaced_booking) }
       else
         logger.warn { "could not move booking #{booking.id} onto space #{target_space.id}; restoring #{displaced.size} displaced booking(s)" }
@@ -1051,12 +1053,18 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Allocate / displace / approve
   # ===================================
 
+  # Returns true when the booking was placed on the space. The staff API is the
+  # source of truth for clashes: our busy view is built from bookings scoped to
+  # the building zone (and capped by the fetch limit), so a space can look free
+  # to us yet already be booked server-side. A rejected update is therefore not
+  # an error — the space is taken, so we mark it busy and the caller tries the
+  # next candidate.
   protected def allocate(
     booking : Booking,
     space : ParkingSpace,
     current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
     priority : Int32,
-  ) : Nil
+  ) : Bool
     logger.debug { "allocating booking #{booking.id} -> space #{space.id}" }
 
     # booking_instances persist per-instance asset overrides (nil inherits the
@@ -1065,11 +1073,21 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # use get_json where we don't care about the response data
     # it will still raise if there is an error but not waste CPU
     # on parsing the JSON payload
-    staff_api.update_booking(
-      booking_id: booking.id,
-      asset_id: space.id,
-      instance: booking.instance,
-    ).get_json
+    begin
+      staff_api.update_booking(
+        booking_id: booking.id,
+        asset_id: space.id,
+        instance: booking.instance,
+      ).get_json
+    rescue error
+      if clash_error?(error)
+        logger.warn { "space #{space.id} is already booked for booking #{booking.id} (server clash); trying another space" }
+        mark_clashed(current_allocations, space, booking)
+      else
+        logger.error(exception: error) { "failed to allocate booking #{booking.id} to space #{space.id}" }
+      end
+      return false
+    end
 
     # only reflect the allocation locally once the API accepted it — the local
     # booking state feeds the busy checks and the end-of-run Gallagher access
@@ -1079,13 +1097,45 @@ class Place::Parking::Approvals < PlaceOS::Driver
     booking.asset_ids = [space.id]
     (current_allocations[space.id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
 
-    # approval is also persisted per instance
-    staff_api.approve(booking.id, booking.instance).get
-    booking.approved = true
+    # update succeeded so the space is ours — approval/email failures don't undo
+    # the allocation (the next sweep's first pass re-approves/re-emails)
+    begin
+      # approval is also persisted per instance
+      staff_api.approve(booking.id, booking.instance).get
+      booking.approved = true
+    rescue error
+      logger.warn(exception: error) { "failed to approve booking #{booking.id}" }
+    end
 
     approved_email(booking, space)
-  rescue error
-    logger.error(exception: error) { "failed to allocate booking #{booking.id} to space #{space.id}" }
+    true
+  end
+
+  # Booking id used for a "phantom" occupant inserted when the server rejects an
+  # allocation as clashing. It records the (otherwise invisible) occupant so the
+  # busy check and preemption skip the space for the rest of the run. Negative
+  # so it never matches a real booking id.
+  CLASH_PHANTOM_ID = -1_i64
+
+  # Does this error represent the staff API rejecting an update because the
+  # space is already booked (HTTP 409 / "Conflicting booking")?
+  protected def clash_error?(error : Exception) : Bool
+    message = error.message || ""
+    message.includes?("409") || message.downcase.includes?("conflict")
+  end
+
+  # Mark a space the server reported as already booked for `booking`'s window so
+  # neither the busy check nor preemption offers it again this run. We never saw
+  # the real occupant, so use a non-displaceable (max priority) phantom carrying
+  # this booking's window — it only blocks bookings that overlap that window.
+  protected def mark_clashed(
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
+    space : ParkingSpace,
+    booking : Booking,
+  ) : Nil
+    phantom = booking.dup
+    phantom.id = CLASH_PHANTOM_ID
+    (current_allocations[space.id] ||= [] of Tuple(Booking, Int32)) << {phantom, Int32::MAX}
   end
 
   # Move a booking off its space on the staff API. Returns true when the
