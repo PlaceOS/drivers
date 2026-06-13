@@ -213,7 +213,7 @@ class Orbility::ParkingRestAPI < PlaceOS::Driver
 
   def qr_code(booking_id : String) : String
     # creates a QR code like "MPK_RES=#{booking_id}" no validation on the booking number provided to the API
-    # recommend that we generate the QR code internally as the API is slow
+    # recommend that we generate the QR code internally as the API is slow.
     response = get("/prebooking/api/PreBooking/GetBookingQRCode?bookingNumber=#{booking_id}", headers: subscriber_auth)
     raise "QR code failed with: #{response.body} -- for: #{booking_id}" unless response.success?
     String.from_json(response.body, root: "qrCodeBase64")

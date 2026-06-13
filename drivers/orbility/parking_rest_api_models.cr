@@ -449,7 +449,7 @@ module Orbility
     @[JSON::Field(key: "crossingId")]
     getter crossing_id : Int64?
 
-    getter status : CrossingStatus?
+    getter status : CrossingStatus | Int64?
 
     @[JSON::Field(key: "entryDate", converter: Orbility::TimeConverter)]
     getter entry_time : Time?
@@ -472,7 +472,7 @@ module Orbility
 
     def to_small : CrossingSmall?
       case status
-      when Nil
+      when Nil, Int64
       when .exited?
         if exitt = exit_time
           CrossingSmall.new(:exited, exitt, license_plate, paid_amount)

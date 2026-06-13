@@ -716,7 +716,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     hour = now.hour
     day = now.day_of_week
 
-    # grab the latest crossing data
+    # grab the latest crossing data:
     crossings = orbility.crossings(starting: @crossings.last_query_time.in(@timezone)).get_json(Array(Orbility::Crossing))
     crossings = crossings.compact_map(&.to_small).sort! { |a, b| a.time <=> b.time }
 
