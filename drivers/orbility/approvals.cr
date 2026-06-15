@@ -691,6 +691,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     property weekly_entries : Int32 = 0
     property weekly_exits : Int32 = 0
+    property adjustment : Int32 = 0
 
     property daily_entries : Int32 = 0
     property daily_exits : Int32 = 0
@@ -737,11 +738,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
     self[:daily_entries] = @crossings.daily_entries
     self[:daily_exits] = @crossings.daily_exits
 
+    # adjust the count if we see more 
+    count = (@crossings.weekly_entries + @crossings.adjustment) - @crossings.weekly_exits
+    if count < 0
+      @crossings.adjustment -= count
+      count = 0
+    end
+
     self[:weekly_entries] = @crossings.weekly_entries
     self[:weekly_exits] = @crossings.weekly_exits
-
-    count = @crossings.weekly_entries - @crossings.weekly_exits
-    self[:occupancy_counter] = count >= 0 ? count : 0
+    self[:occupancy_counter] = count
 
     # reset any fields based on the time
     if minute < 5
@@ -756,6 +762,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
         if day.sunday?
           @crossings.weekly_entries = 0
           @crossings.weekly_exits = 0
+          @crossings.adjustment = 0
         end
       end
     end
