@@ -721,25 +721,27 @@ class Place::VisitorMailer < PlaceOS::Driver
     host = details.host
     return unless host
 
+    # event_start may be omitted from metadata-only update signals (e.g. an
+    # update_metadata that only touched ext_data). Look it up so the host
+    # notification and change emails always render a real date.
+    event_start = details.event_start || lookup_event_start(details.event_id, details.system_id)
+
     # --- Host change notification
-    # A host can be reassigned without any change to the event timing, and such
-    # metadata-only payloads may omit event_start/event_end — so notifying the
-    # previous host must not depend on them (send_original_host_email tolerates a
-    # nil start time).
+    # A host can be reassigned without any change to the event timing; the host
+    # email still renders (date/time blank only if the lookup also came up empty).
     if (prev_host = details.previous_host_email) && prev_host.downcase != host.downcase
       send_original_host_email(
         @notify_original_host_template,
         prev_host,
         host,
         details.title,
-        details.event_start,
+        event_start,
       )
     end
 
     # --- Date / time / location change notification
     # These genuinely require the event timing to render the new schedule, so
     # bail out when it is missing.
-    event_start = details.event_start
     event_end = details.event_end
     return unless event_start && event_end
 
@@ -1074,6 +1076,16 @@ class Place::VisitorMailer < PlaceOS::Driver
     raise "issue loading system details #{system_id}" if retries > 3
     sleep 1.second
     get_room_details(system_id, retries + 1)
+  end
+
+  # Back-fills an event's start time from the staff API when a
+  # staff/event/changed signal omits it (e.g. metadata-only updates). Returns
+  # nil on failure so callers can still send without a date rather than crash.
+  protected def lookup_event_start(event_id : String, system_id : String) : Int64?
+    staff_api.get_event(event_id, system_id).get["event_start"]?.try(&.as_i64?)
+  rescue error
+    logger.warn(exception: error) { "failed to look up start time for event #{event_id}" }
+    nil
   end
 
   protected def get_host_name(host_email)

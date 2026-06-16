@@ -227,6 +227,19 @@ class StaffAPIMock < DriverSpecs::MockDriver
       }
     end
   end
+
+  # Back-fills event_start when a staff/event/changed signal omits it.
+  # event_start/event_end are epoch integers, matching the real
+  # PlaceCalendar::Event serialisation (Time::EpochConverter).
+  def get_event(event_id : String, system_id : String? = nil, calendar : String? = nil)
+    case event_id
+    when "evt-no-start"
+      # Simulates an event the API can't supply a start time for.
+      {id: event_id, title: "No Start Event"}
+    else
+      {id: event_id, title: "Looked Up Event", event_start: 1_760_000_000_i64, event_end: 1_760_003_600_i64}
+    end
+  end
 end
 
 DriverSpecs.mock_driver "Place::VisitorMailer" do
@@ -1618,4 +1631,78 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq count_before_optout_linked + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  # ==================================================================
+  # event_start back-fill
+  # ==================================================================
+  #
+  # Metadata-only staff/event/changed signals (e.g. update_metadata) omit
+  # the top-level event_start.  The host-change notification must still
+  # show a real date, so the driver looks the event up via the staff API.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+  })
+  sleep 1.0
+
+  # ------------------------------------------------------------------
+  # Test 37: event_start is looked up when omitted from the payload
+  # ------------------------------------------------------------------
+
+  count_before_lookup = system(:Mailer)[:send_count].as_i
+
+  event_changed_needs_lookup = {
+    action:         "update",
+    system_id:      "sys-room1",
+    event_id:       "evt-needs-lookup",
+    event_ical_uid: "ical-needs-lookup",
+    host:           "new-host-l@example.com",
+    resource:       "room1@example.com",
+    title:          "Needs Lookup",
+    # no event_start / event_end (metadata-only update)
+    zones:               ["zone-building"],
+    previous_host_email: "old-host-l@example.com",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_needs_lookup)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_lookup + 1
+  system(:Mailer)[:last_to].should eq "old-host-l@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  args37 = system(:Mailer)[:last_args]
+  # The payload carried no event_start, so a non-nil date proves it was
+  # back-filled from staff_api.get_event (epoch 1_760_000_000).
+  args37["event_date"].raw.should_not be_nil
+  args37["event_time"].raw.should_not be_nil
+
+  # ------------------------------------------------------------------
+  # Test 38: lookup that can't resolve a start time still notifies the
+  #          previous host (date/time simply left blank).
+  # ------------------------------------------------------------------
+
+  count_before_no_start = system(:Mailer)[:send_count].as_i
+
+  event_changed_no_start = {
+    action:              "update",
+    system_id:           "sys-room1",
+    event_id:            "evt-no-start",
+    event_ical_uid:      "ical-no-start",
+    host:                "new-host-n@example.com",
+    resource:            "room1@example.com",
+    title:               "No Start",
+    zones:               ["zone-building"],
+    previous_host_email: "old-host-n@example.com",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_no_start)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_no_start + 1
+  system(:Mailer)[:last_to].should eq "old-host-n@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+  system(:Mailer)[:last_args]["event_date"].raw.should be_nil
 end
