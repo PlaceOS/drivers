@@ -1515,4 +1515,107 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq count_before_split_booking + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "custom_booking_changed"]
+
+  # ==================================================================
+  # Issue 2 — de-duplicate event-linked booking notifications
+  # ==================================================================
+  #
+  # A calendar event with a room auto-creates a linked booking
+  # (extension_data.parent_id points to the event).  Editing the event
+  # fires staff/event/changed (handled by event_changed_event) AND the
+  # linked booking fires staff/booking/changed — so without de-duplication
+  # the visitor receives TWO change notifications.  booking_changed_event
+  # must skip event-linked bookings (same skip_event_linked_booking_email
+  # rule guest_event uses), letting the event_changed flow be the single
+  # source of truth.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    # skip_event_linked_booking_email defaults to true
+  })
+  sleep 1.0
+
+  # ------------------------------------------------------------------
+  # Test 34: booking_changed for an event-linked booking is suppressed
+  # ------------------------------------------------------------------
+
+  count_before_linked_change = system(:Mailer)[:send_count].as_i
+
+  linked_booking_changed = {
+    action:                 "changed",
+    id:                     601_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host@example.com",
+    title:                  "Linked Visit Changed",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+    extension_data:         {parent_id: "event-evt-200"},
+  }.to_json
+
+  publish("staff/booking/changed", linked_booking_changed)
+  sleep 1.0
+
+  # Event-linked: the event_changed flow already notifies these visitors, so
+  # no booking_changed email should be sent.
+  system(:Mailer)[:send_count].should eq count_before_linked_change
+
+  # ------------------------------------------------------------------
+  # Test 35: standalone booking_changed (no parent_id) still notifies
+  # ------------------------------------------------------------------
+
+  count_before_standalone_change = system(:Mailer)[:send_count].as_i
+
+  standalone_booking_changed = {
+    action:                 "changed",
+    id:                     600_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host@example.com",
+    title:                  "Standalone Visit Changed",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+    # no extension_data / parent_id
+  }.to_json
+
+  publish("staff/booking/changed", standalone_booking_changed)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_standalone_change + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  # ------------------------------------------------------------------
+  # Test 36: opt-out (skip_event_linked_booking_email: false) restores
+  #          the booking_changed email even for event-linked bookings.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:                        "GMT",
+    booking_space_name:              "Client Floor",
+    invite_zone_tag:                 "building",
+    skip_event_linked_booking_email: false,
+  })
+  sleep 1.0
+
+  count_before_optout_linked = system(:Mailer)[:send_count].as_i
+
+  publish("staff/booking/changed", linked_booking_changed)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_optout_linked + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
 end

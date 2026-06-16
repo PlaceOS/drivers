@@ -611,6 +611,18 @@ class Place::VisitorMailer < PlaceOS::Driver
     # "checked_in") are ignored by default and don't trigger spurious emails.
     return unless details.action.in?("changed", "metadata_changed")
 
+    # Bookings auto-created from a calendar event (extension_data.parent_id set)
+    # are already covered by the event_changed flow (staff/event/changed), which
+    # resolves the room from the system. Skip them here so a single edit doesn't
+    # produce two notifications. Opt out with skip_event_linked_booking_email.
+    if @skip_event_linked_booking_email
+      parent_id = details.extension_data.try(&.["parent_id"]?).try(&.as_s?)
+      if parent_id && !parent_id.empty?
+        logger.debug { "skipping booking_changed email for booking #{details.id} as it is linked to event #{parent_id}" }
+        return
+      end
+    end
+
     # ensure the event is for this building
     if zones = details.zones
       check = [building_zone.id] + @parent_zone_ids
