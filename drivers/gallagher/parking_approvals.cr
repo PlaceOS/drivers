@@ -777,7 +777,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # ===================================
 
   protected def handle_allocated_booking(booking : Booking, space : ParkingSpace) : Nil
-    return if booking.process_state == "access_granted"
+    # fully done: access granted AND the approval email has been sent
+    return if booking.process_state == "access_granted_emailed"
+    # access was granted on an earlier pass but the approval email hasn't been
+    # confirmed sent (a previous send failed) — just (re)send it, no re-approval
+    return approved_email(booking, space) if booking.process_state == "access_granted"
 
     # withhold approval until the user can actually be granted Gallagher access
     return unless ensure_user_has_card(booking)
@@ -795,6 +799,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
       end
     end
 
+    # persist that access is granted BEFORE attempting the email so a failed
+    # send is retried (email-only) next pass rather than re-running the grant
+    update_state(booking, "access_granted")
     approved_email(booking, space)
   rescue error
     logger.error(exception: error) { "failed to process allocated booking #{booking.id}" }
@@ -1107,6 +1114,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
       logger.warn(exception: error) { "failed to approve booking #{booking.id}" }
     end
 
+    # mark access granted before emailing: if the email send fails the booking
+    # stays "access_granted" and the next pass retries the email only
+    update_state(booking, "access_granted")
     approved_email(booking, space)
     true
   end
@@ -1516,8 +1526,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @parking_areas.values.find { |group_id| granted.includes?(group_id) }
   end
 
+  # The approval email is the one we must guarantee is delivered, so its "sent"
+  # marker (access_granted_emailed) is distinct from the "access granted" state.
+  # The send is blocking (.get_json) so a failure raises and we DON'T advance
+  # the state — the next pass retries via handle_allocated_booking.
   protected def approved_email(booking : Booking, space : ParkingSpace) : Nil
-    return if booking.process_state == "access_granted"
+    return if booking.process_state == "access_granted_emailed"
 
     # per-parking-area trigger so each area can have its own approval email
     group_id = approval_group_id(space)
@@ -1527,39 +1541,43 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", template},
       common_template_args(booking, space),
-    )
+    ).get_json
 
-    update_state(booking, "access_granted")
+    update_state(booking, "access_granted_emailed")
   rescue error
     logger.warn(exception: error) { "failed to send approved email for booking #{booking.id}" }
   end
 
-  WAITING_SENT = {"waiting_approval", "access_granted"}
+  # an allocated booking (access_granted/_emailed) is past the waiting stage
+  WAITING_SENT = {"waiting_approval", "access_granted", "access_granted_emailed"}
 
   protected def waiting_approval_email(booking : Booking) : Nil
     return if WAITING_SENT.includes?(booking.process_state)
 
+    # blocking send: only advance the state once the email actually went out
     mailer.send_template(
       booking.user_email,
       {"parking_request", "approval_required"},
       common_template_args(booking),
-    )
+    ).get_json
 
     update_state(booking, "waiting_approval")
   rescue error
     logger.warn(exception: error) { "failed to send waiting approval email for booking #{booking.id}" }
   end
 
-  WAIT_LIST_SENT = {"wait_list", "access_granted"}
+  # an allocated booking (access_granted/_emailed) is past the wait-list stage
+  WAIT_LIST_SENT = {"wait_list", "access_granted", "access_granted_emailed"}
 
   protected def wait_list_email(booking : Booking) : Nil
     return if WAIT_LIST_SENT.includes?(booking.process_state)
 
+    # blocking send: only advance the state once the email actually went out
     mailer.send_template(
       booking.user_email,
       {"parking_request", "wait_list"},
       common_template_args(booking),
-    )
+    ).get_json
 
     update_state(booking, "wait_list")
   rescue error
@@ -1571,7 +1589,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", "displaced"},
       common_template_args(booking),
-    )
+    ).get_json
   rescue error
     logger.warn(exception: error) { "failed to send displaced email for booking #{booking.id}" }
   end

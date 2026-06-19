@@ -146,7 +146,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # approval email uses the per-area trigger (Open Basement -> gallagher-group1)
   mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
   mailer.last_to.should eq("normal.user@example.com")
-  staff.last_state(1001_i64).should eq("access_granted")
+  staff.last_state(1001_i64).should eq("access_granted_emailed")
 
   # ===========================================================
   # Test 2: bike booking is allocated to bike space (not car)
@@ -207,7 +207,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # smaller-height car_b preferred within the shared carpriority zone
   staff.last_update_for(4001_i64).should eq("asset-car_b")
   gallagher.access_for("ch-afterhours").should contain("gallagher-group1")
-  staff.last_state(4001_i64).should eq("access_granted")
+  staff.last_state(4001_i64).should eq("access_granted_emailed")
 
   # ===========================================================
   # Test 5: priority preemption — higher priority displaces lower priority.
@@ -457,7 +457,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
   mailer.send_count.should eq(1)
   mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
-  staff.last_state(11001_i64, now + 3600 * 90).should eq("access_granted")
+  staff.last_state(11001_i64, now + 3600 * 90).should eq("access_granted_emailed")
 
   # subsequent sweeps must NOT re-send — the per-instance process_state is
   # reflected on re-fetch and guards the email
@@ -899,7 +899,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   # MID is untouched — keeps the preferred space, never displaced
   staff.last_update_for(80001_i64).should be_nil
-  staff.last_state(80001_i64).should eq("access_granted")
+  staff.last_state(80001_i64).should eq("access_granted_emailed")
   mailer.sent?("mid.user@example.com", "parking_request", "displaced").should eq(false)
 
   # ===========================================================
@@ -2128,7 +2128,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.update_for(52001_i64, mon_start).should be_nil
   # Tuesday's process_state reset; Monday keeps its access_granted state
   staff.last_state(52001_i64, tue_start).should eq("wait_list")
-  staff.last_state(52001_i64, mon_start).should eq("access_granted")
+  staff.last_state(52001_i64, mon_start).should eq("access_granted_emailed")
   mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(true)
   # the higher-priority booking took the space for Tuesday
   staff.last_update_for(52002_i64).should eq("asset-solo")
@@ -2279,7 +2279,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
 
   staff.last_update_for(56001_i64).should eq("asset-solo")
-  staff.last_state(56001_i64).should eq("access_granted")
+  staff.last_state(56001_i64).should eq("access_granted_emailed")
 
   # ===========================================================
   # Test 57: height requirements NEVER fall back — when the only fitting space
@@ -2460,6 +2460,89 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(61002_i64).should be_nil
   staff.last_state(61001_i64).should eq("wait_list")
   staff.last_state(61002_i64).should eq("wait_list")
+
+  # ===========================================================
+  # Test 62: a user with several unprocessed bookings on different days gets an
+  # approval email for EACH booking — they are independent bookings, deduped
+  # only per-booking, so there is no cross-booking suppression.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # one space, reused across days
+
+  staff.set_bookings([
+    build_booking.call(62001_i64, "multi.day@example.com",
+      mon_start, mon_end, "unallocated-62001", false, ext_car),
+    build_booking.call(62002_i64, "multi.day@example.com",
+      tue_start, tue_end, "unallocated-62002", false, ext_car),
+  ].to_json)
+  gallagher.set_cardholder("multi.day@example.com", "ch-multiday")
+  calendar.set_groups("multi.day@example.com", default_grp.to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # both days allocated to the space (non-overlapping windows) and approved
+  staff.last_update_for(62001_i64).should eq("asset-r1")
+  staff.last_update_for(62002_i64).should eq("asset-r1")
+  staff.last_state(62001_i64).should eq("access_granted_emailed")
+  staff.last_state(62002_i64).should eq("access_granted_emailed")
+  # one approval email PER booking (asset-r1 -> Open Basement -> group1)
+  mailer.times_sent("multi.day@example.com", "parking_request", "approved_gallagher-group1").should eq(2)
+
+  # ===========================================================
+  # Test 63: a failed approval-email send does NOT advance the booking past
+  # "access_granted" — the next pass retries the email (without re-granting) and
+  # the user is emailed exactly once across the two attempts.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  gallagher.set_cardholder("retry.user@example.com", "ch-retry")
+  calendar.set_groups("retry.user@example.com", default_grp.to_json)
+
+  # a booking already allocated + approved, access granted but email not yet sent
+  granted_pending = {
+    id:              63001_i64,
+    booking_type:    "parking",
+    booking_start:   mon_start,
+    booking_end:     mon_end,
+    asset_id:        "asset-r1",
+    asset_ids:       ["asset-r1"],
+    user_id:         "user-63001",
+    user_email:      "retry.user@example.com",
+    user_name:       "retry.user@example.com",
+    booked_by_email: "retry.user@example.com",
+    booked_by_name:  "retry.user@example.com",
+    zones:           ["zone-building"],
+    created:         now - 1000_i64 + 63001_i64,
+    approved:        true,
+    rejected:        false,
+    deleted:         false,
+    process_state:   "access_granted",
+    extension_data:  ext_car,
+  }
+  staff.set_bookings([granted_pending].to_json)
+
+  # sweep 1: the mailer is down -> the email send fails
+  mailer.set_fail_send(true)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # not emailed, and the state was NOT advanced (no booking_state write)
+  mailer.times_sent("retry.user@example.com", "parking_request", "approved_gallagher-group1").should eq(0)
+  staff.last_state(63001_i64).should be_nil
+
+  # sweep 2: the mailer recovers -> the email is retried and succeeds
+  mailer.set_fail_send(false)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_state(63001_i64).should eq("access_granted_emailed")
+  mailer.times_sent("retry.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
 end
 
 # :nodoc:
@@ -2868,12 +2951,19 @@ class MailerMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Mailer
 
   @sent : Array(NamedTuple(to: String, template: Tuple(String, String))) = [] of NamedTuple(to: String, template: Tuple(String, String))
+  # when true, every send_template raises (simulating a mailer/SMTP failure)
+  @fail_send : Bool = false
+
+  def set_fail_send(value : Bool)
+    @fail_send = value
+  end
 
   def reset
     @sent = [] of NamedTuple(to: String, template: Tuple(String, String))
     self[:send_count] = 0
     self[:last_template] = nil
     self[:last_to] = nil
+    @fail_send = false
   end
 
   def last_template
@@ -2893,6 +2983,11 @@ class MailerMock < DriverSpecs::MockDriver
     @sent.any? { |s| s[:to] == to && s[:template] == {ns, name} }
   end
 
+  # how many times a (to, template) pair was sent since the last reset
+  def times_sent(to : String, ns : String, name : String) : Int32
+    @sent.count { |s| s[:to] == to && s[:template] == {ns, name} }
+  end
+
   def send_template(
     to : String | Array(String),
     template : Tuple(String, String),
@@ -2904,6 +2999,7 @@ class MailerMock < DriverSpecs::MockDriver
     from : (String | Array(String))? = nil,
     reply_to : (String | Array(String))? = nil,
   )
+    raise "simulated mailer failure" if @fail_send
     recipient = to.is_a?(String) ? to : (to.first? || "")
     @sent << {to: recipient, template: template}
     self[:last_template] = template
