@@ -2543,6 +2543,66 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   staff.last_state(63001_i64).should eq("access_granted_emailed")
   mailer.times_sent("retry.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+
+  # ===========================================================
+  # Test 64: when the staff API bookings query fails, the run ABORTS and leaves
+  # existing Gallagher access untouched — it must NOT treat the failure as "no
+  # bookings" and revoke everyone's access.
+  # ===========================================================
+
+  ab_until = now + 3600_i64 * 500
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    # a grant the driver previously made + tracked
+    access_granted: {
+      "gallagher-group1" => {
+        "abort.user@example.com|#{ab_until}" => {
+          email:         "abort.user@example.com",
+          cardholder_id: "ch-abort",
+          until_unix:    ab_until,
+        },
+      },
+    },
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  gallagher.set_cardholder("abort.user@example.com", "ch-abort")
+  # the live Gallagher membership matching the seeded grant
+  gallagher.zone_access_add_member("gallagher-group1", "ch-abort", ab_until - 1800_i64, ab_until)
+
+  # the staff API bookings query errors this sweep
+  staff.set_fail_query(true)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the run aborted cleanly: the existing grant was NOT revoked...
+  gallagher.access_for("ch-abort").should contain("gallagher-group1")
+  # ...and no allocation work happened
+  staff.approved.empty?.should eq(true)
+
+  # next sweep (staff API recovered) reconciles normally — with no bookings the
+  # now-expired tracked grant is cleaned up as usual
+  staff.set_fail_query(false)
+  staff.set_bookings("[]")
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  gallagher.access_for("ch-abort").should_not contain("gallagher-group1")
 end
 
 # :nodoc:
@@ -2583,6 +2643,14 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @approved_instances = [] of String
     @clash_updates = Set(String).new
     @update_calls = {} of Int64 => Int32
+    @fail_query = false
+  end
+
+  # when true, query_bookings raises (simulating the staff API erroring)
+  @fail_query : Bool = false
+
+  def set_fail_query(value : Bool)
+    @fail_query = value
   end
 
   # (booking_id, asset_id) pairs the staff API should reject as a clashing
@@ -2708,6 +2776,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     asset_id : String? = nil,
     limit : Int32? = nil,
   )
+    raise "simulated query_bookings failure" if @fail_query
     @last_query_period_end = period_end
 
     # overlay any persisted per-instance process_state, mirroring how the

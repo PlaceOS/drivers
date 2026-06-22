@@ -376,13 +376,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
   end
 
   # All parking spaces in the building (assigned + bookable)
+  # Raises on failure: callers must treat a failed fetch as "unknown", NOT as
+  # "no spaces" — an empty list would let the run revoke all access (see
+  # run_allocation).
   def parking_spaces : Array(ParkingSpace)
     Array(ParkingSpace).from_json(
       staff_api.assets(type_id: parking_spaces_asset_type, zones: {building_id}).get_json
     )
   rescue error
     logger.error(exception: error) { "failed to query parking spaces" }
-    [] of ParkingSpace
+    raise error
   end
 
   # ===================================
@@ -449,7 +452,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # only allocate bookings up to the end of the upcoming Friday (local time)
     ending = next_friday_cutoff.to_unix
 
-    spaces = parking_spaces
+    # Fetch the world up front. If EITHER the spaces or the bookings query fails
+    # we abort the whole run: proceeding with an empty/partial view would make
+    # build_desired_access compute no desired grants and apply_access_changes
+    # would then REVOKE everyone's parking access on a transient staff API
+    # blip. Leaving @access_granted untouched lets the next sweep retry safely.
+    begin
+      spaces = parking_spaces
+      bookings = fetch_bookings(starting, ending)
+    rescue error
+      logger.error(exception: error) { "aborting allocation run: staff API query failed — leaving existing access untouched" }
+      return
+    end
+
     spaces_by_id = spaces.each_with_object({} of String => ParkingSpace) { |s, h| h[s.id] = s }
 
     # Spaces that resolve to no Gallagher group can't grant access. Report them
@@ -461,8 +476,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
     assigned_spaces = spaces.select { |s| s.assigned_to.presence }
 
     logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned, #{unmapped_space_ids.size} without a gallagher group" }
-
-    bookings = fetch_bookings(starting, ending)
     logger.debug { "allocation run: processing #{bookings.size} active bookings" }
 
     # Calculate priority for each booking and group lookup is cached per-user
@@ -714,6 +727,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Fetch bookings
   # ===================================
 
+  # Raises on failure: callers must treat a failed fetch as "unknown", NOT as
+  # "no bookings" — an empty list would let the run revoke all access (see
+  # run_allocation).
   protected def fetch_bookings(starting : Int64, ending : Int64) : Array(Booking)
     Array(Booking).from_json(staff_api.query_bookings(
       type: BOOKING_TYPE,
@@ -724,7 +740,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     ).get_json)
   rescue error
     logger.error(exception: error) { "failed to query parking bookings" }
-    [] of Booking
+    raise error
   end
 
   # ===================================
