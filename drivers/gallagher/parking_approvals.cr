@@ -432,7 +432,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       ensure
         @syncing = false
         # service any request that coalesced while we were running, even on error
-        spawn { process_parking_bookings } if @sync_requests > 0
+        schedule.in(10.seconds) { process_parking_bookings } if @sync_requests > 0
       end
     end
 
@@ -736,7 +736,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       zones: [building_id],
       period_start: starting,
       period_end: ending,
-      limit: 10_000,
+      limit: 100,
     ).get_json)
   rescue error
     logger.error(exception: error) { "failed to query parking bookings" }
