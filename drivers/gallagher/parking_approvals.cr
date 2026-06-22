@@ -267,6 +267,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
 
+    previous_id_field = @gallagher_id_field
+    previous_lookup_fields = @directory_lookup_fields
+
     @gallagher_id_field = setting?(String, :gallagher_id_field).presence
     lookup_fields = setting?(Array(String), :directory_lookup_fields) || [] of String
     # default the requested directory fields to the id field itself
@@ -275,11 +278,17 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
     @directory_lookup_fields = lookup_fields
 
-    # invalidate caches dependent on settings (the cardholder cache may have been
-    # populated via a different lookup mechanism before the settings changed)
+    # invalidate caches dependent on settings
     @building_zone = nil
     @parking_spaces_asset_type = nil
-    @cardholder_cache = {} of String => String | Int64
+    # Only flush the cardholder cache when the lookup MECHANISM changed (a
+    # different id field resolves users to different cardholders). on_update also
+    # fires on the define_setting writes we make every sweep, so flushing here
+    # unconditionally would defeat the cache and hammer the directory/Gallagher
+    # on every run. Otherwise it's flushed once a day (see the cron below).
+    if previous_id_field != @gallagher_id_field || previous_lookup_fields != @directory_lookup_fields
+      clear_cardholder_cache
+    end
 
     # restore tracked gallagher access from persisted setting so we know what
     # we previously granted across driver restarts
@@ -295,6 +304,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     schedule.clear
     schedule.every(@poll_rate) { process_parking_bookings }
+    # flush the cardholder lookup cache once a day (midnight, building timezone)
+    # so newly-issued cards are picked up without keeping stale lookups forever
+    schedule.cron("0 0 * * *", @timezone) { clear_cardholder_cache }
   end
 
   # ===================================
@@ -1283,8 +1295,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
     unmapped.map(&.id).to_set
   end
 
-  # user_email (downcased) => cardholder_id; only successful lookups are cached
+  # user_email (downcased) => cardholder_id; only successful lookups are cached.
+  # Persists across sync runs (directory + Gallagher lookups are expensive) and
+  # is flushed once a day (see on_update) so a freshly-issued card is picked up.
   @cardholder_cache : Hash(String, String | Int64) = {} of String => String | Int64
+
+  protected def clear_cardholder_cache : Nil
+    logger.debug { "clearing cardholder lookup cache (#{@cardholder_cache.size} entries)" }
+    @cardholder_cache = {} of String => String | Int64
+  end
 
   protected def lookup_cardholder(user_email : String) : String | Int64 | Nil
     user_email = user_email.downcase

@@ -2603,6 +2603,89 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
   gallagher.access_for("ch-abort").should_not contain("gallagher-group1")
+
+  # ===========================================================
+  # Test 65: the (expensive) Gallagher cardholder lookup is cached across
+  # sweeps — it runs once per user, not on every sweep.
+  # ===========================================================
+
+  staff.set_fail_query(false)
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  gallagher.set_cardholder("cached.user@example.com", "ch-cached")
+  calendar.set_groups("cached.user@example.com", default_grp.to_json)
+
+  cached_booking = [
+    build_booking.call(65001_i64, "cached.user@example.com",
+      mon_start, mon_end, "unallocated-65001", false, ext_car),
+  ].to_json
+
+  # two sweeps for the same user — no settings() change between them (which
+  # would otherwise flush the cache)
+  staff.set_bookings(cached_booking)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.set_bookings(cached_booking)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the cardholder lookup ran exactly once despite two sweeps (and multiple
+  # internal resolutions per sweep)
+  gallagher.lookup_count("cached.user@example.com").should eq(1)
+
+  # ===========================================================
+  # Test 66: changing the lookup MECHANISM (gallagher_id_field) flushes the
+  # cache, so the user is re-resolved through the new field rather than served
+  # a stale cardholder id.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  # with no id field, the user resolves by email to ch-old
+  gallagher.set_cardholder("flip.user@example.com", "ch-old")
+  calendar.set_groups("flip.user@example.com", default_grp.to_json)
+
+  flip_booking = [
+    build_booking.call(66001_i64, "flip.user@example.com",
+      mon_start, mon_end, "unallocated-66001", false, ext_car),
+  ].to_json
+  staff.set_bookings(flip_booking)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  gallagher.access_for("ch-old").should contain("gallagher-group1")
+
+  # switch to directory-resolved lookups: the SAME email now resolves (via
+  # employeeId) to a different cardholder. The cache must flush so the new
+  # cardholder is used.
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    gallagher_id_field: "employeeId",
+  })
+  sleep 100.milliseconds
+
+  calendar.set_user_employee_id("flip.user@example.com", "EMP-NEW")
+  gallagher.set_cardholder("EMP-NEW", "ch-new")
+  staff.set_bookings(flip_booking)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # re-resolved through the new field to the new cardholder (cache was flushed)
+  gallagher.access_for("ch-new").should contain("gallagher-group1")
 end
 
 # :nodoc:
@@ -2939,6 +3022,14 @@ class GallagherMock < DriverSpecs::MockDriver
     @memberships = Hash(String, Array(Membership)).new
   end
 
+  # count of card_holder_id_lookup calls per (downcased) email, so tests can
+  # assert the driver's lookup cache avoids repeat queries
+  @lookup_calls : Hash(String, Int32) = {} of String => Int32
+
+  def lookup_count(email : String) : Int32
+    @lookup_calls[email.downcase]? || 0
+  end
+
   # zone ids the cardholder currently has any access to (de-duplicated)
   def access_for(cardholder_id : String) : Array(String)
     (@memberships[cardholder_id]? || [] of Membership).map(&.zone).uniq!
@@ -2961,6 +3052,7 @@ class GallagherMock < DriverSpecs::MockDriver
   end
 
   def card_holder_id_lookup(email : String)
+    @lookup_calls[email.downcase] = (@lookup_calls[email.downcase]? || 0) + 1
     @cardholders[email.downcase]?
   end
 
