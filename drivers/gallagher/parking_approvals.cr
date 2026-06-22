@@ -1129,10 +1129,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # it will still raise if there is an error but not waste CPU
     # on parsing the JSON payload
     begin
+      booking.extension_data["location"] = JSON::Any.new(space.identifier || space.id)
       staff_api.update_booking(
         booking_id: booking.id,
         asset_id: space.id,
         instance: booking.instance,
+        extension_data: booking.extension_data
       ).get_json
     rescue error
       if clash_error?(error)
@@ -1255,10 +1257,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
     current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
   ) : Nil
     # per-instance, matching displace_booking
+    booking.extension_data["location"] = JSON::Any.new(space.identifier || space.id)
     staff_api.update_booking(
       booking_id: booking.id,
       asset_id: space.id,
       instance: booking.instance,
+      extension_data: booking.extension_data
     ).get_json
 
     booking.asset_id = space.id
