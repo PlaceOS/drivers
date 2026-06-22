@@ -1081,7 +1081,7 @@ class Place::StaffAPI < PlaceOS::Driver
     logger.debug { "requesting staff/v1/bookings: #{params}" }
 
     # Get the existing bookings from the API to check if there is space
-    bookings = [] of JSON::Any
+    bookings = [] of String
     next_request = "/api/staff/v1/bookings?#{params}"
 
     loop do
@@ -1091,17 +1091,15 @@ class Place::StaffAPI < PlaceOS::Driver
 
       # Just parse it here instead of using the Bookings object
       # it will be parsed into an object on the far end
-      new_bookings = JSON.parse(response.body).as_a
-      bookings.concat new_bookings
+      new_bookings = response.body[1..-2]
+      bookings << new_bookings
 
       last_req = next_request
       next_request = links["next"]?
-      break if next_request.nil? || new_bookings.empty? || last_req == next_request
+      break if next_request.nil? || new_bookings.blank? || last_req == next_request
     end
 
-    logger.debug { "bookings count: #{bookings.size}" }
-
-    bookings
+    ExecResponse.new("[#{bookings.join(',')}]")
   end
 
   def get_booking(booking_id : String | Int64, instance : Int64? = nil)
