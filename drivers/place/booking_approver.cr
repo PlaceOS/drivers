@@ -43,7 +43,7 @@ class Place::BookingApprover < PlaceOS::Driver
   end
 
   private def approve_booking(booking : Booking)
-    return if booking.action.in?({"approved", "process_state", "cancelled", "rejected"})
+    return if booking.action.in?({"approved", "process_state", "cancelled", "rejected", "metadata_changed"})
 
     if !@approve_zones.empty?
       if (booking.zones & @approve_zones).empty?
