@@ -43,7 +43,7 @@ class Place::BookingApprover < PlaceOS::Driver
   end
 
   private def approve_booking(booking : Booking)
-    return if booking.action.in?({"approved", "process_state", "cancelled", "rejected", "metadata_changed"})
+    return if booking.action != "create"
 
     if !@approve_zones.empty?
       if (booking.zones & @approve_zones).empty?
@@ -57,10 +57,6 @@ class Place::BookingApprover < PlaceOS::Driver
         logger.debug { "Ignoring booking as booking_type #{booking.booking_type} doesn't match #{booking.id}" }
         return false
       end
-    end
-
-    if booking.action != "create"
-      booking = Booking.from_json(staff_api.get_booking(booking.id).get_json)
     end
 
     if !booking.approved
