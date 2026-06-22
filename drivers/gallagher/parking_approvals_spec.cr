@@ -2686,6 +2686,79 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   # re-resolved through the new field to the new cardholder (cache was flushed)
   gallagher.access_for("ch-new").should contain("gallagher-group1")
+
+  # ===========================================================
+  # Test 67: the user priority (AD group) lookup is cached across sweeps — the
+  # expensive directory group lookup runs once per user, not every sweep.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  gallagher.set_cardholder("prio.user@example.com", "ch-prio")
+  calendar.set_groups("prio.user@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
+
+  prio_booking = [
+    build_booking.call(67001_i64, "prio.user@example.com",
+      mon_start, mon_end, "unallocated-67001", false, ext_car),
+  ].to_json
+
+  # two sweeps for the same user — no settings() change between them
+  staff.set_bookings(prio_booking)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.set_bookings(prio_booking)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the directory group lookup ran exactly once despite two sweeps
+  calendar.group_lookup_count("prio.user@example.com").should eq(1)
+
+  # ===========================================================
+  # Test 68: changing auto_approval_groups flushes the priority cache, so users
+  # are re-evaluated against the new groups rather than served a stale priority.
+  # ===========================================================
+
+  settings({
+    poll_rate: 999_999,
+    # a different priority-group list invalidates cached priorities
+    auto_approval_groups: ["group-vip", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.set_bookings(prio_booking)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the cache was flushed on the settings change, so the user was looked up again
+  calendar.group_lookup_count("prio.user@example.com").should eq(2)
 end
 
 # :nodoc:
@@ -2937,6 +3010,13 @@ class CalendarMock < DriverSpecs::MockDriver
   # email => full user JSON (with an unmapped object for directory id fields)
   @users : Hash(String, String) = {} of String => String
   @last_additional_fields : Array(String)? = nil
+  # count of get_groups calls per (downcased) user, so tests can assert the
+  # driver's priority cache avoids repeat lookups
+  @group_lookup_calls : Hash(String, Int32) = {} of String => Int32
+
+  def group_lookup_count(user : String) : Int32
+    @group_lookup_calls[user.downcase]? || 0
+  end
 
   def set_groups(user_email : String, groups_json : String)
     @groups[user_email.downcase] = groups_json
@@ -2947,6 +3027,7 @@ class CalendarMock < DriverSpecs::MockDriver
   end
 
   def get_groups(user_id : String)
+    @group_lookup_calls[user_id.downcase] = (@group_lookup_calls[user_id.downcase]? || 0) + 1
     raw = @groups[user_id.downcase]?
     raw ? JSON.parse(raw) : JSON.parse("[]")
   end

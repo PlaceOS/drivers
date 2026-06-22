@@ -229,6 +229,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     timezone = config.control_system.try(&.timezone).presence || setting?(String, :time_zone).presence || "Australia/Sydney"
     @timezone = Time::Location.load(timezone)
 
+    previous_auto_approval_groups = @auto_approval_groups
     @auto_approval_groups = (setting?(Array(String), :auto_approval_groups) || [] of String).map do |id|
       id.includes?('@') ? id.downcase : id
     end
@@ -289,6 +290,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     if previous_id_field != @gallagher_id_field || previous_lookup_fields != @directory_lookup_fields
       clear_cardholder_cache
     end
+    # the priority cache holds each user's base group_priority, which depends on
+    # auto_approval_groups — flush it when that list changes (otherwise daily)
+    if previous_auto_approval_groups != @auto_approval_groups
+      clear_priority_cache
+    end
 
     # restore tracked gallagher access from persisted setting so we know what
     # we previously granted across driver restarts
@@ -304,9 +310,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     schedule.clear
     schedule.every(@poll_rate) { process_parking_bookings }
-    # flush the cardholder lookup cache once a day (midnight, building timezone)
-    # so newly-issued cards are picked up without keeping stale lookups forever
-    schedule.cron("0 0 * * *", @timezone) { clear_cardholder_cache }
+    # flush the cardholder + priority lookup caches once a day (midnight, building
+    # timezone) so newly-issued cards and AD group changes are picked up without
+    # keeping stale lookups forever
+    schedule.cron("0 0 * * *", @timezone) do
+      clear_cardholder_cache
+      clear_priority_cache
+    end
   end
 
   # ===================================
@@ -490,10 +500,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned, #{unmapped_space_ids.size} without a gallagher group" }
     logger.debug { "allocation run: processing #{bookings.size} active bookings" }
 
-    # Calculate priority for each booking and group lookup is cached per-user
-    user_priority_cache = {} of String => Int32
+    # Calculate priority for each booking; the base group priority is cached
+    # per-user across runs (@user_priority_cache, flushed daily / on config change)
     booking_meta = bookings.map do |booking|
-      priority = priority_for(booking, user_priority_cache)
+      priority = priority_for(booking, @user_priority_cache)
       {booking, priority}
     end
 
@@ -758,6 +768,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # ===================================
   # Priority calculation
   # ===================================
+
+  # user_email (downcased) => base group priority. Persists across sync runs
+  # (group_priority does a per-user directory lookup) and is flushed once a day
+  # (see on_update) so AD group changes are picked up.
+  @user_priority_cache : Hash(String, Int32) = {} of String => Int32
+
+  protected def clear_priority_cache : Nil
+    logger.debug { "clearing user priority cache (#{@user_priority_cache.size} entries)" }
+    @user_priority_cache = {} of String => Int32
+  end
 
   # higher number = higher priority. 0 is "default staff".
   protected def priority_for(booking : Booking, cache : Hash(String, Int32)) : Int32
