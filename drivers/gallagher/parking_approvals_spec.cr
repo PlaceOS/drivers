@@ -1522,8 +1522,10 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  # moved off the now-unmapped asset-temp (notified) and re-allocated to spare
-  mailer.sent?("trans.user@example.com", "parking_request", "displaced").should eq(true)
+  # moved off the now-unmapped asset-temp and re-allocated to spare — because it
+  # landed a new space the same run, the displaced email is suppressed (the
+  # approval email for the new space covers it)
+  mailer.sent?("trans.user@example.com", "parking_request", "displaced").should eq(false)
   staff.last_update_for(36001_i64).should eq("asset-spare")
   staff.approved.includes?(36001_i64).should eq(true)
   # access followed the move: group1 (old spot) removed, group3 (new spot) added
@@ -1842,9 +1844,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  # the overlapping lower-priority occupant was moved off FIRST
+  # the overlapping lower-priority occupant was moved off FIRST (and, with no
+  # space to land, gets the displaced email — with the preemption reason)
   staff.last_update_for(44001_i64).should eq("unallocated-displaced-44001")
   mailer.sent?("normal.user@example.com", "parking_request", "displaced").should eq(true)
+  mailer.arg_for("normal.user@example.com", "parking_request", "displaced", "reason")
+    .should eq("The parking space was reassigned to a higher priority booking.")
   # then the higher-priority booking took the space
   staff.last_update_for(44003_i64).should eq("asset-solo")
   # the non-overlapping Tuesday booking is untouched
@@ -2812,9 +2817,11 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  # moved off the out-of-service space and re-allocated to the free one
+  # moved off the out-of-service space and re-allocated to the free one; the
+  # displaced email is suppressed because the booking immediately landed a new
+  # space (the approval email covers it)
   staff.last_update_for(69001_i64).should eq("asset-good")
-  mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(true)
+  mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(false)
   gallagher.access_for("ch-broken").should contain("gallagher-group1")
 
   # ===========================================================
@@ -2857,7 +2864,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # forced off the out-of-service space and re-allocated despite displacement
   # being disabled (that policy only governs preemption of lower-priority users)
   staff.last_update_for(70001_i64).should eq("asset-good")
-  mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(true)
+  # re-allocated immediately, so no displaced email
+  mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(false)
   gallagher.access_for("ch-broken").should contain("gallagher-group1")
 
   # ===========================================================
@@ -2881,10 +2889,13 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
 
   # vacated (moved to the displaced placeholder) and wait-listed; the user no
-  # longer holds the out-of-service space
+  # longer holds the out-of-service space. With no space to land, the displaced
+  # email IS sent — carrying the reason for the move.
   staff.last_update_for(71001_i64).should eq("unallocated-displaced-71001")
   staff.last_state(71001_i64).should eq("wait_list")
   mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(true)
+  mailer.arg_for("broken.user@example.com", "parking_request", "displaced", "reason")
+    .should eq("The parking space was taken out of service.")
   # no lingering access to the broken space's group from this booking
   gallagher.access_for("ch-broken").should eq([] of String)
 end
@@ -3320,7 +3331,7 @@ end
 class MailerMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Mailer
 
-  @sent : Array(NamedTuple(to: String, template: Tuple(String, String))) = [] of NamedTuple(to: String, template: Tuple(String, String))
+  @sent : Array(NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)) = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)
   # when true, every send_template raises (simulating a mailer/SMTP failure)
   @fail_send : Bool = false
 
@@ -3329,7 +3340,7 @@ class MailerMock < DriverSpecs::MockDriver
   end
 
   def reset
-    @sent = [] of NamedTuple(to: String, template: Tuple(String, String))
+    @sent = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)
     self[:send_count] = 0
     self[:last_template] = nil
     self[:last_to] = nil
@@ -3358,6 +3369,12 @@ class MailerMock < DriverSpecs::MockDriver
     @sent.count { |s| s[:to] == to && s[:template] == {ns, name} }
   end
 
+  # a template arg from the most recent (to, template) send (nil if none / unset)
+  def arg_for(to : String, ns : String, name : String, key : String) : String?
+    sent = @sent.reverse.find { |s| s[:to] == to && s[:template] == {ns, name} }
+    sent.try { |s| s[:args][key]?.try(&.to_s) }
+  end
+
   def send_template(
     to : String | Array(String),
     template : Tuple(String, String),
@@ -3371,7 +3388,7 @@ class MailerMock < DriverSpecs::MockDriver
   )
     raise "simulated mailer failure" if @fail_send
     recipient = to.is_a?(String) ? to : (to.first? || "")
-    @sent << {to: recipient, template: template}
+    @sent << {to: recipient, template: template, args: args}
     self[:last_template] = template
     self[:last_to] = recipient
     self[:send_count] = (self[:send_count]?.try(&.as_i) || 0) + 1

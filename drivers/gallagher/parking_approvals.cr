@@ -465,10 +465,17 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Allocation core
   # ===================================
 
+  # Bookings moved off a space this run, awaiting a "displaced" email. The email
+  # is deferred to the end of the run so it's only sent to users who DON'T land
+  # a new space the same run (a re-allocated booking gets an "approved" email
+  # instead). Keyed by (booking id, instance); value is the booking + reason.
+  @displaced_pending : Hash(Tuple(Int64, Int64?), Tuple(Booking, String)) = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
+
   protected def run_allocation
     # reset per-sync cardholder lookup error tracking
     @lookup_errors = [] of LookupError
     @failed_lookups = Set(String).new
+    @displaced_pending = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
 
     starting = Time.utc.to_unix
     # only allocate bookings up to the end of the upcoming Friday (local time)
@@ -551,10 +558,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
       #    may just be a config gap that gets fixed; the user can still park).
       out_of_service = !space.bookable
       if out_of_service || unmapped_space_ids.includes?(space.id)
-        reason = out_of_service ? "no longer bookable (out of service)" : "no gallagher group"
-        logger.warn { "booking #{booking.id} is on space #{space.id} (#{reason}); moving off it" }
+        email_reason = out_of_service ? "The parking space was taken out of service." : "The parking space is no longer available."
+        logger.warn { "booking #{booking.id} is on space #{space.id} (#{out_of_service ? "no longer bookable" : "no gallagher group"}); moving off it" }
         if displace_booking(booking, space, forced: out_of_service)
-          finalise_displacement(booking)
+          register_displacement(booking, email_reason)
           remove_allocation(current_allocations, space.id, booking)
         end
         next
@@ -571,6 +578,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
       handle_unallocated_booking(booking, priority, bookable_spaces, current_allocations)
     end
+
+    # Now that re-allocation has run, notify only the users still without a space
+    flush_displaced_emails
 
     # Compute desired gallagher access from the FINAL booking state, then diff
     # against @access_granted and apply only the additions/removals we own.
@@ -968,7 +978,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       # preemption actually sticks
       allocated = freed && allocate(booking, target_space, current_allocations, priority)
       if allocated
-        displaced.each { |(displaced_booking, _p)| finalise_displacement(displaced_booking) }
+        displaced.each { |(displaced_booking, _p)| register_displacement(displaced_booking, "The parking space was reassigned to a higher priority booking.") }
       else
         logger.warn { "could not move booking #{booking.id} onto space #{target_space.id}; restoring #{displaced.size} displaced booking(s)" }
         displaced.each do |(displaced_booking, displaced_priority)|
@@ -1209,8 +1219,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
   #
   # Does NOT notify or reset process_state: callers confirm the displacement is
   # final (e.g. the preempting allocate succeeded) and then call
-  # finalise_displacement — or roll the move back with restore_allocation
-  # without the user ever having been emailed.
+  # register_displacement (deferred email) — or roll the move back with
+  # restore_allocation without the user ever having been emailed.
   # `forced` displacements happen even when allow_displacement is off: the
   # allow_displacement policy only governs PREEMPTION (bumping a lower-priority
   # user). When a space can no longer hold the booking at all (out of service),
@@ -1246,12 +1256,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
     false
   end
 
-  # A displacement is final: reset the process_state FIRST (so a mailer failure
-  # can't leave a stale "access_granted" suppressing the wait-list email now and
-  # the approved email when the booking is re-allocated), then notify the user.
-  protected def finalise_displacement(booking : Booking) : Nil
+  # Record that `booking` was moved off its space, with the reason to show the
+  # user. Resets process_state to "wait_list" immediately (so a re-allocation's
+  # approved email can fire, and a mailer failure can't leave a stale
+  # access_granted), but DEFERS the displaced email — see flush_displaced_emails.
+  protected def register_displacement(booking : Booking, reason : String) : Nil
     update_state(booking, "wait_list")
-    displaced_email(booking)
+    @displaced_pending[{booking.id, booking.instance}] = {booking, reason}
+  end
+
+  # Send the deferred displaced emails — but skip any booking that landed a new
+  # space this run (its "approved" email already covers the change).
+  protected def flush_displaced_emails : Nil
+    @displaced_pending.each_value do |(booking, reason)|
+      asset_id = booking.asset_ids.first?
+      next if asset_id && !asset_id.starts_with?("unallocated")
+      displaced_email(booking, reason)
+    end
   end
 
   # Undo a not-yet-finalised displacement: put the booking back on its space
@@ -1541,7 +1562,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
         trigger: {"parking_request", "displaced"},
         name: "Parking Displaced",
         description: "Notifies the recipient that their parking allocation has been moved to the wait list",
-        fields: common_fields
+        fields: common_fields + [{name: "reason", description: "the reason for displacement"}]
       ),
       TemplateFields.new(
         trigger: {"parking_request", "rejected"},
@@ -1651,11 +1672,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.warn(exception: error) { "failed to send wait list email for booking #{booking.id}" }
   end
 
-  protected def displaced_email(booking : Booking) : Nil
+  protected def displaced_email(booking : Booking, reason : String) : Nil
     mailer.send_template(
       booking.user_email,
       {"parking_request", "displaced"},
-      common_template_args(booking),
+      common_template_args(booking).merge({reason: reason}),
     ).get_json
   rescue error
     logger.warn(exception: error) { "failed to send displaced email for booking #{booking.id}" }
