@@ -17,6 +17,8 @@ class Place::Router::SignalGraph
 
   Mute = Node::Mute.instance
 
+  Unroute = Node::Unroute.instance
+
   private getter g : Digraph(Node::Label, Edge::Label)
 
   private def initialize(initial_capacity = nil)
@@ -36,6 +38,14 @@ class Place::Router::SignalGraph
     g[node.id] = mute
   end
 
+  # :ditto:
+  protected def insert(node : Node::Unroute)
+    unroute = Node::Label.new node
+    unroute.source = Unroute
+    unroute.locked = true
+    g[node.id] = unroute
+  end
+
   # Defines a physical connection between two devices.
   #
   # *output* and *input* must both already exist within the underlying graph as
@@ -53,6 +63,14 @@ class Place::Router::SignalGraph
           func = Edge::Func::Switch.new input.input, output.output, output.layer
           g[output.id, input.id] = Edge::Active.new mod, func
         end
+      end
+
+      # Allow each switchable output to be explicitly blanked by switching
+      # input 0 to it. This is independent of any mute capability so an output
+      # can always be unrouted when fed by a switcher.
+      outputs.each do |output|
+        func = Edge::Func::Switch.new 0, output.output, output.layer
+        g[output.id, Unroute.id] = Edge::Active.new mod, func
       end
     elsif mod.selectable?
       inputs.each do |input|
@@ -98,6 +116,7 @@ class Place::Router::SignalGraph
     siggraph = new initial_capacity: nodes.size
 
     siggraph.insert Mute
+    siggraph.insert Unroute
 
     # Create verticies for each signal node
     nodes.each do |node|
@@ -165,7 +184,7 @@ class Place::Router::SignalGraph
   # Provide the signal nodes that form system inputs.
   def inputs
     # Graph connectivity is inverse to signal direction, hence sinks here.
-    g.sinks.compact_map { |id| g[id] unless id == Mute.id }
+    g.sinks.compact_map { |id| g[id] unless id == Mute.id || id == Unroute.id }
   end
 
   # Provide all signal nodes that can be routed to *destination*.
@@ -180,6 +199,6 @@ class Place::Router::SignalGraph
 
   # Provide the signal nodes that form system outputs.
   def outputs
-    g.sources.compact_map { |id| g[id] unless id == Mute.id }
+    g.sources.compact_map { |id| g[id] unless id == Mute.id || id == Unroute.id }
   end
 end

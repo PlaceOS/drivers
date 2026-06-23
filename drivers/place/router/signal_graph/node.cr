@@ -256,5 +256,35 @@ class Place::Router::SignalGraph
         io << "MUTE"
       end
     end
+
+    # Virtual node representing an explicit unroute (blank) source.
+    #
+    # Routing this to an output switches input `0` to it on the nearest
+    # upstream switchable device, blanking the output regardless of any mute
+    # capability the output device itself may expose.
+    #
+    # This may be refernced simply as `UNROUTE`.
+    struct Unroute < Ref
+      class_getter instance : self { new }
+
+      protected def initialize
+      end
+
+      def id
+        1_u64
+      end
+
+      def mod
+      end
+
+      def self.parse?(ref) : self?
+        # See Ref#resolve? on line 82 of this file for what is passed here
+        instance if ref.upcase.ends_with?("UNROUTE")
+      end
+
+      def to_s(io)
+        io << "UNROUTE"
+      end
+    end
   end
 end

@@ -168,6 +168,37 @@ describe SigGraph do
       edge.func.should eq SigGraph::Edge::Func::Mute.new true, 1
       next_node.should eq g[dest]
     end
+
+    it "provides switch-0 unrouting on an intermediate switcher" do
+      source = SigGraph::Unroute
+      dest = SigGraph::Output.new("sys-123", "15.02_Switcher", 1, 1, "all")
+
+      path = g.route source, dest
+      path = path.not_nil!
+
+      node, edge, next_node = path.first
+      node.should eq g[source]
+      edge = edge.as SigGraph::Edge::Active
+      edge.mod.name.should eq "15.02_Switcher"
+      edge.func.should eq SigGraph::Edge::Func::Switch.new 0, 1, "all"
+      next_node.should eq g[dest]
+    end
+
+    it "unroutes an output device by switching 0 on the upstream switcher" do
+      # ignores the output device's own mute capability and instead switches
+      # input 0 to the output on the switcher feeding it.
+      source = SigGraph::Unroute
+      dest = outputs[:display]
+
+      path = g.route source, dest
+      path = path.not_nil!
+
+      node, edge, _next_node = path.first
+      node.should eq g[source]
+      edge = edge.as SigGraph::Edge::Active
+      edge.mod.name.should eq "15.02_Switcher"
+      edge.func.should eq SigGraph::Edge::Func::Switch.new 0, 1, "all"
+    end
   end
 
   describe "#input?" do

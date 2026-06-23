@@ -105,6 +105,11 @@ DriverSpecs.mock_driver "Place::Meet" do
   status["output/Display_1"]["source"].should eq(status["input/Foo"]["ref"])
   system(:Display_1)["power"].should be_true
 
+  # disconnect switches input 0 on the upstream switcher feeding the display,
+  # ignoring the display's own mute capability
+  exec(:disconnect, "Display_1").get
+  system(:Switcher_1)["output1"].should eq(0)
+
   exec(:volume, 50, "Display_1").get
   system(:Display_1)["volume"].should eq(50)
   status["volume"]?.should eq(50)

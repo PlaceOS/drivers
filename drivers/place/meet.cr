@@ -470,6 +470,20 @@ class Place::Meet < PlaceOS::Driver
     end
   end
 
+  # as above, but always switches input 0 to the output via the upstream
+  # switcher, ignoring the output device's own mute capability.
+  def disconnect(output : String)
+    route("UNROUTE", output)
+  rescue error
+    logger.debug(exception: error) { "failed to disconnect #{output}" }
+  end
+
+  def disconnect_all
+    @outputs.each do |output|
+      route("UNROUTE", output)
+    end
+  end
+
   # This is the currently selected input
   # if the user selects an output then this will be routed to it
   def selected_input(name : String, simulate : Bool = false) : Nil
