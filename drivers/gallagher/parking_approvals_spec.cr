@@ -2759,6 +2759,134 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   # the cache was flushed on the settings change, so the user was looked up again
   calendar.group_lookup_count("prio.user@example.com").should eq(2)
+
+  # ===========================================================
+  # Test 69: a booking on a space that is no longer bookable (e.g. taken out of
+  # service) is displaced and re-allocated to a free bookable space.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    allow_displacement: true,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("broken.user@example.com", "ch-broken")
+  calendar.set_groups("broken.user@example.com", default_grp.to_json)
+
+  oos_spaces = [
+    {
+      # mapped (group1) but taken OUT OF SERVICE
+      id: "asset-broken", identifier: "BROKEN",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: false,
+    },
+    {
+      id: "asset-good", identifier: "GOOD",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(oos_spaces.to_json)
+
+  staff.set_bookings([
+    build_booking.call(69001_i64, "broken.user@example.com",
+      mon_start, mon_end, "asset-broken", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # moved off the out-of-service space and re-allocated to the free one
+  staff.last_update_for(69001_i64).should eq("asset-good")
+  mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(true)
+  gallagher.access_for("ch-broken").should contain("gallagher-group1")
+
+  # ===========================================================
+  # Test 70: a booking on a non-bookable space is displaced EVEN when
+  # allow_displacement is false — the space is gone, this is a forced move, not
+  # a preemption.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    allow_displacement: false,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("broken.user@example.com", "ch-broken")
+  calendar.set_groups("broken.user@example.com", default_grp.to_json)
+  staff.set_assets(oos_spaces.to_json)
+
+  staff.set_bookings([
+    build_booking.call(70001_i64, "broken.user@example.com",
+      mon_start, mon_end, "asset-broken", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # forced off the out-of-service space and re-allocated despite displacement
+  # being disabled (that policy only governs preemption of lower-priority users)
+  staff.last_update_for(70001_i64).should eq("asset-good")
+  mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(true)
+  gallagher.access_for("ch-broken").should contain("gallagher-group1")
+
+  # ===========================================================
+  # Test 71: a booking on a non-bookable space with NO free space to move to is
+  # still vacated (moved off) and wait-listed — even with displacement disabled.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("broken.user@example.com", "ch-broken")
+  calendar.set_groups("broken.user@example.com", default_grp.to_json)
+  # only the broken space exists
+  staff.set_assets([oos_spaces[0]].to_json)
+
+  staff.set_bookings([
+    build_booking.call(71001_i64, "broken.user@example.com",
+      mon_start, mon_end, "asset-broken", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # vacated (moved to the displaced placeholder) and wait-listed; the user no
+  # longer holds the out-of-service space
+  staff.last_update_for(71001_i64).should eq("unallocated-displaced-71001")
+  staff.last_state(71001_i64).should eq("wait_list")
+  mailer.sent?("broken.user@example.com", "parking_request", "displaced").should eq(true)
+  # no lingering access to the broken space's group from this booking
+  gallagher.access_for("ch-broken").should eq([] of String)
 end
 
 # :nodoc:

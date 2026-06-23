@@ -541,15 +541,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
         next
       end
 
-      # the space can no longer grant access (already reported) — move the
-      # booking off it (to the wait list, notifying the user). The second pass
-      # then re-allocates it to an accessible space this run, or leaves it
-      # wait-listed if none is free. displace_booking also resets process_state
-      # so the re-allocation's "approved" email can fire.
-      if unmapped_space_ids.includes?(space.id)
-        logger.warn { "booking #{booking.id} is on space #{space.id} with no gallagher group; moving off it" }
-        # this displacement is always final (the space can't grant access)
-        if displace_booking(booking, space)
+      # The space can no longer hold this booking — move it off so the second
+      # pass re-allocates it to a usable space this run (or leaves it wait-listed
+      # if none is free). displace_booking also resets process_state so the
+      # re-allocation's "approved" email can fire. Two cases:
+      #  - out of service (bookable=false, e.g. flooded): a FORCED move that
+      #    happens even when allow_displacement is off — the space is gone.
+      #  - no resolvable Gallagher group: respects the displacement policy (it
+      #    may just be a config gap that gets fixed; the user can still park).
+      out_of_service = !space.bookable
+      if out_of_service || unmapped_space_ids.includes?(space.id)
+        reason = out_of_service ? "no longer bookable (out of service)" : "no gallagher group"
+        logger.warn { "booking #{booking.id} is on space #{space.id} (#{reason}); moving off it" }
+        if displace_booking(booking, space, forced: out_of_service)
           finalise_displacement(booking)
           remove_allocation(current_allocations, space.id, booking)
         end
@@ -1207,8 +1211,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # final (e.g. the preempting allocate succeeded) and then call
   # finalise_displacement — or roll the move back with restore_allocation
   # without the user ever having been emailed.
-  protected def displace_booking(booking : Booking, space : ParkingSpace) : Bool
-    unless @allow_displacement
+  # `forced` displacements happen even when allow_displacement is off: the
+  # allow_displacement policy only governs PREEMPTION (bumping a lower-priority
+  # user). When a space can no longer hold the booking at all (out of service),
+  # the move is involuntary and must always proceed.
+  protected def displace_booking(booking : Booking, space : ParkingSpace, forced : Bool = false) : Bool
+    if !forced && !@allow_displacement
       logger.info { "displacement disabled; leaving booking #{booking.id} on space #{space.id}" }
       return false
     end
