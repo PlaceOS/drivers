@@ -48,6 +48,7 @@ class Place::Meet < PlaceOS::Driver
     unjoin_on_shutdown:     false,
     mute_on_unlink:         true,
     auto_route_on_join:     false,
+    sync_lighting_on_join:  true,
 
     # only required in joining rooms
     local_outputs: ["Display_1"],
@@ -157,6 +158,7 @@ class Place::Meet < PlaceOS::Driver
   @unjoin_on_shutdown : Bool? = nil
   @mute_on_unlink : Bool = true
   @auto_route_on_join : Bool = false
+  @sync_lighting_on_join : Bool = true
 
   @startup_exec : Array(AccessoryComplex::Exec)? = nil
   @shutdown_exec : Array(AccessoryComplex::Exec)? = nil
@@ -182,6 +184,7 @@ class Place::Meet < PlaceOS::Driver
     @unjoin_on_shutdown = setting?(Bool, :unjoin_on_shutdown)
     @mute_on_unlink = setting?(Bool, :mute_on_unlink) || false
     @auto_route_on_join = setting?(Bool, :auto_route_on_join) || false
+    @sync_lighting_on_join = setting?(Bool, :sync_lighting_on_join) != false
 
     @startup_exec = setting?(Array(AccessoryComplex::Exec), :startup_exec)
     # shutown_exec was a previous spelling mistake, here for backwards compatibility
@@ -254,6 +257,7 @@ class Place::Meet < PlaceOS::Driver
 
     remotes_before = remote_rooms
     sys = system
+    unlink_systems if unlink
 
     if state
       @local_preview_outputs.each { |device| sys[device].power true } # Power on preview displays
@@ -269,7 +273,6 @@ class Place::Meet < PlaceOS::Driver
 
       perform_executes(@startup_exec)
     else
-      unlink_systems if unlink
       audio_mute(true) rescue nil
 
       @local_outputs.each { |output| unroute(output) }
@@ -1508,7 +1511,7 @@ class Place::Meet < PlaceOS::Driver
       end
 
       # recall the first lighting preset
-      if !@light_scenes.empty? && master
+      if @sync_lighting_on_join && master && !@light_scenes.empty?
         begin
           select_lighting_scene(@light_scenes.keys.first)
         rescue error
