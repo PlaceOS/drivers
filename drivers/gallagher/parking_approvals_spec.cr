@@ -2898,6 +2898,83 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     .should eq("The parking space was taken out of service.")
   # no lingering access to the broken space's group from this booking
   gallagher.access_for("ch-broken").should eq([] of String)
+
+  # ===========================================================
+  # Test 72: a user previously on the no-card list who has since been issued a
+  # card (or simply doesn't book again) is DROPPED from the list — it now
+  # reflects the post-run state rather than growing forever. No re-book needed.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    # seed the persisted no-card list with a user who won't book this run
+    users_without_cards: ["stale.user@example.com"],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  staff.set_bookings("[]") # stale.user has no booking / no lookup error this run
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # dropped without needing to re-book, and not (re)emailed
+  status[:users_without_cards].as_a.map(&.as_s).should_not contain("stale.user@example.com")
+  mailer.sent?("stale.user@example.com", "parking_request", "no_card").should eq(false)
+
+  # ===========================================================
+  # Test 73: the no-card email carries the reason a cardholder couldn't be
+  # resolved.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  # email-based lookup, no cardholder registered -> "no gallagher cardholder found"
+  calendar.set_groups("nocard2.user@example.com", default_grp.to_json)
+  staff.set_bookings([
+    build_booking.call(73001_i64, "nocard2.user@example.com",
+      mon_start, mon_end, "unallocated-73001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # withheld and notified, the email carrying the reason
+  staff.last_update_for(73001_i64).should be_nil
+  mailer.sent?("nocard2.user@example.com", "parking_request", "no_card").should eq(true)
+  mailer.arg_for("nocard2.user@example.com", "parking_request", "no_card", "reason")
+    .should eq("no gallagher cardholder found")
+  status[:users_without_cards].as_a.map(&.as_s).should contain("nocard2.user@example.com")
 end
 
 # :nodoc:

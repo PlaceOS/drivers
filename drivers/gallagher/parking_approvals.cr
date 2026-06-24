@@ -118,11 +118,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # directory/Gallagher calls (and duplicate error records) for a user that
   # appears across multiple bookings in the same run
   @failed_lookups : Set(String) = Set(String).new
+  # downcased email => a booking of theirs this run, so the no-card email
+  # (sent in publish_lookup_errors) has booking context. Cleared each run.
+  @no_card_bookings : Hash(String, Booking) = {} of String => Booking
 
   # Users (downcased emails) we could not resolve to a Gallagher cardholder.
-  # Persisted to settings so the "no access card" notification is sent only once
-  # per user (until they get a card and are removed). A booking for one of these
-  # users is withheld (not approved/allocated) until they have a card.
+  # Recomputed from each run's lookup errors and persisted to settings so the
+  # "no access card" notification is sent only once per user (until they resolve
+  # to a card). A booking for one of these users is withheld until they have a
+  # card.
   @no_card_users : Array(String) = [] of String
   @no_card_mutex : Mutex = Mutex.new
 
@@ -475,6 +479,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # reset per-sync cardholder lookup error tracking
     @lookup_errors = [] of LookupError
     @failed_lookups = Set(String).new
+    @no_card_bookings = {} of String => Booking
     @displaced_pending = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
 
     starting = Time.utc.to_unix
@@ -589,13 +594,46 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     # surface cardholder lookup failures for reporting
     publish_lookup_errors
+
+    # free the memory
+    @lookup_errors = [] of LookupError
+    @failed_lookups = Set(String).new
+    @no_card_bookings = {} of String => Booking
+    @displaced_pending = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
   end
 
+  # Surface this run's cardholder lookup errors, reconcile the no-card list, and
+  # notify newly-affected users. The no-card list is recomputed from scratch each
+  # run (= the set of users we couldn't resolve), so users who have since been
+  # issued a card drop off even if they didn't book again. We notify only users
+  # who weren't already on the previous list (they've already had an email) and
+  # only persist when the set actually changes (to minimise define_setting writes).
   protected def publish_lookup_errors : Nil
     logger.info { "allocation run: #{@lookup_errors.size} cardholder lookup error(s)" } unless @lookup_errors.empty?
     self[:lookup_error_count] = @lookup_errors.size
     self[:lookup_errors] = @lookup_errors
-    self[:users_without_cards] = @no_card_mutex.synchronize { @no_card_users.dup }
+
+    previous = @no_card_mutex.synchronize { @no_card_users }
+
+    # email each newly-unresolvable user once, with the reason from their error
+    # (outside the mutex — the send is a blocking network call)
+    notified = Set(String).new
+    @lookup_errors.each do |error|
+      next if previous.includes?(error.email)
+      next unless notified.add?(error.email)
+      if booking = @no_card_bookings[error.email]?
+        send_no_card_email(booking, error.reason)
+      end
+    end
+
+    updated = Set.new(@lookup_errors.map(&.email)).to_a
+    self[:users_without_cards] = @no_card_mutex.synchronize do
+      if updated.to_set != previous.to_set
+        @no_card_users = updated
+        persist_no_card_users
+      end
+      @no_card_users.dup
+    end
   rescue error
     logger.warn(exception: error) { "failed to publish lookup errors" }
   end
@@ -1387,8 +1425,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
 
     @cardholder_cache[user_email] = id
-    # the user now has a card — drop them from the persisted no-card list
-    remove_from_no_card_list(user_email)
     id
   rescue error
     logger.warn(exception: error) { "cardholder lookup failed for #{user_email}" }
@@ -1399,50 +1435,26 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   # Guard used by the allocation passes: returns true when the user has a
   # Gallagher card (so the booking may be approved/allocated). When false the
-  # booking is withheld and the user is notified once that they have no card.
+  # booking is withheld; the lookup error is recorded (see lookup_cardholder) and
+  # the no-card notification is handled at the end of the run (publish_lookup_errors).
   protected def ensure_user_has_card(booking : Booking) : Bool
     return true if lookup_cardholder(booking.user_email)
-    notify_no_card(booking)
+    # remember a booking for this user so the no-card email has booking context
+    @no_card_bookings[booking.user_email.downcase] ||= booking
     false
   end
 
-  # Notify a user (once) that no Gallagher access card could be found for them,
-  # and persist them onto the no-card list so we don't re-notify each sweep.
-  protected def notify_no_card(booking : Booking) : Nil
-    email = booking.user_email.downcase
-
-    already_listed = @no_card_mutex.synchronize { @no_card_users.includes?(email) }
-    return if already_listed
-
-    logger.info { "withholding parking for #{email}: no gallagher access card" }
+  # Notify a user (once per run reconciliation) that no Gallagher access card
+  # could be found for them, including the reason from their lookup error.
+  protected def send_no_card_email(booking : Booking, reason : String) : Nil
+    logger.info { "withholding parking for #{booking.user_email}: #{reason}" }
     mailer.send_template(
       booking.user_email,
       {"parking_request", "no_card"},
-      common_template_args(booking),
-    )
-
-    @no_card_mutex.synchronize do
-      @no_card_users << email unless @no_card_users.includes?(email)
-      persist_no_card_users
-    end
+      common_template_args(booking).merge({reason: reason}),
+    ).get_json
   rescue error
     logger.warn(exception: error) { "failed to notify no-card user #{booking.user_email}" }
-  end
-
-  protected def remove_from_no_card_list(user_email : String) : Nil
-    email = user_email.downcase
-    removed = @no_card_mutex.synchronize do
-      if @no_card_users.includes?(email)
-        @no_card_users.delete(email)
-        persist_no_card_users
-        true
-      else
-        false
-      end
-    end
-    logger.debug { "#{email} now has a gallagher card, removed from no-card list" } if removed
-  rescue error
-    logger.warn(exception: error) { "failed to update no-card list for #{user_email}" }
   end
 
   # caller must hold @no_card_mutex
@@ -1574,7 +1586,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
         trigger: {"parking_request", "no_card"},
         name: "Parking No Access Card",
         description: "Notifies the recipient that their parking can't be set up because no Gallagher access card (or employee id) was found for them — sent once until they have a card",
-        fields: common_fields
+        fields: common_fields + [{name: "reason", description: "the reason a Gallagher cardholder could not be resolved"}]
       ),
     ]
   end
