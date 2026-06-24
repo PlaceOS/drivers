@@ -30,8 +30,8 @@ module Place
     property id : String
 
     @[JSON::Field(key: "type")]
-    property area_type : String
-    property feature_type : String
+    property area_type : String { "Feature" }
+    property feature_type : String { "section" }
 
     property geometry : Geometry
     property properties : Hash(String, JSON::Any::Type)
