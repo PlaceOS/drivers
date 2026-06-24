@@ -123,7 +123,6 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
     layer : MuteLayer = MuteLayer::AudioVideo,
   )
     mute_audio(state) if layer.audio? || layer.audio_video?
-    power(state) if layer.video? || layer.audio_video?
   end
 
   # Emulate audio mute
