@@ -1092,11 +1092,12 @@ class Place::StaffAPI < PlaceOS::Driver
       # Just parse it here instead of using the Bookings object
       # it will be parsed into an object on the far end
       new_bookings = response.body[1..-2]
+      break if new_bookings.blank?
       bookings << new_bookings
 
       last_req = next_request
       next_request = links["next"]?
-      break if next_request.nil? || new_bookings.blank? || last_req == next_request
+      break if next_request.nil? || last_req == next_request
     end
 
     ExecResponse.new("[#{bookings.join(',')}]")
