@@ -87,7 +87,7 @@ shards:
 
   dns:
     git: https://github.com/spider-gazelle/dns.git
-    version: 1.5.0
+    version: 1.6.1
 
   dtls:
     git: https://github.com/spider-gazelle/crystal-dtls.git
@@ -163,7 +163,7 @@ shards:
 
   json-schema:
     git: https://github.com/spider-gazelle/json-schema.git
-    version: 1.3.2
+    version: 1.3.3
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -227,7 +227,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 2.1.0
+    version: 2.2.1
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -239,7 +239,7 @@ shards:
 
   placeos:
     git: https://github.com/placeos/crystal-client.git
-    version: 2.12.1
+    version: 2.12.3
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.97.0
+    version: 9.98.3
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -335,7 +335,7 @@ shards:
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
-    version: 1.7.3
+    version: 1.7.4
 
   stomp:
     git: https://github.com/spider-gazelle/stomp.git
