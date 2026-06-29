@@ -3416,6 +3416,88 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.approved.includes?(81002_i64).should eq(true)
   mailer.sent?("vip2@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
   mailer.sent?("evicted2@example.com", "parking_request", "displaced").should eq(true)
+
+  # ===========================================================
+  # Test 81: a wait-listed booking that started in the past AND was created more
+  # than 3 hours ago is stale — it is NOT allocated (avoids clashing with
+  # bookings that have since ended). Past-start-but-recently-created and
+  # future-start-but-old bookings are still allocated.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  stale_spaces = [
+    {id: "asset-st1", identifier: "ST1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+    {id: "asset-st2", identifier: "ST2", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+    {id: "asset-st3", identifier: "ST3", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+  ]
+  staff.set_assets(stale_spaces.to_json)
+  gallagher.set_cardholder("stale.user@example.com", "ch-stale")
+  gallagher.set_cardholder("walkin.user@example.com", "ch-walkin")
+  gallagher.set_cardholder("future.user@example.com", "ch-future")
+  calendar.set_groups("stale.user@example.com", default_grp.to_json)
+  calendar.set_groups("walkin.user@example.com", default_grp.to_json)
+  calendar.set_groups("future.user@example.com", default_grp.to_json)
+
+  stale_booking = ->(id : Int64, user : String, b_start : Int64, b_end : Int64, created_at : Int64) do
+    {
+      id:              id,
+      booking_type:    "parking",
+      booking_start:   b_start,
+      booking_end:     b_end,
+      asset_id:        "unallocated-#{id}",
+      asset_ids:       ["unallocated-#{id}"],
+      user_id:         "user-#{id}",
+      user_email:      user,
+      user_name:       user,
+      booked_by_email: user,
+      booked_by_name:  user,
+      zones:           ["zone-building"],
+      created:         created_at,
+      approved:        false,
+      rejected:        false,
+      deleted:         false,
+      extension_data:  ext_car,
+    }
+  end
+
+  staff.set_bookings([
+    # started 1h ago, created 4h ago -> STALE -> not allocated
+    stale_booking.call(83001_i64, "stale.user@example.com", now - 3600_i64, now + 3600_i64, now - 4_i64 * 3600),
+    # started 1h ago, created just now -> walk-in, allocated
+    stale_booking.call(83002_i64, "walkin.user@example.com", now - 3600_i64, now + 3600_i64, now),
+    # starts in 2h, created 4h ago -> future start, allocated
+    stale_booking.call(83003_i64, "future.user@example.com", now + 3600_i64 * 2, now + 3600_i64 * 3, now - 4_i64 * 3600),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the stale booking is left alone (no allocation attempt)
+  staff.last_update_for(83001_i64).should be_nil
+  staff.approved.includes?(83001_i64).should eq(false)
+  # the recently-created (walk-in) and future bookings are still allocated
+  staff.last_update_for(83002_i64).should_not be_nil
+  staff.last_update_for(83003_i64).should_not be_nil
 end
 
 # :nodoc:

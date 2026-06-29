@@ -1041,12 +1041,35 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Unallocated bookings
   # ===================================
 
+  # a booking created more than this long ago is "stale" once its start has
+  # passed (see stale_waitlist?)
+  STALE_WAITLIST_GRACE = 3_i64 * 3600
+
+  # A wait-listed booking that already STARTED and was CREATED more than 3 hours
+  # ago is for a meeting that has effectively passed. Trying to allocate it now
+  # risks clashing with bookings on the space that have since ended but whose
+  # (past) window still overlaps this booking's — so we leave it alone. A booking
+  # created recently (e.g. a same-day/walk-in request) is still allocated even if
+  # its start is just in the past.
+  protected def stale_waitlist?(booking : Booking) : Bool
+    now = Time.utc.to_unix
+    return false unless booking.booking_start < now
+    created = booking.created
+    !created.nil? && created < now - STALE_WAITLIST_GRACE
+  end
+
   protected def handle_unallocated_booking(
     booking : Booking,
     priority : Int32,
     bookable_spaces : Array(ParkingSpace),
     current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
   ) : Nil
+    # don't try to allocate a stale wait-listed booking — see stale_waitlist?
+    if stale_waitlist?(booking)
+      logger.debug { "skipping stale wait-listed booking #{booking.id} (started in the past, created over 3h ago)" }
+      return
+    end
+
     # withhold allocation until the user can actually be granted Gallagher access
     return unless ensure_user_has_card(booking)
 
