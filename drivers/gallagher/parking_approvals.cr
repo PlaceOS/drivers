@@ -491,11 +491,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     getter starting : Int64 # parking date (epoch) — used to sort/group the report
     getter date : String    # the parking date, dd/mm/yyyy in the building timezone
-    getter space_id : String
+    getter space : String   # the parking space NAME (identifier), not the asset id
     getter displaced : String
     getter replaced_with : String
 
-    def initialize(@starting, @date, @space_id, @displaced, @replaced_with)
+    def initialize(@starting, @date, @space, @displaced, @replaced_with)
     end
   end
 
@@ -1028,9 +1028,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
     conflicts.each { |(conflict_booking, _p)| record_displacement(target_space, conflict_booking, booking) }
 
     # displacement trial: when disabled, the would-be displacement is captured in
-    # the report above but never acted on — the booking waits for a space instead
+    # the report above but never acted on — the booking waits for a space instead.
     unless @allow_displacement
       logger.debug { "displacement disabled; booking #{booking.id} would preempt space #{target_space.id}, sending wait list email" }
+      # Mirror, in our LOCAL view only, what an enabled run would do to
+      # current_allocations: the occupant moves off and this (higher priority)
+      # booking takes the space. Without this every later would-be preemptor
+      # keeps picking the same unchanged occupant/space, so the report repeats
+      # one space instead of cascading across the spaces it actually would.
+      conflicts.each { |(conflict_booking, _p)| remove_allocation(current_allocations, target_space.id, conflict_booking) }
+      (current_allocations[target_space.id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
       wait_list_email(booking)
       return
     end
@@ -1075,7 +1082,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def record_displacement(space : ParkingSpace, displaced_booking : Booking, new_booking : Booking) : Nil
     starting = new_booking.booking_start
     date = Time.unix(starting).in(@timezone).to_s("%d/%m/%Y")
-    @displacement_report << DisplacementRecord.new(starting, date, space.id, displaced_booking.user_email, new_booking.user_email)
+    name = space.identifier.presence || space.id
+    @displacement_report << DisplacementRecord.new(starting, date, name, displaced_booking.user_email, new_booking.user_email)
   end
 
   # Log (and surface as status) the displacements decided this run, grouped by
@@ -1087,7 +1095,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     return if sorted.empty?
 
     blocks = sorted.group_by(&.date).map do |date, records|
-      lines = records.map { |r| "* space #{r.space_id} displaced #{r.displaced} with #{r.replaced_with}" }
+      lines = records.map { |r| "* space #{r.space} displaced #{r.displaced} with #{r.replaced_with}" }
       "#{date}\n#{lines.join('\n')}"
     end
 

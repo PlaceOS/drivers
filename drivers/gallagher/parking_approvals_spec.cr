@@ -3164,7 +3164,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   report = status[:displacement_report].as_a
   report.size.should eq(1)
   entry = report.first
-  entry["space_id"].as_s.should eq("asset-r1")
+  # the report uses the space NAME (identifier), not the asset id
+  entry["space"].as_s.should eq("R1")
   entry["displaced"].as_s.should eq("report.low@example.com")
   entry["replaced_with"].as_s.should eq("report.high@example.com")
   entry["date"].as_s.should eq(Time.unix(rep_start).in(report_tz).to_s("%d/%m/%Y"))
@@ -3238,6 +3239,85 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   ])
   report2.map { |e| e["displaced"].as_s }.should eq(["rep.low1@example.com", "rep.low2@example.com"])
   report2.map { |e| e["replaced_with"].as_s }.should eq(["rep.high1@example.com", "rep.high2@example.com"])
+
+  # ===========================================================
+  # Test 78: with displacement DISABLED and several would-be preemptors, each is
+  # reported against a DIFFERENT space — the disabled run simulates the moves in
+  # its local view so it doesn't keep reporting the same occupant/space.
+  # ===========================================================
+
+  settings({
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    allow_displacement: false,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  cascade_spaces = [
+    {
+      id: "asset-ca", identifier: "CA",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+    {
+      id: "asset-cb", identifier: "CB",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(cascade_spaces.to_json)
+  gallagher.set_cardholder("casc.low1@example.com", "ch-cl1")
+  gallagher.set_cardholder("casc.low2@example.com", "ch-cl2")
+  gallagher.set_cardholder("casc.high1@example.com", "ch-ch1")
+  gallagher.set_cardholder("casc.high2@example.com", "ch-ch2")
+  calendar.set_groups("casc.low1@example.com", default_grp.to_json)
+  calendar.set_groups("casc.low2@example.com", default_grp.to_json)
+  calendar.set_groups("casc.high1@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
+  calendar.set_groups("casc.high2@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
+
+  cstart = now + 3600_i64 * 120
+  cend = cstart + 3600_i64
+  # two low-priority occupants (one per space) and two higher-priority bookings,
+  # all overlapping — each preemptor could take either space
+  staff.set_bookings([
+    build_booking.call(78001_i64, "casc.low1@example.com",
+      cstart, cend, "asset-ca", true, ext_car),
+    build_booking.call(78002_i64, "casc.low2@example.com",
+      cstart, cend, "asset-cb", true, ext_car),
+    build_booking.call(78003_i64, "casc.high1@example.com",
+      cstart, cend, "unallocated-78003", false, ext_car),
+    build_booking.call(78004_i64, "casc.high2@example.com",
+      cstart, cend, "unallocated-78004", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # nobody actually displaced (disabled)
+  staff.last_update_for(78001_i64).should be_nil
+  staff.last_update_for(78002_i64).should be_nil
+
+  # the report cascades across BOTH spaces/occupants rather than repeating one
+  report3 = status[:displacement_report].as_a
+  report3.size.should eq(2)
+  report3.map { |e| e["space"].as_s }.should eq(["CA", "CB"])
+  report3.map { |e| e["displaced"].as_s }.should eq(["casc.low1@example.com", "casc.low2@example.com"])
+  report3.map { |e| e["replaced_with"].as_s }.should eq(["casc.high1@example.com", "casc.high2@example.com"])
 end
 
 # :nodoc:
