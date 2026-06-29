@@ -483,12 +483,32 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # instead). Keyed by (booking id, instance); value is the booking + reason.
   @displaced_pending : Hash(Tuple(Int64, Int64?), Tuple(Booking, String)) = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
 
+  # One preemption displacement decided this run: on `space`, `displaced` (email)
+  # would be / was bumped so `replaced_with` (a higher-priority booking) could
+  # take it. Recorded whether or not displacement is enabled.
+  struct DisplacementRecord
+    include JSON::Serializable
+
+    getter starting : Int64 # parking date (epoch) — used to sort/group the report
+    getter date : String    # the parking date, dd/mm/yyyy in the building timezone
+    getter space_id : String
+    getter displaced : String
+    getter replaced_with : String
+
+    def initialize(@starting, @date, @space_id, @displaced, @replaced_with)
+    end
+  end
+
+  # preemption displacement decisions this run (surfaced via the report + status)
+  @displacement_report : Array(DisplacementRecord) = [] of DisplacementRecord
+
   protected def run_allocation
     # reset per-sync cardholder lookup error tracking
     @lookup_errors = [] of LookupError
     @failed_lookups = Set(String).new
     @no_card_bookings = {} of String => Booking
     @displaced_pending = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
+    @displacement_report = [] of DisplacementRecord
 
     starting = Time.utc.to_unix
     # only allocate bookings up to the end of the upcoming Friday (local time)
@@ -594,6 +614,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     # Now that re-allocation has run, notify only the users still without a space
     flush_displaced_emails
+
+    # log + surface the displacement report (works whether displacement is on or off)
+    log_displacement_report
 
     # Compute desired gallagher access from the FINAL booking state, then diff
     # against @access_granted and apply only the additions/removals we own.
@@ -969,20 +992,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return if allocate(booking, space, current_allocations, priority)
     end
 
-    # displacement trial: when disabled, occupants are never bumped — the
-    # booking waits for a space to free up instead
-    unless @allow_displacement
-      logger.debug { "no free space for booking #{booking.id} and displacement is disabled, sending wait list email" }
-      wait_list_email(booking)
-      return
-    end
-
-    # No free space — preempt the overlapping occupant(s) of a compatible space.
-    # A space is only a candidate when EVERY booking overlapping our window has a
-    # lower priority (all of them must move for the space to be free). Choosing
-    # the space whose highest overlapping priority is lowest displaces the
-    # least-privileged users; bumping a mid-priority user would let them, in
-    # turn, preempt someone below them, cascading displacements in a single run.
+    # No free space — find the preemption target: a compatible space whose
+    # overlapping occupants are ALL lower priority and displaceable now (none
+    # within their notice period). This is computed even when displacement is
+    # DISABLED, so the end-of-run displacement report can show management which
+    # displacements would occur if it were enabled. Choosing the space whose
+    # highest overlapping priority is lowest displaces the least-privileged
+    # users; bumping a mid-priority user would let them, in turn, preempt someone
+    # below them, cascading displacements in a single run.
     candidates = compatible.compact_map do |space|
       occupants = current_allocations[space.id]?
       next unless occupants
@@ -1000,47 +1017,84 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # first minimum)
     target = candidates.min_by? { |(_space, conflicts)| conflicts.max_of { |(_other, other_priority)| other_priority } }
 
-    if target
-      target_space, conflicts = target
-
-      # The space must be fully freed BEFORE we allocate over it — a failed
-      # displacement means the occupant still holds the space server-side and
-      # allocating would create clashing bookings. Displaced users are NOT
-      # notified yet: if the preemption can't complete, the moves are rolled
-      # back invisibly instead of churning displaced/approved emails.
-      displaced = [] of Tuple(Booking, Int32)
-      freed = true
-      conflicts.each do |(conflict_booking, conflict_priority)|
-        logger.info { "preempting booking #{conflict_booking.id} (priority #{conflict_priority}) for higher priority booking #{booking.id} (priority #{priority})" }
-        if displace_booking(conflict_booking, target_space)
-          remove_allocation(current_allocations, target_space.id, conflict_booking)
-          displaced << {conflict_booking, conflict_priority}
-        else
-          # don't displace further users for a preemption that can't proceed
-          freed = false
-          break
-        end
-      end
-
-      # allocate can still fail (e.g. the freed space has another occupant our
-      # zone-scoped view never saw); only notify the displaced users once the
-      # preemption actually sticks
-      allocated = freed && allocate(booking, target_space, current_allocations, priority)
-      if allocated
-        displaced.each { |(displaced_booking, _p)| register_displacement(displaced_booking, "The parking space was reassigned to a higher priority booking.") }
-      else
-        logger.warn { "could not move booking #{booking.id} onto space #{target_space.id}; restoring #{displaced.size} displaced booking(s)" }
-        displaced.each do |(displaced_booking, displaced_priority)|
-          restore_allocation(displaced_booking, displaced_priority, target_space, current_allocations)
-        end
-        wait_list_email(booking)
-      end
-    else
+    unless target
       logger.debug { "no preemption candidate for booking #{booking.id}, sending wait list email" }
+      wait_list_email(booking)
+      return
+    end
+
+    target_space, conflicts = target
+    # record the displacement decision for the report — whether or not we act on it
+    conflicts.each { |(conflict_booking, _p)| record_displacement(target_space, conflict_booking, booking) }
+
+    # displacement trial: when disabled, the would-be displacement is captured in
+    # the report above but never acted on — the booking waits for a space instead
+    unless @allow_displacement
+      logger.debug { "displacement disabled; booking #{booking.id} would preempt space #{target_space.id}, sending wait list email" }
+      wait_list_email(booking)
+      return
+    end
+
+    # The space must be fully freed BEFORE we allocate over it — a failed
+    # displacement means the occupant still holds the space server-side and
+    # allocating would create clashing bookings. Displaced users are NOT notified
+    # yet: if the preemption can't complete, the moves are rolled back invisibly
+    # instead of churning displaced/approved emails.
+    displaced = [] of Tuple(Booking, Int32)
+    freed = true
+    conflicts.each do |(conflict_booking, conflict_priority)|
+      logger.info { "preempting booking #{conflict_booking.id} (priority #{conflict_priority}) for higher priority booking #{booking.id} (priority #{priority})" }
+      if displace_booking(conflict_booking, target_space)
+        remove_allocation(current_allocations, target_space.id, conflict_booking)
+        displaced << {conflict_booking, conflict_priority}
+      else
+        # don't displace further users for a preemption that can't proceed
+        freed = false
+        break
+      end
+    end
+
+    # allocate can still fail (e.g. the freed space has another occupant our
+    # zone-scoped view never saw); only notify the displaced users once the
+    # preemption actually sticks
+    allocated = freed && allocate(booking, target_space, current_allocations, priority)
+    if allocated
+      displaced.each { |(displaced_booking, _p)| register_displacement(displaced_booking, "The parking space was reassigned to a higher priority booking.") }
+    else
+      logger.warn { "could not move booking #{booking.id} onto space #{target_space.id}; restoring #{displaced.size} displaced booking(s)" }
+      displaced.each do |(displaced_booking, displaced_priority)|
+        restore_allocation(displaced_booking, displaced_priority, target_space, current_allocations)
+      end
       wait_list_email(booking)
     end
   rescue error
     logger.error(exception: error) { "failed to process unallocated booking #{booking.id}" }
+  end
+
+  # Record one preemption displacement decision (grouped/logged at end of run).
+  protected def record_displacement(space : ParkingSpace, displaced_booking : Booking, new_booking : Booking) : Nil
+    starting = new_booking.booking_start
+    date = Time.unix(starting).in(@timezone).to_s("%d/%m/%Y")
+    @displacement_report << DisplacementRecord.new(starting, date, space.id, displaced_booking.user_email, new_booking.user_email)
+  end
+
+  # Log (and surface as status) the displacements decided this run, grouped by
+  # parking date. Emitted whether displacement is enabled (these happened) or
+  # disabled (these WOULD happen) so management can review the impact.
+  protected def log_displacement_report : Nil
+    sorted = @displacement_report.sort_by(&.starting)
+    self[:displacement_report] = sorted
+    return if sorted.empty?
+
+    blocks = sorted.group_by(&.date).map do |date, records|
+      lines = records.map { |r| "* space #{r.space_id} displaced #{r.displaced} with #{r.replaced_with}" }
+      "#{date}\n#{lines.join('\n')}"
+    end
+
+    mode = @allow_displacement ? "enabled" : "disabled"
+    logger.info { "Displacement report (displacement #{mode}):\n\n#{blocks.join("\n\n")}" }
+  rescue error
+    logger.warn(exception: error) { "failed to log displacement report" }
   end
 
   # Remove one booking instance from an asset's tracked allocations (after

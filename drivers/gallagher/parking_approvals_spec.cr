@@ -3108,6 +3108,136 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   # moved off the out-of-service space and re-allocated despite the notice window
   staff.last_update_for(75001_i64).should eq("asset-spare-oos")
+
+  # ===========================================================
+  # Test 76: with displacement DISABLED, the displacement report still records
+  # which displacements WOULD occur (for management review) — without actually
+  # bumping anyone.
+  # ===========================================================
+
+  report_tz = Time::Location.load("Australia/Sydney")
+
+  settings({
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    allow_displacement: false,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # asset-r1
+  gallagher.set_cardholder("report.low@example.com", "ch-report-low")
+  gallagher.set_cardholder("report.high@example.com", "ch-report-high")
+  calendar.set_groups("report.low@example.com", default_grp.to_json)
+  calendar.set_groups("report.high@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+
+  rep_start = now + 3600_i64 * 100
+  rep_end = rep_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(76001_i64, "report.low@example.com",
+      rep_start, rep_end, "asset-r1", true, ext_car),
+    build_booking.call(76002_i64, "report.high@example.com",
+      rep_start, rep_end, "unallocated-76002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # nobody was actually displaced (displacement disabled)
+  staff.last_update_for(76001_i64).should be_nil
+  staff.last_state(76002_i64).should eq("wait_list")
+  mailer.sent?("report.low@example.com", "parking_request", "displaced").should eq(false)
+
+  # ...but the would-be displacement is captured in the report
+  report = status[:displacement_report].as_a
+  report.size.should eq(1)
+  entry = report.first
+  entry["space_id"].as_s.should eq("asset-r1")
+  entry["displaced"].as_s.should eq("report.low@example.com")
+  entry["replaced_with"].as_s.should eq("report.high@example.com")
+  entry["date"].as_s.should eq(Time.unix(rep_start).in(report_tz).to_s("%d/%m/%Y"))
+
+  # ===========================================================
+  # Test 77: with displacement ENABLED, the report records actual displacements,
+  # date-sorted (here two bumps on different parking dates).
+  # ===========================================================
+
+  settings({
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    allow_displacement: true,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # asset-r1
+  gallagher.set_cardholder("rep.low1@example.com", "ch-rl1")
+  gallagher.set_cardholder("rep.low2@example.com", "ch-rl2")
+  gallagher.set_cardholder("rep.high1@example.com", "ch-rh1")
+  gallagher.set_cardholder("rep.high2@example.com", "ch-rh2")
+  calendar.set_groups("rep.low1@example.com", default_grp.to_json)
+  calendar.set_groups("rep.low2@example.com", default_grp.to_json)
+  calendar.set_groups("rep.high1@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
+  calendar.set_groups("rep.high2@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
+
+  day1_start = now + 3600_i64 * 100
+  day1_end = day1_start + 3600_i64
+  day2_start = day1_start + 86400_i64 * 2 # two days later -> a different date
+  day2_end = day2_start + 3600_i64
+
+  # NOTE: the day-2 preemptor (77003) is created BEFORE the day-1 one (77004) so
+  # it is processed first and recorded first — the report must re-sort by date.
+  staff.set_bookings([
+    build_booking.call(77001_i64, "rep.low1@example.com",
+      day1_start, day1_end, "asset-r1", true, ext_car),
+    build_booking.call(77002_i64, "rep.low2@example.com",
+      day2_start, day2_end, "asset-r1", true, ext_car),
+    build_booking.call(77003_i64, "rep.high2@example.com",
+      day2_start, day2_end, "unallocated-77003", false, ext_car),
+    build_booking.call(77004_i64, "rep.high1@example.com",
+      day1_start, day1_end, "unallocated-77004", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the higher-priority bookings took the space on each day
+  staff.last_update_for(77003_i64).should eq("asset-r1")
+  staff.last_update_for(77004_i64).should eq("asset-r1")
+
+  # the report has both displacements, sorted by date
+  report2 = status[:displacement_report].as_a
+  report2.size.should eq(2)
+  report2.map { |e| e["date"].as_s }.should eq([
+    Time.unix(day1_start).in(report_tz).to_s("%d/%m/%Y"),
+    Time.unix(day2_start).in(report_tz).to_s("%d/%m/%Y"),
+  ])
+  report2.map { |e| e["displaced"].as_s }.should eq(["rep.low1@example.com", "rep.low2@example.com"])
+  report2.map { |e| e["replaced_with"].as_s }.should eq(["rep.high1@example.com", "rep.high2@example.com"])
 end
 
 # :nodoc:
