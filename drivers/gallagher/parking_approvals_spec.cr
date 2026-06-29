@@ -3351,8 +3351,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("vip@example.com", "ch-vip")
   calendar.set_groups("evicted@example.com", default_grp.to_json)
   calendar.set_groups("vip@example.com", default_grp.to_json)
-  # the assignee (vip) is resolvable as a staff member (for the created booking)
-  staff.set_staff("vip@example.com", "user-vip", "VIP User")
+  # the assignee (vip) is resolvable in the directory (for the created booking)
+  calendar.set_user("vip@example.com", {email: "vip@example.com", name: "VIP User"}.to_json)
 
   mstart = now + 3600_i64 * 200
   mend = mstart + 3600_i64
@@ -3380,6 +3380,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.approved.includes?(vip_id).should eq(true)
   staff.last_state(vip_id).should eq("access_granted_emailed")
   mailer.sent?("vip@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+  # the created booking carries the assignee's directory name (via calendar.get_user)
+  mailer.arg_for("vip@example.com", "parking_request", "approved_gallagher-group1", "visitor_name")
+    .should eq("VIP User")
 
   # ===========================================================
   # Test 80: when the assignee already has a (wait-list) booking, manual
@@ -3619,17 +3622,6 @@ class StaffAPIMock < DriverSpecs::MockDriver
   @created_bookings : Array(JSON::Any) = [] of JSON::Any
   @created_ids : Hash(String, Int64) = {} of String => Int64
   @next_created_id : Int64 = 90001_i64
-  # email => staff user JSON (for staff_details)
-  @staff : Hash(String, String) = {} of String => String
-
-  def set_staff(email : String, id : String, name : String)
-    @staff[email.downcase] = {id: id, name: name, email: email}.to_json
-  end
-
-  def staff_details(email : String)
-    raw = @staff[email.downcase]?
-    JSON.parse(raw || {id: email, name: email, email: email}.to_json)
-  end
 
   # the id assigned to the booking created for a given user email (nil if none)
   def created_id_for(email : String) : Int64?

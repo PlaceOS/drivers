@@ -925,13 +925,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # (same time, zones and extension_data) with the assignee's user details. The
   # asset is a placeholder until the booking is assigned a real space.
   protected def create_manual_booking(template : Booking, assign_email : String) : Booking?
-    user = ::PlaceCalendar::User.from_json(staff_api.staff_details(assign_email).get_json)
+    user = ::PlaceCalendar::User.from_json(calendar.get_user(assign_email, additional_fields: @directory_lookup_fields).get_json)
     placeholder = "unallocated-manual-#{template.id}"
     created = staff_api.create_booking(
       booking_type: BOOKING_TYPE,
       asset_id: placeholder,
       asset_ids: [placeholder],
-      user_id: user.id.presence || assign_email,
+      user_id: assign_email,
       user_email: assign_email,
       user_name: user.name.presence || assign_email,
       zones: template.zones,
