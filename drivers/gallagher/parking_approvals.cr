@@ -55,6 +55,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # reported via the spaces_without_groups status)
     allow_displacement: true,
 
+    # a booking can't be displaced (preempted, or moved off an unmapped space)
+    # within this many hours of its start time — users get this much notice. Set
+    # to 0 to disable. Forced moves (a space taken out of service) still proceed.
+    displacement_notification_hours: 24,
+
     # When set, Gallagher cardholders are resolved by first looking the user up
     # in the directory (MS Graph) and reading this field from `user.unmapped`
     # (e.g. an "employeeId" custom attribute), then querying Gallagher with that
@@ -96,6 +101,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # when false no booking is ever moved off its space (no preemption, no
   # unmapped-space moves)
   @allow_displacement : Bool = true
+  # bookings starting within this many hours can't be (non-forced) displaced
+  @displacement_notification_hours : Int32 = 24
   getter restriction_lookup : Hash(Int64, String) = {} of Int64 => String
   # restriction features that completely exclude a space from non-matching bookings
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
@@ -246,6 +253,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     @access_minutes_before = setting?(Int32, :access_minutes_before) || 30
     @allow_displacement = setting?(Bool, :allow_displacement) != false
+    @displacement_notification_hours = setting?(Int32, :displacement_notification_hours) || 24
 
     @restriction_lookup = {} of Int64 => String
     if restrictions = setting?(Array(NamedTuple(id: Int64, name: String)), :request_space_restrictions)
@@ -981,6 +989,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
       conflicts = occupants.select { |(other, _other_priority)| bookings_overlap?(booking, other) }
       next if conflicts.empty?
       next unless conflicts.all? { |(_other, other_priority)| other_priority < priority }
+      # all overlapping occupants must be displaceable now (none within their
+      # notice period) for the space to be freed
+      next unless conflicts.all? { |(other, _other_priority)| !within_displacement_notice?(other) }
       {space, conflicts}
     end
 
@@ -1263,10 +1274,24 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # allow_displacement policy only governs PREEMPTION (bumping a lower-priority
   # user). When a space can no longer hold the booking at all (out of service),
   # the move is involuntary and must always proceed.
+  # True when the booking starts too soon to be (non-forced) displaced: users
+  # are given `displacement_notification_hours` of notice. Forced moves (a space
+  # taken out of service) ignore this — the space is gone regardless.
+  protected def within_displacement_notice?(booking : Booking) : Bool
+    return false if @displacement_notification_hours <= 0
+    booking.booking_start < Time.utc.to_unix + @displacement_notification_hours.to_i64 * 3600
+  end
+
   protected def displace_booking(booking : Booking, space : ParkingSpace, forced : Bool = false) : Bool
-    if !forced && !@allow_displacement
-      logger.info { "displacement disabled; leaving booking #{booking.id} on space #{space.id}" }
-      return false
+    unless forced
+      unless @allow_displacement
+        logger.info { "displacement disabled; leaving booking #{booking.id} on space #{space.id}" }
+        return false
+      end
+      if within_displacement_notice?(booking)
+        logger.info { "booking #{booking.id} starts within the #{@displacement_notification_hours}h displacement notice period; not displacing" }
+        return false
+      end
     end
 
     logger.info { "displacing booking #{booking.id} (#{booking.user_email}) from space #{space.id}" }

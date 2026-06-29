@@ -12,12 +12,13 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   })
 
   settings({
-    poll_rate:            999_999,
-    cache_days:           14,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    cache_days:                      14,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -521,11 +522,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # enable directory resolution: look users up in the directory and read their
   # "employeeId" from unmapped, then query Gallagher with that value
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -775,11 +777,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -823,11 +826,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -908,11 +912,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   win_settings = {
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -1680,11 +1685,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "VIP Basement"    => "gallagher-group1", # same group as Open Basement
       "Secure Basement" => "gallagher-group3",
@@ -1728,11 +1734,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2144,11 +2151,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2219,11 +2227,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2333,11 +2342,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2558,11 +2568,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   ab_until = now + 3600_i64 * 500
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2667,11 +2678,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # employeeId) to a different cardholder. The cache must flush so the new
   # cardholder is used.
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2698,11 +2710,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2744,10 +2757,11 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   settings({
     poll_rate: 999_999,
     # a different priority-group list invalidates cached priorities
-    auto_approval_groups: ["group-vip", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    auto_approval_groups:            ["group-vip", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2771,11 +2785,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2831,11 +2846,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2906,11 +2922,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2941,11 +2958,12 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
 
   settings({
-    poll_rate:            999_999,
-    auto_approval_groups: ["group-priority", "group-default"],
-    car_zone_priority:    ["carpriority", "shared"],
-    bike_zone_priority:   ["bikepriority", "shared"],
-    parking_areas:        {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
       "Open Basement"   => "gallagher-group1",
       "Mezzanine"       => "gallagher-group2",
       "Secure Basement" => "gallagher-group3",
@@ -2975,6 +2993,121 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   mailer.arg_for("nocard2.user@example.com", "parking_request", "no_card", "reason")
     .should eq("no gallagher cardholder found")
   status[:users_without_cards].as_a.map(&.as_s).should contain("nocard2.user@example.com")
+
+  # ===========================================================
+  # Test 74: displacement_notification_hours gives users notice — a booking
+  # starting within the window can't be preempted, so the higher-priority
+  # booking waits instead. A booking starting OUTSIDE the window still can be.
+  # ===========================================================
+
+  settings({
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 24,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    allow_displacement: true,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # one space: asset-r1
+  gallagher.set_cardholder("notice.low@example.com", "ch-notice-low")
+  gallagher.set_cardholder("notice.high@example.com", "ch-notice-high")
+  calendar.set_groups("notice.low@example.com", default_grp.to_json)
+  calendar.set_groups("notice.high@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+
+  # the occupant starts in 2h — INSIDE the 24h notice window
+  soon_start = now + 3600_i64 * 2
+  soon_end = soon_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(74001_i64, "notice.low@example.com",
+      soon_start, soon_end, "asset-r1", true, ext_car),
+    build_booking.call(74002_i64, "notice.high@example.com",
+      soon_start, soon_end, "unallocated-74002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the occupant keeps the space (too close to its start to be displaced)...
+  staff.last_update_for(74001_i64).should be_nil
+  mailer.sent?("notice.low@example.com", "parking_request", "displaced").should eq(false)
+  # ...and the higher-priority booking waits
+  staff.last_update_for(74002_i64).should be_nil
+  staff.last_state(74002_i64).should eq("wait_list")
+
+  # --- a booking starting beyond the window CAN still be preempted ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  gallagher.set_cardholder("notice.low@example.com", "ch-notice-low")
+  gallagher.set_cardholder("notice.high@example.com", "ch-notice-high")
+  calendar.set_groups("notice.low@example.com", default_grp.to_json)
+  calendar.set_groups("notice.high@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+
+  # the occupant starts in 48h — OUTSIDE the 24h notice window
+  later_start = now + 3600_i64 * 48
+  later_end = later_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(74011_i64, "notice.low@example.com",
+      later_start, later_end, "asset-r1", true, ext_car),
+    build_booking.call(74012_i64, "notice.high@example.com",
+      later_start, later_end, "unallocated-74012", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # enough notice -> the occupant is displaced and the high-priority booking wins
+  staff.last_update_for(74011_i64).should eq("unallocated-displaced-74011")
+  mailer.sent?("notice.low@example.com", "parking_request", "displaced").should eq(true)
+  staff.last_update_for(74012_i64).should eq("asset-r1")
+
+  # ===========================================================
+  # Test 75: a FORCED move (space out of service) bypasses the notice period —
+  # the space is gone, so even a booking starting within the window is moved.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("notice.oos@example.com", "ch-notice-oos")
+  calendar.set_groups("notice.oos@example.com", default_grp.to_json)
+  forced_spaces = [
+    {
+      id: "asset-oos", identifier: "OOS",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: false,
+    },
+    {
+      id: "asset-spare-oos", identifier: "SPAREOOS",
+      assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+      features: ["carpriority", "Open Basement"], notes: "Car",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+  staff.set_assets(forced_spaces.to_json)
+
+  staff.set_bookings([
+    build_booking.call(75001_i64, "notice.oos@example.com",
+      soon_start, soon_end, "asset-oos", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # moved off the out-of-service space and re-allocated despite the notice window
+  staff.last_update_for(75001_i64).should eq("asset-spare-oos")
 end
 
 # :nodoc:
