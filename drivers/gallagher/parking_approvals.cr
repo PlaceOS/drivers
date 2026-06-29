@@ -473,6 +473,64 @@ class Place::Parking::Approvals < PlaceOS::Driver
     "parking allocated"
   end
 
+  # Manually reassign parking spaces (e.g. for an event). `displace` maps an
+  # `email_to_displace => email_to_assign`: for each pair the displaced user's
+  # parking booking(s) starting at `start_time` are moved off their space and
+  # that space is given to the assignee — creating a wait-list booking for the
+  # assignee first if they don't already have one for that time. Both sides are
+  # notified; Gallagher access is reconciled on the next allocation sweep.
+  def manual_displacement(start_time : Int64, displace : Hash(String, String)) : String
+    @sync_mutex.synchronize do
+      spaces_by_id = parking_spaces.each_with_object({} of String => ParkingSpace) { |s, h| h[s.id] = s }
+
+      # Phase 1: pair each displaced booking with the booking that will take its
+      # space, creating a wait-list booking for the assignee when one is missing.
+      swaps = [] of NamedTuple(displace: Booking, assign: Booking, space: ParkingSpace)
+      displace.each do |displace_email, assign_email|
+        displace_bookings = bookings_for(displace_email, start_time)
+        next if displace_bookings.empty?
+        assign_bookings = bookings_for(assign_email, start_time)
+
+        displace_bookings.each_with_index do |db, i|
+          space = (sid = db.asset_ids.first?) ? spaces_by_id[sid]? : nil
+          unless space
+            logger.warn { "manual displacement: #{displace_email} booking #{db.id} is not on a known parking space; skipping" }
+            next
+          end
+          # an existing assignee booking is matched by order; otherwise create one
+          assignee = assign_bookings[i]? || create_manual_booking(db, assign_email)
+          next unless assignee
+          swaps << {displace: db, assign: assignee, space: space}
+        end
+      end
+
+      logger.info { "manual displacement: reassigning #{swaps.size} space(s)" }
+
+      # Phase 2: displace + notify the displaced users (forced — bypasses the
+      # allow_displacement / notice-period policies; this is an explicit action)
+      swaps.each do |swap|
+        booking = swap[:displace]
+        next unless displace_booking(booking, swap[:space], forced: true)
+        update_state(booking, "wait_list")
+        displaced_email(booking, "Your parking space has been reassigned.")
+      end
+
+      # Phase 3: assign the freed spaces to the assignees + notify (allocate sends
+      # the approval email and approves the booking)
+      throwaway = {} of String => Array(Tuple(Booking, Int32))
+      swaps.each do |swap|
+        unless allocate(swap[:assign], swap[:space], throwaway, 0)
+          logger.warn { "manual displacement: could not assign space #{swap[:space].id} to booking #{swap[:assign].id}" }
+        end
+      end
+    end
+
+    "manual displacement complete"
+  rescue error
+    logger.error(exception: error) { "manual displacement failed" }
+    "manual displacement failed: #{error.message}"
+  end
+
   # ===================================
   # Allocation core
   # ===================================
@@ -846,6 +904,47 @@ class Place::Parking::Approvals < PlaceOS::Driver
   rescue error
     logger.error(exception: error) { "failed to query parking bookings" }
     raise error
+  end
+
+  # Active (non-rejected/deleted) parking bookings for a user that START at
+  # `start_time`, in this building. Used by manual_displacement.
+  protected def bookings_for(email : String, start_time : Int64) : Array(Booking)
+    Array(Booking).from_json(staff_api.query_bookings(
+      type: BOOKING_TYPE,
+      zones: [building_id],
+      email: email,
+      period_start: start_time,
+      period_end: start_time + 1,
+    ).get_json).select { |b| b.booking_start == start_time && !b.rejected && !b.deleted }
+  rescue error
+    logger.error(exception: error) { "failed to query bookings for #{email}" }
+    [] of Booking
+  end
+
+  # Create a wait-list parking booking for `assign_email` mirroring `template`
+  # (same time, zones and extension_data) with the assignee's user details. The
+  # asset is a placeholder until the booking is assigned a real space.
+  protected def create_manual_booking(template : Booking, assign_email : String) : Booking?
+    user = ::PlaceCalendar::User.from_json(staff_api.staff_details(assign_email).get_json)
+    placeholder = "unallocated-manual-#{template.id}"
+    created = staff_api.create_booking(
+      booking_type: BOOKING_TYPE,
+      asset_id: placeholder,
+      asset_ids: [placeholder],
+      user_id: user.id.presence || assign_email,
+      user_email: assign_email,
+      user_name: user.name.presence || assign_email,
+      zones: template.zones,
+      booking_start: template.booking_start,
+      booking_end: template.booking_end,
+      approved: false,
+      process_state: "wait_list",
+      extension_data: JSON::Any.new(template.extension_data),
+    ).get_json
+    Booking.from_json(created)
+  rescue error
+    logger.error(exception: error) { "failed to create wait-list booking for #{assign_email}" }
+    nil
   end
 
   # ===================================

@@ -3318,6 +3318,101 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   report3.map { |e| e["space"].as_s }.should eq(["CA", "CB"])
   report3.map { |e| e["displaced"].as_s }.should eq(["casc.low1@example.com", "casc.low2@example.com"])
   report3.map { |e| e["replaced_with"].as_s }.should eq(["casc.high1@example.com", "casc.high2@example.com"])
+
+  # ===========================================================
+  # Test 79: manual_displacement swaps a space from one user to another, creating
+  # a wait-list booking for the assignee when they don't have one. Both sides are
+  # notified.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    # manual displacement bypasses the policy, even when off
+    allow_displacement: false,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json) # asset-r1 / identifier R1
+  gallagher.set_cardholder("evicted@example.com", "ch-evicted")
+  gallagher.set_cardholder("vip@example.com", "ch-vip")
+  calendar.set_groups("evicted@example.com", default_grp.to_json)
+  calendar.set_groups("vip@example.com", default_grp.to_json)
+  # the assignee (vip) is resolvable as a staff member (for the created booking)
+  staff.set_staff("vip@example.com", "user-vip", "VIP User")
+
+  mstart = now + 3600_i64 * 200
+  mend = mstart + 3600_i64
+  # only the displaced user has a booking; the assignee has none (it's created)
+  staff.set_bookings([
+    build_booking.call(80001_i64, "evicted@example.com",
+      mstart, mend, "asset-r1", true, ext_car),
+  ].to_json)
+
+  exec(:manual_displacement, mstart, {"evicted@example.com" => "vip@example.com"}).get
+  sleep 100.milliseconds
+
+  # the displaced user was moved off the space and notified with a reason
+  staff.last_update_for(80001_i64).should eq("unallocated-displaced-80001")
+  staff.last_state(80001_i64).should eq("wait_list")
+  mailer.sent?("evicted@example.com", "parking_request", "displaced").should eq(true)
+  mailer.arg_for("evicted@example.com", "parking_request", "displaced", "reason")
+    .should eq("Your parking space has been reassigned.")
+
+  # a wait-list booking was created for the assignee and assigned the space
+  vip_id = staff.created_id_for("vip@example.com")
+  vip_id.should_not be_nil
+  vip_id = vip_id.not_nil!
+  staff.last_update_for(vip_id).should eq("asset-r1")
+  staff.approved.includes?(vip_id).should eq(true)
+  staff.last_state(vip_id).should eq("access_granted_emailed")
+  mailer.sent?("vip@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # ===========================================================
+  # Test 80: when the assignee already has a (wait-list) booking, manual
+  # displacement assigns THAT booking rather than creating a new one.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([two_regular[0]].to_json)
+  gallagher.set_cardholder("evicted2@example.com", "ch-evicted2")
+  gallagher.set_cardholder("vip2@example.com", "ch-vip2")
+  calendar.set_groups("evicted2@example.com", default_grp.to_json)
+  calendar.set_groups("vip2@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(81001_i64, "evicted2@example.com",
+      mstart, mend, "asset-r1", true, ext_car),
+    # the assignee already has a wait-list booking for the same time
+    build_booking.call(81002_i64, "vip2@example.com",
+      mstart, mend, "unallocated-81002", false, ext_car),
+  ].to_json)
+
+  exec(:manual_displacement, mstart, {"evicted2@example.com" => "vip2@example.com"}).get
+  sleep 100.milliseconds
+
+  # no new booking was created — the existing one was assigned the space
+  staff.created_id_for("vip2@example.com").should be_nil
+  staff.last_update_for(81001_i64).should eq("unallocated-displaced-81001")
+  staff.last_update_for(81002_i64).should eq("asset-r1")
+  staff.approved.includes?(81002_i64).should eq(true)
+  mailer.sent?("vip2@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+  mailer.sent?("evicted2@example.com", "parking_request", "displaced").should eq(true)
 end
 
 # :nodoc:
@@ -3359,6 +3454,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @clash_updates = Set(String).new
     @update_calls = {} of Int64 => Int32
     @fail_query = false
+    @created_bookings = [] of JSON::Any
+    @created_ids = {} of String => Int64
   end
 
   # when true, query_bookings raises (simulating the staff API erroring)
@@ -3496,7 +3593,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
     # overlay any persisted per-instance process_state, mirroring how the
     # backend reflects booking_state writes on the next fetch
-    bookings = JSON.parse(@bookings_json).as_a.map do |booking|
+    source = (JSON.parse(@bookings_json).as_a + @created_bookings)
+    source = source.select { |b| b["user_email"]?.try(&.as_s?) == email } if email
+    bookings = source.map do |booking|
       id = booking["id"].as_i64
       inst = booking["instance"]?.try(&.as_i64?)
       if state = @states[state_key(id, inst)]?
@@ -3514,6 +3613,68 @@ class StaffAPIMock < DriverSpecs::MockDriver
     bookings = JSON.parse(@bookings_json).as_a
     found = bookings.find { |b| b["id"].as_i64 == booking_id.to_s.to_i64 }
     found || JSON::Any.new({} of String => JSON::Any)
+  end
+
+  # bookings created via create_booking this test (mirrors them into queries)
+  @created_bookings : Array(JSON::Any) = [] of JSON::Any
+  @created_ids : Hash(String, Int64) = {} of String => Int64
+  @next_created_id : Int64 = 90001_i64
+  # email => staff user JSON (for staff_details)
+  @staff : Hash(String, String) = {} of String => String
+
+  def set_staff(email : String, id : String, name : String)
+    @staff[email.downcase] = {id: id, name: name, email: email}.to_json
+  end
+
+  def staff_details(email : String)
+    raw = @staff[email.downcase]?
+    JSON.parse(raw || {id: email, name: email, email: email}.to_json)
+  end
+
+  # the id assigned to the booking created for a given user email (nil if none)
+  def created_id_for(email : String) : Int64?
+    @created_ids[email.downcase]?
+  end
+
+  def create_booking(
+    booking_type : String,
+    asset_id : String,
+    user_id : String,
+    user_email : String,
+    user_name : String,
+    zones : Array(String),
+    booking_start : Int64? = nil,
+    booking_end : Int64? = nil,
+    approved : Bool? = nil,
+    process_state : String? = nil,
+    extension_data : JSON::Any? = nil,
+    asset_ids : Array(String)? = nil,
+  )
+    id = @next_created_id
+    @next_created_id += 1
+    @created_ids[user_email.downcase] = id
+    booking = {
+      id:              id,
+      booking_type:    booking_type,
+      booking_start:   booking_start,
+      booking_end:     booking_end,
+      asset_id:        asset_id,
+      asset_ids:       asset_ids || [asset_id],
+      user_id:         user_id,
+      user_email:      user_email,
+      user_name:       user_name,
+      booked_by_email: user_email,
+      booked_by_name:  user_name,
+      zones:           zones,
+      created:         booking_start,
+      approved:        approved,
+      rejected:        false,
+      deleted:         false,
+      process_state:   process_state,
+      extension_data:  extension_data,
+    }
+    @created_bookings << JSON.parse(booking.to_json)
+    booking
   end
 
   def update_booking(
