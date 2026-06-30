@@ -126,7 +126,8 @@ class Place::DeskBookingsLocations < PlaceOS::Driver
   # ===================================
   def locate_user(email : String? = nil, username : String? = nil)
     logger.debug { "searching for #{email}, #{username}" }
-    bookings = @bookings[email]? || [] of Booking
+    # Don't return a current location for a booking that hasn't started yet (e.g. tomorrow's bookings)
+    bookings = (@bookings[email]? || [] of Booking).select { |b| b.in_progress? }
     map_bookings(bookings)
   end
 
