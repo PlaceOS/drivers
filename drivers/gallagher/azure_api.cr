@@ -170,7 +170,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
 
   def connected
     ensure_authenticated
-    query_endpoints
+    # query_endpoints
 
     if !@ready
       @ready = true
