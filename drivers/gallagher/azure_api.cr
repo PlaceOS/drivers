@@ -438,9 +438,10 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     if (actual_base = @custom_href_base) && uri.starts_with?(actual_base)
       uri = uri[actual_base.size..-1]
     end
-    path = URI.parse(uri).request_target.as(String)
-    return path if path.ends_with?('/')
-    "#{path}/"
+    parsed = URI.parse(uri)
+    path = parsed.path
+    parsed.path = "#{path}/" unless path.ends_with?('/')
+    parsed.request_target.as(String)
   end
 
   def get_alarm_zones(name : String? = nil, exact_match : Bool = true)
@@ -918,7 +919,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
           events_resp = Events.from_json(response.body)
 
           update_url = URI.parse(events_resp.update_url)
-          uri.path = get_path(events_resp.update_url)
+          uri.path = URI.parse(get_path(events_resp.update_url)).path
           uri.query = update_url.query
 
           events = events_resp.events
