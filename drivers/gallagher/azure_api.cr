@@ -30,9 +30,10 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     # relative paths are routed via the driver transport
     _azure_token_endpoint: "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token",
 
-    unique_pdf_name:   "email",
-    _fixed_pdf_id:     "33694",
-    _custom_href_base: "https://internal-domain:8904/api",
+    _cardholder_email_key: "email",
+    unique_pdf_name:       "email",
+    _fixed_pdf_id:         "33694",
+    _custom_href_base:     "https://internal-domain:8904/api",
 
     # The division to pass when creating cardholders.
     default_division_href: "",
@@ -118,6 +119,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
   @poll_events : Bool = true
   @api_key : String = ""
   @unique_pdf_name : String = "email"
+  @cardholder_email_key : String = "email"
   @door_event_channel : String = "event"
   @headers : Hash(String, String) = {} of String => String
   @disabled_card_value : String = "Disabled (manually)"
@@ -151,6 +153,8 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     @event_map = new_map
 
     @unique_pdf_name = setting(String, :unique_pdf_name)
+    email_key = setting?(String, :cardholder_email_key) || @unique_pdf_name
+    @cardholder_email_key = "@#{email_key}"
 
     @default_division = setting?(String, :default_division_href)
     @default_facility_code = setting?(String, :default_facility_code)
@@ -879,8 +883,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
     end
 
     details = get_cardholder(user_id)
-    email_key = "@#{@unique_pdf_name}"
-    @user_email_cache[user_id] = details.json_unmapped[email_key]?.try(&.as_s)
+    @user_email_cache[user_id] = details.json_unmapped[@cardholder_email_key]?.try(&.as_s)
   rescue error
     logger.warn(exception: error) { "failed to lookup email for user: #{user_id}" }
     nil
