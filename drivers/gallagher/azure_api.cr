@@ -918,7 +918,7 @@ class Gallagher::AzureAPI < PlaceOS::Driver
           events_resp = Events.from_json(response.body)
 
           update_url = URI.parse(events_resp.update_url)
-          uri.path = update_url.path
+          uri.path = get_path(events_resp.update_url)
           uri.query = update_url.query
 
           events = events_resp.events
