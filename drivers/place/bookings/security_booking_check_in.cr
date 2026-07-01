@@ -12,7 +12,7 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
     organization_id: "event",
 
     # booking types we want to check in
-    booking_types: ["desk"],
+    booking_types: ["desk", "parking"],
   })
 
   def on_update
