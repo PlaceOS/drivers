@@ -1381,7 +1381,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
         booking_id: booking.id,
         asset_id: space.id,
         instance: booking.instance,
-        extension_data: booking.extension_data
+        extension_data: booking.extension_data,
+        zones: space.zones,
       ).get_json
     rescue error
       if clash_error?(error)

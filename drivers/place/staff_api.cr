@@ -794,6 +794,7 @@ class Place::StaffAPI < PlaceOS::Driver
     limit_override : Int64? = nil,
     instance : Int64? = nil,
     recurrence_end : Int64? = nil,
+    zones : Array(String)? = nil,
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -822,6 +823,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "extension_data" => extension_data,
       "instance"       => instance,
       "recurrence_end" => recurrence_end,
+      "zones"          => zones,
     }.compact.to_json)
     raise "issue updating booking #{booking_id}: #{response.status_code}\n#{response.body}" unless response.success?
     ExecResponse.new(response.body)
