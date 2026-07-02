@@ -393,7 +393,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_start:   local_start_time.to_s(@time_format),
       event_date:    local_start_time.to_s(@date_format),
       event_time:    local_start_time.to_s(@time_format),
-    }
+    },
+      reply_to: host_email.presence,
     )
   end
 
@@ -423,7 +424,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_date:       local_start_time.to_s(@date_format),
       event_time:       local_start_time.to_s(@time_format),
       induction_status: induction_status.to_s,
-    }
+    },
+      reply_to: host_email.presence,
     )
   end
 
@@ -480,7 +482,8 @@ class Place::VisitorMailer < PlaceOS::Driver
         event_title:         event_title,
         event_date:          local_start_time.to_s(@date_format),
         event_time:          local_start_time.to_s(@time_format),
-      }
+      },
+      reply_to: new_host_email.presence,
     )
   end
 
@@ -812,7 +815,8 @@ class Place::VisitorMailer < PlaceOS::Driver
           previous_event_time:    previous_time,
           previous_room_name:     previous_room_name,
           previous_building_name: previous_building_name,
-        }
+        },
+        reply_to: host_email.presence,
       )
     rescue error
       logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
@@ -921,7 +925,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       guest_jwt:        guest_jwt,
       kiosk_url:        kiosk_url,
     },
-      attach
+      attach,
+      reply_to: host_email.presence,
     )
   end
 

@@ -177,6 +177,18 @@ Times are specified in 24-hour format as decimal numbers:
 **Important**: If `release_outside_hours: true` is set, configuring `default_work_preferences` may be unnecessary. When `release_outside_hours` is enabled, any booking that doesn't match the user's configured work preferences (or default preferences) will automatically be flagged for release anyway. This makes `default_work_preferences` primarily useful when you want more granular control over release timing rather than blanket 24/7 release behavior.
 
 
+## Reply-To
+
+Auto-release notification emails set a `Reply-To` header so replies reach a useful
+person rather than the no-reply sender address. By default the reply-to is the
+**booking creator** (`booked_by_email`). This requires no configuration.
+
+This default can be overridden per-template (a `reply_to` field on the template
+metadata), tenant-wide (the `reply_to` setting on the Template Mailer), or for all
+mail (the `reply_to` setting on the SMTP Mailer). See the Template Mailer readme
+for the full precedence cascade.
+
+
 ## Template Configuration on Mailer
 
 The driver expects an email template for notifying users about pending releases:

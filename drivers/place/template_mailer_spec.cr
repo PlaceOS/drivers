@@ -1,88 +1,39 @@
 require "placeos-driver/spec"
 require "placeos-driver/interface/mailer"
-require "placeos-driver/interface/mailer_templates"
 
+# The TemplateMailer under test has `generic_name :Mailer`, so it occupies the
+# Mailer_1 slot. The mock declared below becomes Mailer_2 -- the module that
+# `system.implementing(Interface::Mailer)[1]` forwards to.
 class StaffAPI < DriverSpecs::MockDriver
   ZONES = [
     {
-      created_at:   1660537814,
-      updated_at:   1681800971,
-      id:           "zone-org-1234",
-      name:         "Test Org Zone",
-      display_name: "Test Org Zone",
-      location:     "",
-      description:  "",
-      code:         "",
-      type:         "",
-      count:        0,
-      capacity:     0,
-      map_id:       "",
-      tags:         [
-        "org",
-      ],
-      triggers:  [] of String,
+      id:        "zone-org",
+      name:      "Test Org Zone",
+      tags:      ["org"],
       parent_id: "zone-0000",
       timezone:  "Australia/Sydney",
     },
     {
-      created_at:   1660537814,
-      updated_at:   1681800971,
-      id:           "zone-bld-1234",
-      name:         "Test Building Zone",
-      display_name: "Test Building Zone",
-      location:     "",
-      description:  "",
-      code:         "",
-      type:         "",
-      count:        0,
-      capacity:     0,
-      map_id:       "",
-      tags:         [
-        "building",
-      ],
-      triggers:  [] of String,
-      parent_id: "zone-0000",
+      id:        "zone-building",
+      name:      "Test Building Zone",
+      tags:      ["building"],
+      parent_id: "zone-org",
       timezone:  "Australia/Sydney",
     },
   ]
 
-  #   METADATA_TEMPLATES = {
-  #     email_templates = {
-  #       name:        "email_templates",
-  #       description: "Email Templates for Zone",
-  #       details:     [
-  #         {
-  #           id:         "template-1",
-  #           from:       "support@example.com",
-  #           html:       "<p>This is a test template</p>",
-  #           text:       "This is a test template",
-  #           subject:    "Test 1",
-  #           trigger:    "visitor_invited.visitor",
-  #           zone_id:    "zone-1234",
-  #           category:   "internal",
-  #           reply_to:   "noreply@example.com",
-  #           created_at: 1725519680,
-  #           updated_at: 1725519680,
-  #         },
-  #         {
-  #           id:         "template-2",
-  #           from:       "support@example.com",
-  #           html:       "<p>This is a test template</p>",
-  #           text:       "This is a test template",
-  #           subject:    "Test 2",
-  #           trigger:    "visitor_invited.event",
-  #           zone_id:    "zone-1234",
-  #           category:   "internal",
-  #           reply_to:   "noreply@example.com",
-  #           created_at: 1727745875,
-  #           updated_at: 1727745875,
-  #         },
-  #       ],
-  #       parent_id:      "zone-1234",
-  #       editors:        [] of String,
-  #       modified_by_id: "user-1234",
-  #     },
-  #   }
+  # one template, with its own reply_to, triggered by "test.welcome"
+  EMAIL_TEMPLATES = [
+    {
+      id:       "template-1",
+      trigger:  "test.welcome",
+      subject:  "Hi %{name}",
+      text:     "Welcome %{name}",
+      html:     "<p>Welcome %{name}</p>",
+      from:     "noreply@org.com",
+      reply_to: "template-reply@org.com",
+    },
+  ]
 
   def zones(q : String? = nil,
             limit : Int32 = 1000,
@@ -94,16 +45,30 @@ class StaffAPI < DriverSpecs::MockDriver
     JSON.parse(zones.to_json)
   end
 
-  #   def metadata(id : String, key : String? = nil)
-  #     case key
-  #     when "email_templates"
-  #       JSON.parse(METADATA_TEMPLATES.to_json)
-  #     when "email_template_fields"
-  #       nil
-  #     else
-  #       nil
-  #     end
-  #   end
+  def metadata(id : String, key : String? = nil)
+    key = key.to_s
+    details = case key
+              when "email_templates"
+                JSON.parse(EMAIL_TEMPLATES.to_json)
+              else
+                # email_template_fields (and anything else): an empty object
+                JSON.parse("{}")
+              end
+
+    JSON.parse({
+      key => {
+        name:        key,
+        description: "",
+        details:     details,
+        parent_id:   id,
+        editors:     [] of String,
+      },
+    }.to_json)
+  end
+
+  def write_metadata(id : String, key : String, payload : JSON::Any = JSON::Any.new(nil), description : String = "")
+    JSON.parse({key => {name: key, details: payload, parent_id: id}}.to_json)
+  end
 end
 
 class Mailer < DriverSpecs::MockDriver
@@ -125,6 +90,7 @@ class Mailer < DriverSpecs::MockDriver
     reply_to : String | Array(String) | Nil = nil,
   )
     self[:sent] = self[:sent].as_i + 1
+    self[:reply_to] = reply_to
     true
   end
 
@@ -141,17 +107,54 @@ class Mailer < DriverSpecs::MockDriver
     reply_to : String | Array(String) | Nil = nil,
   ) : Bool
     self[:sent] = self[:sent].as_i + 1
+    self[:reply_to] = reply_to
     true
   end
 end
 
 DriverSpecs.mock_driver "Place::TemplateMailer" do
-  # system({
-  #   StaffAPI: {StaffAPI},
-  #   Mailer_1:   {Mailer},
-  #   Mailer_2:   {Mailer},
-  # })
+  # The TemplateMailer under test forwards to `system.implementing(Mailer)[1]`.
+  # In production that index 1 is the next mailer in the chain (e.g. SMTP); here
+  # we declare two mock mailers so index 1 is the recording mock (Mailer_2).
+  system({
+    StaffAPI: {StaffAPI},
+    Mailer:   {Mailer, Mailer},
+  })
 
-  # Missing hash key: "mod-Mailer/2" (KeyError)
-  # system(:Mailer_2)[:sent].should eq 0
+  # 1. With no configured reply_to, a per-template reply_to overrides the host
+  #    reply_to passed in by the caller.
+  exec(
+    :send_template,
+    to: "steve@org.com",
+    template: {"test", "welcome"},
+    args: {name: "Bob"},
+    reply_to: "host@org.com",
+  ).get
+  system(:Mailer_2)[:reply_to].should eq "template-reply@org.com"
+
+  # 2. With no template match and no configured reply_to, the host reply_to is
+  #    forwarded through to the downstream mailer.
+  exec(
+    :send_template,
+    to: "steve@org.com",
+    template: {"no", "template"},
+    args: {name: "Bob"},
+    reply_to: "host@org.com",
+  ).get
+  system(:Mailer_2)[:reply_to].should eq "host@org.com"
+
+  # 3. A reply_to configured on the TemplateMailer overrides BOTH the
+  #    per-template reply_to and the host reply_to passed in by the caller.
+  settings({
+    reply_to: "tenant@org.com",
+  })
+
+  exec(
+    :send_template,
+    to: "steve@org.com",
+    template: {"test", "welcome"},
+    args: {name: "Bob"},
+    reply_to: "host@org.com",
+  ).get
+  system(:Mailer_2)[:reply_to].should eq "tenant@org.com"
 end

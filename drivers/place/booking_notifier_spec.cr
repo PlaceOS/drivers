@@ -14,6 +14,8 @@ DriverSpecs.mock_driver "Place::BookingCheckInHelper" do
   system(:StaffAPI)[:booking_state].should eq "1--notified"
   system(:Mailer)[:template].should eq ["bookings", "booking_notify"]
   system(:Mailer)[:to].should eq ["concierge@place.com", "user1234@org.com", "manager@site.com"]
+  # replies should go to the person who created the booking, not the PlaceOS sender
+  system(:Mailer)[:reply_to].should eq "user1234@org.com"
 end
 
 # :nodoc:
@@ -50,6 +52,7 @@ class MailerMock < DriverSpecs::MockDriver
   )
     self[:template] = template
     self[:to] = to
+    self[:reply_to] = reply_to
   end
 end
 

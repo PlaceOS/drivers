@@ -316,13 +316,17 @@ class Place::BookingNotifier < PlaceOS::Driver
       send_to << email if email
     end
 
+    # replies should go to the person who created the booking, not the PlaceOS sender
+    reply_to = booking_details.booked_by_email.presence
+
     if booking_details.action == "approved" || (booking_details.action == "metadata_changed" && booking_details.extension_data.dig?("details", "status").try(&.as_s) == "approved")
       logger.debug { "sending approved notification for booking #{booking_details.id} (action: #{booking_details.action})" }
       mailer.send_template(
         to: send_to,
         template: {"bookings", third_party ? "booked_by_notify#{@template_suffix}" : "booking_notify#{@template_suffix}"},
         args: args,
-        attachments: attachments
+        attachments: attachments,
+        reply_to: reply_to,
       )
     elsif booking_details.action == "rejected" || (booking_details.action == "metadata_changed" && booking_details.extension_data.dig?("details", "status").try(&.as_s) == "rejected")
       logger.debug { "sending rejected notification for booking #{booking_details.id} (action: #{booking_details.action})" }
@@ -330,7 +334,8 @@ class Place::BookingNotifier < PlaceOS::Driver
         to: send_to,
         template: {"bookings", "rejected#{@template_suffix}"},
         args: args,
-        attachments: attachments
+        attachments: attachments,
+        reply_to: reply_to,
       )
     elsif booking_details.action == "cancelled" || (booking_details.action == "metadata_changed" && booking_details.extension_data.dig?("details", "status").try(&.as_s) == "cancelled")
       logger.debug { "sending cancelled notification for booking #{booking_details.id} (action: #{booking_details.action})" }
@@ -338,7 +343,8 @@ class Place::BookingNotifier < PlaceOS::Driver
         to: send_to,
         template: {"bookings", "cancelled#{@template_suffix}"},
         args: args,
-        attachments: attachments
+        attachments: attachments,
+        reply_to: reply_to,
       )
     else
       # metadata_changed but not an approval or cancellation - skip notification
@@ -526,7 +532,8 @@ class Place::BookingNotifier < PlaceOS::Driver
           to: send_to,
           template: {"bookings", third_party ? "booked_by_notify#{@template_suffix}" : "booking_notify#{@template_suffix}"},
           args: args,
-          attachments: attachments
+          attachments: attachments,
+          reply_to: booking_details.booked_by_email.presence,
         )
         staff_api.booking_state(booking_details.id, "notified", booking_details.instance).get
       rescue error

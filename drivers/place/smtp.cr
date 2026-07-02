@@ -18,6 +18,7 @@ class Place::Smtp < PlaceOS::Driver
     sender: "support@place.tech",
     # host:     "smtp.host",
     # port:     587,
+    # reply_to: "noreply@place.tech", # if set, overrides the reply-to on all outbound mail
     tls_mode:          EMail::Client::TLSMode::STARTTLS.to_s,
     ssl_verify_ignore: false,
     username:          "", # Username/Password for SMTP servers with basic authorization
@@ -35,6 +36,7 @@ class Place::Smtp < PlaceOS::Driver
 
   @smtp_client : EMail::Client?
   @sender : String = "support@place.tech"
+  @reply_to : String? = nil
   @username : String = ""
   @password : String = ""
   @host : String = "smtp.host"
@@ -56,6 +58,7 @@ class Place::Smtp < PlaceOS::Driver
     @username = setting?(String, :username) || ""
     @password = setting?(String, :password) || ""
     @sender = setting?(String, :sender) || "support@place.tech"
+    @reply_to = setting?(String, :reply_to).presence
     @host = setting?(String, :host) || host
     @port = setting?(Int32, :port) || port
     @tls_mode = setting?(EMail::Client::TLSMode, :tls_mode) || tls_mode
@@ -103,6 +106,9 @@ class Place::Smtp < PlaceOS::Driver
     reply_to : String | Array(String) | Nil = nil,
   ) : Bool
     to = {to} unless to.is_a?(Array)
+
+    # a reply-to configured on this mailer takes precedence over any value passed in
+    reply_to = @reply_to if @reply_to
 
     from = {from} unless from.nil? || from.is_a?(Array)
     cc = {cc} unless cc.nil? || cc.is_a?(Array)

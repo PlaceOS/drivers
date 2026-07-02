@@ -181,7 +181,9 @@ class Place::EventMailer < PlaceOS::Driver
       mailer.send_template(
         to: [organizer_email],
         template: {@email_template_group, @email_template},
-        args: email_data
+        args: email_data,
+        # replies should reach the event organizer, not the PlaceOS sender
+        reply_to: organizer_email
       ).get
     rescue
       logger.error { "ERROR when attempting to send welcome email" }

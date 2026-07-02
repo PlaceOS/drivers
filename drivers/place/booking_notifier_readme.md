@@ -54,6 +54,18 @@ Requires the following drivers in the system
 ```
 
 
+## Reply-To
+
+Booking notification emails set a `Reply-To` header so replies reach a useful
+person rather than the no-reply sender address. By default the reply-to is the
+**booking creator** (`booked_by_email`). This requires no configuration.
+
+This default can be overridden per-template (a `reply_to` field on the template
+metadata), tenant-wide (the `reply_to` setting on the Template Mailer), or for all
+mail (the `reply_to` setting on the SMTP Mailer). See the Template Mailer readme
+for the full precedence cascade.
+
+
 ## Template configuration on Mailer
 
 There are two templates that are expected:

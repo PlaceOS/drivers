@@ -20,6 +20,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     keep_if_not_seen: 6,   # keep fields for x updates if not seen, -1 to keep forever, 0 to never keep
     timezone:         "Australia/Sydney",
     update_schedule:  "*/20 * * * *", # cron schedule for updating template fields
+    # reply_to:         "noreply@place.tech", # tenant-wide reply-to override
   })
 
   accessor staff_api : StaffAPI_1
@@ -50,6 +51,7 @@ class Place::TemplateMailer < PlaceOS::Driver
 
   @timezone : Time::Location = Time::Location.load("Australia/Sydney")
   @update_schedule : String? = nil
+  @reply_to : String? = nil
 
   def on_update
     @org_zone_ids = nil
@@ -66,6 +68,7 @@ class Place::TemplateMailer < PlaceOS::Driver
     timezone = setting?(String, :timezone).presence || "Australia/Sydney"
     @timezone = Time::Location.load(timezone)
     @update_schedule = setting?(String, :update_schedule).presence
+    @reply_to = setting?(String, :reply_to).presence
 
     schedule.clear
 
@@ -253,11 +256,16 @@ class Place::TemplateMailer < PlaceOS::Driver
       text = build_template(metadata_template["text"]?.try &.to_s, args) || ""
       html = build_template(metadata_template["html"]?.try &.to_s, args) || ""
       from = metadata_template["from"].to_s if (from_template = metadata_template["from"]?) && from_template.to_s.presence
+
+      # reply-to precedence (highest applied last):
+      #   host (passed in) < per-template reply_to < this mailer's configured reply_to
       reply_to = metadata_template["reply_to"].to_s if (reply_to_template = metadata_template["reply_to"]?) && reply_to_template.to_s.presence
+      reply_to = @reply_to if @reply_to
 
       mailer.send_mail(to, subject, text, html, resource_attachments, attachments, cc, bcc, from, reply_to)
     else
       logger.info { "unable to find template #{template.join(SEPERATOR)} from zones #{zone_ids} metadata, forwarding to Mailer_2" }
+      reply_to = @reply_to if @reply_to
       mailer.send_template(to, template, args, resource_attachments, attachments, cc, bcc, from, reply_to)
     end
   end
