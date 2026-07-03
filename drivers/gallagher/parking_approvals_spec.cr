@@ -3730,6 +3730,135 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   }.to_json)
   sleep 100.milliseconds
   mailer.send_count.should eq(0)
+
+  # ===========================================================
+  # Test 84: a PERSISTENT directory failure (all retries exhausted) must not
+  # poison the priority cache. Sweep 1: every group lookup for a top-priority
+  # user fails, so they resolve to nil -> treated as priority 0 for that run and
+  # a default user (created earlier) takes the only space. Sweep 2: the directory
+  # has recovered — the lookup must be RETRIED (nil is never cached) so the
+  # user's true group priority is seen and they preempt the lower-priority
+  # occupant.
+  # ===========================================================
+
+  retry_settings = {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    # retry twice, with no backoff, so the test doesn't actually sleep
+    group_lookup_retries: 2,
+    group_lookup_backoff: 0,
+  }
+  settings(retry_settings)
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  pr_space = [
+    {id: "asset-pr1", identifier: "PR1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+  ].to_json
+  staff.set_assets(pr_space)
+  gallagher.set_cardholder("pexec.user@example.com", "ch-pexec")
+  gallagher.set_cardholder("plowly.user@example.com", "ch-plowly")
+  # pexec.user is in the TOP priority group; plowly.user is in no groups
+  calendar.set_groups("pexec.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("plowly.user@example.com", [] of NamedTuple(id: String, email: String))
+  # the directory is down for pexec.user for far more than the retry budget
+  calendar.set_fail_groups("pexec.user@example.com", 100)
+
+  pr_start = now + 3600_i64 * 360
+  pr_end = pr_start + 3600_i64
+  # plowly's booking was created EARLIER (lower id => earlier created), so it
+  # wins the created_at tiebreak while pexec is wrongly at priority 0
+  staff.set_bookings([
+    build_booking.call(86001_i64, "plowly.user@example.com",
+      pr_start, pr_end, "unallocated-86001", false, ext_car),
+    build_booking.call(86002_i64, "pexec.user@example.com",
+      pr_start, pr_end, "unallocated-86002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the lookup was attempted retries+1 times (initial + 2 retries) then gave up
+  calendar.group_lookup_count("pexec.user@example.com").should eq(3)
+  # during the outage the space went to the default user
+  staff.last_update_for(86001_i64).should eq("asset-pr1")
+  staff.last_update_for(86002_i64).should be_nil
+
+  # --- the directory recovers ---
+  calendar.set_fail_groups("pexec.user@example.com", 0)
+
+  staff.reset_calls
+  mailer.reset
+  # world state after sweep 1: plowly holds the space, pexec is wait-listed
+  plowly_allocated = build_booking.call(86001_i64, "plowly.user@example.com",
+    pr_start, pr_end, "asset-pr1", true, ext_car)
+  staff.set_bookings([
+    plowly_allocated.merge({process_state: "access_granted_emailed"}),
+    build_booking.call(86002_i64, "pexec.user@example.com",
+      pr_start, pr_end, "unallocated-86002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the failed lookup must have been retried, not served from a cached 0
+  calendar.group_lookup_count("pexec.user@example.com").should eq(4)
+  # with their true priority visible, pexec preempts the priority-0 occupant
+  staff.last_update_for(86002_i64).should eq("asset-pr1")
+  staff.last_update_for(86001_i64).should eq("unallocated-displaced-86001")
+  mailer.sent?("pexec.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+  mailer.sent?("plowly.user@example.com", "parking_request", "displaced").should eq(true)
+
+  # ===========================================================
+  # Test 85: a TRANSIENT directory blip recovers WITHIN the sweep — the lookup
+  # is retried and succeeds, so the top-group user keeps their true priority and
+  # wins the space over an earlier-created default user in the SAME run (no
+  # displacement round-trip needed).
+  # ===========================================================
+
+  settings(retry_settings)
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(pr_space)
+  gallagher.set_cardholder("texec.user@example.com", "ch-texec")
+  gallagher.set_cardholder("tlowly.user@example.com", "ch-tlowly")
+  calendar.set_groups("texec.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("tlowly.user@example.com", [] of NamedTuple(id: String, email: String))
+  # the directory fails once for texec.user, then recovers (within the retries)
+  calendar.set_fail_groups("texec.user@example.com", 1)
+
+  tr_start = now + 3600_i64 * 380
+  tr_end = tr_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(87001_i64, "tlowly.user@example.com",
+      tr_start, tr_end, "unallocated-87001", false, ext_car),
+    build_booking.call(87002_i64, "texec.user@example.com",
+      tr_start, tr_end, "unallocated-87002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # one failure + one successful retry
+  calendar.group_lookup_count("texec.user@example.com").should eq(2)
+  # priority stayed accurate, so the top-group user won the only space outright
+  staff.last_update_for(87002_i64).should eq("asset-pr1")
+  staff.last_update_for(87001_i64).should be_nil
+  mailer.sent?("texec.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
 end
 
 # :nodoc:
@@ -4052,8 +4181,21 @@ class CalendarMock < DriverSpecs::MockDriver
     @groups[user_email.downcase] = groups.to_json
   end
 
+  # remaining get_groups failures per user — each call decrements. Set a small
+  # number for a transient outage that recovers, or a large one for a persistent
+  # outage. 0 (or unset) always succeeds.
+  @fail_groups : Hash(String, Int32) = {} of String => Int32
+
+  def set_fail_groups(user_email : String, times : Int32)
+    @fail_groups[user_email.downcase] = times
+  end
+
   def get_groups(user_id : String)
     @group_lookup_calls[user_id.downcase] = (@group_lookup_calls[user_id.downcase]? || 0) + 1
+    if (remaining = @fail_groups[user_id.downcase]?) && remaining > 0
+      @fail_groups[user_id.downcase] = remaining - 1
+      raise "simulated directory failure"
+    end
     raw = @groups[user_id.downcase]?
     raw ? JSON.parse(raw) : JSON.parse("[]")
   end

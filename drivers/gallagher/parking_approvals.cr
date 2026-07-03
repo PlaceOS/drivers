@@ -1,4 +1,5 @@
 require "base64"
+require "simple_retry"
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
@@ -33,6 +34,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     # ordered AD groups (highest priority first). Group id or email.
     auto_approval_groups: ["azure_group_email_or_id"],
+
+    # accurate group priority is critical, so a failing directory group lookup is
+    # retried with exponential backoff before giving up (the user is then treated
+    # as priority 0 for that run ONLY and retried next sweep). Tuning knobs
+    # (seconds); the defaults retry 5 times, 2s → 30s.
+    _group_lookup_retries:     5,
+    _group_lookup_backoff:     2,
+    _group_lookup_max_backoff: 30,
 
     # ordered list of parking-space FEATURE names that determine allocation
     # preference (earlier = higher priority). Matched against `space.features`,
@@ -101,6 +110,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @timezone : Time::Location = Time::Location::UTC
   @poll_rate : Time::Span = 180.minutes
   @auto_approval_groups : Array(String) = [] of String
+  # directory group-lookup retry policy (see group_priority)
+  @group_lookup_retries : Int32 = 5
+  @group_lookup_backoff : Time::Span = 2.seconds
+  @group_lookup_max_backoff : Time::Span = 30.seconds
   @car_zone_priority : Array(String) = [] of String
   @bike_zone_priority : Array(String) = [] of String
   @parking_areas : Hash(String, String) = {} of String => String
@@ -257,6 +270,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @auto_approval_groups = (setting?(Array(String), :auto_approval_groups) || [] of String).map do |id|
       id.includes?('@') ? id.downcase : id
     end
+
+    @group_lookup_retries = setting?(Int32, :group_lookup_retries) || 5
+    @group_lookup_backoff = (setting?(Int32, :group_lookup_backoff) || 2).seconds
+    @group_lookup_max_backoff = (setting?(Int32, :group_lookup_max_backoff) || 30).seconds
 
     @car_zone_priority = setting?(Array(String), :car_zone_priority) || [] of String
     @bike_zone_priority = setting?(Array(String), :bike_zone_priority) || [] of String
@@ -1019,8 +1036,17 @@ class Place::Parking::Approvals < PlaceOS::Driver
     user_email = booking.user_email.downcase
     base = cache[user_email]?
     if base.nil?
-      base = group_priority(user_email)
-      cache[user_email] = base
+      # cache successful lookups ONLY (mirroring lookup_cardholder): a failed
+      # group lookup returns nil, and caching that as 0 would pin a top-group
+      # user to the bottom of the allocation order until the next cache flush
+      # (up to a day). Treat the failure as 0 for THIS run only and retry the
+      # lookup next sweep.
+      if resolved = group_priority(user_email)
+        cache[user_email] = resolved
+        base = resolved
+      else
+        base = 0
+      end
     end
 
     request_type = booking.extension_data["request_type"]?.try(&.as_s?)
@@ -1034,10 +1060,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
     base
   end
 
-  protected def group_priority(user_email : String) : Int32
+  # The user's group priority, or nil when the directory lookup FAILED — the
+  # caller must not cache nil ("unknown" is not the same as "in no groups").
+  # Accurate priority is important, so a failing lookup is retried with
+  # exponential backoff (@group_lookup_retries times, @group_lookup_backoff up to
+  # @group_lookup_max_backoff) before the error propagates to the rescue -> nil.
+  protected def group_priority(user_email : String) : Int32?
     return 0 if @auto_approval_groups.empty?
 
-    groups = calendar.get_groups(user_email).get.as_a rescue [] of JSON::Any
+    groups = SimpleRetry.try_to(
+      # +1: the initial attempt plus @group_lookup_retries retries
+      max_attempts: @group_lookup_retries + 1,
+      base_interval: @group_lookup_backoff,
+      max_interval: @group_lookup_max_backoff,
+    ) do |attempt, last_error|
+      logger.warn(exception: last_error) { "retrying group lookup for #{user_email} (attempt #{attempt})" } if last_error
+      calendar.get_groups(user_email).get.as_a
+    end
 
     @auto_approval_groups.each_with_index do |target, idx|
       groups.each do |g|
@@ -1051,8 +1090,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
     0
   rescue error
-    logger.warn(exception: error) { "failed to lookup groups for #{user_email}" }
-    0
+    logger.warn(exception: error) { "failed to lookup groups for #{user_email} after #{@group_lookup_retries} retries" }
+    nil
   end
 
   # ===================================
