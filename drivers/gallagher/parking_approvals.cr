@@ -1,3 +1,4 @@
+require "base64"
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
@@ -86,6 +87,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     date_time_format: "%c",
     time_format:      "%l:%M%p",
     date_format:      "%A, %-d %B",
+
+    # When set, parking approval emails carry a calendar invite (.ics) so the
+    # allocated space appears on the user's calendar; a matching cancellation is
+    # sent if they're later displaced. This is the organizer ("from") address
+    # shown on the invite — typically a no-reply mailbox. Leave blank to disable.
+    calendar_invite_from:      "",
+    calendar_invite_from_name: "Parking",
   })
 
   BOOKING_TYPE = "parking"
@@ -227,6 +235,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
 
+  # organizer identity for calendar invites; when the email is blank invites are
+  # disabled (approval/displacement emails carry no .ics attachment)
+  @calendar_invite_from : String? = nil
+  @calendar_invite_from_name : String = "Parking"
+
   def on_load
     monitor("staff/booking/changed") do |_subscription, payload|
       logger.debug { "received booking changed event #{payload}" }
@@ -279,6 +292,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+
+    @calendar_invite_from = setting?(String, :calendar_invite_from).presence
+    @calendar_invite_from_name = setting?(String, :calendar_invite_from_name).presence || "Parking"
 
     previous_id_field = @gallagher_id_field
     previous_lookup_fields = @directory_lookup_fields
@@ -1836,6 +1852,92 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @parking_areas.values.find { |group_id| granted.includes?(group_id) }
   end
 
+  # ===================================
+  # Calendar invite (.ics)
+  # ===================================
+
+  alias Attachment = PlaceOS::Driver::Interface::Mailer::Attachment
+
+  ICS_METHOD_REQUEST = "REQUEST"
+  ICS_METHOD_CANCEL  = "CANCEL"
+
+  # A base64-encoded iCalendar (.ics) attachment for a parking email, or an empty
+  # array when invites are disabled (no organizer configured). Naming the file
+  # `.ics` makes the mailer emit a `text/calendar` MIME part, which clients
+  # recognise as a calendar invite. Because the UID is stable per booking, the
+  # REQUEST sent with the approval email and the CANCEL sent on displacement act
+  # on the SAME calendar entry — a reassigned space is removed from the user's
+  # calendar rather than duplicated.
+  protected def calendar_attachment(booking : Booking, space_label : String?, cancel : Bool) : Array(Attachment)
+    return [] of Attachment if @calendar_invite_from.nil?
+    ics = parking_invite_ics(booking, space_label, cancel)
+    [Attachment.new(file_name: "parking.ics", content: Base64.strict_encode(ics))]
+  end
+
+  # Build the iCalendar body (RFC 5545) describing a parking allocation. `cancel`
+  # emits a METHOD:CANCEL that removes the previously-sent invite.
+  protected def parking_invite_ics(booking : Booking, space_label : String?, cancel : Bool) : String
+    method = cancel ? ICS_METHOD_CANCEL : ICS_METHOD_REQUEST
+    stamp = Time.utc.to_s("%Y%m%dT%H%M%SZ")
+    dtstart = Time.unix(booking.booking_start).to_s("%Y%m%dT%H%M%SZ")
+    dtend = Time.unix(booking.booking_end).to_s("%Y%m%dT%H%M%SZ")
+
+    # SEQUENCE must never regress across a booking's lifecycle: a CANCEL has to
+    # outrank the REQUEST it supersedes or clients ignore it. last_changed
+    # advances on every booking edit; the +1 on cancel guarantees the
+    # cancellation wins even when built from the same booking snapshot.
+    sequence = booking.last_changed || 0_i64
+    sequence += 1 if cancel
+
+    building = building_zone.display_name.presence || building_zone.name
+    label = space_label.presence || "Parking"
+    summary = "Parking - #{label}"
+    location = "#{label}, #{building}"
+    description = "Your parking space (#{label}) at #{building}."
+    status = cancel ? "CANCELLED" : "CONFIRMED"
+
+    String.build do |io|
+      io << "BEGIN:VCALENDAR\r\n"
+      io << "VERSION:2.0\r\n"
+      io << "PRODID:-//PlaceOS//Parking Approvals//EN\r\n"
+      io << "CALSCALE:GREGORIAN\r\n"
+      io << "METHOD:" << method << "\r\n"
+      io << "BEGIN:VEVENT\r\n"
+      io << "UID:" << invite_uid(booking) << "\r\n"
+      io << "SEQUENCE:" << sequence << "\r\n"
+      io << "DTSTAMP:" << stamp << "\r\n"
+      io << "DTSTART:" << dtstart << "\r\n"
+      io << "DTEND:" << dtend << "\r\n"
+      io << "SUMMARY:" << ics_escape(summary) << "\r\n"
+      io << "LOCATION:" << ics_escape(location) << "\r\n"
+      io << "DESCRIPTION:" << ics_escape(description) << "\r\n"
+      io << "ORGANIZER;CN=" << ics_escape(@calendar_invite_from_name) << ":mailto:" << @calendar_invite_from << "\r\n"
+      io << "ATTENDEE;CN=" << ics_escape(booking.user_name) << ";PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:" << booking.user_email << "\r\n"
+      io << "STATUS:" << status << "\r\n"
+      # parking shouldn't mark the user busy on their calendar
+      io << "TRANSP:TRANSPARENT\r\n"
+      io << "END:VEVENT\r\n"
+      io << "END:VCALENDAR\r\n"
+    end
+  end
+
+  # Stable per-booking-instance UID so the approval REQUEST and any later CANCEL
+  # refer to the same calendar entry. Recurring instances get distinct UIDs.
+  protected def invite_uid(booking : Booking) : String
+    base = booking.instance ? "parking-#{booking.id}-#{booking.instance}" : "parking-#{booking.id}"
+    "#{base}@place.technology"
+  end
+
+  # Escape a text value for an iCalendar property (RFC 5545 §3.3.11). Backslash
+  # is escaped first so we don't double-escape the escapes we introduce.
+  protected def ics_escape(value : String) : String
+    value.gsub('\\', "\\\\").gsub('\n', "\\n").gsub(',', "\\,").gsub(';', "\\;")
+  end
+
+  # ===================================
+  # Emails
+  # ===================================
+
   # The approval email is the one we must guarantee is delivered, so its "sent"
   # marker (access_granted_emailed) is distinct from the "access granted" state.
   # The send is blocking (.get_json) so a failure raises and we DON'T advance
@@ -1851,6 +1953,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", template},
       common_template_args(booking, space),
+      attachments: calendar_attachment(booking, space.identifier.presence || space.id, cancel: false),
     ).get_json
 
     update_state(booking, "access_granted_emailed")
@@ -1895,10 +1998,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
   end
 
   protected def displaced_email(booking : Booking, reason : String) : Nil
+    # the space the booking last held (set on allocate) — used to label the
+    # cancellation; nil just yields a generic cancel that still removes the entry
+    label = booking.extension_data["location"]?.try(&.as_s?)
     mailer.send_template(
       booking.user_email,
       {"parking_request", "displaced"},
       common_template_args(booking).merge({reason: reason}),
+      attachments: calendar_attachment(booking, label, cancel: true),
     ).get_json
   rescue error
     logger.warn(exception: error) { "failed to send displaced email for booking #{booking.id}" }

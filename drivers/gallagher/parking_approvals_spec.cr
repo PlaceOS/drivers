@@ -1,5 +1,6 @@
 require "placeos-driver/spec"
 require "placeos-driver/interface/mailer"
+require "base64"
 require "json"
 
 DriverSpecs.mock_driver "Place::Parking::Approvals" do
@@ -3498,6 +3499,128 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # the recently-created (walk-in) and future bookings are still allocated
   staff.last_update_for(83002_i64).should_not be_nil
   staff.last_update_for(83003_i64).should_not be_nil
+
+  # ===========================================================
+  # Test 82: when calendar_invite_from is set, the approval email carries a
+  # METHOD:REQUEST .ics invite for the allocated space, and a later displacement
+  # emails a METHOD:CANCEL for the SAME booking UID — so the space is removed
+  # from (not duplicated on) the user's calendar.
+  # ===========================================================
+
+  settings({
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    calendar_invite_from:      "parking@place.technology",
+    calendar_invite_from_name: "Building Parking",
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("inv.user@example.com", "ch-inv")
+  calendar.set_groups("inv.user@example.com", default_grp.to_json)
+
+  inv_space = {
+    id: "asset-inv1", identifier: "INV1", assigned_to: "",
+    zones: ["zone-building", "zone-level-B1"],
+    features: ["carpriority", "Open Basement"], notes: "Car",
+    security_system_groups: [] of String, bookable: true,
+  }
+  staff.set_assets([inv_space].to_json)
+
+  inv_start = now + 3600_i64 * 300
+  inv_end = inv_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(84001_i64, "inv.user@example.com",
+      inv_start, inv_end, "unallocated-84001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # allocated + approval email sent for the Open Basement group
+  staff.last_update_for(84001_i64).should eq("asset-inv1")
+  mailer.sent?("inv.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # the approval email carries a METHOD:REQUEST invite describing the space
+  invite = mailer.attachment_for("inv.user@example.com", "parking_request", "approved_gallagher-group1")
+  invite.should_not be_nil
+  invite = invite.not_nil!
+  invite.should contain("BEGIN:VCALENDAR")
+  invite.should contain("METHOD:REQUEST")
+  invite.should contain("UID:parking-84001@place.technology")
+  invite.should contain("SEQUENCE:0")
+  invite.should contain("DTSTART:#{Time.unix(inv_start).to_s("%Y%m%dT%H%M%SZ")}")
+  invite.should contain("DTEND:#{Time.unix(inv_end).to_s("%Y%m%dT%H%M%SZ")}")
+  invite.should contain("SUMMARY:Parking - INV1")
+  invite.should contain("STATUS:CONFIRMED")
+  invite.should contain("ORGANIZER;CN=Building Parking:mailto:parking@place.technology")
+  invite.should contain("ATTENDEE;CN=inv.user@example.com;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:inv.user@example.com")
+
+  # --- displacement: the space goes out of service, forcing a move off it ---
+  staff.reset_calls
+  mailer.reset
+  # same space, now not bookable (e.g. flooded)
+  staff.set_assets([inv_space.merge({bookable: false})].to_json)
+
+  inv2_start = now + 3600_i64 * 320
+  inv2_end = inv2_start + 3600_i64
+  # the booking is already allocated on the space, with a location + last_changed
+  staff.set_bookings([
+    {
+      id:              84001_i64,
+      booking_type:    "parking",
+      booking_start:   inv2_start,
+      booking_end:     inv2_end,
+      asset_id:        "asset-inv1",
+      asset_ids:       ["asset-inv1"],
+      user_id:         "user-84001",
+      user_email:      "inv.user@example.com",
+      user_name:       "inv.user@example.com",
+      booked_by_email: "inv.user@example.com",
+      booked_by_name:  "inv.user@example.com",
+      zones:           ["zone-building"],
+      created:         now - 500_i64,
+      last_changed:    now,
+      approved:        true,
+      rejected:        false,
+      deleted:         false,
+      process_state:   "access_granted_emailed",
+      extension_data:  {
+        "vehicle_type" => JSON::Any.new("car"),
+        "request_type" => JSON::Any.new("standard"),
+        "location"     => JSON::Any.new("INV1"),
+      },
+    },
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the booking was moved off the out-of-service space and a displaced email sent
+  staff.last_update_for(84001_i64).should eq("unallocated-displaced-84001")
+  mailer.sent?("inv.user@example.com", "parking_request", "displaced").should eq(true)
+
+  # that email carries a METHOD:CANCEL invite for the SAME UID, with a higher
+  # SEQUENCE so clients supersede the earlier REQUEST and remove the entry
+  cancel = mailer.attachment_for("inv.user@example.com", "parking_request", "displaced")
+  cancel.should_not be_nil
+  cancel = cancel.not_nil!
+  cancel.should contain("METHOD:CANCEL")
+  cancel.should contain("UID:parking-84001@place.technology")
+  cancel.should contain("STATUS:CANCELLED")
+  cancel.should contain("SEQUENCE:#{now + 1}")
+  cancel.should contain("SUMMARY:Parking - INV1")
 end
 
 # :nodoc:
@@ -3986,7 +4109,7 @@ end
 class MailerMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Mailer
 
-  @sent : Array(NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)) = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)
+  @sent : Array(NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems, attachments: Array(Attachment))) = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems, attachments: Array(Attachment))
   # when true, every send_template raises (simulating a mailer/SMTP failure)
   @fail_send : Bool = false
 
@@ -3995,7 +4118,7 @@ class MailerMock < DriverSpecs::MockDriver
   end
 
   def reset
-    @sent = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)
+    @sent = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems, attachments: Array(Attachment))
     self[:send_count] = 0
     self[:last_template] = nil
     self[:last_to] = nil
@@ -4030,6 +4153,13 @@ class MailerMock < DriverSpecs::MockDriver
     sent.try { |s| s[:args][key]?.try(&.to_s) }
   end
 
+  # the decoded (base64) content of the first attachment on the most recent
+  # (to, template) send — the .ics body for a parking calendar invite, or nil
+  def attachment_for(to : String, ns : String, name : String) : String?
+    sent = @sent.reverse.find { |s| s[:to] == to && s[:template] == {ns, name} }
+    sent.try { |s| s[:attachments].first?.try { |a| Base64.decode_string(a[:content]) } }
+  end
+
   def send_template(
     to : String | Array(String),
     template : Tuple(String, String),
@@ -4043,7 +4173,7 @@ class MailerMock < DriverSpecs::MockDriver
   )
     raise "simulated mailer failure" if @fail_send
     recipient = to.is_a?(String) ? to : (to.first? || "")
-    @sent << {to: recipient, template: template, args: args}
+    @sent << {to: recipient, template: template, args: args, attachments: attachments}
     self[:last_template] = template
     self[:last_to] = recipient
     self[:send_count] = (self[:send_count]?.try(&.as_i) || 0) + 1
