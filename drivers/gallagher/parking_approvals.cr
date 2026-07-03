@@ -358,9 +358,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # flush the cardholder + priority lookup caches once a day (midnight, building
     # timezone) so newly-issued cards and AD group changes are picked up without
     # keeping stale lookups forever
-    schedule.cron("0 0 * * *", @timezone) do
-      clear_cardholder_cache
-      clear_priority_cache
+    schedule.cron("0 12 * * *", @timezone) do
+      @sync_mutex.synchronize do
+        clear_cardholder_cache
+        clear_priority_cache
+      end
     end
   end
 
