@@ -3621,6 +3621,115 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   cancel.should contain("STATUS:CANCELLED")
   cancel.should contain("SEQUENCE:#{now + 1}")
   cancel.should contain("SUMMARY:Parking - INV1")
+
+  # ===========================================================
+  # Test 83: when a user cancels a booking that held a space, a cancellation
+  # email + METHOD:CANCEL invite is sent (driven by the monitor event, since a
+  # cancelled booking drops out of the allocation sweep). A cancelled booking
+  # that was only ever wait-listed sends nothing.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    calendar_invite_from:      "parking@place.technology",
+    calendar_invite_from_name: "Building Parking",
+  })
+  sleep 100.milliseconds
+
+  # clear the world so the sweep that a cancellation event also triggers is a
+  # no-op and can't pollute the mailer assertions below
+  staff.reset_calls
+  mailer.reset
+  staff.set_assets("[]")
+  staff.set_bookings("[]")
+
+  cancel_start = now + 3600_i64 * 340
+  cancel_end = cancel_start + 3600_i64
+
+  cancelled_booking = ->(state : String, asset : String) do
+    {
+      action:          "cancelled",
+      id:              85001_i64,
+      booking_type:    "parking",
+      booking_start:   cancel_start,
+      booking_end:     cancel_end,
+      asset_id:        asset,
+      asset_ids:       [asset],
+      user_id:         "user-85001",
+      user_email:      "cancel.user@example.com",
+      user_name:       "Cancel User",
+      booked_by_email: "cancel.user@example.com",
+      booked_by_name:  "Cancel User",
+      zones:           ["zone-building"],
+      created:         now - 500_i64,
+      last_changed:    now,
+      approved:        true,
+      rejected:        false,
+      deleted:         false,
+      process_state:   state,
+      extension_data:  {"location" => "INV1"},
+    }
+  end
+
+  # a cancelled booking that HELD a space -> notify + CANCEL invite
+  publish("staff/booking/changed", cancelled_booking.call("access_granted_emailed", "asset-inv1").to_json)
+  sleep 100.milliseconds
+
+  mailer.sent?("cancel.user@example.com", "parking_request", "cancelled").should eq(true)
+  ccancel = mailer.attachment_for("cancel.user@example.com", "parking_request", "cancelled")
+  ccancel.should_not be_nil
+  ccancel = ccancel.not_nil!
+  ccancel.should contain("METHOD:CANCEL")
+  ccancel.should contain("UID:parking-85001@place.technology")
+  ccancel.should contain("STATUS:CANCELLED")
+  ccancel.should contain("SEQUENCE:#{now + 1}")
+  # the email names the space that was cancelled
+  mailer.arg_for("cancel.user@example.com", "parking_request", "cancelled", "space_identifier").should eq("INV1")
+  # marked handled so a repeated event won't re-notify
+  staff.last_state(85001_i64).should eq("cancelled_emailed")
+
+  # a repeat event for an already-notified cancellation does not re-send
+  publish("staff/booking/changed", cancelled_booking.call("cancelled_emailed", "asset-inv1").to_json)
+  sleep 100.milliseconds
+  mailer.times_sent("cancel.user@example.com", "parking_request", "cancelled").should eq(1)
+
+  # a cancelled booking that was only ever wait-listed -> nothing is sent
+  mailer.reset
+  publish("staff/booking/changed", {
+    action:          "cancelled",
+    id:              85002_i64,
+    booking_type:    "parking",
+    booking_start:   cancel_start,
+    booking_end:     cancel_end,
+    asset_id:        "unallocated-85002",
+    asset_ids:       ["unallocated-85002"],
+    user_id:         "user-85002",
+    user_email:      "waitlist.user@example.com",
+    user_name:       "Wait List User",
+    booked_by_email: "waitlist.user@example.com",
+    booked_by_name:  "Wait List User",
+    zones:           ["zone-building"],
+    created:         now - 500_i64,
+    last_changed:    now,
+    approved:        false,
+    rejected:        false,
+    deleted:         false,
+    process_state:   "wait_list",
+    extension_data:  {} of String => String,
+  }.to_json)
+  sleep 100.milliseconds
+  mailer.send_count.should eq(0)
 end
 
 # :nodoc:

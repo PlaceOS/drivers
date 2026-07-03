@@ -447,7 +447,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     return unless event.zones.includes?(building_id)
 
     case event.action
-    when "create", "approved", "cancelled", "rejected", "changed"
+    when "cancelled"
+      # The sweep reconciles (removes) access, but a cancelled booking drops out
+      # of the fetch, so the notification + calendar cancellation are sent here
+      # from the event payload before the sweep runs.
+      handle_cancellation(event)
+      spawn { process_parking_bookings }
+    when "create", "approved", "rejected", "changed"
       # Re-run auto allocation. The full sweep handles approvals,
       # cleanup of cancelled bookings, and waitlist preemption.
       spawn { process_parking_bookings }
@@ -456,6 +462,37 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
   rescue error
     logger.error(exception: error) { "failed to handle booking_changed event" }
+  end
+
+  # A user cancelled a booking. Access removal is handled by the sweep (the
+  # booking drops out of the fetch, so its grant is diffed away), but the sweep
+  # never sees a cancelled booking — so the notification + calendar cancellation
+  # are sent here from the event payload. Only bookings that actually held a
+  # space are notified: one that was only ever wait-listed never received an
+  # invite or access, so there is nothing to cancel. A per-booking state marker
+  # keeps a repeated event from re-notifying.
+  protected def handle_cancellation(booking : Booking) : Nil
+    return if booking.process_state == "cancelled_emailed"
+
+    asset_id = booking.asset_ids.first?
+    return if asset_id.nil? || asset_id.starts_with?("unallocated")
+
+    logger.debug { "sending cancellation notice for booking #{booking.id} (#{booking.user_email})" }
+
+    # the space the booking held (persisted on allocate) labels the cancellation;
+    # nil just yields a generic cancel that still removes the entry by UID
+    label = booking.extension_data["location"]?.try(&.as_s?)
+    mailer.send_template(
+      booking.user_email,
+      {"parking_request", "cancelled"},
+      common_template_args(booking).merge({space_identifier: label || ""}),
+      attachments: calendar_attachment(booking, label, cancel: true),
+    ).get_json
+
+    # mark handled so a repeated cancellation event doesn't re-notify
+    update_state(booking, "cancelled_emailed")
+  rescue error
+    logger.warn(exception: error) { "failed to send cancellation email for booking #{booking.id}" }
   end
 
   # ===================================
@@ -1801,6 +1838,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
         name: "Parking Displaced",
         description: "Notifies the recipient that their parking allocation has been moved to the wait list",
         fields: common_fields + [{name: "reason", description: "the reason for displacement"}]
+      ),
+      TemplateFields.new(
+        trigger: {"parking_request", "cancelled"},
+        name: "Parking Cancelled",
+        description: "Notifies the recipient that their parking booking was cancelled and access removed (includes a calendar cancellation)",
+        fields: common_fields
       ),
       TemplateFields.new(
         trigger: {"parking_request", "rejected"},
