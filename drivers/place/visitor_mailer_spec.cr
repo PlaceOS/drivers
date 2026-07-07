@@ -228,6 +228,19 @@ class StaffAPIMock < DriverSpecs::MockDriver
       }
     end
   end
+
+  # Back-fills event_start when a staff/event/changed signal omits it.
+  # event_start/event_end are epoch integers, matching the real
+  # PlaceCalendar::Event serialisation (Time::EpochConverter).
+  def get_event(event_id : String, system_id : String? = nil, calendar : String? = nil)
+    case event_id
+    when "evt-no-start"
+      # Simulates an event the API can't supply a start time for.
+      {id: event_id, title: "No Start Event"}
+    else
+      {id: event_id, title: "Looked Up Event", event_start: 1_760_000_000_i64, event_end: 1_760_003_600_i64}
+    end
+  end
 end
 
 DriverSpecs.mock_driver "Place::VisitorMailer" do
@@ -683,7 +696,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # Visitor should receive a booking_changed email
   system(:Mailer)[:send_count].should eq 10
   system(:Mailer)[:last_to].should eq "visitor@external.com"
-  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
 
   args11 = system(:Mailer)[:last_args]
   args11["host_name"].should eq "Host User"
@@ -693,6 +706,14 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # previous dates should be present
   args11["previous_event_date"].should_not be_nil
   args11["previous_event_time"].should_not be_nil
+  # The location did NOT change, so the "previous" room/building must mirror
+  # the (unchanged) current room — resolved from system_id — rather than the
+  # static @booking_space_name fallback.  Otherwise the email shows a bogus
+  # "moved from" room for a date/time-only edit.
+  args11["room_name"].should eq "Conference Room 1"
+  args11["building_name"].should eq "Main Building"
+  args11["previous_room_name"].should eq "Conference Room 1"
+  args11["previous_building_name"].should eq "Main Building"
 
   # ------------------------------------------------------------------
   # Test 12: event_changed with location change (system_id differs) —
@@ -718,7 +739,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   system(:Mailer)[:send_count].should eq 11
   system(:Mailer)[:last_to].should eq "visitor@external.com"
-  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
 
   args12 = system(:Mailer)[:last_args]
   args12["event_title"].should eq "Sprint Planning"
@@ -755,6 +776,72 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   args13["event_title"].should eq "Design Review"
 
   # ------------------------------------------------------------------
+  # Test 13b: event_changed host change where the payload omits
+  #           event_end (a metadata-only reassignment).  The previous
+  #           host must STILL be notified — the host-change notification
+  #           does not depend on the event end time.
+  # ------------------------------------------------------------------
+
+  count_before_host_no_end = system(:Mailer)[:send_count].as_i
+
+  event_changed_host_no_end = {
+    action:         "update",
+    system_id:      "sys-room1",
+    event_id:       "evt-110",
+    event_ical_uid: "ical-110",
+    host:           "new-organiser2@example.com",
+    resource:       "room1@example.com",
+    title:          "Reassigned No End",
+    event_start:    now + 3600,
+    # no event_end
+    zones:               ["zone-building"],
+    previous_host_email: "old-organiser2@example.com",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_host_no_end)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_host_no_end + 1
+  system(:Mailer)[:last_to].should eq "old-organiser2@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  args13b = system(:Mailer)[:last_args]
+  args13b["previous_host_email"].should eq "old-organiser2@example.com"
+  args13b["new_host_email"].should eq "new-organiser2@example.com"
+  args13b["event_title"].should eq "Reassigned No End"
+  # event_start was present, so the date should still render
+  args13b["event_date"].raw.should_not be_nil
+
+  # ------------------------------------------------------------------
+  # Test 13c: event_changed host change where the payload omits BOTH
+  #           event_start and event_end (pure metadata reassignment).
+  #           The previous host must still be notified; the date/time
+  #           fields are simply left blank.
+  # ------------------------------------------------------------------
+
+  count_before_host_no_times = system(:Mailer)[:send_count].as_i
+
+  event_changed_host_no_times = {
+    action:         "update",
+    system_id:      "sys-room1",
+    event_id:       "evt-111",
+    event_ical_uid: "ical-111",
+    host:           "new-organiser3@example.com",
+    resource:       "room1@example.com",
+    title:          "Reassigned No Times",
+    # no event_start, no event_end
+    zones:               ["zone-building"],
+    previous_host_email: "old-organiser3@example.com",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_host_no_times)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_host_no_times + 1
+  system(:Mailer)[:last_to].should eq "old-organiser3@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  # ------------------------------------------------------------------
   # Test 14: event_changed — action "create" is ignored (no previous
   #          values to compare)
   # ------------------------------------------------------------------
@@ -776,7 +863,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 0.5
 
   # No email — create events have no previous state to diff against
-  system(:Mailer)[:send_count].should eq 12
+  system(:Mailer)[:send_count].should eq 14
 
   # ------------------------------------------------------------------
   # Test 15: event_changed — wrong zone is ignored
@@ -800,7 +887,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_wrong_zone)
   sleep 0.5
 
-  system(:Mailer)[:send_count].should eq 12
+  system(:Mailer)[:send_count].should eq 14
 
   # ------------------------------------------------------------------
   # Test 16: event_changed — no actual changes (previous == current)
@@ -825,7 +912,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_no_diff)
   sleep 0.5
 
-  system(:Mailer)[:send_count].should eq 12
+  system(:Mailer)[:send_count].should eq 14
 
   # ------------------------------------------------------------------
   # Test 17: event_changed with end-time-only change.
@@ -851,9 +938,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_end_only)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 13
+  system(:Mailer)[:send_count].should eq 15
   system(:Mailer)[:last_to].should eq "visitor@external.com"
-  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
   system(:Mailer)[:last_args]["event_title"].should eq "End Time Only Event"
 
   # ------------------------------------------------------------------
@@ -879,9 +966,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   publish("staff/event/changed", event_changed_prev_location)
   sleep 1.5
 
-  system(:Mailer)[:send_count].should eq 14
+  system(:Mailer)[:send_count].should eq 16
   system(:Mailer)[:last_to].should eq "visitor@external.com"
-  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
 
   args18 = system(:Mailer)[:last_args]
   args18["event_title"].should eq "Location Change Meeting"
@@ -1217,7 +1304,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # but only the visitor should receive the booking_changed email.
   system(:Mailer)[:send_count].should eq count_before_evt_host + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
-  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
 
   # ------------------------------------------------------------------
   # Test 29: send_booking_changed_emails (via booking_changed_event) —
@@ -1378,4 +1465,249 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   system(:Mailer)[:send_count].should eq count_before_induction_decline + 1
   system(:Mailer)[:last_template].should eq ["visitor_invited", "custom_declined"]
+
+  # ------------------------------------------------------------------
+  # Test 33: event (room) changes and booking changes use SEPARATE
+  #          templates.  event_changed_event must use the
+  #          `event_changed_template`, while booking_changed_event keeps
+  #          the `booking_changed_template`.  Custom overrides confirm
+  #          both setting keys are wired up correctly.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:                 "GMT",
+    booking_space_name:       "Client Floor",
+    invite_zone_tag:          "building",
+    booking_changed_template: "custom_booking_changed",
+    event_changed_template:   "custom_event_changed",
+  })
+  sleep 1.0
+
+  # --- event (room) based change uses the event_changed template
+  count_before_split_event = system(:Mailer)[:send_count].as_i
+
+  split_event_payload = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-split",
+    event_ical_uid:       "ical-split",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Split Event Change",
+    event_start:          now + 7200,
+    event_end:            now + 10800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 7200,
+  }.to_json
+
+  publish("staff/event/changed", split_event_payload)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_split_event + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "custom_event_changed"]
+
+  # --- booking based change still uses the booking_changed template
+  count_before_split_booking = system(:Mailer)[:send_count].as_i
+
+  split_booking_payload = {
+    action:                 "changed",
+    id:                     900_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Split Booking Change",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  publish("staff/booking/changed", split_booking_payload)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_split_booking + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "custom_booking_changed"]
+
+  # ==================================================================
+  # Issue 2 — de-duplicate event-linked booking notifications
+  # ==================================================================
+  #
+  # A calendar event with a room auto-creates a linked booking
+  # (extension_data.parent_id points to the event).  Editing the event
+  # fires staff/event/changed (handled by event_changed_event) AND the
+  # linked booking fires staff/booking/changed — so without de-duplication
+  # the visitor receives TWO change notifications.  booking_changed_event
+  # must skip event-linked bookings (same skip_event_linked_booking_email
+  # rule guest_event uses), letting the event_changed flow be the single
+  # source of truth.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    # skip_event_linked_booking_email defaults to true
+  })
+  sleep 1.0
+
+  # ------------------------------------------------------------------
+  # Test 34: booking_changed for an event-linked booking is suppressed
+  # ------------------------------------------------------------------
+
+  count_before_linked_change = system(:Mailer)[:send_count].as_i
+
+  linked_booking_changed = {
+    action:                 "changed",
+    id:                     601_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host@example.com",
+    title:                  "Linked Visit Changed",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+    extension_data:         {parent_id: "event-evt-200"},
+  }.to_json
+
+  publish("staff/booking/changed", linked_booking_changed)
+  sleep 1.0
+
+  # Event-linked: the event_changed flow already notifies these visitors, so
+  # no booking_changed email should be sent.
+  system(:Mailer)[:send_count].should eq count_before_linked_change
+
+  # ------------------------------------------------------------------
+  # Test 35: standalone booking_changed (no parent_id) still notifies
+  # ------------------------------------------------------------------
+
+  count_before_standalone_change = system(:Mailer)[:send_count].as_i
+
+  standalone_booking_changed = {
+    action:                 "changed",
+    id:                     600_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host@example.com",
+    title:                  "Standalone Visit Changed",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+    # no extension_data / parent_id
+  }.to_json
+
+  publish("staff/booking/changed", standalone_booking_changed)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_standalone_change + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  # ------------------------------------------------------------------
+  # Test 36: opt-out (skip_event_linked_booking_email: false) restores
+  #          the booking_changed email even for event-linked bookings.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:                        "GMT",
+    booking_space_name:              "Client Floor",
+    invite_zone_tag:                 "building",
+    skip_event_linked_booking_email: false,
+  })
+  sleep 1.0
+
+  count_before_optout_linked = system(:Mailer)[:send_count].as_i
+
+  publish("staff/booking/changed", linked_booking_changed)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_optout_linked + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  # ==================================================================
+  # event_start back-fill
+  # ==================================================================
+  #
+  # Metadata-only staff/event/changed signals (e.g. update_metadata) omit
+  # the top-level event_start.  The host-change notification must still
+  # show a real date, so the driver looks the event up via the staff API.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+  })
+  sleep 1.0
+
+  # ------------------------------------------------------------------
+  # Test 37: event_start is looked up when omitted from the payload
+  # ------------------------------------------------------------------
+
+  count_before_lookup = system(:Mailer)[:send_count].as_i
+
+  event_changed_needs_lookup = {
+    action:         "update",
+    system_id:      "sys-room1",
+    event_id:       "evt-needs-lookup",
+    event_ical_uid: "ical-needs-lookup",
+    host:           "new-host-l@example.com",
+    resource:       "room1@example.com",
+    title:          "Needs Lookup",
+    # no event_start / event_end (metadata-only update)
+    zones:               ["zone-building"],
+    previous_host_email: "old-host-l@example.com",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_needs_lookup)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_lookup + 1
+  system(:Mailer)[:last_to].should eq "old-host-l@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  args37 = system(:Mailer)[:last_args]
+  # The payload carried no event_start, so a non-nil date proves it was
+  # back-filled from staff_api.get_event (epoch 1_760_000_000).
+  args37["event_date"].raw.should_not be_nil
+  args37["event_time"].raw.should_not be_nil
+
+  # ------------------------------------------------------------------
+  # Test 38: lookup that can't resolve a start time still notifies the
+  #          previous host (date/time simply left blank).
+  # ------------------------------------------------------------------
+
+  count_before_no_start = system(:Mailer)[:send_count].as_i
+
+  event_changed_no_start = {
+    action:              "update",
+    system_id:           "sys-room1",
+    event_id:            "evt-no-start",
+    event_ical_uid:      "ical-no-start",
+    host:                "new-host-n@example.com",
+    resource:            "room1@example.com",
+    title:               "No Start",
+    zones:               ["zone-building"],
+    previous_host_email: "old-host-n@example.com",
+  }.to_json
+
+  publish("staff/event/changed", event_changed_no_start)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_no_start + 1
+  system(:Mailer)[:last_to].should eq "old-host-n@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+  system(:Mailer)[:last_args]["event_date"].raw.should be_nil
 end

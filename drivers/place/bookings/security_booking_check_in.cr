@@ -12,11 +12,18 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
     organization_id: "event",
 
     # booking types we want to check in
-    booking_types: ["desk"],
+    booking_types: ["desk", "parking"],
+
+    # door ids
+    _filter_door_ids: {
+      "1234" => "name"
+    },
   })
 
   def on_update
     @booking_types = setting(Array(String), :booking_types)
+    @filter_ids = setting?(Hash(String, String), :filter_door_ids) || {} of String => String
+
     time_zone_string = setting?(String, :time_zone).presence || config.control_system.not_nil!.timezone.presence || "GMT"
     @time_zone = Time::Location.load(time_zone_string)
     @building_id = nil
@@ -26,6 +33,7 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
     monitor("security/#{org_id}/door") { |_subscription, payload| door_event(payload) }
   end
 
+  @filter_ids : Hash(String, String) = {} of String => String
   @booking_types : Array(String) = [] of String
   @time_zone : Time::Location = Time::Location.load("GMT")
 
@@ -48,20 +56,29 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
   def door_event(json : String)
     logger.debug { "new door event detected: #{json}" }
     event = Interface::DoorSecurity::DoorEvent.from_json(json)
+
+    if !@filter_ids.empty?
+      if match = @filter_ids[event.door_id]?
+        logger.debug { "found matching door: #{match}" }
+      else
+        return
+      end
+    end
+
     @event_count += 1_u64
 
     now = Time.local(@time_zone).at_beginning_of_day
     end_of_day = now.in(@time_zone).at_end_of_day - 2.hours
     building = building_id
 
-    @booking_types.each do |booking_type|
-      if email = event.user_email.presence
-        staff_user = staff_api.user(email.strip.downcase).get rescue nil
-        if staff_user
-          email = staff_user["email"].as_s
-          @matched_users += 1_u64
-        end
+    if email = event.user_email.presence
+      staff_user = staff_api.user(email.strip.downcase).get rescue nil
+      if staff_user
+        email = staff_user["email"].as_s
+        @matched_users += 1_u64
+      end
 
+      @booking_types.each do |booking_type|
         # find any bookings that user may have
         bookings = staff_api.query_bookings(now.to_unix, end_of_day.to_unix, zones: {building}, type: booking_type, email: email).get.as_a
         logger.debug { "found #{bookings.size} of #{booking_type} for #{email}" }

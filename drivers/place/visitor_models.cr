@@ -120,6 +120,10 @@ module Place
     property title : String?
     property zones : Array(String)?
 
+    # Present when the booking was auto-created from a calendar event;
+    # extension_data["parent_id"] holds the linked event id.
+    property extension_data : Hash(String, JSON::Any)?
+
     # Previous values — only present when action is "changed".
     # Add new previous_* fields here as more change notifications are introduced.
     property previous_booking_start : Int64?
