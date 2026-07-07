@@ -1,3 +1,5 @@
+require "base64"
+require "simple_retry"
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
@@ -32,6 +34,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     # ordered AD groups (highest priority first). Group id or email.
     auto_approval_groups: ["azure_group_email_or_id"],
+
+    # accurate group priority is critical, so a failing directory group lookup is
+    # retried with exponential backoff before giving up (the user is then treated
+    # as priority 0 for that run ONLY and retried next sweep). Tuning knobs
+    # (seconds); the defaults retry 5 times, 2s → 30s.
+    _group_lookup_retries:     5,
+    _group_lookup_backoff:     2,
+    _group_lookup_max_backoff: 30,
 
     # ordered list of parking-space FEATURE names that determine allocation
     # preference (earlier = higher priority). Matched against `space.features`,
@@ -86,6 +96,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     date_time_format: "%c",
     time_format:      "%l:%M%p",
     date_format:      "%A, %-d %B",
+
+    # When set, parking approval emails carry a calendar invite (.ics) so the
+    # allocated space appears on the user's calendar; a matching cancellation is
+    # sent if they're later displaced. This is the organizer ("from") address
+    # shown on the invite — typically a no-reply mailbox. Leave blank to disable.
+    calendar_invite_from:      "",
+    calendar_invite_from_name: "Parking",
   })
 
   BOOKING_TYPE = "parking"
@@ -93,6 +110,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @timezone : Time::Location = Time::Location::UTC
   @poll_rate : Time::Span = 180.minutes
   @auto_approval_groups : Array(String) = [] of String
+  # directory group-lookup retry policy (see group_priority)
+  @group_lookup_retries : Int32 = 5
+  @group_lookup_backoff : Time::Span = 2.seconds
+  @group_lookup_max_backoff : Time::Span = 30.seconds
   @car_zone_priority : Array(String) = [] of String
   @bike_zone_priority : Array(String) = [] of String
   @parking_areas : Hash(String, String) = {} of String => String
@@ -227,6 +248,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
 
+  # organizer identity for calendar invites; when the email is blank invites are
+  # disabled (approval/displacement emails carry no .ics attachment)
+  @calendar_invite_from : String? = nil
+  @calendar_invite_from_name : String = "Parking"
+
   def on_load
     monitor("staff/booking/changed") do |_subscription, payload|
       logger.debug { "received booking changed event #{payload}" }
@@ -244,6 +270,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @auto_approval_groups = (setting?(Array(String), :auto_approval_groups) || [] of String).map do |id|
       id.includes?('@') ? id.downcase : id
     end
+
+    @group_lookup_retries = setting?(Int32, :group_lookup_retries) || 5
+    @group_lookup_backoff = (setting?(Int32, :group_lookup_backoff) || 2).seconds
+    @group_lookup_max_backoff = (setting?(Int32, :group_lookup_max_backoff) || 30).seconds
 
     @car_zone_priority = setting?(Array(String), :car_zone_priority) || [] of String
     @bike_zone_priority = setting?(Array(String), :bike_zone_priority) || [] of String
@@ -279,6 +309,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+
+    @calendar_invite_from = setting?(String, :calendar_invite_from).presence
+    @calendar_invite_from_name = setting?(String, :calendar_invite_from_name).presence || "Parking"
 
     previous_id_field = @gallagher_id_field
     previous_lookup_fields = @directory_lookup_fields
@@ -325,9 +358,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # flush the cardholder + priority lookup caches once a day (midnight, building
     # timezone) so newly-issued cards and AD group changes are picked up without
     # keeping stale lookups forever
-    schedule.cron("0 0 * * *", @timezone) do
-      clear_cardholder_cache
-      clear_priority_cache
+    schedule.cron("0 12 * * *", @timezone) do
+      @sync_mutex.synchronize do
+        clear_cardholder_cache
+        clear_priority_cache
+      end
     end
   end
 
@@ -431,7 +466,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     return unless event.zones.includes?(building_id)
 
     case event.action
-    when "create", "approved", "cancelled", "rejected", "changed"
+    when "cancelled"
+      # The sweep reconciles (removes) access, but a cancelled booking drops out
+      # of the fetch, so the notification + calendar cancellation are sent here
+      # from the event payload before the sweep runs.
+      handle_cancellation(event)
+      spawn { process_parking_bookings }
+    when "create", "approved", "rejected", "changed"
       # Re-run auto allocation. The full sweep handles approvals,
       # cleanup of cancelled bookings, and waitlist preemption.
       spawn { process_parking_bookings }
@@ -440,6 +481,37 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
   rescue error
     logger.error(exception: error) { "failed to handle booking_changed event" }
+  end
+
+  # A user cancelled a booking. Access removal is handled by the sweep (the
+  # booking drops out of the fetch, so its grant is diffed away), but the sweep
+  # never sees a cancelled booking — so the notification + calendar cancellation
+  # are sent here from the event payload. Only bookings that actually held a
+  # space are notified: one that was only ever wait-listed never received an
+  # invite or access, so there is nothing to cancel. A per-booking state marker
+  # keeps a repeated event from re-notifying.
+  protected def handle_cancellation(booking : Booking) : Nil
+    return if booking.process_state == "cancelled_emailed"
+
+    asset_id = booking.asset_ids.first?
+    return if asset_id.nil? || asset_id.starts_with?("unallocated")
+
+    logger.debug { "sending cancellation notice for booking #{booking.id} (#{booking.user_email})" }
+
+    # the space the booking held (persisted on allocate) labels the cancellation;
+    # nil just yields a generic cancel that still removes the entry by UID
+    label = booking.extension_data["location"]?.try(&.as_s?)
+    mailer.send_template(
+      booking.user_email,
+      {"parking_request", "cancelled"},
+      common_template_args(booking).merge({space_identifier: label || ""}),
+      attachments: calendar_attachment(booking, label, cancel: true),
+    ).get_json
+
+    # mark handled so a repeated cancellation event doesn't re-notify
+    update_state(booking, "cancelled_emailed")
+  rescue error
+    logger.warn(exception: error) { "failed to send cancellation email for booking #{booking.id}" }
   end
 
   # ===================================
@@ -594,6 +666,21 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     bookable_spaces = spaces.select { |s| s.bookable && s.assigned_to.presence.nil? && !unmapped_space_ids.includes?(s.id) }
     assigned_spaces = spaces.select { |s| s.assigned_to.presence }
+
+    # Users with a permanent parking assignment already have standing access to
+    # their own space (granted via assigned_spaces in build_desired_access), so
+    # any parking booking they make is redundant. Drop those bookings up front so
+    # the allocator never hands them a second (bookable) space, never grants
+    # duplicate time-bounded access, and never emails them — they always have a
+    # spot. Matched by email so it holds regardless of which asset the booking
+    # references.
+    assigned_emails = assigned_spaces.compact_map(&.assigned_to.presence.try(&.downcase)).to_set
+    unless assigned_emails.empty?
+      before = bookings.size
+      bookings = bookings.reject { |b| assigned_emails.includes?(b.user_email.downcase) }
+      skipped = before - bookings.size
+      logger.debug { "skipping #{skipped} booking(s) from permanently-assigned users" } if skipped > 0
+    end
 
     logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned, #{unmapped_space_ids.size} without a gallagher group" }
     logger.debug { "allocation run: processing #{bookings.size} active bookings" }
@@ -966,8 +1053,17 @@ class Place::Parking::Approvals < PlaceOS::Driver
     user_email = booking.user_email.downcase
     base = cache[user_email]?
     if base.nil?
-      base = group_priority(user_email)
-      cache[user_email] = base
+      # cache successful lookups ONLY (mirroring lookup_cardholder): a failed
+      # group lookup returns nil, and caching that as 0 would pin a top-group
+      # user to the bottom of the allocation order until the next cache flush
+      # (up to a day). Treat the failure as 0 for THIS run only and retry the
+      # lookup next sweep.
+      if resolved = group_priority(user_email)
+        cache[user_email] = resolved
+        base = resolved
+      else
+        base = 0
+      end
     end
 
     request_type = booking.extension_data["request_type"]?.try(&.as_s?)
@@ -981,10 +1077,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
     base
   end
 
-  protected def group_priority(user_email : String) : Int32
+  # The user's group priority, or nil when the directory lookup FAILED — the
+  # caller must not cache nil ("unknown" is not the same as "in no groups").
+  # Accurate priority is important, so a failing lookup is retried with
+  # exponential backoff (@group_lookup_retries times, @group_lookup_backoff up to
+  # @group_lookup_max_backoff) before the error propagates to the rescue -> nil.
+  protected def group_priority(user_email : String) : Int32?
     return 0 if @auto_approval_groups.empty?
 
-    groups = calendar.get_groups(user_email).get.as_a rescue [] of JSON::Any
+    groups = SimpleRetry.try_to(
+      # +1: the initial attempt plus @group_lookup_retries retries
+      max_attempts: @group_lookup_retries + 1,
+      base_interval: @group_lookup_backoff,
+      max_interval: @group_lookup_max_backoff,
+    ) do |attempt, last_error|
+      logger.warn(exception: last_error) { "retrying group lookup for #{user_email} (attempt #{attempt})" } if last_error
+      calendar.get_groups(user_email).get.as_a
+    end
 
     @auto_approval_groups.each_with_index do |target, idx|
       groups.each do |g|
@@ -998,8 +1107,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
     0
   rescue error
-    logger.warn(exception: error) { "failed to lookup groups for #{user_email}" }
-    0
+    logger.warn(exception: error) { "failed to lookup groups for #{user_email} after #{@group_lookup_retries} retries" }
+    nil
   end
 
   # ===================================
@@ -1381,7 +1490,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
         booking_id: booking.id,
         asset_id: space.id,
         instance: booking.instance,
-        extension_data: booking.extension_data
+        extension_data: booking.extension_data,
+        zones: space.zones,
       ).get_json
     rescue error
       if clash_error?(error)
@@ -1786,6 +1896,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
         fields: common_fields + [{name: "reason", description: "the reason for displacement"}]
       ),
       TemplateFields.new(
+        trigger: {"parking_request", "cancelled"},
+        name: "Parking Cancelled",
+        description: "Notifies the recipient that their parking booking was cancelled and access removed (includes a calendar cancellation)",
+        fields: common_fields
+      ),
+      TemplateFields.new(
         trigger: {"parking_request", "rejected"},
         name: "Parking Rejected",
         description: "Notifies the recipient that their parking booking has been rejected",
@@ -1835,6 +1951,92 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @parking_areas.values.find { |group_id| granted.includes?(group_id) }
   end
 
+  # ===================================
+  # Calendar invite (.ics)
+  # ===================================
+
+  alias Attachment = PlaceOS::Driver::Interface::Mailer::Attachment
+
+  ICS_METHOD_REQUEST = "REQUEST"
+  ICS_METHOD_CANCEL  = "CANCEL"
+
+  # A base64-encoded iCalendar (.ics) attachment for a parking email, or an empty
+  # array when invites are disabled (no organizer configured). Naming the file
+  # `.ics` makes the mailer emit a `text/calendar` MIME part, which clients
+  # recognise as a calendar invite. Because the UID is stable per booking, the
+  # REQUEST sent with the approval email and the CANCEL sent on displacement act
+  # on the SAME calendar entry — a reassigned space is removed from the user's
+  # calendar rather than duplicated.
+  protected def calendar_attachment(booking : Booking, space_label : String?, cancel : Bool) : Array(Attachment)
+    return [] of Attachment if @calendar_invite_from.nil?
+    ics = parking_invite_ics(booking, space_label, cancel)
+    [Attachment.new(file_name: "parking.ics", content: Base64.strict_encode(ics))]
+  end
+
+  # Build the iCalendar body (RFC 5545) describing a parking allocation. `cancel`
+  # emits a METHOD:CANCEL that removes the previously-sent invite.
+  protected def parking_invite_ics(booking : Booking, space_label : String?, cancel : Bool) : String
+    method = cancel ? ICS_METHOD_CANCEL : ICS_METHOD_REQUEST
+    stamp = Time.utc.to_s("%Y%m%dT%H%M%SZ")
+    dtstart = Time.unix(booking.booking_start).to_s("%Y%m%dT%H%M%SZ")
+    dtend = Time.unix(booking.booking_end).to_s("%Y%m%dT%H%M%SZ")
+
+    # SEQUENCE must never regress across a booking's lifecycle: a CANCEL has to
+    # outrank the REQUEST it supersedes or clients ignore it. last_changed
+    # advances on every booking edit; the +1 on cancel guarantees the
+    # cancellation wins even when built from the same booking snapshot.
+    sequence = booking.last_changed || 0_i64
+    sequence += 1 if cancel
+
+    building = building_zone.display_name.presence || building_zone.name
+    label = space_label.presence || "Parking"
+    summary = "Parking - #{label}"
+    location = "#{label}, #{building}"
+    description = "Your parking space (#{label}) at #{building}."
+    status = cancel ? "CANCELLED" : "CONFIRMED"
+
+    String.build do |io|
+      io << "BEGIN:VCALENDAR\r\n"
+      io << "VERSION:2.0\r\n"
+      io << "PRODID:-//PlaceOS//Parking Approvals//EN\r\n"
+      io << "CALSCALE:GREGORIAN\r\n"
+      io << "METHOD:" << method << "\r\n"
+      io << "BEGIN:VEVENT\r\n"
+      io << "UID:" << invite_uid(booking) << "\r\n"
+      io << "SEQUENCE:" << sequence << "\r\n"
+      io << "DTSTAMP:" << stamp << "\r\n"
+      io << "DTSTART:" << dtstart << "\r\n"
+      io << "DTEND:" << dtend << "\r\n"
+      io << "SUMMARY:" << ics_escape(summary) << "\r\n"
+      io << "LOCATION:" << ics_escape(location) << "\r\n"
+      io << "DESCRIPTION:" << ics_escape(description) << "\r\n"
+      io << "ORGANIZER;CN=" << ics_escape(@calendar_invite_from_name) << ":mailto:" << @calendar_invite_from << "\r\n"
+      io << "ATTENDEE;CN=" << ics_escape(booking.user_name) << ";PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:" << booking.user_email << "\r\n"
+      io << "STATUS:" << status << "\r\n"
+      # parking shouldn't mark the user busy on their calendar
+      io << "TRANSP:TRANSPARENT\r\n"
+      io << "END:VEVENT\r\n"
+      io << "END:VCALENDAR\r\n"
+    end
+  end
+
+  # Stable per-booking-instance UID so the approval REQUEST and any later CANCEL
+  # refer to the same calendar entry. Recurring instances get distinct UIDs.
+  protected def invite_uid(booking : Booking) : String
+    base = booking.instance ? "parking-#{booking.id}-#{booking.instance}" : "parking-#{booking.id}"
+    "#{base}@place.technology"
+  end
+
+  # Escape a text value for an iCalendar property (RFC 5545 §3.3.11). Backslash
+  # is escaped first so we don't double-escape the escapes we introduce.
+  protected def ics_escape(value : String) : String
+    value.gsub('\\', "\\\\").gsub('\n', "\\n").gsub(',', "\\,").gsub(';', "\\;")
+  end
+
+  # ===================================
+  # Emails
+  # ===================================
+
   # The approval email is the one we must guarantee is delivered, so its "sent"
   # marker (access_granted_emailed) is distinct from the "access granted" state.
   # The send is blocking (.get_json) so a failure raises and we DON'T advance
@@ -1850,6 +2052,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", template},
       common_template_args(booking, space),
+      attachments: calendar_attachment(booking, space.identifier.presence || space.id, cancel: false),
     ).get_json
 
     update_state(booking, "access_granted_emailed")
@@ -1894,10 +2097,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
   end
 
   protected def displaced_email(booking : Booking, reason : String) : Nil
+    # the space the booking last held (set on allocate) — used to label the
+    # cancellation; nil just yields a generic cancel that still removes the entry
+    label = booking.extension_data["location"]?.try(&.as_s?)
     mailer.send_template(
       booking.user_email,
       {"parking_request", "displaced"},
       common_template_args(booking).merge({reason: reason}),
+      attachments: calendar_attachment(booking, label, cancel: true),
     ).get_json
   rescue error
     logger.warn(exception: error) { "failed to send displaced email for booking #{booking.id}" }

@@ -1,5 +1,6 @@
 require "placeos-driver/spec"
 require "placeos-driver/interface/mailer"
+require "base64"
 require "json"
 
 DriverSpecs.mock_driver "Place::Parking::Approvals" do
@@ -3498,6 +3499,433 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # the recently-created (walk-in) and future bookings are still allocated
   staff.last_update_for(83002_i64).should_not be_nil
   staff.last_update_for(83003_i64).should_not be_nil
+
+  # ===========================================================
+  # Test 82: when calendar_invite_from is set, the approval email carries a
+  # METHOD:REQUEST .ics invite for the allocated space, and a later displacement
+  # emails a METHOD:CANCEL for the SAME booking UID — so the space is removed
+  # from (not duplicated on) the user's calendar.
+  # ===========================================================
+
+  settings({
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    calendar_invite_from:      "parking@place.technology",
+    calendar_invite_from_name: "Building Parking",
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  gallagher.set_cardholder("inv.user@example.com", "ch-inv")
+  calendar.set_groups("inv.user@example.com", default_grp.to_json)
+
+  inv_space = {
+    id: "asset-inv1", identifier: "INV1", assigned_to: "",
+    zones: ["zone-building", "zone-level-B1"],
+    features: ["carpriority", "Open Basement"], notes: "Car",
+    security_system_groups: [] of String, bookable: true,
+  }
+  staff.set_assets([inv_space].to_json)
+
+  inv_start = now + 3600_i64 * 300
+  inv_end = inv_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(84001_i64, "inv.user@example.com",
+      inv_start, inv_end, "unallocated-84001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # allocated + approval email sent for the Open Basement group
+  staff.last_update_for(84001_i64).should eq("asset-inv1")
+  mailer.sent?("inv.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # the approval email carries a METHOD:REQUEST invite describing the space
+  invite = mailer.attachment_for("inv.user@example.com", "parking_request", "approved_gallagher-group1")
+  invite.should_not be_nil
+  invite = invite.not_nil!
+  invite.should contain("BEGIN:VCALENDAR")
+  invite.should contain("METHOD:REQUEST")
+  invite.should contain("UID:parking-84001@place.technology")
+  invite.should contain("SEQUENCE:0")
+  invite.should contain("DTSTART:#{Time.unix(inv_start).to_s("%Y%m%dT%H%M%SZ")}")
+  invite.should contain("DTEND:#{Time.unix(inv_end).to_s("%Y%m%dT%H%M%SZ")}")
+  invite.should contain("SUMMARY:Parking - INV1")
+  invite.should contain("STATUS:CONFIRMED")
+  invite.should contain("ORGANIZER;CN=Building Parking:mailto:parking@place.technology")
+  invite.should contain("ATTENDEE;CN=inv.user@example.com;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:inv.user@example.com")
+
+  # --- displacement: the space goes out of service, forcing a move off it ---
+  staff.reset_calls
+  mailer.reset
+  # same space, now not bookable (e.g. flooded)
+  staff.set_assets([inv_space.merge({bookable: false})].to_json)
+
+  inv2_start = now + 3600_i64 * 320
+  inv2_end = inv2_start + 3600_i64
+  # the booking is already allocated on the space, with a location + last_changed
+  staff.set_bookings([
+    {
+      id:              84001_i64,
+      booking_type:    "parking",
+      booking_start:   inv2_start,
+      booking_end:     inv2_end,
+      asset_id:        "asset-inv1",
+      asset_ids:       ["asset-inv1"],
+      user_id:         "user-84001",
+      user_email:      "inv.user@example.com",
+      user_name:       "inv.user@example.com",
+      booked_by_email: "inv.user@example.com",
+      booked_by_name:  "inv.user@example.com",
+      zones:           ["zone-building"],
+      created:         now - 500_i64,
+      last_changed:    now,
+      approved:        true,
+      rejected:        false,
+      deleted:         false,
+      process_state:   "access_granted_emailed",
+      extension_data:  {
+        "vehicle_type" => JSON::Any.new("car"),
+        "request_type" => JSON::Any.new("standard"),
+        "location"     => JSON::Any.new("INV1"),
+      },
+    },
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the booking was moved off the out-of-service space and a displaced email sent
+  staff.last_update_for(84001_i64).should eq("unallocated-displaced-84001")
+  mailer.sent?("inv.user@example.com", "parking_request", "displaced").should eq(true)
+
+  # that email carries a METHOD:CANCEL invite for the SAME UID, with a higher
+  # SEQUENCE so clients supersede the earlier REQUEST and remove the entry
+  cancel = mailer.attachment_for("inv.user@example.com", "parking_request", "displaced")
+  cancel.should_not be_nil
+  cancel = cancel.not_nil!
+  cancel.should contain("METHOD:CANCEL")
+  cancel.should contain("UID:parking-84001@place.technology")
+  cancel.should contain("STATUS:CANCELLED")
+  cancel.should contain("SEQUENCE:#{now + 1}")
+  cancel.should contain("SUMMARY:Parking - INV1")
+
+  # ===========================================================
+  # Test 83: when a user cancels a booking that held a space, a cancellation
+  # email + METHOD:CANCEL invite is sent (driven by the monitor event, since a
+  # cancelled booking drops out of the allocation sweep). A cancelled booking
+  # that was only ever wait-listed sends nothing.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    calendar_invite_from:      "parking@place.technology",
+    calendar_invite_from_name: "Building Parking",
+  })
+  sleep 100.milliseconds
+
+  # clear the world so the sweep that a cancellation event also triggers is a
+  # no-op and can't pollute the mailer assertions below
+  staff.reset_calls
+  mailer.reset
+  staff.set_assets("[]")
+  staff.set_bookings("[]")
+
+  cancel_start = now + 3600_i64 * 340
+  cancel_end = cancel_start + 3600_i64
+
+  cancelled_booking = ->(state : String, asset : String) do
+    {
+      action:          "cancelled",
+      id:              85001_i64,
+      booking_type:    "parking",
+      booking_start:   cancel_start,
+      booking_end:     cancel_end,
+      asset_id:        asset,
+      asset_ids:       [asset],
+      user_id:         "user-85001",
+      user_email:      "cancel.user@example.com",
+      user_name:       "Cancel User",
+      booked_by_email: "cancel.user@example.com",
+      booked_by_name:  "Cancel User",
+      zones:           ["zone-building"],
+      created:         now - 500_i64,
+      last_changed:    now,
+      approved:        true,
+      rejected:        false,
+      deleted:         false,
+      process_state:   state,
+      extension_data:  {"location" => "INV1"},
+    }
+  end
+
+  # a cancelled booking that HELD a space -> notify + CANCEL invite
+  publish("staff/booking/changed", cancelled_booking.call("access_granted_emailed", "asset-inv1").to_json)
+  sleep 100.milliseconds
+
+  mailer.sent?("cancel.user@example.com", "parking_request", "cancelled").should eq(true)
+  ccancel = mailer.attachment_for("cancel.user@example.com", "parking_request", "cancelled")
+  ccancel.should_not be_nil
+  ccancel = ccancel.not_nil!
+  ccancel.should contain("METHOD:CANCEL")
+  ccancel.should contain("UID:parking-85001@place.technology")
+  ccancel.should contain("STATUS:CANCELLED")
+  ccancel.should contain("SEQUENCE:#{now + 1}")
+  # the email names the space that was cancelled
+  mailer.arg_for("cancel.user@example.com", "parking_request", "cancelled", "space_identifier").should eq("INV1")
+  # marked handled so a repeated event won't re-notify
+  staff.last_state(85001_i64).should eq("cancelled_emailed")
+
+  # a repeat event for an already-notified cancellation does not re-send
+  publish("staff/booking/changed", cancelled_booking.call("cancelled_emailed", "asset-inv1").to_json)
+  sleep 100.milliseconds
+  mailer.times_sent("cancel.user@example.com", "parking_request", "cancelled").should eq(1)
+
+  # a cancelled booking that was only ever wait-listed -> nothing is sent
+  mailer.reset
+  publish("staff/booking/changed", {
+    action:          "cancelled",
+    id:              85002_i64,
+    booking_type:    "parking",
+    booking_start:   cancel_start,
+    booking_end:     cancel_end,
+    asset_id:        "unallocated-85002",
+    asset_ids:       ["unallocated-85002"],
+    user_id:         "user-85002",
+    user_email:      "waitlist.user@example.com",
+    user_name:       "Wait List User",
+    booked_by_email: "waitlist.user@example.com",
+    booked_by_name:  "Wait List User",
+    zones:           ["zone-building"],
+    created:         now - 500_i64,
+    last_changed:    now,
+    approved:        false,
+    rejected:        false,
+    deleted:         false,
+    process_state:   "wait_list",
+    extension_data:  {} of String => String,
+  }.to_json)
+  sleep 100.milliseconds
+  mailer.send_count.should eq(0)
+
+  # ===========================================================
+  # Test 84: a PERSISTENT directory failure (all retries exhausted) must not
+  # poison the priority cache. Sweep 1: every group lookup for a top-priority
+  # user fails, so they resolve to nil -> treated as priority 0 for that run and
+  # a default user (created earlier) takes the only space. Sweep 2: the directory
+  # has recovered — the lookup must be RETRIED (nil is never cached) so the
+  # user's true group priority is seen and they preempt the lower-priority
+  # occupant.
+  # ===========================================================
+
+  retry_settings = {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+    # retry twice, with no backoff, so the test doesn't actually sleep
+    group_lookup_retries: 2,
+    group_lookup_backoff: 0,
+  }
+  settings(retry_settings)
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  pr_space = [
+    {id: "asset-pr1", identifier: "PR1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+  ].to_json
+  staff.set_assets(pr_space)
+  gallagher.set_cardholder("pexec.user@example.com", "ch-pexec")
+  gallagher.set_cardholder("plowly.user@example.com", "ch-plowly")
+  # pexec.user is in the TOP priority group; plowly.user is in no groups
+  calendar.set_groups("pexec.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("plowly.user@example.com", [] of NamedTuple(id: String, email: String))
+  # the directory is down for pexec.user for far more than the retry budget
+  calendar.set_fail_groups("pexec.user@example.com", 100)
+
+  pr_start = now + 3600_i64 * 360
+  pr_end = pr_start + 3600_i64
+  # plowly's booking was created EARLIER (lower id => earlier created), so it
+  # wins the created_at tiebreak while pexec is wrongly at priority 0
+  staff.set_bookings([
+    build_booking.call(86001_i64, "plowly.user@example.com",
+      pr_start, pr_end, "unallocated-86001", false, ext_car),
+    build_booking.call(86002_i64, "pexec.user@example.com",
+      pr_start, pr_end, "unallocated-86002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the lookup was attempted retries+1 times (initial + 2 retries) then gave up
+  calendar.group_lookup_count("pexec.user@example.com").should eq(3)
+  # during the outage the space went to the default user
+  staff.last_update_for(86001_i64).should eq("asset-pr1")
+  staff.last_update_for(86002_i64).should be_nil
+
+  # --- the directory recovers ---
+  calendar.set_fail_groups("pexec.user@example.com", 0)
+
+  staff.reset_calls
+  mailer.reset
+  # world state after sweep 1: plowly holds the space, pexec is wait-listed
+  plowly_allocated = build_booking.call(86001_i64, "plowly.user@example.com",
+    pr_start, pr_end, "asset-pr1", true, ext_car)
+  staff.set_bookings([
+    plowly_allocated.merge({process_state: "access_granted_emailed"}),
+    build_booking.call(86002_i64, "pexec.user@example.com",
+      pr_start, pr_end, "unallocated-86002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the failed lookup must have been retried, not served from a cached 0
+  calendar.group_lookup_count("pexec.user@example.com").should eq(4)
+  # with their true priority visible, pexec preempts the priority-0 occupant
+  staff.last_update_for(86002_i64).should eq("asset-pr1")
+  staff.last_update_for(86001_i64).should eq("unallocated-displaced-86001")
+  mailer.sent?("pexec.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+  mailer.sent?("plowly.user@example.com", "parking_request", "displaced").should eq(true)
+
+  # ===========================================================
+  # Test 85: a TRANSIENT directory blip recovers WITHIN the sweep — the lookup
+  # is retried and succeeds, so the top-group user keeps their true priority and
+  # wins the space over an earlier-created default user in the SAME run (no
+  # displacement round-trip needed).
+  # ===========================================================
+
+  settings(retry_settings)
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(pr_space)
+  gallagher.set_cardholder("texec.user@example.com", "ch-texec")
+  gallagher.set_cardholder("tlowly.user@example.com", "ch-tlowly")
+  calendar.set_groups("texec.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("tlowly.user@example.com", [] of NamedTuple(id: String, email: String))
+  # the directory fails once for texec.user, then recovers (within the retries)
+  calendar.set_fail_groups("texec.user@example.com", 1)
+
+  tr_start = now + 3600_i64 * 380
+  tr_end = tr_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(87001_i64, "tlowly.user@example.com",
+      tr_start, tr_end, "unallocated-87001", false, ext_car),
+    build_booking.call(87002_i64, "texec.user@example.com",
+      tr_start, tr_end, "unallocated-87002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # one failure + one successful retry
+  calendar.group_lookup_count("texec.user@example.com").should eq(2)
+  # priority stayed accurate, so the top-group user won the only space outright
+  staff.last_update_for(87002_i64).should eq("asset-pr1")
+  staff.last_update_for(87001_i64).should be_nil
+  mailer.sent?("texec.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # ===========================================================
+  # Test 86: a user with a permanent parking assignment already has standing
+  # access to their space, so any booking they make is ignored by the allocator
+  # — not allocated a (second) bookable space, not approved, not emailed — while
+  # their permanent gallagher access is still granted. Other users allocate as
+  # normal.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([
+    # a free bookable space...
+    {id: "asset-book1", identifier: "BOOK1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+    # ...and a space permanently assigned to perm.user
+    {id: "asset-perm1", identifier: "PERM1", assigned_to: "perm.user@example.com", zones: ["zone-building", "zone-level-B3"],
+     features: ["Secure Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+  ].to_json)
+  gallagher.set_cardholder("perm.user@example.com", "ch-perm")
+  gallagher.set_cardholder("regular.user@example.com", "ch-regular")
+  calendar.set_groups("perm.user@example.com", default_grp.to_json)
+  calendar.set_groups("regular.user@example.com", default_grp.to_json)
+
+  perm_start = now + 3600_i64 * 400
+  perm_end = perm_start + 3600_i64
+  staff.set_bookings([
+    # the permanently-assigned user also makes a booking — must be ignored
+    build_booking.call(88001_i64, "perm.user@example.com",
+      perm_start, perm_end, "unallocated-88001", false, ext_car),
+    # a regular user who should allocate as normal
+    build_booking.call(88002_i64, "regular.user@example.com",
+      perm_start, perm_end, "unallocated-88002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the permanent user's booking is completely ignored
+  staff.last_update_for(88001_i64).should be_nil
+  staff.approved.includes?(88001_i64).should eq(false)
+  mailer.any_sent_to?("perm.user@example.com").should eq(false)
+  # ...but their permanent gallagher access is still in place, and they were NOT
+  # granted the bookable space's group
+  perm_access = gallagher.access_for("ch-perm")
+  perm_access.should contain("gallagher-group3")
+  perm_access.should_not contain("gallagher-group1")
+
+  # the regular user allocates to the free bookable space as normal
+  staff.last_update_for(88002_i64).should eq("asset-book1")
+  mailer.sent?("regular.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
 end
 
 # :nodoc:
@@ -3820,8 +4248,21 @@ class CalendarMock < DriverSpecs::MockDriver
     @groups[user_email.downcase] = groups.to_json
   end
 
+  # remaining get_groups failures per user — each call decrements. Set a small
+  # number for a transient outage that recovers, or a large one for a persistent
+  # outage. 0 (or unset) always succeeds.
+  @fail_groups : Hash(String, Int32) = {} of String => Int32
+
+  def set_fail_groups(user_email : String, times : Int32)
+    @fail_groups[user_email.downcase] = times
+  end
+
   def get_groups(user_id : String)
     @group_lookup_calls[user_id.downcase] = (@group_lookup_calls[user_id.downcase]? || 0) + 1
+    if (remaining = @fail_groups[user_id.downcase]?) && remaining > 0
+      @fail_groups[user_id.downcase] = remaining - 1
+      raise "simulated directory failure"
+    end
     raw = @groups[user_id.downcase]?
     raw ? JSON.parse(raw) : JSON.parse("[]")
   end
@@ -3986,7 +4427,7 @@ end
 class MailerMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Mailer
 
-  @sent : Array(NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)) = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)
+  @sent : Array(NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems, attachments: Array(Attachment))) = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems, attachments: Array(Attachment))
   # when true, every send_template raises (simulating a mailer/SMTP failure)
   @fail_send : Bool = false
 
@@ -3995,7 +4436,7 @@ class MailerMock < DriverSpecs::MockDriver
   end
 
   def reset
-    @sent = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems)
+    @sent = [] of NamedTuple(to: String, template: Tuple(String, String), args: TemplateItems, attachments: Array(Attachment))
     self[:send_count] = 0
     self[:last_template] = nil
     self[:last_to] = nil
@@ -4019,6 +4460,11 @@ class MailerMock < DriverSpecs::MockDriver
     @sent.any? { |s| s[:to] == to && s[:template] == {ns, name} }
   end
 
+  # was ANY email sent to this recipient since the last reset?
+  def any_sent_to?(to : String) : Bool
+    @sent.any? { |s| s[:to] == to }
+  end
+
   # how many times a (to, template) pair was sent since the last reset
   def times_sent(to : String, ns : String, name : String) : Int32
     @sent.count { |s| s[:to] == to && s[:template] == {ns, name} }
@@ -4028,6 +4474,13 @@ class MailerMock < DriverSpecs::MockDriver
   def arg_for(to : String, ns : String, name : String, key : String) : String?
     sent = @sent.reverse.find { |s| s[:to] == to && s[:template] == {ns, name} }
     sent.try { |s| s[:args][key]?.try(&.to_s) }
+  end
+
+  # the decoded (base64) content of the first attachment on the most recent
+  # (to, template) send — the .ics body for a parking calendar invite, or nil
+  def attachment_for(to : String, ns : String, name : String) : String?
+    sent = @sent.reverse.find { |s| s[:to] == to && s[:template] == {ns, name} }
+    sent.try { |s| s[:attachments].first?.try { |a| Base64.decode_string(a[:content]) } }
   end
 
   def send_template(
@@ -4043,7 +4496,7 @@ class MailerMock < DriverSpecs::MockDriver
   )
     raise "simulated mailer failure" if @fail_send
     recipient = to.is_a?(String) ? to : (to.first? || "")
-    @sent << {to: recipient, template: template, args: args}
+    @sent << {to: recipient, template: template, args: args, attachments: attachments}
     self[:last_template] = template
     self[:last_to] = recipient
     self[:send_count] = (self[:send_count]?.try(&.as_i) || 0) + 1
