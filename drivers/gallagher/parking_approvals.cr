@@ -667,6 +667,21 @@ class Place::Parking::Approvals < PlaceOS::Driver
     bookable_spaces = spaces.select { |s| s.bookable && s.assigned_to.presence.nil? && !unmapped_space_ids.includes?(s.id) }
     assigned_spaces = spaces.select { |s| s.assigned_to.presence }
 
+    # Users with a permanent parking assignment already have standing access to
+    # their own space (granted via assigned_spaces in build_desired_access), so
+    # any parking booking they make is redundant. Drop those bookings up front so
+    # the allocator never hands them a second (bookable) space, never grants
+    # duplicate time-bounded access, and never emails them — they always have a
+    # spot. Matched by email so it holds regardless of which asset the booking
+    # references.
+    assigned_emails = assigned_spaces.compact_map(&.assigned_to.presence.try(&.downcase)).to_set
+    unless assigned_emails.empty?
+      before = bookings.size
+      bookings = bookings.reject { |b| assigned_emails.includes?(b.user_email.downcase) }
+      skipped = before - bookings.size
+      logger.debug { "skipping #{skipped} booking(s) from permanently-assigned users" } if skipped > 0
+    end
+
     logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned, #{unmapped_space_ids.size} without a gallagher group" }
     logger.debug { "allocation run: processing #{bookings.size} active bookings" }
 

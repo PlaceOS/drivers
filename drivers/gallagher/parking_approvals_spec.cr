@@ -3859,6 +3859,73 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(87002_i64).should eq("asset-pr1")
   staff.last_update_for(87001_i64).should be_nil
   mailer.sent?("texec.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # ===========================================================
+  # Test 86: a user with a permanent parking assignment already has standing
+  # access to their space, so any booking they make is ignored by the allocator
+  # — not allocated a (second) bookable space, not approved, not emailed — while
+  # their permanent gallagher access is still granted. Other users allocate as
+  # normal.
+  # ===========================================================
+
+  settings({
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+    ],
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([
+    # a free bookable space...
+    {id: "asset-book1", identifier: "BOOK1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+    # ...and a space permanently assigned to perm.user
+    {id: "asset-perm1", identifier: "PERM1", assigned_to: "perm.user@example.com", zones: ["zone-building", "zone-level-B3"],
+     features: ["Secure Basement"], notes: "Car", security_system_groups: [] of String, bookable: true},
+  ].to_json)
+  gallagher.set_cardholder("perm.user@example.com", "ch-perm")
+  gallagher.set_cardholder("regular.user@example.com", "ch-regular")
+  calendar.set_groups("perm.user@example.com", default_grp.to_json)
+  calendar.set_groups("regular.user@example.com", default_grp.to_json)
+
+  perm_start = now + 3600_i64 * 400
+  perm_end = perm_start + 3600_i64
+  staff.set_bookings([
+    # the permanently-assigned user also makes a booking — must be ignored
+    build_booking.call(88001_i64, "perm.user@example.com",
+      perm_start, perm_end, "unallocated-88001", false, ext_car),
+    # a regular user who should allocate as normal
+    build_booking.call(88002_i64, "regular.user@example.com",
+      perm_start, perm_end, "unallocated-88002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the permanent user's booking is completely ignored
+  staff.last_update_for(88001_i64).should be_nil
+  staff.approved.includes?(88001_i64).should eq(false)
+  mailer.any_sent_to?("perm.user@example.com").should eq(false)
+  # ...but their permanent gallagher access is still in place, and they were NOT
+  # granted the bookable space's group
+  perm_access = gallagher.access_for("ch-perm")
+  perm_access.should contain("gallagher-group3")
+  perm_access.should_not contain("gallagher-group1")
+
+  # the regular user allocates to the free bookable space as normal
+  staff.last_update_for(88002_i64).should eq("asset-book1")
+  mailer.sent?("regular.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
 end
 
 # :nodoc:
@@ -4391,6 +4458,11 @@ class MailerMock < DriverSpecs::MockDriver
   # was a specific (to, template) pair sent since the last reset?
   def sent?(to : String, ns : String, name : String) : Bool
     @sent.any? { |s| s[:to] == to && s[:template] == {ns, name} }
+  end
+
+  # was ANY email sent to this recipient since the last reset?
+  def any_sent_to?(to : String) : Bool
+    @sent.any? { |s| s[:to] == to }
   end
 
   # how many times a (to, template) pair was sent since the last reset
