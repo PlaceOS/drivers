@@ -57,7 +57,7 @@ class Place::Signage::Analytics < PlaceOS::Driver
       running += 1
       online = last_seen > not_responding ? 1 : 0
       online_count += online
-      self[sign.id] = online
+      self[sign.id] = {display_id: sign.id, online_status: online}
     end
 
     percent = running.zero? ? 0.0 : (online_count / running * 100).round(2)
