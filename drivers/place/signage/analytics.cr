@@ -46,6 +46,7 @@ class Place::Signage::Analytics < PlaceOS::Driver
     @running = true
     signs = staff_api.systems(zone_id: @org_zone, signage: true).get_json(Array(SignageStatus))
     not_responding = 5.minutes.ago.to_unix
+    time_now = Time.utc.to_unix
 
     running = 0
     online_count = 0
@@ -57,7 +58,9 @@ class Place::Signage::Analytics < PlaceOS::Driver
       running += 1
       online = last_seen > not_responding ? 1 : 0
       online_count += online
-      self[sign.id] = {display_id: sign.id, online_status: online}
+
+      # Use time to force new entries
+      self[sign.id] = {display_id: sign.id, online_status: online, checked: time_now}
     end
 
     percent = running.zero? ? 0.0 : (online_count / running * 100).round(2)
