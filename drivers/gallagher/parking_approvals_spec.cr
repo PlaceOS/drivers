@@ -26,6 +26,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
       {id: 4, name: "Max height 1.95m"},
       {id: 5, name: "Max height 2.1m"},
     ],
@@ -535,6 +536,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
       {id: 4, name: "Max height 1.95m"},
       {id: 5, name: "Max height 2.1m"},
     ],
@@ -790,6 +792,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
       {id: 4, name: "Max height 1.95m"},
       {id: 5, name: "Max height 2.1m"},
     ],
@@ -839,6 +842,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
       {id: 4, name: "Max height 1.95m"},
       {id: 5, name: "Max height 2.1m"},
     ],
@@ -925,6 +929,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
       {id: 4, name: "Max height 1.95m"},
       {id: 5, name: "Max height 2.1m"},
     ],
@@ -1698,6 +1703,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -1747,6 +1753,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -2164,6 +2171,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     allow_displacement: false,
   })
@@ -2240,6 +2248,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
       {id: 4, name: "Max height 1.95m"},
       {id: 5, name: "Max height 2.1m"},
     ],
@@ -2355,6 +2364,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -2581,6 +2591,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     # a grant the driver previously made + tracked
     access_granted: {
@@ -2691,6 +2702,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     gallagher_id_field: "employeeId",
   })
@@ -2723,6 +2735,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -2769,6 +2782,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -2798,6 +2812,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     allow_displacement: true,
   })
@@ -2859,6 +2874,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     allow_displacement: false,
   })
@@ -2935,6 +2951,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     # seed the persisted no-card list with a user who won't book this run
     users_without_cards: ["stale.user@example.com"],
@@ -2971,6 +2988,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -3014,6 +3032,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     allow_displacement: true,
   })
@@ -3131,6 +3150,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     allow_displacement: false,
   })
@@ -3189,6 +3209,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     allow_displacement: true,
   })
@@ -3260,6 +3281,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     allow_displacement: false,
   })
@@ -3338,6 +3360,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     # manual displacement bypasses the policy, even when off
     allow_displacement: false,
@@ -3437,6 +3460,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -3520,6 +3544,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     calendar_invite_from:      "parking@place.technology",
     calendar_invite_from_name: "Building Parking",
@@ -3641,6 +3666,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     calendar_invite_from:      "parking@place.technology",
     calendar_invite_from_name: "Building Parking",
@@ -3754,6 +3780,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
     # retry twice, with no backoff, so the test doesn't actually sleep
     group_lookup_retries: 2,
@@ -3880,6 +3907,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
     request_space_restrictions: [
       {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
     ],
   })
   sleep 100.milliseconds
@@ -3926,6 +3954,168 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # the regular user allocates to the free bookable space as normal
   staff.last_update_for(88002_i64).should eq("asset-book1")
   mailer.sent?("regular.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # ===========================================================
+  # Electric Vehicle restriction (id 2). EV bookings only fit EV spaces (no
+  # regular-space fallback) and are rejected — not wait-listed — when none is
+  # free. EV spaces are the lowest-priority spaces for non-EV bookings, but may
+  # still be used by them.
+  # ===========================================================
+
+  ev_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
+    ],
+  }
+
+  # a regular bookable space + an EV space (both map to gallagher-group1 via
+  # "Open Basement"; the EV space additionally carries the "Electric Vehicle"
+  # feature). The EV space deliberately has the HIGHER zone preference
+  # ("carpriority" vs the regular space's "shared") so that only the EV-last rule
+  # can push it behind the regular space for non-EV bookings (Test 88).
+  ev_reg_space = {id: "asset-reg1", identifier: "REG1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+                  features: ["shared", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true}
+  ev_ev_space = {id: "asset-ev1", identifier: "EV1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+                 features: ["Electric Vehicle", "carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true}
+
+  ev_ext = {"vehicle_type" => JSON::Any.new("car"), "space_restrictions" => JSON::Any.new(2_i64)}
+
+  # -----------------------------------------------------------
+  # Test 87: an EV booking is allocated to the EV space even when a regular space
+  # is also free — it never takes a non-EV space.
+  # -----------------------------------------------------------
+
+  settings(ev_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([ev_reg_space, ev_ev_space].to_json)
+  gallagher.set_cardholder("ev.driver@example.com", "ch-evdriver")
+  calendar.set_groups("ev.driver@example.com", default_grp.to_json)
+
+  ev_start = now + 3600_i64 * 420
+  ev_end = ev_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(90001_i64, "ev.driver@example.com",
+      ev_start, ev_end, "unallocated-90001", false, ev_ext),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(90001_i64).should eq("asset-ev1")
+  mailer.sent?("ev.driver@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # -----------------------------------------------------------
+  # Test 88: EV spaces are the last resort for non-EV bookings. Two overlapping
+  # regular bookings, higher priority first: the higher-priority one takes the
+  # regular space, the lower-priority one falls back to the EV space (proving a
+  # non-EV booking CAN use an EV space, but only after regular spaces run out).
+  # -----------------------------------------------------------
+
+  settings(ev_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([ev_reg_space, ev_ev_space].to_json)
+  gallagher.set_cardholder("hi.user@example.com", "ch-hi")
+  gallagher.set_cardholder("lo.user@example.com", "ch-lo")
+  # hi.user is in the top group; lo.user is in no group
+  calendar.set_groups("hi.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("lo.user@example.com", [] of NamedTuple(id: String, email: String))
+
+  lr_start = now + 3600_i64 * 440
+  lr_end = lr_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(90101_i64, "hi.user@example.com",
+      lr_start, lr_end, "unallocated-90101", false, ext_car),
+    build_booking.call(90102_i64, "lo.user@example.com",
+      lr_start, lr_end, "unallocated-90102", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # higher priority gets the regular space; lower priority gets the EV space last
+  staff.last_update_for(90101_i64).should eq("asset-reg1")
+  staff.last_update_for(90102_i64).should eq("asset-ev1")
+
+  # -----------------------------------------------------------
+  # Test 89: an EV booking with NO EV space available is REJECTED (not allocated
+  # a regular space, not wait-listed) and a rejection email is sent.
+  # -----------------------------------------------------------
+
+  settings(ev_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  # only a regular space exists — no EV space at all
+  staff.set_assets([ev_reg_space].to_json)
+  gallagher.set_cardholder("ev.noev@example.com", "ch-evnoev")
+  calendar.set_groups("ev.noev@example.com", default_grp.to_json)
+
+  nr_start = now + 3600_i64 * 460
+  nr_end = nr_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(90201_i64, "ev.noev@example.com",
+      nr_start, nr_end, "unallocated-90201", false, ev_ext),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # rejected, not allocated the regular space, not wait-listed
+  staff.rejected?(90201_i64).should eq(true)
+  staff.last_update_for(90201_i64).should be_nil
+  staff.last_state(90201_i64).should eq("rejected")
+  mailer.sent?("ev.noev@example.com", "parking_request", "rejected").should eq(true)
+  mailer.sent?("ev.noev@example.com", "parking_request", "wait_list").should eq(false)
+
+  # -----------------------------------------------------------
+  # Test 90: an EV booking is REJECTED when the only EV space is already held by
+  # an equal-priority booking (nothing to preempt) — again no wait list.
+  # -----------------------------------------------------------
+
+  settings(ev_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([ev_ev_space].to_json)
+  gallagher.set_cardholder("ev.first@example.com", "ch-evfirst")
+  gallagher.set_cardholder("ev.second@example.com", "ch-evsecond")
+  # both in no group => equal (priority 0), so the second can't preempt the first
+  calendar.set_groups("ev.first@example.com", [] of NamedTuple(id: String, email: String))
+  calendar.set_groups("ev.second@example.com", [] of NamedTuple(id: String, email: String))
+
+  bz_start = now + 3600_i64 * 480
+  bz_end = bz_start + 3600_i64
+  staff.set_bookings([
+    # 90301 is created earlier (lower id) so it wins the only EV space
+    build_booking.call(90301_i64, "ev.first@example.com",
+      bz_start, bz_end, "unallocated-90301", false, ev_ext),
+    build_booking.call(90302_i64, "ev.second@example.com",
+      bz_start, bz_end, "unallocated-90302", false, ev_ext),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # first takes the EV space; second is rejected (no EV space free, can't preempt)
+  staff.last_update_for(90301_i64).should eq("asset-ev1")
+  staff.rejected?(90302_i64).should eq(true)
+  staff.last_update_for(90302_i64).should be_nil
+  mailer.sent?("ev.second@example.com", "parking_request", "rejected").should eq(true)
+  mailer.sent?("ev.second@example.com", "parking_request", "wait_list").should eq(false)
 end
 
 # :nodoc:
@@ -3958,6 +4148,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
   def reset_calls
     @updates = {} of Int64 => String
     @approved_set = [] of Int64
+    @rejected_set = [] of Int64
     @states = {} of String => String
     @fail_updates = [] of Int64
     @update_instances = {} of Int64 => String
@@ -4216,8 +4407,19 @@ class StaffAPIMock < DriverSpecs::MockDriver
     true
   end
 
+  @rejected_set : Array(Int64) = [] of Int64
+
   def reject(booking_id : String | Int64, utm_source : String? = nil, instance : Int64? = nil)
+    @rejected_set << booking_id.to_s.to_i64
     true
+  end
+
+  def rejected : Array(Int64)
+    @rejected_set
+  end
+
+  def rejected?(booking_id : Int64) : Bool
+    @rejected_set.includes?(booking_id)
   end
 
   def booking_state(booking_id : String | Int64, state : String, instance : Int64? = nil)
