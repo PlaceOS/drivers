@@ -726,6 +726,11 @@ class Place::StaffAPI < PlaceOS::Driver
     placeos_client.metadata.merge(id, key, payload, description)
   end
 
+  @[Security(Level::Support)]
+  def rename_metadata(id : String, current_name : String, new_name : String)
+    placeos_client.metadata.rename(id, current_name, new_name)
+  end
+
   # ===================================
   # ZONE INFORMATION
   # ===================================
