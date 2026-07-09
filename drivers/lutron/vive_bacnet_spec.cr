@@ -14,6 +14,7 @@ end
 class BACnetMock < DriverSpecs::MockDriver
   def write_real(device_id : UInt32, instance_id : UInt32, value : Float32, object_type : String = "AnalogValue")
     raise "over 100!" if value > 100.0
-    self["#{device_id}.#{object_type}[#{instance_id}]"] = value
+    name = "#{device_id}.#{object_type}[#{instance_id}]"
+    self[name] = {obj_id: name, obj_value: value}
   end
 end

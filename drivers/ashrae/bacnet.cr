@@ -416,7 +416,7 @@ class Ashrae::BACnet < PlaceOS::Driver
       queue(name: name, priority: 0, timeout: 500.milliseconds) do |task|
         spawn_action(task) do
           obj.sync_value(client, link_address)
-          self[name] = object_value(obj)
+          self[name] = {obj_id: name, obj_value: object_value(obj)}
         end
       end
       Fiber.yield
@@ -442,7 +442,7 @@ class Ashrae::BACnet < PlaceOS::Driver
     queue(name: name, priority: 50) do |task|
       spawn_action(task) do
         obj.sync_value(bacnet_client, device.link_address)
-        self[name] = object_value(obj)
+        self[name] = {obj_id: name, obj_value: object_value(obj)}
       end
     end
   end
@@ -558,7 +558,10 @@ class Ashrae::BACnet < PlaceOS::Driver
     @mutex.synchronize { @devices[device.device_instance] = device }
 
     device_id = device.device_instance
-    device.objects.each { |obj| self[object_binding(device_id, obj)] = object_value(obj) }
+    device.objects.each do |obj|
+      name = object_binding(device_id, obj)
+      self[name] = {obj_id: name, obj_value: object_value(obj)}
+    end
   end
 
   protected def object_binding(device_id, obj)

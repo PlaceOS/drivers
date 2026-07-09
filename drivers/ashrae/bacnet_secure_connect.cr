@@ -467,6 +467,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     client = bacnet_client
     vmac = device.vmac
     objects = @mutex.synchronize { device.objects.dup }
+    time_now = Time.utc.to_unix
 
     synced = 0
     objects.each do |obj|
@@ -474,7 +475,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
       name = object_binding(device_id, obj)
       obj.sync_value(client, vmac)
-      self[name] = object_value(obj)
+      self[name] = {obj_id: name, obj_value: object_value(obj), clock: time_now}
       synced += 1
 
       Fiber.yield
@@ -507,8 +508,9 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
     queue(name: name, priority: 50) do |task|
       spawn_action(task) do
+        time_now = Time.utc.to_unix
         obj.sync_value(bacnet_client, device.vmac)
-        self[name] = object_value(obj)
+        self[name] = {obj_id: name, obj_value: object_value(obj), clock: time_now}
       end
     end
   end
@@ -628,9 +630,13 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     logger.debug { device.inspect } if @verbose_debug
 
     @mutex.synchronize { @devices[device.device_instance] = device }
+    time_now = Time.utc.to_unix
 
     device_id = device.device_instance
-    device.objects.each { |obj| self[object_binding(device_id, obj)] = object_value(obj) }
+    device.objects.each do |obj|
+      name = object_binding(device_id, obj)
+      self[name] = {obj_id: name, obj_value: object_value(obj), clock: time_now}
+    end
   end
 
   protected def object_binding(device_id, obj)

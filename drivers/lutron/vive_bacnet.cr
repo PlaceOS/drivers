@@ -20,31 +20,38 @@ class Lutron::ViveBacnet < PlaceOS::Driver
   @last_updated : Int64 = 0_i64
   @occupancy : Bool? = nil
 
+  protected def get_value(klass : Class, json : String)
+    klass.from_json(json, root: "obj_value")
+  rescue
+    nil
+  end
+
   def on_update
     @device_id = setting(UInt32, :device_id)
     subscriptions.clear
 
     # Light level
-    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[2]") { |_sub, value| self[:lighting_level] = value.to_f }
+    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[2]") { |_sub, value| self[:lighting_level] = get_value(Float32, value) }
 
     # Total Power (in watts)
-    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[18]") { |_sub, value| self[:power_usage] = value.to_f }
+    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[18]") { |_sub, value| self[:power_usage] = get_value(Float32, value) }
 
     # Max Power (in watts)
-    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[19]") { |_sub, value| self[:max_power_usage] = value.to_f }
+    system.subscribe(:BACnet, 1, "#{@device_id}.AnalogValue[19]") { |_sub, value| self[:max_power_usage] = get_value(Float32, value) }
 
     # lighting on / off
-    system.subscribe(:BACnet, 1, "#{@device_id}.BinaryValue[3]") { |_sub, value| self[:lighting] = value == "1" }
+    system.subscribe(:BACnet, 1, "#{@device_id}.BinaryValue[3]") { |_sub, value| self[:lighting] = get_value(Int32, value) == 1 }
 
     # occupancy disabled
-    system.subscribe(:BACnet, 1, "#{@device_id}.BinaryValue[7]") { |_sub, value| self[:occupancy_disabled] = value == "1" }
+    system.subscribe(:BACnet, 1, "#{@device_id}.BinaryValue[7]") { |_sub, value| self[:occupancy_disabled] = get_value(Int32, value) == 1 }
 
     # occupancy state
-    system.subscribe(:BACnet, 1, "#{@device_id}.MultiStateValue[8]") do |_sub, value|
+    system.subscribe(:BACnet, 1, "#{@device_id}.MultiStateValue[8]") do |_sub, json_value|
+      value = get_value(Int32, json_value)
       @occupancy = case value
-                   when "1"
+                   when 1
                      false
-                   when "2"
+                   when 2
                      true
                    else
                      nil
