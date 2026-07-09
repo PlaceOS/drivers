@@ -4051,8 +4051,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(90102_i64).should eq("asset-ev1")
 
   # -----------------------------------------------------------
-  # Test 89: an EV booking with NO EV space available is REJECTED (not allocated
-  # a regular space, not wait-listed) and a rejection email is sent.
+  # Test 89: an EV booking with NO EV space available is WAIT-LISTED — it is NOT
+  # allocated a regular space (no fallback) and NOT rejected.
   # -----------------------------------------------------------
 
   settings(ev_settings)
@@ -4074,16 +4074,15 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  # rejected, not allocated the regular space, not wait-listed
-  staff.rejected?(90201_i64).should eq(true)
+  # wait-listed: never allocated the (non-EV) regular space, not approved
   staff.last_update_for(90201_i64).should be_nil
-  staff.last_state(90201_i64).should eq("rejected")
-  mailer.sent?("ev.noev@example.com", "parking_request", "rejected").should eq(true)
-  mailer.sent?("ev.noev@example.com", "parking_request", "wait_list").should eq(false)
+  staff.approved.includes?(90201_i64).should eq(false)
+  staff.last_state(90201_i64).should eq("wait_list")
+  mailer.sent?("ev.noev@example.com", "parking_request", "wait_list").should eq(true)
 
   # -----------------------------------------------------------
-  # Test 90: an EV booking is REJECTED when the only EV space is already held by
-  # an equal-priority booking (nothing to preempt) — again no wait list.
+  # Test 90: an EV booking is WAIT-LISTED when the only EV space is already held
+  # by an equal-priority booking (nothing to preempt).
   # -----------------------------------------------------------
 
   settings(ev_settings)
@@ -4110,12 +4109,102 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   exec(:process_parking_bookings).get
   sleep 100.milliseconds
 
-  # first takes the EV space; second is rejected (no EV space free, can't preempt)
+  # first takes the EV space; second is wait-listed (no EV space free, can't preempt)
   staff.last_update_for(90301_i64).should eq("asset-ev1")
-  staff.rejected?(90302_i64).should eq(true)
   staff.last_update_for(90302_i64).should be_nil
-  mailer.sent?("ev.second@example.com", "parking_request", "rejected").should eq(true)
-  mailer.sent?("ev.second@example.com", "parking_request", "wait_list").should eq(false)
+  staff.last_state(90302_i64).should eq("wait_list")
+  mailer.sent?("ev.second@example.com", "parking_request", "wait_list").should eq(true)
+
+  # ===========================================================
+  # Test 91: an unallocated booking with NO vehicle_type in extension_data is
+  # rejected (not allocated, not wait-listed) and a rejection email is sent. A
+  # booking that DOES carry a vehicle_type allocates as normal in the same run.
+  # ===========================================================
+
+  vt_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
+    ],
+  }
+
+  vt_reg_space = {id: "asset-vt1", identifier: "VT1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+                  features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true}
+  # a booking whose extension_data has no vehicle_type key at all
+  no_vehicle_ext = {"request_type" => JSON::Any.new("standard")}
+
+  settings(vt_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([vt_reg_space].to_json)
+  gallagher.set_cardholder("novt.user@example.com", "ch-novt")
+  gallagher.set_cardholder("hasvt.user@example.com", "ch-hasvt")
+  calendar.set_groups("novt.user@example.com", default_grp.to_json)
+  calendar.set_groups("hasvt.user@example.com", default_grp.to_json)
+
+  vt_start = now + 3600_i64 * 500
+  vt_end = vt_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(90401_i64, "novt.user@example.com",
+      vt_start, vt_end, "unallocated-90401", false, no_vehicle_ext),
+    build_booking.call(90402_i64, "hasvt.user@example.com",
+      vt_start, vt_end, "unallocated-90402", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the no-vehicle-type booking is rejected: not allocated, not wait-listed
+  staff.rejected?(90401_i64).should eq(true)
+  staff.last_update_for(90401_i64).should be_nil
+  staff.last_state(90401_i64).should eq("rejected")
+  mailer.sent?("novt.user@example.com", "parking_request", "rejected").should eq(true)
+  mailer.sent?("novt.user@example.com", "parking_request", "wait_list").should eq(false)
+
+  # the booking WITH a vehicle_type still allocates normally
+  staff.last_update_for(90402_i64).should eq("asset-vt1")
+  staff.rejected?(90402_i64).should eq(false)
+  mailer.sent?("hasvt.user@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # ===========================================================
+  # Test 92: an ALREADY-ALLOCATED booking with no vehicle_type is NOT rejected —
+  # the rejection only applies to bookings not yet allocated.
+  # ===========================================================
+
+  settings(vt_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([vt_reg_space].to_json)
+  gallagher.set_cardholder("alloc.novt@example.com", "ch-allocnovt")
+  calendar.set_groups("alloc.novt@example.com", default_grp.to_json)
+
+  av_start = now + 3600_i64 * 520
+  av_end = av_start + 3600_i64
+  # already on the space (asset-vt1), no vehicle_type
+  staff.set_bookings([
+    build_booking.call(90501_i64, "alloc.novt@example.com",
+      av_start, av_end, "asset-vt1", false, no_vehicle_ext),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # kept its allocation, approved, NOT rejected
+  staff.rejected?(90501_i64).should eq(false)
+  staff.approved.includes?(90501_i64).should eq(true)
+  mailer.sent?("alloc.novt@example.com", "parking_request", "rejected").should eq(false)
+  mailer.sent?("alloc.novt@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
 end
 
 # :nodoc:

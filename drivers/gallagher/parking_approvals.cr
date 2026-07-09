@@ -110,8 +110,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Restriction/feature name for electric-vehicle spaces. Unlike an exclusive
   # restriction (ACROD), an EV space is NOT reserved — a booking without the EV
   # requirement may use one, but only as a last resort (EV spaces sort last). A
-  # booking that DOES require EV can only be placed on an EV space (no fallback)
-  # and is rejected — not wait-listed — when none is available.
+  # booking that DOES require EV can only be placed on an EV space (no fallback
+  # to a regular space); when none is available it is wait-listed like any other.
   EV_FEATURE = "Electric Vehicle"
 
   @timezone : Time::Location = Time::Location::UTC
@@ -1189,6 +1189,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return
     end
 
+    # an unallocated booking with no vehicle type is incomplete — reject it (only
+    # unallocated bookings reach here, so an already-allocated booking keeps its
+    # space even if its vehicle_type is missing)
+    if vehicle_type_missing?(booking)
+      reject_booking(booking, "no vehicle type specified")
+      return
+    end
+
     # withhold allocation until the user can actually be granted Gallagher access
     return unless ensure_user_has_card(booking)
 
@@ -1221,7 +1229,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     if compatible.empty?
       logger.warn { "no compatible spaces for booking #{booking.id} (vehicle/restriction filter)" }
-      no_space_available(booking)
+      wait_list_email(booking)
       return
     end
 
@@ -1259,8 +1267,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     target = candidates.min_by? { |(_space, conflicts)| conflicts.max_of { |(_other, other_priority)| other_priority } }
 
     unless target
-      logger.debug { "no preemption candidate for booking #{booking.id}, no space available" }
-      no_space_available(booking)
+      logger.debug { "no preemption candidate for booking #{booking.id}, sending wait list email" }
+      wait_list_email(booking)
       return
     end
 
@@ -1271,14 +1279,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # displacement trial: when disabled, the would-be displacement is captured in
     # the report above but never acted on — the booking waits for a space instead.
     unless @allow_displacement
-      logger.debug { "displacement disabled; booking #{booking.id} would preempt space #{target_space.id}" }
-      # An EV booking is never wait-listed: with displacement disabled it can't
-      # take the occupied EV space, so reject it. Skip the local simulation below
-      # — a rejected booking never occupies the space, even in our local view.
-      if ev_request?(booking)
-        reject_booking(booking)
-        return
-      end
+      logger.debug { "displacement disabled; booking #{booking.id} would preempt space #{target_space.id}, sending wait list email" }
       # Mirror, in our LOCAL view only, what an enabled run would do to
       # current_allocations: the occupant moves off and this (higher priority)
       # booking takes the space. Without this every later would-be preemptor
@@ -1320,7 +1321,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       displaced.each do |(displaced_booking, displaced_priority)|
         restore_allocation(displaced_booking, displaced_priority, target_space, current_allocations)
       end
-      no_space_available(booking)
+      wait_list_email(booking)
     end
   rescue error
     logger.error(exception: error) { "failed to process unallocated booking #{booking.id}" }
@@ -1391,6 +1392,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Compatibility filter
   # ===================================
 
+  # True when the booking has no usable vehicle_type in its extension_data (key
+  # absent, not a string, or blank). Such a booking is rejected before allocation.
+  protected def vehicle_type_missing?(booking : Booking) : Bool
+    booking.extension_data["vehicle_type"]?.try(&.as_s?).presence.nil?
+  end
+
   # The restriction feature name a booking requests (via space_restrictions),
   # or nil if it requests none / an unknown one.
   protected def requested_restriction(booking : Booking) : String?
@@ -1399,17 +1406,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @restriction_lookup[restriction_id]?
   end
 
-  # Does the booking require an Electric Vehicle space? EV bookings only ever go
-  # on EV spaces (no regular-space fallback) and are rejected, not wait-listed,
-  # when none is available.
-  protected def ev_request?(booking : Booking) : Bool
-    requested_restriction(booking) == EV_FEATURE
-  end
-
   # Does the booking request an EXCLUSIVE restriction feature (ACROD, ...) that
   # may fall back to a regular space when none is free? Height classes never fall
-  # back (they describe capacity), and EV never falls back either (it rejects
-  # instead) — so both are excluded here.
+  # back (they describe capacity), and EV never falls back either (an EV booking
+  # only ever fits an EV space; when none is free it wait-lists) — so both are
+  # excluded here.
   protected def exclusive_request?(booking : Booking) : Bool
     return false unless name = requested_restriction(booking)
     return false if name == EV_FEATURE
@@ -2115,16 +2116,6 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.warn(exception: error) { "failed to send waiting approval email for booking #{booking.id}" }
   end
 
-  # No space could be allocated. EV bookings are rejected (they only fit EV
-  # spaces and must not linger on a wait list); everyone else is wait-listed.
-  protected def no_space_available(booking : Booking) : Nil
-    if ev_request?(booking)
-      reject_booking(booking)
-    else
-      wait_list_email(booking)
-    end
-  end
-
   # an allocated booking (access_granted/_emailed) is past the wait-list stage
   WAIT_LIST_SENT = {"wait_list", "access_granted", "access_granted_emailed"}
 
@@ -2146,14 +2137,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # a booking already allocated/rejected is past the reject stage
   REJECT_SENT = {"rejected", "access_granted", "access_granted_emailed"}
 
-  # Reject a booking (EV request with no EV space) and email the user. The reject
-  # is authoritative — once rejected server-side the booking is filtered out of
+  # Reject a not-yet-allocated booking and email the user. The reject is
+  # authoritative — once rejected server-side the booking is filtered out of
   # future sweeps (never re-allocated), so unlike wait-listing it won't be
-  # revisited if a space later frees.
-  protected def reject_booking(booking : Booking) : Nil
+  # revisited if a space later frees. `reason` is logged (the rejection template
+  # has no reason field).
+  protected def reject_booking(booking : Booking, reason : String) : Nil
     return if REJECT_SENT.includes?(booking.process_state)
 
-    logger.info { "rejecting booking #{booking.id} (#{booking.user_email}): no electric vehicle space available" }
+    logger.info { "rejecting booking #{booking.id} (#{booking.user_email}): #{reason}" }
 
     begin
       staff_api.reject(booking.id, instance: booking.instance).get
