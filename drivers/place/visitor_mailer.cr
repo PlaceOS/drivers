@@ -34,8 +34,10 @@ class Place::VisitorMailer < PlaceOS::Driver
     notify_induction_accepted_template: "induction_accepted",
     notify_induction_declined_template: "induction_declined",
     notify_original_host_template:      "notify_original_host",
-    # sent to all visitors when booking details change (date, time, location, etc.)
+    # sent to all visitors when details change (date, time, location, etc.):
+    # bookings (desk/resource) use booking_changed, calendar events (rooms) use event_changed
     booking_changed_template:           "booking_changed",
+    event_changed_template:             "event_changed",
     group_event_template:               "group_event",
     disable_qr_code:                    false,
     send_network_credentials:           false,
@@ -140,6 +142,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @notify_induction_declined_template : String = "induction_declined"
   @notify_original_host_template : String = "notify_original_host"
   @booking_changed_template : String = "booking_changed"
+  @event_changed_template : String = "event_changed"
   @group_event_template : String = "group_event"
   @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
@@ -171,6 +174,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @notify_induction_declined_template = setting?(String, :notify_induction_declined_template) || "induction_declined"
     @notify_original_host_template = setting?(String, :notify_original_host_template) || "notify_original_host"
     @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
+    @event_changed_template = setting?(String, :event_changed_template) || "event_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
@@ -464,9 +468,11 @@ class Place::VisitorMailer < PlaceOS::Driver
     previous_host_email : String,
     new_host_email : String,
     event_title : String?,
-    event_start : Int64,
+    event_start : Int64?,
   )
-    local_start_time = Time.unix(event_start).in(@time_zone)
+    # A host can be reassigned via a metadata-only update that carries no event
+    # timing, so render the date/time only when a start time is available.
+    local_start_time = event_start.try { |timestamp| Time.unix(timestamp).in(@time_zone) }
 
     mailer.send_template(
       previous_host_email,
@@ -478,8 +484,8 @@ class Place::VisitorMailer < PlaceOS::Driver
         new_host_name:       get_host_name(new_host_email),
         building_name:       building_zone.display_name.presence || building_zone.name,
         event_title:         event_title,
-        event_date:          local_start_time.to_s(@date_format),
-        event_time:          local_start_time.to_s(@time_format),
+        event_date:          local_start_time.try(&.to_s(@date_format)),
+        event_time:          local_start_time.try(&.to_s(@time_format)),
       }
     )
   end
@@ -511,6 +517,16 @@ class Place::VisitorMailer < PlaceOS::Driver
     jwt_fields = [
       {name: "guest_jwt", description: "JWT token for the guest"},
       {name: "kiosk_url", description: "URL for the visitor kiosk"},
+    ]
+
+    # Shared by the booking-changed and event-changed notifications, which carry
+    # the same data but render through separate templates.
+    changed_fields = common_fields + [
+      {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "previous_event_date", description: "The original date before it was changed"},
+      {name: "previous_event_time", description: "The original time before it was changed"},
+      {name: "previous_room_name", description: "The original room or area name before it was moved"},
+      {name: "previous_building_name", description: "The original building name before it was moved"},
     ]
 
     [
@@ -574,14 +590,14 @@ class Place::VisitorMailer < PlaceOS::Driver
       TemplateFields.new(
         trigger: {"visitor_invited", @booking_changed_template},
         name: "Booking details changed notification",
-        description: "Notification sent to all visitors on a booking when details change (date, time, location, etc.)",
-        fields: common_fields + [
-          {name: "room_name", description: "Name of the room or area being visited"},
-          {name: "previous_event_date", description: "The original date of the booking before it was changed"},
-          {name: "previous_event_time", description: "The original time of the booking before it was changed"},
-          {name: "previous_room_name", description: "The original room or area name before the booking was moved"},
-          {name: "previous_building_name", description: "The original building name before the booking was moved"},
-        ]
+        description: "Notification sent to all visitors on a booking (desk/resource) when details change (date, time, etc.)",
+        fields: changed_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @event_changed_template},
+        name: "Event details changed notification",
+        description: "Notification sent to all visitors on a calendar event (room) when details change (date, time, location, etc.)",
+        fields: changed_fields
       ),
     ]
   end
@@ -594,6 +610,18 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Using an allowlist ensures new action types (e.g. "approved", "rejected",
     # "checked_in") are ignored by default and don't trigger spurious emails.
     return unless details.action.in?("changed", "metadata_changed")
+
+    # Bookings auto-created from a calendar event (extension_data.parent_id set)
+    # are already covered by the event_changed flow (staff/event/changed), which
+    # resolves the room from the system. Skip them here so a single edit doesn't
+    # produce two notifications. Opt out with skip_event_linked_booking_email.
+    if @skip_event_linked_booking_email
+      parent_id = details.extension_data.try(&.["parent_id"]?).try(&.as_s?)
+      if parent_id && !parent_id.empty?
+        logger.debug { "skipping booking_changed email for booking #{details.id} as it is linked to event #{parent_id}" }
+        return
+      end
+    end
 
     # ensure the event is for this building
     if zones = details.zones
@@ -654,6 +682,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     send_booking_changed_emails(
       guests,
+      @booking_changed_template,
       details.user_email,
       details.booking_start,
       details.title,
@@ -678,13 +707,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     # only respond to updates, not creates or cancellations
     return unless details.action == "update"
 
-    # These fields may be missing from some payloads (e.g. cancelled events,
-    # metadata-only updates) so the model marks them nilable.
-    host = details.host
-    event_start = details.event_start
-    event_end = details.event_end
-    return unless host && event_start && event_end
-
     # ensure the event is for this building
     if zones = details.zones
       check = [building_zone.id] + @parent_zone_ids
@@ -695,20 +717,34 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
+    # The (new) host is required for every notification below.
+    host = details.host
+    return unless host
+
+    # event_start may be omitted from metadata-only update signals (e.g. an
+    # update_metadata that only touched ext_data). Look it up so the host
+    # notification and change emails always render a real date.
+    event_start = details.event_start || lookup_event_start(details.event_id, details.system_id)
+
     # --- Host change notification
-    if prev_host = details.previous_host_email
-      if prev_host.downcase != host.downcase
-        send_original_host_email(
-          @notify_original_host_template,
-          prev_host,
-          host,
-          details.title,
-          event_start,
-        )
-      end
+    # A host can be reassigned without any change to the event timing; the host
+    # email still renders (date/time blank only if the lookup also came up empty).
+    if (prev_host = details.previous_host_email) && prev_host.downcase != host.downcase
+      send_original_host_email(
+        @notify_original_host_template,
+        prev_host,
+        host,
+        details.title,
+        event_start,
+      )
     end
 
     # --- Date / time / location change notification
+    # These genuinely require the event timing to render the new schedule, so
+    # bail out when it is missing.
+    event_end = details.event_end
+    return unless event_start && event_end
+
     fields_changed = false
 
     # Date or time changed
@@ -726,23 +762,27 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     return unless fields_changed
 
-    previous_building_name = building_zone.display_name.presence || building_zone.name
-    previous_room_name = @booking_space_name
-
-    if (prev_sys_id = details.previous_system_id) && prev_sys_id != details.system_id
-      # Use "unknown" as the fallback so a failed lookup surfaces in the email
-      # rather than silently showing the current room name.
-      previous_room_name = "unknown"
-      previous_room_name, previous_building_name = resolve_system_location_names(prev_sys_id, previous_room_name, previous_building_name)
-    end
-
     current_building_name = building_zone.display_name.presence || building_zone.name
     current_room_name = @booking_space_name
     current_room_name, current_building_name = resolve_system_location_names(details.system_id, current_room_name, current_building_name)
 
+    # Default the previous location to the current one; only override it when the
+    # room actually changed. This keeps date/time-only edits showing the same
+    # (unchanged) room in both the "previous" and "new" sections instead of the
+    # static @booking_space_name fallback.
+    previous_building_name = current_building_name
+    previous_room_name = current_room_name
+
+    if (prev_sys_id = details.previous_system_id) && prev_sys_id != details.system_id
+      # Use "unknown" as the room fallback so a failed lookup surfaces in the
+      # email rather than silently showing the current room name.
+      previous_room_name, previous_building_name = resolve_system_location_names(prev_sys_id, "unknown", current_building_name)
+    end
+
     guests = staff_api.event_guests(details.event_id, details.system_id, details.event_ical_uid).get.as_a
     send_booking_changed_emails(
       guests,
+      @event_changed_template,
       host,
       event_start,
       details.title,
@@ -767,6 +807,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   # the booking flow, which has no system_id to resolve from).
   private def send_booking_changed_emails(
     guests : Array(JSON::Any),
+    template : String,
     host_email : String,
     event_start : Int64,
     event_title : String?,
@@ -796,7 +837,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
       mailer.send_template(
         visitor_email,
-        {"visitor_invited", @booking_changed_template},
+        {"visitor_invited", template},
         {
           visitor_email:          visitor_email,
           visitor_name:           visitor_name,
@@ -1035,6 +1076,16 @@ class Place::VisitorMailer < PlaceOS::Driver
     raise "issue loading system details #{system_id}" if retries > 3
     sleep 1.second
     get_room_details(system_id, retries + 1)
+  end
+
+  # Back-fills an event's start time from the staff API when a
+  # staff/event/changed signal omits it (e.g. metadata-only updates). Returns
+  # nil on failure so callers can still send without a date rather than crash.
+  protected def lookup_event_start(event_id : String, system_id : String) : Int64?
+    staff_api.get_event(event_id, system_id).get["event_start"]?.try(&.as_i64?)
+  rescue error
+    logger.warn(exception: error) { "failed to look up start time for event #{event_id}" }
+    nil
   end
 
   protected def get_host_name(host_email)

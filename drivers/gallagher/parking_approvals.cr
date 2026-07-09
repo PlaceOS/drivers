@@ -1,3 +1,5 @@
+require "base64"
+require "simple_retry"
 require "placeos-driver"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
@@ -33,6 +35,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # ordered AD groups (highest priority first). Group id or email.
     auto_approval_groups: ["azure_group_email_or_id"],
 
+    # accurate group priority is critical, so a failing directory group lookup is
+    # retried with exponential backoff before giving up (the user is then treated
+    # as priority 0 for that run ONLY and retried next sweep). Tuning knobs
+    # (seconds); the defaults retry 5 times, 2s → 30s.
+    _group_lookup_retries:     5,
+    _group_lookup_backoff:     2,
+    _group_lookup_max_backoff: 30,
+
     # ordered list of parking-space FEATURE names that determine allocation
     # preference (earlier = higher priority). Matched against `space.features`,
     # not the asset's zones.
@@ -54,6 +64,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # and bookings on spaces that lose their gallagher mapping stay put (still
     # reported via the spaces_without_groups status)
     allow_displacement: true,
+
+    # a booking can't be displaced (preempted, or moved off an unmapped space)
+    # within this many hours of its start time — users get this much notice. Set
+    # to 0 to disable. Forced moves (a space taken out of service) still proceed.
+    displacement_notification_hours: 24,
 
     # When set, Gallagher cardholders are resolved by first looking the user up
     # in the directory (MS Graph) and reading this field from `user.unmapped`
@@ -81,13 +96,31 @@ class Place::Parking::Approvals < PlaceOS::Driver
     date_time_format: "%c",
     time_format:      "%l:%M%p",
     date_format:      "%A, %-d %B",
+
+    # When set, parking approval emails carry a calendar invite (.ics) so the
+    # allocated space appears on the user's calendar; a matching cancellation is
+    # sent if they're later displaced. This is the organizer ("from") address
+    # shown on the invite — typically a no-reply mailbox. Leave blank to disable.
+    calendar_invite_from:      "",
+    calendar_invite_from_name: "Parking",
   })
 
   BOOKING_TYPE = "parking"
 
+  # Restriction/feature name for electric-vehicle spaces. Unlike an exclusive
+  # restriction (ACROD), an EV space is NOT reserved — a booking without the EV
+  # requirement may use one, but only as a last resort (EV spaces sort last). A
+  # booking that DOES require EV can only be placed on an EV space (no fallback
+  # to a regular space); when none is available it is wait-listed like any other.
+  EV_FEATURE = "Electric Vehicle"
+
   @timezone : Time::Location = Time::Location::UTC
   @poll_rate : Time::Span = 180.minutes
   @auto_approval_groups : Array(String) = [] of String
+  # directory group-lookup retry policy (see group_priority)
+  @group_lookup_retries : Int32 = 5
+  @group_lookup_backoff : Time::Span = 2.seconds
+  @group_lookup_max_backoff : Time::Span = 30.seconds
   @car_zone_priority : Array(String) = [] of String
   @bike_zone_priority : Array(String) = [] of String
   @parking_areas : Hash(String, String) = {} of String => String
@@ -96,6 +129,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # when false no booking is ever moved off its space (no preemption, no
   # unmapped-space moves)
   @allow_displacement : Bool = true
+  # bookings starting within this many hours can't be (non-forced) displaced
+  @displacement_notification_hours : Int32 = 24
   getter restriction_lookup : Hash(Int64, String) = {} of Int64 => String
   # restriction features that completely exclude a space from non-matching bookings
   # (e.g. ACROD, Small car only). Height-class restrictions describe capacity
@@ -220,6 +255,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
 
+  # organizer identity for calendar invites; when the email is blank invites are
+  # disabled (approval/displacement emails carry no .ics attachment)
+  @calendar_invite_from : String? = nil
+  @calendar_invite_from_name : String = "Parking"
+
   def on_load
     monitor("staff/booking/changed") do |_subscription, payload|
       logger.debug { "received booking changed event #{payload}" }
@@ -238,6 +278,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
       id.includes?('@') ? id.downcase : id
     end
 
+    @group_lookup_retries = setting?(Int32, :group_lookup_retries) || 5
+    @group_lookup_backoff = (setting?(Int32, :group_lookup_backoff) || 2).seconds
+    @group_lookup_max_backoff = (setting?(Int32, :group_lookup_max_backoff) || 30).seconds
+
     @car_zone_priority = setting?(Array(String), :car_zone_priority) || [] of String
     @bike_zone_priority = setting?(Array(String), :bike_zone_priority) || [] of String
 
@@ -246,6 +290,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     @access_minutes_before = setting?(Int32, :access_minutes_before) || 30
     @allow_displacement = setting?(Bool, :allow_displacement) != false
+    @displacement_notification_hours = setting?(Int32, :displacement_notification_hours) || 24
 
     @restriction_lookup = {} of Int64 => String
     if restrictions = setting?(Array(NamedTuple(id: Int64, name: String)), :request_space_restrictions)
@@ -254,10 +299,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
       end
     end
     # height restrictions ("Max height ...") describe capacity, not exclusivity.
-    # Other named restrictions (ACROD, etc.) reserve a space
-    # for matching bookings only.
+    # Other named restrictions (ACROD, etc.) reserve a space for matching
+    # bookings only. Electric Vehicle is deliberately excluded: an EV space is
+    # required for EV bookings but is NOT reserved — anyone may use it (last),
+    # so it must not filter non-EV bookings out of a space (see prioritise_spaces
+    # for the last-resort ordering).
     @exclusive_features = @restriction_lookup.values.reject do |name|
-      name.starts_with?("Max") || name.starts_with?("Small")
+      name.starts_with?("Max") || name.starts_with?("Small") || name == EV_FEATURE
     end
 
     # height restriction names ordered by id (= strictly increasing height). The
@@ -271,6 +319,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+
+    @calendar_invite_from = setting?(String, :calendar_invite_from).presence
+    @calendar_invite_from_name = setting?(String, :calendar_invite_from_name).presence || "Parking"
 
     previous_id_field = @gallagher_id_field
     previous_lookup_fields = @directory_lookup_fields
@@ -317,9 +368,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # flush the cardholder + priority lookup caches once a day (midnight, building
     # timezone) so newly-issued cards and AD group changes are picked up without
     # keeping stale lookups forever
-    schedule.cron("0 0 * * *", @timezone) do
-      clear_cardholder_cache
-      clear_priority_cache
+    schedule.cron("0 12 * * *", @timezone) do
+      @sync_mutex.synchronize do
+        clear_cardholder_cache
+        clear_priority_cache
+      end
     end
   end
 
@@ -423,7 +476,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     return unless event.zones.includes?(building_id)
 
     case event.action
-    when "create", "approved", "cancelled", "rejected", "changed"
+    when "cancelled"
+      # The sweep reconciles (removes) access, but a cancelled booking drops out
+      # of the fetch, so the notification + calendar cancellation are sent here
+      # from the event payload before the sweep runs.
+      handle_cancellation(event)
+      spawn { process_parking_bookings }
+    when "create", "approved", "rejected", "changed"
       # Re-run auto allocation. The full sweep handles approvals,
       # cleanup of cancelled bookings, and waitlist preemption.
       spawn { process_parking_bookings }
@@ -432,6 +491,37 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
   rescue error
     logger.error(exception: error) { "failed to handle booking_changed event" }
+  end
+
+  # A user cancelled a booking. Access removal is handled by the sweep (the
+  # booking drops out of the fetch, so its grant is diffed away), but the sweep
+  # never sees a cancelled booking — so the notification + calendar cancellation
+  # are sent here from the event payload. Only bookings that actually held a
+  # space are notified: one that was only ever wait-listed never received an
+  # invite or access, so there is nothing to cancel. A per-booking state marker
+  # keeps a repeated event from re-notifying.
+  protected def handle_cancellation(booking : Booking) : Nil
+    return if booking.process_state == "cancelled_emailed"
+
+    asset_id = booking.asset_ids.first?
+    return if asset_id.nil? || asset_id.starts_with?("unallocated")
+
+    logger.debug { "sending cancellation notice for booking #{booking.id} (#{booking.user_email})" }
+
+    # the space the booking held (persisted on allocate) labels the cancellation;
+    # nil just yields a generic cancel that still removes the entry by UID
+    label = booking.extension_data["location"]?.try(&.as_s?)
+    mailer.send_template(
+      booking.user_email,
+      {"parking_request", "cancelled"},
+      common_template_args(booking).merge({space_identifier: label || ""}),
+      attachments: calendar_attachment(booking, label, cancel: true),
+    ).get_json
+
+    # mark handled so a repeated cancellation event doesn't re-notify
+    update_state(booking, "cancelled_emailed")
+  rescue error
+    logger.warn(exception: error) { "failed to send cancellation email for booking #{booking.id}" }
   end
 
   # ===================================
@@ -465,6 +555,64 @@ class Place::Parking::Approvals < PlaceOS::Driver
     "parking allocated"
   end
 
+  # Manually reassign parking spaces (e.g. for an event). `displace` maps an
+  # `email_to_displace => email_to_assign`: for each pair the displaced user's
+  # parking booking(s) starting at `start_time` are moved off their space and
+  # that space is given to the assignee — creating a wait-list booking for the
+  # assignee first if they don't already have one for that time. Both sides are
+  # notified; Gallagher access is reconciled on the next allocation sweep.
+  def manual_displacement(start_time : Int64, displace : Hash(String, String)) : String
+    @sync_mutex.synchronize do
+      spaces_by_id = parking_spaces.each_with_object({} of String => ParkingSpace) { |s, h| h[s.id] = s }
+
+      # Phase 1: pair each displaced booking with the booking that will take its
+      # space, creating a wait-list booking for the assignee when one is missing.
+      swaps = [] of NamedTuple(displace: Booking, assign: Booking, space: ParkingSpace)
+      displace.each do |displace_email, assign_email|
+        displace_bookings = bookings_for(displace_email, start_time)
+        next if displace_bookings.empty?
+        assign_bookings = bookings_for(assign_email, start_time)
+
+        displace_bookings.each_with_index do |db, i|
+          space = (sid = db.asset_ids.first?) ? spaces_by_id[sid]? : nil
+          unless space
+            logger.warn { "manual displacement: #{displace_email} booking #{db.id} is not on a known parking space; skipping" }
+            next
+          end
+          # an existing assignee booking is matched by order; otherwise create one
+          assignee = assign_bookings[i]? || create_manual_booking(db, assign_email)
+          next unless assignee
+          swaps << {displace: db, assign: assignee, space: space}
+        end
+      end
+
+      logger.info { "manual displacement: reassigning #{swaps.size} space(s)" }
+
+      # Phase 2: displace + notify the displaced users (forced — bypasses the
+      # allow_displacement / notice-period policies; this is an explicit action)
+      swaps.each do |swap|
+        booking = swap[:displace]
+        next unless displace_booking(booking, swap[:space], forced: true)
+        update_state(booking, "wait_list")
+        displaced_email(booking, "Your parking space has been reassigned.")
+      end
+
+      # Phase 3: assign the freed spaces to the assignees + notify (allocate sends
+      # the approval email and approves the booking)
+      throwaway = {} of String => Array(Tuple(Booking, Int32))
+      swaps.each do |swap|
+        unless allocate(swap[:assign], swap[:space], throwaway, 0)
+          logger.warn { "manual displacement: could not assign space #{swap[:space].id} to booking #{swap[:assign].id}" }
+        end
+      end
+    end
+
+    "manual displacement complete"
+  rescue error
+    logger.error(exception: error) { "manual displacement failed" }
+    "manual displacement failed: #{error.message}"
+  end
+
   # ===================================
   # Allocation core
   # ===================================
@@ -475,12 +623,32 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # instead). Keyed by (booking id, instance); value is the booking + reason.
   @displaced_pending : Hash(Tuple(Int64, Int64?), Tuple(Booking, String)) = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
 
+  # One preemption displacement decided this run: on `space`, `displaced` (email)
+  # would be / was bumped so `replaced_with` (a higher-priority booking) could
+  # take it. Recorded whether or not displacement is enabled.
+  struct DisplacementRecord
+    include JSON::Serializable
+
+    getter starting : Int64 # parking date (epoch) — used to sort/group the report
+    getter date : String    # the parking date, dd/mm/yyyy in the building timezone
+    getter space : String   # the parking space NAME (identifier), not the asset id
+    getter displaced : String
+    getter replaced_with : String
+
+    def initialize(@starting, @date, @space, @displaced, @replaced_with)
+    end
+  end
+
+  # preemption displacement decisions this run (surfaced via the report + status)
+  @displacement_report : Array(DisplacementRecord) = [] of DisplacementRecord
+
   protected def run_allocation
     # reset per-sync cardholder lookup error tracking
     @lookup_errors = [] of LookupError
     @failed_lookups = Set(String).new
     @no_card_bookings = {} of String => Booking
     @displaced_pending = {} of Tuple(Int64, Int64?) => Tuple(Booking, String)
+    @displacement_report = [] of DisplacementRecord
 
     starting = Time.utc.to_unix
     # only allocate bookings up to the end of the upcoming Friday (local time)
@@ -508,6 +676,21 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     bookable_spaces = spaces.select { |s| s.bookable && s.assigned_to.presence.nil? && !unmapped_space_ids.includes?(s.id) }
     assigned_spaces = spaces.select { |s| s.assigned_to.presence }
+
+    # Users with a permanent parking assignment already have standing access to
+    # their own space (granted via assigned_spaces in build_desired_access), so
+    # any parking booking they make is redundant. Drop those bookings up front so
+    # the allocator never hands them a second (bookable) space, never grants
+    # duplicate time-bounded access, and never emails them — they always have a
+    # spot. Matched by email so it holds regardless of which asset the booking
+    # references.
+    assigned_emails = assigned_spaces.compact_map(&.assigned_to.presence.try(&.downcase)).to_set
+    unless assigned_emails.empty?
+      before = bookings.size
+      bookings = bookings.reject { |b| assigned_emails.includes?(b.user_email.downcase) }
+      skipped = before - bookings.size
+      logger.debug { "skipping #{skipped} booking(s) from permanently-assigned users" } if skipped > 0
+    end
 
     logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned, #{unmapped_space_ids.size} without a gallagher group" }
     logger.debug { "allocation run: processing #{bookings.size} active bookings" }
@@ -586,6 +769,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     # Now that re-allocation has run, notify only the users still without a space
     flush_displaced_emails
+
+    # log + surface the displacement report (works whether displacement is on or off)
+    log_displacement_report
 
     # Compute desired gallagher access from the FINAL booking state, then diff
     # against @access_granted and apply only the additions/removals we own.
@@ -817,6 +1003,47 @@ class Place::Parking::Approvals < PlaceOS::Driver
     raise error
   end
 
+  # Active (non-rejected/deleted) parking bookings for a user that START at
+  # `start_time`, in this building. Used by manual_displacement.
+  protected def bookings_for(email : String, start_time : Int64) : Array(Booking)
+    Array(Booking).from_json(staff_api.query_bookings(
+      type: BOOKING_TYPE,
+      zones: [building_id],
+      email: email,
+      period_start: start_time,
+      period_end: start_time + 1,
+    ).get_json).select { |b| b.booking_start == start_time && !b.rejected && !b.deleted }
+  rescue error
+    logger.error(exception: error) { "failed to query bookings for #{email}" }
+    [] of Booking
+  end
+
+  # Create a wait-list parking booking for `assign_email` mirroring `template`
+  # (same time, zones and extension_data) with the assignee's user details. The
+  # asset is a placeholder until the booking is assigned a real space.
+  protected def create_manual_booking(template : Booking, assign_email : String) : Booking?
+    user = ::PlaceCalendar::User.from_json(calendar.get_user(assign_email, additional_fields: @directory_lookup_fields).get_json)
+    placeholder = "unallocated-manual-#{template.id}"
+    created = staff_api.create_booking(
+      booking_type: BOOKING_TYPE,
+      asset_id: placeholder,
+      asset_ids: [placeholder],
+      user_id: assign_email,
+      user_email: assign_email,
+      user_name: user.name.presence || assign_email,
+      zones: template.zones,
+      booking_start: template.booking_start,
+      booking_end: template.booking_end,
+      approved: false,
+      process_state: "wait_list",
+      extension_data: JSON::Any.new(template.extension_data),
+    ).get_json
+    Booking.from_json(created)
+  rescue error
+    logger.error(exception: error) { "failed to create wait-list booking for #{assign_email}" }
+    nil
+  end
+
   # ===================================
   # Priority calculation
   # ===================================
@@ -836,8 +1063,17 @@ class Place::Parking::Approvals < PlaceOS::Driver
     user_email = booking.user_email.downcase
     base = cache[user_email]?
     if base.nil?
-      base = group_priority(user_email)
-      cache[user_email] = base
+      # cache successful lookups ONLY (mirroring lookup_cardholder): a failed
+      # group lookup returns nil, and caching that as 0 would pin a top-group
+      # user to the bottom of the allocation order until the next cache flush
+      # (up to a day). Treat the failure as 0 for THIS run only and retry the
+      # lookup next sweep.
+      if resolved = group_priority(user_email)
+        cache[user_email] = resolved
+        base = resolved
+      else
+        base = 0
+      end
     end
 
     request_type = booking.extension_data["request_type"]?.try(&.as_s?)
@@ -851,10 +1087,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
     base
   end
 
-  protected def group_priority(user_email : String) : Int32
+  # The user's group priority, or nil when the directory lookup FAILED — the
+  # caller must not cache nil ("unknown" is not the same as "in no groups").
+  # Accurate priority is important, so a failing lookup is retried with
+  # exponential backoff (@group_lookup_retries times, @group_lookup_backoff up to
+  # @group_lookup_max_backoff) before the error propagates to the rescue -> nil.
+  protected def group_priority(user_email : String) : Int32?
     return 0 if @auto_approval_groups.empty?
 
-    groups = calendar.get_groups(user_email).get.as_a rescue [] of JSON::Any
+    groups = SimpleRetry.try_to(
+      # +1: the initial attempt plus @group_lookup_retries retries
+      max_attempts: @group_lookup_retries + 1,
+      base_interval: @group_lookup_backoff,
+      max_interval: @group_lookup_max_backoff,
+    ) do |attempt, last_error|
+      logger.warn(exception: last_error) { "retrying group lookup for #{user_email} (attempt #{attempt})" } if last_error
+      calendar.get_groups(user_email).get.as_a
+    end
 
     @auto_approval_groups.each_with_index do |target, idx|
       groups.each do |g|
@@ -868,8 +1117,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
     0
   rescue error
-    logger.warn(exception: error) { "failed to lookup groups for #{user_email}" }
-    0
+    logger.warn(exception: error) { "failed to lookup groups for #{user_email} after #{@group_lookup_retries} retries" }
+    nil
   end
 
   # ===================================
@@ -911,12 +1160,43 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Unallocated bookings
   # ===================================
 
+  # a booking created more than this long ago is "stale" once its start has
+  # passed (see stale_waitlist?)
+  STALE_WAITLIST_GRACE = 3_i64 * 3600
+
+  # A wait-listed booking that already STARTED and was CREATED more than 3 hours
+  # ago is for a meeting that has effectively passed. Trying to allocate it now
+  # risks clashing with bookings on the space that have since ended but whose
+  # (past) window still overlaps this booking's — so we leave it alone. A booking
+  # created recently (e.g. a same-day/walk-in request) is still allocated even if
+  # its start is just in the past.
+  protected def stale_waitlist?(booking : Booking) : Bool
+    now = Time.utc.to_unix
+    return false unless booking.booking_start < now
+    created = booking.created
+    !created.nil? && created < now - STALE_WAITLIST_GRACE
+  end
+
   protected def handle_unallocated_booking(
     booking : Booking,
     priority : Int32,
     bookable_spaces : Array(ParkingSpace),
     current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
   ) : Nil
+    # don't try to allocate a stale wait-listed booking — see stale_waitlist?
+    if stale_waitlist?(booking)
+      logger.debug { "skipping stale wait-listed booking #{booking.id} (started in the past, created over 3h ago)" }
+      return
+    end
+
+    # an unallocated booking with no vehicle type is incomplete — reject it (only
+    # unallocated bookings reach here, so an already-allocated booking keeps its
+    # space even if its vehicle_type is missing)
+    if vehicle_type_missing?(booking)
+      reject_booking(booking, "no vehicle type specified")
+      return
+    end
+
     # withhold allocation until the user can actually be granted Gallagher access
     return unless ensure_user_has_card(booking)
 
@@ -961,26 +1241,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
       return if allocate(booking, space, current_allocations, priority)
     end
 
-    # displacement trial: when disabled, occupants are never bumped — the
-    # booking waits for a space to free up instead
-    unless @allow_displacement
-      logger.debug { "no free space for booking #{booking.id} and displacement is disabled, sending wait list email" }
-      wait_list_email(booking)
-      return
-    end
-
-    # No free space — preempt the overlapping occupant(s) of a compatible space.
-    # A space is only a candidate when EVERY booking overlapping our window has a
-    # lower priority (all of them must move for the space to be free). Choosing
-    # the space whose highest overlapping priority is lowest displaces the
-    # least-privileged users; bumping a mid-priority user would let them, in
-    # turn, preempt someone below them, cascading displacements in a single run.
+    # No free space — find the preemption target: a compatible space whose
+    # overlapping occupants are ALL lower priority and displaceable now (none
+    # within their notice period). This is computed even when displacement is
+    # DISABLED, so the end-of-run displacement report can show management which
+    # displacements would occur if it were enabled. Choosing the space whose
+    # highest overlapping priority is lowest displaces the least-privileged
+    # users; bumping a mid-priority user would let them, in turn, preempt someone
+    # below them, cascading displacements in a single run.
     candidates = compatible.compact_map do |space|
       occupants = current_allocations[space.id]?
       next unless occupants
       conflicts = occupants.select { |(other, _other_priority)| bookings_overlap?(booking, other) }
       next if conflicts.empty?
       next unless conflicts.all? { |(_other, other_priority)| other_priority < priority }
+      # all overlapping occupants must be displaceable now (none within their
+      # notice period) for the space to be freed
+      next unless conflicts.all? { |(other, _other_priority)| !within_displacement_notice?(other) }
       {space, conflicts}
     end
 
@@ -989,47 +1266,92 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # first minimum)
     target = candidates.min_by? { |(_space, conflicts)| conflicts.max_of { |(_other, other_priority)| other_priority } }
 
-    if target
-      target_space, conflicts = target
-
-      # The space must be fully freed BEFORE we allocate over it — a failed
-      # displacement means the occupant still holds the space server-side and
-      # allocating would create clashing bookings. Displaced users are NOT
-      # notified yet: if the preemption can't complete, the moves are rolled
-      # back invisibly instead of churning displaced/approved emails.
-      displaced = [] of Tuple(Booking, Int32)
-      freed = true
-      conflicts.each do |(conflict_booking, conflict_priority)|
-        logger.info { "preempting booking #{conflict_booking.id} (priority #{conflict_priority}) for higher priority booking #{booking.id} (priority #{priority})" }
-        if displace_booking(conflict_booking, target_space)
-          remove_allocation(current_allocations, target_space.id, conflict_booking)
-          displaced << {conflict_booking, conflict_priority}
-        else
-          # don't displace further users for a preemption that can't proceed
-          freed = false
-          break
-        end
-      end
-
-      # allocate can still fail (e.g. the freed space has another occupant our
-      # zone-scoped view never saw); only notify the displaced users once the
-      # preemption actually sticks
-      allocated = freed && allocate(booking, target_space, current_allocations, priority)
-      if allocated
-        displaced.each { |(displaced_booking, _p)| register_displacement(displaced_booking, "The parking space was reassigned to a higher priority booking.") }
-      else
-        logger.warn { "could not move booking #{booking.id} onto space #{target_space.id}; restoring #{displaced.size} displaced booking(s)" }
-        displaced.each do |(displaced_booking, displaced_priority)|
-          restore_allocation(displaced_booking, displaced_priority, target_space, current_allocations)
-        end
-        wait_list_email(booking)
-      end
-    else
+    unless target
       logger.debug { "no preemption candidate for booking #{booking.id}, sending wait list email" }
+      wait_list_email(booking)
+      return
+    end
+
+    target_space, conflicts = target
+    # record the displacement decision for the report — whether or not we act on it
+    conflicts.each { |(conflict_booking, _p)| record_displacement(target_space, conflict_booking, booking) }
+
+    # displacement trial: when disabled, the would-be displacement is captured in
+    # the report above but never acted on — the booking waits for a space instead.
+    unless @allow_displacement
+      logger.debug { "displacement disabled; booking #{booking.id} would preempt space #{target_space.id}, sending wait list email" }
+      # Mirror, in our LOCAL view only, what an enabled run would do to
+      # current_allocations: the occupant moves off and this (higher priority)
+      # booking takes the space. Without this every later would-be preemptor
+      # keeps picking the same unchanged occupant/space, so the report repeats
+      # one space instead of cascading across the spaces it actually would.
+      conflicts.each { |(conflict_booking, _p)| remove_allocation(current_allocations, target_space.id, conflict_booking) }
+      (current_allocations[target_space.id] ||= [] of Tuple(Booking, Int32)) << {booking, priority}
+      wait_list_email(booking)
+      return
+    end
+
+    # The space must be fully freed BEFORE we allocate over it — a failed
+    # displacement means the occupant still holds the space server-side and
+    # allocating would create clashing bookings. Displaced users are NOT notified
+    # yet: if the preemption can't complete, the moves are rolled back invisibly
+    # instead of churning displaced/approved emails.
+    displaced = [] of Tuple(Booking, Int32)
+    freed = true
+    conflicts.each do |(conflict_booking, conflict_priority)|
+      logger.info { "preempting booking #{conflict_booking.id} (priority #{conflict_priority}) for higher priority booking #{booking.id} (priority #{priority})" }
+      if displace_booking(conflict_booking, target_space)
+        remove_allocation(current_allocations, target_space.id, conflict_booking)
+        displaced << {conflict_booking, conflict_priority}
+      else
+        # don't displace further users for a preemption that can't proceed
+        freed = false
+        break
+      end
+    end
+
+    # allocate can still fail (e.g. the freed space has another occupant our
+    # zone-scoped view never saw); only notify the displaced users once the
+    # preemption actually sticks
+    allocated = freed && allocate(booking, target_space, current_allocations, priority)
+    if allocated
+      displaced.each { |(displaced_booking, _p)| register_displacement(displaced_booking, "The parking space was reassigned to a higher priority booking.") }
+    else
+      logger.warn { "could not move booking #{booking.id} onto space #{target_space.id}; restoring #{displaced.size} displaced booking(s)" }
+      displaced.each do |(displaced_booking, displaced_priority)|
+        restore_allocation(displaced_booking, displaced_priority, target_space, current_allocations)
+      end
       wait_list_email(booking)
     end
   rescue error
     logger.error(exception: error) { "failed to process unallocated booking #{booking.id}" }
+  end
+
+  # Record one preemption displacement decision (grouped/logged at end of run).
+  protected def record_displacement(space : ParkingSpace, displaced_booking : Booking, new_booking : Booking) : Nil
+    starting = new_booking.booking_start
+    date = Time.unix(starting).in(@timezone).to_s("%d/%m/%Y")
+    name = space.identifier.presence || space.id
+    @displacement_report << DisplacementRecord.new(starting, date, name, displaced_booking.user_email, new_booking.user_email)
+  end
+
+  # Log (and surface as status) the displacements decided this run, grouped by
+  # parking date. Emitted whether displacement is enabled (these happened) or
+  # disabled (these WOULD happen) so management can review the impact.
+  protected def log_displacement_report : Nil
+    sorted = @displacement_report.sort_by(&.starting)
+    self[:displacement_report] = sorted
+    return if sorted.empty?
+
+    blocks = sorted.group_by(&.date).map do |date, records|
+      lines = records.map { |r| "* space #{r.space} displaced #{r.displaced} with #{r.replaced_with}" }
+      "#{date}\n#{lines.join('\n')}"
+    end
+
+    mode = @allow_displacement ? "enabled" : "disabled"
+    logger.info { "Displacement report (displacement #{mode}):\n\n#{blocks.join("\n\n")}" }
+  rescue error
+    logger.warn(exception: error) { "failed to log displacement report" }
   end
 
   # Remove one booking instance from an asset's tracked allocations (after
@@ -1070,13 +1392,28 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Compatibility filter
   # ===================================
 
-  # Does the booking request a restriction feature (ACROD, Small car only, ...)
-  # rather than a height class? These are best-effort and may fall back to a
-  # regular space; height requirements never do.
-  protected def exclusive_request?(booking : Booking) : Bool
+  # True when the booking has no usable vehicle_type in its extension_data (key
+  # absent, not a string, or blank). Such a booking is rejected before allocation.
+  protected def vehicle_type_missing?(booking : Booking) : Bool
+    booking.extension_data["vehicle_type"]?.try(&.as_s?).presence.nil?
+  end
+
+  # The restriction feature name a booking requests (via space_restrictions),
+  # or nil if it requests none / an unknown one.
+  protected def requested_restriction(booking : Booking) : String?
     restriction_id = booking.extension_data["space_restrictions"]?.try(&.as_i64?)
-    return false unless restriction_id
-    return false unless name = @restriction_lookup[restriction_id]?
+    return nil unless restriction_id
+    @restriction_lookup[restriction_id]?
+  end
+
+  # Does the booking request an EXCLUSIVE restriction feature (ACROD, ...) that
+  # may fall back to a regular space when none is free? Height classes never fall
+  # back (they describe capacity), and EV never falls back either (an EV booking
+  # only ever fits an EV space; when none is free it wait-lists) — so both are
+  # excluded here.
+  protected def exclusive_request?(booking : Booking) : Bool
+    return false unless name = requested_restriction(booking)
+    return false if name == EV_FEATURE
     !@height_features.includes?(name)
   end
 
@@ -1140,7 +1477,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
                         end
 
     spaces.sort_by do |space|
-      # primary: configured zone/feature preference
+      # primary: Electric Vehicle spaces are the lowest-priority spaces — they're
+      # only handed out once every non-EV space is exhausted. For an EV booking
+      # every candidate is an EV space, so this key is uniform and has no effect.
+      ev_penalty = space.features.includes?(EV_FEATURE) ? 1 : 0
+
+      # secondary: configured zone/feature preference
       zone_index = Int32::MAX
       priority_features.each_with_index do |feature, i|
         if space.features.includes?(feature)
@@ -1149,10 +1491,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
         end
       end
 
-      # secondary: smallest height first (a space with no height feature sorts last)
+      # tertiary: smallest height first (a space with no height feature sorts last)
       height_key = space_height_index(space) || Int32::MAX
 
-      {zone_index, height_key}
+      {ev_penalty, zone_index, height_key}
     end
   end
 
@@ -1186,7 +1528,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
         booking_id: booking.id,
         asset_id: space.id,
         instance: booking.instance,
-        extension_data: booking.extension_data
+        extension_data: booking.extension_data,
+        zones: space.zones,
       ).get_json
     rescue error
       if clash_error?(error)
@@ -1263,10 +1606,24 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # allow_displacement policy only governs PREEMPTION (bumping a lower-priority
   # user). When a space can no longer hold the booking at all (out of service),
   # the move is involuntary and must always proceed.
+  # True when the booking starts too soon to be (non-forced) displaced: users
+  # are given `displacement_notification_hours` of notice. Forced moves (a space
+  # taken out of service) ignore this — the space is gone regardless.
+  protected def within_displacement_notice?(booking : Booking) : Bool
+    return false if @displacement_notification_hours <= 0
+    booking.booking_start < Time.utc.to_unix + @displacement_notification_hours.to_i64 * 3600
+  end
+
   protected def displace_booking(booking : Booking, space : ParkingSpace, forced : Bool = false) : Bool
-    if !forced && !@allow_displacement
-      logger.info { "displacement disabled; leaving booking #{booking.id} on space #{space.id}" }
-      return false
+    unless forced
+      unless @allow_displacement
+        logger.info { "displacement disabled; leaving booking #{booking.id} on space #{space.id}" }
+        return false
+      end
+      if within_displacement_notice?(booking)
+        logger.info { "booking #{booking.id} starts within the #{@displacement_notification_hours}h displacement notice period; not displacing" }
+        return false
+      end
     end
 
     logger.info { "displacing booking #{booking.id} (#{booking.user_email}) from space #{space.id}" }
@@ -1577,6 +1934,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
         fields: common_fields + [{name: "reason", description: "the reason for displacement"}]
       ),
       TemplateFields.new(
+        trigger: {"parking_request", "cancelled"},
+        name: "Parking Cancelled",
+        description: "Notifies the recipient that their parking booking was cancelled and access removed (includes a calendar cancellation)",
+        fields: common_fields
+      ),
+      TemplateFields.new(
         trigger: {"parking_request", "rejected"},
         name: "Parking Rejected",
         description: "Notifies the recipient that their parking booking has been rejected",
@@ -1626,6 +1989,92 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @parking_areas.values.find { |group_id| granted.includes?(group_id) }
   end
 
+  # ===================================
+  # Calendar invite (.ics)
+  # ===================================
+
+  alias Attachment = PlaceOS::Driver::Interface::Mailer::Attachment
+
+  ICS_METHOD_REQUEST = "REQUEST"
+  ICS_METHOD_CANCEL  = "CANCEL"
+
+  # A base64-encoded iCalendar (.ics) attachment for a parking email, or an empty
+  # array when invites are disabled (no organizer configured). Naming the file
+  # `.ics` makes the mailer emit a `text/calendar` MIME part, which clients
+  # recognise as a calendar invite. Because the UID is stable per booking, the
+  # REQUEST sent with the approval email and the CANCEL sent on displacement act
+  # on the SAME calendar entry — a reassigned space is removed from the user's
+  # calendar rather than duplicated.
+  protected def calendar_attachment(booking : Booking, space_label : String?, cancel : Bool) : Array(Attachment)
+    return [] of Attachment if @calendar_invite_from.nil?
+    ics = parking_invite_ics(booking, space_label, cancel)
+    [Attachment.new(file_name: "parking.ics", content: Base64.strict_encode(ics))]
+  end
+
+  # Build the iCalendar body (RFC 5545) describing a parking allocation. `cancel`
+  # emits a METHOD:CANCEL that removes the previously-sent invite.
+  protected def parking_invite_ics(booking : Booking, space_label : String?, cancel : Bool) : String
+    method = cancel ? ICS_METHOD_CANCEL : ICS_METHOD_REQUEST
+    stamp = Time.utc.to_s("%Y%m%dT%H%M%SZ")
+    dtstart = Time.unix(booking.booking_start).to_s("%Y%m%dT%H%M%SZ")
+    dtend = Time.unix(booking.booking_end).to_s("%Y%m%dT%H%M%SZ")
+
+    # SEQUENCE must never regress across a booking's lifecycle: a CANCEL has to
+    # outrank the REQUEST it supersedes or clients ignore it. last_changed
+    # advances on every booking edit; the +1 on cancel guarantees the
+    # cancellation wins even when built from the same booking snapshot.
+    sequence = booking.last_changed || 0_i64
+    sequence += 1 if cancel
+
+    building = building_zone.display_name.presence || building_zone.name
+    label = space_label.presence || "Parking"
+    summary = "Parking - #{label}"
+    location = "#{label}, #{building}"
+    description = "Your parking space (#{label}) at #{building}."
+    status = cancel ? "CANCELLED" : "CONFIRMED"
+
+    String.build do |io|
+      io << "BEGIN:VCALENDAR\r\n"
+      io << "VERSION:2.0\r\n"
+      io << "PRODID:-//PlaceOS//Parking Approvals//EN\r\n"
+      io << "CALSCALE:GREGORIAN\r\n"
+      io << "METHOD:" << method << "\r\n"
+      io << "BEGIN:VEVENT\r\n"
+      io << "UID:" << invite_uid(booking) << "\r\n"
+      io << "SEQUENCE:" << sequence << "\r\n"
+      io << "DTSTAMP:" << stamp << "\r\n"
+      io << "DTSTART:" << dtstart << "\r\n"
+      io << "DTEND:" << dtend << "\r\n"
+      io << "SUMMARY:" << ics_escape(summary) << "\r\n"
+      io << "LOCATION:" << ics_escape(location) << "\r\n"
+      io << "DESCRIPTION:" << ics_escape(description) << "\r\n"
+      io << "ORGANIZER;CN=" << ics_escape(@calendar_invite_from_name) << ":mailto:" << @calendar_invite_from << "\r\n"
+      io << "ATTENDEE;CN=" << ics_escape(booking.user_name) << ";PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:" << booking.user_email << "\r\n"
+      io << "STATUS:" << status << "\r\n"
+      # parking shouldn't mark the user busy on their calendar
+      io << "TRANSP:TRANSPARENT\r\n"
+      io << "END:VEVENT\r\n"
+      io << "END:VCALENDAR\r\n"
+    end
+  end
+
+  # Stable per-booking-instance UID so the approval REQUEST and any later CANCEL
+  # refer to the same calendar entry. Recurring instances get distinct UIDs.
+  protected def invite_uid(booking : Booking) : String
+    base = booking.instance ? "parking-#{booking.id}-#{booking.instance}" : "parking-#{booking.id}"
+    "#{base}@place.technology"
+  end
+
+  # Escape a text value for an iCalendar property (RFC 5545 §3.3.11). Backslash
+  # is escaped first so we don't double-escape the escapes we introduce.
+  protected def ics_escape(value : String) : String
+    value.gsub('\\', "\\\\").gsub('\n', "\\n").gsub(',', "\\,").gsub(';', "\\;")
+  end
+
+  # ===================================
+  # Emails
+  # ===================================
+
   # The approval email is the one we must guarantee is delivered, so its "sent"
   # marker (access_granted_emailed) is distinct from the "access granted" state.
   # The send is blocking (.get_json) so a failure raises and we DON'T advance
@@ -1641,6 +2090,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", template},
       common_template_args(booking, space),
+      attachments: calendar_attachment(booking, space.identifier.presence || space.id, cancel: false),
     ).get_json
 
     update_state(booking, "access_granted_emailed")
@@ -1684,11 +2134,47 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.warn(exception: error) { "failed to send wait list email for booking #{booking.id}" }
   end
 
+  # a booking already allocated/rejected is past the reject stage
+  REJECT_SENT = {"rejected", "access_granted", "access_granted_emailed"}
+
+  # Reject a not-yet-allocated booking and email the user. The reject is
+  # authoritative — once rejected server-side the booking is filtered out of
+  # future sweeps (never re-allocated), so unlike wait-listing it won't be
+  # revisited if a space later frees. `reason` is logged (the rejection template
+  # has no reason field).
+  protected def reject_booking(booking : Booking, reason : String) : Nil
+    return if REJECT_SENT.includes?(booking.process_state)
+
+    logger.info { "rejecting booking #{booking.id} (#{booking.user_email}): #{reason}" }
+
+    begin
+      staff_api.reject(booking.id, instance: booking.instance).get
+      booking.rejected = true
+    rescue error
+      logger.warn(exception: error) { "failed to reject booking #{booking.id}" }
+    end
+
+    # blocking send: only advance the state once the email actually went out
+    mailer.send_template(
+      booking.user_email,
+      {"parking_request", "rejected"},
+      common_template_args(booking),
+    ).get_json
+
+    update_state(booking, "rejected")
+  rescue error
+    logger.warn(exception: error) { "failed to send rejection email for booking #{booking.id}" }
+  end
+
   protected def displaced_email(booking : Booking, reason : String) : Nil
+    # the space the booking last held (set on allocate) — used to label the
+    # cancellation; nil just yields a generic cancel that still removes the entry
+    label = booking.extension_data["location"]?.try(&.as_s?)
     mailer.send_template(
       booking.user_email,
       {"parking_request", "displaced"},
       common_template_args(booking).merge({reason: reason}),
+      attachments: calendar_attachment(booking, label, cancel: true),
     ).get_json
   rescue error
     logger.warn(exception: error) { "failed to send displaced email for booking #{booking.id}" }

@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 7.6.1
+    version: 8.0.0
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -63,7 +63,7 @@ shards:
 
   crest:
     git: https://github.com/mamantoha/crest.git
-    version: 1.8.0
+    version: 1.8.1
 
   cron_parser:
     git: https://github.com/kostya/cron_parser.git
@@ -199,7 +199,7 @@ shards:
 
   office365:
     git: https://github.com/placeos/office365.git
-    version: 1.27.1
+    version: 1.27.2
 
   openssl_ext:
     git: https://github.com/spider-gazelle/openssl_ext.git
@@ -227,7 +227,7 @@ shards:
 
   pg-orm:
     git: https://github.com/spider-gazelle/pg-orm.git
-    version: 2.2.1
+    version: 2.2.2
 
   pinger:
     git: https://github.com/spider-gazelle/pinger.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.98.3
+    version: 9.100.1
 
   pool:
     git: https://github.com/ysbaddaden/pool.git

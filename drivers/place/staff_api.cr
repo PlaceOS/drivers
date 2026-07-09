@@ -148,19 +148,64 @@ class Place::StaffAPI < PlaceOS::Driver
     zone_id : String? = nil,
     capacity : Int32? = nil,
     bookable : Bool? = nil,
-    features : String? = nil,
+    features : Array(String) | String = [] of String,
     limit : Int32 = 1000,
-    offset : Int32 = 0,
+    offset : Int32? = nil,
+    email : Array(String) = [] of String,
+    module_id : String? = nil,
+    trigger_id : String? = nil,
+    group_id : String? = nil,
+    subsystem : String? = nil,
+    public_only : Bool? = nil,
+    signage : Bool? = nil,
+    fields : Array(String) = [] of String,
   )
-    placeos_client.systems.search(
-      q: q,
-      limit: limit,
-      offset: offset,
-      zone_id: zone_id,
-      capacity: capacity,
-      bookable: bookable,
-      features: features
-    )
+    features = case features
+               in String
+                 [features]
+               in Array(String)
+                 features
+               end
+
+    params = URI::Params.build do |form|
+      form.add "q", q.to_s if q.presence
+      form.add "zone_id", zone_id.to_s if zone_id.presence
+      form.add "capacity", capacity.to_s if capacity
+      form.add "bookable", bookable.to_s unless bookable.nil?
+      form.add "features", features.join(",") unless features.empty?
+      form.add "email", email.join(",") unless email.empty?
+      form.add "module_id", module_id.to_s if module_id.presence
+      form.add "trigger_id", trigger_id.to_s if trigger_id.presence
+      form.add "group_id", group_id.to_s if group_id.presence
+      form.add "subsystem", subsystem.to_s if subsystem.presence
+      form.add "public", public_only.to_s unless public_only.nil?
+      form.add "signage", signage.to_s unless signage.nil?
+      form.add "fields", fields.join(",") unless fields.empty?
+      form.add "limit", limit.to_s
+      form.add "offset", offset.to_s if offset
+    end
+
+    logger.debug { "requesting engine/v2/systems: #{params}" }
+
+    # Collect the raw JSON bodies and only parse on the far end when needed
+    systems = [] of String
+    next_request = "/api/engine/v2/systems?#{params}"
+
+    loop do
+      response = get(next_request, headers: authentication)
+      raise "issue loading list of systems: #{response.status_code}" unless response.success?
+      links = LinkHeader.new(response)
+
+      new_systems = response.body[1..-2]
+      break if new_systems.blank?
+      systems << new_systems
+
+      last_req = next_request
+      next_request = links["next"]?
+      break if next_request.nil? || last_req == next_request
+    end
+
+    ExecResponse.new("[#{systems.join(',')}]")
   end
 
   record Setting, keys : Array(String), settings_string : String? do
@@ -182,10 +227,10 @@ class Place::StaffAPI < PlaceOS::Driver
     levels = zones(parent: zone_id, tags: ["level"])
     if ids_only
       hash = {} of String => Array(String)
-      levels.each { |level| hash[level.id] = systems(zone_id: level.id).map(&.id) }
+      levels.each { |level| hash[level.id] = systems(zone_id: level.id).get_json(Array(::PlaceOS::Client::API::Models::System)).map(&.id) }
     else
       hash = {} of String => Array(::PlaceOS::Client::API::Models::System)
-      levels.each { |level| hash[level.id] = systems(zone_id: level.id) }
+      levels.each { |level| hash[level.id] = systems(zone_id: level.id).get_json(Array(::PlaceOS::Client::API::Models::System)) }
     end
     hash
   end
@@ -799,6 +844,7 @@ class Place::StaffAPI < PlaceOS::Driver
     limit_override : Int64? = nil,
     instance : Int64? = nil,
     recurrence_end : Int64? = nil,
+    zones : Array(String)? = nil,
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -827,6 +873,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "extension_data" => extension_data,
       "instance"       => instance,
       "recurrence_end" => recurrence_end,
+      "zones"          => zones,
     }.compact.to_json)
     raise "issue updating booking #{booking_id}: #{response.status_code}\n#{response.body}" unless response.success?
     ExecResponse.new(response.body)
