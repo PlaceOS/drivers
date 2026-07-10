@@ -863,16 +863,17 @@ class Place::StaffAPI < PlaceOS::Driver
 
     if asset_ids
       if asset_ids.empty?
-        if asset_id.presence
-          asset_ids << asset_id
+        if ass_id = asset_id.presence
+          asset_ids << ass_id
         else
           asset_ids = nil
+          asset_id = nil
         end
       else
         asset_id = asset_ids.first
       end
-    elsif asset_id.presence
-      asset_ids = [asset_id]
+    elsif ass_id = asset_id.presence
+      asset_ids = [ass_id]
     end
 
     response = patch("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication, body: {
