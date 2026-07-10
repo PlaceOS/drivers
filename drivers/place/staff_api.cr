@@ -845,6 +845,7 @@ class Place::StaffAPI < PlaceOS::Driver
     instance : Int64? = nil,
     recurrence_end : Int64? = nil,
     zones : Array(String)? = nil,
+    asset_ids : Array(String)? = nil,
   )
     logger.debug { "updating booking #{booking_id}" }
 
@@ -860,6 +861,20 @@ class Place::StaffAPI < PlaceOS::Driver
       form.add "limit_override", limit_override.to_s unless limit_override.nil?
     end
 
+    if asset_ids
+      if asset_ids.empty?
+        if asset_id.presence
+          asset_ids << asset_id
+        else
+          asset_ids = nil
+        end
+      else
+        asset_id = asset_ids.first
+      end
+    elsif asset_id.presence
+      asset_ids = [asset_id]
+    end
+
     response = patch("/api/staff/v1/bookings/#{booking_id}?#{params}", headers: authentication, body: {
       "booking_start"  => booking_start,
       "booking_end"    => booking_end,
@@ -867,6 +882,7 @@ class Place::StaffAPI < PlaceOS::Driver
       "checked_in_at"  => checked_in_at,
       "checked_out_at" => checked_out_at,
       "asset_id"       => asset_id,
+      "asset_ids"      => asset_ids,
       "title"          => title,
       "description"    => description,
       "timezone"       => timezone,

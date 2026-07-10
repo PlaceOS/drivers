@@ -410,10 +410,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     def self.parse_request(value : String?)
       case value.try(&.downcase)
-      when "motorcycle", "motorbike", "bike"
-        Bike
       when "car"
         Car
+      when "motorcycle", "motorbike", "bike"
+        Bike
       else
         nil
       end
@@ -424,7 +424,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       space_type = notes.downcase
       case self
       in .car?
-        space_type == "car"
+        space_type.includes?("car")
       in .bike?
         space_type.includes?("bike") || space_type.includes?("motor")
       end
