@@ -84,6 +84,11 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
         logger.debug { "found #{bookings.size} of #{booking_type} for #{email}" }
 
         bookings.each do |booking|
+          if booking["asset_id"].as_s.starts_with?("unallocated")
+            logger.debug { "  --  skipping #{booking_type} for #{email} as unallocated" }
+            next
+          end
+
           if !booking["checked_in"].as_bool?
             logger.debug { "  --  checking in #{booking_type} for #{email}" }
             @check_ins += 1_u64
