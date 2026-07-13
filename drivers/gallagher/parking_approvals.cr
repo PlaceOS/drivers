@@ -1424,6 +1424,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
     restriction_name = restriction_id ? @restriction_lookup[restriction_id]? : nil
     req_height = restriction_name ? @height_features.index(restriction_name) : nil
 
+    # bikes are never height-constrained. A height class attached to a bike
+    # booking is ignored so the bike still matches bike spaces (which carry no
+    # height feature) instead of being filtered out and wait-listed. Clearing the
+    # restriction name too keeps it out of the exact-match branch below.
+    if vehicle == VehicleType::Bike && req_height
+      restriction_name = nil
+      req_height = nil
+    end
+
     # a restriction request may be ignored (regular-space fallback) — a height
     # requirement is never dropped
     restriction_name = nil if ignore_exclusive && req_height.nil?

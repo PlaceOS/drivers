@@ -4205,6 +4205,274 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.approved.includes?(90501_i64).should eq(true)
   mailer.sent?("alloc.novt@example.com", "parking_request", "rejected").should eq(false)
   mailer.sent?("alloc.novt@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+
+  # ===========================================================
+  # Bike allocation regression suite (Tests 93-96)
+  #
+  # Investigates a production report of bike bookings being wait-listed while
+  # bike spaces are still free. Bikes carry NO restriction (height or otherwise);
+  # a bike space is distinguished ONLY by its notes ("Bike"/"Motor..."), a car
+  # space by "Car" (see VehicleType#matches_notes?). These tests exercise the
+  # full fleet: bikes must fill every free bike space, and the two vehicle types
+  # must never consume each other's inventory.
+  # ===========================================================
+
+  bike_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
+    ],
+  }
+
+  # a bookable, gallagher-mapped space. Car spaces are noted "Car" (Open Basement
+  # -> group1), bike spaces "Bike" (Secure Basement -> group3).
+  car_space = ->(id : String) do
+    {id: id, identifier: id.upcase, assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true}
+  end
+  bike_space = ->(id : String) do
+    {id: id, identifier: id.upcase, assigned_to: "", zones: ["zone-building", "zone-level-B3"],
+     features: ["bikepriority", "Secure Basement"], notes: "Bike", security_system_groups: [] of String, bookable: true}
+  end
+
+  # ===========================================================
+  # Test 93: several bikes fill EVERY free bike space (none wait-listed), and the
+  # presence of a free car space neither helps nor blocks them. This is the
+  # direct reproduction of the reported symptom.
+  # ===========================================================
+
+  settings(bike_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([
+    bike_space.call("asset-bike1"),
+    bike_space.call("asset-bike2"),
+    bike_space.call("asset-bike3"),
+    car_space.call("asset-car1"),
+  ].to_json)
+
+  bikers = {
+    93001_i64 => "b93a@example.com",
+    93002_i64 => "b93b@example.com",
+    93003_i64 => "b93c@example.com",
+  }
+  bikers.each do |_id, email|
+    gallagher.set_cardholder(email, "ch-#{email}")
+    calendar.set_groups(email, default_grp.to_json)
+  end
+
+  t93_start = now + 3600_i64 * 600
+  t93_end = t93_start + 3600_i64
+  staff.set_bookings(bikers.map { |id, email|
+    build_booking.call(id, email, t93_start, t93_end, "unallocated-#{id}", false, ext_bike)
+  }.to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # every bike landed a space, all distinct, and they are EXACTLY the three bike
+  # spaces (never the car space) — no bike wait-listed while bike spaces were free
+  allocated_93 = bikers.keys.map { |id| staff.last_update_for(id) }
+  allocated_93.each { |a| a.should_not be_nil }
+  allocated_93.to_set.should eq(["asset-bike1", "asset-bike2", "asset-bike3"].to_set)
+  bikers.each_value { |email| mailer.sent?(email, "parking_request", "wait_list").should eq(false) }
+
+  # ===========================================================
+  # Test 94: vehicle isolation — a bike is NOT rescued by a free car space, and a
+  # car is NOT rescued by a free bike space. Confirms "free spots still available"
+  # is correct behaviour when those spots are for the other vehicle type.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  # only a car space free, plus a bike booking
+  staff.set_assets([car_space.call("asset-car1")].to_json)
+  gallagher.set_cardholder("b94@example.com", "ch-b94")
+  calendar.set_groups("b94@example.com", default_grp.to_json)
+
+  t94_start = now + 3600_i64 * 620
+  t94_end = t94_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(94001_i64, "b94@example.com", t94_start, t94_end, "unallocated-94001", false, ext_bike),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the bike is wait-listed; the car space is left untouched (never given to a bike)
+  staff.last_update_for(94001_i64).should be_nil
+  staff.last_state(94001_i64).should eq("wait_list")
+  mailer.sent?("b94@example.com", "parking_request", "wait_list").should eq(true)
+
+  # reverse: only a bike space free, plus a car booking
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([bike_space.call("asset-bike1")].to_json)
+  gallagher.set_cardholder("c94@example.com", "ch-c94")
+  calendar.set_groups("c94@example.com", default_grp.to_json)
+
+  staff.set_bookings([
+    build_booking.call(94002_i64, "c94@example.com", t94_start, t94_end, "unallocated-94002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the car is wait-listed; the bike space is left untouched (never given to a car)
+  staff.last_update_for(94002_i64).should be_nil
+  staff.last_state(94002_i64).should eq("wait_list")
+  mailer.sent?("c94@example.com", "parking_request", "wait_list").should eq(true)
+
+  # ===========================================================
+  # Test 95: car overflow never eats into bike inventory. With the car spaces
+  # full, a surplus car booking wait-lists rather than consuming a bike space, so
+  # a later bike still finds a free bike space. This is the guard against the
+  # reported symptom being caused by cars poaching bike spaces.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([
+    car_space.call("asset-car1"),
+    bike_space.call("asset-bike1"),
+    bike_space.call("asset-bike2"),
+  ].to_json)
+  gallagher.set_cardholder("c95a@example.com", "ch-c95a")
+  gallagher.set_cardholder("c95b@example.com", "ch-c95b")
+  gallagher.set_cardholder("b95@example.com", "ch-b95")
+  calendar.set_groups("c95a@example.com", default_grp.to_json)
+  calendar.set_groups("c95b@example.com", default_grp.to_json)
+  calendar.set_groups("b95@example.com", default_grp.to_json)
+
+  t95_start = now + 3600_i64 * 640
+  t95_end = t95_start + 3600_i64
+  staff.set_bookings([
+    # two cars for one car space, and one bike
+    build_booking.call(95001_i64, "c95a@example.com", t95_start, t95_end, "unallocated-95001", false, ext_car),
+    build_booking.call(95002_i64, "c95b@example.com", t95_start, t95_end, "unallocated-95002", false, ext_car),
+    build_booking.call(95003_i64, "b95@example.com", t95_start, t95_end, "unallocated-95003", false, ext_bike),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # first car takes the only car space; the surplus car wait-lists (it is NOT
+  # handed a bike space); the bike still gets a bike space
+  staff.last_update_for(95001_i64).should eq("asset-car1")
+  staff.last_update_for(95002_i64).should be_nil
+  staff.last_state(95002_i64).should eq("wait_list")
+  ["asset-bike1", "asset-bike2"].includes?(staff.last_update_for(95003_i64)).should eq(true)
+  mailer.sent?("b95@example.com", "parking_request", "wait_list").should eq(false)
+
+  # ===========================================================
+  # Test 96: a mixed fleet with matching capacity is fully allocated — no false
+  # wait-listing when both types have exactly enough spaces.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([
+    car_space.call("asset-car1"),
+    car_space.call("asset-car2"),
+    bike_space.call("asset-bike1"),
+    bike_space.call("asset-bike2"),
+  ].to_json)
+  fleet = {
+    96001_i64 => {"c96a@example.com", ext_car},
+    96002_i64 => {"c96b@example.com", ext_car},
+    96003_i64 => {"b96a@example.com", ext_bike},
+    96004_i64 => {"b96b@example.com", ext_bike},
+  }
+  fleet.each do |_id, (email, _ext)|
+    gallagher.set_cardholder(email, "ch-#{email}")
+    calendar.set_groups(email, default_grp.to_json)
+  end
+
+  t96_start = now + 3600_i64 * 660
+  t96_end = t96_start + 3600_i64
+  staff.set_bookings(fleet.map { |id, (email, ext)|
+    build_booking.call(id, email, t96_start, t96_end, "unallocated-#{id}", false, ext)
+  }.to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # cars land on car spaces, bikes on bike spaces, all four allocated, none waitlisted
+  [96001_i64, 96002_i64].map { |id| staff.last_update_for(id) }.to_set.should eq(["asset-car1", "asset-car2"].to_set)
+  [96003_i64, 96004_i64].map { |id| staff.last_update_for(id) }.to_set.should eq(["asset-bike1", "asset-bike2"].to_set)
+  fleet.each_value { |(email, _ext)| mailer.sent?(email, "parking_request", "wait_list").should eq(false) }
+
+  # ===========================================================
+  # Test 97: bikes ignore height restrictions. A bike booking that carries a
+  # height class (e.g. the UI attaches one regardless of vehicle type) must still
+  # match bike spaces — which carry NO height feature — rather than being
+  # filtered out and wait-listed while bike spaces are free. Height enforcement
+  # for CARS is unchanged.
+  # ===========================================================
+
+  t97_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {
+      "Open Basement"   => "gallagher-group1",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
+      {id: 4, name: "Max height 1.95m"},
+      {id: 5, name: "Max height 2.1m"},
+    ],
+  }
+
+  settings(t97_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+
+  # a car space limited to 1.95m, plus a bike space with no height feature at all
+  short_car = {id: "asset-carshort", identifier: "CARSHORT", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+               features: ["Max height 1.95m", "carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true}
+  staff.set_assets([short_car, bike_space.call("asset-bike1")].to_json)
+
+  gallagher.set_cardholder("b97@example.com", "ch-b97")
+  gallagher.set_cardholder("c97@example.com", "ch-c97")
+  calendar.set_groups("b97@example.com", default_grp.to_json)
+  calendar.set_groups("c97@example.com", default_grp.to_json)
+
+  # a bike carrying a 2.1m height restriction, and a car carrying the same
+  ext_bike_h210 = {"vehicle_type" => JSON::Any.new("motorcycle"), "space_restrictions" => JSON::Any.new(5_i64)}
+
+  t97_start = now + 3600_i64 * 680
+  t97_end = t97_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(97001_i64, "b97@example.com", t97_start, t97_end, "unallocated-97001", false, ext_bike_h210),
+    build_booking.call(97002_i64, "c97@example.com", t97_start, t97_end, "unallocated-97002", false, ext_h210),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the bike ignores its height restriction and takes the (heightless) bike space
+  staff.last_update_for(97001_i64).should eq("asset-bike1")
+  mailer.sent?("b97@example.com", "parking_request", "wait_list").should eq(false)
+
+  # the car's 2.1m requirement is still enforced: the only car space is 1.95m, so
+  # it is wait-listed (bike height handling must not relax car height checks)
+  staff.last_update_for(97002_i64).should be_nil
+  staff.last_state(97002_i64).should eq("wait_list")
+  mailer.sent?("c97@example.com", "parking_request", "wait_list").should eq(true)
 end
 
 # :nodoc:
