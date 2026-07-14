@@ -1535,28 +1535,28 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_template].should eq ["visitor_invited", "custom_booking_changed"]
 
   # ==================================================================
-  # Issue 2 — de-duplicate event-linked booking notifications
+  # Issue 2 — event-linked booking changes must still notify (PPT-2375)
   # ==================================================================
   #
-  # A calendar event with a room auto-creates a linked booking
-  # (extension_data.parent_id points to the event).  Editing the event
-  # fires staff/event/changed (handled by event_changed_event) AND the
-  # linked booking fires staff/booking/changed — so without de-duplication
-  # the visitor receives TWO change notifications.  booking_changed_event
-  # must skip event-linked bookings (same skip_event_linked_booking_email
-  # rule guest_event uses), letting the event_changed flow be the single
-  # source of truth.
+  # attendee_scanner creates visitor bookings for external calendar guests
+  # with extension_data.parent_id pointing at the source event.  Editing
+  # such a booking only emits staff/booking/changed — the linked calendar
+  # event is untouched, so NO staff/event/changed fires to cover it.
+  # An earlier de-duplication attempt skipped these bookings entirely, which
+  # silently dropped the visitor's only change notification.  They must be
+  # treated like any other booking change.
 
   settings({
     timezone:           "GMT",
     booking_space_name: "Client Floor",
     invite_zone_tag:    "building",
-    # skip_event_linked_booking_email defaults to true
+    # skip_event_linked_booking_email defaults to true (invite flow only)
   })
   sleep 1.0
 
   # ------------------------------------------------------------------
-  # Test 34: booking_changed for an event-linked booking is suppressed
+  # Test 34: booking_changed for an event-linked booking STILL notifies
+  #          (regression: it was previously suppressed, losing the email)
   # ------------------------------------------------------------------
 
   count_before_linked_change = system(:Mailer)[:send_count].as_i
@@ -1579,11 +1579,13 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", linked_booking_changed)
-  sleep 1.0
+  sleep 1.5
 
-  # Event-linked: the event_changed flow already notifies these visitors, so
-  # no booking_changed email should be sent.
-  system(:Mailer)[:send_count].should eq count_before_linked_change
+  # The booking edit is the only signal these visitors receive, so it must
+  # produce the booking_changed notification.
+  system(:Mailer)[:send_count].should eq count_before_linked_change + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
 
   # ------------------------------------------------------------------
   # Test 35: standalone booking_changed (no parent_id) still notifies
@@ -1616,8 +1618,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
 
   # ------------------------------------------------------------------
-  # Test 36: opt-out (skip_event_linked_booking_email: false) restores
-  #          the booking_changed email even for event-linked bookings.
+  # Test 36: skip_event_linked_booking_email governs only the invite
+  #          (guest_event) flow — event-linked booking *changes* notify
+  #          regardless of the setting value.
   # ------------------------------------------------------------------
 
   settings({
