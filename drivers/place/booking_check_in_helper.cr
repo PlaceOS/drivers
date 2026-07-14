@@ -314,7 +314,7 @@ STRING
         host_email = meeting.host.not_nil!.downcase
         cc_list.delete(host_email)
         params = generate_guest_jwt
-        mailer.send_template(host_email, {"bookings", "check_in_prompt"}, params, cc: cc_list.to_a)
+        mailer.send_template(host_email, {"bookings", "check_in_prompt"}, params, cc: cc_list.to_a, reply_to: host_email.presence)
       rescue error
         logger.warn(exception: error) { "failed to notify user" }
       end

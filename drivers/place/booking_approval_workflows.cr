@@ -306,7 +306,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         mailer.send_template(
           to: booking_details.booked_by_email,
           template: {"bookings", "group_booking_sent#{@template_suffix}"},
-          args: args
+          args: args,
+          reply_to: booking_details.booked_by_email.presence,
         )
       end
 
@@ -325,7 +326,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         to: booking_details.user_email,
         template: {"bookings", third_party ? "approved_by#{@template_suffix}" : "approved#{@template_suffix}"},
         args: args,
-        attachments: attachments
+        attachments: attachments,
+        reply_to: booking_details.booked_by_email.presence,
       ).get
 
       staff_api.booking_state(booking_details.id, "approval_sent", booking_details.instance).get
@@ -335,7 +337,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
       mailer.send_template(
         to: user_email,
         template: {"bookings", "#{booking_details.action}#{@template_suffix}"},
-        args: args
+        args: args,
+        reply_to: booking_details.booked_by_email.presence,
       )
     when "cancelled"
       third_party = booking_details.approver_email && booking_details.approver_email != booking_details.user_email.downcase
@@ -345,14 +348,16 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
       mailer.send_template(
         to: user_email,
         template: {"bookings", third_party ? "cancelled_by#{@template_suffix}" : "cancelled#{@template_suffix}"},
-        args: args
+        args: args,
+        reply_to: booking_details.booked_by_email.presence,
       )
 
       if @notify_managers && (manager_email = get_manager(user_email).try(&.at(0)))
         mailer.send_template(
           to: manager_email,
           template: {"bookings", "manager_notify_cancelled#{@template_suffix}"},
-          args: args
+          args: args,
+          reply_to: booking_details.booked_by_email.presence,
         )
       end
     end
@@ -408,7 +413,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
           mailer.send_template(
             to: manager_email,
             template: {"bookings", "manager_approval#{@template_suffix}"},
-            args: args
+            args: args,
+            reply_to: booking_details.booked_by_email.presence,
           ).get
 
           # set the booking state
@@ -420,7 +426,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
             args: args.merge({
               manager_email: manager_email,
               manager_name:  manager_name,
-            })
+            }),
+            reply_to: booking_details.booked_by_email.presence,
           )
         else
           logger.debug { "manager not found, approving booking!" }
@@ -436,7 +443,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
             mailer.send_template(
               to: manager_email,
               template: {"bookings", "manager_approval#{@template_suffix}"},
-              args: args
+              args: args,
+              reply_to: booking_details.booked_by_email.presence,
             ).get
 
             # set the booking state
@@ -457,7 +465,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
               mailer.send_template(
                 to: manager_email,
                 template: {"bookings", "manager_approval#{@template_suffix}"},
-                args: args
+                args: args,
+                reply_to: booking_details.booked_by_email.presence,
               ).get
 
               # set the booking state
@@ -491,7 +500,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         mailer.send_template(
           to: manager_email,
           template: {"bookings", "notify_manager#{@template_suffix}"},
-          args: args
+          args: args,
+          reply_to: booking_details.booked_by_email.presence,
         )
       end
     else
@@ -637,7 +647,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
               to: booking_details.user_email,
               template: {"bookings", third_party ? "approved_by#{@template_suffix}" : "approved#{@template_suffix}"},
               args: args,
-              attachments: attachments
+              attachments: attachments,
+              reply_to: booking_details.booked_by_email.presence,
             )
             staff_api.booking_state(booking_details.id, "approval_sent", booking_details.instance).get
           end
@@ -800,7 +811,8 @@ class Place::BookingApprovalWorkflows < PlaceOS::Driver
         to: booking_details.user_email,
         template: {"bookings", "checkin_reminder#{@template_suffix}"},
         args: args,
-        attachments: attachments
+        attachments: attachments,
+        reply_to: booking_details.booked_by_email.presence,
       )
     end
   end

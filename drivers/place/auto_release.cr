@@ -52,6 +52,19 @@ class Place::AutoRelease < PlaceOS::Driver
     system.implementing(Interface::Mailer)[0]
   end
 
+  # The current time. In non-release (spec/dev) builds it can be pinned via the
+  # `time_now_override` setting so tests mixing relative booking times with
+  # time-of-day logic are deterministic; `--release` builds compile the override
+  # out and always return `Time.utc`.
+  private def time_now : Time
+    {% unless flag?(:release) %}
+      if override = @time_now_override
+        return override
+      end
+    {% end %}
+    Time.utc
+  end
+
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
@@ -70,11 +83,25 @@ class Place::AutoRelease < PlaceOS::Driver
   @skip_same_day : Bool = true
   @skip_all_day : Bool = false
 
+  {% unless flag?(:release) %}
+    # Test-only seam (compiled out of `--release` builds): lets specs pin "now"
+    # via the `time_now_override` setting for deterministic time-of-day tests.
+    @time_now_override : Time? = nil
+  {% end %}
+
   def on_update
     @building_zone = nil
     @building_id = nil
     @levels = nil
     @timezone = nil
+
+    {% unless flag?(:release) %}
+      # Test-only seam (see `time_now`): pin "now" for deterministic specs.
+      # Persists once set so specs only need to provide it in their first settings.
+      if override_unix = setting?(Int64, :time_now_override)
+        @time_now_override = Time.unix(override_unix)
+      end
+    {% end %}
 
     @email_schedule = setting?(String, :email_schedule).presence
     @email_template = setting?(String, :email_template) || "auto_release"
@@ -176,8 +203,8 @@ class Place::AutoRelease < PlaceOS::Driver
     @auto_release.resources.each do |type|
       bookings = Array(Booking).from_json staff_api.query_bookings(
         type: type,
-        period_start: Time.utc.to_unix,
-        period_end: (Time.utc + @time_window_hours.hours).to_unix,
+        period_start: time_now.to_unix,
+        period_end: (time_now + @time_window_hours.hours).to_unix,
         zones: [building_zone.id],
       ).get_json
       results += bookings.select { |booking| !booking.checked_in }
@@ -339,7 +366,7 @@ class Place::AutoRelease < PlaceOS::Driver
       booking_start = booking.all_day ? all_day_start_time(booking_start).to_unix : booking.booking_start
 
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
-      if Time.utc.to_unix - booking_start > @auto_release.time_after(booking.booking_type) * 60
+      if time_now.to_unix - booking_start > @auto_release.time_after(booking.booking_type) * 60
         # skip if there's been changes to the cached bookings checked_in status or booking_start time
         if skip_release?(booking)
           explain[booking.id] = "skip release due to changes to checked_in status or booking_start time"
@@ -388,8 +415,8 @@ class Place::AutoRelease < PlaceOS::Driver
 
       # convert minutes (time_after) to seconds for comparison with unix timestamps (booking_start)
       if enabled? &&
-         (booking.booking_start - Time.utc.to_unix <= @auto_release.time_before(booking.booking_type) * 60) &&
-         (Time.utc.to_unix - booking.booking_start <= @auto_release.time_after(booking.booking_type) * 60)
+         (booking.booking_start - time_now.to_unix <= @auto_release.time_before(booking.booking_type) * 60) &&
+         (time_now.to_unix - booking.booking_start <= @auto_release.time_after(booking.booking_type) * 60)
         logger.debug { "sending release email to #{booking.user_email} for booking #{booking.id} as it is within the time_before window" }
 
         location = Time::Location.load(booking.timezone.presence || timezone.name)
@@ -426,7 +453,8 @@ class Place::AutoRelease < PlaceOS::Driver
           mailer.send_template(
             to: booking.user_email,
             template: {@email_template, "auto_release#{template_suffix(booking.booking_type)}"},
-            args: args)
+            args: args,
+            reply_to: booking.booked_by_email.presence)
           emailed_booking_ids << booking.id
         rescue error
           logger.warn(exception: error) { "failed to send release email to #{booking.user_email}" }

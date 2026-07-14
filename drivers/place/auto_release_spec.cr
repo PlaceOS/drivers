@@ -10,8 +10,15 @@ class StaffAPI < DriverSpecs::MockDriver
     self[:rejected] = self[:rejected].as_i + 1
   end
 
-  TIMEZONE          = "Australia/Sydney"
-  TIME_LOCAL        = Time.local(location: Time::Location.load(TIMEZONE))
+  TIMEZONE = "Australia/Sydney"
+  # Pinned to a fixed evening time-of-day so the whole suite is deterministic
+  # (the driver's "now" is pinned to the same instant via `time_now_override`).
+  # Evening is required because several bookings sit a few hours after "now" and
+  # are expected to land on the *next* day / outside work hours.
+  TIME_LOCAL = begin
+    n = Time.local(location: Time::Location.load(TIMEZONE))
+    Time.local(n.year, n.month, n.day, 19, 30, 0, location: Time::Location.load(TIMEZONE))
+  end
   TIME_YESTERDAY    = TIME_LOCAL - 1.day
   TIME_START_OF_DAY = TIME_LOCAL - TIME_LOCAL.hour.hours - TIME_LOCAL.minute.minutes - TIME_LOCAL.second.seconds
   TIME_END_OF_DAY   = TIME_START_OF_DAY + 1.day - 1.seconds
@@ -791,6 +798,7 @@ class Mailer < DriverSpecs::MockDriver
     reply_to : String | Array(String) | Nil = nil,
   )
     self[:sent] = self[:sent].as_i + 1
+    self[:reply_to] = reply_to
   end
 
   def send_mail(
@@ -816,7 +824,9 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   })
 
   timezone = "Australia/Sydney"
-  time_local = Time.local(location: Time::Location.load(timezone))
+  # use the same pinned instant the driver's clock is fixed to, so all_day_start
+  # offsets are evaluated consistently
+  time_local = StaffAPI::TIME_LOCAL
 
   settings({
     auto_release: {
@@ -825,6 +835,8 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
       resources:   ["desk"],
     },
     release_locations: ["wfh", "aol"],
+    # pin the driver's clock to the same instant the bookings are anchored to
+    time_now_override: StaffAPI::TIME_LOCAL.to_unix,
   })
 
   resp = exec(:get_building_zone?).get
@@ -1223,6 +1235,8 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
   resp = exec(:send_release_emails).get
   resp.should eq [16]
   system(:Mailer_1)[:sent].should eq 3
+  # replies go to the person who created the booking
+  system(:Mailer_1)[:reply_to].should eq "user_one@example.com"
 
   ########################################
   # End of tests for: #send_release_emails

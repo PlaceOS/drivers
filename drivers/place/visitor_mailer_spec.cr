@@ -23,6 +23,7 @@ class MailerMock < DriverSpecs::MockDriver
     self[:last_to] = to
     self[:last_template] = template
     self[:last_args] = args
+    self[:last_reply_to] = reply_to
     self[:send_count] = self[:send_count].as_i + 1
     true
   end
@@ -285,6 +286,8 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+  # replies from the visitor should reach the host
+  system(:Mailer)[:last_reply_to].should eq "host@example.com"
 
   # Verify the template args include resolved previous location names
   args = system(:Mailer)[:last_args]
@@ -548,6 +551,8 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq 6
   system(:Mailer)[:last_to].should eq "old-host@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+  # the previous host's replies should reach the new host
+  system(:Mailer)[:last_reply_to].should eq "new-host@example.com"
 
   # Verify all template args
   args7 = system(:Mailer)[:last_args]

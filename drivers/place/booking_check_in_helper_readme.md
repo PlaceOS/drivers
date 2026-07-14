@@ -64,3 +64,15 @@ The variables available to mix into the email template are:
       no_show_url
 
 The urls above are optional, i.e. https://corp.com/booking-confirmation from the template, if you want to configure this as a driver setting vs in the template.
+
+
+## Reply-To
+
+The check-in prompt sets a `Reply-To` header of the meeting **host** so replies
+reach a useful person rather than the no-reply sender address. This requires no
+configuration.
+
+This default can be overridden per-template (a `reply_to` field on the template
+metadata), tenant-wide (the `reply_to` setting on the Template Mailer), or for all
+mail (the `reply_to` setting on the SMTP Mailer). See the Template Mailer readme
+for the full precedence cascade.
