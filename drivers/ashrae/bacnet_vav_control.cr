@@ -1,5 +1,9 @@
 require "placeos-driver"
 
+# Hooks into room occupancy status to decide if the air should be flowing into the space.
+# Simply add this module to multiple rooms and if they have a VAV in common then both
+# Rooms data will be taken into account when deciding to turn on or off the air.
+# BACnet system and module can be in a remote system so you don't have to add to each system.
 class Ashrae::BACnetVAVControl < PlaceOS::Driver
   generic_name :VAVControl
   descriptive_name "Variable Air Volume Control"
@@ -45,7 +49,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
 
   # state variables
   getter? room_booked : Bool = false
-  getter? sensor_active : Bool = false
+  getter? sensor_active : Bool = true
   getter? presence : Bool = false
 
   @vav_off_delay_sec : Time::Span = 5.minutes
