@@ -343,7 +343,6 @@ class Place::Workplace < PlaceOS::Driver
     getter id : String
     getter name : String { id }
     getter bookable : Bool { true }
-    getter features : Array(String)? = nil
     getter groups : Array(String) = [] of String
     getter features : Array(String) = [] of String
   end
