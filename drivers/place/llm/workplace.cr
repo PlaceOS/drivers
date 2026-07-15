@@ -123,7 +123,7 @@ class Place::Workplace < PlaceOS::Driver
     # get the list of desks for the level
     all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
     raise "no bookable desks on this level, please try another." unless all_desks
-    desks = Array(Desk).from_json(all_desks.to_json)
+    desks = Array(Desk).from_json(all_desks.to_json).select!(&.bookable)
 
     # calculate the offset time
     if date
@@ -152,14 +152,14 @@ class Place::Workplace < PlaceOS::Driver
       end
     end
 
-    # need to limit the results as the LLM runs out of memory
     logger.debug { "found #{desks.size} available desks" }
-    desks.sample(5)
+    desks
   end
 
-  @[Description("books an asset, such as a desk or car parking space, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
+  @[Description("books an asset, such as a desk, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
   def book_relative(booking_type : String, asset_id : String, level_id : String, day_offset : Int32 = 0, number_of_days : Int32 = 1)
     logger.debug { "booking relative #{booking_type}, asset #{asset_id} on level #{level_id}, day offset #{day_offset} for num days #{number_of_days}" }
+    raise "parking bookings are not enabled with A.I. at this time" if booking_type.strip.downcase == "parking"
 
     # ensure the level id exists
     level = levels.find { |l| l.id == level_id }
@@ -211,9 +211,10 @@ class Place::Workplace < PlaceOS::Driver
     }
   end
 
-  @[Description("books an asset, such as a desk or car parking space, for the number of days specified, the start date must be in ISO 8601 format with the correct timezone. For desk bookings use booking_type: desk")]
+  @[Description("books an asset, such as a desk, for the number of days specified, the start date must be in ISO 8601 format with the correct timezone. For desk bookings use booking_type: desk")]
   def book_on(booking_type : String, asset_id : String, level_id : String, date : Time, number_of_days : Int32 = 1)
     logger.debug { "booking on #{booking_type}, asset #{asset_id} on level #{level_id}, date #{date} for num days #{number_of_days}" }
+    raise "parking bookings are not enabled with A.I. at this time" if booking_type.strip.downcase == "parking"
 
     # ensure the level id exists
     level = levels.find { |l| l.id == level_id }
@@ -340,6 +341,9 @@ class Place::Workplace < PlaceOS::Driver
     include JSON::Serializable
 
     getter id : String
+    getter name : String { id }
+    getter bookable : Bool { true }
+    getter features : Array(String)? = nil
     getter groups : Array(String) = [] of String
     getter features : Array(String) = [] of String
   end
