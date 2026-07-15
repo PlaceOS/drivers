@@ -4,6 +4,9 @@ require "placeos-driver"
 # Simply add this module to multiple rooms and if they have a VAV in common then both
 # Rooms data will be taken into account when deciding to turn on or off the air.
 # BACnet system and module can be in a remote system so you don't have to add to each system.
+#
+# To find a device ID, you can execute BACnet_1.devices => known device list
+# then you can search for the device name
 class Ashrae::BACnetVAVControl < PlaceOS::Driver
   generic_name :VAVControl
   descriptive_name "Variable Air Volume Control"
@@ -79,8 +82,11 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
   end
 
   protected def booking_status_changed(_subscription, value : String)
-    status = String.from_json(value)
+    logger.info { "booking status changed to: #{value}" }
+    status = String?.from_json(value)
     case status
+    when Nil
+      return
     when "free"
       @room_booked = false
     else
@@ -92,11 +98,13 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
 
   # we also care if there is someone in the space and that the sensor is working
   protected def booking_stale_changed(_subscription, value : String)
+    logger.info { "stale sensor changed to: #{value}" }
     @sensor_active = value != "true"
     update_state
   end
 
   protected def booking_presence_changed(_subscription, value : String)
+    logger.info { "sensor presence changed to: #{value}" }
     @presence = value == "true"
     update_state
   end
@@ -140,6 +148,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
         # schedule turn off
         return if @off_timer
         @off_timer = schedule.in(@vav_off_delay_sec) { check_before_turning_off }
+        self[:vav_pending_off] = true
       end
     end
   end
