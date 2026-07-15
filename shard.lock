@@ -51,7 +51,7 @@ shards:
 
   connect-proxy:
     git: https://github.com/spider-gazelle/connect-proxy.git
-    version: 2.0.4
+    version: 2.0.5
 
   cookie_jar:
     git: https://github.com/mamantoha/http-cookie_jar.git
@@ -91,7 +91,7 @@ shards:
 
   dtls:
     git: https://github.com/spider-gazelle/crystal-dtls.git
-    version: 0.9.3
+    version: 0.9.4
 
   ed25519:
     git: https://github.com/spider-gazelle/ed25519.git
@@ -251,7 +251,7 @@ shards:
 
   placeos-driver:
     git: https://github.com/placeos/driver.git
-    version: 8.1.0
+    version: 8.1.1
 
   placeos-log-backend:
     git: https://github.com/place-labs/log-backend.git

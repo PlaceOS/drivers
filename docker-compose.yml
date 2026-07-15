@@ -54,7 +54,9 @@ services:
       BUILD_SERVICE_DISABLED: ${BUILD_SERVICE_DISABLED:-true}
 
   redis:
-    image: eqalpha/keydb
+    # Redis 8+ required: drivers using per-field hash TTLs (set_expire/expire)
+    # depend on HSETEX/HPEXPIRE, which KeyDB (Redis 6.x fork) does not support.
+    image: redis:8
     restart: always
     hostname: redis
     environment:
