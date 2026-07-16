@@ -7,11 +7,12 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   })
 
   settings({
-    instance_type:     "multi_state_value",
-    vav_ids:           [{object: 1234, instance: 1}],
-    vav_off_delay_sec: 999_999, # effectively never auto-off during the on tests
-    vav_off_state:     3,
-    vav_on_state:      1,
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    999_999, # effectively never auto-off during the on tests
+    vav_sensor_delay_sec: 0,       # sensor turns on instantly unless a test opts in
+    vav_off_state:        3,
+    vav_on_state:         1,
   })
 
   bookings = system(:Bookings).as(BookingsMock)
@@ -48,6 +49,7 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
 
   # ===========================================================
   # A live sensor detecting presence turns the air on (even when not booked).
+  # (sensor delay is 0 here, debounce behaviour is covered separately below)
   # ===========================================================
 
   bacnet.reset
@@ -79,11 +81,12 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   # ===========================================================
 
   settings({
-    instance_type:     "multi_state_value",
-    vav_ids:           [{object: 1234, instance: 1}],
-    vav_off_delay_sec: 0,
-    vav_off_state:     3,
-    vav_on_state:      1,
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    0,
+    vav_sensor_delay_sec: 0,
+    vav_off_state:        3,
+    vav_on_state:         1,
   })
   sleep 100.milliseconds
 
@@ -98,15 +101,168 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   status[:vav_active].should eq false
 
   # ===========================================================
+  # Sensor debounce: a working sensor detecting presence does NOT switch the
+  # air on immediately — it must stay occupied for vav_sensor_delay_sec first.
+  # ===========================================================
+
+  settings({
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    999_999,
+    vav_sensor_delay_sec: 2, # 2 second debounce
+    vav_off_state:        3,
+    vav_on_state:         1,
+  })
+  sleep 100.milliseconds
+
+  # baseline: empty room, air off (state carried from the off test above)
+  bacnet.reset
+  bookings.set_presence(true) # someone appears
+  sleep 500.milliseconds      # well within the 2s debounce window
+
+  # nothing written yet — we're waiting to confirm the presence is real
+  bacnet.writes.should be_empty
+  status[:vav_pending_on].should eq true
+  status[:vav_active].should eq false
+
+  # once the debounce elapses (presence held throughout) the air switches on
+  sleep 2.seconds
+  bacnet.values_written.last?.should eq 1
+  status[:vav_active].should eq true
+  status[:vav_pending_on].should eq false
+
+  # ===========================================================
+  # A booking still switches the air on instantly, ignoring the sensor delay.
+  # ===========================================================
+
+  # baseline: drop presence so the air is no longer active, then confirm a
+  # booking bypasses the (now very long) debounce entirely
+  settings({
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    999_999,
+    vav_sensor_delay_sec: 999_999, # sensor would essentially never fire
+    vav_off_state:        3,
+    vav_on_state:         1,
+  })
+  sleep 100.milliseconds
+
+  bookings.set_presence(false) # room empties -> air no longer active
+  sleep 300.milliseconds
+
+  bacnet.reset
+  bookings.set_status("busy") # booked
+  sleep 500.milliseconds
+
+  # instant, despite the enormous sensor delay
+  bacnet.values_written.last?.should eq 1
+  status[:vav_active].should eq true
+
+  # ===========================================================
+  # Sensor flap resets the debounce: presence going false then true again
+  # restarts the countdown, so a brief blip never accumulates to a turn on.
+  # ===========================================================
+
+  # start from a clean OFF baseline: clear the booking and empty the room with a
+  # zero off-delay so the air actually switches off before we exercise the flap
+  settings({
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    0,
+    vav_sensor_delay_sec: 999_999,
+    vav_off_state:        3,
+    vav_on_state:         1,
+  })
+  sleep 100.milliseconds
+  bookings.set_status("free")  # clear the booking
+  bookings.set_presence(false) # empty the room -> air switches off (0s delay)
+  sleep 300.milliseconds
+
+  # now stretch the off-delay back out so nothing auto-changes during the flap
+  settings({
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    999_999,
+    vav_sensor_delay_sec: 999_999,
+    vav_off_state:        3,
+    vav_on_state:         1,
+  })
+  sleep 100.milliseconds
+
+  bacnet.reset
+  bookings.set_presence(true) # blip on -> debounce arms
+  sleep 300.milliseconds
+  status[:vav_pending_on].should eq true
+  bacnet.writes.should be_empty
+
+  bookings.set_presence(false) # blip clears -> debounce cancelled
+  sleep 300.milliseconds
+  status[:vav_pending_on].should eq false
+
+  bookings.set_presence(true) # occupied again -> a fresh countdown starts
+  sleep 300.milliseconds
+  status[:vav_pending_on].should eq true
+  # still nothing written: the earlier blip did not count toward the delay
+  bacnet.writes.should be_empty
+  status[:vav_active].should eq false
+
+  # ===========================================================
+  # vav_disable_sensor: the presence sensor is ignored entirely — the room only
+  # counts as "in use" when booked, so sensor presence can neither hold the air
+  # on nor turn it on.
+  # ===========================================================
+
+  settings({
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    0, # turn off promptly once "not in use"
+    vav_sensor_delay_sec: 0,
+    vav_disable_sensor:   true,
+    vav_off_state:        3,
+    vav_on_state:         1,
+  })
+  sleep 100.milliseconds
+
+  # known OFF baseline (also clears any pending timers) and a normalised sensor
+  exec(:turn_off_vav).get
+  bookings.set_presence(false)
+  sleep 200.milliseconds
+
+  # presence alone can NOT turn the air on while the sensor is disabled
+  bacnet.reset
+  bookings.set_presence(true) # sensor sees someone -> ignored
+  sleep 500.milliseconds
+
+  status[:vav_active].should eq false
+  bacnet.values_written.should_not contain(1) # never switched on
+
+  # a booking still drives the air on, sensor state irrelevant
+  bacnet.reset
+  bookings.set_status("busy")
+  sleep 500.milliseconds
+
+  bacnet.values_written.last?.should eq 1
+  status[:vav_active].should eq true
+
+  # ending the booking turns it back off even though presence is still true
+  bacnet.reset
+  bookings.set_status("free")
+  sleep 500.milliseconds
+
+  bacnet.values_written.last?.should eq 3
+  status[:vav_active].should eq false
+
+  # ===========================================================
   # Every configured VAV box is driven, in order.
   # ===========================================================
 
   settings({
-    instance_type:     "multi_state_value",
-    vav_ids:           [{object: 1234, instance: 1}, {object: 5678, instance: 2}],
-    vav_off_delay_sec: 999_999,
-    vav_off_state:     3,
-    vav_on_state:      1,
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}, {object: 5678, instance: 2}],
+    vav_off_delay_sec:    999_999,
+    vav_sensor_delay_sec: 0,
+    vav_off_state:        3,
+    vav_on_state:         1,
   })
   sleep 100.milliseconds
 
@@ -119,11 +275,12 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   # ===========================================================
 
   settings({
-    instance_type:     "multi_state_value",
-    vav_ids:           [{object: 42, instance: 1}],
-    vav_off_delay_sec: 999_999,
-    vav_off_state:     2, # this device uses 2 = Off
-    vav_on_state:      4, # and 4 = Standby to admit air
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 42, instance: 1}],
+    vav_off_delay_sec:    999_999,
+    vav_sensor_delay_sec: 0,
+    vav_off_state:        2, # this device uses 2 = Off
+    vav_on_state:         4, # and 4 = Standby to admit air
   })
   sleep 100.milliseconds
 
@@ -159,7 +316,7 @@ end
 # Mocks the Ashrae::BACnetSecureConnect driver. The VAV controller only ever
 # calls write_unsigned_int against it, so we record those writes for assertion.
 # The controller invokes it as:
-#   write_unsigned_int(vav.object, vav.instance, state, instance_type)
+#   write_unsigned_int(vav.object, vav.instance, state, instance_type, priority)
 class BACnetMock < DriverSpecs::MockDriver
   @writes = [] of Tuple(Int32, Int32, Int32)
 

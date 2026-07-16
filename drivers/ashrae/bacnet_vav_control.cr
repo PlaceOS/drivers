@@ -32,7 +32,9 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     }],
     vav_write_priority: 14,
 
-    vav_off_delay_sec: 5 * 60,
+    vav_off_delay_sec:    5 * 60,
+    vav_sensor_delay_sec: 2 * 60,
+    vav_disable_sensor:   false,
 
     # enum values
     # Occupied = 1
@@ -55,6 +57,8 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
   getter? sensor_active : Bool = true
   getter? presence : Bool = false
 
+  @vav_disable_sensor : Bool = false
+  @vav_sensor_delay_sec : Time::Span = 2.minutes
   @vav_off_delay_sec : Time::Span = 5.minutes
   @vav_write_priority : Int32 = 14
   @vav_off_state : Int32 = 3
@@ -75,6 +79,8 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     @bacnet_system_id = setting?(String, :bacnet_system_id)
     @bacnet_module = setting?(String, :bacnet_module) || "BACnet_1"
 
+    @vav_disable_sensor = setting?(Bool, :vav_disable_sensor) || false
+    @vav_sensor_delay_sec = (setting?(Int32, :vav_sensor_delay_sec) || (2 * 60)).seconds
     @vav_off_delay_sec = (setting?(Int32, :vav_off_delay_sec) || (5 * 60)).seconds
     @vav_write_priority = setting?(Int32, :vav_write_priority) || 14
     @vav_off_state = setting?(Int32, :vav_off_state) || 3
@@ -109,48 +115,94 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     update_state
   end
 
-  @update_mutex : Mutex = Mutex.new
+  @update_mutex : Mutex = Mutex.new(:reentrant)
   @off_timer : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+  # debounces sensor-driven turn on so a brief false positive doesn't flip the air on
+  @on_timer : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
 
   # this is our understanding of the current state (ignoring the off delay)
   getter? vav_active : Bool = false
 
-  protected def update_state
-    # we default to true if the sensor has failed
-    room_in_use = sensor_active? ? presence? : true
-    activate_vav = room_booked? || room_in_use
-    store_value = activate_vav.to_s
-
+  protected def apply_vav_state(vav_on : Bool)
     @update_mutex.synchronize do
+      @vav_active = vav_on
       agreement = true
+      store_value = vav_on.to_s
 
       @vav_ids.each do |vav|
         storage = PlaceOS::Driver::RedisStorage.new(vav.lookup_id, @instance_type)
         storage.set_expire(system_id, store_value, ttl: 7.minutes)
 
         # ensure all systems have no people in them
-        if !activate_vav && agreement
+        if !vav_on && agreement
           agreement = !storage.values.includes?("true")
         end
       end
 
-      if activate_vav
-        # send turn on signal
-        if off_timer = @off_timer
-          off_timer.cancel rescue nil
-          @off_timer = nil
-        end
-        @vav_active = true
+      if vav_on
         turn_on_vav
       elsif agreement
-        @vav_active = false
+        turn_off_vav
+      else
+        cancel_on_timer
 
-        # schedule turn off
-        return if @off_timer
-        @off_timer = schedule.in(@vav_off_delay_sec) { check_before_turning_off }
-        self[:vav_pending_off] = true
+        # vav is off but there is not cross room agreement
+        logger.info { "No presence in room, however no agreement reached on vav state across spaces. No change applied." }
+        if @off_timer.nil?
+          @off_timer = schedule.in(TTL_TIME) { check_before_turning_off }
+        end
       end
     end
+  end
+
+  protected def update_state
+    return apply_vav_state(true) if room_booked?
+
+    if @vav_disable_sensor
+      room_in_use = false
+    else
+      # we default to true if the sensor has failed
+      room_in_use = sensor_active? ? presence? : true
+    end
+
+    @update_mutex.synchronize do
+      # check if the sensor has detected something, otherwise the room is off
+      if room_in_use
+        return apply_vav_state(true) if @vav_sensor_delay_sec.zero?
+
+        if @on_timer.nil?
+          cancel_off_timer
+          @on_timer = schedule.in(@vav_sensor_delay_sec) { apply_vav_state(true) }
+          self[:vav_pending_on] = true
+        end
+
+        return
+      end
+
+      # otherwise the room has no occupancy and is not in use.
+      return if @off_timer
+      cancel_on_timer
+      @off_timer = schedule.in(@vav_off_delay_sec) { apply_vav_state(false) }
+      self[:vav_pending_off] = true
+    end
+  end
+
+  # cancels a pending sensor-driven turn on (must be called holding @update_mutex)
+  protected def cancel_on_timer : Nil
+    if on_timer = @on_timer
+      on_timer.cancel rescue nil
+      @on_timer = nil
+    end
+    self[:vav_pending_on] = false
+  end
+
+  # cancels a pending sensor-driven turn on (must be called holding @update_mutex)
+  protected def cancel_off_timer : Nil
+    if off_timer = @off_timer
+      off_timer.cancel rescue nil
+      @off_timer = nil
+    end
+    self[:vav_pending_off] = false
   end
 
   TTL_TIME = 7.minutes
@@ -166,10 +218,11 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
 
   # if multiple rooms share a VAV this ensures we leave it on if there is activity elsewhere
   protected def check_before_turning_off : Nil
+    return if vav_active?
     agreement = true
-    return if @vav_active
 
     @update_mutex.synchronize do
+      @off_timer.try(&.cancel) rescue nil
       @off_timer = nil
 
       # ensure all systems have no people in them
@@ -183,7 +236,9 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     return turn_off_vav if agreement
 
     @update_mutex.synchronize do
-      @off_timer = schedule.in(TTL_TIME) { check_before_turning_off } unless @vav_active
+      if @off_timer.nil?
+        @off_timer = schedule.in(TTL_TIME) { check_before_turning_off } unless vav_active?
+      end
     end
   end
 
@@ -193,18 +248,25 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
   end
 
   def turn_off_vav
+    # turning off supersedes any pending turn on
+    cancel_off_timer
+    cancel_on_timer
     @vav_ids.each do |vav|
       bacnet.write_unsigned_int(vav.object, vav.instance, @vav_off_state, @instance_type, @vav_write_priority).get_json rescue nil
     end
-    self[:vav_pending_off] = false
     self[:vav_active] = false
+    logger.info { "turned vav off" }
   end
 
   def turn_on_vav
+    # turning on supersedes any pending turn off - otherwise a stale off timer
+    # (armed while the room was empty) could later switch the air off mid-use
+    cancel_on_timer
+    cancel_off_timer
     @vav_ids.each do |vav|
       bacnet.write_unsigned_int(vav.object, vav.instance, @vav_on_state, @instance_type, @vav_write_priority).get_json rescue nil
     end
-    self[:vav_pending_off] = false
     self[:vav_active] = true
+    logger.info { "turned vav on" }
   end
 end
