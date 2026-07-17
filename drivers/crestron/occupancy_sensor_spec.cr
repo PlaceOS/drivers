@@ -1,6 +1,17 @@
 require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Crestron::OccupancySensor" do
+  # use a short smoothing window so the sliding-window flip is observable within
+  # the spec's real-time sleeps (production defaults are minutes)
+  settings({
+    username: "admin",
+    password: "admin",
+
+    presence_smoothing_window_sec: 1,
+    presence_smoothing_threshold:  0.6,
+    presence_evaluation_sec:       1,
+  })
+
   full_query = %({
     "Device": {
       "DeviceInfo": {
@@ -96,14 +107,17 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     end
   end
   resp.get
+  # the initial (vacant) reading is observed and latched as the smoothed output
   status[:occupied].should be_false
+  status[:raw_occupied].should be_false
   status[:name].should eq "Room1-Sensor"
   status[:mac].should eq "00107fec2d72"
 
-  sleep 1.04.seconds
-  puts "==> long polling"
+  puts "==> long polling (sensor now reports occupied)"
 
-  # expect a series of long polls
+  # the sensor starts reporting occupancy - long_poll only RECORDS the raw
+  # observation, it no longer publishes occupancy directly. Evaluation of the
+  # smoothed state happens independently in update_sensor.
   expect_http_request do |request, response|
     if request.path == "/Device/Longpoll"
       response.status_code = 200
@@ -114,8 +128,35 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     end
   end
 
-  sleep 0.5.seconds
-  status[:occupied].should be_true
+  # wait for the long poll to record the raw observation (raw follows the sensor)
+  raw_seen_occupied = false
+  40.times do
+    exec(:update_sensor).get
+    if status[:raw_occupied]?.try(&.as_bool)
+      raw_seen_occupied = true
+      break
+    end
+    sleep 0.1.seconds
+  end
+  raw_seen_occupied.should be_true
+
+  # ...but a single fresh observation must NOT immediately flip the smoothed
+  # output - "occupied" stays latched until occupancy dominates the 1s window
+  status[:occupied].should be_false
+
+  puts "==> waiting for the smoothing window to fill"
+
+  # once occupancy has dominated the window the smoothed output switches on
+  became_occupied = false
+  40.times do
+    exec(:update_sensor).get
+    if status[:occupied]?.try(&.as_bool)
+      became_occupied = true
+      break
+    end
+    sleep 0.1.seconds
+  end
+  became_occupied.should be_true
 
   resp = exec(:get_sensor_details).get.not_nil!
   resp.should eq({
@@ -129,4 +170,30 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     "binding"   => "presence",
     "location"  => "sensor",
   })
+
+  puts "==> sensor now reports vacant"
+
+  # the sensor now reports vacant - again long_poll only records the raw reading
+  expect_http_request do |request, response|
+    if request.path == "/Device/Longpoll"
+      response.status_code = 200
+      response << %({"Device": {"OccupancySensor": {"IsRoomOccupied": false}}})
+    else
+      response.status_code = 401
+      response << "badly formatted"
+    end
+  end
+
+  # once vacancy dominates the window the smoothed output switches back off,
+  # proving the long poll fed the observation through to update_sensor
+  became_vacant = false
+  40.times do
+    exec(:update_sensor).get
+    unless status[:occupied]?.try(&.as_bool)
+      became_vacant = true
+      break
+    end
+    sleep 0.1.seconds
+  end
+  became_vacant.should be_true
 end

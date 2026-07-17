@@ -1,6 +1,7 @@
 require "placeos-driver"
 require "placeos-driver/interface/sensor"
 require "placeos-driver/interface/device_info"
+require "placeos-driver/interface/presence_smoother"
 require "./cres_next_auth"
 
 # This device doesn't seem to support a websocket interface
@@ -22,6 +23,13 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     http_keep_alive_seconds: 600,
     http_max_requests:       1200,
+
+    # occupancy smoothing: raw sensor readings are observed continuously and
+    # the exposed presence is only flipped once one state dominates the sliding
+    # window, avoiding flicker from an unreliable PIR / ultrasonic sensor
+    presence_smoothing_window_sec: 120,
+    presence_smoothing_threshold:  0.7,
+    presence_evaluation_sec:       10,
   })
 
   @mac : String = ""
@@ -34,6 +42,14 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   @monitoring : Bool = false
   @lock : Mutex = Mutex.new
 
+  # smooths the noisy sensor and serialises access to it (observe vs poll) so a
+  # poll's timestamp can never precede a concurrent observation
+  @presence_lock : Mutex = Mutex.new
+  @presence_window : Time::Span = 3.minutes
+  @presence_threshold : Float64 = 0.7
+  @presence_evaluation : Time::Span = 10.seconds
+  @smoother : PlaceOS::Driver::Presence::Smoother = PlaceOS::Driver::Presence::Smoother.new
+
   def on_load
   end
 
@@ -41,14 +57,32 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
   def on_update
     @authenticating = false
+
+    window = (setting?(Int32, :presence_smoothing_window_sec) || 120).seconds
+    threshold = setting?(Float64, :presence_smoothing_threshold) || 0.7
+    @presence_evaluation = (setting?(Int32, :presence_evaluation_sec) || 10).seconds
+
+    # only rebuild the smoother (losing its history) when the tuning changes
+    if window != @presence_window || threshold != @presence_threshold
+      @presence_window = window
+      @presence_threshold = threshold
+      @presence_lock.synchronize { @smoother = PlaceOS::Driver::Presence::Smoother.new(window, threshold) }
+    end
+
     connected
   end
 
   def connected
     schedule.clear
     schedule.every(10.minutes) { authenticate }
+    schedule.every(@presence_evaluation) { update_sensor }
     schedule.in(1.second) { authenticate } unless @authenticating
     @authenticating = true
+  end
+
+  # records a raw sensor reading against the smoother
+  protected def observe_presence(occupied : Bool) : Nil
+    @presence_lock.synchronize { @smoother.observe(occupied) }
   end
 
   protected def on_authenticated : Nil
@@ -72,12 +106,12 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     logger.debug { "device details payload: #{payload.to_pretty_json}" }
 
     @last_update = Time.utc.to_unix
-    self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
-    self[:presence] = @occupied ? 1.0 : 0.0
+    observe_presence(payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool)
     mac = payload.dig("Device", "DeviceInfo", "MacAddress").as_s
     self[:mac] = @mac = format_mac(mac)
     self[:name] = @name = payload.dig?("Device", "DeviceInfo", "Name").try(&.as_s?).presence
 
+    # reflect the initial reading immediately (the schedule takes over from here)
     update_sensor
 
     # Start long polling once we have state.
@@ -146,17 +180,16 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     payload = JSON.parse(raw_json)
 
     if !raw_json.includes?("IsRoomOccupied")
-      if !@occupied.nil? && payload["Device"]?.try(&.raw)
-        @last_update = Time.utc.to_unix
-        update_sensor
-      end
+      # a keep-alive / unrelated update - just note the device is still alive.
+      # The scheduled update_sensor refreshes last_seen from here.
+      @last_update = Time.utc.to_unix if payload["Device"]?.try(&.raw)
       return true
     end
 
+    # record the raw reading; the scheduled update_sensor evaluates the
+    # smoothed state and publishes it
     @last_update = Time.utc.to_unix
-    self[:occupied] = @occupied = payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool
-    self[:presence] = @occupied ? 1.0 : 0.0
-    update_sensor
+    observe_presence(payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool)
 
     true
   rescue timeout : IO::TimeoutError
@@ -169,25 +202,43 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
   @update_lock = Mutex.new
 
-  protected def update_sensor
+  # Evaluates the smoothed occupancy and publishes it. Called on a schedule
+  # (independently of the sensor's long poll, which only records observations)
+  # and once directly after the initial device query for a prompt first value.
+  def update_sensor : Nil
+    snapshot = @presence_lock.synchronize { @smoother.poll }
+
+    # no raw observations recorded yet - nothing to publish
+    return if snapshot.nil?
+
+    occupied = snapshot.state
+    self[:occupied] = @occupied = occupied
+    self[:presence] = occupied ? 1.0 : 0.0
+    self[:raw_occupied] = snapshot.raw_state
+    self[:presence_confidence] = snapshot.confidence_percent
+
+    value = occupied ? 1.0 : 0.0
+    last_seen = authenticated? ? Time.utc.to_unix : @last_update
+    status = authenticated? ? Status::Normal : Status::Fault
+
     @update_lock.synchronize do
       if sensor = @sensor_data[0]?
-        sensor.value = @occupied ? 1.0 : 0.0
-        sensor.last_seen = authenticated? ? Time.utc.to_unix : @last_update
+        sensor.value = value
+        sensor.last_seen = last_seen
         sensor.mac = @mac
         sensor.name = @name
-        sensor.status = authenticated? ? Status::Normal : Status::Fault
+        sensor.status = status
       else
         @sensor_data << Detail.new(
           type: :presence,
-          value: @occupied ? 1.0 : 0.0,
-          last_seen: authenticated? ? Time.utc.to_unix : @last_update,
+          value: value,
+          last_seen: last_seen,
           mac: @mac,
           id: nil,
           name: @name,
           module_id: module_id,
           binding: "presence",
-          status: authenticated? ? Status::Normal : Status::Fault,
+          status: status,
         )
       end
     end
