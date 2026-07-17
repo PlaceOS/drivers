@@ -43,6 +43,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
     _group_lookup_backoff:     2,
     _group_lookup_max_backoff: 30,
 
+    # gallagher cardholder lookups are similarly retried before a user is marked
+    # as a failed lookup for the run, so a transient Gallagher hiccup doesn't
+    # withhold an otherwise-valid booking. Tuning knobs (seconds); defaults retry
+    # 5 times, 2s → 30s.
+    _cardholder_lookup_retries:     5,
+    _cardholder_lookup_backoff:     2,
+    _cardholder_lookup_max_backoff: 30,
+
     # ordered list of parking-space FEATURE names that determine allocation
     # preference (earlier = higher priority). Matched against `space.features`,
     # not the asset's zones.
@@ -121,6 +129,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @group_lookup_retries : Int32 = 5
   @group_lookup_backoff : Time::Span = 2.seconds
   @group_lookup_max_backoff : Time::Span = 30.seconds
+  # gallagher cardholder-lookup retry policy (see lookup_cardholder)
+  @cardholder_lookup_retries : Int32 = 5
+  @cardholder_lookup_backoff : Time::Span = 2.seconds
+  @cardholder_lookup_max_backoff : Time::Span = 30.seconds
   @car_zone_priority : Array(String) = [] of String
   @bike_zone_priority : Array(String) = [] of String
   @parking_areas : Hash(String, String) = {} of String => String
@@ -281,6 +293,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @group_lookup_retries = setting?(Int32, :group_lookup_retries) || 5
     @group_lookup_backoff = (setting?(Int32, :group_lookup_backoff) || 2).seconds
     @group_lookup_max_backoff = (setting?(Int32, :group_lookup_max_backoff) || 30).seconds
+
+    @cardholder_lookup_retries = setting?(Int32, :cardholder_lookup_retries) || 5
+    @cardholder_lookup_backoff = (setting?(Int32, :cardholder_lookup_backoff) || 2).seconds
+    @cardholder_lookup_max_backoff = (setting?(Int32, :cardholder_lookup_max_backoff) || 30).seconds
 
     @car_zone_priority = setting?(Array(String), :car_zone_priority) || [] of String
     @bike_zone_priority = setting?(Array(String), :bike_zone_priority) || [] of String
@@ -1770,27 +1786,42 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # already failed (and recorded) earlier in this sync — don't retry/re-record
     return nil if @failed_lookups.includes?(user_email)
 
-    # value we query Gallagher with: the resolved directory id (e.g. employeeId)
-    # when configured, otherwise the email itself
-    lookup_value = gallagher_lookup_value(user_email)
-    if lookup_value.nil?
-      @failed_lookups << user_email
-      return nil
+    id = nil
+
+    # a transient Gallagher failure is retried with exponential backoff before
+    # the error propagates to the rescue below — only a persistent failure marks
+    # the user as a failed lookup for this run
+    SimpleRetry.try_to(
+      # +1: the initial attempt plus @cardholder_lookup_retries retries
+      max_attempts: @cardholder_lookup_retries + 1,
+      base_interval: @cardholder_lookup_backoff,
+      max_interval: @cardholder_lookup_max_backoff,
+    ) do |attempt, last_error|
+      logger.warn(exception: last_error) { "retrying cardholder lookup for #{user_email} (attempt #{attempt})" } if last_error
+
+      # value we query Gallagher with: the resolved directory id (e.g. employeeId)
+      # when configured, otherwise the email itself
+      lookup_value = gallagher_lookup_value(user_email)
+      if lookup_value.nil?
+        @failed_lookups << user_email
+        return nil
+      end
+
+      id_raw = gallagher.card_holder_id_lookup(lookup_value).get
+      # a blank string id is not a valid grant target — treat it as "no card"
+      id = id_raw.as_s?.presence || id_raw.as_i64?
+
+      if id.nil?
+        # the user has no card in Gallagher
+        logger.warn { "no gallagher cardholder for #{user_email} (lookup: #{lookup_value})" }
+        employee_id = @gallagher_id_field ? lookup_value : nil
+        record_lookup_error(user_email, employee_id, "no gallagher cardholder found")
+        @failed_lookups << user_email
+        return nil
+      end
     end
 
-    id_raw = gallagher.card_holder_id_lookup(lookup_value).get
-    # a blank string id is not a valid grant target — treat it as "no card"
-    id = id_raw.as_s?.presence || id_raw.as_i64?
-    if id.nil?
-      # the user has no card in Gallagher
-      logger.warn { "no gallagher cardholder for #{user_email} (lookup: #{lookup_value})" }
-      employee_id = @gallagher_id_field ? lookup_value : nil
-      record_lookup_error(user_email, employee_id, "no gallagher cardholder found")
-      @failed_lookups << user_email
-      return nil
-    end
-
-    @cardholder_cache[user_email] = id
+    @cardholder_cache[user_email] = id.as(String | Int64)
     id
   rescue error
     logger.warn(exception: error) { "cardholder lookup failed for #{user_email}" }
