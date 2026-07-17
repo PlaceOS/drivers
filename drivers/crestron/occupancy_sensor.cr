@@ -177,19 +177,23 @@ class Crestron::OccupancySensor < PlaceOS::Driver
 
     raw_json = response.body
     logger.debug { "long poll sent: #{raw_json}" }
-    payload = JSON.parse(raw_json)
 
-    if !raw_json.includes?("IsRoomOccupied")
+    # {"Device":{"OccupancySensor":{"RawStates":{"RawOccupancy":true}}}}
+    if raw_json.includes?("RawOccupancy")
+      @last_update = Time.utc.to_unix
+      payload = JSON.parse(raw_json)
+      observe_presence(payload.dig("Device", "OccupancySensor", "RawStates", "RawOccupancy").as_bool)
+    elsif raw_json.includes?("IsRoomOccupied")
+      # record the raw reading; the scheduled update_sensor evaluates the
+      # smoothed state and publishes it
+      @last_update = Time.utc.to_unix
+      payload = JSON.parse(raw_json)
+      observe_presence(payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool)
+    else
       # a keep-alive / unrelated update - just note the device is still alive.
       # The scheduled update_sensor refreshes last_seen from here.
-      @last_update = Time.utc.to_unix if payload["Device"]?.try(&.raw)
-      return true
+      @last_update = Time.utc.to_unix if raw_json.includes?("Device")
     end
-
-    # record the raw reading; the scheduled update_sensor evaluates the
-    # smoothed state and publishes it
-    @last_update = Time.utc.to_unix
-    observe_presence(payload.dig("Device", "OccupancySensor", "IsRoomOccupied").as_bool)
 
     true
   rescue timeout : IO::TimeoutError
