@@ -196,8 +196,10 @@ class Place::Workplace < PlaceOS::Driver
       desks = Array(Desk).from_json(all_desks.to_json)
       desk = desks.find { |d| d.id == asset_id }
 
-      raise "could not find a desk with id: #{asset_id}" unless desk
+      raise "could not find a desk with id '#{asset_id}', maybe you passed the desk name?" unless desk
     end
+
+    friendly_name = desk.try(&.name) || asset_id
 
     ids = (day_offset...(day_offset + number_of_days)).map do |offset|
       # calculate the offset time
@@ -208,14 +210,14 @@ class Place::Workplace < PlaceOS::Driver
       resp = staff_api.create_booking(
         booking_type: booking_type,
         asset_id: asset_id,
-        asset_name: desk.try(&.name) || asset_id,
+        asset_name: friendly_name,
         user_id: user_id,
         user_email: me.email,
         user_name: me.name,
         zones: booking_zones(level_id),
         booking_start: starting.to_unix,
         booking_end: ending.to_unix,
-        description: desk.try(&.name) || asset_id,
+        description: friendly_name,
         time_zone: timezone.to_s,
         extension_data: booking_extension_data(asset_id, desk),
         utm_source: "chatgpt"
@@ -226,7 +228,7 @@ class Place::Workplace < PlaceOS::Driver
 
     {
       booking_ids: ids,
-      details:     "booking for #{asset_id} created on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}",
+      details:     "booking of asset_id '#{asset_id}' with name '#{friendly_name}' created on #{starting.day_of_week}, #{starting.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}",
     }
   end
 
@@ -258,8 +260,10 @@ class Place::Workplace < PlaceOS::Driver
       desks = Array(Desk).from_json(all_desks.to_json)
       desk = desks.find { |d| d.id == asset_id }
 
-      raise "could not find a desk with id: #{asset_id}" unless desk
+      raise "could not find a desk with id '#{asset_id}', maybe you passed the desk name?" unless desk
     end
+
+    friendly_name = desk.try(&.name) || asset_id
 
     ids = (0...number_of_days).map do |offset|
       # calculate the offset time
@@ -270,14 +274,14 @@ class Place::Workplace < PlaceOS::Driver
       resp = staff_api.create_booking(
         booking_type: booking_type,
         asset_id: asset_id,
-        asset_name: desk.try(&.name) || asset_id,
+        asset_name: friendly_name,
         user_id: user_id,
         user_email: me.email,
         user_name: me.name,
         zones: booking_zones(level_id),
         booking_start: starting.to_unix,
         booking_end: ending.to_unix,
-        description: desk.try(&.name) || asset_id,
+        description: friendly_name,
         time_zone: timezone.to_s,
         extension_data: booking_extension_data(asset_id, desk),
         utm_source: "chatgpt"
@@ -287,7 +291,7 @@ class Place::Workplace < PlaceOS::Driver
 
     {
       booking_ids: ids,
-      details:     "booking for #{asset_id} created on #{now.day_of_week}, #{now.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}",
+      details:     "booking of asset_id '#{asset_id}' with name '#{friendly_name}' created on #{now.day_of_week}, #{now.to_s("%F")} for #{number_of_days} #{number_of_days > 1 ? "days" : "day"}",
     }
   end
 
