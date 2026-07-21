@@ -277,7 +277,7 @@ class Place::StaffAPI < PlaceOS::Driver
     response = post("/api/engine/v2/users", body: body_json, headers: authentication(HTTP::Headers{
       "Content-Type" => "application/json",
     }))
-    raise "failed to create user: #{response.status_code}" unless response.success?
+    raise "failed to create user: #{response.status_code}\n#{response.body}" unless response.success?
     PlaceOS::Client::API::Models::User.from_json response.body
   end
 
