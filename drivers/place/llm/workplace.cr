@@ -205,7 +205,9 @@ class Place::Workplace < PlaceOS::Driver
     user_id = invoked_by_user_id
     logger.debug { "obtaining list of colleagues for #{user_id}" }
 
-    level_ids = all_levels.map(&.id)
+    # `all_levels` leads with the building, and bookings are tagged with the
+    # building zone too, so we have to ignore it to resolve the actual level
+    level_ids = all_levels.select(&.tags.includes?("level")).map(&.id)
 
     colleagues = staff_api.metadata(user_id, "contacts").get.dig?("contacts", "details").try(&.as_a) || [] of JSON::Any
     colleagues.map do |colleague|
@@ -230,9 +232,9 @@ class Place::Workplace < PlaceOS::Driver
       end
 
       if desk_id
-        Colleagues.new(name, email, groups)
-      else
         Colleagues.new(name, email, groups, starting, desk_id, desk_name, desk_level_id)
+      else
+        Colleagues.new(name, email, groups)
       end
     end
   end
@@ -264,10 +266,118 @@ class Place::Workplace < PlaceOS::Driver
     @level_data_cache[desk_level_id] = Nearby.new(map_data)
   end
 
+  # Desks are booked by id, but they are drawn on the level map under their
+  # map_id, so we have to translate between the two. Returns desk_id => map_id
+  protected def desk_map_ids(level_id : String) : Hash(String, String)
+    all_desks = staff_api.metadata(level_id, "desks").get.dig?("desks", "details")
+    raise "no desks configured on level #{level_id}" unless all_desks
+    Array(Desk).from_json(all_desks.to_json).to_h { |desk| {desk.id, desk.map_id} }
+  end
+
   @[Description("given a desk_id this returns nearby desks in order of how close they are. You can provide a colleagues desk_id for instance and then pick the first id that matches one of the desks available for booking")]
   def nearby_desks(desk_level_id : String, desk_id : String) : Array(String)
     map = get_nearby_helper(desk_level_id)
-    map.find_near(desk_id, "desk")
+    map_ids = desk_map_ids(desk_level_id)
+
+    seated_at = map_ids[desk_id]?
+    raise "could not find a desk with id '#{desk_id}' on level #{desk_level_id}, maybe you passed the desk name?" unless seated_at
+
+    # anything drawn on the map without a desk configured can't be booked
+    desk_ids = map_ids.invert
+    map.find_near(seated_at, "desk").compact_map { |map_id| desk_ids[map_id]? }
+  end
+
+  struct NearbyColleagues
+    include JSON::Serializable
+
+    getter level_id : String
+    getter number_of_colleagues : Int32
+
+    # a unique list of the groups all these colleagues are in
+    getter groups : Array(String) = [] of String
+
+    # a weighted list of desks, let's say a you have 3 colleagues on a level
+    # and a desk is second in the list for one colleague and 4th for the other two colleagues it
+    # may appear higher in this list than the first desk in any of the individual colleagues nearby lists
+    getter nearby_desks : Array(String) = [] of String
+
+    def initialize(@level_id, @number_of_colleagues, @groups, @nearby_desks)
+    end
+  end
+
+  # how many ranked desks we return per level
+  NEARBY_DESK_RESULTS = 10
+
+  @[Description("checks if your colleagues have booked desks on the day specified and ranks desks by proximity")]
+  def desks_near_colleagues(day_offset : Int32 = 0, date : Time? = nil) : Array(NearbyColleagues)
+    colleagues = colleagues(day_offset, date)
+    seated = colleagues.select { |colleague| colleague.desk_id && colleague.desk_level_id }
+    raise "none of your colleagues has booked a desk on this day" if seated.empty?
+
+    by_level = seated.group_by { |colleague| colleague.desk_level_id.not_nil! }
+
+    by_level.compact_map { |level_id, colleagues_on_level|
+      begin
+        nearby_colleagues(level_id, colleagues_on_level, day_offset, date)
+      rescue error
+        # a level without a map, or with no desks left, shouldn't hide the others
+        logger.warn(exception: error) { "unable to rank desks on level #{level_id}" }
+        nil
+      end
+    }.sort_by! { |level| -level.number_of_colleagues }
+  end
+
+  protected def nearby_colleagues(
+    level_id : String,
+    colleagues_on_level : Array(Colleagues),
+    day_offset : Int32,
+    date : Time?,
+  ) : NearbyColleagues?
+    map = get_nearby_helper(level_id)
+    map_ids = desk_map_ids(level_id)
+
+    # only rank desks the user can actually book on the day in question
+    bookable = desks(level_id, day_offset, date)
+    return nil if bookable.empty?
+
+    # map_id => the desk that can be booked there
+    available = bookable.to_h { |desk| {desk.map_id, desk} }
+
+    # Borda count: every colleague ranks the available desks by proximity and
+    # awards points in that order, so a desk that is a decent walk for several
+    # colleagues beats one that is closest to a single colleague.
+    scores = Hash(String, Int32).new(0)
+
+    colleagues_on_level.each do |colleague|
+      desk_id = colleague.desk_id.not_nil!
+      seated_at = map_ids[desk_id]?
+      unless seated_at
+        logger.debug { "desk #{desk_id} is no longer configured on level #{level_id}" }
+        next
+      end
+
+      ranked = begin
+        map.find_near(seated_at, "desk", Int32::MAX)
+      rescue error
+        # the colleague may be sitting at a desk that isn't drawn on this map
+        logger.debug { "could not locate desk #{seated_at} on the #{level_id} map: #{error.message}" }
+        next
+      end
+
+      ranked.select! { |map_id| available.has_key?(map_id) }
+      ranked.each_with_index { |map_id, index| scores[map_id] += ranked.size - index }
+    end
+
+    return nil if scores.empty?
+
+    nearby = scores.to_a
+      .sort_by! { |(map_id, score)| {-score, map_id} }
+      .first(NEARBY_DESK_RESULTS)
+      .map { |(map_id, _score)| available[map_id].id }
+
+    groups = colleagues_on_level.flat_map(&.groups).uniq!
+
+    NearbyColleagues.new(level_id, colleagues_on_level.size, groups, nearby)
   end
 
   @[Description("books an asset, such as a desk, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
@@ -476,7 +586,7 @@ class Place::Workplace < PlaceOS::Driver
     getter bookable : Bool { true }
     getter groups : Array(String) = [] of String
     getter features : Array(String) = [] of String
-    getter map_id : String? = nil
+    getter map_id : String { id }
   end
 
   protected def to_friendly_system(system : JSON::Any) : System?
