@@ -4,6 +4,7 @@ require "set"
 
 # metadata class
 require "placeos"
+require "./nearby"
 
 class Place::Workplace < PlaceOS::Driver
   include Interface::ChatFunctions
@@ -36,6 +37,9 @@ class Place::Workplace < PlaceOS::Driver
     @max_booking_days = setting?(Int32, :max_booking_days) || 14
     @booking_start_hour = setting?(Int32, :booking_start_hour) || 8
     @booking_end_hour = setting?(Int32, :booking_end_hour) || 20
+
+    # clear the level map data
+    @level_data_cache = {} of String => Nearby
   end
 
   # =========================
@@ -231,6 +235,39 @@ class Place::Workplace < PlaceOS::Driver
         Colleagues.new(name, email, groups, starting, desk_id, desk_name, desk_level_id)
       end
     end
+  end
+
+  # level map svg data
+  @level_data_cache : Hash(String, Nearby) = {} of String => Nearby
+
+  protected def get_nearby_helper(desk_level_id : String) : Nearby
+    if nearby = @level_data_cache[desk_level_id]?
+      return nearby
+    end
+
+    levels = all_levels
+    level = levels.find { |l| l.id == desk_level_id }
+    raise "unknown level id #{desk_level_id}, must be one of #{levels.map(&.id)}" unless level
+
+    map_id = level.map_id.presence
+    raise "level #{desk_level_id} does not have a map configured" unless map_id
+
+    map_data = begin
+      response = HTTP::Client.get URI.parse(map_id)
+      raise "unexpected response #{response.status_code}" unless response.success?
+      response.body
+    rescue error
+      logger.warn(exception: error) { "failed to obtain map data for level #{desk_level_id}" }
+      raise "failed to obtain map data for level #{desk_level_id}"
+    end
+
+    @level_data_cache[desk_level_id] = Nearby.new(map_data)
+  end
+
+  @[Description("given a desk_id this returns nearby desks in order of how close they are. You can provide a colleagues desk_id for instance and then pick the first id that matches one of the desks available for booking")]
+  def nearby_desks(desk_level_id : String, desk_id : String) : Array(String)
+    map = get_nearby_helper(desk_level_id)
+    map.find_near(desk_id, "desk")
   end
 
   @[Description("books an asset, such as a desk, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
@@ -611,6 +648,9 @@ class Place::Workplace < PlaceOS::Driver
     getter display_name : String?
     getter tags : Array(String)
     getter parent_id : String? = nil
+
+    @[JSON::Field(ignore_serialize: true)]
+    getter map_id : String? = nil
 
     property bookable_desk_count : Int32? = nil
     property desk_features : Array(String)? = nil

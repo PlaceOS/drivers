@@ -1,4 +1,35 @@
 require "placeos-driver/spec"
+require "http/server"
+
+# :nodoc:
+# The driver fetches level maps over HTTP, so we serve a small fixture map on a
+# fixed local port. Desks are laid out so the expected ordering is unambiguous
+# and each geometry / transform case the parser supports is represented.
+MAP_PORT = 8199
+
+FIXTURE_MAP = <<-SVG
+  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <g id="desk ids">
+      <rect id="desk.1" x="0" y="0" width="10" height="10" />
+      <rect id="desk.2" x="20" y="0" width="10" height="10" />
+      <path id="desk.3" d="m 1,30 h 8 a 1,1 0 0 1 1,1 v 8 a 1,1 0 0 1 -1,1 h -8 a 1,1 0 0 1 -1,-1 v -8 a 1,1 0 0 1 1,-1 z" />
+      <rect id="desk.4" x="0" y="0" width="10" height="10" transform="translate(100,100)" />
+      <rect id="desk.5" x="0" y="0" width="10" height="10" transform="rotate(90,0,0)" />
+    </g>
+    <g id="room ids">
+      <rect id="room.1" x="60" y="60" width="20" height="20" />
+    </g>
+  </svg>
+  SVG
+
+spawn do
+  server = HTTP::Server.new do |context|
+    context.response.content_type = "image/svg+xml"
+    context.response.print FIXTURE_MAP
+  end
+  server.bind_tcp "127.0.0.1", MAP_PORT
+  server.listen
+end
 
 # :nodoc:
 # The spec harness gives the control system these zones, so the building the
@@ -38,6 +69,7 @@ class StaffAPI < DriverSpecs::MockDriver
     tags:         ["level"],
     parent_id:    "zone-building",
     timezone:     nil,
+    map_id:       "http://127.0.0.1:#{MAP_PORT}/level.svg",
   }
 
   def on_load
@@ -297,6 +329,20 @@ DriverSpecs.mock_driver "Place::Workplace" do
     start_time = Time.unix(system(:StaffAPI)[:last_booking_start].as_i64).in(perth)
     start_time.hour.should eq 9
     start_time.to_s("%F").should eq date.to_s("%F")
+  end
+
+  it "nearby_desks orders desks by distance from the source desk" do
+    # desk.1 is centred on (5,5): desk.5 is 10 away (rotated), desk.2 is 20
+    # away, desk.3 is 30 away (path with arcs) and desk.4 is translated well
+    # clear of the rest. The `desk ids` group that wraps them is not a desk.
+    nearby = exec(:nearby_desks, desk_level_id: "zone-level-1", desk_id: "desk.1").get
+    Array(String).from_json(nearby.to_json).should eq ["desk.5", "desk.2", "desk.3", "desk.4"]
+  end
+
+  it "nearby_desks raises when the desk is not on the map" do
+    expect_raises(Exception, /desk.404/) do
+      exec(:nearby_desks, desk_level_id: "zone-level-1", desk_id: "desk.404").get
+    end
   end
 
   it "book_on rejects a date beyond the max window" do
