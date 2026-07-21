@@ -170,6 +170,69 @@ class Place::Workplace < PlaceOS::Driver
     desks
   end
 
+  struct Colleagues
+    include JSON::Serializable
+
+    getter name : String
+    getter email : String
+    getter groups : Array(String) = [] of String
+
+    getter desk_booked_on : Time? = nil
+    getter desk_id : String? = nil
+    getter desk_name : String? = nil
+    getter desk_level_id : String? = nil
+
+    def initialize(@name, @email, @groups = [] of String, @desk_booked_on = nil, @desk_id = nil, @desk_name = nil, @desk_level_id = nil)
+    end
+  end
+
+  @[Description("returns a list of your colleagues and where are sitting today, a relative day in business hours or at a particular date and time. If the colleague has a desk it will return the date their desk is booked")]
+  def colleagues(day_offset : Int32 = 0, date : Time? = nil) : Array(Colleagues)
+    now = Time.local(timezone)
+
+    if date
+      starting = date.in(timezone)
+    else
+      days = day_offset.days
+      starting = now.at_beginning_of_day + days + 12.hours
+    end
+    ending = starting + 1.hour
+
+    user_id = invoked_by_user_id
+    logger.debug { "obtaining list of colleagues for #{user_id}" }
+
+    level_ids = all_levels.map(&.id)
+
+    colleagues = staff_api.metadata(user_id, "contacts").get.dig?("contacts", "details").try(&.as_a) || [] of JSON::Any
+    colleagues.map do |colleague|
+      colleague = colleague.as_h
+      name = colleague["name"].as_s
+      email = colleague["email"].as_s
+      groups = colleague["groups"].as_a?.try(&.map(&.as_s)) || [] of String
+
+      desk_id = nil
+      desk_name = nil
+      desk_level_id = nil
+
+      # TODO:: speed this up using promises and map-reduce
+      begin
+        if booking = staff_api.query_bookings(type: "desk", period_start: starting.to_unix, period_end: ending.to_unix, email: email).get.as_a.first?
+          desk_id = booking["asset_id"].as_s
+          desk_name = booking.dig?("extension_data", "name").try(&.as_s?) || booking["description"]?.try(&.as_s?) || desk_id
+          desk_level_id = (booking["zones"].as_a.map(&.as_s) & level_ids).first?
+        end
+      rescue error
+        logger.error(exception: error) { "check for desks failed" }
+      end
+
+      if desk_id
+        Colleagues.new(name, email, groups)
+      else
+        Colleagues.new(name, email, groups, starting, desk_id, desk_name, desk_level_id)
+      end
+    end
+  end
+
   @[Description("books an asset, such as a desk, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
   def book_relative(booking_type : String, asset_id : String, level_id : String, day_offset : Int32 = 0, number_of_days : Int32 = 1)
     logger.debug { "booking relative #{booking_type}, asset #{asset_id} on level #{level_id}, day offset #{day_offset} for num days #{number_of_days}" }
