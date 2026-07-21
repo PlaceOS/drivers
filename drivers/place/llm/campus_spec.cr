@@ -771,7 +771,16 @@ DriverSpecs.mock_driver "Place::Campus" do
     result = exec(:desks_near_colleagues).get.as_a
 
     result.map(&.["level_id"].as_s).should eq ["zone-level-a1", "zone-level-b1"]
-    result.map(&.["number_of_colleagues"].as_i).should eq [3, 1]
+    result.map(&.["colleagues"].as_a.size).should eq [3, 1]
+
+    # display_name preferred over name, for both the building and the level
+    result.map(&.["level_name"].as_s).should eq ["Ground Floor", "Lobby"]
+
+    # who is sitting there, not just how many
+    result.first["colleagues"].as_a.map(&.["email"].as_s).sort.should eq [
+      "c1@example.com", "c2@example.com", "c3@example.com",
+    ]
+    result.last["colleagues"].as_a.map(&.["name"].as_s).should eq ["Colleague Four"]
 
     level_a1 = result.first
     level_a1["building_id"].as_s.should eq "zone-building-a"

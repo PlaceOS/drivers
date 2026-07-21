@@ -287,11 +287,22 @@ class Place::Workplace < PlaceOS::Driver
     map.find_near(seated_at, "desk").compact_map { |map_id| desk_ids[map_id]? }
   end
 
+  struct ColleagueName
+    include JSON::Serializable
+
+    getter name : String
+    getter email : String
+
+    def initialize(@name, @email)
+    end
+  end
+
   struct NearbyColleagues
     include JSON::Serializable
 
     getter level_id : String
-    getter number_of_colleagues : Int32
+    getter level_name : String
+    getter colleagues : Array(ColleagueName)
 
     # a unique list of the groups all these colleagues are in
     getter groups : Array(String) = [] of String
@@ -301,7 +312,7 @@ class Place::Workplace < PlaceOS::Driver
     # may appear higher in this list than the first desk in any of the individual colleagues nearby lists
     getter nearby_desks : Array(String) = [] of String
 
-    def initialize(@level_id, @number_of_colleagues, @groups, @nearby_desks)
+    def initialize(@level_id, @level_name, @colleagues, @groups, @nearby_desks)
     end
   end
 
@@ -324,7 +335,7 @@ class Place::Workplace < PlaceOS::Driver
         logger.warn(exception: error) { "unable to rank desks on level #{level_id}" }
         nil
       end
-    }.sort_by! { |level| -level.number_of_colleagues }
+    }.sort_by! { |level| -level.colleagues.size }
   end
 
   protected def nearby_colleagues(
@@ -376,8 +387,13 @@ class Place::Workplace < PlaceOS::Driver
       .map { |(map_id, _score)| available[map_id].id }
 
     groups = colleagues_on_level.flat_map(&.groups).uniq!
+    names = colleagues_on_level.map { |colleague| ColleagueName.new(colleague.name, colleague.email) }
+    lvl = all_levels.find { |l| l.id == level_id }
 
-    NearbyColleagues.new(level_id, colleagues_on_level.size, groups, nearby)
+    NearbyColleagues.new(
+      level_id, lvl.try { |l| l.display_name || l.name } || level_id,
+      names, groups, nearby
+    )
   end
 
   @[Description("books an asset, such as a desk, for the number of days specified, starting on the day offset. For desk bookings use booking_type: desk")]
