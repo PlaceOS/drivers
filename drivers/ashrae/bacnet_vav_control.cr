@@ -44,6 +44,8 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     # fire = 5
     vav_off_state: 3,
     vav_on_state:  1,
+
+    _desk_ids: ["desk-6.67.25"],
   })
 
   @vav_ids : Array(VavId) = [] of VavId
@@ -56,6 +58,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
   getter? room_booked : Bool = false
   getter? sensor_active : Bool = true
   getter? presence : Bool = false
+  getter? desk_checked_in : Bool = false
 
   @vav_disable_sensor : Bool = false
   @vav_sensor_delay_sec : Time::Span = 2.minutes
@@ -63,6 +66,9 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
   @vav_write_priority : Int32 = 14
   @vav_off_state : Int32 = 3
   @vav_on_state : Int32 = 1
+
+  @desk_ids : Array(String) = [] of String
+  @desk_timer : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
 
   bind Bookings_1, :status, :booking_status_changed
   bind Bookings_1, :sensor_stale, :booking_stale_changed
@@ -85,6 +91,53 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     @vav_write_priority = setting?(Int32, :vav_write_priority) || 14
     @vav_off_state = setting?(Int32, :vav_off_state) || 3
     @vav_on_state = setting?(Int32, :vav_on_state) || 1
+
+    @desk_ids = setting?(Array(String), :desk_ids) || [] of String
+    @desk_timer.try(&.cancel)
+    @desk_timer = nil
+    if @bacnet_system_id && !@desk_ids.empty?
+      @desk_timer = schedule.every(1.minute + rand(10_000).milliseconds) { check_desk_usage }
+    end
+  end
+
+  struct Zone
+    include JSON::Serializable
+
+    getter tags : Array(String)
+  end
+
+  getter level_id : String do
+    staff_api = system(bacnet_system_id).get("StaffAPI", 1)
+
+    level = nil
+    system.zones.each do |zone_id|
+      zone = Zone.from_json(staff_api.zone(zone_id).get_json)
+      if zone.tags.includes?("level")
+        level = zone_id
+        break
+      end
+    end
+
+    raise "could not find level id in #{system.zones}" unless level
+    level
+  end
+
+  struct Desk
+    include JSON::Serializable
+
+    getter? checked_in : Bool
+    getter asset_id : String
+  end
+
+  def check_desk_usage : Bool
+    # this is talking to the place/desk_bookings_locations.cr driver
+    bookings = system(bacnet_system_id).get("DeskBookings", 1)
+    desks = Array(Desk).from_json bookings.device_locations(level_id).get_json
+    @desk_checked_in = desks.any? { |desk| desk.asset_id.in?(@desk_ids) && desk.checked_in? }
+    self[:desk_checked_in] = @desk_checked_in
+
+    update_state
+    @desk_checked_in
   end
 
   protected def booking_status_changed(_subscription, value : String)
@@ -156,7 +209,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
   end
 
   protected def update_state
-    return apply_vav_state(true) if room_booked?
+    return apply_vav_state(true) if room_booked? || desk_checked_in?
 
     if @vav_disable_sensor
       room_in_use = false

@@ -2,8 +2,10 @@ require "placeos-driver/spec"
 
 DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   system({
-    Bookings: {BookingsMock},
-    BACnet:   {BACnetMock},
+    Bookings:     {BookingsMock},
+    BACnet:       {BACnetMock},
+    StaffAPI:     {StaffAPIMock},
+    DeskBookings: {DeskBookingsMock},
   })
 
   settings({
@@ -291,6 +293,55 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   bacnet.reset
   exec(:turn_off_vav).get
   bacnet.writes.should eq([{42, 1, 2}])
+
+  # ===========================================================
+  # Desk bookings: a checked-in desk in this space keeps the air on, even
+  # though the room isn't booked and the presence sensor is disabled.
+  # ===========================================================
+
+  settings({
+    instance_type:        "multi_state_value",
+    vav_ids:              [{object: 1234, instance: 1}],
+    vav_off_delay_sec:    0, # turn off promptly once "not in use"
+    vav_sensor_delay_sec: 0,
+    vav_disable_sensor:   true, # desks are the only thing driving state here
+    vav_off_state:        3,
+    vav_on_state:         1,
+    desk_ids:             ["desk-6.67.25"],
+  })
+  sleep 100.milliseconds
+
+  desks = system(:DeskBookings).as(DeskBookingsMock)
+
+  # nobody checked in at the desks we care about -> air off
+  bacnet.reset
+  desks.set_checked_in(false)
+  exec(:check_desk_usage).get.should eq false
+  sleep 200.milliseconds
+
+  status[:desk_checked_in].should eq false
+  bacnet.values_written.last?.should eq 3
+  status[:vav_active].should eq false
+
+  # our desk gets checked into -> air on immediately
+  bacnet.reset
+  desks.set_checked_in(true)
+  exec(:check_desk_usage).get.should eq true
+  sleep 200.milliseconds
+
+  status[:desk_checked_in].should eq true
+  bacnet.values_written.last?.should eq 1
+  status[:vav_active].should eq true
+
+  # a checked-in desk that isn't in our list is ignored -> air back off
+  bacnet.reset
+  desks.set_asset_id("desk-1.02.3")
+  exec(:check_desk_usage).get.should eq false
+  sleep 200.milliseconds
+
+  status[:desk_checked_in].should eq false
+  bacnet.values_written.last?.should eq 3
+  status[:vav_active].should eq false
 end
 
 # :nodoc:
@@ -341,5 +392,76 @@ class BACnetMock < DriverSpecs::MockDriver
 
   def values_written : Array(Int32)
     @writes.map &.[2]
+  end
+end
+
+# :nodoc:
+# Mocks Place::StaffAPI, the VAV controller only uses `zone` to work out which
+# of the system zones is the level (so it can query desk bookings on it)
+class StaffAPIMock < DriverSpecs::MockDriver
+  def zone(zone_id : String)
+    tags = case zone_id
+           when "zone-level"    then ["level"]
+           when "zone-building" then ["building"]
+           when "zone-org"      then ["org"]
+           else                      ["room"]
+           end
+    {id: zone_id, name: zone_id, tags: tags}
+  end
+end
+
+# :nodoc:
+# Mocks Place::DeskBookingsLocations#device_locations, response shape copied
+# from a live system (names and emails are dummies)
+class DeskBookingsMock < DriverSpecs::MockDriver
+  @checked_in : Bool = false
+  @asset_id : String = "desk-6.67.25"
+
+  def set_checked_in(state : Bool) : Nil
+    @checked_in = state
+  end
+
+  def set_asset_id(asset_id : String) : Nil
+    @asset_id = asset_id
+  end
+
+  def device_locations(zone_id : String, location : String? = nil)
+    return [] of Nil if location && location != "booking"
+    raise "unexpected zone queried: #{zone_id}" unless zone_id == "zone-level"
+
+    [
+      {
+        location:    "booking",
+        type:        "desk",
+        checked_in:  @checked_in,
+        asset_id:    @asset_id,
+        booking_id:  4462,
+        building:    "zone-building",
+        level:       "zone-level",
+        ends_at:     1784730540,
+        started_at:  1784644200,
+        duration:    86340,
+        mac:         "user-HoWSkZDC0IpGFN",
+        staff_email: "jane.doe@example.com",
+        staff_name:  "Jane Doe",
+        map_id:      @asset_id,
+      },
+      {
+        location:    "booking",
+        type:        "desk",
+        checked_in:  false,
+        asset_id:    "desk-6.28.2",
+        booking_id:  4540,
+        building:    "zone-building",
+        level:       "zone-level",
+        ends_at:     1784701800,
+        started_at:  1784683800,
+        duration:    18000,
+        mac:         "user-GTJXjvTHMXNeCl",
+        staff_email: "john.smith@example.com",
+        staff_name:  "John Smith",
+        map_id:      "desk-6.28.2",
+      },
+    ]
   end
 end
