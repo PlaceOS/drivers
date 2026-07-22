@@ -14,6 +14,9 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
     # booking types we want to check in
     booking_types: ["desk", "parking"],
 
+    # custom field user lookup
+    _custom_field: "employeeId",
+
     # door ids
     _filter_door_ids: {
       "1234" => "name"
@@ -21,6 +24,7 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
   })
 
   def on_update
+    @custom_field = setting?(String, :custom_field)
     @booking_types = setting(Array(String), :booking_types)
     @filter_ids = setting?(Hash(String, String), :filter_door_ids) || {} of String => String
 
@@ -33,11 +37,13 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
     monitor("security/#{org_id}/door") { |_subscription, payload| door_event(payload) }
   end
 
+  @custom_field : String? = nil
   @filter_ids : Hash(String, String) = {} of String => String
   @booking_types : Array(String) = [] of String
   @time_zone : Time::Location = Time::Location.load("GMT")
 
   accessor staff_api : StaffAPI_1
+  accessor directory : Calendar_1
 
   getter building_id : String { get_building_id.not_nil! }
 
@@ -51,6 +57,24 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
   getter event_count : UInt64 = 0_u64
   getter check_ins : UInt64 = 0_u64
   getter matched_users : UInt64 = 0_u64
+
+  @user_cache : Hash(String, String) = {} of String => String
+
+  def lookup_custom(id : String) : String?
+    if cached = @user_cache[id]?
+      return cached
+    end
+
+    user = directory.list_users(
+      filter: "#{@custom_field} eq '#{id}'",
+      additional_fields: { @custom_field },
+    ).get.as_a.first? rescue nil
+
+    if user
+      email = user["username"].as_s
+      @user_cache[id] = email.strip.downcase
+    end
+  end
 
   @[Security(Level::Administrator)]
   def door_event(json : String)
@@ -72,10 +96,17 @@ class Place::SecurityBookingCheckin < PlaceOS::Driver
     building = building_id
 
     if email = event.user_email.presence
-      staff_user = staff_api.user(email.strip.downcase).get rescue nil
-      if staff_user
-        email = staff_user["email"].as_s
+      if @custom_field.presence
+        actual_email = lookup_custom(email)
+        return unless actual_email
+        email = actual_email
         @matched_users += 1_u64
+      else
+        staff_user = staff_api.user(email.strip.downcase).get rescue nil
+        if staff_user
+          email = staff_user["email"].as_s
+          @matched_users += 1_u64
+        end
       end
 
       @booking_types.each do |booking_type|
