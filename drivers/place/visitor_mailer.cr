@@ -289,6 +289,13 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     case guest_details
     in GuestCheckin
+      # the same signal is fired for check-out (state=false), only notify the
+      # host of arrivals. checkin is nilable for backwards compatibility.
+      if guest_details.checkin == false
+        logger.debug { "ignoring guest checkin event as the visitor was checked out" }
+        return
+      end
+
       send_checkedin_email(
         @notify_checkin_template,
         guest_details.attendee_email,
