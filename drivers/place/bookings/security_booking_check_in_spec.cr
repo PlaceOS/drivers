@@ -47,12 +47,20 @@ class StaffAPIMock < DriverSpecs::MockDriver
     extension_data : JSON::Any? = nil,
     deleted : Bool? = nil,
   )
-    raise "unexpected bookings query" unless type == "desk" && zones.includes?("zone-building") && email == "user@email.com"
+    raise "unexpected bookings query" unless zones.includes?("zone-building") && email == "user@email.com"
 
-    [{
-      id:         2345,
-      checked_in: false,
-    }]
+    case type
+    when "desk"
+      [{
+        id:         2345,
+        asset_id:   "desk-1234",
+        checked_in: false,
+      }]
+    when "parking"
+      [] of Int32
+    else
+      raise "unexpected booking type #{type}"
+    end
   end
 
   def booking_check_in(booking_id : String | Int64, state : Bool = true, utm_source : String? = nil, instance : Int64? = nil)
