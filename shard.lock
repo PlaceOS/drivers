@@ -151,7 +151,7 @@ shards:
 
   inactive-support:
     git: https://github.com/spider-gazelle/inactive-support.git
-    version: 0.4.0
+    version: 0.4.1
 
   ipaddress:
     git: https://github.com/sija/ipaddress.cr.git
@@ -167,7 +167,7 @@ shards:
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
-    version: 1.7.1
+    version: 1.7.2
 
   knx:
     git: https://github.com/spider-gazelle/knx.git
@@ -243,7 +243,7 @@ shards:
 
   placeos-compiler:
     git: https://github.com/placeos/compiler.git
-    version: 4.9.4
+    version: 4.9.6
 
   placeos-core-client:
     git: https://github.com/placeos/core-client.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.100.1
+    version: 9.101.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
@@ -335,7 +335,7 @@ shards:
 
   ssh2:
     git: https://github.com/spider-gazelle/ssh2.cr.git
-    version: 1.7.4
+    version: 1.8.0
 
   stomp:
     git: https://github.com/spider-gazelle/stomp.git
