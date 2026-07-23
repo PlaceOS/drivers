@@ -5,7 +5,7 @@ require "placeos-driver/interface/switchable"
 
 class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
   include Interface::Powerable
-  include Interface::Muteable
+  include Interface::AudioMuteable
 
   INDICATOR = 0xAA_u8
 
@@ -116,6 +116,8 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
     !!self[:power]?.try(&.as_bool)
   end
 
+  alias MuteLayer = Interface::Muteable::MuteLayer
+
   # Mutes both audio/video
   def mute(
     state : Bool = true,
@@ -126,7 +128,7 @@ class Samsung::Displays::ReducedMDCProtocol < PlaceOS::Driver
   end
 
   # Emulate audio mute
-  def mute_audio(state : Bool = true)
+  def mute_audio(state : Bool = true, index : Int32 | String = 0)
     # Do nothing if already in desired state
     return if self[:audio_mute]?.try(&.as_bool) == state
     self[:audio_mute] = state

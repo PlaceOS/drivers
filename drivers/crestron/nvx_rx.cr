@@ -27,6 +27,10 @@ class Crestron::NvxRx < Crestron::CresNext # < PlaceOS::Driver
   default_settings({
     username: "admin",
     password: "admin",
+
+    # remove the underscore prefix to enable a scheduled reboot
+    _reboot_cron:     "0 3 * * 0",
+    _reboot_timezone: "Australia/Sydney",
   })
 
   @subscriptions : Hash(String, JSON::Any) = {} of String => JSON::Any

@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "simple_retry"
 require "placeos-driver/interface/mailer"
 require "placeos-driver/interface/mailer_templates"
 require "placeos-driver/interface/zone_access_security"
@@ -15,6 +16,12 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     # the channel id we're looking for events on
     lookup_using_username:    true,
     _security_zone_whitelist: ["zone_name_or_id"],
+
+    # transient failures (calendar, staff API, security system) are retried
+    # with exponential backoff before being treated as a real failure
+    _request_retries:     3,
+    _request_backoff:     2,
+    _request_max_backoff: 10,
 
     # At 10:00 on every day-of-week from Monday through Friday
     _email_cron:      "0 10 * * 1-5",
@@ -51,6 +58,24 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   @email_errors_to : String? = nil
   @notify_no_swipe_card : Set(String) = Set(String).new
 
+  @request_retries : Int32 = 3
+  @request_backoff : Time::Span = 2.seconds
+  @request_max_backoff : Time::Span = 10.seconds
+
+  # retries transient failures with exponential backoff, the error from the
+  # final attempt propagates to the caller so it can be handled as a real failure
+  protected def with_retry(description : String, &block : -> T) : T forall T
+    SimpleRetry.try_to(
+      # +1: the initial attempt plus @request_retries retries
+      max_attempts: @request_retries + 1,
+      base_interval: @request_backoff,
+      max_interval: @request_max_backoff,
+    ) do |attempt, last_error|
+      logger.warn(exception: last_error) { "retrying #{description} (attempt #{attempt})" } if last_error
+      block.call
+    end
+  end
+
   def notify_no_swipe_card
     @mutex.synchronize { @notify_no_swipe_card.to_a }
   end
@@ -61,6 +86,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     @systems = nil
 
     @lookup_using_username = setting?(Bool, :lookup_using_username) || false
+    @request_retries = setting?(Int32, :request_retries) || 3
+    @request_backoff = (setting?(Int32, :request_backoff) || 2).seconds
+    @request_max_backoff = (setting?(Int32, :request_max_backoff) || 10).seconds
     @security_zone_whitelist = setting?(Array(String | Int64), :security_zone_whitelist) || [] of String | Int64
 
     # we ensure that allocations are recorded so we can unallocate as required
@@ -78,12 +106,14 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   end
 
   getter building_id : String do
-    locations.building_id.get.as_s
+    with_retry("building id lookup") { locations.building_id.get.as_s }
   end
 
   # Grabs the list of systems in the building
   getter systems : Hash(String, Array(String)) do
-    staff_api.systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
+    with_retry("systems in building lookup") do
+      staff_api.systems_in_building(building_id).get.as_h.transform_values(&.as_a.map(&.as_s))
+    end
   end
 
   def levels : Array(String)
@@ -92,7 +122,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   # system or building timezone
   protected getter timezone : Time::Location do
-    tz = config.control_system.try(&.timezone) || staff_api.zone(building_id).get["timezone"].as_s
+    tz = config.control_system.try(&.timezone) || with_retry("building timezone lookup") { staff_api.zone(building_id).get["timezone"].as_s }
     Time::Location.load(tz)
   end
 
@@ -116,7 +146,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     if username = cached_username[email]?
       username
     else
-      username = calendar.get_user(email).get["username"]?.try(&.as_s.downcase) || email
+      username = with_retry("username lookup for #{email}") do
+        calendar.get_user(email).get["username"]?.try(&.as_s.downcase) || email
+      end
       if username == email
         cached_username[email] = email
       else
@@ -136,7 +168,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     return id if id
 
     if @lookup_using_username && (username = username_lookup(email))
-      json = (security.card_holder_id_lookup(username).get rescue nil)
+      json = (with_retry("card holder lookup for #{username}") { security.card_holder_id_lookup(username).get } rescue nil)
       if json && json.raw
         id = (String | Int64).from_json(json.to_json)
         cached_user_lookups[email] = id
@@ -145,7 +177,7 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     end
 
     # handle the case where we have a json `null` response
-    json = (security.card_holder_id_lookup(email).get rescue nil)
+    json = (with_retry("card holder lookup for #{email}") { security.card_holder_id_lookup(email).get } rescue nil)
     if json && json.raw
       cached_user_lookups[email] = (String | Int64).from_json(json.to_json)
     end
@@ -161,14 +193,16 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
     return id if id
 
     # check if this was a name and lookup the id
-    id_raw = security.zone_access_id_lookup(name_or_id).get
-    if id = id_raw.as_s? || id_raw.as_i64?
+    # (a failure here might just mean the name is unknown, so we fall through
+    #  to checking if an id was provided before giving up)
+    id_raw = with_retry("zone id lookup for #{name_or_id}") { security.zone_access_id_lookup(name_or_id).get } rescue nil
+    if id_raw && (id = id_raw.as_s? || id_raw.as_i64?)
       cached_zone_lookups[name_or_id] = id
       return id
     end
 
     # check if the ID was passed directly
-    if (security.zone_access_lookup(name_or_id).get rescue nil)
+    if (with_retry("zone lookup for #{name_or_id}") { security.zone_access_lookup(name_or_id).get } rescue nil)
       cached_zone_lookups[name_or_id] = name_or_id
       return name_or_id
     end
@@ -180,7 +214,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
 
   # returns desk_id => security zone name / id
   def desks(level_id : String, blocked : Hash(String, String | Int64) = {} of String => String | Int64) : Hash(String, String)
-    desks = staff_api.metadata(level_id, "desks").get.dig?("desks", "details")
+    desks = with_retry("desk metadata lookup for #{level_id}") do
+      staff_api.metadata(level_id, "desks").get.dig?("desks", "details")
+    end
     security = {} of String => String
     return security unless desks
 
@@ -200,7 +236,9 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
   end
 
   protected def has_access?(security, zone_id, user_id) : Bool
-    has_access = (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id, user_id).get_json)
+    has_access = with_retry("access check of #{user_id} in zone #{zone_id}") do
+      (String | Int64 | Nil).from_json(security.zone_access_member?(zone_id, user_id).get_json)
+    end
     !!has_access
   end
 
@@ -232,21 +270,32 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       access_required = Hash(String, Array(String)).new { |hash, key| hash[key] = [] of String }
 
       # calculate who needs access
-      levels.each do |level_id|
-        desks = desks(level_id, blocked)
-        next if desks.empty?
+      # NOTE:: a partial view of the bookings would look like access should be
+      # revoked, so any failure here has to abort the sync and try again later
+      begin
+        levels.each do |level_id|
+          desks = desks(level_id, blocked)
+          next if desks.empty?
 
-        desk_bookings = staff_api.query_bookings(now.to_unix, end_of_day.to_unix, zones: {level_id}, type: "desk").get.as_a
-        next if desk_bookings.empty?
+          desk_bookings = with_retry("desk booking query for #{level_id}") do
+            staff_api.query_bookings(now.to_unix, end_of_day.to_unix, zones: {level_id}, type: "desk").get.as_a
+          end
+          next if desk_bookings.empty?
 
-        desk_bookings.each do |booking|
-          desk = booking["asset_id"].as_s
-          if security = desks[desk]?
-            user_access = access_required[booking["user_email"].as_s.downcase]
-            user_access << security
-            user_access.uniq!
+          desk_bookings.each do |booking|
+            desk = booking["asset_id"].as_s
+            if security = desks[desk]?
+              user_access = access_required[booking["user_email"].as_s.downcase]
+              user_access << security
+              user_access.uniq!
+            end
           end
         end
+      rescue error
+        msg = "aborting sync, unable to obtain the list of bookings requiring access"
+        errors << msg
+        logger.error(exception: error) { msg }
+        return
       end
 
       # apply access this access to the system, need to find the differences
@@ -292,7 +341,11 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             begin
               zone_id = lookup_zone_id(security, zone)
               raise "unable to find zone_id for: #{zone}" unless zone_id
-              security.zone_access_remove_member(zone_id, user_id).get if has_access?(security, zone_id, user_id)
+              if has_access?(security, zone_id, user_id)
+                with_retry("removal of #{user_email} from security zone #{zone}") do
+                  security.zone_access_remove_member(zone_id, user_id).get
+                end
+              end
             rescue error
               # add the user back to the zone so it can be removed in a later sync
               access_required[user_email] << zone
@@ -320,7 +373,11 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
             begin
               zone_id = lookup_zone_id(security, zone)
               raise "unable to find zone_id for: #{zone}" unless zone_id
-              security.zone_access_add_member(zone_id, user_id).get unless has_access?(security, zone_id, user_id)
+              unless has_access?(security, zone_id, user_id)
+                with_retry("addition of #{user_email} to security zone #{zone}") do
+                  security.zone_access_add_member(zone_id, user_id).get
+                end
+              end
             rescue error
               # remove the user from the recorded zone so it can be added in a later sync
               access_required[user_email].delete zone
@@ -340,17 +397,26 @@ class Place::Bookings::GrantAreaAccess < PlaceOS::Driver
       end
 
       # save the newly applied access permissions
-      define_setting(:permissions_allocated, access_required)
+      # (in-memory state is updated first so a failed save doesn't re-apply
+      #  changes that have already been made against the security system)
+      @allocations = access_required
+      begin
+        with_retry("saving the applied permissions") { define_setting(:permissions_allocated, access_required) }
+      rescue error
+        msg = "failed to save the applied permissions"
+        errors << msg
+        logger.error(exception: error) { msg }
+      end
     ensure
+      # expose errors and anything blocked as not on the whitelist
+      self[:sync_errors] = errors
+      self[:sync_blocked] = blocked
+
       @check_mutex.synchronize do
         @performing_check = false
         spawn { ensure_booking_access } if @check_queued
       end
     end
-
-    # expose errors and anything blocked as not on the whitelist
-    self[:sync_errors] = errors
-    self[:sync_blocked] = blocked
   end
 
   @[Security(Level::Support)]

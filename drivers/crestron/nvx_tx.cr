@@ -18,6 +18,15 @@ class Crestron::NvxTx < Crestron::CresNext # < PlaceOS::Driver
 
   uri_base "wss://192.168.0.5/websockify"
 
+  default_settings({
+    username: "admin",
+    password: "admin",
+
+    # remove the underscore prefix to enable a scheduled reboot
+    _reboot_cron:     "0 3 * * 0",
+    _reboot_timezone: "Australia/Sydney",
+  })
+
   protected def on_authenticated : Nil
     # NVX hardware can be confiured a either a RX or TX unit - check this
     # device is in the correct mode

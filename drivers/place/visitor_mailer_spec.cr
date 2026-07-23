@@ -670,6 +670,15 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # event_changed_event tests (staff/event/changed)
   # ==================================================================
 
+  # These tests assert an immediate send, so disable the debounce (default 15s).
+  # send_reminders/domain_uri mirror default_settings so nothing else changes.
+  settings({
+    event_change_debounce: 0,
+    send_reminders:        "0 7 * * *",
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
+
   # ------------------------------------------------------------------
   # Test 11: event_changed with time change — sends booking_changed
   #          emails to all visitors on the event
@@ -1174,6 +1183,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name:              "Client Floor",
     invite_zone_tag:                 "building",
     skip_event_linked_booking_email: false,
+    event_change_debounce:           0,
   })
   sleep 1.0
 
@@ -1376,10 +1386,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:           "GMT",
-    booking_space_name: "Client Floor",
-    invite_zone_tag:    "building",
-    skip_host_email:    false,
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    skip_host_email:       false,
+    event_change_debounce: 0,
   })
   sleep 1.0
 
@@ -1480,6 +1491,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     invite_zone_tag:          "building",
     booking_changed_template: "custom_booking_changed",
     event_changed_template:   "custom_event_changed",
+    event_change_debounce:    0,
   })
   sleep 1.0
 
@@ -1802,4 +1814,135 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   debounce_args = system(:Mailer)[:last_args]
   debounce_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
   debounce_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
+  # ==================================================================
+  # visitor check-in tests (PPT-2535)
+  # ==================================================================
+
+  # ------------------------------------------------------------------
+  # Test 39: guest_event — visitor check-in sends the notify_checkin
+  #          email to the host. Payloads mirror what staff-api emits
+  #          from bookings.cr#guest_checkin and events.cr#guest_checkin.
+  # ------------------------------------------------------------------
+
+  count_before_checkin = system(:Mailer)[:send_count].as_i
+  checked_in_before = status[:users_checked_in]?.try(&.as_i64) || 0_i64
+
+  booking_checkin_payload = {
+    action:         "checkin",
+    id:             900_i64,
+    checkin:        true,
+    booking_id:     900_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Catch Up",
+    event_summary:  "Catch Up",
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/checkin", booking_checkin_payload)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq count_before_checkin + 1
+  system(:Mailer)[:last_to].should eq "host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_checkin"]
+  status[:users_checked_in].should eq checked_in_before + 1
+
+  args_checkin = system(:Mailer)[:last_args]
+  args_checkin["visitor_email"].should eq "visitor@external.com"
+  args_checkin["host_email"].should eq "host@example.com"
+  args_checkin["event_title"].should eq "Catch Up"
+
+  event_checkin_payload = {
+    action:         "checkin",
+    id:             901_i64,
+    checkin:        true,
+    system_id:      "sys-room1",
+    event_id:       "evt-900",
+    event_ical_uid: "ical-900",
+    host:           "host@example.com",
+    resource:       "room1@example.com",
+    event_title:    "Catch Up",
+    event_summary:  "Catch Up",
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/checkin", event_checkin_payload)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq count_before_checkin + 2
+  system(:Mailer)[:last_to].should eq "host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_checkin"]
+
+  # ------------------------------------------------------------------
+  # Test 40: guest_event — check-in for an untitled booking (PPT-2535)
+  #          bookings without a title or description signal
+  #          event_title / event_summary as null. This previously failed
+  #          to parse (event_summary was non-nilable) so the exception
+  #          was swallowed and the host never received the notification.
+  # ------------------------------------------------------------------
+
+  count_before_untitled = system(:Mailer)[:send_count].as_i
+  errors_before_untitled = status[:error_count]?.try(&.as_i64) || 0_i64
+
+  untitled_checkin_payload = {
+    action:         "checkin",
+    id:             902_i64,
+    checkin:        true,
+    booking_id:     902_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    nil,
+    event_summary:  nil,
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/checkin", untitled_checkin_payload)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq count_before_untitled + 1
+  system(:Mailer)[:last_to].should eq "host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_checkin"]
+  (status[:error_count]?.try(&.as_i64) || 0_i64).should eq errors_before_untitled
+
+  # ------------------------------------------------------------------
+  # Test 41: guest_event — visitor check-out (state=false) does NOT
+  #          send the "visitor has arrived" email (PPT-2535)
+  # ------------------------------------------------------------------
+
+  count_before_checkout = system(:Mailer)[:send_count].as_i
+  checked_in_before_checkout = status[:users_checked_in].as_i64
+
+  checkout_payload = {
+    action:         "checkin",
+    id:             903_i64,
+    checkin:        false,
+    booking_id:     903_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Catch Up",
+    event_summary:  "Catch Up",
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/checkin", checkout_payload)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq count_before_checkout
+  status[:users_checked_in].should eq checked_in_before_checkout
 end

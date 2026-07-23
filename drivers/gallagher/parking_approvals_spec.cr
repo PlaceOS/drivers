@@ -4473,6 +4473,88 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(97002_i64).should be_nil
   staff.last_state(97002_i64).should eq("wait_list")
   mailer.sent?("c97@example.com", "parking_request", "wait_list").should eq(true)
+
+  # ===========================================================
+  # Test 98: a Gallagher cardholder lookup is retried (like the directory group
+  # lookup) before the user is marked as a failed lookup for the run. A PERSISTENT
+  # Gallagher outage exhausts the retries and withholds the booking that sweep;
+  # because a failed lookup is never cached across sweeps, the next sweep retries
+  # and — once Gallagher recovers — allocates. A TRANSIENT blip that recovers
+  # within the retry budget allocates in the SAME sweep.
+  # ===========================================================
+
+  t98_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {"Open Basement" => "gallagher-group1"},
+    # retry twice, with no backoff, so the test doesn't actually sleep
+    cardholder_lookup_retries: 2,
+    cardholder_lookup_backoff: 0,
+  }
+  settings(t98_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+
+  staff.set_assets([car_space.call("asset-c98")].to_json)
+  gallagher.set_cardholder("cfail98@example.com", "ch-cfail98")
+  calendar.set_groups("cfail98@example.com", default_grp.to_json)
+  # Gallagher is down for this user for far more than the retry budget
+  gallagher.set_fail_lookups("cfail98@example.com", 100)
+
+  t98_start = now + 3600_i64 * 700
+  t98_end = t98_start + 3600_i64
+  staff.set_bookings([
+    build_booking.call(98001_i64, "cfail98@example.com", t98_start, t98_end, "unallocated-98001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the lookup was attempted retries+1 times (initial + 2 retries) then gave up
+  gallagher.lookup_count("cfail98@example.com").should eq(3)
+  # with no resolvable card, the booking is withheld — the free space is untouched
+  staff.last_update_for(98001_i64).should be_nil
+
+  # --- Gallagher recovers ---
+  gallagher.set_fail_lookups("cfail98@example.com", 0)
+  staff.reset_calls
+  mailer.reset
+  staff.set_bookings([
+    build_booking.call(98001_i64, "cfail98@example.com", t98_start, t98_end, "unallocated-98001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the failed lookup was NOT cached across sweeps: it is retried and now succeeds,
+  # so the booking is allocated the free car space
+  gallagher.lookup_count("cfail98@example.com").should eq(4)
+  staff.last_update_for(98001_i64).should eq("asset-c98")
+
+  # --- a TRANSIENT blip that recovers within the retry budget (same sweep) ---
+  settings(t98_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+
+  staff.set_assets([car_space.call("asset-c98b")].to_json)
+  gallagher.set_cardholder("ctrans98@example.com", "ch-ctrans98")
+  calendar.set_groups("ctrans98@example.com", default_grp.to_json)
+  # fails once, then recovers on the first retry
+  gallagher.set_fail_lookups("ctrans98@example.com", 1)
+
+  staff.set_bookings([
+    build_booking.call(98002_i64, "ctrans98@example.com", t98_start, t98_end, "unallocated-98002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # one failure + one successful retry, all within the single sweep
+  gallagher.lookup_count("ctrans98@example.com").should eq(2)
+  staff.last_update_for(98002_i64).should eq("asset-c98b")
 end
 
 # :nodoc:
@@ -4905,6 +4987,15 @@ class GallagherMock < DriverSpecs::MockDriver
     @lookup_calls[email.downcase]? || 0
   end
 
+  # per-email count of remaining card_holder_id_lookup calls that should RAISE,
+  # simulating a transient (small count) or persistent (large count) Gallagher
+  # outage that the driver's SimpleRetry must ride out before giving up
+  @fail_lookups : Hash(String, Int32) = {} of String => Int32
+
+  def set_fail_lookups(email : String, times : Int32)
+    @fail_lookups[email.downcase] = times
+  end
+
   # zone ids the cardholder currently has any access to (de-duplicated)
   def access_for(cardholder_id : String) : Array(String)
     (@memberships[cardholder_id]? || [] of Membership).map(&.zone).uniq!
@@ -4928,6 +5019,10 @@ class GallagherMock < DriverSpecs::MockDriver
 
   def card_holder_id_lookup(email : String)
     @lookup_calls[email.downcase] = (@lookup_calls[email.downcase]? || 0) + 1
+    if (remaining = @fail_lookups[email.downcase]?) && remaining > 0
+      @fail_lookups[email.downcase] = remaining - 1
+      raise "simulated gallagher cardholder lookup failure for #{email}"
+    end
     @cardholders[email.downcase]?
   end
 

@@ -24,7 +24,8 @@ module Place
 
     property checkin : Bool?
     property event_title : String?
-    property event_summary : String
+    # nilable as bookings without a title or description signal null
+    property event_summary : String?
     property event_starting : Int64
     property attendee_name : String?
     property attendee_email : String

@@ -24,13 +24,50 @@ abstract class Crestron::CresNext < PlaceOS::Driver
     headers
   end
 
+  def on_update
+    schedule_reboot
+  end
+
   def connected
     schedule.clear
     schedule.every(10.minutes) { maintain_session }
+
+    # `schedule.clear` above cancels the reboot task, so re-arm it here
+    schedule_reboot
   end
 
   def disconnected
     schedule.clear
+  end
+
+  @reboot_task : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+
+  # Optionally reboot the device on a schedule, configured via the
+  # `reboot_cron` (a CRON string) and `reboot_timezone` (IANA name) settings.
+  # `reboot` applies a random delay of up to 5 seconds so a fleet of devices
+  # sharing a schedule don't all drop off the network at the same instant.
+  protected def schedule_reboot : Nil
+    @reboot_task.try(&.cancel)
+    @reboot_task = nil
+
+    cron = setting?(String, :reboot_cron).presence
+    return unless cron
+
+    timezone = setting?(String, :reboot_timezone).presence || "Australia/Sydney"
+
+    begin
+      location = Time::Location.load(timezone)
+    rescue error
+      logger.error(exception: error) { "unknown reboot_timezone #{timezone.inspect}, ignoring reboot schedule" }
+      return
+    end
+
+    begin
+      @reboot_task = schedule.cron(cron, location) { reboot }
+      logger.info { "reboot scheduled: #{cron} (#{timezone})" }
+    rescue error
+      logger.error(exception: error) { "invalid reboot_cron #{cron.inspect}" }
+    end
   end
 
   def tokenize(path : String)

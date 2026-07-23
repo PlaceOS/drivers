@@ -20,6 +20,10 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
     zoom_max:        28448,
     invert_controls: false,
+
+    # remove the underscore prefix to enable a scheduled reboot
+    _reboot_cron:     "0 3 * * 0",
+    _reboot_timezone: "Australia/Sydney",
   })
 
   protected getter bearer_token : String = ""
@@ -53,6 +57,8 @@ class Aver::Cam520Pro < PlaceOS::Driver
     @presets = setting?(Presets, :camera_presets) || @presets
     self[:presets] = @presets.keys
     self[:inverted] = @invert = setting?(Bool, :invert_controls) || false
+
+    schedule_reboot
   end
 
   def connected
@@ -60,6 +66,9 @@ class Aver::Cam520Pro < PlaceOS::Driver
     schedule.clear
     schedule.every(10.minutes) { authenticate }
     schedule.every(1.minutes) { keep_alive }
+
+    # `schedule.clear` above cancels the reboot task, so re-arm it here
+    schedule_reboot
 
     pan?
     tilt?
@@ -96,6 +105,44 @@ class Aver::Cam520Pro < PlaceOS::Driver
 
   def keep_alive
     send("alive")
+  end
+
+  @[Security(Level::Support)]
+  def reboot
+    post("/reboot")
+  end
+
+  @reboot_task : PlaceOS::Driver::Proxy::Scheduler::TaskWrapper? = nil
+
+  # Optionally reboot the device on a schedule, configured via the
+  # `reboot_cron` (a CRON string) and `reboot_timezone` (IANA name) settings.
+  # A random delay of up to 5 seconds is applied so a fleet of cameras sharing
+  # a schedule don't all drop off the network at the same instant.
+  protected def schedule_reboot : Nil
+    @reboot_task.try(&.cancel)
+    @reboot_task = nil
+
+    cron = setting?(String, :reboot_cron).presence
+    return unless cron
+
+    timezone = setting?(String, :reboot_timezone).presence || "Australia/Sydney"
+
+    begin
+      location = Time::Location.load(timezone)
+    rescue error
+      logger.error(exception: error) { "unknown reboot_timezone #{timezone.inspect}, ignoring reboot schedule" }
+      return
+    end
+
+    begin
+      @reboot_task = schedule.cron(cron, location) do
+        sleep rand(5000).milliseconds
+        reboot
+      end
+      logger.info { "reboot scheduled: #{cron} (#{timezone})" }
+    rescue error
+      logger.error(exception: error) { "invalid reboot_cron #{cron.inspect}" }
+    end
   end
 
   getter pan_pos : Int32 = 0

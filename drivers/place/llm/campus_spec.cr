@@ -1,4 +1,46 @@
 require "placeos-driver/spec"
+require "http/server"
+
+# :nodoc:
+# The driver fetches level maps over HTTP, so we serve fixture maps on a fixed
+# local port.
+MAP_PORT = 8299
+
+# Three colleagues sit at c1 (0,0), c2 (100,0) and c3 (100,100). Of the two
+# free desks, `a` (10,0) is by far the closest to c1 but the furthest from the
+# other two, while `b` (55,50) is a reasonable walk for everyone - a Borda count
+# ranks `b` first. `x` is drawn but restricted to a group the user isn't in.
+MAP_A1 = <<-SVG
+  <svg viewBox="-50 -50 350 350" xmlns="http://www.w3.org/2000/svg">
+    <g id="desk ids">
+      <rect id="desk.c1" x="-5" y="-5" width="10" height="10" />
+      <rect id="desk.c2" x="95" y="-5" width="10" height="10" />
+      <rect id="desk.c3" x="95" y="95" width="10" height="10" />
+      <rect id="desk.a" x="5" y="-5" width="10" height="10" />
+      <rect id="desk.b" x="50" y="45" width="10" height="10" />
+      <rect id="desk.x" x="195" y="195" width="10" height="10" />
+    </g>
+  </svg>
+  SVG
+
+# a second building, to prove levels are ranked independently per building
+MAP_B1 = <<-SVG
+  <svg viewBox="-50 -50 200 200" xmlns="http://www.w3.org/2000/svg">
+    <g id="desk ids">
+      <rect id="desk.c4" x="-5" y="-5" width="10" height="10" />
+      <rect id="desk.b1" x="5" y="-5" width="10" height="10" />
+    </g>
+  </svg>
+  SVG
+
+spawn do
+  server = HTTP::Server.new do |context|
+    context.response.content_type = "image/svg+xml"
+    context.response.print(context.request.path == "/b1.svg" ? MAP_B1 : MAP_A1)
+  end
+  server.bind_tcp "127.0.0.1", MAP_PORT
+  server.listen
+end
 
 # :nodoc:
 class StaffAPI < DriverSpecs::MockDriver
@@ -40,6 +82,7 @@ class StaffAPI < DriverSpecs::MockDriver
     tags:         ["level"],
     parent_id:    "zone-building-a",
     timezone:     nil,
+    map_id:       "http://127.0.0.1:#{MAP_PORT}/a1.svg",
   }
 
   LEVEL_A2 = {
@@ -60,7 +103,26 @@ class StaffAPI < DriverSpecs::MockDriver
     tags:         ["level"],
     parent_id:    "zone-building-b",
     timezone:     nil,
+    map_id:       "http://127.0.0.1:#{MAP_PORT}/b1.svg",
   }
+
+  # email => {desk asset_id, level_id, building_id}. Note the booked asset_id
+  # and the id the desk is drawn under on the map deliberately differ.
+  COLLEAGUE_DESKS = {
+    "c1@example.com" => {"desk-a1-c1", "zone-level-a1", "zone-building-a"},
+    "c2@example.com" => {"desk-a1-c2", "zone-level-a1", "zone-building-a"},
+    "c3@example.com" => {"desk-a1-c3", "zone-level-a1", "zone-building-a"},
+    "c4@example.com" => {"desk-b1-c4", "zone-level-b1", "zone-building-b"},
+  }
+
+  CONTACTS = [
+    {name: "Colleague One", email: "c1@example.com", groups: ["staff", "eng"]},
+    {name: "Colleague Two", email: "c2@example.com", groups: ["staff"]},
+    {name: "Colleague Three", email: "c3@example.com", groups: ["design"]},
+    {name: "Colleague Four", email: "c4@example.com", groups: ["staff"]},
+    # working from home, so has no desk booked
+    {name: "Colleague Five", email: "c5@example.com", groups: ["staff"]},
+  ]
 
   def on_load
     self[:bookings_created] = 0
@@ -96,7 +158,8 @@ class StaffAPI < DriverSpecs::MockDriver
 
     if tag_list.includes?("org")
       [ORG_ZONE]
-    elsif tag_list.includes?("building") && parent == "zone-org"
+    elsif tag_list.includes?("building")
+      # the driver looks buildings up org-wide, without specifying a parent
       [BUILDING_A, BUILDING_B]
     elsif tag_list.includes?("level") && parent == "zone-building-a"
       [LEVEL_A1, LEVEL_A2]
@@ -104,6 +167,19 @@ class StaffAPI < DriverSpecs::MockDriver
       [LEVEL_B1]
     else
       [] of typeof(ORG_ZONE)
+    end
+  end
+
+  def zone(zone_id : String)
+    case zone_id
+    when "zone-org"        then ORG_ZONE
+    when "zone-building-a" then BUILDING_A
+    when "zone-building-b" then BUILDING_B
+    when "zone-level-a1"   then LEVEL_A1
+    when "zone-level-a2"   then LEVEL_A2
+    when "zone-level-b1"   then LEVEL_B1
+    else
+      raise "unknown zone #{zone_id}"
     end
   end
 
@@ -117,21 +193,28 @@ class StaffAPI < DriverSpecs::MockDriver
   end
 
   def metadata(id : String, key : String? = nil)
+    # every user has the same contact list in this spec
+    return {"contacts" => {"details" => CONTACTS}} if key == "contacts"
+
     if key == "desks"
       desks = case id
               when "zone-level-a1"
                 [
-                  {id: "desk-a1-01", groups: [] of String, features: ["window"]},
-                  {id: "desk-a1-02", groups: [] of String, features: [] of String},
-                  {id: "desk-a1-03", groups: ["execs"], features: [] of String},
+                  {id: "desk-a1-01", map_id: "desk.a", groups: [] of String, features: ["window"]},
+                  {id: "desk-a1-02", map_id: "desk.b", groups: [] of String, features: [] of String},
+                  {id: "desk-a1-03", map_id: "desk.x", groups: ["execs"], features: [] of String},
+                  {id: "desk-a1-c1", map_id: "desk.c1", groups: [] of String, features: [] of String},
+                  {id: "desk-a1-c2", map_id: "desk.c2", groups: [] of String, features: [] of String},
+                  {id: "desk-a1-c3", map_id: "desk.c3", groups: [] of String, features: [] of String},
                 ]
               when "zone-level-a2"
                 [
-                  {id: "desk-a2-01", groups: [] of String, features: [] of String},
+                  {id: "desk-a2-01", map_id: nil, groups: [] of String, features: [] of String},
                 ]
               when "zone-level-b1"
                 [
-                  {id: "desk-b1-01", groups: [] of String, features: ["standing"]},
+                  {id: "desk-b1-01", map_id: "desk.b1", groups: [] of String, features: ["standing"]},
+                  {id: "desk-b1-c4", map_id: "desk.c4", groups: [] of String, features: [] of String},
                 ]
               else
                 nil
@@ -243,20 +326,42 @@ class StaffAPI < DriverSpecs::MockDriver
       ]
     end
 
-    [] of typeof({
-      id:              0_i64,
-      booking_type:    "",
-      asset_id:        "",
-      user_id:         "",
-      user_email:      "",
-      user_name:       "",
-      booked_by_email: "",
-      booked_by_name:  "",
+    bookings = [] of JSON::Any
+
+    if email
+      # a colleague's desk for the day
+      if desk = COLLEAGUE_DESKS[email]?
+        asset_id, level_id, building_id = desk
+        bookings << colleague_booking(asset_id, level_id, building_id, email)
+      end
+    elsif !zones.empty?
+      # everything booked on the level, used to work out what is still free
+      COLLEAGUE_DESKS.each do |colleague_email, (asset_id, level_id, building_id)|
+        next unless zones.includes?(level_id)
+        bookings << colleague_booking(asset_id, level_id, building_id, colleague_email)
+      end
+    end
+
+    bookings
+  end
+
+  protected def colleague_booking(asset_id : String, level_id : String, building_id : String, email : String) : JSON::Any
+    JSON.parse({
+      id:              1_i64,
+      booking_type:    "desk",
+      asset_id:        asset_id,
+      user_id:         nil,
+      user_email:      email,
+      user_name:       email,
+      booked_by_email: email,
+      booked_by_name:  email,
       checked_in:      false,
       booking_start:   0_i64,
       booking_end:     0_i64,
-      zones:           [] of String,
-    })
+      description:     asset_id,
+      zones:           ["zone-org", building_id, level_id],
+      extension_data:  {name: "#{asset_id} desk"},
+    }.to_json)
   end
 
   def create_booking(
@@ -279,11 +384,15 @@ class StaffAPI < DriverSpecs::MockDriver
     event_id : String? = nil,
     ical_uid : String? = nil,
     attendees : Array(JSON::Any)? = nil,
+    asset_name : String? = nil,
   )
     self[:bookings_created] = self[:bookings_created].as_i + 1
     self[:last_booking_zones] = zones
     self[:last_booking_type] = booking_type
     self[:last_booking_asset] = asset_id
+    self[:last_booking_asset_name] = asset_name || ""
+    self[:last_booking_description] = description || ""
+    self[:last_booking_extension] = extension_data || JSON.parse("{}")
     self[:last_booking_timezone] = time_zone || ""
     self[:last_booking_start] = booking_start || 0_i64
     self[:last_booking_end] = booking_end || 0_i64
@@ -345,7 +454,7 @@ DriverSpecs.mock_driver "Place::Campus" do
 
     # desk metadata is populated for levels that have desks
     level_a1 = levels.find! { |l| l["id"].as_s == "zone-level-a1" }
-    level_a1["bookable_desk_count"].as_i.should eq 3
+    level_a1["bookable_desk_count"].as_i.should eq 6
     level_a1["desk_features"].as_a.map(&.as_s).should contain "window"
   end
 
@@ -421,8 +530,8 @@ DriverSpecs.mock_driver "Place::Campus" do
     exec(
       :book_relative,
       building_id: "zone-building-b",
-      booking_type: "parking",
-      asset_id: "park-1",
+      booking_type: "desk",
+      asset_id: "desk-b1-01",
       level_id: "zone-level-b1",
       day_offset: 1,
       number_of_days: 1,
@@ -507,8 +616,8 @@ DriverSpecs.mock_driver "Place::Campus" do
       exec(
         :book_relative,
         building_id: building_id,
-        booking_type: "parking", # parking skips the desk-conflict check
-        asset_id: "park-1",
+        booking_type: "desk",
+        asset_id: building_id == "zone-building-a" ? "desk-a1-01" : "desk-b1-01",
         level_id: building_id == "zone-building-a" ? "zone-level-a1" : "zone-level-b1",
         day_offset: 0,
         number_of_days: 1,
@@ -527,15 +636,16 @@ DriverSpecs.mock_driver "Place::Campus" do
   it "applies an explicit booking_start and booking_end window to each day" do
     tz = Time::Location.load("Australia/Sydney")
     # pick a date well into the future so the past-booking check never trips
-    date = Time.local(2030, 6, 17, 0, 0, 0, location: tz)
-    start_time = Time.local(2030, 6, 17, 9, 30, 0, location: tz)
-    end_time = Time.local(2030, 6, 17, 13, 15, 0, location: tz)
+    # a few days out: clear of the past-booking check, inside the 14 day window
+    date = Time.local(tz).at_beginning_of_day + 3.days
+    start_time = date + 9.hours + 30.minutes
+    end_time = date + 13.hours + 15.minutes
 
     exec(
       :book_on,
       building_id: "zone-building-a",
-      booking_type: "parking",
-      asset_id: "park-1",
+      booking_type: "desk",
+      asset_id: "desk-a1-01",
       level_id: "zone-level-a1",
       date: date,
       number_of_days: 1,
@@ -549,16 +659,16 @@ DriverSpecs.mock_driver "Place::Campus" do
 
   it "rejects an explicit booking window where end is not after start" do
     tz = Time::Location.load("Australia/Sydney")
-    date = Time.local(2030, 6, 18, 0, 0, 0, location: tz)
-    start_time = Time.local(2030, 6, 18, 13, 0, 0, location: tz)
-    end_time = Time.local(2030, 6, 18, 9, 0, 0, location: tz)
+    date = Time.local(tz).at_beginning_of_day + 4.days
+    start_time = date + 13.hours
+    end_time = date + 9.hours
 
     expect_raises(Exception, /end time .* must be after start time/) do
       exec(
         :book_on,
         building_id: "zone-building-a",
-        booking_type: "parking",
-        asset_id: "park-1",
+        booking_type: "desk",
+        asset_id: "desk-a1-01",
         level_id: "zone-level-a1",
         date: date,
         number_of_days: 1,
@@ -566,6 +676,124 @@ DriverSpecs.mock_driver "Place::Campus" do
         booking_end: end_time,
       ).get
     end
+  end
+
+  it "refuses to book parking, in either booking function" do
+    expect_raises(Exception, /parking bookings are not enabled/) do
+      exec(
+        :book_relative,
+        building_id: "zone-building-a",
+        booking_type: "parking",
+        asset_id: "park-1",
+        level_id: "zone-level-a1",
+        day_offset: 1,
+      ).get
+    end
+
+    expect_raises(Exception, /parking bookings are not enabled/) do
+      exec(
+        :book_on,
+        building_id: "zone-building-a",
+        booking_type: "parking",
+        asset_id: "park-1",
+        level_id: "zone-level-a1",
+        date: Time.local(Time::Location.load("Australia/Sydney")).at_beginning_of_day + 2.days,
+      ).get
+    end
+  end
+
+  it "rejects a booking beyond the configured window" do
+    expect_raises(Exception, /more than 14 days in advance/) do
+      exec(
+        :book_relative,
+        building_id: "zone-building-a",
+        booking_type: "desk",
+        asset_id: "desk-a1-01",
+        level_id: "zone-level-a1",
+        day_offset: 20,
+      ).get
+    end
+  end
+
+  it "writes the mobile app booking payload" do
+    exec(
+      :book_relative,
+      building_id: "zone-building-a",
+      booking_type: "desk",
+      asset_id: "desk-a1-01",
+      level_id: "zone-level-a1",
+      day_offset: 1,
+    ).get
+
+    staff_api = system(:StaffAPI)
+    staff_api[:last_booking_asset_name].as_s.should eq "desk-a1-01"
+    staff_api[:last_booking_description].as_s.should eq "desk-a1-01"
+
+    ext = staff_api[:last_booking_extension].as_h
+    ext["map_id"].as_s.should eq "desk.a"
+    ext["app_name"].as_s.should eq "LLM"
+    ext["assigned_asset_id"].as_s.should eq "desk-a1-01"
+
+    # the full zone hierarchy, top-most first
+    zones = staff_api[:last_booking_zones].as_a.map(&.as_s)
+    zones.should eq ["zone-org", "zone-building-a", "zone-level-a1"]
+  end
+
+  it "colleagues reports the building and level each is sitting in" do
+    colleagues = exec(:colleagues).get.as_a
+    colleagues.size.should eq 5
+
+    one = colleagues.find! { |c| c["email"].as_s == "c1@example.com" }
+    one["desk_id"].as_s.should eq "desk-a1-c1"
+    one["desk_level_id"].as_s.should eq "zone-level-a1"
+    one["desk_building_id"].as_s.should eq "zone-building-a"
+
+    four = colleagues.find! { |c| c["email"].as_s == "c4@example.com" }
+    four["desk_building_id"].as_s.should eq "zone-building-b"
+
+    # working from home
+    five = colleagues.find! { |c| c["email"].as_s == "c5@example.com" }
+    five["desk_id"]?.try(&.as_s?).should be_nil
+  end
+
+  it "nearby_desks resolves the building from the level_id alone" do
+    nearby = exec(:nearby_desks, level_id: "zone-level-a1", desk_id: "desk-a1-c1").get.as_a.map(&.as_s)
+
+    # desk.a is nearest to c1, then desk.b, then the far-away desk.x. The other
+    # colleagues' desks are drawn too, and are returned here - nearby_desks
+    # ranks by distance only, it does not filter by availability
+    nearby.first.should eq "desk-a1-01"
+    nearby.should contain "desk-a1-02"
+    nearby.should_not contain "desk-a1-c1"
+  end
+
+  it "desks_near_colleagues ranks each building's level by headcount" do
+    result = exec(:desks_near_colleagues).get.as_a
+
+    result.map(&.["level_id"].as_s).should eq ["zone-level-a1", "zone-level-b1"]
+    result.map(&.["colleagues"].as_a.size).should eq [3, 1]
+
+    # display_name preferred over name, for both the building and the level
+    result.map(&.["level_name"].as_s).should eq ["Ground Floor", "Lobby"]
+
+    # who is sitting there, not just how many
+    result.first["colleagues"].as_a.map(&.["email"].as_s).sort.should eq [
+      "c1@example.com", "c2@example.com", "c3@example.com",
+    ]
+    result.last["colleagues"].as_a.map(&.["name"].as_s).should eq ["Colleague Four"]
+
+    level_a1 = result.first
+    level_a1["building_id"].as_s.should eq "zone-building-a"
+    level_a1["building_name"].as_s.should eq "Sydney Tower"
+    level_a1["groups"].as_a.map(&.as_s).sort.should eq ["design", "eng", "staff"]
+
+    # desk.a is closest to one colleague but furthest from the other two, so the
+    # more central desk.b outranks it. Colleagues' own desks are booked, and
+    # desk-a1-03 is restricted to a group the user isn't in, so neither appears.
+    level_a1["nearby_desks"].as_a.map(&.as_s).should eq ["desk-a1-02", "desk-a1-01"]
+
+    result.last["building_id"].as_s.should eq "zone-building-b"
+    result.last["nearby_desks"].as_a.map(&.as_s).should eq ["desk-b1-01"]
   end
 
   it "cancel_bookings deletes a booking owned by the user" do
