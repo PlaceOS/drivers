@@ -42,8 +42,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # Office365 emits several staff/event/changed signals per edit (organizer +
     # room mailbox copies, propagation lag), causing duplicate/contradictory
-    # visitor emails (PPT-2375). Coalesce them over this many seconds; 0 disables.
-    event_change_debounce:              0,
+    # visitor emails (PPT-2375). Coalesce over this many seconds; on by default, 0 disables.
+    event_change_debounce:              15,
     disable_qr_code:                    false,
     send_network_credentials:           false,
     network_password_length:            DEFAULT_PASSWORD_LENGTH,
@@ -164,7 +164,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # Coalescing buffer for staff/event/changed; only holds events currently
   # within their debounce window.
-  @event_change_debounce : Int32 = 0
+  @event_change_debounce : Int32 = 15
   @pending_event_changes : Hash(String, PendingEventChange) = {} of String => PendingEventChange
   @pending_event_changes_lock : Mutex = Mutex.new
 
@@ -187,7 +187,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
     @event_changed_template = setting?(String, :event_changed_template) || "event_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
-    @event_change_debounce = setting?(Int32, :event_change_debounce) || 0
+    @event_change_debounce = setting?(Int32, :event_change_debounce) || 15
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
