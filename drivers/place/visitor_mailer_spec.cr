@@ -1713,4 +1713,93 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_to].should eq "old-host-n@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
   system(:Mailer)[:last_args]["event_date"].raw.should be_nil
+
+  # ==================================================================
+  # event_change_debounce — coalesce the Office365 signal burst (PPT-2375)
+  # ==================================================================
+  #
+  # One edit arrives as an A -> B -> A flip-flop (Wed->Thu, Thu->Wed, Wed->Thu)
+  # of staff/event/changed signals; the debounce must collapse it into ONE email
+  # showing the true net change.
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 3,
+  })
+  sleep 1.0
+
+  gmt = Time::Location.load("GMT")
+  wed_start = now + 100_000
+  thu_start = wed_start + 86_400 # exactly one day later
+
+  # Wed -> Thu (organizer copy)
+  debounce_signal_a1 = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-debounce",
+    event_ical_uid:       "ical-debounce",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Temporal Uncertainty Forecasts",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  # Thu -> Wed (stale room-mailbox echo — the reversed signal)
+  debounce_signal_b = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-debounce",
+    event_ical_uid:       "ical-debounce",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Temporal Uncertainty Forecasts",
+    event_start:          wed_start,
+    event_end:            wed_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: thu_start,
+    previous_event_end:   thu_start + 1800,
+  }.to_json
+
+  # Wed -> Thu (room copy catches up — settled state)
+  debounce_signal_a2 = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-debounce",
+    event_ical_uid:       "ical-debounce",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Temporal Uncertainty Forecasts",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  count_before_debounce = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", debounce_signal_a1)
+  publish("staff/event/changed", debounce_signal_b)
+  publish("staff/event/changed", debounce_signal_a2)
+
+  # Still inside the 3s window: nothing should have been sent yet.
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_debounce
+
+  # After the window closes the burst collapses into a single email.
+  sleep 3.0
+  system(:Mailer)[:send_count].should eq count_before_debounce + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+
+  # The one email must show the true net change (Wed -> Thu), not the reversed echo.
+  debounce_args = system(:Mailer)[:last_args]
+  debounce_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  debounce_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
 end
