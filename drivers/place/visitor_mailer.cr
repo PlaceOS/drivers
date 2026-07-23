@@ -40,9 +40,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_changed_template:   "event_changed",
     group_event_template:     "group_event",
 
-    # Office365 emits several staff/event/changed signals per edit (organizer +
-    # room mailbox copies, propagation lag), causing duplicate/contradictory
-    # visitor emails (PPT-2375). Coalesce over this many seconds; on by default, 0 disables.
+    # Combine duplicate change emails sent within this many seconds; 0 disables.
     event_change_debounce:              15,
     disable_qr_code:                    false,
     send_network_credentials:           false,
