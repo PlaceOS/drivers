@@ -1815,6 +1815,62 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   debounce_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
   debounce_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
 
+  # ------------------------------------------------------------------
+  # Test 38b: a buffered change is drained by the lifecycle hooks rather
+  #           than dropped. The scheduled flush timers are cancelled on a
+  #           settings update (and terminated on unload), so the buffer is
+  #           drained first — this covers the same drain the driver runs
+  #           from on_unload, which the spec harness cannot invoke.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 30,
+  })
+  sleep 1.0
+
+  drain_signal = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-drain",
+    event_ical_uid:       "ical-drain",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Unload Drain",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  count_before_drain = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", drain_signal)
+
+  # Well inside the 30s window: the change is buffered, nothing sent yet.
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_drain
+
+  # The lifecycle hook drains the buffer before the flush timer is discarded.
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+  })
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_drain + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+
+  drain_args = system(:Mailer)[:last_args]
+  drain_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  drain_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
   # ==================================================================
   # visitor check-in tests (PPT-2535)
   # ==================================================================

@@ -162,8 +162,11 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # Coalescing buffer for staff/event/changed; only holds events currently
   # within their debounce window.
+  # seconds to buffer a change before emailing; 0 dispatches immediately
   @event_change_debounce : Int32 = 15
+  #                        event_id => coalesced change awaiting its flush
   @pending_event_changes : Hash(String, PendingEventChange) = {} of String => PendingEventChange
+  # guards the buffer: mutated from monitor callbacks, schedule and drain fibers
   @pending_event_changes_lock : Mutex = Mutex.new
 
   @uri : URI = URI.new
@@ -218,28 +221,20 @@ class Place::VisitorMailer < PlaceOS::Driver
     zones = control_system_zone_list
 
     # Flush in-flight debounced changes before schedule.clear cancels their timers.
-    draining = @pending_event_changes_lock.synchronize do
-      values = @pending_event_changes.values
-      @pending_event_changes.clear
-      values
-    end
-    draining.each do |pending|
-      spawn do
-        dispatch_event_change(
-          pending.event_id, pending.system_id, pending.event_ical_uid,
-          pending.host, pending.title, pending.current_start, pending.current_end,
-          pending.previous_start, pending.previous_end, pending.previous_system_id,
-        )
-      rescue error
-        logger.warn(exception: error) { "failed to flush pending event change on settings update" }
-      end
-    end
+    drain_pending_event_changes("settings update")
 
     schedule.clear
     if reminders = @send_reminders
       schedule.cron(reminders, @time_zone) { send_reminder_emails }
     end
     spawn { ensure_building_zone(zones) }
+  end
+
+  # The scheduler is terminated before this runs, so any change still inside its
+  # debounce window would never be emailed. Drain it, bounded so we return within
+  # the driver manager's on_unload budget.
+  def on_unload
+    drain_pending_event_changes("driver unloading", wait: 5.seconds)
   end
 
   def control_system_zone_list
@@ -858,6 +853,54 @@ class Place::VisitorMailer < PlaceOS::Driver
     schedule.in(@event_change_debounce.seconds) { flush_event_change(event_id) } if schedule_flush
   end
 
+  # Dispatches every buffered change immediately, emptying the buffer.
+  # Used by the lifecycle hooks, where the scheduled flush timers are about to
+  # be cancelled and the buffered notifications would otherwise be lost.
+  # `wait` bounds how long we block for the sends to complete (the driver
+  # manager tears the module down ~6s into on_unload); nil returns immediately.
+  private def drain_pending_event_changes(reason : String, wait : Time::Span? = nil) : Nil
+    draining = @pending_event_changes_lock.synchronize do
+      values = @pending_event_changes.values
+      @pending_event_changes.clear
+      values
+    end
+    return if draining.empty?
+
+    logger.debug { "flushing #{draining.size} pending event change(s): #{reason}" }
+
+    complete = Channel(Nil).new(draining.size)
+    draining.each do |pending|
+      spawn do
+        dispatch_event_change(
+          pending.event_id, pending.system_id, pending.event_ical_uid,
+          pending.host, pending.title, pending.current_start, pending.current_end,
+          pending.previous_start, pending.previous_end, pending.previous_system_id,
+        )
+      rescue error
+        logger.warn(exception: error) { "failed to flush pending event change #{pending.event_id}: #{reason}" }
+      ensure
+        complete.send(nil)
+      end
+    end
+    return unless wait
+
+    deadline = Time.monotonic + wait
+    draining.size.times do |index|
+      remaining = deadline - Time.monotonic
+      if remaining <= Time::Span.zero
+        logger.warn { "timeout flushing pending event changes: #{reason}, #{draining.size - index} of #{draining.size} still in flight" }
+        break
+      end
+
+      select
+      when complete.receive
+      when timeout(remaining)
+        logger.warn { "timeout flushing pending event changes: #{reason}, #{draining.size - index} of #{draining.size} still in flight" }
+        break
+      end
+    end
+  end
+
   private def flush_event_change(event_id : String)
     pending = @pending_event_changes_lock.synchronize { @pending_event_changes.delete(event_id) }
     return unless pending
@@ -1188,16 +1231,24 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   # A staff/event/changed change buffered awaiting a debounced flush.
+  # `current_*` track the latest values seen in the burst, `previous_*` are kept
+  # from the first signal so the email describes the net change of the edit.
   class PendingEventChange
+    # the calendar event being edited, also the buffer key
     property event_id : String
+    # the room the event currently sits in (latest signal)
     property system_id : String
     property event_ical_uid : String?
+    # the current host, required to render and reply-to the email
     property host : String
     property title : String?
+    # latest event timing seen in the burst
     property current_start : Int64
     property current_end : Int64
+    # event timing before the edit, from the first signal in the burst
     property previous_start : Int64?
     property previous_end : Int64?
+    # the room before the edit, from the first signal in the burst
     property previous_system_id : String?
 
     def initialize(
