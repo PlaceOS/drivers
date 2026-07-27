@@ -163,7 +163,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   # Coalescing buffer for staff/event/changed, swept once the window elapses.
   # seconds to buffer a change; 0 emails on every signal
   @event_change_debounce : Int32 = 15
-  #                        event_id => coalesced change awaiting its flush
+  #                        ical_uid (or event_id) => coalesced change awaiting its flush
   @pending_event_changes : Hash(String, PendingEventChange) = {} of String => PendingEventChange
   @pending_event_changes_lock : Mutex = Mutex.new
 
@@ -812,12 +812,14 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   # Collapses the burst of signals for one edit into a single buffered change.
+  # Keyed by event instance, so the rooms either side of a move coalesce too;
+  # the one email then names a single room and uses that room's guest list.
   private def buffer_event_change(change : PendingEventChange) : Nil
     @pending_event_changes_lock.synchronize do
-      if pending = @pending_event_changes[change.event_id]?
+      if pending = @pending_event_changes[change.buffer_key]?
         pending.merge(change)
       else
-        @pending_event_changes[change.event_id] = change
+        @pending_event_changes[change.buffer_key] = change
       end
     end
   end
@@ -837,7 +839,7 @@ class Place::VisitorMailer < PlaceOS::Driver
               else
                 @pending_event_changes.values
               end
-      ready.each { |pending| @pending_event_changes.delete(pending.event_id) }
+      ready.each { |pending| @pending_event_changes.delete(pending.buffer_key) }
       ready
     end
     return if flushing.empty?
@@ -883,10 +885,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     previous_system_id = change.previous_system_id
 
     # Skip a coalesced no-op (e.g. an A->B->A flip-flop that nets to no change).
-    changed = false
+    changed = change.moved_room?
     changed = true if (previous_start = change.previous_start) && previous_start != change.current_start
     changed = true if (previous_end = change.previous_end) && previous_end != change.current_end
-    changed = true if previous_system_id && previous_system_id != system_id
     return unless changed
 
     current_building_name = building_zone.display_name.presence || building_zone.name
@@ -900,7 +901,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     previous_building_name = current_building_name
     previous_room_name = current_room_name
 
-    if (prev_sys_id = previous_system_id) && prev_sys_id != system_id
+    if change.moved_room? && (prev_sys_id = previous_system_id)
       # Use "unknown" as the room fallback so a failed lookup surfaces in the
       # email rather than silently showing the current room name.
       previous_room_name, previous_building_name = resolve_system_location_names(prev_sys_id, "unknown", current_building_name)
@@ -1183,7 +1184,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   # `first_seen` stay as they were when it started, so the email describes the
   # net change of the whole edit.
   class PendingEventChange
-    property event_id : String  # also the buffer key
+    property event_id : String
     property system_id : String # the room the event sits in
     property event_ical_uid : String?
     property host : String
@@ -1194,6 +1195,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     property previous_end : Int64?
     property previous_system_id : String? # the room before the edit
     getter first_seen : Time::Span = Time.monotonic
+    # ical_uid identifies the event instance across mailbox copies and rooms;
+    # event_id is only a fallback for a signal that omits it.
+    getter buffer_key : String
 
     def initialize(
       @event_id,
@@ -1207,12 +1211,24 @@ class Place::VisitorMailer < PlaceOS::Driver
       @previous_end,
       @previous_system_id,
     )
+      @buffer_key = @event_ical_uid.presence || @event_id
     end
 
-    # Advance to the latest signal in the burst.
+    # Whether this signal reports the event changing rooms.
+    def moved_room? : Bool
+      !!previous_system_id.try { |previous| previous != system_id }
+    end
+
+    # Advance to the latest signal in the burst. The room only moves when a
+    # signal reports the move, so a same-room echo from another mailbox can't
+    # steal it back.
     def merge(change : PendingEventChange) : Nil
-      @system_id = change.system_id
-      @event_ical_uid = change.event_ical_uid
+      if change.moved_room?
+        @event_id = change.event_id
+        @system_id = change.system_id
+        @previous_system_id ||= change.previous_system_id
+      end
+      @event_ical_uid = change.event_ical_uid || @event_ical_uid
       @host = change.host
       @title = change.title
       @current_start = change.current_start

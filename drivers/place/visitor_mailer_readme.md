@@ -47,6 +47,11 @@ delay is the configured debounce plus up to one sweep interval (at most 5s). Any
 still buffered is emailed immediately when the driver is unloaded, or when the
 debounce is turned off, so a restart never silently drops a pending notification.
 
+Signals are grouped by event instance (its ical uid), not by room, so an edit that
+moves the meeting *and* changes the time sends one email describing both rather than
+one per room. A move between buildings is handled by two separate mailer modules and
+so still sends an email each.
+
 ## Reply-To
 
 Visitor emails set a `Reply-To` header so replies reach a useful person rather than

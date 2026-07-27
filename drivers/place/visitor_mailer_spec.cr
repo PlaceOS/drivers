@@ -179,6 +179,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
     case id
     when "sys-room1"
       {id: "sys-room1", name: "Room 1", display_name: "Conference Room 1", map_id: nil, zones: ["zone-building", "zone-room"]}
+    when "sys-room2"
+      # second room in the SAME building, so signals for it pass the zone filter
+      {id: "sys-room2", name: "Room 2", display_name: "Conference Room 2", map_id: nil, zones: ["zone-building", "zone-room2"]}
     when "sys-old-room"
       {id: "sys-old-room", name: "Room 202", display_name: "Old Conference Room 202", map_id: nil, zones: ["zone-old-building", "zone-old-room"]}
     when "sys-error"
@@ -1863,7 +1866,148 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   survives_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
 
   # ------------------------------------------------------------------
-  # Test 38c: turning the debounce off flushes whatever is buffered, as no
+  # Test 38d: the burst is keyed on the ical uid, so two signals for the
+  #           same event instance coalesce even when they report different
+  #           event ids (mailbox copies / duplicate metadata rows).
+  # ------------------------------------------------------------------
+
+  count_before_ical = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-copy-a",
+    event_ical_uid:       "ical-shared",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Shared Ical",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json)
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-copy-b",
+    event_ical_uid:       "ical-shared",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Shared Ical",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json)
+
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_ical
+
+  sleep 6.0
+  system(:Mailer)[:send_count].should eq count_before_ical + 1
+  system(:Mailer)[:last_args]["event_title"].should eq "Shared Ical"
+
+  # ------------------------------------------------------------------
+  # Test 38e: a room move paired with a time change. The old room's
+  #           mailbox echoes the time change against itself; merged with
+  #           the move it must not steal the room back. Move signal first.
+  # ------------------------------------------------------------------
+
+  count_before_move = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-move-new",
+    event_ical_uid:       "ical-move",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Moved And Rescheduled",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room2",
+    event_id:             "evt-move-old",
+    event_ical_uid:       "ical-move",
+    host:                 "host@example.com",
+    resource:             "room2@example.com",
+    title:                "Moved And Rescheduled",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room2"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  sleep 7.0
+  system(:Mailer)[:send_count].should eq count_before_move + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+
+  move_args = system(:Mailer)[:last_args]
+  move_args["room_name"].should eq "Conference Room 1"
+  move_args["previous_room_name"].should eq "Conference Room 2"
+  move_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  move_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
+  # ------------------------------------------------------------------
+  # Test 38f: the same pair in the other order — echo first, then the
+  #           move — must produce the identical email.
+  # ------------------------------------------------------------------
+
+  count_before_move_echo = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room2",
+    event_id:             "evt-move2-old",
+    event_ical_uid:       "ical-move-2",
+    host:                 "host@example.com",
+    resource:             "room2@example.com",
+    title:                "Echo First",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room2"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-move2-new",
+    event_ical_uid:       "ical-move-2",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Echo First",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  sleep 7.0
+  system(:Mailer)[:send_count].should eq count_before_move_echo + 1
+
+  move_echo_args = system(:Mailer)[:last_args]
+  move_echo_args["room_name"].should eq "Conference Room 1"
+  move_echo_args["previous_room_name"].should eq "Conference Room 2"
+
+  # ------------------------------------------------------------------
+  # Test 38g: turning the debounce off flushes whatever is buffered, as no
   #           sweep will run to pick it up. Same flush as on_unload, which
   #           the spec harness cannot invoke directly.
   # ------------------------------------------------------------------
