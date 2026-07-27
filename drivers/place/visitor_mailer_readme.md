@@ -42,9 +42,10 @@ to email on every signal.
   event_change_debounce: 15
 ```
 
-Buffered changes are drained (emailed immediately) when the module's settings are
-updated and when the driver is unloaded, so a restart or a settings change does not
-silently drop a pending notification.
+Buffered changes are swept on a timer rather than each having its own, so the actual
+delay is the configured debounce plus up to one sweep interval (at most 5s). Anything
+still buffered is emailed immediately when the driver is unloaded, or when the
+debounce is turned off, so a restart never silently drops a pending notification.
 
 ## Reply-To
 

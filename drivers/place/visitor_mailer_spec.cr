@@ -1804,8 +1804,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_debounce
 
-  # After the window closes the burst collapses into a single email.
-  sleep 3.0
+  # After the window closes the burst collapses into a single email. The sweep
+  # runs on an interval, so allow the debounce plus one sweep interval.
+  sleep 6.0
   system(:Mailer)[:send_count].should eq count_before_debounce + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
@@ -1816,11 +1817,58 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   debounce_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
 
   # ------------------------------------------------------------------
-  # Test 38b: a buffered change is drained by the lifecycle hooks rather
-  #           than dropped. The scheduled flush timers are cancelled on a
-  #           settings update (and terminated on unload), so the buffer is
-  #           drained first — this covers the same drain the driver runs
-  #           from on_unload, which the spec harness cannot invoke.
+  # Test 38b: a change buffered when the settings are updated keeps its
+  #           window and is still swept out afterwards, rather than being
+  #           dropped or emailed early.
+  # ------------------------------------------------------------------
+
+  survives_signal = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-survives-update",
+    event_ical_uid:       "ical-survives-update",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Settings Update",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  count_before_survives = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", survives_signal)
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_survives
+
+  # Settings update mid-window: the buffer survives and the new sweep picks it up.
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 3,
+  })
+
+  # The update must not cut the window short either.
+  sleep 0.5
+  system(:Mailer)[:send_count].should eq count_before_survives
+
+  sleep 6.0
+  system(:Mailer)[:send_count].should eq count_before_survives + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+
+  survives_args = system(:Mailer)[:last_args]
+  survives_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  survives_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
+  # ------------------------------------------------------------------
+  # Test 38c: turning the debounce off flushes whatever is buffered —
+  #           no sweep will run to pick it up. This is the same flush the
+  #           driver runs from on_unload, which the spec harness cannot
+  #           invoke directly.
   # ------------------------------------------------------------------
 
   settings({
@@ -1854,7 +1902,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_drain
 
-  # The lifecycle hook drains the buffer before the flush timer is discarded.
+  # Disabling the debounce flushes the buffer instead of orphaning it.
   settings({
     timezone:              "GMT",
     booking_space_name:    "Client Floor",
