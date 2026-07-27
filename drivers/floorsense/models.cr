@@ -377,7 +377,7 @@ module Floorsense
 
     property uid : String
     property email : String?
-    property name : String
+    property name : String { "<Unknown>" }
     property desc : String?
     property lastlogin : Int64?
     property expiry : Int64?
