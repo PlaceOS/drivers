@@ -160,13 +160,11 @@ class Place::VisitorMailer < PlaceOS::Driver
   @skip_event_linked_booking_email : Bool = true
   @skip_host_email : Bool = true
 
-  # Coalescing buffer for staff/event/changed; only holds events currently
-  # within their debounce window.
-  # seconds to buffer a change before emailing; 0 dispatches immediately
+  # Coalescing buffer for staff/event/changed, swept once the window elapses.
+  # seconds to buffer a change; 0 emails on every signal
   @event_change_debounce : Int32 = 15
   #                        event_id => coalesced change awaiting its flush
   @pending_event_changes : Hash(String, PendingEventChange) = {} of String => PendingEventChange
-  # guards the buffer: mutated from monitor callbacks, schedule and drain fibers
   @pending_event_changes_lock : Mutex = Mutex.new
 
   @uri : URI = URI.new
@@ -220,8 +218,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     zones = control_system_zone_list
 
-    # The sweep below picks up anything still buffered; only when the debounce has
-    # been turned off is there nothing left to flush it.
+    # The sweep below picks up the rest; with the debounce off nothing would.
     flush_event_changes("debounce disabled") if @event_change_debounce <= 0
 
     schedule.clear
@@ -229,17 +226,14 @@ class Place::VisitorMailer < PlaceOS::Driver
       schedule.cron(reminders, @time_zone) { send_reminder_emails }
     end
 
-    # Sweep often enough to keep short debounce windows accurate, but no more than
-    # every 5s for long ones — the effective window is the configured debounce plus
-    # up to one sweep interval.
+    # Sweeps at most every 5s, so a change waits its debounce plus up to one interval.
     schedule.every(@event_change_debounce.clamp(1, 5).seconds) { sweep_event_changes } if @event_change_debounce > 0
 
     spawn { ensure_building_zone(zones) }
   end
 
-  # The scheduler is terminated before this runs, so a change still inside its
-  # debounce window would never be swept. Flush the buffer, bounded so we return
-  # within the driver manager's on_unload budget.
+  # The scheduler is dead by now, so nothing else would sweep the buffer.
+  # Bounded to return within the driver manager's 6s unload budget.
   def on_unload
     flush_event_changes("driver unloading", wait: 5.seconds)
   end
@@ -817,8 +811,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     }
   end
 
-  # Buffers a change so the burst of signals for one edit collapses into a single
-  # email. The periodic sweep sends it once the debounce window has elapsed.
+  # Collapses the burst of signals for one edit into a single buffered change.
   private def buffer_event_change(change : PendingEventChange) : Nil
     @pending_event_changes_lock.synchronize do
       if pending = @pending_event_changes[change.event_id]?
@@ -829,18 +822,14 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
   end
 
-  # Sends any change that has been buffered for the full debounce window.
-  # A single sweep replaces a timer per event.
+  # Sends any change that has been buffered for its full debounce window.
   private def sweep_event_changes : Nil
     flush_event_changes("debounce window elapsed", older_than: Time.monotonic - @event_change_debounce.seconds)
   end
 
-  # Removes the matching buffered changes and dispatches each in its own fiber —
-  # a slow send must not stall the sweep or the shutdown drain.
-  # `older_than` limits the flush to entries buffered before that point (the
-  # sweep); nil flushes the whole buffer (the lifecycle drain).
-  # `wait` bounds how long we block for the sends to complete (the driver
-  # manager tears the module down ~6s into on_unload); nil returns immediately.
+  # Dispatches matching changes, each in its own fiber so a slow send can't stall
+  # the sweep. `older_than` limits the flush to entries buffered before that point
+  # (nil takes the lot), `wait` bounds how long we block for the sends to finish.
   private def flush_event_changes(reason : String, older_than : Time::Span? = nil, wait : Time::Span? = nil) : Nil
     flushing = @pending_event_changes_lock.synchronize do
       ready = if cutoff = older_than
@@ -1190,26 +1179,20 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   # A staff/event/changed change buffered awaiting a debounced flush.
-  # `current_*` track the latest values seen in the burst, `previous_*` are kept
-  # from the first signal so the email describes the net change of the edit.
+  # `current_*` follow the latest signal in the burst, `previous_*` and
+  # `first_seen` stay as they were when it started, so the email describes the
+  # net change of the whole edit.
   class PendingEventChange
-    # the calendar event being edited, also the buffer key
-    property event_id : String
-    # the room the event currently sits in (latest signal)
-    property system_id : String
+    property event_id : String  # also the buffer key
+    property system_id : String # the room the event sits in
     property event_ical_uid : String?
-    # the current host, required to render and reply-to the email
     property host : String
     property title : String?
-    # latest event timing seen in the burst
     property current_start : Int64
     property current_end : Int64
-    # event timing before the edit, from the first signal in the burst
     property previous_start : Int64?
     property previous_end : Int64?
-    # the room before the edit, from the first signal in the burst
-    property previous_system_id : String?
-    # when the burst started; the debounce window is measured from here
+    property previous_system_id : String? # the room before the edit
     getter first_seen : Time::Span = Time.monotonic
 
     def initialize(
@@ -1226,9 +1209,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     )
     end
 
-    # Advance to the latest values seen in the burst. `first_seen` and the
-    # `previous_*` values stay as they were when the burst started, so the email
-    # always describes the net change of the whole edit.
+    # Advance to the latest signal in the burst.
     def merge(change : PendingEventChange) : Nil
       @system_id = change.system_id
       @event_ical_uid = change.event_ical_uid

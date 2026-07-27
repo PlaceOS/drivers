@@ -1804,8 +1804,8 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_debounce
 
-  # After the window closes the burst collapses into a single email. The sweep
-  # runs on an interval, so allow the debounce plus one sweep interval.
+  # After the window closes the burst collapses into a single email.
+  # Allow the debounce plus one sweep interval.
   sleep 6.0
   system(:Mailer)[:send_count].should eq count_before_debounce + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -1817,9 +1817,8 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   debounce_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
 
   # ------------------------------------------------------------------
-  # Test 38b: a change buffered when the settings are updated keeps its
-  #           window and is still swept out afterwards, rather than being
-  #           dropped or emailed early.
+  # Test 38b: a settings update mid-window neither drops the buffered
+  #           change nor emails it early — the new sweep picks it up.
   # ------------------------------------------------------------------
 
   survives_signal = {
@@ -1843,7 +1842,6 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_survives
 
-  # Settings update mid-window: the buffer survives and the new sweep picks it up.
   settings({
     timezone:              "GMT",
     booking_space_name:    "Client Floor",
@@ -1851,7 +1849,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     event_change_debounce: 3,
   })
 
-  # The update must not cut the window short either.
+  # the update must not cut the window short
   sleep 0.5
   system(:Mailer)[:send_count].should eq count_before_survives
 
@@ -1865,10 +1863,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   survives_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
 
   # ------------------------------------------------------------------
-  # Test 38c: turning the debounce off flushes whatever is buffered —
-  #           no sweep will run to pick it up. This is the same flush the
-  #           driver runs from on_unload, which the spec harness cannot
-  #           invoke directly.
+  # Test 38c: turning the debounce off flushes whatever is buffered, as no
+  #           sweep will run to pick it up. Same flush as on_unload, which
+  #           the spec harness cannot invoke directly.
   # ------------------------------------------------------------------
 
   settings({
