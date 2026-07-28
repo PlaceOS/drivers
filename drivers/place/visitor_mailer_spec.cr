@@ -179,6 +179,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
     case id
     when "sys-room1"
       {id: "sys-room1", name: "Room 1", display_name: "Conference Room 1", map_id: nil, zones: ["zone-building", "zone-room"]}
+    when "sys-room2"
+      # second room in the SAME building, so signals for it pass the zone filter
+      {id: "sys-room2", name: "Room 2", display_name: "Conference Room 2", map_id: nil, zones: ["zone-building", "zone-room2"]}
     when "sys-old-room"
       {id: "sys-old-room", name: "Room 202", display_name: "Old Conference Room 202", map_id: nil, zones: ["zone-old-building", "zone-old-room"]}
     when "sys-error"
@@ -669,6 +672,15 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ==================================================================
   # event_changed_event tests (staff/event/changed)
   # ==================================================================
+
+  # These tests assert an immediate send, so disable the debounce (default 15s).
+  # send_reminders/domain_uri mirror default_settings so nothing else changes.
+  settings({
+    event_change_debounce: 0,
+    send_reminders:        "0 7 * * *",
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
 
   # ------------------------------------------------------------------
   # Test 11: event_changed with time change — sends booking_changed
@@ -1174,6 +1186,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name:              "Client Floor",
     invite_zone_tag:                 "building",
     skip_event_linked_booking_email: false,
+    event_change_debounce:           0,
   })
   sleep 1.0
 
@@ -1376,10 +1389,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:           "GMT",
-    booking_space_name: "Client Floor",
-    invite_zone_tag:    "building",
-    skip_host_email:    false,
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    skip_host_email:       false,
+    event_change_debounce: 0,
   })
   sleep 1.0
 
@@ -1480,6 +1494,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     invite_zone_tag:          "building",
     booking_changed_template: "custom_booking_changed",
     event_changed_template:   "custom_event_changed",
+    event_change_debounce:    0,
   })
   sleep 1.0
 
@@ -1713,6 +1728,338 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_to].should eq "old-host-n@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
   system(:Mailer)[:last_args]["event_date"].raw.should be_nil
+
+  # ==================================================================
+  # event_change_debounce — coalesce the Office365 signal burst (PPT-2375)
+  # ==================================================================
+  #
+  # One edit arrives as an A -> B -> A flip-flop (Wed->Thu, Thu->Wed, Wed->Thu)
+  # of staff/event/changed signals; the debounce must collapse it into ONE email
+  # showing the true net change.
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 3,
+  })
+  sleep 1.0
+
+  gmt = Time::Location.load("GMT")
+  wed_start = now + 100_000
+  thu_start = wed_start + 86_400 # exactly one day later
+
+  # Wed -> Thu (organizer copy)
+  debounce_signal_a1 = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-debounce",
+    event_ical_uid:       "ical-debounce",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Temporal Uncertainty Forecasts",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  # Thu -> Wed (stale room-mailbox echo — the reversed signal)
+  debounce_signal_b = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-debounce",
+    event_ical_uid:       "ical-debounce",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Temporal Uncertainty Forecasts",
+    event_start:          wed_start,
+    event_end:            wed_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: thu_start,
+    previous_event_end:   thu_start + 1800,
+  }.to_json
+
+  # Wed -> Thu (room copy catches up — settled state)
+  debounce_signal_a2 = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-debounce",
+    event_ical_uid:       "ical-debounce",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Temporal Uncertainty Forecasts",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  count_before_debounce = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", debounce_signal_a1)
+  publish("staff/event/changed", debounce_signal_b)
+  publish("staff/event/changed", debounce_signal_a2)
+
+  # Still inside the 3s window: nothing should have been sent yet.
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_debounce
+
+  # After the window closes the burst collapses into a single email.
+  # Allow the debounce plus one sweep interval.
+  sleep 6.0
+  system(:Mailer)[:send_count].should eq count_before_debounce + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+
+  # The one email must show the true net change (Wed -> Thu), not the reversed echo.
+  debounce_args = system(:Mailer)[:last_args]
+  debounce_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  debounce_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
+  # ------------------------------------------------------------------
+  # Test 38b: a settings update mid-window neither drops the buffered
+  #           change nor emails it early — the new sweep picks it up.
+  # ------------------------------------------------------------------
+
+  survives_signal = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-survives-update",
+    event_ical_uid:       "ical-survives-update",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Settings Update",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  count_before_survives = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", survives_signal)
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_survives
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 3,
+  })
+
+  # the update must not cut the window short
+  sleep 0.5
+  system(:Mailer)[:send_count].should eq count_before_survives
+
+  sleep 6.0
+  system(:Mailer)[:send_count].should eq count_before_survives + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+
+  survives_args = system(:Mailer)[:last_args]
+  survives_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  survives_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
+  # ------------------------------------------------------------------
+  # Test 38d: the burst is keyed on the ical uid, so two signals for the
+  #           same event instance coalesce even when they report different
+  #           event ids (mailbox copies / duplicate metadata rows).
+  # ------------------------------------------------------------------
+
+  count_before_ical = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-copy-a",
+    event_ical_uid:       "ical-shared",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Shared Ical",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json)
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-copy-b",
+    event_ical_uid:       "ical-shared",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Shared Ical",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json)
+
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_ical
+
+  sleep 6.0
+  system(:Mailer)[:send_count].should eq count_before_ical + 1
+  system(:Mailer)[:last_args]["event_title"].should eq "Shared Ical"
+
+  # ------------------------------------------------------------------
+  # Test 38e: a room move paired with a time change. The old room's
+  #           mailbox echoes the time change against itself; merged with
+  #           the move it must not steal the room back. Move signal first.
+  # ------------------------------------------------------------------
+
+  count_before_move = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-move-new",
+    event_ical_uid:       "ical-move",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Moved And Rescheduled",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room2",
+    event_id:             "evt-move-old",
+    event_ical_uid:       "ical-move",
+    host:                 "host@example.com",
+    resource:             "room2@example.com",
+    title:                "Moved And Rescheduled",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room2"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  sleep 7.0
+  system(:Mailer)[:send_count].should eq count_before_move + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+
+  move_args = system(:Mailer)[:last_args]
+  move_args["room_name"].should eq "Conference Room 1"
+  move_args["previous_room_name"].should eq "Conference Room 2"
+  move_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  move_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
+  # ------------------------------------------------------------------
+  # Test 38f: the same pair in the other order — echo first, then the
+  #           move — must produce the identical email.
+  # ------------------------------------------------------------------
+
+  count_before_move_echo = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room2",
+    event_id:             "evt-move2-old",
+    event_ical_uid:       "ical-move-2",
+    host:                 "host@example.com",
+    resource:             "room2@example.com",
+    title:                "Echo First",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room2"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-move2-new",
+    event_ical_uid:       "ical-move-2",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Echo First",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  sleep 7.0
+  system(:Mailer)[:send_count].should eq count_before_move_echo + 1
+
+  move_echo_args = system(:Mailer)[:last_args]
+  move_echo_args["room_name"].should eq "Conference Room 1"
+  move_echo_args["previous_room_name"].should eq "Conference Room 2"
+
+  # ------------------------------------------------------------------
+  # Test 38g: turning the debounce off flushes whatever is buffered, as no
+  #           sweep will run to pick it up. Same flush as on_unload, which
+  #           the spec harness cannot invoke directly.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 30,
+  })
+  sleep 1.0
+
+  drain_signal = {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-drain",
+    event_ical_uid:       "ical-drain",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Unload Drain",
+    event_start:          thu_start,
+    event_end:            thu_start + 1800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: wed_start,
+    previous_event_end:   wed_start + 1800,
+  }.to_json
+
+  count_before_drain = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", drain_signal)
+
+  # Well inside the 30s window: the change is buffered, nothing sent yet.
+  sleep 1.0
+  system(:Mailer)[:send_count].should eq count_before_drain
+
+  # Disabling the debounce flushes the buffer instead of orphaning it.
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+  })
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_drain + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+
+  drain_args = system(:Mailer)[:last_args]
+  drain_args["event_date"].should eq Time.unix(thu_start).in(gmt).to_s("%A, %-d %B")
+  drain_args["previous_event_date"].should eq Time.unix(wed_start).in(gmt).to_s("%A, %-d %B")
+
   # ==================================================================
   # visitor check-in tests (PPT-2535)
   # ==================================================================

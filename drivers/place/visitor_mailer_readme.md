@@ -26,6 +26,32 @@ Requires the following drivers in the system:
   skip_host_email:    true
 ```
 
+## Debouncing event changes
+
+A single calendar edit is rarely a single signal: Office365 emits a burst of
+`staff/event/changed` updates (the organizer copy, then each room mailbox catching
+up), which can briefly flip-flop between the old and new values. Sending an email
+per signal spams visitors with contradictory notifications.
+
+`event_change_debounce` (seconds, default `15`) buffers the burst for one event and
+sends a single email describing the net change once the window closes. Set it to `0`
+to email on every signal.
+
+```yaml
+  # Combine duplicate change emails sent within this many seconds; 0 disables.
+  event_change_debounce: 15
+```
+
+Buffered changes are swept on a timer rather than each having its own, so the actual
+delay is the configured debounce plus up to one sweep interval (at most 5s). Anything
+still buffered is emailed immediately when the driver is unloaded, or when the
+debounce is turned off, so a restart never silently drops a pending notification.
+
+Signals are grouped by event instance (its ical uid), not by room, so an edit that
+moves the meeting *and* changes the time sends one email describing both rather than
+one per room. A move between buildings is handled by two separate mailer modules and
+so still sends an email each.
+
 ## Reply-To
 
 Visitor emails set a `Reply-To` header so replies reach a useful person rather than
