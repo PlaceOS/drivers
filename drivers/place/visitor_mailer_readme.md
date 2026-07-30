@@ -24,6 +24,9 @@ Requires the following drivers in the system:
   event_template:     "event"
   # When true, the host is not sent visitor-targeted emails
   skip_host_email:    true
+  # When true, attendees sharing the host's email domain are treated as
+  # colleagues rather than visitors and are not emailed
+  skip_internal_domain_email: false
 ```
 
 ## Debouncing event changes
@@ -51,6 +54,25 @@ Signals are grouped by event instance (its ical uid), not by room, so an edit th
 moves the meeting *and* changes the time sends one email describing both rather than
 one per room. A move between buildings is handled by two separate mailer modules and
 so still sends an email each.
+
+## Colleagues are not visitors
+
+Front ends tend to mark every attendee of a meeting as an expected visitor, so staff
+invited to a meeting are announced by the staff API exactly like external guests and
+would receive visitor invites and QR codes.
+
+Two settings filter them out:
+
+```yaml
+  # skip anyone whose email domain matches the host's
+  skip_internal_domain_email: true
+  # or list the domains explicitly
+  host_domain_filter: ["your-company.com"]
+```
+
+Both apply to invitations, check-in and induction notifications, and change
+notifications. Emails aimed at the host (`notify_checkin`, `notify_original_host`) are
+unaffected — they are filtered on the *attendee's* domain, not the recipient's.
 
 ## QR code and kiosk link on change notifications
 

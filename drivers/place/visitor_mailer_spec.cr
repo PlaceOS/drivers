@@ -5,8 +5,13 @@ require "placeos-driver/interface/mailer"
 class MailerMock < DriverSpecs::MockDriver
   include PlaceOS::Driver::Interface::Mailer
 
+  # Every template name sent so far, so a test can assert which emails an event
+  # produced rather than only counting them.
+  @templates_sent : Array(String) = [] of String
+
   def on_load
     self[:send_count] = 0
+    self[:sent_templates] = @templates_sent
   end
 
   def send_template(
@@ -25,6 +30,8 @@ class MailerMock < DriverSpecs::MockDriver
     self[:last_args] = args
     self[:last_reply_to] = reply_to
     self[:last_attachments] = resource_attachments
+    @templates_sent << template[1]
+    self[:sent_templates] = @templates_sent
     self[:send_count] = self[:send_count].as_i + 1
     true
   end
@@ -147,6 +154,13 @@ class StaffAPIMock < DriverSpecs::MockDriver
       # when it appends the host with visit_expected: true).
       [
         {email: "host@example.com", name: "Host User", checked_in: false, visit_expected: true},
+        {email: "visitor@external.com", name: "Visitor One", checked_in: false, visit_expected: true},
+      ]
+    when 302
+      # A colleague of the host (same domain) alongside a real visitor — the
+      # front-end marks every attendee as an expected visitor.
+      [
+        {email: "colleague@example.com", name: "Colleague", checked_in: false, visit_expected: true},
         {email: "visitor@external.com", name: "Visitor One", checked_in: false, visit_expected: true},
       ]
     else
@@ -2355,4 +2369,217 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     names.should contain "guest_jwt"
     names.should contain "kiosk_url"
   end
+
+  # ==================================================================
+  # Colleagues are not visitors
+  # ==================================================================
+  #
+  # The front-end marks every attendee as an expected visitor, so staff
+  # invited to a meeting are signalled exactly like external guests.
+
+  # ------------------------------------------------------------------
+  # Test 47: host_domain_filter suppresses the event invite for an
+  #          attendee on a filtered (internal) domain.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+    host_domain_filter:    ["example.com"],
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
+
+  count_before_domain_filter = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "meeting_update",
+    system_id:      "sys-room1",
+    event_id:       "evt-colleague",
+    event_ical_uid: "ical-colleague",
+    resource:       "room1@example.com",
+    event_title:    "Colleague Added",
+    event_summary:  "Colleague Added",
+    event_starting: now + 3600,
+    attendee_name:  "Colleague",
+    attendee_email: "colleague@example.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.5
+  system(:Mailer)[:send_count].should eq count_before_domain_filter
+
+  # ------------------------------------------------------------------
+  # Test 48: skip_internal_domain_email does the same without needing a
+  #          domain list — anyone sharing the host's domain is treated as
+  #          a colleague.  External visitors are unaffected.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:                   "GMT",
+    booking_space_name:         "Client Floor",
+    invite_zone_tag:            "building",
+    event_change_debounce:      0,
+    skip_internal_domain_email: true,
+    domain_uri:                 "https://example.com/",
+  })
+  sleep 1.0
+
+  count_before_internal = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "meeting_update",
+    system_id:      "sys-room1",
+    event_id:       "evt-internal",
+    event_ical_uid: "ical-internal",
+    resource:       "room1@example.com",
+    event_title:    "Internal Colleague",
+    event_summary:  "Internal Colleague",
+    event_starting: now + 3600,
+    attendee_name:  "Colleague",
+    attendee_email: "colleague@example.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.5
+  system(:Mailer)[:send_count].should eq count_before_internal
+
+  # the external visitor on the same event still gets their invite
+  publish("staff/guest/attending", {
+    action:         "meeting_update",
+    system_id:      "sys-room1",
+    event_id:       "evt-internal",
+    event_ical_uid: "ical-internal",
+    resource:       "room1@example.com",
+    event_title:    "Internal Colleague",
+    event_summary:  "Internal Colleague",
+    event_starting: now + 3600,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.5
+  system(:Mailer)[:send_count].should eq count_before_internal + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+
+  # and colleagues are dropped from change notifications too
+  count_before_internal_change = system(:Mailer)[:send_count].as_i
+
+  internal_guest_booking = {
+    action:                 "changed",
+    id:                     302_i64,
+    booking_type:           "desk",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Internal Guest Booking",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json
+
+  publish("staff/booking/changed", internal_guest_booking)
+  sleep 1.5
+
+  # booking 302 returns colleague@example.com and visitor@external.com — only
+  # the visitor is a visitor
+  system(:Mailer)[:send_count].should eq count_before_internal_change + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+
+  # ------------------------------------------------------------------
+  # Test 49: skip_internal_domain_email is off by default
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
+
+  count_before_default_internal = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "meeting_update",
+    system_id:      "sys-room1",
+    event_id:       "evt-internal-default",
+    event_ical_uid: "ical-internal-default",
+    resource:       "room1@example.com",
+    event_title:    "Internal Default",
+    event_summary:  "Internal Default",
+    event_starting: now + 3600,
+    attendee_name:  "Colleague",
+    attendee_email: "colleague@example.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.5
+  system(:Mailer)[:send_count].should eq count_before_default_internal + 1
+  system(:Mailer)[:last_to].should eq "colleague@example.com"
+
+  # ... and receives change notifications, as before
+  count_before_default_change = system(:Mailer)[:send_count].as_i
+
+  publish("staff/booking/changed", internal_guest_booking)
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_default_change + 2
+
+  # ------------------------------------------------------------------
+  # Test 50: a host change delivered alongside a time change notifies the
+  #          previous host AND renders the NEW host on the change email.
+  #
+  #          Office365 will not let the organiser of a meeting change, so a
+  #          reassignment is reported as a host that differs from
+  #          organiser_email, with previous_host_email naming whoever was
+  #          hosting before.  The organiser is irrelevant to the visitor.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
+
+  count_before_host_change = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-new-host",
+    event_ical_uid:       "ical-new-host",
+    host:                 "new-host@example.com",
+    organiser_email:      "old-host@example.com",
+    resource:             "room1@example.com",
+    title:                "Reassigned And Moved",
+    event_start:          now + 7200,
+    event_end:            now + 10800,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 3600,
+    previous_event_end:   now + 7200,
+    previous_host_email:  "old-host@example.com",
+  }.to_json)
+
+  sleep 2.0
+
+  # the original host is told, and the visitor's change email names the new host
+  system(:Mailer)[:send_count].should eq count_before_host_change + 2
+  system(:Mailer)[:sent_templates].as_a[-2].as_s.should eq "notify_original_host"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+  system(:Mailer)[:last_args]["host_email"].should eq "new-host@example.com"
 end
