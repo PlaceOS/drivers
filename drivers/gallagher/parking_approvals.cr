@@ -1103,6 +1103,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     base
   end
 
+  @priority_group_name_lookup : Hash(Int32, String) = {} of Int32 => String
+
   # The user's group priority, or nil when the directory lookup FAILED — the
   # caller must not cache nil ("unknown" is not the same as "in no groups").
   # Accurate priority is important, so a failing lookup is retried with
@@ -1127,7 +1129,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
         gemail = g["email"]?.try(&.as_s?).try(&.downcase)
         if gid == target || gemail == target
           # earliest entry => highest priority
-          return @auto_approval_groups.size - idx
+          priority = @auto_approval_groups.size - idx
+          if group_name = g["name"]?.try(&.as_s?)
+            @priority_group_name_lookup[priority] = group_name
+          end
+          return priority
         end
       end
     end
@@ -1707,6 +1713,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
   ) : Nil
     # per-instance, matching displace_booking
     booking.extension_data["location"] = JSON::Any.new(space.identifier || space.id)
+    if priority > 0 && (group_name = @priority_group_name_lookup[priority]?)
+      booking.extension_data["parking_group"] = JSON::Any.new(group_name)
+    end
+
     staff_api.update_booking(
       booking_id: booking.id,
       asset_id: space.id,

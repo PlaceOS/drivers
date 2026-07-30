@@ -76,13 +76,13 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   # Group memberships: priority.user is in group-priority, normal.user only in
   # group-default, external.user is in no groups
-  calendar.set_groups("priority.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
-  calendar.set_groups("normal.user@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
-  calendar.set_groups("external.user@example.com", [] of NamedTuple(id: String, email: String))
-  calendar.set_groups("after.hours@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
-  calendar.set_groups("biker@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
-  calendar.set_groups("acrod.user@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
-  calendar.set_groups("fixed.user@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
+  calendar.set_groups("priority.user@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("normal.user@example.com", [{id: "group-default", email: "default@grp.com", name: "Default Group"}].to_json)
+  calendar.set_groups("external.user@example.com", [] of NamedTuple(id: String, email: String, name: String))
+  calendar.set_groups("after.hours@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("biker@example.com", [{id: "group-default", email: "default@grp.com", name: "Default Group"}].to_json)
+  calendar.set_groups("acrod.user@example.com", [{id: "group-default", email: "default@grp.com", name: "Default Group"}].to_json)
+  calendar.set_groups("fixed.user@example.com", [{id: "group-default", email: "default@grp.com", name: "Default Group"}].to_json)
 
   # Cardholder lookup
   gallagher.set_cardholder("priority.user@example.com", "ch-priority")
@@ -514,7 +514,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     },
   ]
 
-  default_grp = [{id: "group-default", email: "default@grp.com"}]
+  default_grp = [{id: "group-default", email: "default@grp.com", name: "Default Group"}]
 
   # regression guard: with a blank gallagher_id_field (Tests 1-12) the directory
   # is NEVER consulted — get_user must not have been called, so the captured
@@ -874,9 +874,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.set_assets(prio_spaces.to_json)
 
   # three priority tiers: top (group-priority=2) > mid (group-default=1) > low (no group=0)
-  calendar.set_groups("top.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
-  calendar.set_groups("mid.user@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
-  calendar.set_groups("low.user@example.com", [] of NamedTuple(id: String, email: String))
+  calendar.set_groups("top.user@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("mid.user@example.com", [{id: "group-default", email: "default@grp.com", name: "Default Group"}].to_json)
+  calendar.set_groups("low.user@example.com", [] of NamedTuple(id: String, email: String, name: String))
   gallagher.set_cardholder("top.user@example.com", "ch-top")
   gallagher.set_cardholder("mid.user@example.com", "ch-mid")
   gallagher.set_cardholder("low.user@example.com", "ch-low")
@@ -2745,7 +2745,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.reset
   staff.set_assets([two_regular[0]].to_json)
   gallagher.set_cardholder("prio.user@example.com", "ch-prio")
-  calendar.set_groups("prio.user@example.com", [{id: "group-default", email: "default@grp.com"}].to_json)
+  calendar.set_groups("prio.user@example.com", [{id: "group-default", email: "default@grp.com", name: "Default Group"}].to_json)
 
   prio_booking = [
     build_booking.call(67001_i64, "prio.user@example.com",
@@ -3045,7 +3045,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("notice.low@example.com", "ch-notice-low")
   gallagher.set_cardholder("notice.high@example.com", "ch-notice-high")
   calendar.set_groups("notice.low@example.com", default_grp.to_json)
-  calendar.set_groups("notice.high@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("notice.high@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
 
   # the occupant starts in 2h — INSIDE the 24h notice window
   soon_start = now + 3600_i64 * 2
@@ -3074,7 +3074,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("notice.low@example.com", "ch-notice-low")
   gallagher.set_cardholder("notice.high@example.com", "ch-notice-high")
   calendar.set_groups("notice.low@example.com", default_grp.to_json)
-  calendar.set_groups("notice.high@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("notice.high@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
 
   # the occupant starts in 48h — OUTSIDE the 24h notice window
   later_start = now + 3600_i64 * 48
@@ -3163,7 +3163,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("report.low@example.com", "ch-report-low")
   gallagher.set_cardholder("report.high@example.com", "ch-report-high")
   calendar.set_groups("report.low@example.com", default_grp.to_json)
-  calendar.set_groups("report.high@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
+  calendar.set_groups("report.high@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
 
   rep_start = now + 3600_i64 * 100
   rep_end = rep_start + 3600_i64
@@ -3225,8 +3225,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("rep.high2@example.com", "ch-rh2")
   calendar.set_groups("rep.low1@example.com", default_grp.to_json)
   calendar.set_groups("rep.low2@example.com", default_grp.to_json)
-  calendar.set_groups("rep.high1@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
-  calendar.set_groups("rep.high2@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
+  calendar.set_groups("rep.high1@example.com", [{id: "group-priority", email: "p@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("rep.high2@example.com", [{id: "group-priority", email: "p@grp.com", name: "Priority Group"}].to_json)
 
   day1_start = now + 3600_i64 * 100
   day1_end = day1_start + 3600_i64
@@ -3311,8 +3311,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("casc.high2@example.com", "ch-ch2")
   calendar.set_groups("casc.low1@example.com", default_grp.to_json)
   calendar.set_groups("casc.low2@example.com", default_grp.to_json)
-  calendar.set_groups("casc.high1@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
-  calendar.set_groups("casc.high2@example.com", [{id: "group-priority", email: "p@grp.com"}].to_json)
+  calendar.set_groups("casc.high1@example.com", [{id: "group-priority", email: "p@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("casc.high2@example.com", [{id: "group-priority", email: "p@grp.com", name: "Priority Group"}].to_json)
 
   cstart = now + 3600_i64 * 120
   cend = cstart + 3600_i64
@@ -3800,8 +3800,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("pexec.user@example.com", "ch-pexec")
   gallagher.set_cardholder("plowly.user@example.com", "ch-plowly")
   # pexec.user is in the TOP priority group; plowly.user is in no groups
-  calendar.set_groups("pexec.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
-  calendar.set_groups("plowly.user@example.com", [] of NamedTuple(id: String, email: String))
+  calendar.set_groups("pexec.user@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("plowly.user@example.com", [] of NamedTuple(id: String, email: String, name: String))
   # the directory is down for pexec.user for far more than the retry budget
   calendar.set_fail_groups("pexec.user@example.com", 100)
 
@@ -3864,8 +3864,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.set_assets(pr_space)
   gallagher.set_cardholder("texec.user@example.com", "ch-texec")
   gallagher.set_cardholder("tlowly.user@example.com", "ch-tlowly")
-  calendar.set_groups("texec.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
-  calendar.set_groups("tlowly.user@example.com", [] of NamedTuple(id: String, email: String))
+  calendar.set_groups("texec.user@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("tlowly.user@example.com", [] of NamedTuple(id: String, email: String, name: String))
   # the directory fails once for texec.user, then recovers (within the retries)
   calendar.set_fail_groups("texec.user@example.com", 1)
 
@@ -4032,8 +4032,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("hi.user@example.com", "ch-hi")
   gallagher.set_cardholder("lo.user@example.com", "ch-lo")
   # hi.user is in the top group; lo.user is in no group
-  calendar.set_groups("hi.user@example.com", [{id: "group-priority", email: "priority@grp.com"}].to_json)
-  calendar.set_groups("lo.user@example.com", [] of NamedTuple(id: String, email: String))
+  calendar.set_groups("hi.user@example.com", [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}].to_json)
+  calendar.set_groups("lo.user@example.com", [] of NamedTuple(id: String, email: String, name: String))
 
   lr_start = now + 3600_i64 * 440
   lr_end = lr_start + 3600_i64
@@ -4094,8 +4094,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.set_cardholder("ev.first@example.com", "ch-evfirst")
   gallagher.set_cardholder("ev.second@example.com", "ch-evsecond")
   # both in no group => equal (priority 0), so the second can't preempt the first
-  calendar.set_groups("ev.first@example.com", [] of NamedTuple(id: String, email: String))
-  calendar.set_groups("ev.second@example.com", [] of NamedTuple(id: String, email: String))
+  calendar.set_groups("ev.first@example.com", [] of NamedTuple(id: String, email: String, name: String))
+  calendar.set_groups("ev.second@example.com", [] of NamedTuple(id: String, email: String, name: String))
 
   bz_start = now + 3600_i64 * 480
   bz_end = bz_start + 3600_i64
@@ -4885,7 +4885,7 @@ class CalendarMock < DriverSpecs::MockDriver
     @groups[user_email.downcase] = groups_json
   end
 
-  def set_groups(user_email : String, groups : Array(NamedTuple(id: String, email: String)))
+  def set_groups(user_email : String, groups : Array(NamedTuple(id: String, email: String, name: String)))
     @groups[user_email.downcase] = groups.to_json
   end
 
