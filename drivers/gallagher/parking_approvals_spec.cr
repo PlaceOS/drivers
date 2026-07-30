@@ -118,9 +118,11 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     }
   end
 
-  ext_car = {"vehicle_type" => JSON::Any.new("car"), "request_type" => JSON::Any.new("standard")}
-  ext_bike = {"vehicle_type" => JSON::Any.new("motorcycle"), "request_type" => JSON::Any.new("standard")}
-  ext_after_hours_car = {"vehicle_type" => JSON::Any.new("car"), "request_type" => JSON::Any.new("after_hours")}
+  # requires_manual_approval is explicitly false here, ext_bike omits the key
+  # entirely - both must be treated as "no manual approval required"
+  ext_car = {"vehicle_type" => JSON::Any.new("car"), "requires_manual_approval" => JSON::Any.new(false)}
+  ext_bike = {"vehicle_type" => JSON::Any.new("motorcycle")}
+  ext_manual_car = {"vehicle_type" => JSON::Any.new("car"), "requires_manual_approval" => JSON::Any.new(true)}
   ext_acrod = {"vehicle_type" => JSON::Any.new("car"), "space_restrictions" => JSON::Any.new(1_i64)}
   # height restrictions: id 4 => "Max height 1.95m", id 5 => "Max height 2.1m"
   ext_h195 = {"vehicle_type" => JSON::Any.new("car"), "space_restrictions" => JSON::Any.new(4_i64)}
@@ -172,8 +174,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   mailer.last_template.should eq(["parking_request", "approved_gallagher-group3"])
 
   # ===========================================================
-  # Test 3: after-hours booking, not approved -> manual approval email,
-  # no allocation
+  # Test 3: booking flagged requires_manual_approval, not approved ->
+  # manual approval email, no allocation
   # ===========================================================
 
   staff.reset_calls
@@ -181,7 +183,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.set_assets(default_spaces.to_json)
 
   ah_booking = build_booking.call(3001_i64, "after.hours@example.com",
-    now + 3600 * 26, now + 3600 * 27, "unallocated-3001", false, ext_after_hours_car)
+    now + 3600 * 26, now + 3600 * 27, "unallocated-3001", false, ext_manual_car)
   staff.set_bookings([ah_booking].to_json)
 
   exec(:process_parking_bookings).get
@@ -193,7 +195,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   mailer.last_template.should eq(["parking_request", "approval_required"])
 
   # ===========================================================
-  # Test 4: after-hours booking that has been pre-approved -> allocated
+  # Test 4: requires_manual_approval booking that has been pre-approved ->
+  # allocated
   # ===========================================================
 
   staff.reset_calls
@@ -201,7 +204,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.set_assets(default_spaces.to_json)
 
   approved_ah = build_booking.call(4001_i64, "after.hours@example.com",
-    now + 3600 * 28, now + 3600 * 29, "unallocated-4001", true, ext_after_hours_car)
+    now + 3600 * 28, now + 3600 * 29, "unallocated-4001", true, ext_manual_car)
   staff.set_bookings([approved_ah].to_json)
 
   exec(:process_parking_bookings).get
@@ -211,6 +214,36 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(4001_i64).should eq("asset-car_b")
   gallagher.access_for("ch-afterhours").should contain("gallagher-group1")
   staff.last_state(4001_i64).should eq("access_granted_emailed")
+
+  # ===========================================================
+  # Test 4b: an APPROVED requires_manual_approval booking gets the +100
+  # priority bump, so it beats a higher base-group user for the only space.
+  # normal.user is group-default (base 1) + 100, priority.user is
+  # group-priority (base 2) with no manual approval flag.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  staff.set_assets([default_spaces[0]].to_json) # asset-car_a only
+
+  bump_start = now + 3600 * 32
+  bump_end = now + 3600 * 33
+
+  bumped = build_booking.call(4101_i64, "normal.user@example.com",
+    bump_start, bump_end, "unallocated-4101", true, ext_manual_car)
+  outbid = build_booking.call(4102_i64, "priority.user@example.com",
+    bump_start, bump_end, "unallocated-4102", false, ext_car)
+
+  staff.set_bookings([bumped, outbid].to_json)
+
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(4101_i64).should eq("asset-car_a")
+  staff.last_state(4101_i64).should eq("access_granted_emailed")
+  # the higher base-priority user misses out and is wait listed
+  staff.last_update_for(4102_i64).should be_nil
+  staff.last_state(4102_i64).should eq("wait_list")
 
   # ===========================================================
   # Test 5: priority preemption — higher priority displaces lower priority.
@@ -3624,7 +3657,6 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
       process_state:   "access_granted_emailed",
       extension_data:  {
         "vehicle_type" => JSON::Any.new("car"),
-        "request_type" => JSON::Any.new("standard"),
         "location"     => JSON::Any.new("INV1"),
       },
     },
@@ -4140,7 +4172,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   vt_reg_space = {id: "asset-vt1", identifier: "VT1", assigned_to: "", zones: ["zone-building", "zone-level-B1"],
                   features: ["carpriority", "Open Basement"], notes: "Car", security_system_groups: [] of String, bookable: true}
   # a booking whose extension_data has no vehicle_type key at all
-  no_vehicle_ext = {"request_type" => JSON::Any.new("standard")}
+  no_vehicle_ext = {"requires_manual_approval" => JSON::Any.new(false)}
 
   settings(vt_settings)
   sleep 100.milliseconds

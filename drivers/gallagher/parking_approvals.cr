@@ -1092,8 +1092,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
       end
     end
 
-    request_type = booking.extension_data["request_type"]?.try(&.as_s?)
-    if request_type == "after_hours"
+    requires_manual_approval = booking.extension_data["requires_manual_approval"]?.try(&.as_bool?) || false
+    if requires_manual_approval
       # after hours bookings need manual approval; if approved bump priority
       return base + 100 if booking.approved
       # not approved yet - keep base priority but flag separately
@@ -1222,10 +1222,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # withhold allocation until the user can actually be granted Gallagher access
     return unless ensure_user_has_card(booking)
 
-    request_type = booking.extension_data["request_type"]?.try(&.as_s?)
+    requires_manual_approval = booking.extension_data["requires_manual_approval"]?.try(&.as_bool?) || false
 
     # After hours bookings cannot be auto-approved
-    if request_type == "after_hours" && !booking.approved
+    if requires_manual_approval && !booking.approved
       logger.debug { "booking #{booking.id} requires manual approval (after hours)" }
       waiting_approval_email(booking)
       return
