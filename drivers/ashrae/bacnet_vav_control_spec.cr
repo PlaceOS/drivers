@@ -38,6 +38,40 @@ DriverSpecs.mock_driver "Ashrae::BACnetVAVControl" do
   status[:vav_active].should eq false
 
   # ===========================================================
+  # A write that doesn't take is retried. The value is read back with
+  # query_value and the write repeated until the device is holding it.
+  # ===========================================================
+
+  bacnet.reset
+  bacnet.ignore_writes(1) # the first write is accepted but not applied
+  exec(:turn_on_vav).get
+
+  bacnet.writes.should eq([{1234, 1, 1}, {1234, 1, 1}])
+  status[:vav_active].should eq true
+
+  # the last of 3 attempts still counts, no error is raised
+  bacnet.reset
+  bacnet.ignore_writes(2)
+  exec(:turn_off_vav).get
+
+  bacnet.writes.should eq([{1234, 1, 3}, {1234, 1, 3}, {1234, 1, 3}])
+  status[:vav_active].should eq false
+
+  # ===========================================================
+  # A device that never applies the write gives up after 3 attempts.
+  # The failure is logged rather than raised, the module has to keep
+  # running (and the remaining VAVs still need writing).
+  # ===========================================================
+
+  bacnet.reset
+  bacnet.ignore_writes(99)
+  exec(:turn_on_vav).get
+
+  bacnet.writes.size.should eq(3)
+  # state still reflects the intent, the same as before the retries existed
+  status[:vav_active].should eq true
+
+  # ===========================================================
   # A booking turns the air on. Any status other than "free" means the
   # room is booked, so airflow is enabled regardless of occupancy.
   # ===========================================================
@@ -371,17 +405,46 @@ end
 class BACnetMock < DriverSpecs::MockDriver
   @writes = [] of Tuple(Int32, Int32, Int32)
 
+  # the value the device is actually holding, keyed on object_instance
+  @present_values = {} of String => Int32
+
+  # number of upcoming writes the device will accept but not apply, i.e. a
+  # higher priority write is holding the point
+  @writes_to_ignore : Int32 = 0
+
   def write_unsigned_int(object : Int32, instance : Int32, value : Int32, object_type : String, priority : Int32? = nil)
     @writes << {object, instance, value}
+
+    if @writes_to_ignore > 0
+      @writes_to_ignore -= 1
+    else
+      @present_values["#{object}_#{instance}"] = value
+    end
+
     self[:last_value] = value
     self[:write_count] = @writes.size
     value
   end
 
+  # mirrors Ashrae::BACnetSecureConnect#query_value
+  def query_value(device_id : Int32, instance_id : Int32, object_type : String)
+    {
+      obj_id:    "#{device_id}.#{object_type}[#{instance_id}]",
+      obj_value: @present_values["#{device_id}_#{instance_id}"]?,
+      clock:     Time.utc.to_unix,
+    }
+  end
+
   # ----- helpers exposed to the spec block -----
+
+  def ignore_writes(count : Int32) : Nil
+    @writes_to_ignore = count
+  end
 
   def reset : Nil
     @writes.clear
+    @present_values.clear
+    @writes_to_ignore = 0
     self[:last_value] = nil
     self[:write_count] = 0
   end

@@ -1,4 +1,5 @@
 require "placeos-driver"
+require "simple_retry"
 
 # Hooks into room occupancy status to decide if the air should be flowing into the space.
 # Simply add this module to multiple rooms and if they have a VAV in common then both
@@ -300,13 +301,44 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     system(bacnet_system_id).get(@bacnet_module)
   end
 
+  WRITE_ATTEMPTS      = 3
+  WRITE_BASE_INTERVAL = 1.second
+  WRITE_MAX_INTERVAL  = 3.seconds
+
+  # writes the state to every VAV, confirming the device applied it.
+  #
+  # a BACnet write is not acknowledged with the resulting value and a higher
+  # priority write can be holding the point, so we read the present value back
+  # and retry the write if it didn't take
+  protected def write_vav_state(state : Int32) : Nil
+    @vav_ids.each do |vav|
+      SimpleRetry.try_to(
+        max_attempts: WRITE_ATTEMPTS,
+        base_interval: WRITE_BASE_INTERVAL,
+        max_interval: WRITE_MAX_INTERVAL,
+      ) do |attempt, last_error|
+        logger.warn(exception: last_error) { "retrying write to vav #{vav.lookup_id} (attempt #{attempt})" } if last_error
+
+        bacnet.write_unsigned_int(vav.object, vav.instance, state, @instance_type, @vav_write_priority).get_json
+
+        current = bacnet.query_value(vav.object, vav.instance, @instance_type).get.as_h?.try(&.["obj_value"]?)
+        # a multi state value reads back as an integer, an analog value as a float
+        applied = current.try { |value| value.as_i64? || value.as_f?.try(&.to_i64) }
+
+        raise "vav #{vav.lookup_id} is set to #{applied.inspect}, expected #{state}" unless applied == state
+      end
+    rescue error
+      # the other VAVs still need writing, and the callers (bindings, timers)
+      # can't do anything useful with the failure beyond it being logged
+      logger.error(exception: error) { "failed to write #{state} to vav #{vav.lookup_id}" }
+    end
+  end
+
   def turn_off_vav
     # turning off supersedes any pending turn on
     cancel_off_timer
     cancel_on_timer
-    @vav_ids.each do |vav|
-      bacnet.write_unsigned_int(vav.object, vav.instance, @vav_off_state, @instance_type, @vav_write_priority).get_json rescue nil
-    end
+    write_vav_state @vav_off_state
     self[:vav_active] = false
     logger.info { "turned vav off" }
   end
@@ -316,9 +348,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     # (armed while the room was empty) could later switch the air off mid-use
     cancel_on_timer
     cancel_off_timer
-    @vav_ids.each do |vav|
-      bacnet.write_unsigned_int(vav.object, vav.instance, @vav_on_state, @instance_type, @vav_write_priority).get_json rescue nil
-    end
+    write_vav_state @vav_on_state
     self[:vav_active] = true
     logger.info { "turned vav on" }
   end
