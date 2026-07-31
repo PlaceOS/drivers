@@ -86,7 +86,12 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           "sending network message: #{message.data_link.request_type}"
         end
       end
-      send message
+      # NOTE:: this writes directly to the transport rather than queuing the
+      # message. The BACnet client matches requests to responses using invoke
+      # ids, so the queue provides no framing benefit here, and a queued task
+      # that waits on a response (see `query_value`) would deadlock - the
+      # queue can't transmit the request it is blocked waiting on.
+      transport.send message
     end
 
     # connection response handling
@@ -473,9 +478,8 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     objects.each do |obj|
       next unless obj.object_type.in?(OBJECTS_WITH_VALUES)
 
-      name = object_binding(device_id, obj)
       obj.sync_value(client, vmac)
-      self[name] = {obj_id: name, obj_value: object_value(obj), clock: time_now}
+      update_object_state(device_id, obj, time_now)
       synced += 1
 
       Fiber.yield
@@ -496,23 +500,58 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     @currently_polling[device_id]? || false
   end
 
-  protected def spawn_action(task, &block : -> Nil)
-    spawn { task.success block.call }
+  # performs the action on a new fiber, resolving the task with whatever the
+  # block returns. Remote callers are sent the JSON of that value, local callers
+  # are handed the task itself.
+  protected def spawn_action(task, &block : -> _)
+    spawn do
+      begin
+        task.success block.call
+      rescue error
+        logger.warn(exception: error) { "error performing task #{task.name}" }
+        task.abort(error.message || error.class.name)
+      end
+    end
     Fiber.yield
   end
 
+  # refreshes the value of an object, exposing it as driver state.
+  #
+  # this is fire and forget, the caller is not sent the value that was read.
+  # use `query_value` where the value is required
   def update_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
     device = get_device(device_id).not_nil!
     obj = get_object_details(device_id, instance_id, object_type)
     name = object_binding(device_id, obj)
 
+    # a named task, there is no point queuing multiple refreshes of the same
+    # object as only the latest value is of any interest
     queue(name: name, priority: 50) do |task|
       spawn_action(task) do
-        time_now = Time.utc.to_unix
         obj.sync_value(bacnet_client, device.vmac)
-        self[name] = {obj_id: name, obj_value: object_value(obj), clock: time_now}
+        update_object_state(device_id, obj)
       end
     end
+  end
+
+  # reads the current value of an object from the device, returning
+  # `{obj_id, obj_value, clock}` - the same payload exposed as driver state
+  #
+  # NOTE:: deliberately not a named task, each caller is waiting on their own
+  # result and a named task would abort any request it replaced in the queue
+  def query_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
+    device = get_device(device_id).not_nil!
+    obj = get_object_details(device_id, instance_id, object_type)
+
+    # wait: true so the task is resolved with the value read from the device.
+    # no need to retry here, the client performs its own retries and times out
+    # requests after 2 seconds
+    queue(priority: 50, wait: true, retries: 0, timeout: 5.seconds) do |task|
+      spawn_action(task) do
+        obj.sync_value(bacnet_client, device.vmac)
+        update_object_state(device_id, obj)
+      end
+    end.response_required!
   end
 
   protected def get_object_details(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
@@ -633,20 +672,25 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     time_now = Time.utc.to_unix
 
     device_id = device.device_instance
-    device.objects.each do |obj|
-      name = object_binding(device_id, obj)
-      self[name] = {obj_id: name, obj_value: object_value(obj), clock: time_now}
-    end
+    device.objects.each { |obj| update_object_state(device_id, obj, time_now) }
   end
 
   protected def object_binding(device_id, obj)
     "#{device_id}.#{obj.object_type}[#{obj.instance_id}]"
   end
 
-  def received(bytes, task)
-    # will be a no-op, just here in case
-    task.try &.success
+  # exposes the current value of an object as driver state, returning the
+  # payload that was stored
+  protected def update_object_state(device_id, obj, time_now : Int64 = Time.utc.to_unix)
+    name = object_binding(device_id, obj)
+    self[name] = {obj_id: name, obj_value: object_value(obj), clock: time_now}
+  end
 
+  def received(bytes, task)
+    # NOTE:: the task is deliberately ignored. Responses are matched to requests
+    # by the BACnet client (invoke ids) and tasks are resolved by the fiber that
+    # made the request, see `spawn_action`. Completing the task here would
+    # resolve `query_value` with a nil result as soon as any packet arrived.
     message = begin
       IO::Memory.new(bytes).read_bytes(::BACnet::Message::Secure)
     rescue error
