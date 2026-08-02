@@ -52,6 +52,18 @@ moves the meeting *and* changes the time sends one email describing both rather 
 one per room. A move between buildings is handled by two separate mailer modules and
 so still sends an email each.
 
+## QR code and kiosk link on change notifications
+
+The `booking_changed` and `event_changed` templates receive `guest_jwt` and
+`kiosk_url` fields and the same inline `qr.png` attachment as an invitation, because
+a move invalidates the kiosk link issued with the original invite — its token is
+scoped to the room the meeting has just left, and no fresh invitation is sent.
+
+Reference the attachment from the template the same way the invite template does, or
+set `disable_qr_code: true` to leave it off. Until a template uses them the fields are
+simply unused, though an unreferenced attachment may still show up in some mail
+clients.
+
 ## Reply-To
 
 Visitor emails set a `Reply-To` header so replies reach a useful person rather than
