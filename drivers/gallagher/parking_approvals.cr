@@ -1075,6 +1075,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @user_priority_cache = {} of String => Int32
   end
 
+  # an approved manual-approval booking is lifted above every group priority so
+  # it is allocated first
+  MANUAL_APPROVAL_BUMP = 100
+
   # higher number = higher priority. 0 is "default staff".
   protected def priority_for(booking : Booking, cache : Hash(String, Int32)) : Int32
     user_email = booking.user_email.downcase
@@ -1096,7 +1100,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     requires_manual_approval = booking.extension_data["requires_manual_approval"]?.try(&.as_bool?) || false
     if requires_manual_approval
       # after hours bookings need manual approval; if approved bump priority
-      return base + 100 if booking.approved
+      return base + MANUAL_APPROVAL_BUMP if booking.approved
       # not approved yet - keep base priority but flag separately
       return base
     end
@@ -1104,7 +1108,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
     base
   end
 
+  # group priority => the name of that group, surfaced to the front end as
+  # `parking_group`. One entry per auto_approval_group, so it stays small no
+  # matter how many users are looked up.
   @priority_group_name_lookup : Hash(Int32, String) = {} of Int32 => String
+
+  # The group name a booking's priority resolved to, nil for a user in none of
+  # the auto_approval_groups. The manual approval bump is removed first: it
+  # lifts the priority above every group, so a bumped priority never matches.
+  protected def group_name_for(priority : Int32) : String?
+    priority -= MANUAL_APPROVAL_BUMP if priority >= MANUAL_APPROVAL_BUMP
+    return nil unless priority > 0
+    @priority_group_name_lookup[priority]?
+  end
 
   # The user's group priority, or nil when the directory lookup FAILED — the
   # caller must not cache nil ("unknown" is not the same as "in no groups").
@@ -1556,6 +1572,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # on parsing the JSON payload
     begin
       booking.extension_data["location"] = JSON::Any.new(space.identifier || space.id)
+      if group_name = group_name_for(priority)
+        booking.extension_data["parking_group"] = JSON::Any.new(group_name)
+      end
+
       staff_api.update_booking(
         booking_id: booking.id,
         asset_id: space.id,
@@ -1714,7 +1734,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
   ) : Nil
     # per-instance, matching displace_booking
     booking.extension_data["location"] = JSON::Any.new(space.identifier || space.id)
-    if priority > 0 && (group_name = @priority_group_name_lookup[priority]?)
+    if group_name = group_name_for(priority)
       booking.extension_data["parking_group"] = JSON::Any.new(group_name)
     end
 

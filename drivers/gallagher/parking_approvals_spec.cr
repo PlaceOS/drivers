@@ -4591,6 +4591,95 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # one failure + one successful retry, all within the single sweep
   gallagher.lookup_count("ctrans98@example.com").should eq(2)
   staff.last_update_for(98002_i64).should eq("asset-c98b")
+
+  # ===========================================================
+  # Test 99: allocating a booking stamps the name of the auto-approval group the
+  # user matched into extension_data as `parking_group`, alongside the `location`
+  # of the space they were given. A user who is in NONE of the auto_approval_
+  # groups has no group to report, so the key is left off entirely.
+  # Each user is allocated in their own sweep against a single free space, so
+  # the space (and therefore the location) each one lands on is unambiguous.
+  # ===========================================================
+
+  settings(t98_settings)
+  sleep 100.milliseconds
+
+  # group-priority is first in auto_approval_groups so it is the higher priority
+  prio_grp = [{id: "group-priority", email: "priority@grp.com", name: "Priority Group"}]
+  calendar.set_groups("p99@example.com", prio_grp.to_json)
+  calendar.set_groups("d99@example.com", default_grp.to_json)
+  calendar.set_groups("n99@example.com", "[]")
+  gallagher.set_cardholder("p99@example.com", "ch-p99")
+  gallagher.set_cardholder("d99@example.com", "ch-d99")
+  gallagher.set_cardholder("n99@example.com", "ch-n99")
+
+  t99_start = now + 3600_i64 * 800
+  t99_end = t99_start + 3600_i64
+
+  # --- a member of the highest priority group ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-p99")].to_json)
+  staff.set_bookings([
+    build_booking.call(99001_i64, "p99@example.com", t99_start, t99_end, "unallocated-99001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(99001_i64).should eq("asset-p99")
+  staff.extension_data_key(99001_i64, "location").should eq("ASSET-P99")
+  staff.extension_data_key(99001_i64, "parking_group").should eq("Priority Group")
+
+  # --- a member of the lower priority group gets that group's name, not the
+  # name cached for the group above it ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-d99")].to_json)
+  staff.set_bookings([
+    build_booking.call(99002_i64, "d99@example.com", t99_start, t99_end, "unallocated-99002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(99002_i64).should eq("asset-d99")
+  staff.extension_data_key(99002_i64, "location").should eq("ASSET-D99")
+  staff.extension_data_key(99002_i64, "parking_group").should eq("Default Group")
+
+  # --- in no auto-approval group: allocated, but no group to report ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-n99")].to_json)
+  staff.set_bookings([
+    build_booking.call(99003_i64, "n99@example.com", t99_start, t99_end, "unallocated-99003", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(99003_i64).should eq("asset-n99")
+  staff.extension_data_key(99003_i64, "location").should eq("ASSET-N99")
+  staff.extension_data_key(99003_i64, "parking_group").should be_nil
+
+  # --- an APPROVED manual-approval (after hours) booking. priority_for bumps
+  # these by +100, which matches no group's priority — the group name is looked
+  # up by user so the bump can't strip it ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-m99")].to_json)
+  calendar.set_groups("m99@example.com", prio_grp.to_json)
+  gallagher.set_cardholder("m99@example.com", "ch-m99")
+  staff.set_bookings([
+    build_booking.call(99004_i64, "m99@example.com", t99_start, t99_end, "unallocated-99004", true, ext_manual_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(99004_i64).should eq("asset-m99")
+  staff.extension_data_key(99004_i64, "location").should eq("ASSET-M99")
+  staff.extension_data_key(99004_i64, "parking_group").should eq("Priority Group")
 end
 
 # :nodoc:
@@ -4632,6 +4721,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @approved_instances = [] of String
     @clash_updates = Set(String).new
     @update_calls = {} of Int64 => Int32
+    @update_extension_data = {} of String => JSON::Any
     @fail_query = false
     @created_bookings = [] of JSON::Any
     @created_ids = {} of String => Int64
@@ -4678,6 +4768,16 @@ class StaffAPIMock < DriverSpecs::MockDriver
   # asset set by update_booking for a specific (booking, instance), nil if never called
   def update_for(booking_id : Int64, instance : Int64?) : String?
     @updates_by_instance["#{booking_id}:#{instance}"]?
+  end
+
+  # extension_data the driver wrote back via update_booking, keyed on
+  # "id:instance" so recurring instances are recorded independently
+  @update_extension_data : Hash(String, JSON::Any) = {} of String => JSON::Any
+
+  # a string value out of the extension_data the driver last wrote for a booking.
+  # nil when the booking was never updated, or the key was not set
+  def extension_data_key(booking_id : Int64, key : String, instance : Int64? = nil) : String?
+    @update_extension_data["#{booking_id}:#{instance}"]?.try(&.[key]?).try(&.as_s?)
   end
 
   def approved_instance?(booking_id : Int64, instance : Int64?) : Bool
@@ -4871,6 +4971,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
       @updates_by_instance["#{id}:#{instance}"] = asset_id
       @update_calls[id] = (@update_calls[id]? || 0) + 1
     end
+    @update_extension_data["#{id}:#{instance}"] = extension_data if extension_data
     true
   end
 
