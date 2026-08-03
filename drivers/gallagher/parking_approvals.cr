@@ -57,6 +57,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
     car_zone_priority:  [] of String,
     bike_zone_priority: [] of String,
 
+    # Zone id of a neighbouring car park that fills up before this one. Once this
+    # building's own bookings are allocated, wait-listed bookings in that zone are
+    # pulled into whatever capacity is left over. A stolen booking is MOVED into
+    # this building (allocate rewrites its zones to the allocated space's), so
+    # from then on it is managed here and drops out of the other car park's view.
+    # Leave blank to disable.
+    overflow_zone: "",
+
     # parking-space FEATURE name => gallagher access group / zone id. A space's
     # features (e.g. "Open Basement", "Secure Basement") are matched against
     # these keys to find which Gallagher group(s) to grant access to.
@@ -135,6 +143,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
   @cardholder_lookup_max_backoff : Time::Span = 30.seconds
   @car_zone_priority : Array(String) = [] of String
   @bike_zone_priority : Array(String) = [] of String
+  # neighbouring car park whose wait list we steal from (see overflow_zone)
+  @overflow_zone : String? = nil
   @parking_areas : Hash(String, String) = {} of String => String
   # minutes of access granted before a booking starts (access ends at booking end)
   @access_minutes_before : Int32 = 30
@@ -300,6 +310,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
     @car_zone_priority = setting?(Array(String), :car_zone_priority) || [] of String
     @bike_zone_priority = setting?(Array(String), :bike_zone_priority) || [] of String
+    @overflow_zone = setting?(String, :overflow_zone).presence
 
     raw_areas = setting?(Hash(String, String | Int64), :parking_areas) || {} of String => String | Int64
     @parking_areas = raw_areas.transform_values(&.to_s)
@@ -489,14 +500,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
   protected def booking_changed(event)
     return unless event.booking_type == BOOKING_TYPE
-    return unless event.zones.includes?(building_id)
+
+    in_building = event.zones.includes?(building_id)
+    # a change next door may free up (or add) a wait-list booking we can steal,
+    # so it's worth a sweep — see allocate_overflow_bookings
+    overflow = @overflow_zone.try { |zone| event.zones.includes?(zone) } || false
+    return unless in_building || overflow
 
     case event.action
     when "cancelled"
       # The sweep reconciles (removes) access, but a cancelled booking drops out
       # of the fetch, so the notification + calendar cancellation are sent here
       # from the event payload before the sweep runs.
-      handle_cancellation(event)
+      #
+      # Overflow-zone bookings are NOT notified from here: one still sitting on a
+      # space in the other car park is theirs to cancel (we'd only duplicate the
+      # email), and once we've stolen one its zones are this building's anyway.
+      handle_cancellation(event) if in_building
       spawn { process_parking_bookings }
     when "create", "approved", "rejected", "changed"
       # Re-run auto allocation. The full sweep handles approvals,
@@ -658,6 +678,30 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # preemption displacement decisions this run (surfaced via the report + status)
   @displacement_report : Array(DisplacementRecord) = [] of DisplacementRecord
 
+  # Pair each booking with its priority and put them in allocation order. Used
+  # for this building's bookings and again for the overflow car park's wait list,
+  # so both queues are ordered by the same rules.
+  #
+  # The base group priority is cached per-user across runs
+  # (@user_priority_cache, flushed daily / on config change).
+  #
+  # Sort: priority desc, then requests for the tallest height class (nothing
+  # shorter fits them and those spaces are scarce), then created asc (older
+  # first). NOTE:: this only orders the queue — it is NOT part of the priority
+  # used to displace, so a tall request arriving later can't preempt someone on
+  # the same priority who already holds a space (see the strict `<` in the
+  # preemption candidate filter).
+  protected def prioritise_bookings(bookings : Array(Booking)) : Array(Tuple(Booking, Int32))
+    booking_meta = bookings.map do |booking|
+      priority = priority_for(booking, @user_priority_cache)
+      {booking, priority}
+    end
+
+    booking_meta.sort_by! do |(booking, priority)|
+      {-priority, tallest_height_request?(booking) ? 0 : 1, booking.created || 0_i64}
+    end
+  end
+
   protected def run_allocation
     # reset per-sync cardholder lookup error tracking
     @lookup_errors = [] of LookupError
@@ -700,6 +744,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # duplicate time-bounded access, and never emails them — they always have a
     # spot. Matched by email so it holds regardless of which asset the booking
     # references.
+    # (also applied to the overflow pass below, so a stolen booking can't hand a
+    # second space to someone who already has a permanent one here)
     assigned_emails = assigned_spaces.compact_map(&.assigned_to.presence.try(&.downcase)).to_set
     unless assigned_emails.empty?
       before = bookings.size
@@ -711,22 +757,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.debug { "allocation run: #{spaces.size} spaces total, #{bookable_spaces.size} bookable, #{assigned_spaces.size} permanently assigned, #{unmapped_space_ids.size} without a gallagher group" }
     logger.debug { "allocation run: processing #{bookings.size} active bookings" }
 
-    # Calculate priority for each booking; the base group priority is cached
-    # per-user across runs (@user_priority_cache, flushed daily / on config change)
-    booking_meta = bookings.map do |booking|
-      priority = priority_for(booking, @user_priority_cache)
-      {booking, priority}
-    end
-
-    # Sort: priority desc, then requests for the tallest height class (nothing
-    # shorter fits them and those spaces are scarce), then created asc (older
-    # first). NOTE:: this only orders the queue — it is NOT part of the priority
-    # used to displace, so a tall request arriving later can't preempt someone on
-    # the same priority who already holds a space (see the strict `<` in the
-    # preemption candidate filter).
-    booking_meta.sort_by! do |(booking, priority)|
-      {-priority, tallest_height_request?(booking) ? 0 : 1, booking.created || 0_i64}
-    end
+    booking_meta = prioritise_bookings(bookings)
 
     # Track current allocations: asset_id => ALL bookings holding that asset.
     # The allocation window spans several days, so one space legitimately holds
@@ -786,6 +817,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
 
       handle_unallocated_booking(booking, priority, bookable_spaces, current_allocations)
     end
+
+    # Third pass: with this building's own queue served, fill whatever capacity is
+    # left with the neighbouring car park's wait list. Appending the results to
+    # booking_meta is what gets the stolen bookings their Gallagher access below —
+    # this is a single reconciliation, so every booking we want access for has to
+    # be in the one list handed to build_desired_access.
+    booking_meta.concat(
+      allocate_overflow_bookings(starting, ending, assigned_emails, bookable_spaces, current_allocations)
+    )
 
     # Now that re-allocation has run, notify only the users still without a space
     flush_displaced_emails
@@ -1008,13 +1048,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # Fetch bookings
   # ===================================
 
-  # Raises on failure: callers must treat a failed fetch as "unknown", NOT as
-  # "no bookings" — an empty list would let the run revoke all access (see
-  # run_allocation).
-  protected def fetch_bookings(starting : Int64, ending : Int64) : Array(Booking)
+  # Bookings in `zone`, defaulting to this building. Raises on failure: callers
+  # must treat a failed fetch as "unknown", NOT as "no bookings" — an empty list
+  # would let the run revoke all access (see run_allocation).
+  protected def fetch_bookings(starting : Int64, ending : Int64, zone : String? = nil) : Array(Booking)
     Array(Booking).from_json(staff_api.query_bookings(
       type: BOOKING_TYPE,
-      zones: [building_id],
+      zones: [zone || building_id],
       period_start: starting,
       period_end: ending,
       limit: 100,
@@ -1368,6 +1408,121 @@ class Place::Parking::Approvals < PlaceOS::Driver
     end
   rescue error
     logger.error(exception: error) { "failed to process unallocated booking #{booking.id}" }
+  end
+
+  # ===================================
+  # Overflow car park
+  # ===================================
+
+  # Pull the neighbouring car park's wait list into whatever capacity is left in
+  # this building. Only bookings still queued over there are eligible: they hold
+  # an "unallocated" placeholder AND are in the wait_list state.
+  #
+  # Returns the bookings that got a space, so run_allocation can include them in
+  # the single access reconciliation. A stolen booking is moved into this
+  # building — allocate rewrites its zones to the space's — so subsequent sweeps
+  # see it through the ordinary building fetch and the other car park's driver
+  # stops managing it.
+  protected def allocate_overflow_bookings(
+    starting : Int64,
+    ending : Int64,
+    assigned_emails : Set(String),
+    bookable_spaces : Array(ParkingSpace),
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
+  ) : Array(Tuple(Booking, Int32))
+    allocated = [] of Tuple(Booking, Int32)
+    zone = @overflow_zone
+    return allocated if zone.nil? || bookable_spaces.empty?
+
+    # unlike the main fetch, a failure here is not a reason to abandon the run:
+    # this building's own allocation has already happened and the access
+    # reconciliation still needs to run
+    waiting = begin
+      fetch_bookings(starting, ending, zone).select do |booking|
+        next false if booking.rejected || booking.deleted
+        next false unless booking.process_state == "wait_list"
+        # someone with a permanent space here never needs a second one
+        next false if assigned_emails.includes?(booking.user_email.downcase)
+        asset_id = booking.asset_ids.first?
+        asset_id.nil? || asset_id.starts_with?("unallocated")
+      end
+    rescue error
+      logger.warn(exception: error) { "overflow booking query for #{zone} failed" }
+      return allocated
+    end
+    return allocated if waiting.empty?
+
+    prioritise_bookings(waiting).each do |(booking, priority)|
+      allocated << {booking, priority} if steal_overflow_booking(booking, priority, bookable_spaces, current_allocations)
+    end
+
+    logger.info { "overflow: allocated #{allocated.size} of #{waiting.size} wait-listed booking(s) from #{zone}" }
+    allocated
+  end
+
+  # Place one overflow booking on a free space, or leave it alone. A deliberately
+  # reduced handle_unallocated_booking:
+  #  - it never emails (the other car park's driver owns telling its queued users
+  #    where they stand — until we hand one a space, at which point allocate sends
+  #    the usual approval email + calendar invite)
+  #  - it never rejects an incomplete booking (it isn't ours to reject)
+  #  - it never displaces: these bookings are taking SPARE capacity, so no one
+  #    already holding a space here is bumped for them, whatever their priority
+  protected def steal_overflow_booking(
+    booking : Booking,
+    priority : Int32,
+    bookable_spaces : Array(ParkingSpace),
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
+  ) : Bool
+    return false if stale_waitlist?(booking)
+    return false if vehicle_type_missing?(booking)
+
+    # after hours bookings still need their own car park's manual approval first
+    requires_manual_approval = booking.extension_data["requires_manual_approval"]?.try(&.as_bool?) || false
+    return false if requires_manual_approval && !booking.approved
+
+    # no space without Gallagher access. Unlike ensure_user_has_card this sends no
+    # "no card" email — their driver already tells them — but the lookup error is
+    # still recorded, so the misconfiguration stays visible in our report.
+    return false if lookup_cardholder(booking.user_email).nil?
+    return false if already_parked_here?(booking, current_allocations)
+
+    compatible = prioritise_spaces(compatible_spaces(booking, bookable_spaces), booking)
+    busy_assets = busy_asset_ids_during(booking, current_allocations)
+    available = compatible.reject { |s| busy_assets.includes?(s.id) }
+
+    # same best-effort restriction fallback as a local booking (heights are still
+    # never dropped — see compatible_spaces)
+    if available.empty? && exclusive_request?(booking)
+      compatible = prioritise_spaces(compatible_spaces(booking, bookable_spaces, ignore_exclusive: true), booking)
+      available = compatible.reject { |s| busy_assets.includes?(s.id) }
+    end
+
+    available.each do |space|
+      return true if allocate(booking, space, current_allocations, priority)
+    end
+
+    logger.debug { "no spare space for overflow booking #{booking.id}; leaving it wait-listed in #{@overflow_zone}" }
+    false
+  rescue error
+    logger.error(exception: error) { "failed to steal overflow booking #{booking.id}" }
+    false
+  end
+
+  # True when this user already holds a space here overlapping the booking's
+  # window — they booked in both car parks, or an earlier overflow booking of
+  # theirs already landed this run. Stops one user being handed two spaces.
+  protected def already_parked_here?(
+    booking : Booking,
+    current_allocations : Hash(String, Array(Tuple(Booking, Int32))),
+  ) : Bool
+    email = booking.user_email.downcase
+    current_allocations.each_value do |occupants|
+      return true if occupants.any? do |(other, _other_priority)|
+                       other.user_email.downcase == email && bookings_overlap?(booking, other)
+                     end
+    end
+    false
   end
 
   # Record one preemption displacement decision (grouped/logged at end of run).

@@ -4663,8 +4663,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.extension_data_key(99003_i64, "parking_group").should be_nil
 
   # --- an APPROVED manual-approval (after hours) booking. priority_for bumps
-  # these by +100, which matches no group's priority — the group name is looked
-  # up by user so the bump can't strip it ---
+  # these by +100, which matches no group's priority — group_name_for strips the
+  # bump before the lookup so the group is still reported ---
   staff.reset_calls
   mailer.reset
   gallagher.reset
@@ -4786,6 +4786,220 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(300001_i64).not_nil!.starts_with?("unallocated-displaced").should eq(true)
   staff.last_state(300001_i64).should eq("wait_list")
   mailer.sent?("short300@example.com", "parking_request", "displaced").should eq(true)
+
+  # ===========================================================
+  # Test 101: overflow car park. A neighbouring car park fills up first; once
+  # THIS building's own queue has been served, whatever capacity is left is
+  # offered to that car park's wait list. Only bookings still queued over there
+  # are eligible (an "unallocated" placeholder AND the wait_list state), they
+  # never displace anyone here, and a stolen booking is MOVED into this building
+  # (allocate rewrites its zones to the space's) so it is managed here from then
+  # on and drops out of the other car park's view.
+  # ===========================================================
+
+  t101_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {"Open Basement" => "gallagher-group1"},
+    # displacement is ON with nothing inside its notice period, so the
+    # "overflow never displaces" legs below fail if the overflow pass were ever
+    # allowed to preempt — they aren't passing because displacement is disabled
+    displacement_notification_hours: 0,
+    overflow_zone:                   "zone-overflow",
+  }
+  settings(t101_settings)
+  sleep 100.milliseconds
+
+  # a booking sitting in the neighbouring car park's zone. build_booking always
+  # stamps the building zone, so the zones are overridden here — that difference
+  # is the whole point: the driver must query the other zone to find it.
+  overflow_booking = ->(id : Int64, user : String, starting : Int64, ending : Int64, asset_id : String, state : String, ext : Hash(String, JSON::Any)) do
+    build_booking.call(id, user, starting, ending, asset_id, false, ext).merge({
+      zones:         ["zone-overflow", "zone-overflow-level1"],
+      process_state: state,
+    })
+  end
+
+  ["over101", "over102", "over103", "over104", "over105", "over106",
+   "local103", "local104", "local105", "local107", "assigned107"].each do |user|
+    # over103/over104 are in the HIGHER priority group so the "no displacement"
+    # and "locals win" legs are genuinely testing the overflow rule and not just
+    # a priority ordering that happened to fall the right way
+    priority_user = {"over103", "over104"}.includes?(user)
+    calendar.set_groups("#{user}@example.com", priority_user ? prio_grp.to_json : default_grp.to_json)
+    gallagher.set_cardholder("#{user}@example.com", "ch-#{user}")
+  end
+
+  t101_start = now + 3600_i64 * 1000
+  t101_end = t101_start + 3600_i64
+
+  # --- a wait-listed booking next door is pulled into the spare space ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-o101")].to_json)
+  staff.set_bookings("[]")
+  staff.set_zone_bookings("zone-overflow", [
+    overflow_booking.call(101001_i64, "over101@example.com", t101_start, t101_end, "unallocated-101001", "wait_list", ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the driver went looking in the configured overflow zone
+  staff.queried_zones.includes?(["zone-overflow"]).should eq(true)
+  # and gave the booking one of this building's spaces
+  staff.last_update_for(101001_i64).should eq("asset-o101")
+  staff.approved.includes?(101001_i64).should eq(true)
+  # the booking has MOVED here: its zones are now the allocated space's, so the
+  # next sweep finds it in the ordinary building query
+  staff.last_zones_for(101001_i64).should eq(["zone-building", "zone-level-B1"])
+  # normal approval email + Gallagher access, exactly as for a local booking
+  mailer.sent?("over101@example.com", "parking_request", "approved_gallagher-group1").should eq(true)
+  gallagher.access_for("ch-over101").should eq(["gallagher-group1"])
+  staff.extension_data_key(101001_i64, "location").should eq("ASSET-O101")
+
+  # --- only bookings still QUEUED next door are eligible ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-o102")].to_json)
+  staff.set_bookings("[]")
+  staff.set_zone_bookings("zone-overflow", [
+    # already holds a space in the other car park — not ours to move
+    overflow_booking.call(101002_i64, "over102@example.com", t101_start, t101_end, "asset-their-park", "access_granted", ext_car),
+    # unallocated, but not wait-listed (still working its way through their queue)
+    overflow_booking.call(101003_i64, "over102@example.com", t101_start, t101_end, "unallocated-101003", "approval_pending", ext_car),
+    # wait-listed but rejected
+    overflow_booking.call(101004_i64, "over102@example.com", t101_start, t101_end, "unallocated-101004", "wait_list", ext_car)
+      .merge({rejected: true}),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the space stays empty rather than going to any of them
+  staff.last_update_for(101002_i64).should be_nil
+  staff.last_update_for(101003_i64).should be_nil
+  staff.last_update_for(101004_i64).should be_nil
+  mailer.any_sent_to?("over102@example.com").should eq(false)
+
+  # --- an overflow booking NEVER displaces, even at a higher priority ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-o103")].to_json)
+  # the only space is already held by a LOWER priority local booking
+  staff.set_bookings([
+    build_booking.call(101005_i64, "local103@example.com", t101_start, t101_end, "asset-o103", true, ext_car),
+  ].to_json)
+  staff.set_zone_bookings("zone-overflow", [
+    overflow_booking.call(101006_i64, "over103@example.com", t101_start, t101_end, "unallocated-101006", "wait_list", ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the sitting tenant is untouched — no move, no displacement email
+  staff.last_update_for(101005_i64).should be_nil
+  mailer.sent?("local103@example.com", "parking_request", "displaced").should eq(false)
+  # and the higher-priority overflow booking simply doesn't get a space
+  staff.last_update_for(101006_i64).should be_nil
+
+  # --- this building's own wait list is served first ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  # one space, contested by a LOWER priority local booking and a HIGHER
+  # priority overflow booking
+  staff.set_assets([car_space.call("asset-o104")].to_json)
+  staff.set_bookings([
+    build_booking.call(101007_i64, "local104@example.com", t101_start, t101_end, "unallocated-101007", false, ext_car),
+  ].to_json)
+  staff.set_zone_bookings("zone-overflow", [
+    overflow_booking.call(101008_i64, "over104@example.com", t101_start, t101_end, "unallocated-101008", "wait_list", ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the local booking takes the last space despite its lower priority: the
+  # overflow pass only ever sees what this building's queue left behind
+  staff.last_update_for(101007_i64).should eq("asset-o104")
+  staff.last_update_for(101008_i64).should be_nil
+
+  # --- local and stolen bookings share ONE access reconciliation ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-o105a"), car_space.call("asset-o105b")].to_json)
+  staff.set_bookings([
+    build_booking.call(101009_i64, "local105@example.com", t101_start, t101_end, "unallocated-101009", false, ext_car),
+  ].to_json)
+  staff.set_zone_bookings("zone-overflow", [
+    overflow_booking.call(101010_i64, "over105@example.com", t101_start, t101_end, "unallocated-101010", "wait_list", ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # both are allocated...
+  staff.last_update_for(101009_i64).should_not be_nil
+  staff.last_update_for(101010_i64).should_not be_nil
+  # ...and BOTH hold access afterwards. The overflow pass adds its bookings to
+  # the same list build_desired_access is handed, so the single
+  # apply_access_changes diff grants the stolen booking without revoking the
+  # local one it just granted.
+  gallagher.access_for("ch-local105").should contain("gallagher-group1")
+  gallagher.access_for("ch-over105").should contain("gallagher-group1")
+
+  # --- with no overflow_zone configured, nothing is queried or touched ---
+  settings(t101_settings.merge({overflow_zone: ""}))
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-o106")].to_json)
+  staff.set_bookings("[]")
+  staff.set_zone_bookings("zone-overflow", [
+    overflow_booking.call(101011_i64, "over106@example.com", t101_start, t101_end, "unallocated-101011", "wait_list", ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.queried_zones.includes?(["zone-overflow"]).should eq(false)
+  staff.last_update_for(101011_i64).should be_nil
+
+  # --- never hand one person two spaces ---
+  settings(t101_settings)
+  sleep 100.milliseconds
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([
+    car_space.call("asset-o107"),
+    # spare capacity, so BOTH overflow bookings below would land a space if the
+    # guards weren't stopping them — the space is left empty instead
+    car_space.call("asset-o107b"),
+    # a permanent assignment for one of the overflow users
+    {id: "asset-o107x", identifier: "ASSET-O107X", assigned_to: "assigned107@example.com",
+     zones: ["zone-building", "zone-level-B1"], features: ["carpriority", "Open Basement"],
+     notes: "Car", security_system_groups: [] of String, bookable: true},
+  ].to_json)
+  # local107 is allocated a space by this building's own pass first
+  staff.set_bookings([
+    build_booking.call(101012_i64, "local107@example.com", t101_start, t101_end, "unallocated-101012", false, ext_car),
+  ].to_json)
+  staff.set_zone_bookings("zone-overflow", [
+    # ...and also has a booking waiting next door for the same window
+    overflow_booking.call(101013_i64, "local107@example.com", t101_start, t101_end, "unallocated-101013", "wait_list", ext_car),
+    # this user already has a permanent space here, so they never need one
+    overflow_booking.call(101014_i64, "assigned107@example.com", t101_start, t101_end, "unallocated-101014", "wait_list", ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(101012_i64).should eq("asset-o107")
+  # their overflow booking is left where it is rather than taking a second space
+  staff.last_update_for(101013_i64).should be_nil
+  staff.last_update_for(101014_i64).should be_nil
 end
 
 # :nodoc:
@@ -4815,8 +5029,23 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @bookings_json = json
   end
 
+  # bookings returned for a query against a zone OTHER than the building (the
+  # overflow car park), keyed by zone id — so a test proves the driver queried
+  # the zone it was configured with, not just "some other zone"
+  @zone_bookings : Hash(String, String) = {} of String => String
+
+  def set_zone_bookings(zone : String, json : String)
+    @zone_bookings[zone] = json
+  end
+
+  # every `zones` array query_bookings has been called with this test
+  getter queried_zones : Array(Array(String)) = [] of Array(String)
+
   def reset_calls
     @updates = {} of Int64 => String
+    @update_zones = {} of Int64 => Array(String)
+    @zone_bookings = {} of String => String
+    @queried_zones = [] of Array(String)
     @approved_set = [] of Int64
     @rejected_set = [] of Int64
     @states = {} of String => String
@@ -4852,6 +5081,13 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
   def update_count_for(booking_id : Int64) : Int32
     @update_calls[booking_id]? || 0
+  end
+
+  # the zones the driver last wrote for a booking, nil when it never set any
+  @update_zones : Hash(Int64, Array(String)) = {} of Int64 => Array(String)
+
+  def last_zones_for(booking_id : Int64) : Array(String)?
+    @update_zones[booking_id]?
   end
 
   # the `instance` param of the last update_booking / approve call per booking,
@@ -4975,10 +5211,17 @@ class StaffAPIMock < DriverSpecs::MockDriver
   )
     raise "simulated query_bookings failure" if @fail_query
     @last_query_period_end = period_end
+    @queried_zones << zones
+
+    # a query for anything other than the building zone is the overflow car park
+    source = if zones.empty? || zones.includes?("zone-building")
+               JSON.parse(@bookings_json).as_a + @created_bookings
+             else
+               JSON.parse(zones.compact_map { |zone| @zone_bookings[zone]? }.first? || "[]").as_a
+             end
 
     # overlay any persisted per-instance process_state, mirroring how the
     # backend reflects booking_state writes on the next fetch
-    source = (JSON.parse(@bookings_json).as_a + @created_bookings)
     source = source.select { |b| b["user_email"]?.try(&.as_s?) == email } if email
     bookings = source.map do |booking|
       id = booking["id"].as_i64
@@ -5065,6 +5308,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     limit_override : Int64? = nil,
     instance : Int64? = nil,
     recurrence_end : Int64? = nil,
+    zones : Array(String)? = nil,
   )
     id = booking_id.to_s.to_i64
     raise "simulated update_booking failure for #{id}" if @fail_updates.includes?(id)
@@ -5077,6 +5321,9 @@ class StaffAPIMock < DriverSpecs::MockDriver
       @updates_by_instance["#{id}:#{instance}"] = asset_id
       @update_calls[id] = (@update_calls[id]? || 0) + 1
     end
+    # allocate rewrites a booking's zones to the allocated space's — this is how
+    # a stolen overflow booking is moved into the building
+    @update_zones[id] = zones if zones
     @update_extension_data["#{id}:#{instance}"] = extension_data if extension_data
     true
   end
