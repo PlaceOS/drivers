@@ -24,6 +24,7 @@ class MailerMock < DriverSpecs::MockDriver
     self[:last_template] = template
     self[:last_args] = args
     self[:last_reply_to] = reply_to
+    self[:last_attachments] = resource_attachments
     self[:send_count] = self[:send_count].as_i + 1
     true
   end
@@ -2190,4 +2191,168 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   system(:Mailer)[:send_count].should eq count_before_checkout
   status[:users_checked_in].should eq checked_in_before_checkout
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
+
+  # ------------------------------------------------------------------
+  # Test 42: the host is force-added to the attendee list by staff-api,
+  #          so they are signalled like a visitor — skip_host_email must
+  #          catch that on the event invite path too.
+  # ------------------------------------------------------------------
+
+  count_before_host_invite = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "meeting_update",
+    system_id:      "sys-room1",
+    event_id:       "evt-host-invite",
+    event_ical_uid: "ical-host-invite",
+    resource:       "room1@example.com",
+    event_title:    "Host As Attendee",
+    event_summary:  "Host As Attendee",
+    event_starting: now + 3600,
+    attendee_name:  "Host User",
+    attendee_email: "host@example.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.5
+  system(:Mailer)[:send_count].should eq count_before_host_invite
+
+  # ==================================================================
+  # Change notifications carry the QR code and kiosk link
+  # ==================================================================
+  #
+  # A move invalidates the kiosk link issued with the original invitation — its
+  # token is scoped to the room the meeting has just left — and no fresh
+  # invitation is sent, so the change notification has to carry one.
+
+  # ------------------------------------------------------------------
+  # Test 43: event_changed includes guest_jwt, kiosk_url and the QR
+  # ------------------------------------------------------------------
+
+  count_before_event_qr = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:             "update",
+    system_id:          "sys-room1",
+    event_id:           "evt-qr",
+    event_ical_uid:     "ical-qr",
+    host:               "host@example.com",
+    resource:           "room1@example.com",
+    title:              "QR Change",
+    event_start:        now + 3600,
+    event_end:          now + 7200,
+    zones:              ["zone-building", "zone-room"],
+    previous_system_id: "sys-room2",
+  }.to_json)
+
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_event_qr + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
+
+  args43 = system(:Mailer)[:last_args]
+  args43["guest_jwt"].as_s.should_not be_empty
+  args43["kiosk_url"].as_s.includes?("visitor@external.com").should be_true
+
+  attachments43 = system(:Mailer)[:last_attachments].as_a
+  attachments43.size.should eq 1
+  attachments43[0]["file_name"].should eq "qr.png"
+  attachments43[0]["content_id"].should eq "visitor@external.com"
+  # the QR must point at the room the meeting moved TO
+  attachments43[0]["content"].as_s.includes?("VISIT:visitor@external.com,sys-room1,evt-qr").should be_true
+
+  # ------------------------------------------------------------------
+  # Test 44: booking_changed carries the same
+  # ------------------------------------------------------------------
+
+  count_before_booking_qr = system(:Mailer)[:send_count].as_i
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     950_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host@example.com",
+    title:                  "QR Booking Change",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json)
+
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_booking_qr + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  args44 = system(:Mailer)[:last_args]
+  args44["guest_jwt"].as_s.should_not be_empty
+  args44["kiosk_url"].as_s.includes?("event_id=950").should be_true
+
+  attachments44 = system(:Mailer)[:last_attachments].as_a
+  attachments44.size.should eq 1
+  attachments44[0]["content"].as_s.includes?("VISIT:visitor@external.com,visitor@external.com,950").should be_true
+
+  # ------------------------------------------------------------------
+  # Test 45: disable_qr_code drops the attachment but keeps the link
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+    disable_qr_code:       true,
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
+
+  count_before_no_qr = system(:Mailer)[:send_count].as_i
+
+  publish("staff/event/changed", {
+    action:             "update",
+    system_id:          "sys-room1",
+    event_id:           "evt-no-qr",
+    event_ical_uid:     "ical-no-qr",
+    host:               "host@example.com",
+    resource:           "room1@example.com",
+    title:              "No QR Change",
+    event_start:        now + 3600,
+    event_end:          now + 7200,
+    zones:              ["zone-building", "zone-room"],
+    previous_system_id: "sys-room2",
+  }.to_json)
+
+  sleep 1.5
+
+  system(:Mailer)[:send_count].should eq count_before_no_qr + 1
+  system(:Mailer)[:last_attachments].as_a.size.should eq 0
+  system(:Mailer)[:last_args]["kiosk_url"].as_s.should_not be_empty
+
+  # ------------------------------------------------------------------
+  # Test 46: the changed templates expose the kiosk fields so they can be
+  #          referenced from the template editor.
+  # ------------------------------------------------------------------
+
+  fields = exec(:template_fields).get.as_a
+  ["booking_changed", "event_changed"].each do |template_name|
+    entry = fields.find { |field| field["trigger"].as_a[1].as_s == template_name }
+    entry.should_not be_nil
+    names = entry.not_nil!["fields"].as_a.map { |field| field["name"].as_s }
+    names.should contain "guest_jwt"
+    names.should contain "kiosk_url"
+  end
 end

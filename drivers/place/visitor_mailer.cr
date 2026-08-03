@@ -562,7 +562,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       {name: "previous_event_time", description: "The original time before it was changed"},
       {name: "previous_room_name", description: "The original room or area name before it was moved"},
       {name: "previous_building_name", description: "The original building name before it was moved"},
-    ]
+    ] + jwt_fields
 
     [
       TemplateFields.new(
@@ -721,6 +721,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       details.previous_booking_start,
       previous_building_name,
       previous_room_name,
+      event_id: details.id.to_s,
+      resource_id: details.resource_id,
     )
   rescue error
     logger.error { error.inspect_with_backtrace }
@@ -919,12 +921,19 @@ class Place::VisitorMailer < PlaceOS::Driver
       previous_room_name,
       current_building_name,
       current_room_name,
+      event_id: change.event_id,
+      resource_id: system_id,
+      system_id: system_id,
     )
   end
 
   # `building_name` / `room_name` override the current location names; when
   # omitted they fall back to `building_zone` / `@booking_space_name` (used by
   # the booking flow, which has no system_id to resolve from).
+  #
+  # `event_id` / `resource_id` / `system_id` identify the visit for the QR code
+  # and kiosk link; supplying them mirrors what the invitation email carries, so
+  # a visitor whose meeting moved has a check-in code for the new room.
   private def send_booking_changed_emails(
     guests : Array(JSON::Any),
     template : String,
@@ -936,6 +945,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     previous_room_name : String,
     building_name : String? = nil,
     room_name : String? = nil,
+    event_id : String? = nil,
+    resource_id : String? = nil,
+    system_id : String? = nil,
   )
     resolved_building_name = building_name || (building_zone.display_name.presence || building_zone.name)
     resolved_room_name = room_name || @booking_space_name
@@ -955,6 +967,28 @@ class Place::VisitorMailer < PlaceOS::Driver
       previous_date = previous_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
       previous_time = previous_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@time_format) }
 
+      guest_jwt = kiosk_url = ""
+      attach = [] of NamedTuple(file_name: String, content: String, content_id: String)
+
+      if event_id
+        qr_resource = resource_id.presence || system_id.presence || ""
+        jwt_resource = system_id.presence || resource_id.presence || ""
+
+        guest_jwt = generate_guest_jwt(visitor_name || visitor_email, visitor_email, visitor_email, event_id, jwt_resource)
+        kiosk_url = "/visitor-kiosk/?email=#{visitor_email}&token=#{guest_jwt}&event_id=#{event_id}#/checkin/preferences"
+
+        unless @disable_qr_code
+          qr_png = mailer.generate_png_qrcode(text: "VISIT:#{visitor_email},#{qr_resource},#{event_id},#{host_email}", size: 256).get.as_s
+          attach = [
+            {
+              file_name:  "qr.png",
+              content:    qr_png,
+              content_id: visitor_email,
+            },
+          ]
+        end
+      end
+
       mailer.send_template(
         visitor_email,
         {"visitor_invited", template},
@@ -973,7 +1007,10 @@ class Place::VisitorMailer < PlaceOS::Driver
           previous_event_time:    previous_time,
           previous_room_name:     previous_room_name,
           previous_building_name: previous_building_name,
+          guest_jwt:              guest_jwt,
+          kiosk_url:              kiosk_url,
         },
+        attach,
         reply_to: host_email.presence,
       )
     rescue error
