@@ -71,6 +71,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     # unaffected.
     skip_host_email: true,
 
+    # When true, attendees whose email domain matches the host's are treated as
+    # colleagues rather than visitors and are not emailed. Front ends tend to
+    # mark every attendee as an expected visitor, so staff invited to a meeting
+    # would otherwise receive visitor invites and QR codes.
+    skip_internal_domain_email: false,
+
     domain_uri:      "https://example.com/",
     jwt_private_key: PlaceOS::Model::JWTBase.private_key,
   })
@@ -159,6 +165,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @disable_event_visitors : Bool = true
   @skip_event_linked_booking_email : Bool = true
   @skip_host_email : Bool = true
+  @skip_internal_domain_email : Bool = false
 
   # Coalescing buffer for staff/event/changed, swept once the window elapses.
   # seconds to buffer a change; 0 emails on every signal
@@ -203,6 +210,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @skip_event_linked_booking_email = skip_event_linked.nil? ? true : skip_event_linked
     skip_host_email = setting?(Bool, :skip_host_email)
     @skip_host_email = skip_host_email.nil? ? true : skip_host_email
+    @skip_internal_domain_email = setting?(Bool, :skip_internal_domain_email) || false
     @invite_zone_tag = setting?(String, :invite_zone_tag) || "building"
     @is_parent_zone = setting?(Bool, :is_campus) || false
 
@@ -309,6 +317,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     # don't send a visitor-targeted email to the host.
     if @skip_host_email && (host_email = guest_details.host.presence) && guest_details.attendee_email.downcase == host_email.downcase
       logger.debug { "ignoring guest event as attendee #{guest_details.attendee_email} is the host" }
+      return
+    end
+
+    # don't treat the host's colleagues as visitors
+    if @skip_internal_domain_email && colleague_of_host?(guest_details.attendee_email, guest_details.host)
+      logger.debug { "ignoring guest event as attendee #{guest_details.attendee_email} shares the host's domain" }
       return
     end
 
@@ -813,6 +827,15 @@ class Place::VisitorMailer < PlaceOS::Driver
     }
   end
 
+  # Whether the attendee is a colleague of the host rather than a visitor.
+  protected def colleague_of_host?(attendee_email : String, host_email : String?) : Bool
+    return false if host_email.nil? || host_email.blank?
+    attendee_domain = attendee_email.split('@', 2)[1]?
+    host_domain = host_email.split('@', 2)[1]?
+    return false unless attendee_domain && host_domain
+    attendee_domain.downcase == host_domain.downcase
+  end
+
   # Collapses the burst of signals for one edit into a single buffered change.
   # Keyed by event instance, so the rooms either side of a move coalesce too;
   # the one email then names a single room and uses that room's guest list.
@@ -961,6 +984,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
       # don't email staff members
       next if !@host_domain_filter.empty? && visitor_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
+
+      # don't treat the host's colleagues as visitors
+      next if @skip_internal_domain_email && colleague_of_host?(visitor_email, host_email)
 
       local_start_time = Time.unix(event_start).in(@time_zone)
 

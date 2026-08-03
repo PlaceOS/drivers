@@ -141,7 +141,10 @@ module Place
     property system_id : String
     property event_id : String
     property event_ical_uid : String?
+    # who is hosting: the organiser, unless the host has been reassigned
     property host : String?
+    # the mailbox the event lives on, which a reassignment cannot change
+    property organiser_email : String?
     property resource : String?
     property title : String?
     property event_start : Int64?
