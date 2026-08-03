@@ -850,7 +850,7 @@ class Place::Campus < PlaceOS::Driver
       parent_id = building(building_id).parent_id
       # walk up the tree, guarding against unexpectedly deep trees / cycles
       10.times do
-        break unless parent_id
+        break unless parent_id.presence
         parent = Zone.from_json(staff_api.zone(parent_id).get_json)
         chain.unshift parent.id
         parent_id = parent.parent_id
