@@ -504,9 +504,10 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   mailer.send_count.should eq(1)
 
   # ===========================================================
-  # Test 12: the allocation window ends at the upcoming Friday 13:00 in the
-  # configured timezone (control_system timezone is Australia/Sydney in specs).
-  # Once Friday 13:00 has passed the window rolls to the following Friday.
+  # Test 12: the allocation window stretches over the weekend that follows the
+  # upcoming Friday 13:00 in the configured timezone (control_system timezone
+  # is Australia/Sydney in specs). Once Friday 13:00 has passed the window
+  # rolls to the following Friday, then out over that weekend.
   # ===========================================================
 
   staff.reset_calls
@@ -520,18 +521,21 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   now_local = Time.local(tz)
   days_until_friday = (Time::DayOfWeek::Friday.value - now_local.day_of_week.value) % 7
   friday_local = now_local + days_until_friday.days
-  expected_end = Time.local(friday_local.year, friday_local.month, friday_local.day, 13, 0, 0, location: tz)
-  expected_end = expected_end.shift(days: 7) if expected_end <= now_local
+  friday_cutoff = Time.local(friday_local.year, friday_local.month, friday_local.day, 13, 0, 0, location: tz)
+  # the roll forward is decided on the Friday, before the weekend is added
+  friday_cutoff = friday_cutoff.shift(days: 7) if friday_cutoff <= now_local
+  expected_end = friday_cutoff + 2.days
 
   period_end = staff.last_query_period_end.not_nil!
   period_end.should eq(expected_end.to_unix)
 
   cutoff = Time.unix(period_end).in(tz)
-  cutoff.day_of_week.should eq(Time::DayOfWeek::Friday)
-  cutoff.hour.should eq(13)
-  cutoff.minute.should eq(0)
+  # two days on from Friday afternoon, so the whole weekend is allocated
+  cutoff.day_of_week.should eq(Time::DayOfWeek::Sunday)
+  (cutoff - friday_cutoff).should eq(2.days)
   # the window always ends in the future
   (cutoff > now_local).should eq(true)
+  (cutoff > friday_cutoff).should eq(true)
 
   # ===========================================================
   # Directory-resolved Gallagher lookups (employeeId via MS Graph).

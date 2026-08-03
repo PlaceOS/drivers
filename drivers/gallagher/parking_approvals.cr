@@ -667,8 +667,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     @displacement_report = [] of DisplacementRecord
 
     starting = Time.utc.to_unix
-    # only allocate bookings up to the end of the upcoming Friday (local time)
-    ending = next_friday_cutoff.to_unix
+    # only allocate bookings up to the end of the upcoming weekend (local time)
+    ending = next_allocation_cutoff.to_unix
 
     # Fetch the world up front. If EITHER the spaces or the bookings query fails
     # we abort the whole run: proceeding with an empty/partial view would make
@@ -840,16 +840,17 @@ class Place::Parking::Approvals < PlaceOS::Driver
     logger.warn(exception: error) { "failed to publish lookup errors" }
   end
 
-  # 13:00 on the upcoming Friday in the configured timezone. On Sat/Sun this
-  # rolls forward to the next week's Friday, and once Friday 13:00 has passed
-  # it also rolls to the following Friday — otherwise the allocation window
-  # would end in the past and nothing would be processed.
-  protected def next_friday_cutoff : Time
+  # 13:00 on the upcoming Friday in the configured timezone, stretched over the
+  # weekend that follows it. On Sat/Sun this rolls forward to the next week's
+  # Friday, and once Friday 13:00 has passed it also rolls to the following
+  # Friday — otherwise the allocation window would end in the past and nothing
+  # would be processed.
+  protected def next_allocation_cutoff : Time
     now = Time.local(@timezone)
     days_until_friday = (Time::DayOfWeek::Friday.value - now.day_of_week.value) % 7
     friday = now + days_until_friday.days
     cutoff = Time.local(friday.year, friday.month, friday.day, 13, 0, 0, location: @timezone)
-    cutoff <= now ? cutoff.shift(days: 7) : cutoff
+    (cutoff <= now ? cutoff.shift(days: 7) : cutoff) + 2.days
   end
 
   # Walk the final booking + permanent-assignment state and emit the gallagher
