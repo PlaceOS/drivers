@@ -718,10 +718,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {booking, priority}
     end
 
-    # Sort: priority desc, then created asc (older first)
-    booking_meta.sort! do |a, b|
-      cmp = b[1] <=> a[1]
-      cmp == 0 ? (a[0].created || 0_i64) <=> (b[0].created || 0_i64) : cmp
+    # Sort: priority desc, then requests for the tallest height class (nothing
+    # shorter fits them and those spaces are scarce), then created asc (older
+    # first). NOTE:: this only orders the queue — it is NOT part of the priority
+    # used to displace, so a tall request arriving later can't preempt someone on
+    # the same priority who already holds a space (see the strict `<` in the
+    # preemption candidate filter).
+    booking_meta.sort_by! do |(booking, priority)|
+      {-priority, tallest_height_request?(booking) ? 0 : 1, booking.created || 0_i64}
     end
 
     # Track current allocations: asset_id => ALL bookings holding that asset.
@@ -1443,6 +1447,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
     restriction_id = booking.extension_data["space_restrictions"]?.try(&.as_i64?)
     return nil unless restriction_id
     @restriction_lookup[restriction_id]?
+  end
+
+  # Does the booking request the tallest height class we know about? Only the
+  # tallest spaces fit these vehicles, and there are few of them, so they are
+  # allocated ahead of everyone else on the same priority — every shorter
+  # request has other spaces it can fall back to. @height_features is ordered by
+  # id (= increasing height), so the last entry is the tallest class.
+  protected def tallest_height_request?(booking : Booking) : Bool
+    return false unless tallest = @height_features.last?
+    return false unless requested_restriction(booking) == tallest
+    # bikes are never height constrained (a height class on a bike booking is
+    # ignored in compatible_spaces), so it must not reorder them either
+    VehicleType.parse_request(booking.extension_data["vehicle_type"]?.try(&.as_s?)) != VehicleType::Bike
   end
 
   # Does the booking request an EXCLUSIVE restriction feature (ACROD, ...) that

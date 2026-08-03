@@ -4680,6 +4680,112 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   staff.last_update_for(99004_i64).should eq("asset-m99")
   staff.extension_data_key(99004_i64, "location").should eq("ASSET-M99")
   staff.extension_data_key(99004_i64, "parking_group").should eq("Priority Group")
+
+  # ===========================================================
+  # Test 100: tall vehicles get first pick of the scarce tall spaces. Within a
+  # priority group a booking requesting the TALLEST height class is allocated
+  # ahead of same-priority bookings that were created earlier — nothing shorter
+  # accommodates it, while every other request has spaces to fall back to.
+  # This is QUEUE ORDER ONLY: a tall request must never displace someone on the
+  # same priority who already holds a space.
+  # ===========================================================
+
+  t100_settings = {
+    poll_rate:            999_999,
+    auto_approval_groups: ["group-priority", "group-default"],
+    car_zone_priority:    ["carpriority", "shared"],
+    bike_zone_priority:   ["bikepriority", "shared"],
+    parking_areas:        {"Open Basement" => "gallagher-group1"},
+    # displacement is allowed and nothing is inside its notice period, so the
+    # third leg genuinely CAN displace — the second leg's "no displacement" is
+    # down to the priorities being equal, not to displacement being off
+    displacement_notification_hours: 0,
+    # the full height ladder: the tallest class the driver knows about is 2.3m
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 3, name: "Max height 1.9m"},
+      {id: 4, name: "Max height 1.95m"},
+      {id: 5, name: "Max height 2.1m"},
+      {id: 6, name: "Max height 2.2m"},
+      {id: 7, name: "Max height 2.3m"},
+    ],
+  }
+  settings(t100_settings)
+  sleep 100.milliseconds
+
+  # a car space carrying a height class, so height requests can match it
+  height_space = ->(id : String, height : String) do
+    {id: id, identifier: id.upcase, assigned_to: "", zones: ["zone-building", "zone-level-B1"],
+     features: ["carpriority", "Open Basement", height], notes: "Car",
+     security_system_groups: [] of String, bookable: true}
+  end
+  ext_h230 = {"vehicle_type" => JSON::Any.new("car"), "space_restrictions" => JSON::Any.new(7_i64)}
+
+  ["tall100", "short100", "tall200", "short200", "tall300", "short300"].each do |user|
+    calendar.set_groups("#{user}@example.com", user.starts_with?("tall3") ? prio_grp.to_json : default_grp.to_json)
+    gallagher.set_cardholder("#{user}@example.com", "ch-#{user}")
+  end
+
+  t100_start = now + 3600_i64 * 900
+  t100_end = t100_start + 3600_i64
+
+  # --- the tall request jumps the queue within its priority group ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  # the ONLY space is a tall one, so both bookings are competing for it
+  staff.set_assets([height_space.call("asset-t100", "Max height 2.3m")].to_json)
+  # build_booking derives `created` from the id, so the shorter request (the
+  # lower id) was created first and would win on age alone
+  staff.set_bookings([
+    build_booking.call(100001_i64, "short100@example.com", t100_start, t100_end, "unallocated-100001", false, ext_car),
+    build_booking.call(100002_i64, "tall100@example.com", t100_start, t100_end, "unallocated-100002", false, ext_h230),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the 2.3m request took the tall space despite being the newer booking
+  staff.last_update_for(100002_i64).should eq("asset-t100")
+  # the shorter request could have used that space, but it waits instead
+  staff.last_update_for(100001_i64).should be_nil
+  staff.last_state(100001_i64).should eq("wait_list")
+
+  # --- but it does NOT displace an equal-priority booking already holding one ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([height_space.call("asset-t200", "Max height 2.3m")].to_json)
+  staff.set_bookings([
+    # already allocated the tall space on an earlier sweep
+    build_booking.call(200001_i64, "short200@example.com", t100_start, t100_end, "asset-t200", true, ext_car),
+    build_booking.call(200002_i64, "tall200@example.com", t100_start, t100_end, "unallocated-200002", false, ext_h230),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # the sitting tenant keeps the space — no update, no displacement email
+  staff.last_update_for(200001_i64).should be_nil
+  mailer.sent?("short200@example.com", "parking_request", "displaced").should eq(false)
+  # the tall request waits for a space rather than taking one off an equal
+  staff.last_update_for(200002_i64).should be_nil
+  staff.last_state(200002_i64).should eq("wait_list")
+
+  # --- a HIGHER priority tall request still displaces, as it always did ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([height_space.call("asset-t300", "Max height 2.3m")].to_json)
+  staff.set_bookings([
+    build_booking.call(300001_i64, "short300@example.com", t100_start, t100_end, "asset-t300", true, ext_car),
+    build_booking.call(300002_i64, "tall300@example.com", t100_start, t100_end, "unallocated-300002", false, ext_h230),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(300002_i64).should eq("asset-t300")
+  staff.last_update_for(300001_i64).not_nil!.starts_with?("unallocated-displaced").should eq(true)
+  staff.last_state(300001_i64).should eq("wait_list")
+  mailer.sent?("short300@example.com", "parking_request", "displaced").should eq(true)
 end
 
 # :nodoc:
