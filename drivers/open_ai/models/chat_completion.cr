@@ -11,16 +11,83 @@ module OpenAI
     Assistant
   end
 
+  struct TextContent
+    include JSON::Serializable
+
+    def initialize(@text : String)
+    end
+
+    getter type : String = "text"
+    getter text : String
+  end
+
+  # Images are provided as base64 encoded data, they are sent to OpenAI
+  # inline as a data URI. Both forms parse, so this round trips its own output.
+  struct ImageContent
+    def initialize(@image : String, @media_type : String = "image/jpeg", @detail : String? = nil)
+    end
+
+    getter type : String = "image_url"
+
+    # base64 encoded image data
+    getter image : String
+    getter media_type : String = "image/jpeg"
+
+    # one of "auto", "low" or "high"
+    getter detail : String? = nil
+
+    def self.new(pull : JSON::PullParser)
+      json = JSON::Any.new(pull)
+      detail = json.dig?("image_url", "detail") || json["detail"]?
+
+      if url = json.dig?("image_url", "url").try(&.as_s)
+        media_type, _, image = url.lchop("data:").partition(";base64,")
+      else
+        image = json["image"]?.try(&.as_s)
+        media_type = json["media_type"]?.try(&.as_s) || "image/jpeg"
+      end
+
+      raise JSON::ParseException.new("expected base64 encoded image data", 0, 0) if image.nil? || image.empty?
+      new(image, media_type, detail.try(&.as_s))
+    end
+
+    def to_json(json : JSON::Builder) : Nil
+      json.object do
+        json.field "type", "image_url"
+        json.field "image_url" do
+          json.object do
+            json.field "url", "data:#{media_type};base64,#{image}"
+            if detail = @detail
+              json.field "detail", detail
+            end
+          end
+        end
+      end
+    end
+  end
+
+  alias Content = TextContent | ImageContent
+
   # Typically, a conversation is formatted with a system message first,
   # followed by alternating user and assistant messages.
   struct Message
     include JSON::Serializable
 
-    def initialize(@role : Role, @content : String)
+    def initialize(@role : Role, @content : String | Array(Content))
     end
 
     getter role : Role
-    getter content : String
+
+    # either plain text or a list of text / image parts
+    getter content : String | Array(Content)
+
+    # the text of the message, ignoring any images
+    def text : String
+      case content = @content
+      in String         then content
+      in Array(Content) then String.build { |io| content.each { |part| io << part.text if part.is_a?(TextContent) } }
+      end
+    end
   end
 
   # POST https://api.openai.com/v1/chat/completions
@@ -73,6 +140,13 @@ module OpenAI
 
     # A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
     property user : String? = nil
+
+    # i.e. `{"type": "json_object"}` or a `{"type": "json_schema", "json_schema": {...}}` spec
+    property response_format : JSON::Any? = nil
+
+    # An upper bound for the number of tokens that can be generated,
+    # including both visible output and reasoning tokens.
+    property max_completion_tokens : Int32? = nil
   end
 
   struct MessageChoice

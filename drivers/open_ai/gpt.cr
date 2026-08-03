@@ -16,7 +16,7 @@ class OpenAI::GPT < PlaceOS::Driver
     openai_org = setting?(String, :openai_org)
 
     transport.before_request do |request|
-      logger.debug { "requesting #{request.method} #{request.path}?#{request.query}\n#{request.headers}\n#{request.body}" }
+      logger.debug { "requesting #{request.method} #{request.path}?#{request.query}\n#{request.headers}\n#{redact_blobs(request.body)}" }
 
       request.headers["Authorization"] = "Bearer #{openai_key}"
       request.headers["OpenAI-Organization"] = openai_org if openai_org
@@ -35,6 +35,14 @@ class OpenAI::GPT < PlaceOS::Driver
   getter total_tokens : Int64 = 0
   getter prompt_tokens : Int64 = 0
   getter completion_tokens : Int64 = 0
+
+  # any long run of base64 / hex characters, i.e. an encoded image or file
+  BINARY_BLOB = /[A-Za-z0-9+\/=_-]{256,}/
+
+  # encoded blobs are large and of no use in the logs
+  protected def redact_blobs(body) : String
+    body.to_s.gsub(BINARY_BLOB, "<binary data redacted>")
+  end
 
   protected def check(response)
     raise "unexpected response #{response.status_code}\n#{response.body}" unless response.success?
@@ -75,9 +83,19 @@ class OpenAI::GPT < PlaceOS::Driver
   end
 
   # creates a completion for the chat message
-  def chat(model : String, message : Message | Array(Message))
+  #
+  # message content is either a string or a list of parts, images being
+  # base64 encoded: `[{"type": "image_url", "image": "iVBORw0...", "media_type": "image/png"}]`
+  def chat(
+    model : String,
+    message : Message | Array(Message),
+    response_format : JSON::Any? = nil,
+    max_completion_tokens : Int32? = nil,
+  )
     messages = message.is_a?(Array) ? message : [message]
     chat = CreateChatCompletion.new(model, messages)
+    chat.response_format = response_format
+    chat.max_completion_tokens = max_completion_tokens
     response = check post("/v1/chat/completions", body: chat.to_json)
     chat = ChatCompletion.from_json response.body
     update_token chat.usage
