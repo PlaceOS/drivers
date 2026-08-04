@@ -41,15 +41,14 @@ combined into a single email describing the net change.
 
 ```yaml
   # Combine change emails sent within this many seconds; 0 disables.
-  event_change_debounce:   15
-  booking_change_debounce: 15
+  change_debounce: 15
 ```
 
 The email goes out a few seconds after the window closes. Anything still waiting is
 sent immediately if the driver restarts, so a notification is never dropped.
 
-Setting a debounce to `0` emails on every signal, which can mean duplicate and
-contradictory notifications, and can also notify visitors added by the edit.
+Setting this to `0` emails on every signal, which can mean duplicate and contradictory
+notifications, and can also notify visitors added by the edit.
 
 ## Excluding staff attendees
 

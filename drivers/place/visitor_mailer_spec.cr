@@ -284,15 +284,14 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # Allow on_load -> on_update -> ensure_building_zone to complete
   sleep 1.5
 
-  # Most tests below assert an immediate send, so both debounces are disabled
-  # (they default to 15s). The debounce behaviour has dedicated tests that turn
-  # them back on. send_reminders/domain_uri mirror default_settings so nothing
-  # else changes.
+  # Most tests below assert an immediate send, so the debounce is disabled (it
+  # defaults to 15s). The debounce behaviour has dedicated tests that turn it
+  # back on. send_reminders/domain_uri mirror default_settings so nothing else
+  # changes.
   settings({
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
-    send_reminders:          "0 7 * * *",
-    domain_uri:              "https://example.com/",
+    change_debounce: 0,
+    send_reminders:  "0 7 * * *",
+    domain_uri:      "https://example.com/",
   })
   sleep 1.0
 
@@ -716,10 +715,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # These tests assert an immediate send, so disable the debounce (default 15s).
   # send_reminders/domain_uri mirror default_settings so nothing else changes.
   settings({
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
-    send_reminders:          "0 7 * * *",
-    domain_uri:              "https://example.com/",
+    change_debounce: 0,
+    send_reminders:  "0 7 * * *",
+    domain_uri:      "https://example.com/",
   })
   sleep 1.0
 
@@ -1227,8 +1225,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name:              "Client Floor",
     invite_zone_tag:                 "building",
     skip_event_linked_booking_email: false,
-    event_change_debounce:           0,
-    booking_change_debounce:         0,
+    change_debounce:                 0,
   })
   sleep 1.0
 
@@ -1431,12 +1428,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    skip_host_email:         false,
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    skip_host_email:    false,
+    change_debounce:    0,
   })
   sleep 1.0
 
@@ -1474,8 +1470,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     invite_zone_tag:                    "building",
     notify_induction_accepted_template: "custom_accepted",
     notify_induction_declined_template: "custom_declined",
-    event_change_debounce:              0,
-    booking_change_debounce:            0,
+    change_debounce:                    0,
   })
   sleep 1.0
 
@@ -1539,8 +1534,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     invite_zone_tag:          "building",
     booking_changed_template: "custom_booking_changed",
     event_changed_template:   "custom_event_changed",
-    event_change_debounce:    0,
-    booking_change_debounce:  0,
+    change_debounce:          0,
   })
   sleep 1.0
 
@@ -1612,8 +1606,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name: "Client Floor",
     invite_zone_tag:    "building",
     # skip_event_linked_booking_email defaults to true (invite flow only)
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
+    change_debounce: 0,
   })
   sleep 1.0
 
@@ -1691,8 +1684,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name:              "Client Floor",
     invite_zone_tag:                 "building",
     skip_event_linked_booking_email: false,
-    event_change_debounce:           0,
-    booking_change_debounce:         0,
+    change_debounce:                 0,
   })
   sleep 1.0
 
@@ -1714,11 +1706,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # show a real date, so the driver looks the event up via the staff API.
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
   })
   sleep 1.0
 
@@ -1782,7 +1773,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_args]["event_date"].raw.should be_nil
 
   # ==================================================================
-  # event_change_debounce — coalesce the Office365 signal burst (PPT-2375)
+  # change_debounce — coalesce the Office365 signal burst (PPT-2375)
   # ==================================================================
   #
   # One edit arrives as an A -> B -> A flip-flop (Wed->Thu, Thu->Wed, Wed->Thu)
@@ -1790,11 +1781,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # showing the true net change.
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   3,
-    booking_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    3,
   })
   sleep 1.0
 
@@ -1899,11 +1889,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq count_before_survives
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   3,
-    booking_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    3,
   })
 
   # the update must not cut the window short
@@ -2067,11 +2056,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   30,
-    booking_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    30,
   })
   sleep 1.0
 
@@ -2100,11 +2088,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   # Disabling the debounce flushes the buffer instead of orphaning it.
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
   })
   sleep 1.5
 
@@ -2248,12 +2235,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   status[:users_checked_in].should eq checked_in_before_checkout
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
-    domain_uri:              "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2367,13 +2353,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
-    disable_qr_code:         true,
-    domain_uri:              "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    disable_qr_code:    true,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2426,13 +2411,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
-    host_domain_filter:      ["example.com"],
-    domain_uri:              "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    host_domain_filter: ["example.com"],
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2466,8 +2450,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     timezone:                   "GMT",
     booking_space_name:         "Client Floor",
     invite_zone_tag:            "building",
-    event_change_debounce:      0,
-    booking_change_debounce:    0,
+    change_debounce:            0,
     skip_internal_domain_email: true,
     domain_uri:                 "https://example.com/",
   })
@@ -2545,12 +2528,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
-    domain_uri:              "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2594,12 +2576,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 0,
-    domain_uri:              "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2642,12 +2623,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # "recipient|template" for just that test's emails.
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   0,
-    booking_change_debounce: 2,
-    domain_uri:              "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    2,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2874,13 +2854,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:                "GMT",
-    booking_space_name:      "Client Floor",
-    invite_zone_tag:         "building",
-    event_change_debounce:   2,
-    booking_change_debounce: 0,
-    disable_event_visitors:  false,
-    domain_uri:              "https://example.com/",
+    timezone:               "GMT",
+    booking_space_name:     "Client Floor",
+    invite_zone_tag:        "building",
+    change_debounce:        2,
+    disable_event_visitors: false,
+    domain_uri:             "https://example.com/",
   })
   sleep 1.0
 

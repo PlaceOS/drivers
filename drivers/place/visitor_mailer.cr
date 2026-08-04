@@ -40,10 +40,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_changed_template:   "event_changed",
     group_event_template:     "group_event",
 
-    # Combine duplicate change emails sent within this many seconds; 0 disables.
-    event_change_debounce: 15,
-    # as above for bookings; 0 also notifies visitors added by the same edit
-    booking_change_debounce:            15,
+    # Combine duplicate change emails sent within this many seconds. 0 disables,
+    # which also notifies visitors added by the same edit.
+    change_debounce:                    15,
     disable_qr_code:                    false,
     send_network_credentials:           false,
     network_password_length:            DEFAULT_PASSWORD_LENGTH,
@@ -171,8 +170,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # Coalescing buffer for staff/{event,booking}/changed, swept once the window
   # elapses. seconds to buffer a change; 0 emails on every signal
-  @event_change_debounce : Int32 = 15
-  @booking_change_debounce : Int32 = 15
+  @change_debounce : Int32 = 15
   #                  buffer_key => coalesced change awaiting its flush
   @pending_changes : Hash(String, PendingChange) = {} of String => PendingChange
   @pending_changes_lock : Mutex = Mutex.new
@@ -202,8 +200,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
     @event_changed_template = setting?(String, :event_changed_template) || "event_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
-    @event_change_debounce = setting?(Int32, :event_change_debounce) || 15
-    @booking_change_debounce = setting?(Int32, :booking_change_debounce) || 15
+    @change_debounce = setting?(Int32, :change_debounce) || 15
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
@@ -236,22 +233,16 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     zones = control_system_zone_list
 
-    # Each change carries its own debounce, so a sweep still drains entries
-    # buffered under the previous settings.
-    debounces = [@event_change_debounce, @booking_change_debounce].select(&.positive?)
+    # The sweep below picks up the rest; with the debounce off nothing would.
+    flush_pending_changes("debounce disabled") if @change_debounce <= 0
 
     schedule.clear
     if reminders = @send_reminders
       schedule.cron(reminders, @time_zone) { send_reminder_emails }
     end
 
-    if interval = debounces.min?
-      # Sweeps at most every 5s, so a change waits its debounce plus up to one interval.
-      schedule.every(interval.clamp(1, 5).seconds) { sweep_pending_changes }
-    else
-      # Nothing would sweep the buffer with every debounce switched off.
-      flush_pending_changes("debounce disabled")
-    end
+    # Sweeps at most every 5s, so a change waits its debounce plus up to one interval.
+    schedule.every(@change_debounce.clamp(1, 5).seconds) { sweep_pending_changes } if @change_debounce > 0
 
     spawn { ensure_building_zone(zones) }
   end
@@ -733,13 +724,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     # booking before adding its new visitors, so the debounce is what lets us
     # recognise them.
     change = PendingBookingChange.new(
-      @booking_change_debounce,
       details.id, details.booking_type, details.user_email, details.title,
       details.resource_id, details.booking_start, details.booking_end,
       details.previous_booking_start, details.previous_booking_end,
       details.zones, details.previous_zones,
     )
-    @booking_change_debounce > 0 ? buffer_change(change) : dispatch_booking_change(change)
+    @change_debounce > 0 ? buffer_change(change) : dispatch_booking_change(change)
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -814,12 +804,11 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # Coalesce the burst of signals Office365 emits per edit into one email.
     change = PendingEventChange.new(
-      @event_change_debounce,
       details.event_id, details.system_id, details.event_ical_uid,
       host, details.title, event_start, event_end,
       details.previous_event_start, details.previous_event_end, details.previous_system_id,
     )
-    @event_change_debounce > 0 ? buffer_change(change) : dispatch_event_change(change)
+    @change_debounce > 0 ? buffer_change(change) : dispatch_event_change(change)
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -878,7 +867,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   # Covers the debounce holding a change back, plus room for a front end that
   # adds its visitors in later requests.
   private def invite_memory : Time::Span
-    {@event_change_debounce, @booking_change_debounce}.max.clamp(0, 3600).seconds + 60.seconds
+    @change_debounce.clamp(0, 3600).seconds + 60.seconds
   end
 
   # Collapses the burst of signals for one edit into a single buffered change.
@@ -896,17 +885,16 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # Sends any change that has been buffered for its full debounce window.
   private def sweep_pending_changes : Nil
-    flush_pending_changes("debounce window elapsed", ready_only: true)
+    flush_pending_changes("debounce window elapsed", older_than: Time.monotonic - @change_debounce.seconds)
   end
 
-  # Dispatches buffered changes, each in its own fiber so a slow send can't stall
-  # the sweep. `ready_only` limits the flush to entries that have served their
-  # debounce, `wait` bounds how long we block for the sends to finish.
-  private def flush_pending_changes(reason : String, ready_only : Bool = false, wait : Time::Span? = nil) : Nil
+  # Dispatches matching changes, each in its own fiber so a slow send can't stall
+  # the sweep. `older_than` limits the flush to entries buffered before that point
+  # (nil takes the lot), `wait` bounds how long we block for the sends to finish.
+  private def flush_pending_changes(reason : String, older_than : Time::Span? = nil, wait : Time::Span? = nil) : Nil
     flushing = @pending_changes_lock.synchronize do
-      now = Time.monotonic
-      ready = if ready_only
-                @pending_changes.values.select(&.ready?(now))
+      ready = if cutoff = older_than
+                @pending_changes.values.select { |pending| pending.first_seen <= cutoff }
               else
                 @pending_changes.values
               end
@@ -1358,16 +1346,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     getter first_seen : Time::Span = Time.monotonic
     getter buffer_key : String = ""
-    # kept per entry so a sweep drains changes buffered under earlier settings
-    getter debounce : Time::Span = Time::Span.zero
 
-    def initialize(debounce_seconds : Int32, @host, @title, @current_start, @current_end, @previous_start, @previous_end)
-      @debounce = debounce_seconds.clamp(0, 3600).seconds
-    end
-
-    # Whether this change has served its full debounce window.
-    def ready?(now : Time::Span) : Bool
-      (first_seen + debounce) <= now
+    def initialize(@host, @title, @current_start, @current_end, @previous_start, @previous_end)
     end
 
     # Whether the coalesced result still describes a real change.
@@ -1394,7 +1374,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     property previous_system_id : String? # the room before the edit
 
     def initialize(
-      debounce_seconds : Int32,
       @event_id,
       @system_id,
       @event_ical_uid,
@@ -1406,7 +1385,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       previous_end,
       @previous_system_id,
     )
-      super(debounce_seconds, host, title, current_start, current_end, previous_start, previous_end)
+      super(host, title, current_start, current_end, previous_start, previous_end)
       # ical_uid identifies the event instance across mailbox copies and rooms;
       # event_id is only a fallback for a signal that omits it.
       @buffer_key = "event\t#{@event_ical_uid.presence || @event_id}"
@@ -1445,7 +1424,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     property previous_zones : Array(String)?
 
     def initialize(
-      debounce_seconds : Int32,
       @booking_id,
       @booking_type,
       host,
@@ -1458,7 +1436,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       @zones,
       @previous_zones,
     )
-      super(debounce_seconds, host, title, current_start, current_end, previous_start, previous_end)
+      super(host, title, current_start, current_end, previous_start, previous_end)
       @buffer_key = "booking\t#{@booking_id}"
     end
 
