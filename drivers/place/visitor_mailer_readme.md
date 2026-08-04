@@ -29,31 +29,58 @@ Requires the following drivers in the system:
   skip_internal_domain_email: false
 ```
 
-## Debouncing event changes
+## Debouncing change notifications
 
-A single calendar edit is rarely a single signal: Office365 emits a burst of
+A single edit is rarely a single signal: Office365 emits a burst of
 `staff/event/changed` updates (the organizer copy, then each room mailbox catching
 up), which can briefly flip-flop between the old and new values. Sending an email
 per signal spams visitors with contradictory notifications.
 
-`event_change_debounce` (seconds, default `15`) buffers the burst for one event and
-sends a single email describing the net change once the window closes. Set it to `0`
-to email on every signal.
+`event_change_debounce` and `booking_change_debounce` (seconds, default `15`) buffer
+the burst for one visit and send a single email describing the net change once the
+window closes. Set one to `0` to email on every signal for that kind of change.
 
 ```yaml
   # Combine duplicate change emails sent within this many seconds; 0 disables.
-  event_change_debounce: 15
+  event_change_debounce:   15
+  booking_change_debounce: 15
 ```
 
 Buffered changes are swept on a timer rather than each having its own, so the actual
 delay is the configured debounce plus up to one sweep interval (at most 5s). Anything
-still buffered is emailed immediately when the driver is unloaded, or when the
+still buffered is emailed immediately when the driver is unloaded, or when every
 debounce is turned off, so a restart never silently drops a pending notification.
 
-Signals are grouped by event instance (its ical uid), not by room, so an edit that
-moves the meeting *and* changes the time sends one email describing both rather than
-one per room. A move between buildings is handled by two separate mailer modules and
-so still sends an email each.
+Event signals are grouped by event instance (its ical uid), not by room, so an edit
+that moves the meeting *and* changes the time sends one email describing both rather
+than one per room. A move between buildings is handled by two separate mailer modules
+and so still sends an email each. Booking signals are grouped by booking id.
+
+The booking debounce also buys the window needed to recognise a visitor added by the
+same edit, so setting it to `0` will re-notify new visitors — see below.
+
+## New visitors are not told the visit changed
+
+A visitor added while the details are being changed does not need a change
+notification: the invitation they are receiving already carries the new date, time and
+location, and they never saw the old ones. Being told their visit "changed" before
+they have registered being invited to it at all is worse than confusing — QA saw the
+change notification arrive alongside, and sometimes in place of, the invite.
+
+The staff API announces attendance (`staff/guest/attending`) only for attendees that
+were not already attending, which makes it an exact statement of "this visitor is
+new". Each such announcement is remembered for the debounce window plus a minute, and
+those visitors are left out of any change notification for the same visit in that
+time. Recipients are matched on visitor, host and the new start time rather than on
+the booking id, because a change notification names the *parent* booking while the
+invitation names the visitor's own child booking — and for an event-linked visitor
+booking the two ids do not correspond at all.
+
+This works regardless of where the edit came from (workplace, concierge, Outlook or
+another driver), as it depends only on the signals rather than on the request that
+caused them. The invitation is remembered even when the invite email itself is
+suppressed by `disable_event_visitors` or `skip_event_linked_booking_email`, since in
+both cases the visitor was still invited, just through the other template.
 
 ## Colleagues are not visitors
 
