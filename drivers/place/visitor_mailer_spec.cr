@@ -2634,18 +2634,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # A visitor added by the same edit is not told the visit changed
   # ==================================================================
   #
-  # PPT-2375. Editing a booking's time and adding a visitor in the one action
-  # left the new visitor receiving the change notification as well as (and
-  # sometimes seemingly instead of) their invitation. They never saw the old
-  # details, and their invitation already carries the new ones.
+  # The change and the invitation arrive as separate signals, so the debounce is
+  # what gives the driver a chance to correlate them (PPT-2375). Each test uses
+  # its own host and start time, as the invite memory outlives the debounce.
   #
-  # The change and the invitation arrive as two separate signals, so the
-  # debounce is what gives the driver a chance to correlate them. Each test
-  # below uses its own host and start time so the invite memory (which outlives
-  # the debounce) can't leak between them.
-
-  # each assertion below reads system(:Mailer)[:emails_sent] from the index it
-  # noted beforehand, giving "recipient|template" for just this test's emails
+  # Assertions read system(:Mailer)[:emails_sent] from a noted index, giving
+  # "recipient|template" for just that test's emails.
 
   settings({
     timezone:                "GMT",
@@ -2682,7 +2676,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json)
 
   # still inside the debounce window, as the front end adds its visitors in the
-  # requests that follow the one which moved the booking
+  # requests following the one that moved the booking
   sleep 0.5
 
   publish("staff/guest/attending", {

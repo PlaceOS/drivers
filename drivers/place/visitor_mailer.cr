@@ -34,18 +34,15 @@ class Place::VisitorMailer < PlaceOS::Driver
     notify_induction_accepted_template: "induction_accepted",
     notify_induction_declined_template: "induction_declined",
     notify_original_host_template:      "notify_original_host",
-    # sent to the existing visitors when details change (date, time, location,
-    # etc.): bookings (desk/resource) use booking_changed, calendar events
-    # (rooms) use event_changed. Visitors added by the same edit are left out —
-    # their invitation already carries the new details.
+    # sent to the existing visitors when details change (date, time, location):
+    # bookings (desk/resource) use booking_changed, events (rooms) use event_changed
     booking_changed_template: "booking_changed",
     event_changed_template:   "event_changed",
     group_event_template:     "group_event",
 
     # Combine duplicate change emails sent within this many seconds; 0 disables.
     event_change_debounce: 15,
-    # As above for bookings. This also buys the window needed to notice that a
-    # visitor was added by the same edit, so 0 will re-notify new visitors.
+    # as above for bookings; 0 also notifies visitors added by the same edit
     booking_change_debounce:            15,
     disable_qr_code:                    false,
     send_network_credentials:           false,
@@ -180,9 +177,8 @@ class Place::VisitorMailer < PlaceOS::Driver
   @pending_changes : Hash(String, PendingChange) = {} of String => PendingChange
   @pending_changes_lock : Mutex = Mutex.new
 
-  # Visitors invited within the debounce window, so a change notification for
-  # the same visit can leave them out: the invitation they are receiving already
-  # carries the new details, and they never saw the old ones.
+  # Recently invited visitors, so a change notification for the same visit can
+  # leave them out: their invitation already carries the new details.
   #                  invite_key => expires (monotonic)
   @recent_invites : Hash(String, Time::Span) = {} of String => Time::Span
   @recent_invites_lock : Mutex = Mutex.new
@@ -240,8 +236,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     zones = control_system_zone_list
 
-    # Each buffered change carries the debounce it was accepted under, so a
-    # sweep still drains entries left over from the previous settings.
+    # Each change carries its own debounce, so a sweep still drains entries
+    # buffered under the previous settings.
     debounces = [@event_change_debounce, @booking_change_debounce].select(&.positive?)
 
     schedule.clear
@@ -328,12 +324,9 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    # An invitation is our only notice that a visitor has just been added to a
-    # visit: staff-api signals attendance solely for attendees that weren't
-    # already attending. Recorded ahead of the filters below so a visitor whose
-    # invite email is suppressed (disable_event_visitors,
-    # skip_event_linked_booking_email) still counts as newly invited — they were
-    # invited, just via the other template.
+    # Attendance is only signalled for attendees that weren't already attending,
+    # making this our notice that a visitor is new. Recorded ahead of the filters
+    # below, as a visitor whose invite email is suppressed was still invited.
     record_invite(guest_details) if guest_details.is_a?(EventGuest) || guest_details.is_a?(BookingGuest)
 
     # don't email staff members
@@ -441,8 +434,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         system_id: guest_details.responds_to?(:system_id) ? guest_details.system_id : nil,
       )
     rescue error
-      # counted separately from error_count so a missing invite can be told
-      # apart from a failure anywhere else in this handler
+      # tracked apart from error_count to pinpoint a missing invite
       self[:visitor_email_errors] = @visitor_email_errors += 1
       raise error
     end
@@ -737,9 +729,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     return unless fields_changed
 
-    # Buffer rather than send now: a group visitor edit updates the parent
-    # booking before adding this edit's new visitors in later requests, so the
-    # debounce is what lets us recognise those visitors and leave them out.
+    # Buffered rather than sent now: a group visitor edit updates the parent
+    # booking before adding its new visitors, so the debounce is what lets us
+    # recognise them.
     change = PendingBookingChange.new(
       @booking_change_debounce,
       details.id, details.booking_type, details.user_email, details.title,
@@ -848,9 +840,8 @@ class Place::VisitorMailer < PlaceOS::Driver
   end
 
   # Remembers that a visitor was just invited, so a change notification for the
-  # same visit can leave them out. Expired entries are dropped on the way in,
-  # which keeps the map to a couple of minutes' worth of invites even with every
-  # debounce off (and so no sweep running to prune it).
+  # same visit can leave them out. Expired entries go on the way in, as nothing
+  # else prunes them.
   protected def record_invite(guest_details : GuestNotification) : Nil
     key = invite_key(guest_details.attendee_email, guest_details.host, guest_details.event_starting)
     now = Time.monotonic
@@ -877,17 +868,15 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
   end
 
-  # A change notification names the parent booking while the invitation names the
-  # visitor's own child booking, and for an event-linked visitor booking the ids
-  # don't correspond at all. Both do always describe the same visitor attending
-  # the same host's visit at the same (new) start time, so key on that instead.
+  # Not keyed by id: a change names the parent booking while the invitation names
+  # the visitor's own child booking, and for an event-linked visitor booking the
+  # two don't correspond at all. Both do name the same visitor, host and start.
   private def invite_key(visitor_email : String, host_email : String?, event_start : Int64) : String
     "#{visitor_email.strip.downcase}\t#{host_email.to_s.strip.downcase}\t#{event_start}"
   end
 
-  # Long enough to cover the debounce holding a change notification back, plus
-  # room for a front end that adds its visitors in requests which follow the one
-  # that made the change.
+  # Covers the debounce holding a change back, plus room for a front end that
+  # adds its visitors in later requests.
   private def invite_memory : Time::Span
     {@event_change_debounce, @booking_change_debounce}.max.clamp(0, 3600).seconds + 60.seconds
   end
@@ -1094,9 +1083,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       # don't treat the host's colleagues as visitors
       next if @skip_internal_domain_email && colleague_of_host?(visitor_email, host_email)
 
-      # don't tell a visitor added by this very edit that their visit changed —
-      # the invitation they are receiving already carries these details, and
-      # there is nothing they knew of to have changed (PPT-2375)
+      # don't tell a visitor added by this edit that their visit changed — their
+      # invitation already carries these details (PPT-2375)
       if recently_invited?(visitor_email, host_email, event_start)
         logger.debug { "skipping #{template} email to #{visitor_email} as they were just invited" }
         next
@@ -1358,10 +1346,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # A change buffered awaiting a debounced flush. `current_*` follow the latest
   # signal in the burst, `previous_*` and `first_seen` stay as they were when it
-  # started, so the email describes the net change of the whole edit.
-  #
-  # Buffer keys are namespaced per subclass, so the two kinds of change can never
-  # collide even when a booking id and an event id coincide.
+  # started, so the email describes the net change of the whole edit. Buffer keys
+  # are namespaced per subclass so the two kinds can't collide.
   abstract class PendingChange
     property host : String
     property title : String?
@@ -1372,8 +1358,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     getter first_seen : Time::Span = Time.monotonic
     getter buffer_key : String = ""
-    # The debounce this change was accepted under, kept per entry so a sweep
-    # still drains anything left over from the previous settings.
+    # kept per entry so a sweep drains changes buffered under earlier settings
     getter debounce : Time::Span = Time::Span.zero
 
     def initialize(debounce_seconds : Int32, @host, @title, @current_start, @current_end, @previous_start, @previous_end)
@@ -1422,10 +1407,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       @previous_system_id,
     )
       super(debounce_seconds, host, title, current_start, current_end, previous_start, previous_end)
-      # ical_uid identifies the event instance across mailbox copies and rooms,
-      # so the rooms either side of a move coalesce too; the one email then names
-      # a single room and uses that room's guest list. event_id is only a
-      # fallback for a signal that omits it.
+      # ical_uid identifies the event instance across mailbox copies and rooms;
+      # event_id is only a fallback for a signal that omits it.
       @buffer_key = "event\t#{@event_ical_uid.presence || @event_id}"
     end
 
