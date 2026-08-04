@@ -74,9 +74,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     skip_host_email: true,
 
     # When true, attendees whose email domain matches the host's are treated as
-    # colleagues rather than visitors and are not emailed. Front ends tend to
-    # mark every attendee as an expected visitor, so staff invited to a meeting
-    # would otherwise receive visitor invites and QR codes.
+    # staff rather than visitors and are not emailed. The front end might mark
+    # any attendee as an expected visitor, so staff invited to a meeting can
+    # otherwise receive visitor invites and QR codes.
     skip_internal_domain_email: false,
 
     domain_uri:      "https://example.com/",

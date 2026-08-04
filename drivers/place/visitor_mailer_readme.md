@@ -24,8 +24,8 @@ Requires the following drivers in the system:
   event_template:     "event"
   # When true, the host is not sent visitor-targeted emails
   skip_host_email:    true
-  # When true, attendees sharing the host's email domain are treated as
-  # colleagues rather than visitors and are not emailed
+  # When true, attendees sharing the host's email domain are treated as staff
+  # rather than visitors and are not emailed
   skip_internal_domain_email: false
 ```
 
@@ -51,10 +51,10 @@ sent immediately if the driver restarts, so a notification is never dropped.
 Setting a debounce to `0` emails on every signal, which can mean duplicate and
 contradictory notifications, and can also notify visitors added by the edit.
 
-## Colleagues are not visitors
+## Excluding staff attendees
 
-Front ends tend to mark every attendee of a meeting as an expected visitor, so staff
-invited to a meeting would otherwise receive visitor invites and QR codes.
+The front end might mark any attendee as an expected visitor, so staff invited to a
+meeting can receive visitor invites and QR codes.
 
 Two settings filter them out:
 
