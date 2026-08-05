@@ -3,7 +3,7 @@
 Docs on the PlaceOS Public Events driver.
 This driver filters the Bookings event cache down to publicly visible events and handles guest registration, enabling unauthenticated access to selected calendar events.
 
-* Subscribes to the Bookings driver's `:bookings` status and filters events where `private` is `false`
+* Subscribes to the Bookings driver's `:bookings` status and filters events whose staff API event metadata `permission` is `PUBLIC`
 * Caches the filtered set of public events (with a reduced set of safe fields) as the `:public_events` status
 * Provides a `register_attendee` function for appending external (guest) attendees to a public event via the Calendar driver
 
@@ -14,6 +14,7 @@ Requires the following drivers in the same system:
 
 * Bookings - for the room/calendar event cache and polling
 * Calendar - for reading and updating calendar events when registering attendees
+* StaffAPI - for looking up the event metadata `permission` field
 
 The system must also have a calendar email configured (used as the `calendar_id` when calling the Calendar driver).
 
@@ -21,9 +22,28 @@ The system must also have a calendar email configured (used as the `calendar_id`
 ## How It Works
 
 1. The Bookings driver polls the calendar and publishes all events to its `:bookings` status
-2. PublicEvents receives the update via the subscription binding and filters to non-private events (`private == false`)
-3. The filtered events are stored in `:public_events` with only safe, non-sensitive fields exposed: `id`, `title`, `body`, `event_start`, `event_end`, `location`, `timezone`, `all_day`
-4. When a guest registers, `register_attendee` checks the event is in the public set, fetches it from the Calendar driver, appends the attendee, and writes it back
+2. PublicEvents receives the update via the subscription binding
+3. The `permission` field lives in the staff API `event_metadatas` table, it is not part of a calendar event, so it is never present in the Bookings cache. PublicEvents looks it up with `StaffAPI.query_metadata`, passing the `id`, `ical_uid` and `recurring_event_id` of every cached event as `event_ref` (batched to keep the query string small)
+4. Events are kept where the metadata permission is `PUBLIC`:
+    * `PRIVATE` (the default when no metadata exists) and `OPEN` are excluded. `OPEN` only allows users in the same tenant to join, so it is not suitable for unauthenticated access
+    * metadata that belongs to an event instance takes precedence over the metadata of the recurring master (i.e. `recurring_master_id == event_id`), so a single public occurrence does not make the whole series public
+    * events marked private on the calendar are always excluded, the Bookings driver has already masked their title and host
+5. The filtered events are stored in `:public_events` with only safe, non-sensitive fields exposed: `id`, `title`, `body`, `event_start`, `event_end`, `location`, `timezone`, `all_day`
+6. When a guest registers, `register_attendee` checks the event is in the public set, fetches it from the Calendar driver, appends the attendee, and writes it back
+
+A permission can be changed without the event itself changing, and a driver only publishes a status when its value has changed, so the `:bookings` subscription can't be relied on to keep the cache fresh. The metadata permissions are re-checked:
+
+* whenever the Bookings cache changes
+* every `metadata_refresh_minutes` (defaults to 5, set to 0 to disable)
+* when `update_public_events` is called
+
+
+## Settings
+
+```yaml
+# how often we re-check the event metadata permissions, 0 to disable
+metadata_refresh_minutes: 5
+```
 
 
 ## Public System Usage
