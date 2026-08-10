@@ -32,9 +32,9 @@ Requires the following drivers in the system:
 ## Change notifications
 
 When a visit's date, time or location changes, the visitors already on it are sent the
-`booking_changed` or `event_changed` template. A visitor added by the same edit is left
-out — the invitation they are receiving already carries the new details, and they never
-saw the old ones.
+`booking_changed` or `event_changed` template. A visitor who is being invited by the
+same edit is left out — the invitation they are receiving already carries the new
+details, and they never saw the old ones.
 
 One edit usually produces several signals, so change emails are held briefly and
 combined into a single email describing the net change.

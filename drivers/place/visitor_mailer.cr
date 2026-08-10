@@ -315,11 +315,6 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    # Attendance is only signalled for attendees that weren't already attending,
-    # making this our notice that a visitor is new. Recorded ahead of the filters
-    # below, as a visitor whose invite email is suppressed was still invited.
-    record_invite(guest_details) if guest_details.is_a?(EventGuest) || guest_details.is_a?(BookingGuest)
-
     # don't email staff members
     if !@host_domain_filter.empty? && guest_details.attendee_email.split('@', 2)[1].downcase.in?(@host_domain_filter)
       logger.debug { "ignoring event matches host domain filter" }
@@ -431,6 +426,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
 
     self[:visitor_emails_sent] = @visitor_emails_sent += 1
+
+    # Only an attendance signal that produced an invitation tells us a visitor
+    # is new. One that produced no email says nothing: the front end re-creates
+    # the visitor bookings behind an event on every save, and a booking create
+    # signals attendance for everyone on it (PPT-2375).
+    record_invite(guest_details)
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -840,7 +841,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       @recent_invites[key] = now + invite_memory
     end
 
-    logger.debug { "noted #{guest_details.attendee_email} as newly invited by #{guest_details.host}" }
+    logger.debug { "noted #{guest_details.attendee_email} as just invited by #{guest_details.host}" }
   end
 
   # Whether this visitor was invited to this visit within the memory window.

@@ -2905,4 +2905,74 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   event_invite_emails.should contain "visitor-b@external.com|event"
   event_invite_emails.should_not contain "visitor-b@external.com|event_changed"
   event_invite_emails.size.should eq 2
+
+  # ------------------------------------------------------------------
+  # Test 57: a re-created event-linked visitor booking is not an
+  #          invitation, so it must not suppress the change email
+  # ------------------------------------------------------------------
+  #
+  # The front end tears down and re-creates the visitor bookings behind a
+  # calendar event on every save, and a booking create signals attendance for
+  # every attendee regardless of whether they are new. Moving the room leaves
+  # the start time untouched, so such a signal looks exactly like an invitation
+  # for the visit being changed. It isn't one — no invite email is sent for it
+  # — and treating it as one silenced the room-move notification entirely.
+
+  settings({
+    timezone:                        "GMT",
+    booking_space_name:              "Client Floor",
+    invite_zone_tag:                 "building",
+    change_debounce:                 2,
+    skip_event_linked_booking_email: true,
+    domain_uri:                      "https://example.com/",
+  })
+  sleep 1.0
+
+  sent_before_room_move = system(:Mailer)[:emails_sent].as_a.size
+
+  # the room moves; the times are untouched
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-room-move",
+    event_ical_uid:       "ical-room-move",
+    host:                 "host-roommove@example.com",
+    resource:             "room1@example.com",
+    title:                "Room Moved",
+    event_start:          now + 54000,
+    event_end:            now + 57600,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 54000,
+    previous_event_end:   now + 57600,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  sleep 0.5
+
+  # booking 601 is event-linked (extension_data.parent_id), so no invite email
+  # is sent for it — the visitor was already invited when the event was created
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             4_i64,
+    booking_id:     601_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Room Moved",
+    event_summary:  "Room Moved",
+    event_starting: now + 54000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-roommove@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 8.0
+
+  room_move_emails = system(:Mailer)[:emails_sent].as_a[sent_before_room_move..].map(&.as_s)
+
+  # the visitor is told their meeting moved rooms
+  room_move_emails.should contain "visitor@external.com|event_changed"
+  # and the event-linked booking still sends no invite of its own
+  room_move_emails.should_not contain "visitor@external.com|booking"
+  room_move_emails.size.should eq 1
 end
