@@ -17,6 +17,9 @@ DriverSpecs.mock_driver "Place::Bookings" do
   bookings = status[:bookings].as_a
   bookings.size.should eq(4)
 
+  status[:show_timeline].should eq(false)
+  status[:timeline_position].should eq("bottom")
+
   sleep 200.milliseconds
 
   status[:booked].should eq(true)
