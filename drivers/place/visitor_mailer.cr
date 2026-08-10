@@ -384,7 +384,6 @@ class Place::VisitorMailer < PlaceOS::Driver
       room = get_room_details(guest_details.system_id)
       area_name = room.display_name.presence || room.name
       template = @event_template
-      # what the visitor is being invited to, to compare against what changed
       invited_to = guest_details.event_id
     in BookingGuest
       area_name = @booking_space_name
@@ -430,10 +429,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     self[:visitor_emails_sent] = @visitor_emails_sent += 1
 
-    # Only an attendance signal that produced an invitation tells us a visitor
-    # is new. One that produced no email says nothing: the front end re-creates
-    # the visitor bookings behind an event on every save, and a booking create
-    # signals attendance for everyone on it (PPT-2375).
+    # Only an invitation that was actually emailed marks a visitor as new: a
+    # booking create signals attendance for everyone on it, and the front end
+    # re-creates the bookings behind an event on every save (PPT-2375).
     record_invite(guest_details, invited_to)
   rescue error
     logger.error { error.inspect_with_backtrace }
@@ -832,8 +830,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     attendee_domain.downcase == host_domain.downcase
   end
 
-  # `invited_to` is the booking or event the invitation was for, and `from_create`
-  # whether that booking or event was created by the same action.
+  # `invited_to` is the booking or event invited to, `from_create` whether that
+  # booking or event was created by the same action.
   record Invite, expires : Time::Span, from_create : Bool, invited_to : String
 
   # Remembers that a visitor was just invited, so a change notification for the
@@ -856,13 +854,10 @@ class Place::VisitorMailer < PlaceOS::Driver
     logger.debug { "noted #{guest_details.attendee_email} as just invited to #{invited_to} by #{guest_details.host}" }
   end
 
-  # Whether this visitor was invited to this visit within the memory window, and
-  # by something other than the creation of `changed` itself.
-  #
-  # Being invited to a visit *as it is created* is simply how that visit began —
-  # relocating it afterwards is a separate action the visitor still needs to hear
-  # about. Only an invitation to something else (the visitor's own child booking
-  # under a group parent, say) means this edit is what added them.
+  # Whether this visitor was just invited to something other than the creation of
+  # `changed`. Being invited as a visit is created is how that visit began, so
+  # relocating it afterwards still notifies; an invitation to something else (the
+  # visitor's own child booking under a group parent) is this edit adding them.
   protected def recently_invited?(visitor_email : String, host_email : String, event_start : Int64, changed : String?) : Bool
     key = invite_key(visitor_email, host_email, event_start)
     now = Time.monotonic

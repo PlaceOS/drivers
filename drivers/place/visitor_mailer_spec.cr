@@ -2911,12 +2911,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   #          invitation, so it must not suppress the change email
   # ------------------------------------------------------------------
   #
-  # The front end tears down and re-creates the visitor bookings behind a
-  # calendar event on every save, and a booking create signals attendance for
-  # every attendee regardless of whether they are new. Moving the room leaves
-  # the start time untouched, so such a signal looks exactly like an invitation
-  # for the visit being changed. It isn't one — no invite email is sent for it
-  # — and treating it as one silenced the room-move notification entirely.
+  # The front end re-creates the visitor bookings behind a calendar event on
+  # every save, and a booking create signals attendance for every attendee. No
+  # invite email is sent for an event-linked one, so it is not an invitation.
 
   settings({
     timezone:                        "GMT",
@@ -2982,12 +2979,8 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
   #
   # Inviting a visitor and then moving their visit are two separate actions,
-  # however close together. Only an invitation to something *other* than what
-  # changed means the visitor is being added by this edit — an invitation to the
-  # very booking now being changed is just how the visit began.
-  #
-  # A location change leaves the times alone, so this is indistinguishable from
-  # an invitation by visitor, host and start time alone.
+  # however close together. A location change leaves the times alone, so the two
+  # are indistinguishable by visitor, host and start time alone.
 
   settings({
     timezone:                        "GMT",
