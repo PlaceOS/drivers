@@ -42,10 +42,13 @@ class Place::Bookings < PlaceOS::Driver
     room_image:  "https://domain.com/room_image.svg",
     _sensor_mac: "device-mac",
 
-    show_tentative_meetings:      false,
-    hide_meeting_details:         false,
-    hide_meeting_title:           false,
-    enable_end_meeting_button:    false,
+    show_tentative_meetings:   false,
+    hide_meeting_details:      false,
+    hide_meeting_title:        false,
+    enable_end_meeting_button: false,
+    show_timeline:             false,
+    # one of: left, right, bottom, floating-left, floating-bottom
+    timeline_position:            "bottom",
     max_user_search_results:      20,
     poll_x_seconds_after_booking: 2,
 
@@ -195,6 +198,9 @@ class Place::Bookings < PlaceOS::Driver
     self[:max_duration] = setting?(Int32, :max_duration) || 480
 
     self[:enable_end_meeting_button] = setting?(Bool, :enable_end_meeting_button) || false
+
+    self[:show_timeline] = setting?(Bool, :show_timeline) || false
+    self[:timeline_position] = setting?(String, :timeline_position) || "bottom"
   end
 
   # This is how we check the rooms status
