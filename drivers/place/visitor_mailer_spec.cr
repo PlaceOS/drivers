@@ -2975,4 +2975,72 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # and the event-linked booking still sends no invite of its own
   room_move_emails.should_not contain "visitor@external.com|booking"
   room_move_emails.size.should eq 1
+
+  # ------------------------------------------------------------------
+  # Test 58: relocating a booking still notifies the visitor who was
+  #          invited when that same booking was created
+  # ------------------------------------------------------------------
+  #
+  # Inviting a visitor and then moving their visit are two separate actions,
+  # however close together. Only an invitation to something *other* than what
+  # changed means the visitor is being added by this edit — an invitation to the
+  # very booking now being changed is just how the visit began.
+  #
+  # A location change leaves the times alone, so this is indistinguishable from
+  # an invitation by visitor, host and start time alone.
+
+  settings({
+    timezone:                        "GMT",
+    booking_space_name:              "Client Floor",
+    invite_zone_tag:                 "building",
+    change_debounce:                 2,
+    skip_event_linked_booking_email: true,
+    domain_uri:                      "https://example.com/",
+  })
+  sleep 1.0
+
+  sent_before_relocate = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             5_i64,
+    booking_id:     600_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Relocated Visit",
+    event_summary:  "Relocated Visit",
+    event_starting: now + 61200,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-relocate@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  # the same booking is then moved: the location changes, the times do not
+  publish("staff/booking/changed", {
+    action:                 "metadata_changed",
+    id:                     600_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 61200,
+    booking_end:            now + 64800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-relocate@example.com",
+    title:                  "Relocated Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 61200,
+    previous_booking_end:   now + 64800,
+    previous_zones:         ["zone-old-building", "zone-old-room"],
+  }.to_json)
+
+  sleep 8.0
+
+  relocate_emails = system(:Mailer)[:emails_sent].as_a[sent_before_relocate..].map(&.as_s)
+
+  relocate_emails.should contain "visitor@external.com|booking"
+  relocate_emails.should contain "visitor@external.com|booking_changed"
+  relocate_emails.size.should eq 2
 end

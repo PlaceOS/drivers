@@ -177,8 +177,8 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # Recently invited visitors, so a change notification for the same visit can
   # leave them out: their invitation already carries the new details.
-  #                  invite_key => expires (monotonic)
-  @recent_invites : Hash(String, Time::Span) = {} of String => Time::Span
+  #                  invite_key => the invitation
+  @recent_invites : Hash(String, Invite) = {} of String => Invite
   @recent_invites_lock : Mutex = Mutex.new
 
   @uri : URI = URI.new
@@ -384,9 +384,12 @@ class Place::VisitorMailer < PlaceOS::Driver
       room = get_room_details(guest_details.system_id)
       area_name = room.display_name.presence || room.name
       template = @event_template
+      # what the visitor is being invited to, to compare against what changed
+      invited_to = guest_details.event_id
     in BookingGuest
       area_name = @booking_space_name
       template = @booking_template
+      invited_to = guest_details.booking_id.to_s
       booking = staff_api.get_booking(guest_details.booking_id).get
 
       if @skip_event_linked_booking_email
@@ -431,7 +434,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     # is new. One that produced no email says nothing: the front end re-creates
     # the visitor bookings behind an event on every save, and a booking create
     # signals attendance for everyone on it (PPT-2375).
-    record_invite(guest_details)
+    record_invite(guest_details, invited_to)
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -829,32 +832,51 @@ class Place::VisitorMailer < PlaceOS::Driver
     attendee_domain.downcase == host_domain.downcase
   end
 
+  # `invited_to` is the booking or event the invitation was for, and `from_create`
+  # whether that booking or event was created by the same action.
+  record Invite, expires : Time::Span, from_create : Bool, invited_to : String
+
   # Remembers that a visitor was just invited, so a change notification for the
   # same visit can leave them out. Expired entries go on the way in, as nothing
   # else prunes them.
-  protected def record_invite(guest_details : GuestNotification) : Nil
+  protected def record_invite(guest_details : GuestNotification, invited_to : String) : Nil
     key = invite_key(guest_details.attendee_email, guest_details.host, guest_details.event_starting)
     now = Time.monotonic
+    invite = Invite.new(
+      expires: now + invite_memory,
+      from_create: guest_details.action.in?("booking_created", "meeting_created"),
+      invited_to: invited_to,
+    )
 
     @recent_invites_lock.synchronize do
-      @recent_invites.reject! { |_key, expires| expires <= now }
-      @recent_invites[key] = now + invite_memory
+      @recent_invites.reject! { |_key, recorded| recorded.expires <= now }
+      @recent_invites[key] = invite
     end
 
-    logger.debug { "noted #{guest_details.attendee_email} as just invited by #{guest_details.host}" }
+    logger.debug { "noted #{guest_details.attendee_email} as just invited to #{invited_to} by #{guest_details.host}" }
   end
 
-  # Whether this visitor was invited to this visit within the memory window.
-  protected def recently_invited?(visitor_email : String, host_email : String, event_start : Int64) : Bool
+  # Whether this visitor was invited to this visit within the memory window, and
+  # by something other than the creation of `changed` itself.
+  #
+  # Being invited to a visit *as it is created* is simply how that visit began —
+  # relocating it afterwards is a separate action the visitor still needs to hear
+  # about. Only an invitation to something else (the visitor's own child booking
+  # under a group parent, say) means this edit is what added them.
+  protected def recently_invited?(visitor_email : String, host_email : String, event_start : Int64, changed : String?) : Bool
     key = invite_key(visitor_email, host_email, event_start)
     now = Time.monotonic
 
     @recent_invites_lock.synchronize do
-      if expires = @recent_invites[key]?
-        next true if expires > now
+      invite = @recent_invites[key]?
+      next false unless invite
+
+      if invite.expires <= now
         @recent_invites.delete(key)
+        next false
       end
-      false
+
+      !(invite.from_create && invite.invited_to == changed)
     end
   end
 
@@ -1074,7 +1096,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
       # don't tell a visitor added by this edit that their visit changed — their
       # invitation already carries these details (PPT-2375)
-      if recently_invited?(visitor_email, host_email, event_start)
+      if recently_invited?(visitor_email, host_email, event_start, event_id)
         logger.debug { "skipping #{template} email to #{visitor_email} as they were just invited" }
         next
       end
