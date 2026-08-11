@@ -179,6 +179,9 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
 
   protected def apply_vav_state(vav_on : Bool)
     @update_mutex.synchronize do
+      cancel_off_timer
+      cancel_on_timer
+
       @vav_active = vav_on
       agreement = true
       store_value = vav_on.to_s
@@ -198,8 +201,6 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
       elsif agreement
         turn_off_vav
       else
-        cancel_on_timer
-
         # vav is off but there is not cross room agreement
         logger.info { "No presence in room, however no agreement reached on vav state across spaces. No change applied." }
         if @off_timer.nil?
@@ -268,16 +269,21 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
         storage.expire(system_id, ttl: TTL_TIME)
       end
     end
+
+    # backup call incase something went wrong
+    update_state
   end
 
   # if multiple rooms share a VAV this ensures we leave it on if there is activity elsewhere
   protected def check_before_turning_off : Nil
-    return if vav_active?
+    if vav_active?
+      @update_mutex.synchronize { cancel_off_timer }
+      return
+    end 
     agreement = true
 
     @update_mutex.synchronize do
-      @off_timer.try(&.cancel) rescue nil
-      @off_timer = nil
+      cancel_off_timer
 
       # ensure all systems have no people in them
       @vav_ids.each do |vav|
