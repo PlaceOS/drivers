@@ -12,7 +12,7 @@ require "./collaboration_endpoint/cameras"
 class Cisco::RoomKit < PlaceOS::Driver
   include Interface::Sensor
 
-  # Discovery Information
+  # Discovery Information:
   descriptive_name "Cisco Room Kit"
   generic_name :VidConf
   tcp_port 22
@@ -56,6 +56,21 @@ class Cisco::RoomKit < PlaceOS::Driver
 
   @presentation_mode : PresentationMode = PresentationMode::None
   @calls = Hash(String, Hash(String, Enumerable::JSONComplex)).new
+
+  # NOTE:: `PlaceOS::Driver` defines these callbacks on the concrete driver
+  # class, which takes precedence over the included modules, so they have to
+  # be delegated explicitly for `Cisco::CollaborationEndpoint` to see them
+  def on_load
+    super
+  end
+
+  def on_update
+    super
+  end
+
+  def disconnected
+    super
+  end
 
   def connected
     super
