@@ -894,7 +894,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     days_until_friday = (Time::DayOfWeek::Friday.value - now.day_of_week.value) % 7
     friday = now + days_until_friday.days
     cutoff = Time.local(friday.year, friday.month, friday.day, 13, 0, 0, location: @timezone)
-    (cutoff <= now ? cutoff.shift(days: 7) : cutoff) + 2.days
+    (cutoff <= now ? cutoff.shift(days: 7) : cutoff) + 2.days + 11.hours # Extend til Sunday 23:59:59 instead of Sunday 13:00
   end
 
   # Walk the final booking + permanent-assignment state and emit the gallagher
