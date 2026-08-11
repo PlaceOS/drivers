@@ -38,7 +38,7 @@ DriverSpecs.mock_driver "Cisco::RoomKit" do
   # prompt completes, so it may or may not be captured here.
   # These are raw writes that can arrive coalesced, hence the accumulation.
   handshake = ""
-  until handshake.ends_with? "echo off\nxPreferences OutputMode JSON\n"
+  until handshake.ends_with? "xPreferences Echo Off\nxPreferences OutputMode JSON\n"
     handshake += String.new(expect_send)
   end
 

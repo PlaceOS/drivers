@@ -337,7 +337,7 @@ module Cisco::CollaborationEndpoint
     if transport.tokenizer.nil? && payload =~ XAPI::LOGIN_COMPLETE
       queue.clear abort_current: true
       sleep 500.milliseconds
-      transport.send "echo off\n"
+      transport.send "xPreferences Echo Off\n"
       transport.send "xPreferences OutputMode JSON\n"
       logger.info { "initializing connection" }
       spawn { init_connection }
