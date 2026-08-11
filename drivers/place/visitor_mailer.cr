@@ -175,10 +175,10 @@ class Place::VisitorMailer < PlaceOS::Driver
   @pending_changes : Hash(String, PendingChange) = {} of String => PendingChange
   @pending_changes_lock : Mutex = Mutex.new
 
-  # Recently invited visitors, so a change notification for the same visit can
-  # leave them out: their invitation already carries the new details.
-  #                  invite_key => the invitation
-  @recent_invites : Hash(String, Invite) = {} of String => Invite
+  # Recent invitations, so a change notification for the same visit can leave the
+  # visitor out: their invitation already carries the new details. A visitor can
+  # hold more than one at a time, so each is kept separately.
+  @recent_invites : Array(Invite) = [] of Invite
   @recent_invites_lock : Mutex = Mutex.new
 
   @uri : URI = URI.new
@@ -200,7 +200,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
     @event_changed_template = setting?(String, :event_changed_template) || "event_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
-    @change_debounce = setting?(Int32, :change_debounce) || 15
+    # event_change_debounce is the pre-unification name, still read so an existing
+    # deployment doesn't silently fall back to the default
+    @change_debounce = setting?(Int32, :change_debounce) || setting?(Int32, :event_change_debounce) || 15
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
@@ -385,11 +387,14 @@ class Place::VisitorMailer < PlaceOS::Driver
       area_name = room.display_name.presence || room.name
       template = @event_template
       invited_to = guest_details.event_id
+      invited_under = nil
     in BookingGuest
       area_name = @booking_space_name
       template = @booking_template
       invited_to = guest_details.booking_id.to_s
       booking = staff_api.get_booking(guest_details.booking_id).get
+      # a group visitor is invited to their own booking beneath the group parent
+      invited_under = booking["parent_id"]?.try { |id| id.as_i64?.try(&.to_s) || id.as_s? }
 
       if @skip_event_linked_booking_email
         parent_id = booking.dig?("extension_data", "parent_id").try(&.as_s?)
@@ -432,7 +437,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Only an invitation that was actually emailed marks a visitor as new: a
     # booking create signals attendance for everyone on it, and the front end
     # re-creates the bookings behind an event on every save (PPT-2375).
-    record_invite(guest_details, invited_to)
+    record_invite(guest_details, invited_to, invited_under)
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -830,56 +835,72 @@ class Place::VisitorMailer < PlaceOS::Driver
     attendee_domain.downcase == host_domain.downcase
   end
 
-  # `invited_to` is the booking or event invited to, `from_create` whether that
-  # booking or event was created by the same action.
-  record Invite, expires : Time::Span, from_create : Bool, invited_to : String
+  # One invitation: `invited_to` is the booking or event invited to,
+  # `invited_under` its parent booking (group visitors get their own child
+  # booking), `from_create` whether it was created by the same action.
+  record Invite,
+    visitor : String,
+    host : String,
+    event_start : Int64,
+    invited_to : String,
+    invited_under : String?,
+    from_create : Bool,
+    expires : Time::Span do
+    def matches?(other_visitor : String, other_host : String, other_start : Int64) : Bool
+      visitor == other_visitor && host == other_host && event_start == other_start
+    end
+
+    # Whether this invitation is the visitor being added to `changed`, rather
+    # than `changed` being the visit they were invited to in the first place.
+    def added_to?(changed : String?) : Bool
+      return true if invited_under && invited_under == changed
+      invited_to == changed && !from_create
+    end
+  end
 
   # Remembers that a visitor was just invited, so a change notification for the
   # same visit can leave them out. Expired entries go on the way in, as nothing
   # else prunes them.
-  protected def record_invite(guest_details : GuestNotification, invited_to : String) : Nil
-    key = invite_key(guest_details.attendee_email, guest_details.host, guest_details.event_starting)
+  protected def record_invite(guest_details : GuestNotification, invited_to : String, invited_under : String?) : Nil
     now = Time.monotonic
     invite = Invite.new(
-      expires: now + invite_memory,
-      from_create: guest_details.action.in?("booking_created", "meeting_created"),
+      visitor: guest_details.attendee_email.strip.downcase,
+      host: guest_details.host.strip.downcase,
+      event_start: guest_details.event_starting,
       invited_to: invited_to,
+      invited_under: invited_under,
+      from_create: guest_details.action.in?("booking_created", "meeting_created"),
+      expires: now + invite_memory,
     )
 
     @recent_invites_lock.synchronize do
-      @recent_invites.reject! { |_key, recorded| recorded.expires <= now }
-      @recent_invites[key] = invite
+      @recent_invites.reject! do |recorded|
+        recorded.expires <= now ||
+          (recorded.matches?(invite.visitor, invite.host, invite.event_start) && recorded.invited_to == invited_to)
+      end
+      @recent_invites << invite
     end
 
     logger.debug { "noted #{guest_details.attendee_email} as just invited to #{invited_to} by #{guest_details.host}" }
   end
 
-  # Whether this visitor was just invited to something other than the creation of
-  # `changed`. Being invited as a visit is created is how that visit began, so
-  # relocating it afterwards still notifies; an invitation to something else (the
-  # visitor's own child booking under a group parent) is this edit adding them.
+  # Whether this edit is what added the visitor to `changed`. Being invited to a
+  # visit as it is created is how that visit began, so relocating it afterwards
+  # still notifies; an invitation under `changed` (the visitor's own child booking
+  # beneath a group parent) is this edit adding them.
+  #
+  # Matched on visitor, host and start rather than on id, as a change names the
+  # parent booking while the invitation names the child.
   protected def recently_invited?(visitor_email : String, host_email : String, event_start : Int64, changed : String?) : Bool
-    key = invite_key(visitor_email, host_email, event_start)
+    visitor = visitor_email.strip.downcase
+    host = host_email.strip.downcase
     now = Time.monotonic
 
     @recent_invites_lock.synchronize do
-      invite = @recent_invites[key]?
-      next false unless invite
-
-      if invite.expires <= now
-        @recent_invites.delete(key)
-        next false
+      @recent_invites.any? do |invite|
+        invite.expires > now && invite.matches?(visitor, host, event_start) && invite.added_to?(changed)
       end
-
-      !(invite.from_create && invite.invited_to == changed)
     end
-  end
-
-  # Not keyed by id: a change names the parent booking while the invitation names
-  # the visitor's own child booking, and for an event-linked visitor booking the
-  # two don't correspond at all. Both do name the same visitor, host and start.
-  private def invite_key(visitor_email : String, host_email : String?, event_start : Int64) : String
-    "#{visitor_email.strip.downcase}\t#{host_email.to_s.strip.downcase}\t#{event_start}"
   end
 
   # Covers the debounce holding a change back, plus room for a front end that
