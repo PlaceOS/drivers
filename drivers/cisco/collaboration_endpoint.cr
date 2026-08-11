@@ -86,6 +86,7 @@ module Cisco::CollaborationEndpoint
       schedule.in(15.seconds) { disconnect if !@ready || self["configuration"]?.nil? }
     end
     begin
+      transport.send "xPreferences Echo Off\n"
       transport.send "xPreferences OutputMode JSON\n"
     rescue
     end
