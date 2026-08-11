@@ -1,21 +1,28 @@
 require "placeos-driver/spec"
 
-DriverSpecs.mock_driver "Qsc::QSysRemote" do
-  settings({
-    username: "user",
-    password: "pass",
-  })
+# the core sends this notification as soon as the socket is open
+ENGINE_STATUS = {
+  "jsonrpc" => "2.0",
+  "method"  => "EngineStatus",
+  "params"  => {
+    "Platform"    => "Core 500i",
+    "State"       => "Active",
+    "DesignName"  => "SAF‐MainPA",
+    "DesignCode"  => "qALFilm6IcAz",
+    "IsRedundant" => false,
+    "IsEmulator"  => true,
+  },
+}.to_json + "\0"
 
-  # logon
-  should_send({
-    jsonrpc: "2.0",
-    method:  "Logon",
-    params:  {
-      "User"     => "user",
-      "Password" => "pass",
-    },
-  }.to_json + "\0")
-  responds({"TODO" => "response not defined in docs"}.to_json + "\0")
+LOGON = {
+  "User"     => "user",
+  "Password" => "pass",
+}
+
+DriverSpecs.mock_driver "Qsc::QSysRemote" do
+  # ====
+  # No credentials are configured, so the greeting is ignored
+  transmit ENGINE_STATUS
 
   exec(:no_op)
   should_send({
@@ -23,7 +30,6 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
     method:  "NoOp",
     params:  {} of String => String,
   }.to_json + "\0")
-  responds({"TODO" => "response not defined in docs"}.to_json + "\0")
 
   exec(:get_status)
   should_send({
@@ -148,4 +154,83 @@ DriverSpecs.mock_driver "Qsc::QSysRemote" do
       ],
     },
   }.to_json + "\0")
+
+  # ====
+  # Credentials applied while connected log on immediately
+  puts "\nLOGON:\n=============="
+
+  settings({
+    username: "user",
+    password: "pass",
+  })
+
+  should_send({
+    jsonrpc: "2.0",
+    id:      5,
+    method:  "Logon",
+    params:  LOGON,
+  }.to_json + "\0")
+
+  # the response to a logon must not trigger another logon
+  responds({
+    "jsonrpc" => "2.0",
+    "id"      => 5,
+    "result"  => true,
+  }.to_json + "\0")
+
+  # ====
+  # A `Logon required` error logs in, then retries the failed request
+  puts "\nLOGON REQUIRED:\n=============="
+
+  exec(:control_set, "MainGain", 10)
+  request = {
+    "jsonrpc" => "2.0",
+    "id"      => 6,
+    "method"  => "Control.Set",
+    "params"  => {
+      "Name"  => "MainGain",
+      "Value" => 10,
+    },
+  }.to_json + "\0"
+  should_send request
+
+  responds({
+    "jsonrpc" => "2.0",
+    "id"      => 6,
+    "error"   => {
+      "code"    => 10,
+      "message" => "Logon required",
+    },
+  }.to_json + "\0")
+
+  should_send({
+    jsonrpc: "2.0",
+    id:      7,
+    method:  "Logon",
+    params:  LOGON,
+  }.to_json + "\0")
+  responds({
+    "jsonrpc" => "2.0",
+    "id"      => 7,
+    "result"  => true,
+  }.to_json + "\0")
+
+  # the original request is re-sent, unchanged
+  should_send request
+  responds({
+    "jsonrpc" => "2.0",
+    "id"      => 6,
+    "result"  => [
+      {
+        "Name"  => "MainGain",
+        "Value" => 10,
+      },
+    ],
+  }.to_json + "\0")
+  status[:faderMainGain_val].should eq(10)
+
+  # NOTE:: on a real core the greeting is what triggers the logon, as
+  # credentials are in settings before the connection is established. That
+  # can't be exercised here, `@authenticated` is only cleared on disconnect
+  # and a spec can't drop the connection of a driver that isn't makebreak
 end

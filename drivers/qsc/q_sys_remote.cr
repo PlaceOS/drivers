@@ -45,14 +45,18 @@ class Qsc::QSysRemote < PlaceOS::Driver
     on_update
   end
 
+  @connected : Bool = false
+  @authenticated : Bool = false
+
   def on_update
     @db_based_faders = setting?(Bool, :db_based_faders)
     @username = setting?(String, :username)
     @password = setting?(String, :password)
-    logon if @username && @password
+    logon if @connected && @username && @password
   end
 
   def connected
+    @connected = true
     schedule.every(20.seconds) do
       logger.debug { "Maintaining Connection" }
       no_op
@@ -61,6 +65,8 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   def disconnected
+    @authenticated = false
+    @connected = false
     schedule.clear
   end
 
@@ -74,7 +80,11 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   def logon
+    # flagged before sending so the response to this request isn't mistaken
+    # for the greeting and used to trigger another logon
+    @authenticated = true
     do_send(
+      next_id,
       cmd: :Logon,
       params: {
         :User     => @username,
@@ -324,8 +334,12 @@ class Qsc::QSysRemote < PlaceOS::Driver
     data = String.new(data[0..-2])
     response = JSON.parse(data)
 
-    logger.debug { "QSys sent:" }
-    logger.debug { response }
+    logger.debug { "QSys sent: #{response}" }
+
+    # the core sends an unsolicited EngineStatus notification once connected,
+    # which is our cue to authenticate. Processing continues so that any task
+    # waiting on this data is still resolved
+    logon if !@authenticated && @username && @password
 
     if err = response["error"]?
       code = err["code"]
@@ -333,7 +347,10 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
       if code == 10
         if @username && @password
-          logon.get
+          # queued before the retry so the higher priority logon is sent
+          # first. Waiting on it here would deadlock, the queue can't send it
+          # until the task we're processing has completed
+          logon
           return task.try(&.retry("Logged on and retrying command"))
         else
           return task.try(&.abort("Login required but no username and/or password in settings"))
@@ -421,8 +438,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
 
     cmd = req.to_json + Delimiter
 
-    logger.debug { "sending json" }
-    logger.debug { cmd.inspect }
+    logger.debug { "sending json: #{cmd.inspect}" }
 
     send(cmd, **options)
   end
