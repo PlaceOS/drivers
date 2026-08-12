@@ -44,7 +44,7 @@ class Qsc::QSysRemote < PlaceOS::Driver
     transport.tokenizer = Tokenizer.new do |io|
       data = io.gets_to_end
 
-      logger.debug { "received raw: #{data}" }
+      logger.debug { "received raw: #{data.inspect}" }
 
       # find the brace closing the first payload. Anything ahead of it, such
       # as the null terminating the previous message, is left in place for
