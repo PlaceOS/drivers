@@ -32,13 +32,13 @@ DriverSpecs.mock_driver "Cisco::RoomKit" do
   # Connection setup
   puts "\nCONNECTION SETUP:\n=============="
 
-  # once login completes echo is disabled, so the codec doesn't reflect our
-  # requests back at us, then the output mode is applied.
+  # echo is disabled on connect and again once login completes, so the codec
+  # doesn't reflect our requests back at us, then the output mode is applied.
   # `xPreferences OutputMode JSON` is also written on connect, before the login
   # prompt completes, so it may or may not be captured here.
   # These are raw writes that can arrive coalesced, hence the accumulation.
   handshake = ""
-  until handshake.ends_with? "echo off\nxPreferences OutputMode JSON\n"
+  until handshake.ends_with? "xPreferences Echo Off\nxPreferences OutputMode JSON\n"
     handshake += String.new(expect_send)
   end
 
@@ -213,6 +213,18 @@ DriverSpecs.mock_driver "Cisco::RoomKit" do
   # the codec pushes the state change, unrelated to any request we've made
   responds %({"Status":{"Audio":{"Microphones":{"Mute":{"Value":"On"}}}}})
   status[:mic_mute].should eq true
+
+  # ====
+  # Junk ahead of a payload is discarded rather than poisoning the buffer
+  puts "\nJUNK DATA:\n=============="
+
+  responds %(xCommand Audio Volume Set Level: 70 | resultId="echoed"\r\n{"Status":{"Audio":{"Volume":{"Value":"70"}}}})
+  status[:volume].should eq 70
+
+  # a payload split across writes is still tokenized correctly
+  responds %({"Status":{"Audio":)
+  responds %({"Volume":{"Value":"55"}}}})
+  status[:volume].should eq 55
 
   # ====
   # Camera interface

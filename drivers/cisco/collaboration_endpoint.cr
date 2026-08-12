@@ -272,8 +272,11 @@ module Cisco::CollaborationEndpoint
 
       logger.debug { "received raw: #{data}" }
 
-      if json_start = data.index('{')
-        return json_start - 1 if json_start > 0
+      # anything before a JSON payload is noise, an echoed command for
+      # example, so emit it as its own message rather than letting it sit in
+      # the buffer. `byte_index` as the tokenizer works in bytes
+      if (json_start = data.byte_index('{')) && json_start > 0
+        next json_start
       end
 
       index = if data.starts_with?("{")
