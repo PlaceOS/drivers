@@ -268,10 +268,13 @@ module Cisco::CollaborationEndpoint
   protected def init_connection
     @init_called = true
     transport.tokenizer = Tokenizer.new do |io|
-      raw = io.gets_to_end
-      data = raw.lstrip
+      data = io.gets_to_end
 
       logger.debug { "received raw: #{data}" }
+
+      if json_start = data.index('{')
+        return json_start - 1 if json_start > 0
+      end
 
       index = if data.starts_with?("{")
                 count = 0
