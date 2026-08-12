@@ -41,7 +41,33 @@ class Qsc::QSysRemote < PlaceOS::Driver
   alias Ids = String | Array(String)
 
   def on_load
-    transport.tokenizer = Tokenizer.new(Delimiter)
+    transport.tokenizer = Tokenizer.new do |io|
+      data = io.gets_to_end
+
+      logger.debug { "received raw: #{data}" }
+
+      # find the brace closing the first payload. Anything ahead of it, such
+      # as the null terminating the previous message, is left in place for
+      # `received` to skip
+      count = 0
+      pos = -1
+      data.each_char_with_index do |char, i|
+        case char
+        when '{'
+          count += 1
+        when '}'
+          next if count.zero?
+          count -= 1
+          if count.zero?
+            pos = i
+            break
+          end
+        end
+      end
+
+      # the tokenizer expects a length in bytes, `pos` is a character index
+      pos < 0 ? -1 : (data.char_index_to_byte_index(pos + 1) || -1)
+    end
     on_update
   end
 
@@ -331,9 +357,12 @@ class Qsc::QSysRemote < PlaceOS::Driver
   end
 
   def received(data, task)
-    data = String.new(data[0..-2])
-    response = JSON.parse(data)
+    # skip non JSON bytes
+    data = String.new(data)
+    json_start = data.byte_index('{')
+    data = data[json_start..]
 
+    response = JSON.parse(data)
     logger.debug { "QSys sent: #{response}" }
 
     # the core sends an unsolicited EngineStatus notification once connected,
