@@ -86,7 +86,7 @@ module Cisco::CollaborationEndpoint
       schedule.in(15.seconds) { disconnect if !@ready || self["configuration"]?.nil? }
     end
     begin
-      transport.send "xPreferences Echo Off\n"
+      transport.send "echo off\n"
       transport.send "xPreferences OutputMode JSON\n"
     rescue
     end
@@ -292,8 +292,8 @@ module Cisco::CollaborationEndpoint
 
       if index
         message = data[0..index]
-        index += raw.byte_index_to_char_index(raw.byte_index(message).not_nil!).not_nil!
-        index = raw.char_index_to_byte_index(index + 1)
+        index += data.byte_index_to_char_index(data.byte_index(message).not_nil!).not_nil!
+        index = data.char_index_to_byte_index(index + 1)
       end
 
       index || -1
