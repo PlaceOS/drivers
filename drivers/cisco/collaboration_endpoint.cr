@@ -341,40 +341,46 @@ module Cisco::CollaborationEndpoint
 
   def received(data, task)
     @last_received = Time.utc.to_unix
-    payload = String.new(data)
+    payload = String.new(data).strip
     logger.debug { "<- #{payload}" }
 
-    if transport.tokenizer.nil? && payload =~ XAPI::LOGIN_COMPLETE
-      queue.clear abort_current: true
-      sleep 500.milliseconds
-      transport.send "xPreferences Echo Off\n"
-      transport.send "xPreferences OutputMode JSON\n"
-      logger.info { "initializing connection" }
-      spawn { init_connection }
-      return
-    end
+    begin
+      if transport.tokenizer.nil? && payload =~ XAPI::LOGIN_COMPLETE
+        queue.clear abort_current: true
+        sleep 500.milliseconds
+        transport.send "xPreferences Echo Off\n"
+        transport.send "xPreferences OutputMode JSON\n"
+        logger.info { "initializing connection" }
+        spawn { init_connection }
+        return
+      end
 
-    response = XAPI.parse payload
+      if !payload.starts_with?("{")
+        case payload
+        when "OK"
+          task.try &.success payload
+        when "Command not recognized."
+          logger.error { "Command not recognized: `#{task.try &.request_payload}`" }
+          task.try &.abort payload
+        else
+          logger.debug { "ignoring possible echo" }
+          return
+        end
+      end
 
-    return feedback.notify(response) if task.nil?
+      response = XAPI.parse payload
 
-    if task.xapi_request_id == response["ResultId"]?
-      command_result = task.xapi_callback.try &.call(response)
+      return feedback.notify(response) if task.nil?
 
-      feedback.notify(response) if command_result.nil?
-      command_result == :abort ? task.abort : task.success(command_result)
-    else
-      feedback.notify(response)
-    end
-  rescue error : JSON::ParseException
-    payload = String.new(data).strip
-    case payload
-    when "OK"
-      task.try &.success payload
-    when "Command not recognized."
-      logger.error { "Command not recognized: `#{task.try &.request_payload}`" }
-      task.try &.abort payload
-    else
+      if task.xapi_request_id == response["ResultId"]?
+        command_result = task.xapi_callback.try &.call(response)
+
+        feedback.notify(response) if command_result.nil?
+        command_result == :abort ? task.abort : task.success(command_result)
+      else
+        feedback.notify(response)
+      end
+    rescue error : JSON::ParseException
       logger.debug { "Malformed device response: #{error}\n#{payload}" }
       task.try &.abort "Malformed device response: #{error}"
     end
