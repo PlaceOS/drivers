@@ -38,5 +38,24 @@ class Cisco::RoomOS < PlaceOS::Driver
   include Cisco::CollaborationEndpoint
   include Cisco::CollaborationEndpoint::UIExtensions
 
+  # NOTE:: `PlaceOS::Driver` defines these callbacks on the concrete driver
+  # class, which takes precedence over the included modules, so they have to
+  # be delegated explicitly for `Cisco::CollaborationEndpoint` to see them
+  def on_load
+    super
+  end
+
+  def on_update
+    super
+  end
+
+  def connected
+    super
+  end
+
+  def disconnected
+    super
+  end
+
   map_status volume: "Audio Volume"
 end

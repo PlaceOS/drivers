@@ -226,6 +226,15 @@ DriverSpecs.mock_driver "Cisco::RoomKit" do
   responds %({"Volume":{"Value":"55"}}}})
   status[:volume].should eq 55
 
+  # a codec that keeps echoing must not fail the request it echoed, the
+  # echo is buffered until the payload it precedes arrives
+  volume = exec(:xcommand, command: "Audio Volume Set", hash_args: {Level: 60})
+  request = String.new expect_send
+  request.starts_with?(%(xCommand Audio Volume Set Level: 60 | resultId=")).should be_true
+  responds request
+  responds %({"CommandResponse":{"VolumeSetResult":{"status":"OK"}},"ResultId":"#{request.split('"')[-2]}"})
+  volume.get.should eq "OK"
+
   # ====
   # Camera interface
   puts "\nCAMERA:\n=============="

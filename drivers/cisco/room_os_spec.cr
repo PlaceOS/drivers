@@ -132,8 +132,16 @@ DriverSpecs.mock_driver "Cisco::RoomOS" do
   # ====
   # Connection setup
   puts "\nCONNECTION SETUP:\n=============="
-  should_send "xPreferences OutputMode JSON\n"
-  should_send "xPreferences OutputMode JSON\n"
+
+  # echo is disabled on connect and again once login completes, so the codec
+  # doesn't reflect our requests back at us, then the output mode is applied.
+  # `xPreferences OutputMode JSON` is also written on connect, before the login
+  # prompt completes, so it may or may not be captured here.
+  # These are raw writes that can arrive coalesced, hence the accumulation.
+  handshake = ""
+  until handshake.ends_with? "xPreferences Echo Off\nxPreferences OutputMode JSON\n"
+    handshake += String.new(expect_send)
+  end
 
   # ====
   # System registration
