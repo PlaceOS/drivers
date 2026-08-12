@@ -270,6 +270,9 @@ module Cisco::CollaborationEndpoint
     transport.tokenizer = Tokenizer.new do |io|
       raw = io.gets_to_end
       data = raw.lstrip
+
+      logger.debug { "received raw: #{data}" }
+
       index = if data.starts_with?("{")
                 count = 0
                 pos = 0
