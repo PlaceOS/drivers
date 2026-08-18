@@ -103,6 +103,14 @@ STRING
   # This last meeting id we prompted
   @prompted : String = ""
 
+  # the meeting we're currently deciding to prompt / cancel, `current_booking`
+  # and `current_pending` updates arrive together and both apply state changes
+  @prompting : String? = nil
+
+  # when the current booking was first seen by this driver, used to detect
+  # bookings made after the meeting had already started (see `late_booking?`)
+  @booking_seen_at : Time? = nil
+
   # The URLS we want to send to the user
   @check_in_url : String = ""
   @no_show_url : String = ""
@@ -171,6 +179,11 @@ STRING
 
   protected def update_current(meeting : PlaceCalendar::Event?)
     logger.debug { "> checking current meeting: #{!!meeting}" }
+
+    if meeting
+      previous = @current_meeting
+      @booking_seen_at = Time.utc if previous.nil? || previous.id != meeting.id
+    end
 
     @current_meeting = meeting
     self[:current_meeting] = !!meeting
@@ -249,6 +262,11 @@ STRING
     # don't prompt if a long meeting
     if ignore_long_meeting?
       logger.debug { "> ignoring meeting due to length" }
+    elsif late_booking?(meeting)
+      # a booking made for a slot that had already started implies the host is
+      # at the room, so we check them in rather than prompting or auto-cancelling
+      logger.debug { "booking made after the meeting started, checking in" }
+      bookings.start_meeting(start_time.to_unix)
     else
       # should we be scheduling a prompt email?
       if time_now >= prompt_at
@@ -262,6 +280,18 @@ STRING
         end
       end
     end
+  end
+
+  # Was the booking made more than `max(10% of prompt_after, 1 minute)` after
+  # the meeting had started? i.e. someone walked up to the room and booked it.
+  # We prefer the calendar's created time and fall back to when the booking was
+  # first seen by this driver.
+  protected def late_booking?(meeting : PlaceCalendar::Event) : Bool
+    booked_at = meeting.created || @booking_seen_at
+    return false unless booked_at
+
+    threshold = {prompt_after * 0.1, 1.minute}.max
+    (booked_at - meeting.event_start) > threshold
   end
 
   def template_fields : Array(TemplateFields)
@@ -296,6 +326,21 @@ STRING
       return
     end
 
+    # querying presence yields, so guard against a concurrent prompt
+    if @prompting == meeting.id
+      logger.debug { "already checking if we should prompt the user" }
+      return
+    end
+
+    @prompting = meeting.id
+    begin
+      prompt_or_auto_cancel meeting
+    ensure
+      @prompting = nil
+    end
+  end
+
+  protected def prompt_or_auto_cancel(meeting : PlaceCalendar::Event)
     present = (Float64 | Nil).from_json(bookings.people_present?.get_json)
     if present.nil? || present > 0.0
       logger.debug { "not prompting as people present or presence is unknown: #{present.inspect}" }

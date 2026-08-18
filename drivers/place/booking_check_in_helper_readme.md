@@ -9,6 +9,9 @@ This helper provides a simple method for asking users if they intend to attend t
   * auto checks in if presence found
   * emails the host about the booking if they have not checked in
 * configuring `auto_cancel: true` will have the system decline the meeting with the `decline_message` instead of asking the host if they still intend to attend.
+* a booking made for a slot that has already started (i.e. someone walks up and books the room now, or books it from their calendar after the start time) is checked in automatically instead of being prompted or cancelled
+  * applies when the booking was made more than 10% of `prompt_after` or 1 minute (whichever is larger) after the meeting start
+  * the calendar `created` time is used where available, otherwise the time the booking first appeared
 
 
 ## Requirements
