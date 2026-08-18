@@ -21,6 +21,9 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   end
 
   default_settings({
+    # option to disable, due to faulty hardware
+    disable_checkin_helper: false,
+
     # how many minutes until we want to prompt the user
     prompt_after:    10,
     auto_cancel:     false,
@@ -78,6 +81,7 @@ VjaMgjzVJqqYozNT/74pE/b9UjYyMzO/EhrjUmcwriMMan/vTbYoBMYWvGoy536r
 STRING
   })
 
+  @disabled : Bool = false
   @sensor_stale : Bool = false
   @mailer_system : String? = nil
 
@@ -119,6 +123,7 @@ STRING
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
     @present_from = (setting?(Int32, :present_from) || 5).minutes
     @auto_cancel = setting?(Bool, :auto_cancel) || false
+    @disabled = setting?(Bool, :disable_checkin_helper) || false
 
     @check_in_url = setting?(String, :check_in_url) || ""
     @no_show_url = setting?(String, :no_show_url) || ""
@@ -298,25 +303,29 @@ STRING
     end
 
     unless @decline_message && @auto_cancel
-      logger.debug { "prompting user about meeting room booking #{meeting.id}" }
-      begin
-        cc_list = Set(String).new(@notify_staff["cc"]? || [] of String)
+      if @disabled
+        logger.debug { "prompting disabled for meeting room booking #{meeting.id}" }
+      end
+        logger.debug { "prompting user about meeting room booking #{meeting.id}" }
         begin
-          meeting.attendees.each do |attendee|
-            cc_list << attendee.email.downcase if attendee.organizer
+          cc_list = Set(String).new(@notify_staff["cc"]? || [] of String)
+          begin
+            meeting.attendees.each do |attendee|
+              cc_list << attendee.email.downcase if attendee.organizer
+            end
+            if additional = @notify_staff[meeting.mailbox]?
+              cc_list.concat additional
+            end
+          rescue error
+            logger.warn(exception: error) { "checking for additional staff to notify" }
           end
-          if additional = @notify_staff[meeting.mailbox]?
-            cc_list.concat additional
-          end
+          host_email = meeting.host.not_nil!.downcase
+          cc_list.delete(host_email)
+          params = generate_guest_jwt
+          mailer.send_template(host_email, {"bookings", "check_in_prompt"}, params, cc: cc_list.to_a, reply_to: host_email.presence)
         rescue error
-          logger.warn(exception: error) { "checking for additional staff to notify" }
+          logger.warn(exception: error) { "failed to notify user" }
         end
-        host_email = meeting.host.not_nil!.downcase
-        cc_list.delete(host_email)
-        params = generate_guest_jwt
-        mailer.send_template(host_email, {"bookings", "check_in_prompt"}, params, cc: cc_list.to_a, reply_to: host_email.presence)
-      rescue error
-        logger.warn(exception: error) { "failed to notify user" }
       end
     end
 
@@ -345,10 +354,10 @@ STRING
         bookings.start_meeting(meeting.event_start.to_unix)
         self[:checked_in] = true
       elsif @decline_message
-        bookings.end_meeting(meeting.event_start.to_unix, notify: true, comment: @decline_message)
+        bookings.end_meeting(meeting.event_start.to_unix, notify: true, comment: @decline_message) unless @disabled
         self[:no_show] = true
       else
-        bookings.end_meeting(meeting.event_start.to_unix)
+        bookings.end_meeting(meeting.event_start.to_unix) unless @disabled
         self[:no_show] = true
       end
     else
