@@ -305,7 +305,7 @@ STRING
     unless @decline_message && @auto_cancel
       if @disabled
         logger.debug { "prompting disabled for meeting room booking #{meeting.id}" }
-      end
+      else
         logger.debug { "prompting user about meeting room booking #{meeting.id}" }
         begin
           cc_list = Set(String).new(@notify_staff["cc"]? || [] of String)
