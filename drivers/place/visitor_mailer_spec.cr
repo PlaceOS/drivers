@@ -9,9 +9,14 @@ class MailerMock < DriverSpecs::MockDriver
   # produced rather than only counting them.
   @templates_sent : Array(String) = [] of String
 
+  # "recipient|template" for each email, so a test can assert exactly who
+  # received which one rather than only counting.
+  @emails_sent : Array(String) = [] of String
+
   def on_load
     self[:send_count] = 0
     self[:sent_templates] = @templates_sent
+    self[:emails_sent] = @emails_sent
   end
 
   def send_template(
@@ -32,6 +37,8 @@ class MailerMock < DriverSpecs::MockDriver
     self[:last_attachments] = resource_attachments
     @templates_sent << template[1]
     self[:sent_templates] = @templates_sent
+    @emails_sent << "#{to.is_a?(Array) ? to.join(',') : to}|#{template[1]}"
+    self[:emails_sent] = @emails_sent
     self[:send_count] = self[:send_count].as_i + 1
     true
   end
@@ -170,6 +177,12 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
   def event_guests(event_id : String, system_id : String, ical_uid : String? = nil)
     case event_id
+    when "evt-two-visitors"
+      # An existing visitor plus one added by the same edit.
+      [
+        {email: "visitor-a@external.com", name: "Visitor A", checked_in: false, visit_expected: true},
+        {email: "visitor-b@external.com", name: "Visitor B", checked_in: false, visit_expected: true},
+      ]
     when "evt-host-in-guests"
       # Mirrors the production scenario where events.cr stores the host
       # as an attendee (visit_expected: true), so they appear in the
@@ -209,7 +222,34 @@ class StaffAPIMock < DriverSpecs::MockDriver
   # 600 — standalone visitor booking
   # 601 — event-linked visitor booking (parent_id set)
   # 602 — group-event booking
+  # Group visitors get their own booking beneath a group parent, which is how the
+  # driver tells "added to the group by this edit" from "this is the visit".
+  #   305/306/307 — children of group parent 300
+  #   600         — child of group parent 599
+  #   801         — child of group container 800
+  GROUP_CHILDREN = {
+    305_i64 => 300_i64,
+    306_i64 => 300_i64,
+    307_i64 => 300_i64,
+    600_i64 => 599_i64,
+    801_i64 => 800_i64,
+  }
+
   def get_booking(booking_id : Int64, instance : Int64? = nil)
+    if parent = GROUP_CHILDREN[booking_id]?
+      return {
+        id:             booking_id,
+        parent_id:      parent,
+        booking_type:   "visitor",
+        booking_start:  0,
+        booking_end:    0,
+        resource_id:    "visitor@external.com",
+        user_email:     "host@example.com",
+        title:          "Group Member Visit",
+        extension_data: {} of String => String,
+      }
+    end
+
     case booking_id
     when 601_i64
       {
@@ -270,6 +310,17 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   # Allow on_load -> on_update -> ensure_building_zone to complete
   sleep 1.5
+
+  # Most tests below assert an immediate send, so the debounce is disabled (it
+  # defaults to 15s). The debounce behaviour has dedicated tests that turn it
+  # back on. send_reminders/domain_uri mirror default_settings so nothing else
+  # changes.
+  settings({
+    change_debounce: 0,
+    send_reminders:  "0 7 * * *",
+    domain_uri:      "https://example.com/",
+  })
+  sleep 1.0
 
   # ------------------------------------------------------------------
   # Test 1: booking_changed with previous_zones resolves names correctly
@@ -691,9 +742,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # These tests assert an immediate send, so disable the debounce (default 15s).
   # send_reminders/domain_uri mirror default_settings so nothing else changes.
   settings({
-    event_change_debounce: 0,
-    send_reminders:        "0 7 * * *",
-    domain_uri:            "https://example.com/",
+    change_debounce: 0,
+    send_reminders:  "0 7 * * *",
+    domain_uri:      "https://example.com/",
   })
   sleep 1.0
 
@@ -1201,7 +1252,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name:              "Client Floor",
     invite_zone_tag:                 "building",
     skip_event_linked_booking_email: false,
-    event_change_debounce:           0,
+    change_debounce:                 0,
   })
   sleep 1.0
 
@@ -1404,11 +1455,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    skip_host_email:       false,
-    event_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    skip_host_email:    false,
+    change_debounce:    0,
   })
   sleep 1.0
 
@@ -1446,6 +1497,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     invite_zone_tag:                    "building",
     notify_induction_accepted_template: "custom_accepted",
     notify_induction_declined_template: "custom_declined",
+    change_debounce:                    0,
   })
   sleep 1.0
 
@@ -1509,7 +1561,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     invite_zone_tag:          "building",
     booking_changed_template: "custom_booking_changed",
     event_changed_template:   "custom_event_changed",
-    event_change_debounce:    0,
+    change_debounce:          0,
   })
   sleep 1.0
 
@@ -1581,6 +1633,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name: "Client Floor",
     invite_zone_tag:    "building",
     # skip_event_linked_booking_email defaults to true (invite flow only)
+    change_debounce: 0,
   })
   sleep 1.0
 
@@ -1658,6 +1711,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_space_name:              "Client Floor",
     invite_zone_tag:                 "building",
     skip_event_linked_booking_email: false,
+    change_debounce:                 0,
   })
   sleep 1.0
 
@@ -1682,6 +1736,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     timezone:           "GMT",
     booking_space_name: "Client Floor",
     invite_zone_tag:    "building",
+    change_debounce:    0,
   })
   sleep 1.0
 
@@ -1745,7 +1800,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:last_args]["event_date"].raw.should be_nil
 
   # ==================================================================
-  # event_change_debounce — coalesce the Office365 signal burst (PPT-2375)
+  # change_debounce — coalesce the Office365 signal burst (PPT-2375)
   # ==================================================================
   #
   # One edit arrives as an A -> B -> A flip-flop (Wed->Thu, Thu->Wed, Wed->Thu)
@@ -1753,10 +1808,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # showing the true net change.
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 3,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    3,
   })
   sleep 1.0
 
@@ -1861,10 +1916,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq count_before_survives
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 3,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    3,
   })
 
   # the update must not cut the window short
@@ -2028,10 +2083,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 30,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    30,
   })
   sleep 1.0
 
@@ -2060,10 +2115,10 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   # Disabling the debounce flushes the buffer instead of orphaning it.
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 0,
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
   })
   sleep 1.5
 
@@ -2207,11 +2262,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   status[:users_checked_in].should eq checked_in_before_checkout
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 0,
-    domain_uri:            "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2325,12 +2380,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 0,
-    disable_qr_code:       true,
-    domain_uri:            "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    disable_qr_code:    true,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2383,12 +2438,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 0,
-    host_domain_filter:    ["example.com"],
-    domain_uri:            "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    host_domain_filter: ["example.com"],
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2422,7 +2477,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     timezone:                   "GMT",
     booking_space_name:         "Client Floor",
     invite_zone_tag:            "building",
-    event_change_debounce:      0,
+    change_debounce:            0,
     skip_internal_domain_email: true,
     domain_uri:                 "https://example.com/",
   })
@@ -2500,11 +2555,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 0,
-    domain_uri:            "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2548,11 +2603,11 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ------------------------------------------------------------------
 
   settings({
-    timezone:              "GMT",
-    booking_space_name:    "Client Floor",
-    invite_zone_tag:       "building",
-    event_change_debounce: 0,
-    domain_uri:            "https://example.com/",
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
   })
   sleep 1.0
 
@@ -2582,4 +2637,674 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:sent_templates].as_a[-2].as_s.should eq "notify_original_host"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
   system(:Mailer)[:last_args]["host_email"].should eq "new-host@example.com"
+
+  # ==================================================================
+  # A visitor added by the same edit is not told the visit changed
+  # ==================================================================
+  #
+  # The change and the invitation arrive as separate signals, so the debounce is
+  # what gives the driver a chance to correlate them (PPT-2375). Each test uses
+  # its own host and start time, as the invite memory outlives the debounce.
+  #
+  # Assertions read system(:Mailer)[:emails_sent] from a noted index, giving
+  # "recipient|template" for just that test's emails.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    2,
+    domain_uri:         "https://example.com/",
+  })
+  sleep 1.0
+
+  # ------------------------------------------------------------------
+  # Test 51: the QA reproduction — the group booking is updated first,
+  #          then the new visitor is added in a later request. Booking
+  #          300 with include_linked returns both visitors.
+  # ------------------------------------------------------------------
+
+  sent_before_new_visitor = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "group",
+    booking_start:          now + 7200,
+    booking_end:            now + 10800,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host-late@example.com",
+    title:                  "Group Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 3600,
+    previous_booking_end:   now + 7200,
+  }.to_json)
+
+  # still inside the debounce window, as the front end adds its visitors in the
+  # requests following the one that moved the booking
+  sleep 0.5
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             1_i64,
+    booking_id:     305_i64,
+    resource_id:    "visitor-b@external.com",
+    resource_ids:   ["visitor-b@external.com"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 7200,
+    attendee_name:  "Visitor B",
+    attendee_email: "visitor-b@external.com",
+    host:           "host-late@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  # debounce plus up to one sweep interval
+  sleep 8.0
+
+  new_visitor_emails = system(:Mailer)[:emails_sent].as_a[sent_before_new_visitor..].map(&.as_s)
+
+  # the visitor who was already coming is told the details changed
+  new_visitor_emails.should contain "visitor-a@external.com|booking_changed"
+  # the new visitor gets their invitation
+  new_visitor_emails.should contain "visitor-b@external.com|booking"
+  # and is not also told that a visit they only just heard about has changed
+  new_visitor_emails.should_not contain "visitor-b@external.com|booking_changed"
+  new_visitor_emails.size.should eq 2
+
+  # ------------------------------------------------------------------
+  # Test 52: the same holds when the invitation lands first (adding the
+  #          visitor before saving the new time)
+  # ------------------------------------------------------------------
+
+  sent_before_invite_first = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             2_i64,
+    booking_id:     306_i64,
+    resource_id:    "visitor-b@external.com",
+    resource_ids:   ["visitor-b@external.com"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 14400,
+    attendee_name:  "Visitor B",
+    attendee_email: "visitor-b@external.com",
+    host:           "host-early@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "group",
+    booking_start:          now + 14400,
+    booking_end:            now + 18000,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host-early@example.com",
+    title:                  "Group Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 10800,
+    previous_booking_end:   now + 14400,
+  }.to_json)
+
+  sleep 8.0
+
+  invite_first_emails = system(:Mailer)[:emails_sent].as_a[sent_before_invite_first..].map(&.as_s)
+
+  invite_first_emails.should contain "visitor-a@external.com|booking_changed"
+  invite_first_emails.should contain "visitor-b@external.com|booking"
+  invite_first_emails.should_not contain "visitor-b@external.com|booking_changed"
+  invite_first_emails.size.should eq 2
+
+  # ------------------------------------------------------------------
+  # Test 53: with no visitor added, every visitor is still notified
+  # ------------------------------------------------------------------
+
+  sent_before_no_invite = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "group",
+    booking_start:          now + 21600,
+    booking_end:            now + 25200,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host-nobody-new@example.com",
+    title:                  "Group Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 18000,
+    previous_booking_end:   now + 21600,
+  }.to_json)
+
+  sleep 8.0
+
+  no_invite_emails = system(:Mailer)[:emails_sent].as_a[sent_before_no_invite..].map(&.as_s)
+
+  no_invite_emails.should contain "visitor-a@external.com|booking_changed"
+  no_invite_emails.should contain "visitor-b@external.com|booking_changed"
+  no_invite_emails.size.should eq 2
+
+  # ------------------------------------------------------------------
+  # Test 54: an invitation to a different visit doesn't suppress this
+  #          one's change notification. Recipients are matched on the
+  #          host and the new start, not on the visitor alone.
+  # ------------------------------------------------------------------
+
+  sent_before_other_visit = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             3_i64,
+    booking_id:     307_i64,
+    resource_id:    "visitor-b@external.com",
+    resource_ids:   ["visitor-b@external.com"],
+    event_title:    "An Unrelated Visit",
+    event_summary:  "An Unrelated Visit",
+    event_starting: now + 90000,
+    attendee_name:  "Visitor B",
+    attendee_email: "visitor-b@external.com",
+    host:           "someone-else@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "group",
+    booking_start:          now + 28800,
+    booking_end:            now + 32400,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host-unrelated@example.com",
+    title:                  "Group Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 25200,
+    previous_booking_end:   now + 28800,
+  }.to_json)
+
+  sleep 8.0
+
+  other_visit_emails = system(:Mailer)[:emails_sent].as_a[sent_before_other_visit..].map(&.as_s)
+
+  other_visit_emails.should contain "visitor-b@external.com|booking"
+  other_visit_emails.should contain "visitor-a@external.com|booking_changed"
+  other_visit_emails.should contain "visitor-b@external.com|booking_changed"
+
+  # ------------------------------------------------------------------
+  # Test 55: a burst of booking/changed signals for one booking is
+  #          coalesced into a single email per visitor
+  # ------------------------------------------------------------------
+
+  sent_before_booking_burst = system(:Mailer)[:emails_sent].as_a.size
+
+  3.times do |index|
+    publish("staff/booking/changed", {
+      action:                 "changed",
+      id:                     300_i64,
+      booking_type:           "group",
+      booking_start:          now + 36000 + index,
+      booking_end:            now + 39600 + index,
+      timezone:               "GMT",
+      resource_id:            "desk-1",
+      resource_ids:           ["desk-1"],
+      user_email:             "host-burst@example.com",
+      title:                  "Group Visit",
+      zones:                  ["zone-building", "zone-room"],
+      previous_booking_start: now + 32400,
+      previous_booking_end:   now + 36000,
+    }.to_json)
+    sleep 0.2
+  end
+
+  sleep 8.0
+
+  booking_burst_emails = system(:Mailer)[:emails_sent].as_a[sent_before_booking_burst..].map(&.as_s)
+
+  booking_burst_emails.size.should eq 2
+  # the one email describes the latest values in the burst
+  system(:Mailer)[:last_args]["event_time"].should eq Time.unix(now + 36002).in(Time::Location.load("GMT")).to_s("%l:%M%p")
+
+  # ------------------------------------------------------------------
+  # Test 56: the same exclusion applies to calendar events
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:               "GMT",
+    booking_space_name:     "Client Floor",
+    invite_zone_tag:        "building",
+    change_debounce:        2,
+    disable_event_visitors: false,
+    domain_uri:             "https://example.com/",
+  })
+  sleep 1.0
+
+  sent_before_event_invite = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-two-visitors",
+    event_ical_uid:       "ical-two-visitors",
+    host:                 "host-event@example.com",
+    resource:             "room1@example.com",
+    title:                "Two Visitors",
+    event_start:          now + 46800,
+    event_end:            now + 50400,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 43200,
+    previous_event_end:   now + 46800,
+  }.to_json)
+
+  sleep 0.5
+
+  publish("staff/guest/attending", {
+    action:         "meeting_update",
+    system_id:      "sys-room1",
+    event_id:       "evt-two-visitors",
+    event_ical_uid: "ical-two-visitors",
+    resource:       "room1@example.com",
+    event_title:    "Two Visitors",
+    event_summary:  "Two Visitors",
+    event_starting: now + 46800,
+    attendee_name:  "Visitor B",
+    attendee_email: "visitor-b@external.com",
+    host:           "host-event@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 8.0
+
+  event_invite_emails = system(:Mailer)[:emails_sent].as_a[sent_before_event_invite..].map(&.as_s)
+
+  event_invite_emails.should contain "visitor-a@external.com|event_changed"
+  event_invite_emails.should contain "visitor-b@external.com|event"
+  event_invite_emails.should_not contain "visitor-b@external.com|event_changed"
+  event_invite_emails.size.should eq 2
+
+  # ------------------------------------------------------------------
+  # Test 57: a re-created event-linked visitor booking is not an
+  #          invitation, so it must not suppress the change email
+  # ------------------------------------------------------------------
+  #
+  # The front end re-creates the visitor bookings behind a calendar event on
+  # every save, and a booking create signals attendance for every attendee. No
+  # invite email is sent for an event-linked one, so it is not an invitation.
+
+  settings({
+    timezone:                        "GMT",
+    booking_space_name:              "Client Floor",
+    invite_zone_tag:                 "building",
+    change_debounce:                 2,
+    skip_event_linked_booking_email: true,
+    domain_uri:                      "https://example.com/",
+  })
+  sleep 1.0
+
+  sent_before_room_move = system(:Mailer)[:emails_sent].as_a.size
+
+  # the room moves; the times are untouched
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-room-move",
+    event_ical_uid:       "ical-room-move",
+    host:                 "host-roommove@example.com",
+    resource:             "room1@example.com",
+    title:                "Room Moved",
+    event_start:          now + 54000,
+    event_end:            now + 57600,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 54000,
+    previous_event_end:   now + 57600,
+    previous_system_id:   "sys-room2",
+  }.to_json)
+
+  sleep 0.5
+
+  # booking 601 is event-linked (extension_data.parent_id), so no invite email
+  # is sent for it — the visitor was already invited when the event was created
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             4_i64,
+    booking_id:     601_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Room Moved",
+    event_summary:  "Room Moved",
+    event_starting: now + 54000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-roommove@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 8.0
+
+  room_move_emails = system(:Mailer)[:emails_sent].as_a[sent_before_room_move..].map(&.as_s)
+
+  # the visitor is told their meeting moved rooms
+  room_move_emails.should contain "visitor@external.com|event_changed"
+  # and the event-linked booking still sends no invite of its own
+  room_move_emails.should_not contain "visitor@external.com|booking"
+  room_move_emails.size.should eq 1
+
+  # ------------------------------------------------------------------
+  # Test 58: relocating a booking still notifies the visitor who was
+  #          invited when that same booking was created
+  # ------------------------------------------------------------------
+  #
+  # Inviting a visitor and then moving their visit are two separate actions,
+  # however close together. A location change leaves the times alone, so the two
+  # are indistinguishable by visitor, host and start time alone.
+
+  settings({
+    timezone:                        "GMT",
+    booking_space_name:              "Client Floor",
+    invite_zone_tag:                 "building",
+    change_debounce:                 2,
+    skip_event_linked_booking_email: true,
+    domain_uri:                      "https://example.com/",
+  })
+  sleep 1.0
+
+  sent_before_relocate = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             5_i64,
+    booking_id:     600_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Relocated Visit",
+    event_summary:  "Relocated Visit",
+    event_starting: now + 61200,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-relocate@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  # the same booking is then moved: the location changes, the times do not
+  publish("staff/booking/changed", {
+    action:                 "metadata_changed",
+    id:                     600_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 61200,
+    booking_end:            now + 64800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-relocate@example.com",
+    title:                  "Relocated Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 61200,
+    previous_booking_end:   now + 64800,
+    previous_zones:         ["zone-old-building", "zone-old-room"],
+  }.to_json)
+
+  sleep 8.0
+
+  relocate_emails = system(:Mailer)[:emails_sent].as_a[sent_before_relocate..].map(&.as_s)
+
+  relocate_emails.should contain "visitor@external.com|booking"
+  relocate_emails.should contain "visitor@external.com|booking_changed"
+  relocate_emails.size.should eq 2
+
+  # ------------------------------------------------------------------
+  # Test 59: the pre-unification event_change_debounce is still read
+  # ------------------------------------------------------------------
+  #
+  # A deployment that set the old name must not silently fall back to the
+  # default, which would both delay and start filtering its notifications.
+
+  settings({
+    timezone:              "GMT",
+    booking_space_name:    "Client Floor",
+    invite_zone_tag:       "building",
+    event_change_debounce: 0,
+    domain_uri:            "https://example.com/",
+  })
+  sleep 1.0
+
+  count_before_legacy = system(:Mailer)[:send_count].as_i
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     100_i64,
+    booking_type:           "desk",
+    booking_start:          now + 86400,
+    booking_end:            now + 90000,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host-legacy@example.com",
+    title:                  "Legacy Debounce",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 82800,
+    previous_booking_end:   now + 86400,
+  }.to_json)
+
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq count_before_legacy + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
+
+  # ------------------------------------------------------------------
+  # Test 60: two visits for the same visitor, host and start time
+  # ------------------------------------------------------------------
+  #
+  # Each invitation has to be remembered on its own. Collapsing them onto one
+  # record let the later invitation stand in for the earlier one, so changing
+  # the first visit was mistaken for adding the visitor to it.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    2,
+    domain_uri:         "https://example.com/",
+  })
+  sleep 1.0
+
+  sent_before_two_visits = system(:Mailer)[:emails_sent].as_a.size
+
+  [700_i64, 701_i64].each do |booking_id|
+    publish("staff/guest/attending", {
+      action:         "booking_created",
+      id:             6_i64,
+      booking_id:     booking_id,
+      resource_id:    "visitor@external.com",
+      resource_ids:   ["visitor@external.com"],
+      event_title:    "Concurrent Visit",
+      event_summary:  "Concurrent Visit",
+      event_starting: now + 93600,
+      attendee_name:  "Visitor One",
+      attendee_email: "visitor@external.com",
+      host:           "host-two-visits@example.com",
+      zones:          ["zone-building", "zone-room"],
+    }.to_json)
+    sleep 1.0
+  end
+
+  # the first of the two visits is then moved
+  publish("staff/booking/changed", {
+    action:                 "metadata_changed",
+    id:                     700_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 93600,
+    booking_end:            now + 97200,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-two-visits@example.com",
+    title:                  "Concurrent Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 93600,
+    previous_booking_end:   now + 97200,
+    previous_zones:         ["zone-old-building", "zone-old-room"],
+  }.to_json)
+
+  sleep 8.0
+
+  two_visit_emails = system(:Mailer)[:emails_sent].as_a[sent_before_two_visits..].map(&.as_s)
+
+  # the other visit's invitation must not stand in for this one
+  two_visit_emails.should contain "visitor@external.com|booking_changed"
+  two_visit_emails.count("visitor@external.com|booking").should eq 2
+
+  # ------------------------------------------------------------------
+  # Test 61: a visitor invited to both a group container and their own
+  #          child booking, in either order
+  # ------------------------------------------------------------------
+  #
+  # Editing a group pushes the member's attendee onto the container as well, so
+  # the visitor is announced twice for the one visit. Which announcement landed
+  # last must not decide whether their child booking's move reaches them.
+
+  sent_before_leak = system(:Mailer)[:emails_sent].as_a.size
+
+  # the child booking first, then the container — the order that used to lose
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             7_i64,
+    booking_id:     801_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Group Leak",
+    event_summary:  "Group Leak",
+    event_starting: now + 100800,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-leak@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  publish("staff/guest/attending", {
+    action:         "booking_updated",
+    id:             8_i64,
+    booking_id:     800_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Group Leak",
+    event_summary:  "Group Leak",
+    event_starting: now + 100800,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-leak@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  # the child booking is moved
+  publish("staff/booking/changed", {
+    action:                 "metadata_changed",
+    id:                     801_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 100800,
+    booking_end:            now + 104400,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-leak@example.com",
+    title:                  "Group Leak",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 100800,
+    previous_booking_end:   now + 104400,
+    previous_zones:         ["zone-old-building", "zone-old-room"],
+  }.to_json)
+
+  sleep 8.0
+
+  leak_emails = system(:Mailer)[:emails_sent].as_a[sent_before_leak..].map(&.as_s)
+
+  leak_emails.should contain "visitor@external.com|booking_changed"
+
+  # ------------------------------------------------------------------
+  # Test 62: a later, unrelated invitation must not displace the one
+  #          that shows the visitor being added to the group
+  # ------------------------------------------------------------------
+  #
+  # Keeping a single invitation per visitor lost whichever arrived first, so an
+  # unrelated visit at the same time could mask the fact that this edit is what
+  # added them to the group being changed.
+
+  sent_before_evict = system(:Mailer)[:emails_sent].as_a.size
+
+  # added to group 300 by this edit, via their own child booking
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             9_i64,
+    booking_id:     305_i64,
+    resource_id:    "visitor-b@external.com",
+    resource_ids:   ["visitor-b@external.com"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 108000,
+    attendee_name:  "Visitor B",
+    attendee_email: "visitor-b@external.com",
+    host:           "host-evict@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  # and separately invited to an unrelated visit at the same time
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             10_i64,
+    booking_id:     700_i64,
+    resource_id:    "visitor-b@external.com",
+    resource_ids:   ["visitor-b@external.com"],
+    event_title:    "Unrelated Visit",
+    event_summary:  "Unrelated Visit",
+    event_starting: now + 108000,
+    attendee_name:  "Visitor B",
+    attendee_email: "visitor-b@external.com",
+    host:           "host-evict@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     300_i64,
+    booking_type:           "group",
+    booking_start:          now + 108000,
+    booking_end:            now + 111600,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host-evict@example.com",
+    title:                  "Group Visit",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 104400,
+    previous_booking_end:   now + 108000,
+  }.to_json)
+
+  sleep 8.0
+
+  evict_emails = system(:Mailer)[:emails_sent].as_a[sent_before_evict..].map(&.as_s)
+
+  # the visitor already on the group is told
+  evict_emails.should contain "visitor-a@external.com|booking_changed"
+  # the one this edit added is not, despite the later unrelated invitation
+  evict_emails.should_not contain "visitor-b@external.com|booking_changed"
 end

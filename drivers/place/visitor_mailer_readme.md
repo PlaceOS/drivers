@@ -2,7 +2,7 @@
 
 Emails visitors when they are invited (including a QR code for check-in), notifies
 hosts when visitors check in, and notifies a previous host when a booking's host is
-reassigned. Also handles induction and booking-changed notifications.
+reassigned. Also handles induction and change notifications.
 
 ## Requirements
 
@@ -24,42 +24,36 @@ Requires the following drivers in the system:
   event_template:     "event"
   # When true, the host is not sent visitor-targeted emails
   skip_host_email:    true
-  # When true, attendees sharing the host's email domain are treated as
-  # colleagues rather than visitors and are not emailed
+  # When true, attendees sharing the host's email domain are treated as staff
+  # rather than visitors and are not emailed
   skip_internal_domain_email: false
 ```
 
-## Debouncing event changes
+## Change notifications
 
-A single calendar edit is rarely a single signal: Office365 emits a burst of
-`staff/event/changed` updates (the organizer copy, then each room mailbox catching
-up), which can briefly flip-flop between the old and new values. Sending an email
-per signal spams visitors with contradictory notifications.
+When a visit's date, time or location changes, the visitors already on it are sent the
+`booking_changed` or `event_changed` template. A visitor who is being invited by the
+same edit is left out — the invitation they are receiving already carries the new
+details, and they never saw the old ones.
 
-`event_change_debounce` (seconds, default `15`) buffers the burst for one event and
-sends a single email describing the net change once the window closes. Set it to `0`
-to email on every signal.
+One edit usually produces several signals, so change emails are held briefly and
+combined into a single email describing the net change.
 
 ```yaml
-  # Combine duplicate change emails sent within this many seconds; 0 disables.
-  event_change_debounce: 15
+  # Combine change emails sent within this many seconds; 0 disables.
+  change_debounce: 15
 ```
 
-Buffered changes are swept on a timer rather than each having its own, so the actual
-delay is the configured debounce plus up to one sweep interval (at most 5s). Anything
-still buffered is emailed immediately when the driver is unloaded, or when the
-debounce is turned off, so a restart never silently drops a pending notification.
+The email goes out a few seconds after the window closes. Anything still waiting is
+sent immediately if the driver restarts, so a notification is never dropped.
 
-Signals are grouped by event instance (its ical uid), not by room, so an edit that
-moves the meeting *and* changes the time sends one email describing both rather than
-one per room. A move between buildings is handled by two separate mailer modules and
-so still sends an email each.
+Setting this to `0` emails on every signal, which can mean duplicate and contradictory
+notifications, and can also notify visitors added by the edit.
 
-## Colleagues are not visitors
+## Excluding staff attendees
 
-Front ends tend to mark every attendee of a meeting as an expected visitor, so staff
-invited to a meeting are announced by the staff API exactly like external guests and
-would receive visitor invites and QR codes.
+The front end might mark any attendee as an expected visitor, so staff invited to a
+meeting can receive visitor invites and QR codes.
 
 Two settings filter them out:
 
@@ -76,25 +70,21 @@ unaffected — they are filtered on the *attendee's* domain, not the recipient's
 
 ## QR code and kiosk link on change notifications
 
-The `booking_changed` and `event_changed` templates receive `guest_jwt` and
-`kiosk_url` fields and the same inline `qr.png` attachment as an invitation, because
-a move invalidates the kiosk link issued with the original invite — its token is
-scoped to the room the meeting has just left, and no fresh invitation is sent.
+The `booking_changed` and `event_changed` templates receive `guest_jwt` and `kiosk_url`
+fields and the same inline `qr.png` attachment as an invitation, because a move
+invalidates the kiosk link issued with the original invite.
 
-Reference the attachment from the template the same way the invite template does, or
-set `disable_qr_code: true` to leave it off. Until a template uses them the fields are
-simply unused, though an unreferenced attachment may still show up in some mail
-clients.
+Reference the attachment the same way the invite template does, or set
+`disable_qr_code: true` to leave it off. An unreferenced attachment may still show up
+in some mail clients.
 
 ## Reply-To
 
-Visitor emails set a `Reply-To` header so replies reach a useful person rather than
-the no-reply sender address. By default the reply-to is the visitor's **host**
-(for the "original host changed" notification it is the new host). This means a
-visitor replying to their invite reaches the person hosting them. This requires no
-configuration.
+Visitor emails set a `Reply-To` header so replies reach the visitor's host rather than
+the no-reply sender address (for the "original host changed" notification it is the new
+host). This requires no configuration.
 
-This default can be overridden per-template (a `reply_to` field on the template
-metadata), tenant-wide (the `reply_to` setting on the Template Mailer), or for all
-mail (the `reply_to` setting on the SMTP Mailer). See the Template Mailer readme
-for the full precedence cascade.
+It can be overridden per-template (a `reply_to` field on the template metadata),
+tenant-wide (the `reply_to` setting on the Template Mailer), or for all mail (the
+`reply_to` setting on the SMTP Mailer). See the Template Mailer readme for the full
+precedence cascade.
