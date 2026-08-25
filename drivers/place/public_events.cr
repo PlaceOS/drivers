@@ -76,8 +76,8 @@ class Place::PublicEvents < PlaceOS::Driver
   # Returns the instance level permissions and the recurring master permissions
   # separately, so instance metadata can take precedence over the master.
   private def event_permissions(events : Array(PublicEvent)) : Permissions
-    by_event = {} of String => Permission
-    by_master = {} of String => Permission
+    by_event = {} of String => EventMetadata
+    by_master = {} of String => EventMetadata
     permissions = {by_event, by_master}
     return permissions if events.empty?
 
@@ -88,21 +88,49 @@ class Place::PublicEvents < PlaceOS::Driver
 
     refs.each_slice(REF_BATCH_SIZE) do |batch|
       metadata(system_id, batch).each do |meta|
-        by_event[meta.event_id] = meta.permission
-        by_event[meta.ical_uid] = meta.permission
+        logger.debug { "event metadata: #{meta.id} event_id=#{meta.event_id} ical_uid=#{meta.ical_uid} permission=#{meta.permission} ext_data=#{meta.ext_data? ? "present" : "null"} updated_at=#{meta.updated_at}" }
+
+        prefer(by_event, meta.event_id, meta)
+        prefer(by_event, meta.ical_uid, meta)
 
         # only the metadata of the series master applies to the whole series,
         # instances have their own metadata which also references the master
         if (master_id = meta.recurring_master_id) && master_id == meta.event_id
-          by_master[master_id] = meta.permission
+          prefer(by_master, master_id, meta)
           if resource_master_id = meta.resource_master_id
-            by_master[resource_master_id] = meta.permission
+            prefer(by_master, resource_master_id, meta)
           end
         end
       end
     end
 
     permissions
+  end
+
+  # Adds `meta` to `map[key]` unless a more authoritative record is already
+  # stored there.
+  #
+  # The staff API can hold more than one metadata record for an event (a race
+  # between the event create route and the calendar webhook path inserts
+  # duplicates, the webhook copy has no `ext_data` and always defaults to
+  # PRIVATE). The same conflict is resolved by the staff API itself by
+  # preferring the record that has `ext_data`, so we mirror that and then
+  # fall back to the most recently written record.
+  private def prefer(map : Hash(String, EventMetadata), key : String, meta : EventMetadata)
+    return if key.empty?
+
+    if (existing = map[key]?) && existing.supersedes?(meta)
+      if existing.permission != meta.permission
+        logger.warn { "ignoring event metadata #{meta.id} (#{meta.permission}) for #{key}, preferring #{existing.id} (#{existing.permission})" }
+      end
+      return
+    end
+
+    if existing = map[key]?
+      logger.warn { "replacing event metadata #{existing.id} (#{existing.permission}) for #{key} with #{meta.id} (#{meta.permission})" }
+    end
+
+    map[key] = meta
   end
 
   private def metadata(system_id : String, event_ref : Array(String)) : Array(EventMetadata)
@@ -112,20 +140,10 @@ class Place::PublicEvents < PlaceOS::Driver
 
   private def permission_for(event : PublicEvent, permissions : Permissions) : Permission
     by_event, by_master = permissions
-
-    if (event_id = event.id) && (permission = by_event[event_id]?)
-      return permission
-    end
-
-    if (ical_uid = event.ical_uid) && (permission = by_event[ical_uid]?)
-      return permission
-    end
-
-    if (master_id = event.recurring_event_id) && (permission = by_master[master_id]?)
-      return permission
-    end
-
-    Permission::PRIVATE
+    meta = (by_event[event.id]? || by_event[event.ical_uid]? || by_master[event.recurring_event_id]?)
+    permission = meta.try(&.permission) || Permission::PRIVATE
+    logger.debug { "event #{event.id} permission=#{permission} (metadata #{meta.try(&.id)})" }
+    permission
   end
 
   # Forces a Bookings re-poll then re-applies the public filter.
@@ -163,7 +181,7 @@ class Place::PublicEvents < PlaceOS::Driver
     true
   end
 
-  alias Permissions = Tuple(Hash(String, Permission), Hash(String, Permission))
+  alias Permissions = Tuple(Hash(String, EventMetadata), Hash(String, EventMetadata))
 
   # The subset of the staff API event metadata we require.
   # NOTE:: we don't use `PlaceOS::Model::EventMetadata` as it is a database
@@ -171,11 +189,30 @@ class Place::PublicEvents < PlaceOS::Driver
   private struct EventMetadata
     include JSON::Serializable
 
+    getter id : Int64?
     getter event_id : String
     getter ical_uid : String
     getter recurring_master_id : String?
     getter resource_master_id : String?
     getter permission : Permission = Permission::PRIVATE
+
+    @[JSON::Field(key: "ext_data")]
+    getter ext_data : JSON::Any?
+
+    @[JSON::Field(converter: Time::EpochConverter, type: "integer", format: "Int64")]
+    getter updated_at : Time
+
+    # true if this record should be preferred over `other` when they both
+    # resolve to the same event key
+    def supersedes?(other : EventMetadata) : Bool
+      return true if ext_data? && !other.ext_data?
+      return false if other.ext_data? && !ext_data?
+      updated_at > other.updated_at
+    end
+
+    def ext_data? : Bool
+      !@ext_data.nil?
+    end
   end
 
   # Fields that are safe to expose publicly.

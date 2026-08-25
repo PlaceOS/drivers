@@ -26,6 +26,7 @@ The system must also have a calendar email configured (used as the `calendar_id`
 3. The `permission` field lives in the staff API `event_metadatas` table, it is not part of a calendar event, so it is never present in the Bookings cache. PublicEvents looks it up with `StaffAPI.query_metadata`, passing the `id`, `ical_uid` and `recurring_event_id` of every cached event as `event_ref` (batched to keep the query string small)
 4. Events are kept where the metadata permission is `PUBLIC`:
     * `PRIVATE` (the default when no metadata exists) and `OPEN` are excluded. `OPEN` only allows users in the same tenant to join, so it is not suitable for unauthenticated access
+    * in the Concierge UI this is the "Publish (Public)" option - "Publish (Internal)" sets `OPEN` and is deliberately excluded, and "Draft" sets `PRIVATE`
     * metadata that belongs to an event instance takes precedence over the metadata of the recurring master (i.e. `recurring_master_id == event_id`), so a single public occurrence does not make the whole series public
     * events marked private on the calendar are always excluded, the Bookings driver has already masked their title and host
 5. The filtered events are stored in `:public_events` with only safe, non-sensitive fields exposed: `id`, `title`, `body`, `event_start`, `event_end`, `location`, `timezone`, `all_day`
@@ -36,6 +37,15 @@ A permission can be changed without the event itself changing, and a driver only
 * whenever the Bookings cache changes
 * every `metadata_refresh_minutes` (defaults to 5, set to 0 to disable)
 * when `update_public_events` is called
+
+### Duplicate metadata records
+
+A race between the staff API event create route and the calendar webhook can produce more than one metadata record for an event, with conflicting permissions (the webhook copy has no `ext_data` and defaults to `PRIVATE`). When this happens the driver resolves the conflict the same way the staff API does:
+
+1. the record that has `ext_data` is preferred
+2. otherwise the most recently written record is preferred
+
+The conflict is logged as a warning, and should be fixed in the staff API (the records are deduplicated by `tenant_id + system_id + event_id`).
 
 
 ## Settings
