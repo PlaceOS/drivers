@@ -607,14 +607,20 @@ class Place::VisitorMailer < PlaceOS::Driver
       return
     end
 
-    send_original_host_email(
-      @notify_original_host_template,
-      previous_host_email,
-      new_host_email,
-      event_title,
-      event_start,
-      building_name,
-    )
+    begin
+      send_original_host_email(
+        @notify_original_host_template,
+        previous_host_email,
+        new_host_email,
+        event_title,
+        event_start,
+        building_name,
+      )
+    rescue error
+      # a repeat signal is the only retry there is
+      forget_send(key)
+      raise error
+    end
   end
 
   @[Security(Level::Support)]
@@ -1005,6 +1011,11 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
   end
 
+  # Forget an email that turned out not to have been sent.
+  protected def forget_send(key : String) : Nil
+    @sent_notices_lock.synchronize { @sent_notices.reject! { |notice| notice.key == key } }
+  end
+
   # Collapses the burst of signals for one edit into a single buffered change.
   # Events are keyed by instance, so the rooms either side of a move coalesce
   # too; the one email then names a single room and uses that room's guest list.
@@ -1219,6 +1230,19 @@ class Place::VisitorMailer < PlaceOS::Driver
         next
       end
 
+      # one edit signals the group container and every child booking of it, each
+      # describing the same change to the same visitors (PPT-2375)
+      notice_key = {
+        template, visitor_email.strip.downcase, host_email.strip.downcase, event_title,
+        event_start, previous_start, resolved_room_name, resolved_building_name,
+        previous_room_name, previous_building_name,
+      }.join('\t')
+
+      unless first_send?(notice_key)
+        logger.debug { "skipping #{template} email to #{visitor_email}, already sent" }
+        next
+      end
+
       local_start_time = Time.unix(event_start).in(@time_zone)
 
       previous_date = previous_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
@@ -1271,6 +1295,8 @@ class Place::VisitorMailer < PlaceOS::Driver
         reply_to: host_email.presence,
       )
     rescue error
+      # a repeat signal is the only retry there is
+      forget_send(notice_key) if notice_key
       logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
     end
   end

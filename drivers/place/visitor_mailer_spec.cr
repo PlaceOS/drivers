@@ -179,6 +179,16 @@ class StaffAPIMock < DriverSpecs::MockDriver
       else
         [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool)
       end
+    when 320
+      # a group container and, below, the child booking each of its visitors has
+      include_linked ? [
+        {email: "visitor-a@external.com", name: "Visitor A", checked_in: false, visit_expected: true},
+        {email: "visitor-b@external.com", name: "Visitor B", checked_in: false, visit_expected: true},
+      ] : [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool)
+    when 321
+      [{email: "visitor-a@external.com", name: "Visitor A", checked_in: false, visit_expected: true}]
+    when 322
+      [{email: "visitor-b@external.com", name: "Visitor B", checked_in: false, visit_expected: true}]
     when 310
       # A group where one visitor was removed: the front end deletes their child
       # booking, which staff-api only marks as deleted, so the aggregated guest
@@ -1513,7 +1523,22 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # in the guest list
   count_before_optout_bc = system(:Mailer)[:send_count].as_i
 
-  publish("staff/event/changed", event_changed_host_in_guests)
+  # a change of its own: repeating the one test 28 made would be a duplicate,
+  # and the driver only tells a visitor about a change once
+  publish("staff/event/changed", {
+    action:               "update",
+    system_id:            "sys-room1",
+    event_id:             "evt-host-in-guests",
+    event_ical_uid:       "ical-host-in-guests",
+    host:                 "host@example.com",
+    resource:             "room1@example.com",
+    title:                "Mixed Guests Meeting Rescheduled",
+    event_start:          now + 14400,
+    event_end:            now + 18000,
+    zones:                ["zone-building", "zone-room"],
+    previous_event_start: now + 10800,
+    previous_event_end:   now + 14400,
+  }.to_json)
   sleep 1.5
 
   # Both host AND visitor receive the booking_changed email
@@ -1754,7 +1779,24 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   count_before_optout_linked = system(:Mailer)[:send_count].as_i
 
-  publish("staff/booking/changed", linked_booking_changed)
+  # a change of its own: repeating the one test 34 made would be a duplicate,
+  # and the driver only tells a visitor about a change once
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     601_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 14400,
+    booking_end:            now + 18000,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host@example.com",
+    title:                  "Linked Visit Changed Again",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 10800,
+    previous_booking_end:   now + 14400,
+    extension_data:         {parent_id: "event-evt-200"},
+  }.to_json)
   sleep 1.5
 
   system(:Mailer)[:send_count].should eq count_before_optout_linked + 1
@@ -2624,7 +2666,23 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # ... and receives change notifications, as before
   count_before_default_change = system(:Mailer)[:send_count].as_i
 
-  publish("staff/booking/changed", internal_guest_booking)
+  # a change of its own: repeating the one test 48 made would be a duplicate,
+  # and the driver only tells a visitor about a change once
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     302_i64,
+    booking_type:           "desk",
+    booking_start:          now + 14400,
+    booking_end:            now + 18000,
+    timezone:               "GMT",
+    resource_id:            "desk-1",
+    resource_ids:           ["desk-1"],
+    user_email:             "host@example.com",
+    title:                  "Internal Guest Booking Rescheduled",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 10800,
+    previous_booking_end:   now + 14400,
+  }.to_json)
   sleep 1.5
 
   system(:Mailer)[:send_count].should eq count_before_default_change + 2
@@ -3517,4 +3575,39 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
 
   system(:Mailer)[:last_to].should eq "other-old-host@example.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
+
+  # ------------------------------------------------------------------
+  # Test 67: one edit of a group booking, one email per visitor
+  # ------------------------------------------------------------------
+  #
+  # Rescheduling a group saves the container booking and every child booking of
+  # it. The container's guest list covers all of them, so each visitor was told
+  # about the change twice: once by the container and once by their own booking.
+
+  sent_before_group_dupe = system(:Mailer)[:emails_sent].as_a.size
+
+  [{320_i64, "group"}, {321_i64, "visitor"}, {322_i64, "visitor"}].each do |(booking_id, booking_type)|
+    publish("staff/booking/changed", {
+      action:                 "changed",
+      id:                     booking_id,
+      booking_type:           booking_type,
+      booking_start:          now + 144000,
+      booking_end:            now + 147600,
+      timezone:               "GMT",
+      resource_id:            "host-group@example.com[2026-05-15]",
+      resource_ids:           ["host-group@example.com[2026-05-15]"],
+      user_email:             "host-group@example.com",
+      title:                  "Group Reschedule",
+      zones:                  ["zone-building", "zone-room"],
+      previous_booking_start: now + 140400,
+      previous_booking_end:   now + 144000,
+    }.to_json)
+    sleep 0.5
+  end
+
+  sleep 1.5
+
+  group_dupe_emails = system(:Mailer)[:emails_sent].as_a[sent_before_group_dupe..].map(&.as_s)
+  group_dupe_emails.count("visitor-a@external.com|booking_changed").should eq 1
+  group_dupe_emails.count("visitor-b@external.com|booking_changed").should eq 1
 end
