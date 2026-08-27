@@ -1145,6 +1145,14 @@ class Place::VisitorMailer < PlaceOS::Driver
       visitor_email = guest["email"].as_s
       visitor_name = guest["name"].as_s?
 
+      # a visitor removed from the visit keeps their (soft deleted) booking, and
+      # the guest list of a group still aggregates it, so they would otherwise be
+      # told about a visit they are no longer part of (PPT-2375)
+      if no_longer_attending?(guest)
+        logger.debug { "skipping #{template} email to #{visitor_email} as they are no longer attending" }
+        next
+      end
+
       # don't email the host their own booking_changed notification.
       next if @skip_host_email && visitor_email.downcase == host_email.downcase
 
@@ -1215,6 +1223,16 @@ class Place::VisitorMailer < PlaceOS::Driver
     rescue error
       logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
     end
+  end
+
+  # Whether a guest from a booking or event guest list is no longer attending:
+  # their attendance was withdrawn, or the booking they attend was cancelled.
+  private def no_longer_attending?(guest : JSON::Any) : Bool
+    return true if guest["visit_expected"]?.try(&.as_bool?) == false
+
+    booking = guest["booking"]?
+    return false unless booking
+    !!(booking["deleted"]?.try(&.as_bool?) || booking["rejected"]?.try(&.as_bool?))
   end
 
   # Returns `{room_name, building_name}` for `system_id`, falling back to the

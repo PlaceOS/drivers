@@ -179,6 +179,19 @@ class StaffAPIMock < DriverSpecs::MockDriver
       else
         [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool)
       end
+    when 310
+      # A group where one visitor was removed: the front end deletes their child
+      # booking, which staff-api only marks as deleted, so the aggregated guest
+      # list still returns them. A third guest is no longer expected to visit.
+      if include_linked
+        [
+          {email: "visitor-a@external.com", name: "Visitor A", checked_in: false, visit_expected: true, booking: {id: 311_i64, deleted: false}},
+          {email: "visitor-gone@external.com", name: "Visitor Gone", checked_in: false, visit_expected: true, booking: {id: 312_i64, deleted: true}},
+          {email: "visitor-unexpected@external.com", name: "Visitor Unexpected", checked_in: false, visit_expected: false, booking: {id: 313_i64, deleted: false}},
+        ]
+      else
+        [] of NamedTuple(email: String, name: String, checked_in: Bool, visit_expected: Bool, booking: NamedTuple(id: Int64, deleted: Bool))
+      end
     when 301
       # Simulates the host being stored as a visit_expected attendee
       # alongside a real external visitor (mirrors what events.cr does
@@ -3408,4 +3421,50 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   move_building_args["event_title"].should eq "Campus Move"
   move_building_args["building_name"].should eq "Second Building"
   move_building_args["previous_building_name"].should eq "Previous Building"
+
+  # ------------------------------------------------------------------
+  # Test 65: a visitor removed by the same edit is not told about it
+  # ------------------------------------------------------------------
+  #
+  # Removing a visitor deletes their child booking, but a soft deleted booking
+  # is still aggregated into the group's guest list, so the visitor kept being
+  # emailed about a visit they had been taken off.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
+  })
+  sleep 1.5
+
+  sent_before_removed = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     310_i64,
+    booking_type:           "group",
+    booking_start:          now + 129600,
+    booking_end:            now + 133200,
+    timezone:               "GMT",
+    resource_id:            "host-removed@example.com[2026-05-15]",
+    resource_ids:           ["host-removed@example.com[2026-05-15]"],
+    user_email:             "host-removed@example.com",
+    title:                  "Visitor Removed",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 126000,
+    previous_booking_end:   now + 129600,
+  }.to_json)
+
+  sleep 1.5
+
+  removed_emails = system(:Mailer)[:emails_sent].as_a[sent_before_removed..].map(&.as_s)
+
+  # the visitor still on the booking is told
+  removed_emails.should contain "visitor-a@external.com|booking_changed"
+  # the one whose booking was cancelled by this edit is not
+  removed_emails.should_not contain "visitor-gone@external.com|booking_changed"
+  # neither is one who is no longer expected to visit
+  removed_emails.should_not contain "visitor-unexpected@external.com|booking_changed"
 end
