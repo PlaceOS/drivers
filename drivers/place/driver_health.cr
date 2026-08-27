@@ -4,17 +4,23 @@ require "placeos-core-client"
 require "redis_service_manager"
 
 # Reports whether the driver processes on every core node in the cluster are
-# running.
+# running, including those running on an edge.
 #
 # Core nodes are discovered from the service registration that
 # `Proxy::RemoteDriver` already uses to route module requests, so no API key or
 # request to an external PlaceOS instance is required. Each node is then asked
 # about its own driver processes over core's internal API (`/api/core/v1`), the
 # same data rest-api aggregates for its `/cluster` routes.
+#
+# Edges are never queried directly. A core node reports the processes on each
+# edge attached to it in the same responses, forwarding the request over the edge
+# protocol where it is served by the same `ProcessManager::Common#driver_status`
+# a core node uses for its own processes - so edge memory figures mean the same
+# thing local ones do.
 class Place::DriverHealth < PlaceOS::Driver
   descriptive_name "PlaceOS Driver Health"
   generic_name :DriverHealth
-  description %(Checks that the driver processes on every core node in the cluster are running, exposing a running state (1 or 0) per driver for backoffice and InfluxDB)
+  description %(Checks that the driver processes on every core node and edge in the cluster are running, exposing a running state (1 or 0) per driver for backoffice and InfluxDB)
 
   default_settings({
     # how often to check the cluster, set to 0 to only check on request
@@ -41,7 +47,8 @@ class Place::DriverHealth < PlaceOS::Driver
     # `<hostname>.<driver>`, unique across the cluster
     getter name : String
 
-    # the core node the driver process is on, i.e. `core-0`
+    # the core node the driver process is on, i.e. `core-0`, or the id of the
+    # edge it's on, i.e. `edge-KjO683qopP`
     getter hostname : String
 
     # the driver source path, i.e. `drivers_place_bookings`
@@ -114,6 +121,9 @@ class Place::DriverHealth < PlaceOS::Driver
     end
 
     drivers.sort_by!(&.name)
+
+    # an edge attached to more than one core node would be reported by each
+    drivers.uniq!(&.name)
     not_running = drivers.select(&.running.zero?).map(&.name)
 
     self[:clusters] = clusters
@@ -132,21 +142,41 @@ class Place::DriverHealth < PlaceOS::Driver
     drivers
   end
 
-  # returns the nodes hostname and the state of the drivers running on it
+  # returns the nodes hostname and the state of the drivers running on it, along
+  # with those running on any edge attached to it
   protected def check_node(uri : URI) : Tuple(String, Array(DriverState))
     PlaceOS::Core::Client.client(uri, retries: CORE_RETRIES) do |client|
       # the hostname of the pod, i.e. `core-0`
       hostname = client.core_load.local.hostname
 
-      # a mapping of driver => the modules that driver is running
-      states = client.loaded.local.keys.map do |driver|
-        # no status or no memory in use means the process isn't running
-        memory = client.driver_status(driver).local.try(&.memory_usage) || 0_i64
-        DriverState.new(hostname, driver, memory.zero? ? 0 : 1, Time.utc.to_unix)
+      # `local` and each entry of `edge` map driver => the modules it's running
+      loaded = client.loaded
+      states = [] of DriverState
+
+      # a driver can be running on the node, on one of its edges, or both, and a
+      # single status request covers all of them
+      drivers = loaded.local.keys.to_set
+      loaded.edge.each_value { |processes| drivers.concat processes.keys }
+
+      drivers.each do |driver|
+        status = client.driver_status driver
+        checked = Time.utc.to_unix
+
+        states << DriverState.new(hostname, driver, running(status.local), checked) if loaded.local.has_key? driver
+
+        loaded.edge.each do |edge_id, processes|
+          next unless processes.has_key? driver
+          states << DriverState.new(edge_id, driver, running(status.edge[edge_id]?), checked)
+        end
       end
 
       {hostname, states}
     end
+  end
+
+  # a driver process that isn't using any memory isn't running
+  protected def running(status : PlaceOS::Core::Client::DriverStatus::Metadata?) : Int32
+    (status.try(&.memory_usage) || 0_i64).zero? ? 0 : 1
   end
 
   # the configured nodes, otherwise the nodes registered in the cluster

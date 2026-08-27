@@ -15,6 +15,24 @@ CORE_2_ID = "01M073D9GRBDTX8Q1XH5ZYQN9Y"
 DISPLAY  = "drivers_place_demo_display_4894a36_arm64"
 BOOKINGS = "drivers_place_bookings_1a2b3c4_arm64"
 ROUTER   = "drivers_place_router_9f8e7d6_arm64"
+KIOSK    = "drivers_place_kiosk_2c3d4e5_arm64"
+
+EDGE_A = "edge-abc"
+EDGE_B = "edge-xyz"
+
+# maps a driver to the memory it's using, nil for a driver core has no status for
+alias Drivers = Hash(String, Int64?)
+alias Metadata = NamedTuple(running: Bool, memory_usage: Int64)
+
+# :nodoc:
+def metadata(memory : Int64?) : Metadata?
+  memory.nil? ? nil : {running: memory > 0, memory_usage: memory}
+end
+
+# :nodoc:
+def modules(drivers : Drivers)
+  drivers.keys.to_h { |driver| {driver, ["mod-#{driver}"]} }
+end
 
 # a driver binary that wasn't named by the build service
 LEGACY = "legacy_driver"
@@ -36,9 +54,9 @@ def system_load(hostname : String)
 end
 
 # :nodoc:
-# `drivers` maps a driver to the memory it's using, nil for a driver core has no
-# status for at all
-def serve_core(port : Int32, hostname : String, drivers : Hash(String, Int64?))
+# a core node reports its own driver processes plus those on each edge attached
+# to it, keyed by edge id
+def serve_core(port : Int32, hostname : String, drivers : Drivers, edges : Hash(String, Drivers) = {} of String => Drivers)
   server = HTTP::Server.new do |context|
     context.response.content_type = "application/json"
 
@@ -46,12 +64,15 @@ def serve_core(port : Int32, hostname : String, drivers : Hash(String, Int64?))
     when "/api/core/v1/status/load"
       context.response.print({local: system_load(hostname), edge: {} of String => String}.to_json)
     when "/api/core/v1/status/loaded"
-      loaded = drivers.keys.to_h { |driver| {driver, ["mod-#{driver}"]} }
-      context.response.print({local: loaded, edge: {} of String => String}.to_json)
+      context.response.print({
+        local: modules(drivers),
+        edge:  edges.transform_values { |edge| modules(edge) },
+      }.to_json)
     when "/api/core/v1/status/driver"
-      memory = drivers[context.request.query_params["path"]]
-      local = memory.nil? ? nil : {running: memory > 0, memory_usage: memory}
-      context.response.print({local: local, edge: {} of String => String}.to_json)
+      driver = context.request.query_params["path"]
+      edge_status = {} of String => Metadata?
+      edges.each { |edge_id, edge| edge_status[edge_id] = metadata(edge[driver]) if edge.has_key? driver }
+      context.response.print({local: metadata(drivers[driver]?), edge: edge_status}.to_json)
     else
       context.response.status_code = 404
     end
@@ -75,8 +96,14 @@ def serve_broken_core(port : Int32)
   server
 end
 
-serve_core(CORE_0_PORT, "core-0", {DISPLAY => 12_345_i64, BOOKINGS => 0_i64})
-serve_core(CORE_1_PORT, "core-1", {ROUTER => nil, LEGACY => 6_789_i64})
+# EDGE_A is attached to both core nodes, so it gets reported twice and has to be
+# deduplicated. it reports the same memory either way so the result is unambiguous
+serve_core(CORE_0_PORT, "core-0",
+  Drivers{DISPLAY => 12_345_i64, BOOKINGS => 0_i64},
+  {EDGE_A => Drivers{KIOSK => 0_i64}})
+serve_core(CORE_1_PORT, "core-1",
+  Drivers{ROUTER => nil, LEGACY => 6_789_i64},
+  {EDGE_A => Drivers{DISPLAY => 4_000_i64, KIOSK => 0_i64}, EDGE_B => Drivers{KIOSK => 9_000_i64}})
 serve_broken_core(CORE_2_PORT)
 
 DriverSpecs.mock_driver "Place::DriverHealth" do
@@ -102,7 +129,7 @@ DriverSpecs.mock_driver "Place::DriverHealth" do
     results = Array(DriverState)
       .from_json exec(:check_drivers).get.not_nil!.to_json
 
-    results.size.should eq 4
+    results.size.should eq 7
 
     # a driver using memory is running, the commit and architecture are split
     # out of the executable name
@@ -129,18 +156,27 @@ DriverSpecs.mock_driver "Place::DriverHealth" do
     results[3][:commit].should eq ""
     results[3][:running].should eq 1
 
+    # a process on an edge is named for the edge, not the node reporting it.
+    # EDGE_A is attached to both core nodes yet appears once
+    results[4..].map { |result| {result[:name], result[:hostname], result[:running]} }.should eq [
+      {"#{EDGE_A}.drivers_place_demo_display", EDGE_A, 1}, # on an edge, using memory
+      {"#{EDGE_A}.drivers_place_kiosk", EDGE_A, 0},        # on an edge, using no memory
+      {"#{EDGE_B}.drivers_place_kiosk", EDGE_B, 1},        # a second edge of the same node
+    ]
+
     # each result is stamped with when it was checked
     results.each do |result|
       result[:timestamp].should be >= before
       result[:timestamp].should be <= Time.utc.to_unix
     end
 
-    status[:driver_count].should eq 4
-    status[:running_count].should eq 2
+    status[:driver_count].should eq 7
+    status[:running_count].should eq 4
 
     Array(String).from_json(status[:not_running].to_json).should eq [
       "core-0.drivers_place_bookings",
       "core-1.drivers_place_router",
+      "#{EDGE_A}.drivers_place_kiosk",
     ]
 
     Array(NamedTuple(id: String, name: String)).from_json(status[:clusters].to_json).should eq [
@@ -172,13 +208,17 @@ DriverSpecs.mock_driver "Place::DriverHealth" do
     results = Array(DriverState)
       .from_json exec(:check_drivers).get.not_nil!.to_json
 
-    results.map(&.[](:name)).should eq ["core-0.drivers_place_bookings", "core-0.drivers_place_demo_display"]
+    results.map(&.[](:name)).should eq [
+      "core-0.drivers_place_bookings",
+      "core-0.drivers_place_demo_display",
+      "#{EDGE_A}.drivers_place_kiosk",
+    ]
 
     Array(String).from_json(status[:unreachable_clusters].to_json).should eq [CORE_2_ID]
     Array(NamedTuple(id: String, name: String)).from_json(status[:clusters].to_json).should eq [
       {id: CORE_0_ID, name: "core-0"},
     ]
-    status[:driver_count].should eq 2
+    status[:driver_count].should eq 3
     status[:running_count].should eq 1
   end
 end
