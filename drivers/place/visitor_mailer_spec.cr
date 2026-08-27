@@ -3610,4 +3610,35 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   group_dupe_emails = system(:Mailer)[:emails_sent].as_a[sent_before_group_dupe..].map(&.as_s)
   group_dupe_emails.count("visitor-a@external.com|booking_changed").should eq 1
   group_dupe_emails.count("visitor-b@external.com|booking_changed").should eq 1
+
+  # ------------------------------------------------------------------
+  # Test 68: a group event change reaches everyone registered for it
+  # ------------------------------------------------------------------
+  #
+  # Registrations are child bookings of the group event, and only a booking
+  # typed "group" asked for them, so nobody who had registered was told.
+
+  sent_before_group_event = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     320_i64,
+    booking_type:           "group-event",
+    booking_start:          now + 151200,
+    booking_end:            now + 154800,
+    timezone:               "GMT",
+    resource_id:            "host-group@example.com[2026-05-15]",
+    resource_ids:           ["host-group@example.com[2026-05-15]"],
+    user_email:             "host-group@example.com",
+    title:                  "Group Event Reschedule",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 147600,
+    previous_booking_end:   now + 151200,
+  }.to_json)
+
+  sleep 1.5
+
+  group_event_emails = system(:Mailer)[:emails_sent].as_a[sent_before_group_event..].map(&.as_s)
+  group_event_emails.should contain "visitor-a@external.com|booking_changed"
+  group_event_emails.should contain "visitor-b@external.com|booking_changed"
 end
