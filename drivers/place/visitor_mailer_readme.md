@@ -47,8 +47,31 @@ combined into a single email describing the net change.
 The email goes out a few seconds after the window closes. Anything still waiting is
 sent immediately if the driver restarts, so a notification is never dropped.
 
-Setting this to `0` emails on every signal, which can mean duplicate and contradictory
-notifications, and can also notify visitors added by the edit.
+Setting this to `0` emails on every signal, which can mean contradictory notifications,
+and can also notify visitors added by the edit, or one removed by it: an event update
+is signalled before the removed attendees have been dropped from the guest list.
+
+Regardless of the window, the same visitor is never told the same thing twice: one edit
+of a group booking saves the group and every booking beneath it, each signalling the
+same change.
+
+## Building name
+
+Emails name the building the visit is in, taken from the zones on the signal, so a
+driver covering a campus names the building the visitor is expected at rather than the
+campus itself. Where a visit names no building, the system's own building zone is used.
+
+```yaml
+  # the zone tag identifying a building
+  invite_zone_tag:    "building"
+  # the driver's zone is a campus, its child zones are the buildings
+  is_campus:          false
+  # how long zone details (i.e. the building name) are cached for
+  zone_cache_timeout: 300
+```
+
+A building renamed in backoffice reaches the emails once its cache entry expires. Call
+`clear_zone_cache` to pick the new name up immediately.
 
 ## Excluding staff attendees
 
