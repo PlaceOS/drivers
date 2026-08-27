@@ -1,74 +1,96 @@
 # Public Events Readme
 
-Docs on the PlaceOS Public Events driver.
-This driver filters the Bookings event cache down to publicly visible events and handles guest registration, enabling unauthenticated access to selected calendar events.
+Docs on how to configure the PlaceOS Public Events driver.
+This driver publishes the events that have been marked public in Concierge so that they can be read by people who have not signed in, and lets those people register to attend.
 
-* Subscribes to the Bookings driver's `:bookings` status and filters events whose staff API event metadata `permission` is `PUBLIC`
-* Caches the filtered set of public events (with a reduced set of safe fields) as the `:public_events` status
-* Provides a `register_attendee` function for appending external (guest) attendees to a public event via the Calendar driver
+* Publishes the public events from the system's calendar as the `public_events` status
+* Exposes only a limited set of event fields, everything else is withheld
+* Provides `register_attendee` so a guest can add themselves to a public event
 
 
 ## Requirements
 
 Requires the following drivers in the same system:
 
-* Bookings - for the room/calendar event cache and polling
-* Calendar - for reading and updating calendar events when registering attendees
-* StaffAPI - for looking up the event metadata `permission` field
+* Bookings - reads the events on the system's calendar
+* Calendar - adds guests to an event when they register
+* StaffAPI - reads the publish state of each event
 
-The system must also have a calendar email configured (used as the `calendar_id` when calling the Calendar driver).
+**CRITICAL:** the system must have its **calendar email** configured. Without it the driver cannot add guests to events and every registration attempt will fail.
 
 
-## How It Works
+## Publishing an Event
 
-1. The Bookings driver polls the calendar and publishes all events to its `:bookings` status
-2. PublicEvents receives the update via the subscription binding
-3. The `permission` field lives in the staff API `event_metadatas` table, it is not part of a calendar event, so it is never present in the Bookings cache. PublicEvents looks it up with `StaffAPI.query_metadata`, passing the `id`, `ical_uid` and `recurring_event_id` of every cached event as `event_ref` (batched to keep the query string small)
-4. Events are kept where the metadata permission is `PUBLIC`:
-    * `PRIVATE` (the default when no metadata exists) and `OPEN` are excluded. `OPEN` only allows users in the same tenant to join, so it is not suitable for unauthenticated access
-    * in the Concierge UI this is the "Publish (Public)" option - "Publish (Internal)" sets `OPEN` and is deliberately excluded, and "Draft" sets `PRIVATE`
-    * metadata that belongs to an event instance takes precedence over the metadata of the recurring master (i.e. `recurring_master_id == event_id`), so a single public occurrence does not make the whole series public
-    * events marked private on the calendar are always excluded, the Bookings driver has already masked their title and host
-5. The filtered events are stored in `:public_events` with only safe, non-sensitive fields exposed: `id`, `title`, `body`, `event_start`, `event_end`, `location`, `timezone`, `all_day`
-6. When a guest registers, `register_attendee` checks the event is in the public set, fetches it from the Calendar driver, appends the attendee, and writes it back
+Whether an event appears publicly is controlled from the **Concierge UI**, on the event itself. It is not controlled by this driver and it is not a calendar setting.
 
-A permission can be changed without the event itself changing, and a driver only publishes a status when its value has changed, so the `:bookings` subscription can't be relied on to keep the cache fresh. The metadata permissions are re-checked:
+| Concierge option | Published? |
+| --- | --- |
+| Publish (Public) | **Yes** |
+| Publish (Internal) | No |
+| Draft | No |
+| Nothing set | No |
 
-* whenever the Bookings cache changes
-* every `metadata_refresh_minutes` (defaults to 5, set to 0 to disable)
-* when `update_public_events` is called
+Only "Publish (Public)" is treated as public. "Publish (Internal)" makes an event joinable by people signed in to your own tenant, which is not safe to hand out to anonymous visitors, so it is deliberately excluded.
 
-### Duplicate metadata records
+Two further rules apply:
 
-A race between the staff API event create route and the calendar webhook can produce more than one metadata record for an event, with conflicting permissions (the webhook copy has no `ext_data` and defaults to `PRIVATE`). When this happens the driver resolves the conflict the same way the staff API does:
+* An event marked **Private** on the calendar is never published, even if it is set to "Publish (Public)". Its title and host have already been hidden, so there is nothing useful or safe left to show.
+* For a **recurring event**, publishing a single occurrence publishes only that occurrence. Publish the series itself if you want the whole series to appear.
 
-1. the record that has `ext_data` is preferred
-2. otherwise the most recently written record is preferred
-
-The conflict is logged as a warning, and should be fixed in the staff API (the records are deduplicated by `tenant_id + system_id + event_id`).
+Publishing and unpublishing take up to `metadata_refresh_minutes` (5 minutes by default) to appear. Call `update_public_events` if you need the change applied immediately.
 
 
 ## Settings
 
 ```yaml
-# how often we re-check the event metadata permissions, 0 to disable
+# how often the driver re-checks which events are published, in minutes
+# set to 0 to disable, publish changes will then only be picked up when the
+# calendar itself changes, which can leave the public list out of date
 metadata_refresh_minutes: 5
 ```
 
 
-## Public System Usage
+## What Gets Published
 
-This driver is intended to be placed in the same system as the public events calendar. It follows the same public system access pattern as the WebRTC driver — a Guest JWT is issued to the caller after passing the invisible Google reCAPTCHA, granting read access to the `:public_events` status and the ability to call `register_attendee`.
+Only the following fields of a public event are exposed:
+
+* `id`
+* `title`
+* `body`
+* `event_start`
+* `event_end`
+* `location`
+* `timezone`
+* `all_day`
+
+Attendees, the organiser, and every other event detail are never exposed.
+
+The title and body are readable by anyone, including people who have not signed in. Organisers should be reminded not to put internal or sensitive detail in the description of an event they intend to publish.
+
+
+## Public Access
+
+This driver is intended to be placed in the same system as the public events calendar.
+
+Callers who have not signed in can:
+
+* read the `public_events` status
+* call `register_attendee`
+
+`update_public_events` is administrator-only and is not available to those callers.
 
 
 ## Functions
 
 ### `register_attendee(event_id, name, email) : Bool`
 
-Appends an external attendee to a public calendar event.
+Adds a guest to a public calendar event as an attendee.
 
-* Returns `true` on success
-* Returns `false` if the `event_id` is not in the public events set, or if the system has no calendar email configured
+Returns `true` on success. Returns `false` if:
+
+* the `event_id` is not a currently published event
+* the system has no calendar email configured
+* the event no longer exists on the calendar
 
 ```yaml
 # Example call
@@ -81,4 +103,15 @@ args:
 
 ### `update_public_events : Nil`
 
-Administrator-only. Triggers a Bookings re-poll and repopulates the public events cache via the subscription binding.
+Administrator-only. Re-reads the calendar and refreshes the published list straight away, rather than waiting for the next scheduled refresh. Use it after publishing or unpublishing an event.
+
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| An event is missing from `public_events` | It is set to "Publish (Public)" in Concierge, not "Publish (Internal)" or "Draft". It is not marked private on the calendar. It is on this system's calendar. Up to 5 minutes may not have passed yet, run `update_public_events` to apply the change now. |
+| A recurring event only shows one occurrence | Only that occurrence has been published. Publish the series to show all of them. |
+| A recurring event shows no occurrences | The series has not been published, publishing an occurrence does not publish the series. |
+| `register_attendee` returns `false` | The event is not currently published, the system has no calendar email configured, or the event has since been deleted from the calendar. |
+| `public_events` is always empty | Confirm the Bookings, Calendar and StaffAPI drivers are all present in this system, and that the system's calendar actually has published events on it. |
