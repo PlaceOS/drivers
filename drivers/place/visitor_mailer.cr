@@ -321,6 +321,25 @@ class Place::VisitorMailer < PlaceOS::Driver
     end
   end
 
+  # The building a visit is in, named from the zones the signal carries rather
+  # than the system's own zone, so a campus driver (and a visit that moved
+  # buildings) names the building the visitor is expected at.
+  protected def building_name_for(zones : Array(String)?) : String
+    if zones
+      # a campus building is the more specific answer than the campus itself
+      candidates = @parent_zone_ids.empty? ? zones : (zones & @parent_zone_ids) + zones
+      candidates.each do |zone_id|
+        begin
+          zone = fetch_zone(zone_id)
+          return zone.display_name.presence || zone.name if zone.tags.includes?(@invite_zone_tag)
+        rescue error
+          logger.warn(exception: error) { "error looking up zone #{zone_id}" }
+        end
+      end
+    end
+    building_zone.display_name.presence || building_zone.name
+  end
+
   protected def guest_event(payload)
     logger.debug { "received guest event payload: #{payload}" }
     guest_details = GuestNotification.from_json payload
@@ -368,7 +387,8 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.attendee_name,
         guest_details.host,
         guest_details.event_title || guest_details.event_summary,
-        guest_details.event_starting
+        guest_details.event_starting,
+        building_name_for(guest_details.zones)
       )
       self[:users_checked_in] = @users_checked_in += 1
       return
@@ -381,7 +401,8 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.host,
           guest_details.event_title || guest_details.event_summary,
           guest_details.event_starting,
-          guest_details.induction
+          guest_details.induction,
+          building_name_for(guest_details.zones)
         )
         self[:users_accepted_induction] = @users_accepted_induction += 1
       elsif guest_details.induction.declined?
@@ -392,7 +413,8 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.host,
           guest_details.event_title || guest_details.event_summary,
           guest_details.event_starting,
-          guest_details.induction
+          guest_details.induction,
+          building_name_for(guest_details.zones)
         )
         self[:users_declined_induction] = @users_declined_induction += 1
       end
@@ -443,6 +465,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.event_id,
         area_name,
         system_id: guest_details.responds_to?(:system_id) ? guest_details.system_id : nil,
+        building_name: building_name_for(guest_details.zones),
       )
     rescue error
       # tracked apart from error_count to pinpoint a missing invite
@@ -474,6 +497,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     host_email : String?,
     event_title : String?,
     event_start : Int64,
+    building_name : String? = nil,
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -485,7 +509,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       visitor_name:  visitor_name,
       host_name:     get_host_name(host_email),
       host_email:    host_email,
-      building_name: building_zone.display_name.presence || building_zone.name,
+      building_name: building_name || building_name_for(nil),
       event_title:   event_title,
       event_start:   local_start_time.to_s(@time_format),
       event_date:    local_start_time.to_s(@date_format),
@@ -504,6 +528,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_title : String?,
     event_start : Int64,
     induction_status : Induction,
+    building_name : String? = nil,
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -515,7 +540,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       visitor_name:     visitor_name,
       host_name:        get_host_name(host_email),
       host_email:       host_email,
-      building_name:    building_zone.display_name.presence || building_zone.name,
+      building_name:    building_name || building_name_for(nil),
       event_title:      event_title,
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),
@@ -546,6 +571,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       details.new_host_email,
       details.event_title || details.event_summary,
       details.event_starting,
+      building_name_for(details.zones),
     )
   rescue error
     logger.error { error.inspect_with_backtrace }
@@ -564,6 +590,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     new_host_email : String,
     event_title : String?,
     event_start : Int64?,
+    building_name : String? = nil,
   )
     # A host can be reassigned via a metadata-only update that carries no event
     # timing, so render the date/time only when a start time is available.
@@ -577,7 +604,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         previous_host_name:  get_host_name(previous_host_email),
         new_host_email:      new_host_email,
         new_host_name:       get_host_name(new_host_email),
-        building_name:       building_zone.display_name.presence || building_zone.name,
+        building_name:       building_name || building_name_for(nil),
         event_title:         event_title,
         event_date:          local_start_time.try(&.to_s(@date_format)),
         event_time:          local_start_time.try(&.to_s(@time_format)),
@@ -801,6 +828,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         host,
         details.title,
         event_start,
+        building_name_for(details.zones),
       )
     end
 
@@ -1004,27 +1032,24 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Skip a coalesced no-op (e.g. an edit that was undone within the window).
     return unless change.changed?
 
-    # Resolve previous location names from previous zones
-    previous_building_name = building_zone.display_name.presence || building_zone.name
+    # named from the booking's own zones, so a booking moved to another building
+    # is announced as being in the building it moved to
+    building_name = building_name_for(change.zones)
+
+    # Resolve previous location names from previous zones, defaulting to the
+    # current ones so a date/time-only edit reads as the same place.
+    previous_zones = change.previous_zones
+    previous_building_name = previous_zones ? building_name_for(previous_zones) : building_name
     previous_room_name = @booking_space_name
 
-    if prev_zones = change.previous_zones
-      found_building = false
-      found_room = false
-      prev_zones.each do |zone_id|
-        break if found_building && found_room
-        begin
-          zone = fetch_zone(zone_id)
-          if zone.tags.includes?(@invite_zone_tag)
-            previous_building_name = zone.display_name.presence || zone.name
-            found_building = true
-          else
-            previous_room_name = zone.display_name.presence || zone.name
-            found_room = true
-          end
-        rescue error
-          logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
-        end
+    previous_zones.try &.each do |zone_id|
+      begin
+        zone = fetch_zone(zone_id)
+        next if zone.tags.includes?(@invite_zone_tag)
+        previous_room_name = zone.display_name.presence || zone.name
+        break
+      rescue error
+        logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
       end
     end
 
@@ -1041,6 +1066,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       change.previous_start,
       previous_building_name,
       previous_room_name,
+      building_name,
       event_id: change.booking_id.to_s,
       resource_id: change.resource_id,
     )
@@ -1235,6 +1261,7 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     event_end : Int64? = nil,
     system_id : String? = nil,
+    building_name : String? = nil,
   )
     local_start_time = Time.unix(event_start).in(@time_zone)
 
@@ -1283,7 +1310,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       host_name:        get_host_name(host_email),
       host_email:       host_email,
       room_name:        area_name,
-      building_name:    building_zone.display_name.presence || building_zone.name,
+      building_name:    building_name || building_name_for(nil),
       event_title:      event_title,
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),

@@ -91,6 +91,16 @@ class StaffAPIMock < DriverSpecs::MockDriver
     parent_id:    "zone-org",
   }
 
+  # a second building under the same campus as BUILDING_ZONE
+  SECOND_BUILDING_ZONE = {
+    id:           "zone-building2",
+    name:         "Building Two",
+    display_name: "Second Building",
+    location:     "",
+    tags:         ["building"],
+    parent_id:    "zone-building",
+  }
+
   ROOM_ZONE = {
     id:           "zone-room",
     name:         "Room 101",
@@ -130,6 +140,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
       BUILDING_ZONE.merge({display_name: self[:building_display_name]?.try(&.as_s) || "Main Building"})
     when "zone-old-building"
       OLD_BUILDING_ZONE
+    when "zone-building2"
+      SECOND_BUILDING_ZONE
     when "zone-room"
       ROOM_ZONE
     when "zone-old-room"
@@ -140,6 +152,17 @@ class StaffAPIMock < DriverSpecs::MockDriver
       # Return a generic zone tagged as building so on_load find_building succeeds
       BUILDING_ZONE
     end
+  end
+
+  # only used when the driver is configured as a campus
+  def zones(
+    q : String? = nil,
+    limit : Int32 = 1000,
+    offset : Int32 = 0,
+    parent : String? = nil,
+    tags : Array(String) | String? = nil,
+  )
+    parent ? [SECOND_BUILDING_ZONE, OLD_BUILDING_ZONE] : [] of typeof(BUILDING_ZONE)
   end
 
   # When include_linked is true, parent group bookings (e.g. id 300) return
@@ -3343,4 +3366,46 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # leave the mock as the rest of the suite expects it
   system(:StaffAPI)[:building_display_name] = "Main Building"
   exec(:clear_zone_cache).get
+
+  # ------------------------------------------------------------------
+  # Test 64: a booking moved to another building of the same campus
+  # ------------------------------------------------------------------
+  #
+  # The new location was always described as the building the driver's own
+  # system sits in, so a campus wide driver announced the move using the
+  # building the visit had just left.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    is_campus:          true,
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
+  })
+  sleep 1.5
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     950_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 122400,
+    booking_end:            now + 126000,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-campus@example.com",
+    title:                  "Campus Move",
+    zones:                  ["zone-building2", "zone-room"],
+    previous_booking_start: now + 118800,
+    previous_booking_end:   now + 122400,
+    previous_zones:         ["zone-old-building", "zone-old-room"],
+  }.to_json)
+
+  sleep 1.5
+
+  move_building_args = system(:Mailer)[:last_args]
+  move_building_args["event_title"].should eq "Campus Move"
+  move_building_args["building_name"].should eq "Second Building"
+  move_building_args["previous_building_name"].should eq "Previous Building"
 end
