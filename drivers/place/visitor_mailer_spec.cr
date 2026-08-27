@@ -3467,4 +3467,54 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   removed_emails.should_not contain "visitor-gone@external.com|booking_changed"
   # neither is one who is no longer expected to visit
   removed_emails.should_not contain "visitor-unexpected@external.com|booking_changed"
+
+  # ------------------------------------------------------------------
+  # Test 66: one reassignment sends the original host one email
+  # ------------------------------------------------------------------
+  #
+  # Reassigning a group booking updates its container and every child booking of
+  # it, and each of those signals the same reassignment, so the previous host
+  # was emailed once per booking the edit touched.
+
+  sent_before_host_dupe = system(:Mailer)[:emails_sent].as_a.size
+
+  [960_i64, 961_i64, 962_i64].each do |booking_id|
+    publish("staff/booking/host_changed", {
+      action:              "host_changed",
+      booking_id:          booking_id,
+      resource_id:         "visitor@external.com",
+      resource_ids:        ["visitor@external.com"],
+      event_title:         "Reassigned Group Visit",
+      event_summary:       "Reassigned Group Visit",
+      event_starting:      now + 136800,
+      previous_host_email: "old-host-group@example.com",
+      new_host_email:      "new-host-group@example.com",
+      zones:               ["zone-building", "zone-room"],
+    }.to_json)
+    sleep 0.5
+  end
+
+  sleep 1.0
+
+  host_dupe_emails = system(:Mailer)[:emails_sent].as_a[sent_before_host_dupe..].map(&.as_s)
+  host_dupe_emails.count("old-host-group@example.com|notify_original_host").should eq 1
+
+  # a different reassignment is still its own email
+  publish("staff/booking/host_changed", {
+    action:              "host_changed",
+    booking_id:          963_i64,
+    resource_id:         "visitor@external.com",
+    resource_ids:        ["visitor@external.com"],
+    event_title:         "Reassigned Group Visit",
+    event_summary:       "Reassigned Group Visit",
+    event_starting:      now + 136800,
+    previous_host_email: "other-old-host@example.com",
+    new_host_email:      "new-host-group@example.com",
+    zones:               ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  system(:Mailer)[:last_to].should eq "other-old-host@example.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_original_host"]
 end

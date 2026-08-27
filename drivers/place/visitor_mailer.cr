@@ -180,6 +180,11 @@ class Place::VisitorMailer < PlaceOS::Driver
   @recent_invites : Array(Invite) = [] of Invite
   @recent_invites_lock : Mutex = Mutex.new
 
+  # Emails already sent, so one edit doesn't repeat them: editing a group
+  # booking signals the container and every child booking of it separately.
+  @sent_notices : Array(SentNotice) = [] of SentNotice
+  @sent_notices_lock : Mutex = Mutex.new
+
   @uri : URI = URI.new
   @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
 
@@ -565,8 +570,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    send_original_host_email(
-      @notify_original_host_template,
+    notify_original_host(
       details.previous_host_email,
       details.new_host_email,
       details.event_title || details.event_summary,
@@ -581,6 +585,36 @@ class Place::VisitorMailer < PlaceOS::Driver
       time:  Time.local.to_s,
       user:  payload,
     }
+  end
+
+  # Tells the previous host their booking was reassigned, once per reassignment:
+  # a group booking reassigns its container and every child booking of it, each
+  # signalling the same change (PPT-2375).
+  protected def notify_original_host(
+    previous_host_email : String,
+    new_host_email : String,
+    event_title : String?,
+    event_start : Int64?,
+    building_name : String,
+  ) : Nil
+    key = {
+      @notify_original_host_template, previous_host_email.strip.downcase,
+      new_host_email.strip.downcase, event_title, event_start, building_name,
+    }.join('\t')
+
+    unless first_send?(key)
+      logger.debug { "skipping host reassigned email to #{previous_host_email}, already sent" }
+      return
+    end
+
+    send_original_host_email(
+      @notify_original_host_template,
+      previous_host_email,
+      new_host_email,
+      event_title,
+      event_start,
+      building_name,
+    )
   end
 
   @[Security(Level::Support)]
@@ -822,8 +856,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     # A host can be reassigned without any change to the event timing; the host
     # email still renders (date/time blank only if the lookup also came up empty).
     if (prev_host = details.previous_host_email) && prev_host.downcase != host.downcase
-      send_original_host_email(
-        @notify_original_host_template,
+      notify_original_host(
         prev_host,
         host,
         details.title,
@@ -953,6 +986,23 @@ class Place::VisitorMailer < PlaceOS::Driver
   # adds its visitors in later requests.
   private def invite_memory : Time::Span
     @change_debounce.clamp(0, 3600).seconds + 60.seconds
+  end
+
+  # An email we've sent, keyed on what it says rather than on the booking that
+  # prompted it, as each signal of the same edit names a different booking.
+  record SentNotice, key : String, expires : Time::Span
+
+  # Whether this is the first time we're sending it, remembering it if so.
+  # Expired entries go on the way in, as nothing else prunes them.
+  protected def first_send?(key : String) : Bool
+    now = Time.monotonic
+
+    @sent_notices_lock.synchronize do
+      @sent_notices.reject! { |notice| notice.expires <= now }
+      return false if @sent_notices.any? { |notice| notice.key == key }
+      @sent_notices << SentNotice.new(key, now + invite_memory)
+      true
+    end
   end
 
   # Collapses the burst of signals for one edit into a single buffered change.
