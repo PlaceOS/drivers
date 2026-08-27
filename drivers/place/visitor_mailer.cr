@@ -132,9 +132,8 @@ class Place::VisitorMailer < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
 
-  getter building_zone : ZoneDetails do
-    find_building(control_system_zone_list)
-  end
+  @building_zone : ZoneDetails? = nil
+  @building_zone_id : String? = nil
 
   getter parent_zone_ids : Array(String) = [] of String
   @booking_space_name : String = "Client Floor"
@@ -266,11 +265,30 @@ class Place::VisitorMailer < PlaceOS::Driver
     schedule.in(5.seconds) { ensure_building_zone(zones) }
   end
 
+  # Resolved through the zone cache on every use, so a building renamed in
+  # backoffice reaches the emails within `zone_cache_timeout` rather than
+  # surviving until the driver next reloads.
+  def building_zone : ZoneDetails
+    if zone_id = @building_zone_id
+      begin
+        return fetch_zone(zone_id)
+      rescue error
+        logger.warn(exception: error) { "error refreshing building zone #{zone_id}" }
+        # last known good, an email is better than no email
+        if known = @building_zone
+          return known
+        end
+      end
+    end
+    find_building(control_system_zone_list)
+  end
+
   protected def find_building(zones : Array(String)) : ZoneDetails
     zones.each do |zone_id|
       zone = fetch_zone(zone_id)
       if zone.tags.includes?(@invite_zone_tag)
         @building_zone = zone
+        @building_zone_id = zone.id
         if @is_parent_zone && (child_zones = Array(ZoneDetails).from_json(staff_api.zones(parent: zone_id).get_json))
           @parent_zone_ids = child_zones.map(&.id)
         else

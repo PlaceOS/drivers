@@ -126,7 +126,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
     self[:zone_lookups] = self[:zone_lookups].as_i + 1
     case id
     when "zone-building"
-      BUILDING_ZONE
+      # a spec can rename the building the way backoffice would
+      BUILDING_ZONE.merge({display_name: self[:building_display_name]?.try(&.as_s) || "Main Building"})
     when "zone-old-building"
       OLD_BUILDING_ZONE
     when "zone-room"
@@ -3307,4 +3308,39 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   evict_emails.should contain "visitor-a@external.com|booking_changed"
   # the one this edit added is not, despite the later unrelated invitation
   evict_emails.should_not contain "visitor-b@external.com|booking_changed"
+
+  # ------------------------------------------------------------------
+  # Test 63: a building renamed in backoffice reaches the emails
+  # ------------------------------------------------------------------
+  #
+  # The building zone was resolved once and memoised for the life of the driver,
+  # so a rename never reached an email until the driver was reloaded, and
+  # clear_zone_cache could not shift it either.
+
+  system(:StaffAPI)[:building_display_name] = "Renamed Building"
+  exec(:clear_zone_cache).get
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             11_i64,
+    booking_id:     900_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Renamed Building Visit",
+    event_summary:  "Renamed Building Visit",
+    event_starting: now + 115200,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-rename@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
+  system(:Mailer)[:last_args]["building_name"].should eq "Renamed Building"
+
+  # leave the mock as the rest of the suite expects it
+  system(:StaffAPI)[:building_display_name] = "Main Building"
+  exec(:clear_zone_cache).get
 end
