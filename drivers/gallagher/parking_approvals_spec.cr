@@ -524,15 +524,17 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   friday_cutoff = Time.local(friday_local.year, friday_local.month, friday_local.day, 13, 0, 0, location: tz)
   # the roll forward is decided on the Friday, before the weekend is added
   friday_cutoff = friday_cutoff.shift(days: 7) if friday_cutoff <= now_local
-  expected_end = friday_cutoff + 2.days
+  # the window stretches to the END of that Sunday (13:00 + 2d + 11h = Mon 00:00)
+  expected_end = friday_cutoff + 2.days + 11.hours
 
   period_end = staff.last_query_period_end.not_nil!
   period_end.should eq(expected_end.to_unix)
 
   cutoff = Time.unix(period_end).in(tz)
-  # two days on from Friday afternoon, so the whole weekend is allocated
-  cutoff.day_of_week.should eq(Time::DayOfWeek::Sunday)
-  (cutoff - friday_cutoff).should eq(2.days)
+  # the whole weekend is allocated, through to the stroke of Monday
+  cutoff.day_of_week.should eq(Time::DayOfWeek::Monday)
+  cutoff.hour.should eq(0)
+  (cutoff - friday_cutoff).should eq(2.days + 11.hours)
   # the window always ends in the future
   (cutoff > now_local).should eq(true)
   (cutoff > friday_cutoff).should eq(true)
@@ -5000,6 +5002,169 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # their overflow booking is left where it is rather than taking a second space
   staff.last_update_for(101013_i64).should be_nil
   staff.last_update_for(101014_i64).should be_nil
+
+  # ===========================================================
+  # Test 110: the notification ledger — every state email is sent at most once
+  # per booking no matter how the state machine flaps, while genuine changes
+  # (a displacement followed by a new allocation) still notify. The
+  # emails_sent counter tracks every send for monitoring.
+  # ===========================================================
+
+  t110_settings = {
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {"Open Basement" => "gallagher-group1"},
+    displacement_notification_hours: 0,
+    overflow_zone:                   "",
+  }
+  settings(t110_settings)
+  sleep 100.milliseconds
+
+  t110_start = now + 3600_i64 * 2000
+  t110_end = t110_start + 3600_i64
+
+  # --- approval flap ping-pong: each email once, ever ---
+  # staff-api resets `approved` when booking times are edited, so an
+  # after-hours booking can bounce between waiting_approval and wait_list —
+  # the production duplicate-email report.
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  # no car-compatible space, so an approved booking always wait-lists
+  staff.set_assets([bike_space.call("asset-t110bike")].to_json)
+
+  # sweep 1: not approved -> approval required email
+  staff.set_bookings([
+    build_booking.call(110001_i64, "after.hours@example.com", t110_start, t110_end, "unallocated-110001", false, ext_manual_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "approval_required").should eq(1)
+  staff.last_state(110001_i64).should eq("waiting_approval")
+
+  # sweep 2: admin approves, no space -> wait list email
+  staff.set_bookings([
+    build_booking.call(110001_i64, "after.hours@example.com", t110_start, t110_end, "unallocated-110001", true, ext_manual_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "wait_list").should eq(1)
+  staff.last_state(110001_i64).should eq("wait_list")
+
+  # sweep 3: a time edit reset the approval -> NO second approval email, the
+  # state just settles back to waiting_approval
+  staff.set_bookings([
+    build_booking.call(110001_i64, "after.hours@example.com", t110_start, t110_end, "unallocated-110001", false, ext_manual_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "approval_required").should eq(1)
+  staff.last_state(110001_i64).should eq("waiting_approval")
+
+  # sweep 4: re-approved, still no space -> NO second wait list email
+  staff.set_bookings([
+    build_booking.call(110001_i64, "after.hours@example.com", t110_start, t110_end, "unallocated-110001", true, ext_manual_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "wait_list").should eq(1)
+  staff.last_state(110001_i64).should eq("wait_list")
+
+  # exactly two emails ever sent for the booking, and the counter agrees
+  mailer.send_count.should eq(2)
+  staff.patched_ext_value(110001_i64, "emails_sent").try(&.as_i64).should eq(2)
+
+  # --- displacement churn: re-allocation after a displacement notice DOES
+  # notify again (even back onto the same bay), everything else is deduped ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-t110a")].to_json)
+
+  # run A: allocated + approved email
+  staff.set_bookings([
+    build_booking.call(110002_i64, "normal.user@example.com", t110_start, t110_end, "unallocated-110002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.last_update_for(110002_i64).should eq("asset-t110a")
+  mailer.times_sent("normal.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+
+  # run B: a higher priority booking preempts the space -> displaced email,
+  # and the approved:* ledger entry is cleared
+  staff.set_bookings([
+    build_booking.call(110002_i64, "normal.user@example.com", t110_start, t110_end, "asset-t110a", true, ext_car),
+    build_booking.call(110003_i64, "priority.user@example.com", t110_start, t110_end, "unallocated-110003", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.last_update_for(110003_i64).should eq("asset-t110a")
+  mailer.times_sent("priority.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+  mailer.times_sent("normal.user@example.com", "parking_request", "displaced").should eq(1)
+  staff.last_state(110002_i64).should eq("wait_list")
+  notified = staff.patched_ext_value(110002_i64, "parking_notified").try(&.as_a.map(&.as_s)) || [] of String
+  notified.any?(&.starts_with?("approved:")).should eq(false)
+
+  # run C: the preemptor cancels; re-allocation onto the SAME bay must email
+  # again — after the displacement notice the user believes they have no space
+  staff.set_bookings([
+    build_booking.call(110002_i64, "normal.user@example.com", t110_start, t110_end, "unallocated-displaced-110002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  staff.last_update_for(110002_i64).should eq("asset-t110a")
+  mailer.times_sent("normal.user@example.com", "parking_request", "approved_gallagher-group1").should eq(2)
+  # approved, displaced, approved again
+  staff.patched_ext_value(110002_i64, "emails_sent").try(&.as_i64).should eq(3)
+
+  # --- state regression on the same bay: settle the state, don't re-email ---
+  # simulates an earlier send whose booking_state write failed: the ledger says
+  # the email went out but process_state is stuck one step behind
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-t110b")].to_json)
+  ext_regressed = ext_car.merge({
+    "parking_notified" => JSON::Any.new([JSON::Any.new("approved:asset-t110b")]),
+    "emails_sent"      => JSON::Any.new(1_i64),
+  })
+  regressed = build_booking.call(110004_i64, "acrod.user@example.com", t110_start, t110_end, "asset-t110b", true, ext_regressed)
+  staff.set_bookings([regressed.merge({process_state: "access_granted"})].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.any_sent_to?("acrod.user@example.com").should eq(false)
+  staff.last_state(110004_i64).should eq("access_granted_emailed")
+
+  # --- a FAILED send leaves no ledger entry, so the retry still delivers ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([bike_space.call("asset-t110bike")].to_json)
+  staff.set_bookings([
+    build_booking.call(110005_i64, "over101@example.com", t110_start, t110_end, "unallocated-110005", false, ext_car),
+  ].to_json)
+
+  mailer.set_fail_send(true)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("over101@example.com", "parking_request", "wait_list").should eq(0)
+  staff.patched_ext_value(110005_i64, "emails_sent").should be_nil
+  staff.last_state(110005_i64).should be_nil
+
+  # at-least-once: the next sweep retries the send...
+  mailer.set_fail_send(false)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("over101@example.com", "parking_request", "wait_list").should eq(1)
+  staff.last_state(110005_i64).should eq("wait_list")
+
+  # ...and once delivered it is never repeated
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("over101@example.com", "parking_request", "wait_list").should eq(1)
+  staff.patched_ext_value(110005_i64, "emails_sent").try(&.as_i64).should eq(1)
 end
 
 # :nodoc:
@@ -5057,6 +5222,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @clash_updates = Set(String).new
     @update_calls = {} of Int64 => Int32
     @update_extension_data = {} of String => JSON::Any
+    @ext_patches = {} of String => Hash(String, JSON::Any)
     @fail_query = false
     @created_bookings = [] of JSON::Any
     @created_ids = {} of String => Int64
@@ -5220,19 +5386,24 @@ class StaffAPIMock < DriverSpecs::MockDriver
                JSON.parse(zones.compact_map { |zone| @zone_bookings[zone]? }.first? || "[]").as_a
              end
 
-    # overlay any persisted per-instance process_state, mirroring how the
-    # backend reflects booking_state writes on the next fetch
+    # overlay any persisted per-instance process_state and patched
+    # extension_data, mirroring how the backend reflects booking_state /
+    # booking_extension_data writes on the next fetch
     source = source.select { |b| b["user_email"]?.try(&.as_s?) == email } if email
     bookings = source.map do |booking|
       id = booking["id"].as_i64
       inst = booking["instance"]?.try(&.as_i64?)
-      if state = @states[state_key(id, inst)]?
-        hash = booking.as_h.dup
-        hash["process_state"] = JSON::Any.new(state)
-        JSON::Any.new(hash)
-      else
-        booking
+      state = @states[state_key(id, inst)]?
+      patches = @ext_patches[state_key(id, inst)]?
+      next booking unless state || patches
+      hash = booking.as_h.dup
+      hash["process_state"] = JSON::Any.new(state) if state
+      if patches
+        ext = hash["extension_data"]?.try(&.as_h?).try(&.dup) || {} of String => JSON::Any
+        patches.each { |patch_key, value| ext[patch_key] = value }
+        hash["extension_data"] = JSON::Any.new(ext)
       end
+      JSON::Any.new(hash)
     end
     JSON::Any.new(bookings)
   end
@@ -5354,6 +5525,22 @@ class StaffAPIMock < DriverSpecs::MockDriver
   def booking_state(booking_id : String | Int64, state : String, instance : Int64? = nil)
     @states[state_key(booking_id.to_s.to_i64, instance)] = state
     true
+  end
+
+  # extension_data merged via booking_extension_data (the notification ledger /
+  # email counter), keyed "id:instance" and mirrored into query_bookings
+  # re-fetches like @states
+  @ext_patches : Hash(String, Hash(String, JSON::Any)) = {} of String => Hash(String, JSON::Any)
+
+  def booking_extension_data(booking_id : String | Int64, extension_data : Hash(String, JSON::Any), instance : Int64? = nil, signal_changes : Bool = false)
+    bucket = @ext_patches[state_key(booking_id.to_s.to_i64, instance)] ||= {} of String => JSON::Any
+    extension_data.each { |key, value| bucket[key] = value }
+    true
+  end
+
+  # a value written via booking_extension_data, nil if never patched
+  def patched_ext_value(booking_id : Int64, key : String, instance : Int64? = nil) : JSON::Any?
+    @ext_patches[state_key(booking_id, instance)]?.try(&.[key]?)
   end
 end
 
