@@ -57,24 +57,21 @@ same change.
 
 ## Time zone
 
-Every email renders its times in the time zone the visit is held in, chosen in this
-order:
+Every email renders its times in the time zone of the building the visit is in, taken
+from the building zone's `timezone`. A zone without one falls back to the driver's
+`timezone` setting.
 
-1. a `timezone` field on the signal itself (bookings carry one, calendar events carry
-   theirs in the nested event),
-2. the time zone of the building the visit is in, taken from its zone,
-3. the `timezone` setting, as a deployment default.
-
-This matters because the setting is often left at `"GMT"`, which would otherwise
-announce a 3pm meeting as 5am. The `previous_event_date` / `previous_event_time`
-fields are rendered in the same zone, so both halves of a change email read
-consistently.
+The timezone recorded on a booking or event is deliberately not consulted: a booking
+carries the zone of whoever last edited it (the browser's) unless the front end is set
+to use the building's zone, so it does not reliably answer where the visit is held.
 
 ```yaml
-  # %l:%M%p renders 15:00 as " 3:00pm"; %-H:%M renders it as "15:00"
-  time_format:        "%l:%M%p"
-  date_format:        "%A, %-d %B"
+  # the deployment default where a zone has no timezone
+  timezone: "GMT"
 ```
+
+The `previous_event_date` / `previous_event_time` fields are rendered in the same zone,
+so both halves of a change email read consistently.
 
 ## Building name
 

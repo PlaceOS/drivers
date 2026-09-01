@@ -3656,12 +3656,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   group_event_emails.should contain "visitor-b@external.com|booking_changed"
 
   # ==================================================================
-  # Times render in the time zone the visit is held in
+  # Times render in the time zone of the building the visit is in
   # ==================================================================
   #
-  # The driver's own timezone setting is a deployment default that is often
-  # left at "GMT", so the signal's timezone (or the building zone's) has to
-  # take precedence, or a 3pm meeting in Sydney reads as 5am.
+  # The driver's timezone setting is a deployment default (often left at
+  # "GMT"), and the timezone a booking signals can be the editing browser's
+  # zone, so the building zone has the final say, then the setting.
 
   settings({
     timezone:           "GMT",
@@ -3676,8 +3676,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sydney = Time::Location.load("Australia/Sydney")
 
   # ------------------------------------------------------------------
-  # Test 69: the booking's timezone field sets the rendered time
+  # Test 69: the building's zone beats a timezone a booking carries
   # ------------------------------------------------------------------
+  #
+  # A booking's timezone field records whoever edited it (browser zone) unless
+  # the front end is set to use the building's, so it must not override where
+  # the visit actually is.
 
   publish("staff/booking/changed", {
     action:                 "changed",
@@ -3685,15 +3689,15 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     booking_type:           "visitor",
     booking_start:          now + 25200,
     booking_end:            now + 28800,
-    timezone:               "Australia/Sydney",
+    timezone:               "Europe/London",
     resource_id:            "visitor@external.com",
     resource_ids:           ["visitor@external.com"],
     user_email:             "host-sydney@example.com",
     title:                  "Sydney Time",
-    zones:                  ["zone-building", "zone-room"],
+    zones:                  ["zone-building2", "zone-room"],
     previous_booking_start: now + 21600,
     previous_booking_end:   now + 25200,
-    timezone_override:      nil,
+    previous_zones:         ["zone-building2", "zone-room"],
   }.to_json)
 
   sleep 1.5
@@ -3761,6 +3765,6 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # the building, not the campus it sits in
   level_args["building_name"].should eq "Main Building"
   level_args["previous_building_name"].should eq "Previous Building"
-  # a payload timezone is still honoured over the building zone's
+  # the zone carries no timezone, so the driver's setting applies
   level_args["event_time"].should eq Time.unix(now + 25200).in(Time::Location.load("GMT")).to_s("%l:%M%p")
 end

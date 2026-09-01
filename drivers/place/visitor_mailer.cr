@@ -402,11 +402,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     nil
   end
 
-  # The calendar event's own time zone, as signalled in the nested event.
-  private def event_timezone(details : EventChanged) : String?
-    details.event.try &.timezone
-  end
-
   # The system's zone list, used to locate the building a room belongs to.
   protected def resolve_system_zones(system_id : String) : Array(String)?
     get_room_details(system_id).zones
@@ -415,16 +410,15 @@ class Place::VisitorMailer < PlaceOS::Driver
     nil
   end
 
-  # Renders in the time zone the visit is held in: a `timezone` field on the
-  # signal, else the visit's building zone's timezone, else the setting (a
-  # deployment default of "GMT" otherwise swamps where the visit actually is).
-  private def visit_time_zone(signal_timezone : String?, zones : Array(String)? = nil) : Time::Location
-    candidate = signal_timezone.presence ||
-                zone_with_timezone(zones).try(&.timezone.presence) ||
-                @time_zone.name
+  # Renders in the time zone of the building the visit is in, falling back to
+  # the driver's timezone setting. The timezone a signal carries is ignored: a
+  # booking records the editing browser's zone unless the front end is set to
+  # use the building's, so it is not a reliable answer for where the visit is.
+  private def visit_time_zone(zones : Array(String)?) : Time::Location
+    candidate = zone_with_timezone(zones).try(&.timezone.presence) || @time_zone.name
     Time::Location.load(candidate)
   rescue error
-    logger.warn(exception: error) { "error loading time zone #{signal_timezone}" }
+    logger.warn(exception: error) { "error loading time zone" }
     @time_zone
   end
 
@@ -477,7 +471,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.event_title || guest_details.event_summary,
         guest_details.event_starting,
         building_name_for(guest_details.zones),
-        visit_time_zone(nil, guest_details.zones)
+        visit_time_zone(guest_details.zones)
       )
       self[:users_checked_in] = @users_checked_in += 1
       return
@@ -492,7 +486,7 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.event_starting,
           guest_details.induction,
           building_name_for(guest_details.zones),
-          visit_time_zone(nil, guest_details.zones)
+          visit_time_zone(guest_details.zones)
         )
         self[:users_accepted_induction] = @users_accepted_induction += 1
       elsif guest_details.induction.declined?
@@ -505,7 +499,7 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.event_starting,
           guest_details.induction,
           building_name_for(guest_details.zones),
-          visit_time_zone(nil, guest_details.zones)
+          visit_time_zone(guest_details.zones)
         )
         self[:users_declined_induction] = @users_declined_induction += 1
       end
@@ -557,7 +551,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         area_name,
         system_id: guest_details.responds_to?(:system_id) ? guest_details.system_id : nil,
         building_name: building_name_for(guest_details.zones),
-        time_zone: visit_time_zone(nil, guest_details.zones),
+        time_zone: visit_time_zone(guest_details.zones),
       )
     rescue error
       # tracked apart from error_count to pinpoint a missing invite
@@ -665,7 +659,6 @@ class Place::VisitorMailer < PlaceOS::Driver
       details.event_title || details.event_summary,
       details.event_starting,
       building_name_for(details.zones),
-      details.timezone,
       details.zones,
     )
   rescue error
@@ -687,7 +680,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_title : String?,
     event_start : Int64?,
     building_name : String,
-    signal_timezone : String? = nil,
     zones : Array(String)? = nil,
   ) : Nil
     key = {
@@ -708,7 +700,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         event_title,
         event_start,
         building_name,
-        visit_time_zone(signal_timezone, zones),
+        visit_time_zone(zones),
       )
     rescue error
       # a repeat signal is the only retry there is
@@ -915,7 +907,6 @@ class Place::VisitorMailer < PlaceOS::Driver
       details.resource_id, details.booking_start, details.booking_end,
       details.previous_booking_start, details.previous_booking_end,
       details.zones, details.previous_zones,
-      details.timezone,
     )
     @change_debounce > 0 ? buffer_change(change) : dispatch_booking_change(change)
   rescue error
@@ -964,7 +955,6 @@ class Place::VisitorMailer < PlaceOS::Driver
         details.title,
         event_start,
         building_name_for(details.zones),
-        event_timezone(details),
         details.zones,
       )
     end
@@ -997,7 +987,6 @@ class Place::VisitorMailer < PlaceOS::Driver
       details.event_id, details.system_id, details.event_ical_uid,
       host, details.title, event_start, event_end,
       details.previous_event_start, details.previous_event_end, details.previous_system_id,
-      event_timezone(details),
     )
     @change_debounce > 0 ? buffer_change(change) : dispatch_event_change(change)
   rescue error
@@ -1236,7 +1225,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       building_name,
       event_id: change.booking_id.to_s,
       resource_id: change.resource_id,
-      time_zone: visit_time_zone(change.timezone, change.zones),
+      time_zone: visit_time_zone(change.zones),
     )
   end
 
@@ -1281,7 +1270,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_id: change.event_id,
       resource_id: system_id,
       system_id: system_id,
-      time_zone: visit_time_zone(change.timezone, resolve_system_zones(system_id)),
+      time_zone: visit_time_zone(resolve_system_zones(system_id)),
     )
   end
 
@@ -1564,7 +1553,7 @@ class Place::VisitorMailer < PlaceOS::Driver
             event["id"].as_s,
             (event.dig?("system", "display_name") || event.dig("system", "name")).as_s,
             event_end: event["event_end"].as_i64,
-            time_zone: visit_time_zone(event["timezone"]?.try(&.as_s?), event_zones)
+            time_zone: visit_time_zone(event_zones)
           )
         elsif booking = guest["booking"]?
           send_visitor_qr_email(
@@ -1578,7 +1567,7 @@ class Place::VisitorMailer < PlaceOS::Driver
             booking["id"].as_i64.to_s,
             @booking_space_name,
             event_end: booking["booking_end"].as_i64,
-            time_zone: visit_time_zone(booking["timezone"]?.try(&.as_s?))
+            time_zone: visit_time_zone(nil)
           )
         end
       rescue error
@@ -1672,7 +1661,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     property system_id : String # the room the event sits in
     property event_ical_uid : String?
     property previous_system_id : String? # the room before the edit
-    property timezone : String?           # the event's own time zone
 
     def initialize(
       @event_id,
@@ -1685,7 +1673,6 @@ class Place::VisitorMailer < PlaceOS::Driver
       previous_start,
       previous_end,
       @previous_system_id,
-      @timezone = nil,
     )
       super(host, title, current_start, current_end, previous_start, previous_end)
       # ical_uid identifies the event instance across mailbox copies and rooms;
@@ -1714,7 +1701,6 @@ class Place::VisitorMailer < PlaceOS::Driver
         @previous_system_id ||= change.previous_system_id
       end
       @event_ical_uid = change.event_ical_uid || @event_ical_uid
-      @timezone = change.timezone || @timezone
     end
   end
 
@@ -1725,7 +1711,6 @@ class Place::VisitorMailer < PlaceOS::Driver
     property resource_id : String
     property zones : Array(String)?
     property previous_zones : Array(String)?
-    property timezone : String?
 
     def initialize(
       @booking_id,
@@ -1739,7 +1724,6 @@ class Place::VisitorMailer < PlaceOS::Driver
       previous_end,
       @zones,
       @previous_zones,
-      @timezone = nil,
     )
       super(host, title, current_start, current_end, previous_start, previous_end)
       @buffer_key = "booking\t#{@booking_id}"
@@ -1764,7 +1748,6 @@ class Place::VisitorMailer < PlaceOS::Driver
         @zones = change.zones
         @previous_zones ||= change.previous_zones
       end
-      @timezone = change.timezone || @timezone
     end
   end
 
