@@ -55,11 +55,35 @@ Regardless of the window, the same visitor is never told the same thing twice: o
 of a group booking saves the group and every booking beneath it, each signalling the
 same change.
 
+## Time zone
+
+Every email renders its times in the time zone the visit is held in, chosen in this
+order:
+
+1. a `timezone` field on the signal itself (bookings carry one, calendar events carry
+   theirs in the nested event),
+2. the time zone of the building the visit is in, taken from its zone,
+3. the `timezone` setting, as a deployment default.
+
+This matters because the setting is often left at `"GMT"`, which would otherwise
+announce a 3pm meeting as 5am. The `previous_event_date` / `previous_event_time`
+fields are rendered in the same zone, so both halves of a change email read
+consistently.
+
+```yaml
+  # %l:%M%p renders 15:00 as " 3:00pm"; %-H:%M renders it as "15:00"
+  time_format:        "%l:%M%p"
+  date_format:        "%A, %-d %B"
+```
+
 ## Building name
 
 Emails name the building the visit is in, taken from the zones on the signal, so a
 driver covering a campus names the building the visitor is expected at rather than the
 campus itself. Where a visit names no building, the system's own building zone is used.
+
+An org or campus zone that is itself tagged as a building does not shadow the building
+it contains: the tagged zone the others sit beneath is the one named.
 
 ```yaml
   # the zone tag identifying a building
