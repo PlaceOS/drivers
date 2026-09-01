@@ -99,6 +99,17 @@ class StaffAPIMock < DriverSpecs::MockDriver
     location:     "",
     tags:         ["building"],
     parent_id:    "zone-building",
+    timezone:     "Australia/Sydney",
+  }
+
+  # a campus zone, which some deployments also tag as a building
+  CAMPUS_ZONE = {
+    id:           "zone-campus",
+    name:         "Campus",
+    display_name: "PlaceOS Sydney Dev",
+    location:     "",
+    tags:         ["building"],
+    parent_id:    "zone-org",
   }
 
   ROOM_ZONE = {
@@ -142,6 +153,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
       OLD_BUILDING_ZONE
     when "zone-building2"
       SECOND_BUILDING_ZONE
+    when "zone-campus"
+      CAMPUS_ZONE
     when "zone-room"
       ROOM_ZONE
     when "zone-old-room"
@@ -3641,4 +3654,113 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   group_event_emails = system(:Mailer)[:emails_sent].as_a[sent_before_group_event..].map(&.as_s)
   group_event_emails.should contain "visitor-a@external.com|booking_changed"
   group_event_emails.should contain "visitor-b@external.com|booking_changed"
+
+  # ==================================================================
+  # Times render in the time zone the visit is held in
+  # ==================================================================
+  #
+  # The driver's own timezone setting is a deployment default that is often
+  # left at "GMT", so the signal's timezone (or the building zone's) has to
+  # take precedence, or a 3pm meeting in Sydney reads as 5am.
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    is_campus:          true,
+    change_debounce:    0,
+    domain_uri:         "https://example.com/",
+  })
+  sleep 1.5
+
+  sydney = Time::Location.load("Australia/Sydney")
+
+  # ------------------------------------------------------------------
+  # Test 69: the booking's timezone field sets the rendered time
+  # ------------------------------------------------------------------
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     330_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 25200,
+    booking_end:            now + 28800,
+    timezone:               "Australia/Sydney",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-sydney@example.com",
+    title:                  "Sydney Time",
+    zones:                  ["zone-building", "zone-room"],
+    previous_booking_start: now + 21600,
+    previous_booking_end:   now + 25200,
+    timezone_override:      nil,
+  }.to_json)
+
+  sleep 1.5
+
+  sydney_args = system(:Mailer)[:last_args]
+  sydney_args["event_title"].should eq "Sydney Time"
+  sydney_args["event_time"].should eq Time.unix(now + 25200).in(sydney).to_s("%l:%M%p")
+  sydney_args["previous_event_time"].should eq Time.unix(now + 21600).in(sydney).to_s("%l:%M%p")
+
+  # ------------------------------------------------------------------
+  # Test 70: otherwise the time zone of the building the visit is in
+  # ------------------------------------------------------------------
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             12_i64,
+    booking_id:     340_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Sydney Building Time",
+    event_summary:  "Sydney Building Time",
+    event_starting: now + 25200,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-sydney2@example.com",
+    zones:          ["zone-building2", "zone-room"],
+  }.to_json)
+
+  sleep 1.5
+
+  building_time_args = system(:Mailer)[:last_args]
+  building_time_args["building_name"].should eq "Second Building"
+  building_time_args["event_time"].should eq Time.unix(now + 25200).in(sydney).to_s("%l:%M%p")
+
+  # ------------------------------------------------------------------
+  # Test 71: a campus zone that is also tagged as a building does not
+  #          shadow the building itself
+  # ------------------------------------------------------------------
+  #
+  # The zones a visit reports read [org, campus, building], and a campus tagged
+  # as a building used to win over the building it contains, so both the
+  # previous and new details showed the campus name after a building changed.
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     350_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 25200,
+    booking_end:            now + 28800,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-level@example.com",
+    title:                  "Campus Shadow",
+    zones:                  ["zone-campus", "zone-building", "zone-room"],
+    previous_booking_start: now + 21600,
+    previous_booking_end:   now + 25200,
+    previous_zones:         ["zone-campus", "zone-old-building", "zone-old-room"],
+  }.to_json)
+
+  sleep 1.5
+
+  level_args = system(:Mailer)[:last_args]
+  level_args["event_title"].should eq "Campus Shadow"
+  # the building, not the campus it sits in
+  level_args["building_name"].should eq "Main Building"
+  level_args["previous_building_name"].should eq "Previous Building"
+  # a payload timezone is still honoured over the building zone's
+  level_args["event_time"].should eq Time.unix(now + 25200).in(Time::Location.load("GMT")).to_s("%l:%M%p")
 end

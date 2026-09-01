@@ -98,6 +98,7 @@ module Place
     property previous_host_email : String
     property new_host_email : String
     property zones : Array(String)?
+    property timezone : String?
 
     def event_id
       booking_id.to_s
@@ -150,11 +151,21 @@ module Place
     property event_start : Int64?
     property event_end : Int64?
     property zones : Array(String)?
+    # the calendar event as the provider sees it; only its timezone is read
+    property event : PlaceCalendarEvent?
 
     # Previous values — only present when action is "update" and the meta was persisted.
     property previous_event_start : Int64?
     property previous_event_end : Int64?
     property previous_system_id : String?
     property previous_host_email : String?
+  end
+
+  # Mimics PlaceCalendar::Event so an event_changed payload can be parsed.
+  # Only the fields below exist, and everything else is ignored by JSON.
+  class PlaceCalendarEvent
+    include JSON::Serializable
+
+    property timezone : String?
   end
 end
