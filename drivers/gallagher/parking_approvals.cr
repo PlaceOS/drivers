@@ -519,6 +519,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
       handle_cancellation(event) if in_building
       spawn { process_parking_bookings }
     when "create", "approved", "rejected", "changed"
+      # A concierge can approve a booking AND assign it a space directly. When
+      # that booking starts beyond the allocation window the sweep won't see
+      # it until the window rolls forward (possibly weeks), so the approval
+      # email is sent from the event. In-window bookings are left to the
+      # sweep's first pass, triggered below.
+      notify_manual_allocation(event) if in_building
       # Re-run auto allocation. The full sweep handles approvals,
       # cleanup of cancelled bookings, and waitlist preemption.
       spawn { process_parking_bookings }
@@ -559,6 +565,43 @@ class Place::Parking::Approvals < PlaceOS::Driver
     update_state(booking, "cancelled_emailed")
   rescue error
     logger.warn(exception: error) { "failed to send cancellation email for booking #{booking.id}" }
+  end
+
+  # A concierge manually allocated a space (booking approved + a real asset
+  # assigned in the booking UI) for a date beyond the allocation window: no
+  # sweep will fetch the booking until the window rolls forward to include it,
+  # so the regular approved email is sent from the change event instead. The
+  # Gallagher access grant stays with the sweep — it is applied once the
+  # booking enters the window, like every other allocation. Bookings inside
+  # the window are skipped here: the sweep this same event triggers handles
+  # them (approval, email AND access) via handle_allocated_booking. Repeat
+  # events carry the persisted process_state / notification ledger, so the
+  # guards in approved_email keep this to a single email.
+  protected def notify_manual_allocation(booking : Booking) : Nil
+    return unless booking.approved
+    return if booking.rejected || booking.deleted
+    return if booking.process_state == "access_granted_emailed"
+
+    asset_id = booking.asset_ids.first?
+    return if asset_id.nil? || asset_id.starts_with?("unallocated")
+
+    # the sweep owns everything inside the allocation window
+    return if booking.booking_start < next_allocation_cutoff.to_unix
+
+    space = parking_spaces.find { |s| s.id == asset_id }
+    if space.nil?
+      logger.warn { "manually allocated booking #{booking.id} references unknown parking space #{asset_id}" }
+      return
+    end
+
+    logger.debug { "approval email for manually allocated booking #{booking.id} (#{booking.user_email}) on space #{space.id}, outside the allocation window" }
+
+    # same ordering as handle_allocated_booking: persist access_granted first
+    # so a failed send is retried (email-only) when the booking is next seen
+    update_state(booking, "access_granted") unless booking.process_state == "access_granted"
+    approved_email(booking, space)
+  rescue error
+    logger.warn(exception: error) { "failed to process manually allocated booking #{booking.id}" }
   end
 
   # ===================================

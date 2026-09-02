@@ -5165,6 +5165,119 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 100.milliseconds
   mailer.times_sent("over101@example.com", "parking_request", "wait_list").should eq(1)
   staff.patched_ext_value(110005_i64, "emails_sent").try(&.as_i64).should eq(1)
+
+  # ===========================================================
+  # Test 111: concierge manual allocation — an operator approves a manual-
+  # approval booking AND assigns it a free space directly, so the booking
+  # arrives at the sweep already allocated + approved. The regular "approved"
+  # email must still go out (with access granted), exactly once.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-t111a")].to_json)
+
+  t111_start = now + 3600_i64 * 3000
+  t111_end = t111_start + 3600_i64
+
+  # sweep 1: after-hours booking awaiting approval -> approval required email
+  staff.set_bookings([
+    build_booking.call(111001_i64, "after.hours@example.com", t111_start, t111_end, "unallocated-111001", false, ext_manual_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "approval_required").should eq(1)
+  staff.last_state(111001_i64).should eq("waiting_approval")
+
+  # sweep 2: the concierge approved the booking AND manually assigned the
+  # space in one action — the booking arrives allocated + approved
+  staff.set_bookings([
+    build_booking.call(111001_i64, "after.hours@example.com", t111_start, t111_end, "asset-t111a", true, ext_manual_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+  staff.last_state(111001_i64).should eq("access_granted_emailed")
+  gallagher.access_for("ch-afterhours").should contain("gallagher-group1")
+
+  # sweep 3: no repeat email
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+
+  # a manual allocation the driver has never seen before (concierge created
+  # the booking pre-allocated + approved, no prior process_state) emails too
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-t111b")].to_json)
+  staff.set_bookings([
+    build_booking.call(111002_i64, "normal.user@example.com", t111_start, t111_end, "asset-t111b", true, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+  mailer.times_sent("normal.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+  staff.last_state(111002_i64).should eq("access_granted_emailed")
+
+  # --- a manual allocation BEYOND the allocation window: the sweep never
+  # fetches the booking, so the approved email must come from the change
+  # event itself ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-t111c")].to_json)
+  # nothing in the sweep window — the event is the only source of the email
+  staff.set_bookings("[]")
+
+  t111_far_start = now + 3600_i64 * 24 * 30
+  manual_event = ->(state : String?) do
+    {
+      action:          "approved",
+      id:              111003_i64,
+      booking_type:    "parking",
+      booking_start:   t111_far_start,
+      booking_end:     t111_far_start + 3600_i64,
+      asset_id:        "asset-t111c",
+      asset_ids:       ["asset-t111c"],
+      user_id:         "user-111003",
+      user_email:      "after.hours@example.com",
+      user_name:       "After Hours",
+      booked_by_email: "concierge@example.com",
+      booked_by_name:  "Concierge",
+      zones:           ["zone-building"],
+      created:         now,
+      last_changed:    now,
+      approved:        true,
+      rejected:        false,
+      deleted:         false,
+      process_state:   state,
+      extension_data:  ext_manual_car,
+    }
+  end
+
+  publish("staff/booking/changed", manual_event.call(nil).to_json)
+  sleep 200.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+  staff.last_state(111003_i64).should eq("access_granted_emailed")
+
+  # a repeat event (carrying the now-persisted state) does not re-send
+  publish("staff/booking/changed", manual_event.call("access_granted_emailed").to_json)
+  sleep 200.milliseconds
+  mailer.times_sent("after.hours@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+
+  # --- an IN-window manual allocation event is left to the sweep the event
+  # triggers: exactly one email between the two paths ---
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets([car_space.call("asset-t111d")].to_json)
+  in_window = build_booking.call(111004_i64, "normal.user@example.com", now + 3600_i64, now + 7200_i64, "asset-t111d", true, ext_car)
+  staff.set_bookings([in_window].to_json)
+  publish("staff/booking/changed", in_window.merge({action: "approved"}).to_json)
+  sleep 300.milliseconds
+  mailer.times_sent("normal.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+  staff.last_state(111004_i64).should eq("access_granted_emailed")
 end
 
 # :nodoc:
