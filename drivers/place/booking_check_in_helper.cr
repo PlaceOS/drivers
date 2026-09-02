@@ -159,6 +159,8 @@ STRING
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+
+    self[:occupancy_sensor_ignored] = @disabled
   end
 
   def ignore_long_meeting? : Bool

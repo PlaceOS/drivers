@@ -105,6 +105,8 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     if @bacnet_system_id && !@desk_ids.empty?
       @desk_timer = schedule.every(1.minute + rand(10_000).milliseconds) { check_desk_usage }
     end
+
+    self[:occupancy_sensor_ignored] = @vav_disable_sensor
   end
 
   struct Zone
