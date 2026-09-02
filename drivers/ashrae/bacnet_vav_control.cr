@@ -37,6 +37,10 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     vav_sensor_delay_sec: 2 * 60,
     vav_disable_sensor:   false,
 
+    # set at the system level if occupancy is not working
+    occupancy_sensor_failed: false,
+    room_in_use_on_failure:  false,
+
     # enum values
     # Occupied = 1
     # Off = 2
@@ -62,6 +66,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
   getter? desk_checked_in : Bool = false
 
   @vav_disable_sensor : Bool = false
+  @room_in_use_on_failure : Bool = false
   @vav_sensor_delay_sec : Time::Span = 2.minutes
   @vav_off_delay_sec : Time::Span = 5.minutes
   @vav_write_priority : Int32 = 14
@@ -86,7 +91,8 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     @bacnet_system_id = setting?(String, :bacnet_system_id)
     @bacnet_module = setting?(String, :bacnet_module) || "BACnet_1"
 
-    @vav_disable_sensor = setting?(Bool, :vav_disable_sensor) || false
+    @vav_disable_sensor = setting?(Bool, :vav_disable_sensor) || setting?(Bool, :occupancy_sensor_failed) || false
+    @room_in_use_on_failure = setting?(Bool, :room_in_use_on_failure) || false
     @vav_sensor_delay_sec = (setting?(Int32, :vav_sensor_delay_sec) || (2 * 60)).seconds
     @vav_off_delay_sec = (setting?(Int32, :vav_off_delay_sec) || (5 * 60)).seconds
     @vav_write_priority = setting?(Int32, :vav_write_priority) || 14
@@ -214,7 +220,7 @@ class Ashrae::BACnetVAVControl < PlaceOS::Driver
     return apply_vav_state(true) if room_booked? || desk_checked_in?
 
     if @vav_disable_sensor
-      room_in_use = false
+      room_in_use = @room_in_use_on_failure
     else
       # we default to true if the sensor has failed
       room_in_use = sensor_active? ? presence? : true
