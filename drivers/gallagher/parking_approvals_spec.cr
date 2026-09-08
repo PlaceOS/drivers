@@ -3799,7 +3799,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # Test 84: a PERSISTENT directory failure (all retries exhausted) must not
   # poison the priority cache. Sweep 1: every group lookup for a top-priority
   # user fails, so they resolve to nil -> treated as priority 0 for that run and
-  # a default user (created earlier) takes the only space. Sweep 2: the directory
+  # a default user (luckier lottery draw) takes the only space. Sweep 2: the directory
   # has recovered — the lookup must be RETRIED (nil is never cached) so the
   # user's true group priority is seen and they preempt the lower-priority
   # occupant.
@@ -3845,8 +3845,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
 
   pr_start = now + 3600_i64 * 360
   pr_end = pr_start + 3600_i64
-  # plowly's booking was created EARLIER (lower id => earlier created), so it
-  # wins the created_at tiebreak while pexec is wrongly at priority 0
+  # plowly's booking (86001) draws the LUCKIER lottery key — the draw is
+  # seeded from the booking id, so this is stable — winning the tie while
+  # pexec is wrongly at priority 0
   staff.set_bookings([
     build_booking.call(86001_i64, "plowly.user@example.com",
       pr_start, pr_end, "unallocated-86001", false, ext_car),
@@ -3889,7 +3890,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
   # Test 85: a TRANSIENT directory blip recovers WITHIN the sweep — the lookup
   # is retried and succeeds, so the top-group user keeps their true priority and
-  # wins the space over an earlier-created default user in the SAME run (no
+  # wins the space over a default user in the SAME run (no
   # displacement round-trip needed).
   # ===========================================================
 
@@ -4138,7 +4139,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   bz_start = now + 3600_i64 * 480
   bz_end = bz_start + 3600_i64
   staff.set_bookings([
-    # 90301 is created earlier (lower id) so it wins the only EV space
+    # 90301 draws the luckier lottery key so it wins the only EV space
     build_booking.call(90301_i64, "ev.first@example.com",
       bz_start, bz_end, "unallocated-90301", false, ev_ext),
     build_booking.call(90302_i64, "ev.second@example.com",
@@ -4686,8 +4687,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # ===========================================================
   # Test 100: tall vehicles get first pick of the scarce tall spaces. Within a
   # priority group a booking requesting the TALLEST height class is allocated
-  # ahead of same-priority bookings that were created earlier — nothing shorter
-  # accommodates it, while every other request has spaces to fall back to.
+  # ahead of same-priority bookings regardless of their lottery draw — nothing
+  # shorter accommodates it, while every other request has spaces to fall back to.
   # This is QUEUE ORDER ONLY: a tall request must never displace someone on the
   # same priority who already holds a space.
   # ===========================================================
@@ -4737,8 +4738,8 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   gallagher.reset
   # the ONLY space is a tall one, so both bookings are competing for it
   staff.set_assets([height_space.call("asset-t100", "Max height 2.3m")].to_json)
-  # build_booking derives `created` from the id, so the shorter request (the
-  # lower id) was created first and would win on age alone
+  # the shorter request (100001) draws the luckier lottery key and would win
+  # the tiebreak alone
   staff.set_bookings([
     build_booking.call(100001_i64, "short100@example.com", t100_start, t100_end, "unallocated-100001", false, ext_car),
     build_booking.call(100002_i64, "tall100@example.com", t100_start, t100_end, "unallocated-100002", false, ext_h230),

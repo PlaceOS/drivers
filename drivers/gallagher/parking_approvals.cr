@@ -731,10 +731,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # (@user_priority_cache, flushed daily / on config change).
   #
   # Sort: priority desc, then requests for the tallest height class (nothing
-  # shorter fits them and those spaces are scarce), then created asc (older
-  # first). NOTE:: this only orders the queue — it is NOT part of the priority
-  # used to displace, so a tall request arriving later can't preempt someone on
-  # the same priority who already holds a space (see the strict `<` in the
+  # shorter fits them and those spaces are scarce), then a random lottery key
+  # (so creation order doesn't decide ties within a priority group). NOTE::
+  # this only orders the queue — it is NOT part of the priority used to
+  # displace, so a booking with a luckier key can't preempt someone on the
+  # same priority who already holds a space (see the strict `<` in the
   # preemption candidate filter).
   protected def prioritise_bookings(bookings : Array(Booking)) : Array(Tuple(Booking, Int32))
     booking_meta = bookings.map do |booking|
@@ -742,9 +743,22 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {booking, priority}
     end
 
+    # we want to randomize selection within priority groups
     booking_meta.sort_by! do |(booking, priority)|
-      {-priority, tallest_height_request?(booking) ? 0 : 1, booking.created || 0_i64}
+      {-priority, tallest_height_request?(booking) ? 0 : 1, allocation_lottery_key(booking)}
     end
+  end
+
+  # A booking's random lottery key, deciding ties within a priority group.
+  # Seeded from the booking id (not one shared random sequence indexed by list
+  # position) so the key is a property of the booking: it doesn't reshuffle
+  # when other bookings enter or leave the fetch, the queue order is stable
+  # between sweeps, and a user can't influence their draw by booking early —
+  # which is the point of the lottery. A recurring series draws once
+  # (instances share the id, so the whole week wins or waits consistently for
+  # that user).
+  protected def allocation_lottery_key(booking : Booking) : Int64
+    Random.new(booking.id.to_u64!).rand(Int64::MAX)
   end
 
   protected def run_allocation
