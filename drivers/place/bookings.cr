@@ -90,6 +90,9 @@ class Place::Bookings < PlaceOS::Driver
   @sensor_mac : String? = nil
   @room_capacity : Int32 = 0
 
+  @hide_meeting_details : Bool = false
+  @hide_meeting_title : Bool = false
+
   def on_update
     schedule.clear
     @calendar_id = (setting?(String, :calendar_id).presence || system.email.not_nil!).downcase
@@ -169,8 +172,8 @@ class Place::Bookings < PlaceOS::Driver
     self[:control_ui] = setting?(String, :control_ui)
     self[:catering_ui] = setting?(String, :catering_ui)
     self[:room_image] = setting?(String, :room_image) || control_sys.images.try(&.first?)
-    self[:hide_meeting_details] = setting?(Bool, :hide_meeting_details) || false
-    self[:hide_meeting_title] = setting?(Bool, :hide_meeting_title) || false
+    @hide_meeting_details = setting?(Bool, :hide_meeting_details) || false
+    @hide_meeting_title = setting?(Bool, :hide_meeting_title) || false
 
     self[:offline_color] = setting?(String, :offline_color)
     self[:offline_image] = setting?(String, :offline_image)
@@ -333,12 +336,13 @@ class Place::Bookings < PlaceOS::Driver
         if visibility == "private"
           evt["title"] = JSON::Any.new("Private")
           evt["host"] = JSON::Any.new("Private")
-        elsif visibility == "personal"
+        elsif visibility == "personal" || @hide_meeting_title
           evt["title"] = evt["host"]
         elsif visibility == "confidential"
           evt["title"] = JSON::Any.new("Confidential")
           evt["host"] = JSON::Any.new("Confidential")
         end
+        evt["body"] = JSON::Any.new("") if @hide_meeting_details
         evt["system_id"] = system_id
 
         if evt["status"]?.try(&.as_s?) == "tentative"
