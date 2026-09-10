@@ -109,6 +109,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {id: 7, name: "Max height 2.3m"},
     ],
 
+    # Optional address to blind-copy on every parking notification. Leave blank to disable.
+    email_bcc: "",
+
     date_time_format: "%c",
     time_format:      "%l:%M%p",
     date_format:      "%A, %-d %B",
@@ -273,6 +276,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     empty
   end
 
+  @email_bcc : Array(String) = [] of String
+
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
@@ -342,6 +347,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
       .select { |(_id, name)| name.starts_with?("Max") || name.starts_with?("Small") }
       .sort_by! { |(id, _name)| id }
       .map { |(_id, name)| name }
+
+    @email_bcc = setting?(String, :email_bcc).try(&.strip).presence.try { |address| [address] } || [] of String
 
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
@@ -558,6 +565,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {"parking_request", "cancelled"},
       common_template_args(booking).merge({space_identifier: label || ""}),
       attachments: calendar_attachment(booking, label, cancel: true),
+      bcc: @email_bcc,
     ).get_json
     record_notified(booking)
 
@@ -2112,6 +2120,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", "no_card"},
       common_template_args(booking).merge({reason: reason}),
+      bcc: @email_bcc,
     ).get_json
     record_notified(booking)
   rescue error
@@ -2469,6 +2478,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {"parking_request", template},
       common_template_args(booking, space),
       attachments: calendar_attachment(booking, space.identifier.presence || space.id, cancel: false),
+      bcc: @email_bcc,
     ).get_json
 
     record_notified(booking, approved_key)
@@ -2495,6 +2505,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", "approval_required"},
       common_template_args(booking),
+      bcc: @email_bcc,
     ).get_json
 
     record_notified(booking, "approval_required")
@@ -2522,6 +2533,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", "wait_list"},
       common_template_args(booking),
+      bcc: @email_bcc,
     ).get_json
 
     record_notified(booking, "wait_list")
@@ -2558,6 +2570,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
         booking.user_email,
         {"parking_request", "rejected"},
         common_template_args(booking),
+        bcc: @email_bcc,
       ).get_json
 
       record_notified(booking, "rejected")
@@ -2577,6 +2590,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {"parking_request", "displaced"},
       common_template_args(booking).merge({reason: reason}),
       attachments: calendar_attachment(booking, label, cancel: true),
+      bcc: @email_bcc,
     ).get_json
     # every displacement is a distinct event so it's never deduped, but it
     # still counts towards the booking's email total

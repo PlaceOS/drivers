@@ -151,6 +151,7 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # approval email uses the per-area trigger (Open Basement -> gallagher-group1)
   mailer.last_template.should eq(["parking_request", "approved_gallagher-group1"])
   mailer.last_to.should eq("normal.user@example.com")
+  mailer.last_bcc.should eq([] of String)
   staff.last_state(1001_i64).should eq("access_granted_emailed")
 
   # ===========================================================
@@ -5279,6 +5280,24 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   sleep 300.milliseconds
   mailer.times_sent("normal.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
   staff.last_state(111004_i64).should eq("access_granted_emailed")
+
+  # Optional BCC applies to notifications and can be cleared at runtime.
+  [" audit@example.com ", "", "   ", nil].each_with_index do |address, index|
+    settings(t110_settings.merge({email_bcc: address}))
+    sleep 100.milliseconds
+    staff.reset_calls
+    mailer.reset
+    staff.set_assets("[]")
+    id = 112001_i64 + index
+    staff.set_bookings([build_booking.call(id, "normal.user@example.com",
+      start_one, end_one, "unallocated-#{id}", false, ext_car)].to_json)
+
+    exec(:process_parking_bookings).get
+
+    mailer.last_template.should eq(["parking_request", "wait_list"])
+    mailer.last_to.should eq("normal.user@example.com")
+    mailer.last_bcc.should eq(index == 0 ? ["audit@example.com"] : [] of String)
+  end
 end
 
 # :nodoc:
@@ -5885,6 +5904,7 @@ class MailerMock < DriverSpecs::MockDriver
     self[:send_count] = 0
     self[:last_template] = nil
     self[:last_to] = nil
+    self[:last_bcc] = [] of String
     @fail_send = false
   end
 
@@ -5894,6 +5914,10 @@ class MailerMock < DriverSpecs::MockDriver
 
   def last_to
     self[:last_to]
+  end
+
+  def last_bcc
+    self[:last_bcc]
   end
 
   def send_count : Int32
@@ -5944,6 +5968,7 @@ class MailerMock < DriverSpecs::MockDriver
     @sent << {to: recipient, template: template, args: args, attachments: attachments}
     self[:last_template] = template
     self[:last_to] = recipient
+    self[:last_bcc] = bcc
     self[:send_count] = (self[:send_count]?.try(&.as_i) || 0) + 1
     true
   end
