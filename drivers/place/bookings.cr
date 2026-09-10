@@ -333,7 +333,7 @@ class Place::Bookings < PlaceOS::Driver
                      end
 
         evt = evt.as_h
-        if visibility == "private"
+        if visibility == "private" || @hide_meeting_details
           evt["title"] = JSON::Any.new("Private")
           evt["host"] = JSON::Any.new("Private")
         elsif visibility == "personal" || @hide_meeting_title
@@ -342,7 +342,12 @@ class Place::Bookings < PlaceOS::Driver
           evt["title"] = JSON::Any.new("Confidential")
           evt["host"] = JSON::Any.new("Confidential")
         end
-        evt["body"] = JSON::Any.new("") if @hide_meeting_details
+
+        if @hide_meeting_details
+          evt["body"] = JSON::Any.new("")
+          evt["attendees"] = JSON::Any.new(Array(JSON::Any).new)
+        end
+
         evt["system_id"] = system_id
 
         if evt["status"]?.try(&.as_s?) == "tentative"
