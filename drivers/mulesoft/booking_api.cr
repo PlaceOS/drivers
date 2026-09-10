@@ -162,14 +162,12 @@ class MuleSoft::BookingsAPI < PlaceOS::Driver
 
   protected def save_ssl_credentials
     [:ssl_key, :ssl_cert].each do |key|
-      raise "Required setting #{key} left blank" unless setting(String, key).presence
-
-      File.open("./pkey-#{module_id}.#{key}", "w") do |cert|
-        cert.puts setting(String, key)
-      end
+      data = setting(String, key).presence
+      raise "Required setting #{key} left blank" unless data
+      File.write("/tmp/pkey-#{module_id}.#{key}", data)
     end
 
-    @context.private_key = "./pkey-#{module_id}.ssl_key"
-    @context.certificate_chain = "./pkey-#{module_id}.ssl_cert"
+    @context.private_key = "/tmp/pkey-#{module_id}.ssl_key"
+    @context.certificate_chain = "/tmp/pkey-#{module_id}.ssl_cert"
   end
 end
