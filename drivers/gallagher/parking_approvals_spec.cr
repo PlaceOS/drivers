@@ -1795,6 +1795,9 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
       {id: 1, name: "ACROD"},
       {id: 2, name: "Electric Vehicle"},
     ],
+    # tests 45-49 fail update_booking persistently: retry the staff API writes
+    # without backoff so the test doesn't actually sleep
+    group_lookup_backoff: 0,
   })
   sleep 100.milliseconds
 
@@ -5298,6 +5301,79 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
     mailer.last_to.should eq("normal.user@example.com")
     mailer.last_bcc.should eq(index == 0 ? ["audit@example.com"] : [] of String)
   end
+
+  # ===========================================================
+  # Test 113: transient staff API write failures (update_booking, approve,
+  # booking_state, booking_extension_data) are retried within the sweep using
+  # the group_lookup_* backoff settings, so the allocation completes normally.
+  # ===========================================================
+
+  settings({
+    poll_rate:                       999_999,
+    auto_approval_groups:            ["group-priority", "group-default"],
+    displacement_notification_hours: 0,
+    car_zone_priority:               ["carpriority", "shared"],
+    bike_zone_priority:              ["bikepriority", "shared"],
+    parking_areas:                   {
+      "Open Basement"   => "gallagher-group1",
+      "Mezzanine"       => "gallagher-group2",
+      "Secure Basement" => "gallagher-group3",
+    },
+    request_space_restrictions: [
+      {id: 1, name: "ACROD"},
+      {id: 2, name: "Electric Vehicle"},
+    ],
+    # retry twice, with no backoff, so the test doesn't actually sleep
+    group_lookup_retries: 2,
+    group_lookup_backoff: 0,
+  })
+  sleep 100.milliseconds
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(two_regular.to_json)
+  # two failures + the successful final attempt == all 3 attempts used
+  staff.fail_times("update_booking", 113001_i64, 2)
+  staff.fail_times("approve", 113001_i64, 1)
+  staff.fail_times("booking_state", 113001_i64, 1)
+  staff.fail_times("booking_extension_data", 113001_i64, 1)
+
+  staff.set_bookings([
+    build_booking.call(113001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-113001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.update_attempts_for(113001_i64).should eq(3)
+  staff.last_update_for(113001_i64).should eq("asset-r1")
+  staff.approved.includes?(113001_i64).should eq(true)
+  mailer.times_sent("clash.user@example.com", "parking_request", "approved_gallagher-group1").should eq(1)
+  staff.last_state(113001_i64).should eq("access_granted_emailed")
+  staff.patched_ext_value(113001_i64, "emails_sent").should eq(JSON::Any.new(1_i64))
+
+  # ===========================================================
+  # Test 114: a clash (409) is final — it is NOT retried, the booking moves
+  # straight on to the next free space.
+  # ===========================================================
+
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(two_regular.to_json)
+  staff.clash_update_for(114001_i64, "asset-r1")
+
+  staff.set_bookings([
+    build_booking.call(114001_i64, "clash.user@example.com",
+      mon_start, mon_end, "unallocated-114001", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  # one clashing attempt on asset-r1 + one successful attempt on asset-r2
+  staff.update_attempts_for(114001_i64).should eq(2)
+  staff.last_update_for(114001_i64).should eq("asset-r2")
 end
 
 # :nodoc:
@@ -5357,6 +5433,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
     @update_extension_data = {} of String => JSON::Any
     @ext_patches = {} of String => Hash(String, JSON::Any)
     @fail_query = false
+    @transient_failures = {} of String => Int32
+    @update_attempts = {} of Int64 => Int32
     @created_bookings = [] of JSON::Any
     @created_ids = {} of String => Int64
   end
@@ -5431,6 +5509,29 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
   def fail_update_for(booking_id : Int64)
     @fail_updates << booking_id
+  end
+
+  # "method:booking_id" => how many more calls to fail before the staff API
+  # recovers (simulating a transient error the driver should retry through)
+  @transient_failures : Hash(String, Int32) = {} of String => Int32
+
+  def fail_times(method : String, booking_id : Int64, count : Int32)
+    @transient_failures["#{method}:#{booking_id}"] = count
+  end
+
+  protected def transient_failure!(method : String, booking_id : Int64) : Nil
+    key = "#{method}:#{booking_id}"
+    remaining = @transient_failures[key]? || 0
+    return unless remaining > 0
+    @transient_failures[key] = remaining - 1
+    raise "simulated transient #{method} failure for #{booking_id}"
+  end
+
+  # every update_booking call per booking id, including failed / clashing ones
+  @update_attempts : Hash(Int64, Int32) = {} of Int64 => Int32
+
+  def update_attempts_for(booking_id : Int64) : Int32
+    @update_attempts[booking_id]? || 0
   end
 
   def last_update_for(booking_id : Int64) : String?
@@ -5615,6 +5716,8 @@ class StaffAPIMock < DriverSpecs::MockDriver
     zones : Array(String)? = nil,
   )
     id = booking_id.to_s.to_i64
+    @update_attempts[id] = (@update_attempts[id]? || 0) + 1
+    transient_failure!("update_booking", id)
     raise "simulated update_booking failure for #{id}" if @fail_updates.includes?(id)
     if asset_id && @clash_updates.includes?("#{id}:#{asset_id}")
       raise "issue updating booking #{id}: 409 Conflicting booking"
@@ -5634,6 +5737,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
 
   def approve(booking_id : String | Int64, instance : Int64? = nil)
     id = booking_id.to_s.to_i64
+    transient_failure!("approve", id)
     @approved_set << id
     @approve_instances[id] = instance.inspect
     @approved_instances << "#{id}:#{instance}"
@@ -5656,6 +5760,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
   end
 
   def booking_state(booking_id : String | Int64, state : String, instance : Int64? = nil)
+    transient_failure!("booking_state", booking_id.to_s.to_i64)
     @states[state_key(booking_id.to_s.to_i64, instance)] = state
     true
   end
@@ -5666,6 +5771,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
   @ext_patches : Hash(String, Hash(String, JSON::Any)) = {} of String => Hash(String, JSON::Any)
 
   def booking_extension_data(booking_id : String | Int64, extension_data : Hash(String, JSON::Any), instance : Int64? = nil, signal_changes : Bool = false)
+    transient_failure!("booking_extension_data", booking_id.to_s.to_i64)
     bucket = @ext_patches[state_key(booking_id.to_s.to_i64, instance)] ||= {} of String => JSON::Any
     extension_data.each { |key, value| bucket[key] = value }
     true

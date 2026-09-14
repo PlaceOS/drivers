@@ -38,7 +38,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # accurate group priority is critical, so a failing directory group lookup is
     # retried with exponential backoff before giving up (the user is then treated
     # as priority 0 for that run ONLY and retried next sweep). Tuning knobs
-    # (seconds); the defaults retry 5 times, 2s → 30s.
+    # (seconds); the defaults retry 5 times, 2s → 30s. The same knobs retry the
+    # staff API booking writes (update, approve, process_state, extension_data).
     _group_lookup_retries:     5,
     _group_lookup_backoff:     2,
     _group_lookup_max_backoff: 30,
@@ -1271,6 +1272,35 @@ class Place::Parking::Approvals < PlaceOS::Driver
     nil
   end
 
+  # Wraps a failure that retrying can't fix (a 409 clash) so SimpleRetry raises
+  # it immediately; with_retry unwraps it again for the caller.
+  class NonRetryableError < Exception
+  end
+
+  # Staff API writes retry transient failures with the same exponential backoff
+  # as the directory group lookup (@group_lookup_* settings). The error from the
+  # final attempt propagates so callers handle it as before. A clash is final —
+  # the space is taken — so it's raised straight away for the caller to move on.
+  protected def with_retry(description : String, &block : -> T) : T forall T
+    SimpleRetry.try_to(
+      # +1: the initial attempt plus @group_lookup_retries retries
+      max_attempts: @group_lookup_retries + 1,
+      base_interval: @group_lookup_backoff,
+      max_interval: @group_lookup_max_backoff,
+      raise_on: NonRetryableError,
+    ) do |attempt, last_error|
+      logger.warn(exception: last_error) { "retrying #{description} (attempt #{attempt})" } if last_error
+      begin
+        block.call
+      rescue error
+        raise NonRetryableError.new(error.message, cause: error) if clash_error?(error)
+        raise error
+      end
+    end
+  rescue error : NonRetryableError
+    raise error.cause || error
+  end
+
   # ===================================
   # Already-allocated bookings
   # ===================================
@@ -1291,7 +1321,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # per-instance for recurring bookings)
     unless booking.approved
       begin
-        staff_api.approve(booking.id, booking.instance).get
+        with_retry("approve booking #{booking.id}") { staff_api.approve(booking.id, booking.instance).get }
         booking.approved = true
       rescue error
         logger.warn(exception: error) { "failed to approve booking #{booking.id}" }
@@ -1815,13 +1845,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
         booking.extension_data["parking_group"] = JSON::Any.new(group_name)
       end
 
-      staff_api.update_booking(
-        booking_id: booking.id,
-        asset_id: space.id,
-        instance: booking.instance,
-        extension_data: booking.extension_data,
-        zones: space.zones,
-      ).get_json
+      with_retry("allocate booking #{booking.id} to space #{space.id}") do
+        staff_api.update_booking(
+          booking_id: booking.id,
+          asset_id: space.id,
+          instance: booking.instance,
+          extension_data: booking.extension_data,
+          zones: space.zones,
+        ).get_json
+      end
     rescue error
       if clash_error?(error)
         logger.warn { "space #{space.id} is already booked for booking #{booking.id} (server clash); trying another space" }
@@ -1844,7 +1876,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # the allocation (the next sweep's first pass re-approves/re-emails)
     begin
       # approval is also persisted per instance
-      staff_api.approve(booking.id, booking.instance).get
+      with_retry("approve booking #{booking.id}") { staff_api.approve(booking.id, booking.instance).get }
       booking.approved = true
     rescue error
       logger.warn(exception: error) { "failed to approve booking #{booking.id}" }
@@ -1924,11 +1956,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     begin
       # per-instance: only this occurrence moves off the space; other instances
       # of a recurring booking keep their own asset overrides
-      staff_api.update_booking(
-        booking_id: booking.id,
-        asset_id: placeholder,
-        instance: booking.instance,
-      ).get_json
+      with_retry("move booking #{booking.id} off space #{space.id}") do
+        staff_api.update_booking(
+          booking_id: booking.id,
+          asset_id: placeholder,
+          instance: booking.instance,
+        ).get_json
+      end
     rescue error
       logger.warn(exception: error) { "failed to move booking #{booking.id} off space #{space.id}; leaving the allocation in place" }
       return false
@@ -1978,12 +2012,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.extension_data["parking_group"] = JSON::Any.new(group_name)
     end
 
-    staff_api.update_booking(
-      booking_id: booking.id,
-      asset_id: space.id,
-      instance: booking.instance,
-      extension_data: booking.extension_data
-    ).get_json
+    with_retry("restore booking #{booking.id} to space #{space.id}") do
+      staff_api.update_booking(
+        booking_id: booking.id,
+        asset_id: space.id,
+        instance: booking.instance,
+        extension_data: booking.extension_data
+      ).get_json
+    end
 
     booking.asset_id = space.id
     booking.asset_ids = [space.id]
@@ -2419,14 +2455,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
     count = booking.extension_data[EMAILS_SENT_KEY]?.try(&.as_i64?) || 0_i64
     booking.extension_data[NOTIFIED_KEY] = JSON.parse(list.to_json)
     booking.extension_data[EMAILS_SENT_KEY] = JSON::Any.new(count + 1)
-    staff_api.booking_extension_data(
-      booking.id,
-      {
-        NOTIFIED_KEY    => booking.extension_data[NOTIFIED_KEY],
-        EMAILS_SENT_KEY => booking.extension_data[EMAILS_SENT_KEY],
-      },
-      instance: booking.instance,
-    ).get
+    with_retry("record notification for booking #{booking.id}") do
+      staff_api.booking_extension_data(
+        booking.id,
+        {
+          NOTIFIED_KEY    => booking.extension_data[NOTIFIED_KEY],
+          EMAILS_SENT_KEY => booking.extension_data[EMAILS_SENT_KEY],
+        },
+        instance: booking.instance,
+      ).get
+    end
   rescue error
     logger.warn(exception: error) { "failed to record notification #{key} for booking #{booking.id}" }
   end
@@ -2439,11 +2477,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     pruned = list.reject(&.starts_with?("approved:"))
     return if pruned.size == list.size
     booking.extension_data[NOTIFIED_KEY] = JSON.parse(pruned.to_json)
-    staff_api.booking_extension_data(
-      booking.id,
-      {NOTIFIED_KEY => booking.extension_data[NOTIFIED_KEY]},
-      instance: booking.instance,
-    ).get
+    with_retry("clear approved notifications for booking #{booking.id}") do
+      staff_api.booking_extension_data(
+        booking.id,
+        {NOTIFIED_KEY => booking.extension_data[NOTIFIED_KEY]},
+        instance: booking.instance,
+      ).get
+    end
   rescue error
     logger.warn(exception: error) { "failed to clear approved notifications for booking #{booking.id}" }
   end
@@ -2600,11 +2640,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
   end
 
   protected def update_state(booking : Booking, state : String) : Nil
-    staff_api.booking_state(
-      booking_id: booking.id,
-      state: state,
-      instance: booking.instance,
-    ).get
+    with_retry("update process_state #{state} for booking #{booking.id}") do
+      staff_api.booking_state(
+        booking_id: booking.id,
+        state: state,
+        instance: booking.instance,
+      ).get
+    end
     booking.process_state = state
   rescue error
     logger.warn(exception: error) { "failed to update process_state #{state} for booking #{booking.id}" }
