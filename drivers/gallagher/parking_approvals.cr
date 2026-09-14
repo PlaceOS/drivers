@@ -464,6 +464,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
         space_type.includes?("bike") || space_type.includes?("motor")
       end
     end
+
+    # true when any of the space's features names this vehicle type
+    def matches_features?(features : Array(String))
+      keyword = car? ? "car" : "bike"
+      features.any?(&.downcase.includes?(keyword))
+    end
   end
 
   # ===================================
@@ -1746,7 +1752,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     restriction_name = nil if ignore_exclusive && req_height.nil?
 
     spaces.select do |space|
-      vehicle_ok = vehicle.nil? || vehicle.matches_notes?(space.notes)
+      vehicle_ok = vehicle.nil? || vehicle.matches_features?(space.features) || vehicle.matches_notes?(space.notes)
 
       restriction_ok = if req_height
                          # height restriction: a space accommodates the booking

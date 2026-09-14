@@ -5374,6 +5374,49 @@ DriverSpecs.mock_driver "Place::Parking::Approvals" do
   # one clashing attempt on asset-r1 + one successful attempt on asset-r2
   staff.update_attempts_for(114001_i64).should eq(2)
   staff.last_update_for(114001_i64).should eq("asset-r2")
+
+  # ===========================================================
+  # Test 115: a space's vehicle type can come from its FEATURES — the notes
+  # here don't name a vehicle, but the "Bike Bay" feature makes it a bike space.
+  # ===========================================================
+
+  feature_bike_space = [
+    {
+      id: "asset-t115-bike", identifier: "T115B",
+      assigned_to: "", zones: ["zone-building", "zone-level-B3"],
+      features: ["Bike Bay", "Secure Basement"], notes: "Level B3",
+      security_system_groups: [] of String, bookable: true,
+    },
+  ]
+
+  # a bike booking matches on the feature alone
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(feature_bike_space.to_json)
+  staff.set_bookings([
+    build_booking.call(115001_i64, "biker@example.com",
+      mon_start, mon_end, "unallocated-115001", false, ext_bike),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(115001_i64).should eq("asset-t115-bike")
+
+  # a car booking matches neither the features nor the notes -> wait-listed
+  staff.reset_calls
+  mailer.reset
+  gallagher.reset
+  staff.set_assets(feature_bike_space.to_json)
+  staff.set_bookings([
+    build_booking.call(115002_i64, "normal.user@example.com",
+      mon_start, mon_end, "unallocated-115002", false, ext_car),
+  ].to_json)
+  exec(:process_parking_bookings).get
+  sleep 100.milliseconds
+
+  staff.last_update_for(115002_i64).should be_nil
+  staff.last_state(115002_i64).should eq("wait_list")
 end
 
 # :nodoc:
