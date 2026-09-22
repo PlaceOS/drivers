@@ -18,7 +18,7 @@ class Place::StaffAPI < PlaceOS::Driver
   alias ExecResponse = ::PlaceOS::Driver::Proxy::ExecResponse
 
   # The PlaceOS API
-  uri_base "https://staff"
+  uri_base "https://ingress-nginx-controller"
 
   default_settings({
     # PlaceOS X-API-key, for simpler authentication
@@ -26,8 +26,10 @@ class Place::StaffAPI < PlaceOS::Driver
     disable_event_notify:      false,
     query_limit:               100,
     period_end_default_in_min: 60,
+    host_header:               "SET_VALID_DOMAIN_HERE"
   })
 
+  # Placeholder to satisfy the compiler; overwritten in on_update from config.uri (uri_base)
   @place_domain : URI = URI.parse("https://staff")
   @host_header : String = ""
   @api_key : String = ""
