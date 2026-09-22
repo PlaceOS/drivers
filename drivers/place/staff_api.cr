@@ -26,7 +26,7 @@ class Place::StaffAPI < PlaceOS::Driver
     disable_event_notify:      false,
     query_limit:               100,
     period_end_default_in_min: 60,
-    host_header:               "SET_VALID_DOMAIN_HERE"
+    host_header:               "SET_VALID_DOMAIN_HERE",
   })
 
   # Placeholder to satisfy the compiler; overwritten in on_update from config.uri (uri_base)
