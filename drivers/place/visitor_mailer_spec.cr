@@ -3782,4 +3782,36 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   level_args["previous_building_name"].should eq "Previous Building"
   # the zone carries no timezone, so the driver's setting applies
   level_args["event_time"].should eq Time.unix(now + 25200).in(Time::Location.load("GMT")).to_s("%l:%M%p")
+
+  # ------------------------------------------------------------------
+  # Test 72: the org zone a booking lists beside its building is not its room
+  # ------------------------------------------------------------------
+  #
+  # A visitor booking reports [org, building]; the org zone used to be taken
+  # for the previous room, so a time change read "Room: Australia".
+
+  publish("staff/booking/changed", {
+    action:                 "changed",
+    id:                     351_i64,
+    booking_type:           "visitor",
+    booking_start:          now + 32400,
+    booking_end:            now + 36000,
+    timezone:               "GMT",
+    resource_id:            "visitor@external.com",
+    resource_ids:           ["visitor@external.com"],
+    user_email:             "host-level@example.com",
+    title:                  "Org Zone Room",
+    zones:                  ["zone-extra", "zone-building"],
+    previous_booking_start: now + 28800,
+    previous_booking_end:   now + 32400,
+    previous_zones:         ["zone-extra", "zone-building"],
+  }.to_json)
+
+  sleep 1.5
+
+  org_args = system(:Mailer)[:last_args]
+  org_args["event_title"].should eq "Org Zone Room"
+  org_args["previous_building_name"].should eq "Main Building"
+  org_args["previous_room_name"].should eq "Client Floor"
+  org_args["room_name"].should eq "Client Floor"
 end

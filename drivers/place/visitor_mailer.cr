@@ -390,6 +390,18 @@ class Place::VisitorMailer < PlaceOS::Driver
 
   # The zone a visit is in, following the parent chain upwards so a visit whose
   # own zones omit the building (it is level or room only) still names one.
+  # Whether `zone` sits beneath the zone `ancestor_id` in the hierarchy.
+  private def zone_within?(zone : ZoneDetails, ancestor_id : String) : Bool
+    parent_id = zone.parent_id
+    visited = Set(String).new
+    while parent_id && !visited.includes?(parent_id)
+      return true if parent_id == ancestor_id
+      visited << parent_id
+      parent_id = fetch_zone(parent_id).parent_id
+    end
+    false
+  end
+
   private def zone_with_timezone(zones : Array(String)?) : ZoneDetails?
     if zone = building_zone_for(zones)
       return zone if zone.timezone.presence
@@ -1206,18 +1218,21 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # Resolve previous location names from previous zones, defaulting to the
     # current ones so a date/time-only edit reads as the same place.
-    previous_zones = change.previous_zones
-    previous_zones.try &.each do |zone_id|
-      begin
-        zone = fetch_zone(zone_id)
-        if zone.tags.includes?(@invite_zone_tag)
-          previous_building_name = zone.display_name.presence || zone.name
-        else
+    if (previous_zones = change.previous_zones) && (previous_building = building_zone_for(previous_zones))
+      previous_building_name = previous_building.display_name.presence || previous_building.name
+
+      # a booking also lists the org, region and campus zones above its building,
+      # so only a zone beneath the building names its room
+      previous_zones.each do |zone_id|
+        begin
+          zone = fetch_zone(zone_id)
+          next if zone.id == previous_building.id || zone.tags.includes?(@invite_zone_tag)
+          next unless zone_within?(zone, previous_building.id)
           previous_room_name = zone.display_name.presence || zone.name
+          break
+        rescue error
+          logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
         end
-        break if previous_building_name != building_name && previous_room_name != @booking_space_name
-      rescue error
-        logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
       end
     end
 
