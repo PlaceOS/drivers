@@ -210,7 +210,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     @group_event_template = setting?(String, :group_event_template) || "group_event"
     # event_change_debounce is the pre-unification name, still read so an existing
     # deployment doesn't silently fall back to the default
-    @change_debounce = setting?(Int32, :change_debounce) || setting?(Int32, :event_change_debounce) || 15
+    # capped where the invite memory is, so a change never outlives the memory
+    # of the invitations it must not repeat
+    @change_debounce = (setting?(Int32, :change_debounce) || setting?(Int32, :event_change_debounce) || 15).clamp(0, 3600)
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
@@ -1106,7 +1108,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   # Covers the debounce holding a change back, plus room for a front end that
   # adds its visitors in later requests.
   private def invite_memory : Time::Span
-    @change_debounce.clamp(0, 3600).seconds + 60.seconds
+    @change_debounce.seconds + 60.seconds
   end
 
   # An email we've sent, keyed on what it says rather than on the booking that
