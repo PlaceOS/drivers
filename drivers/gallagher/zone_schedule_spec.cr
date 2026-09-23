@@ -60,6 +60,30 @@ DriverSpecs.mock_driver "Gallagher::ZoneSchedule" do
   bookings.disable_unlock
   sleep 500.milliseconds
   exec(:should_unlock_booking?).get.should_not eq true
+
+  # ----- no zone configured: only security group access is reconciled -----
+  settings({
+    state_mappings: {
+      "pending" => "free",
+      "busy"    => "free",
+      "free"    => "default",
+    },
+  })
+  sleep 200.milliseconds
+  exec(:zone_id).get.raw.should be_nil
+
+  bookings.new_meeting
+  sleep 1500.milliseconds
+
+  # zone state is left untouched
+  exec(:count).get.should eq 2
+  system(:Gallagher)[:state].should eq(["locked", "1234"])
+  gallagher.access_for("ch-host").should contain("group-access-group")
+
+  bookings.end_meeting
+  sleep 1500.milliseconds
+  exec(:count).get.should eq 2
+  gallagher.access_for("ch-host").should_not contain("group-access-group")
 end
 
 # :nodoc:

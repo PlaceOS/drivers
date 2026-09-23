@@ -4,12 +4,14 @@ require "simple_retry"
 class Gallagher::ZoneSchedule < PlaceOS::Driver
   descriptive_name "Gallagher Zone Schedule"
   generic_name :GallagherZoneSchedule
-  description "maps a booking state to a gallagher access zone state"
+  description "maps a booking state to a gallagher access zone state. zone_id is optional, when omitted only meeting security group access (control_system.security_groups) is managed"
 
   accessor bookings : Bookings_1
 
   default_settings({
     # gallagher_system: "sys-12345"
+    # optional: omit zone_id when only security group access reconciliation
+    # (control_system.security_groups) is required
     zone_id:          "1234",
     _access_group_id: "140623",
 
@@ -41,7 +43,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   getter count : UInt64 = 0_u64
 
   # Tracking meeting details
-  getter zone_id : String | Int64 = ""
+  getter zone_id : String | Int64 | Nil = nil
   getter state_mappings : Hash(String, String) = {} of String => String
 
   @update_mutex = Mutex.new
@@ -50,7 +52,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   def on_update
     @system_id = setting?(String, :gallagher_system).presence || config.control_system.not_nil!.id
     @state_mappings = setting(Hash(String, String), :state_mappings)
-    @zone_id = setting?(String | Int64, :zone_id) || setting(String | Int64, :door_zone_id)
+    @zone_id = setting?(String | Int64, :zone_id) || setting?(String | Int64, :door_zone_id)
     @presence_timeout = (setting?(Int32, :presence_timeout) || 30).minutes
     @access_group_id = nil
 
@@ -122,10 +124,25 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
     rescue
     end
 
+    if zone = zone_id
+      return unless update_zone_state(zone, new_status, presence)
+    else
+      schedule.clear
+    end
+
+    schedule.in(1.second) { check_host_access } if @grant_hosts_access
+
+    # reconcile additional security group access (control_system.security_groups)
+    # for the meeting host whenever the room status transitions
+    schedule.in(1.second) { reconcile_meeting_security_group_access }
+  end
+
+  # returns false if there is no zone state mapped to the booking status
+  private def update_zone_state(zone_id, new_status : String, presence : Bool?) : Bool
     apply_zone_state = state_mappings[new_status]?
     if apply_zone_state.nil?
       logger.debug { "no mapping for booking status #{new_status}, ignoring" }
-      return
+      return false
     end
 
     schedule.clear
@@ -183,11 +200,7 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
       logger.debug { "zone state already applied, skipping step" }
     end
 
-    schedule.in(1.second) { check_host_access } if @grant_hosts_access
-
-    # reconcile additional security group access (control_system.security_groups)
-    # for the meeting host whenever the room status transitions
-    schedule.in(1.second) { reconcile_meeting_security_group_access }
+    true
   end
 
   private def gallagher
@@ -248,8 +261,11 @@ class Gallagher::ZoneSchedule < PlaceOS::Driver
   # ============================================
 
   def find_access_group_from_zone : String
+    zone = zone_id
+    raise "access_group_id setting required when no zone_id is configured" unless zone
+
     gal = gallagher
-    zone_name = gal.get_access_zone(zone_id).get["name"].as_s
+    zone_name = gal.get_access_zone(zone).get["name"].as_s
     gal.get_access_groups(zone_name).get.as_a.first["id"].as_s
   end
 
