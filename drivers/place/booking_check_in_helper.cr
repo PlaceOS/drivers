@@ -23,6 +23,7 @@ class Place::BookingCheckInHelper < PlaceOS::Driver
   default_settings({
     # option to disable, due to faulty hardware
     disable_checkin_helper: false,
+    occupancy_sensor_failed: false,
 
     # how many minutes until we want to prompt the user
     prompt_after:    10,
@@ -131,7 +132,7 @@ STRING
     @prompt_after = (setting?(Int32, :prompt_after) || 10).minutes
     @present_from = (setting?(Int32, :present_from) || 5).minutes
     @auto_cancel = setting?(Bool, :auto_cancel) || false
-    @disabled = setting?(Bool, :disable_checkin_helper) || false
+    @disabled = setting?(Bool, :disable_checkin_helper) || setting?(Bool, :occupancy_sensor_failed) || false
 
     @check_in_url = setting?(String, :check_in_url) || ""
     @no_show_url = setting?(String, :no_show_url) || ""
@@ -158,6 +159,8 @@ STRING
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
     @date_format = setting?(String, :date_format) || "%A, %-d %B"
+
+    self[:occupancy_sensor_ignored] = @disabled
   end
 
   def ignore_long_meeting? : Bool

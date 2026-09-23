@@ -38,7 +38,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # accurate group priority is critical, so a failing directory group lookup is
     # retried with exponential backoff before giving up (the user is then treated
     # as priority 0 for that run ONLY and retried next sweep). Tuning knobs
-    # (seconds); the defaults retry 5 times, 2s → 30s.
+    # (seconds); the defaults retry 5 times, 2s → 30s. The same knobs retry the
+    # staff API booking writes (update, approve, process_state, extension_data).
     _group_lookup_retries:     5,
     _group_lookup_backoff:     2,
     _group_lookup_max_backoff: 30,
@@ -108,6 +109,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {id: 6, name: "Max height 2.2m"},
       {id: 7, name: "Max height 2.3m"},
     ],
+
+    # Optional address to blind-copy on every parking notification. Leave blank to disable.
+    email_bcc: "",
 
     date_time_format: "%c",
     time_format:      "%l:%M%p",
@@ -273,6 +277,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
     empty
   end
 
+  @email_bcc : Array(String) = [] of String
+
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
@@ -342,6 +348,8 @@ class Place::Parking::Approvals < PlaceOS::Driver
       .select { |(_id, name)| name.starts_with?("Max") || name.starts_with?("Small") }
       .sort_by! { |(id, _name)| id }
       .map { |(_id, name)| name }
+
+    @email_bcc = setting?(String, :email_bcc).try(&.strip).presence.try { |address| [address] } || [] of String
 
     @date_time_format = setting?(String, :date_time_format) || "%c"
     @time_format = setting?(String, :time_format) || "%l:%M%p"
@@ -456,6 +464,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
         space_type.includes?("bike") || space_type.includes?("motor")
       end
     end
+
+    # true when any of the space's features names this vehicle type
+    def matches_features?(features : Array(String))
+      keyword = car? ? "car" : "bike"
+      features.any?(&.downcase.includes?(keyword))
+    end
   end
 
   # ===================================
@@ -519,6 +533,12 @@ class Place::Parking::Approvals < PlaceOS::Driver
       handle_cancellation(event) if in_building
       spawn { process_parking_bookings }
     when "create", "approved", "rejected", "changed"
+      # A concierge can approve a booking AND assign it a space directly. When
+      # that booking starts beyond the allocation window the sweep won't see
+      # it until the window rolls forward (possibly weeks), so the approval
+      # email is sent from the event. In-window bookings are left to the
+      # sweep's first pass, triggered below.
+      notify_manual_allocation(event) if in_building
       # Re-run auto allocation. The full sweep handles approvals,
       # cleanup of cancelled bookings, and waitlist preemption.
       spawn { process_parking_bookings }
@@ -552,12 +572,51 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {"parking_request", "cancelled"},
       common_template_args(booking).merge({space_identifier: label || ""}),
       attachments: calendar_attachment(booking, label, cancel: true),
+      bcc: @email_bcc,
     ).get_json
+    record_notified(booking)
 
     # mark handled so a repeated cancellation event doesn't re-notify
     update_state(booking, "cancelled_emailed")
   rescue error
     logger.warn(exception: error) { "failed to send cancellation email for booking #{booking.id}" }
+  end
+
+  # A concierge manually allocated a space (booking approved + a real asset
+  # assigned in the booking UI) for a date beyond the allocation window: no
+  # sweep will fetch the booking until the window rolls forward to include it,
+  # so the regular approved email is sent from the change event instead. The
+  # Gallagher access grant stays with the sweep — it is applied once the
+  # booking enters the window, like every other allocation. Bookings inside
+  # the window are skipped here: the sweep this same event triggers handles
+  # them (approval, email AND access) via handle_allocated_booking. Repeat
+  # events carry the persisted process_state / notification ledger, so the
+  # guards in approved_email keep this to a single email.
+  protected def notify_manual_allocation(booking : Booking) : Nil
+    return unless booking.approved
+    return if booking.rejected || booking.deleted
+    return if booking.process_state == "access_granted_emailed"
+
+    asset_id = booking.asset_ids.first?
+    return if asset_id.nil? || asset_id.starts_with?("unallocated")
+
+    # the sweep owns everything inside the allocation window
+    return if booking.booking_start < next_allocation_cutoff.to_unix
+
+    space = parking_spaces.find { |s| s.id == asset_id }
+    if space.nil?
+      logger.warn { "manually allocated booking #{booking.id} references unknown parking space #{asset_id}" }
+      return
+    end
+
+    logger.debug { "approval email for manually allocated booking #{booking.id} (#{booking.user_email}) on space #{space.id}, outside the allocation window" }
+
+    # same ordering as handle_allocated_booking: persist access_granted first
+    # so a failed send is retried (email-only) when the booking is next seen
+    update_state(booking, "access_granted") unless booking.process_state == "access_granted"
+    approved_email(booking, space)
+  rescue error
+    logger.warn(exception: error) { "failed to process manually allocated booking #{booking.id}" }
   end
 
   # ===================================
@@ -629,6 +688,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
       swaps.each do |swap|
         booking = swap[:displace]
         next unless displace_booking(booking, swap[:space], forced: true)
+        clear_approved_notifications(booking)
         update_state(booking, "wait_list")
         displaced_email(booking, "Your parking space has been reassigned.")
       end
@@ -686,10 +746,11 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # (@user_priority_cache, flushed daily / on config change).
   #
   # Sort: priority desc, then requests for the tallest height class (nothing
-  # shorter fits them and those spaces are scarce), then created asc (older
-  # first). NOTE:: this only orders the queue — it is NOT part of the priority
-  # used to displace, so a tall request arriving later can't preempt someone on
-  # the same priority who already holds a space (see the strict `<` in the
+  # shorter fits them and those spaces are scarce), then a random lottery key
+  # (so creation order doesn't decide ties within a priority group). NOTE::
+  # this only orders the queue — it is NOT part of the priority used to
+  # displace, so a booking with a luckier key can't preempt someone on the
+  # same priority who already holds a space (see the strict `<` in the
   # preemption candidate filter).
   protected def prioritise_bookings(bookings : Array(Booking)) : Array(Tuple(Booking, Int32))
     booking_meta = bookings.map do |booking|
@@ -697,9 +758,22 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {booking, priority}
     end
 
+    # we want to randomize selection within priority groups
     booking_meta.sort_by! do |(booking, priority)|
-      {-priority, tallest_height_request?(booking) ? 0 : 1, booking.created || 0_i64}
+      {-priority, tallest_height_request?(booking) ? 0 : 1, allocation_lottery_key(booking)}
     end
+  end
+
+  # A booking's random lottery key, deciding ties within a priority group.
+  # Seeded from the booking id (not one shared random sequence indexed by list
+  # position) so the key is a property of the booking: it doesn't reshuffle
+  # when other bookings enter or leave the fetch, the queue order is stable
+  # between sweeps, and a user can't influence their draw by booking early —
+  # which is the point of the lottery. A recurring series draws once
+  # (instances share the id, so the whole week wins or waits consistently for
+  # that user).
+  protected def allocation_lottery_key(booking : Booking) : Int64
+    Random.new(booking.id.to_u64!).rand(Int64::MAX)
   end
 
   protected def run_allocation
@@ -1204,6 +1278,35 @@ class Place::Parking::Approvals < PlaceOS::Driver
     nil
   end
 
+  # Wraps a failure that retrying can't fix (a 409 clash) so SimpleRetry raises
+  # it immediately; with_retry unwraps it again for the caller.
+  class NonRetryableError < Exception
+  end
+
+  # Staff API writes retry transient failures with the same exponential backoff
+  # as the directory group lookup (@group_lookup_* settings). The error from the
+  # final attempt propagates so callers handle it as before. A clash is final —
+  # the space is taken — so it's raised straight away for the caller to move on.
+  protected def with_retry(description : String, &block : -> T) : T forall T
+    SimpleRetry.try_to(
+      # +1: the initial attempt plus @group_lookup_retries retries
+      max_attempts: @group_lookup_retries + 1,
+      base_interval: @group_lookup_backoff,
+      max_interval: @group_lookup_max_backoff,
+      raise_on: NonRetryableError,
+    ) do |attempt, last_error|
+      logger.warn(exception: last_error) { "retrying #{description} (attempt #{attempt})" } if last_error
+      begin
+        block.call
+      rescue error
+        raise NonRetryableError.new(error.message, cause: error) if clash_error?(error)
+        raise error
+      end
+    end
+  rescue error : NonRetryableError
+    raise error.cause || error
+  end
+
   # ===================================
   # Already-allocated bookings
   # ===================================
@@ -1224,7 +1327,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # per-instance for recurring bookings)
     unless booking.approved
       begin
-        staff_api.approve(booking.id, booking.instance).get
+        with_retry("approve booking #{booking.id}") { staff_api.approve(booking.id, booking.instance).get }
         booking.approved = true
       rescue error
         logger.warn(exception: error) { "failed to approve booking #{booking.id}" }
@@ -1649,7 +1752,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     restriction_name = nil if ignore_exclusive && req_height.nil?
 
     spaces.select do |space|
-      vehicle_ok = vehicle.nil? || vehicle.matches_notes?(space.notes)
+      vehicle_ok = vehicle.nil? || vehicle.matches_features?(space.features) || vehicle.matches_notes?(space.notes)
 
       restriction_ok = if req_height
                          # height restriction: a space accommodates the booking
@@ -1748,13 +1851,15 @@ class Place::Parking::Approvals < PlaceOS::Driver
         booking.extension_data["parking_group"] = JSON::Any.new(group_name)
       end
 
-      staff_api.update_booking(
-        booking_id: booking.id,
-        asset_id: space.id,
-        instance: booking.instance,
-        extension_data: booking.extension_data,
-        zones: space.zones,
-      ).get_json
+      with_retry("allocate booking #{booking.id} to space #{space.id}") do
+        staff_api.update_booking(
+          booking_id: booking.id,
+          asset_id: space.id,
+          instance: booking.instance,
+          extension_data: booking.extension_data,
+          zones: space.zones,
+        ).get_json
+      end
     rescue error
       if clash_error?(error)
         logger.warn { "space #{space.id} is already booked for booking #{booking.id} (server clash); trying another space" }
@@ -1777,7 +1882,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
     # the allocation (the next sweep's first pass re-approves/re-emails)
     begin
       # approval is also persisted per instance
-      staff_api.approve(booking.id, booking.instance).get
+      with_retry("approve booking #{booking.id}") { staff_api.approve(booking.id, booking.instance).get }
       booking.approved = true
     rescue error
       logger.warn(exception: error) { "failed to approve booking #{booking.id}" }
@@ -1857,11 +1962,13 @@ class Place::Parking::Approvals < PlaceOS::Driver
     begin
       # per-instance: only this occurrence moves off the space; other instances
       # of a recurring booking keep their own asset overrides
-      staff_api.update_booking(
-        booking_id: booking.id,
-        asset_id: placeholder,
-        instance: booking.instance,
-      ).get_json
+      with_retry("move booking #{booking.id} off space #{space.id}") do
+        staff_api.update_booking(
+          booking_id: booking.id,
+          asset_id: placeholder,
+          instance: booking.instance,
+        ).get_json
+      end
     rescue error
       logger.warn(exception: error) { "failed to move booking #{booking.id} off space #{space.id}; leaving the allocation in place" }
       return false
@@ -1880,6 +1987,7 @@ class Place::Parking::Approvals < PlaceOS::Driver
   # approved email can fire, and a mailer failure can't leave a stale
   # access_granted), but DEFERS the displaced email — see flush_displaced_emails.
   protected def register_displacement(booking : Booking, reason : String) : Nil
+    clear_approved_notifications(booking)
     update_state(booking, "wait_list")
     @displaced_pending[{booking.id, booking.instance}] = {booking, reason}
   end
@@ -1910,12 +2018,14 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.extension_data["parking_group"] = JSON::Any.new(group_name)
     end
 
-    staff_api.update_booking(
-      booking_id: booking.id,
-      asset_id: space.id,
-      instance: booking.instance,
-      extension_data: booking.extension_data
-    ).get_json
+    with_retry("restore booking #{booking.id} to space #{space.id}") do
+      staff_api.update_booking(
+        booking_id: booking.id,
+        asset_id: space.id,
+        instance: booking.instance,
+        extension_data: booking.extension_data
+      ).get_json
+    end
 
     booking.asset_id = space.id
     booking.asset_ids = [space.id]
@@ -2052,7 +2162,9 @@ class Place::Parking::Approvals < PlaceOS::Driver
       booking.user_email,
       {"parking_request", "no_card"},
       common_template_args(booking).merge({reason: reason}),
+      bcc: @email_bcc,
     ).get_json
+    record_notified(booking)
   rescue error
     logger.warn(exception: error) { "failed to notify no-card user #{booking.user_email}" }
   end
@@ -2315,6 +2427,74 @@ class Place::Parking::Approvals < PlaceOS::Driver
   end
 
   # ===================================
+  # Notification ledger
+  # ===================================
+
+  # The process_state guards stop repeat emails while the state machine moves
+  # forward, but the state can legitimately flap backwards (staff-api resets
+  # `approved` when booking times are edited; displacement churn resets to
+  # wait_list) and each flap would re-send an email the user already has. This
+  # ledger records which notifications have EVER been sent for a booking
+  # instance in extension_data (surviving re-fetches and driver restarts) so
+  # each is sent at most once — while remaining at-least-once: the entry is
+  # only written AFTER a successful send, so a failed send still retries.
+  NOTIFIED_KEY = "parking_notified"
+  # running total of every parking email sent for the booking, for monitoring
+  EMAILS_SENT_KEY = "emails_sent"
+
+  protected def notified_list(booking : Booking) : Array(String)
+    booking.extension_data[NOTIFIED_KEY]?.try(&.as_a?).try(&.compact_map(&.as_s?)) || [] of String
+  end
+
+  protected def notified?(booking : Booking, key : String) : Bool
+    notified_list(booking).includes?(key)
+  end
+
+  # Record a sent email: add `key` to the ledger (when given — counter-only
+  # emails like displaced/cancelled pass nil) and bump the emails_sent counter.
+  # Persisted via the ext_data merge endpoint with no change event signalled,
+  # so this can't trigger another sweep. A failed write only risks a repeat
+  # email later, never a lost one, so it's logged and the run continues.
+  protected def record_notified(booking : Booking, key : String? = nil) : Nil
+    list = notified_list(booking)
+    list << key if key && !list.includes?(key)
+    count = booking.extension_data[EMAILS_SENT_KEY]?.try(&.as_i64?) || 0_i64
+    booking.extension_data[NOTIFIED_KEY] = JSON.parse(list.to_json)
+    booking.extension_data[EMAILS_SENT_KEY] = JSON::Any.new(count + 1)
+    with_retry("record notification for booking #{booking.id}") do
+      staff_api.booking_extension_data(
+        booking.id,
+        {
+          NOTIFIED_KEY    => booking.extension_data[NOTIFIED_KEY],
+          EMAILS_SENT_KEY => booking.extension_data[EMAILS_SENT_KEY],
+        },
+        instance: booking.instance,
+      ).get
+    end
+  rescue error
+    logger.warn(exception: error) { "failed to record notification #{key} for booking #{booking.id}" }
+  end
+
+  # Forget "approved:*" entries when a booking loses its space: after a
+  # displacement the user must be told about any subsequent allocation, even
+  # one landing back on the very bay already announced.
+  protected def clear_approved_notifications(booking : Booking) : Nil
+    list = notified_list(booking)
+    pruned = list.reject(&.starts_with?("approved:"))
+    return if pruned.size == list.size
+    booking.extension_data[NOTIFIED_KEY] = JSON.parse(pruned.to_json)
+    with_retry("clear approved notifications for booking #{booking.id}") do
+      staff_api.booking_extension_data(
+        booking.id,
+        {NOTIFIED_KEY => booking.extension_data[NOTIFIED_KEY]},
+        instance: booking.instance,
+      ).get
+    end
+  rescue error
+    logger.warn(exception: error) { "failed to clear approved notifications for booking #{booking.id}" }
+  end
+
+  # ===================================
   # Emails
   # ===================================
 
@@ -2325,6 +2505,16 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def approved_email(booking : Booking, space : ParkingSpace) : Nil
     return if booking.process_state == "access_granted_emailed"
 
+    # one approval email per space, ever: state churn that lands the booking
+    # back on a bay already announced (or a send whose state write failed)
+    # must not repeat the email. register_displacement clears these entries so
+    # a re-allocation AFTER a displacement notice still notifies.
+    approved_key = "approved:#{space.id}"
+    if notified?(booking, approved_key)
+      update_state(booking, "access_granted_emailed")
+      return
+    end
+
     # per-parking-area trigger so each area can have its own approval email
     group_id = approval_group_id(space)
     template = group_id ? "approved_#{group_id}" : "approved"
@@ -2334,8 +2524,10 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {"parking_request", template},
       common_template_args(booking, space),
       attachments: calendar_attachment(booking, space.identifier.presence || space.id, cancel: false),
+      bcc: @email_bcc,
     ).get_json
 
+    record_notified(booking, approved_key)
     update_state(booking, "access_granted_emailed")
   rescue error
     logger.warn(exception: error) { "failed to send approved email for booking #{booking.id}" }
@@ -2347,13 +2539,22 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def waiting_approval_email(booking : Booking) : Nil
     return if WAITING_SENT.includes?(booking.process_state)
 
+    # already told this user once (state flapped back, e.g. a time edit reset
+    # their approval) — settle the state without re-emailing
+    if notified?(booking, "approval_required")
+      update_state(booking, "waiting_approval")
+      return
+    end
+
     # blocking send: only advance the state once the email actually went out
     mailer.send_template(
       booking.user_email,
       {"parking_request", "approval_required"},
       common_template_args(booking),
+      bcc: @email_bcc,
     ).get_json
 
+    record_notified(booking, "approval_required")
     update_state(booking, "waiting_approval")
   rescue error
     logger.warn(exception: error) { "failed to send waiting approval email for booking #{booking.id}" }
@@ -2365,13 +2566,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
   protected def wait_list_email(booking : Booking) : Nil
     return if WAIT_LIST_SENT.includes?(booking.process_state)
 
+    # already told this user they're wait-listed at some point — settle the
+    # state without re-emailing (a displaced email also covers this ground, so
+    # a booking that lost its space isn't re-notified here either)
+    if notified?(booking, "wait_list")
+      update_state(booking, "wait_list")
+      return
+    end
+
     # blocking send: only advance the state once the email actually went out
     mailer.send_template(
       booking.user_email,
       {"parking_request", "wait_list"},
       common_template_args(booking),
+      bcc: @email_bcc,
     ).get_json
 
+    record_notified(booking, "wait_list")
     update_state(booking, "wait_list")
   rescue error
     logger.warn(exception: error) { "failed to send wait list email for booking #{booking.id}" }
@@ -2397,12 +2608,19 @@ class Place::Parking::Approvals < PlaceOS::Driver
       logger.warn(exception: error) { "failed to reject booking #{booking.id}" }
     end
 
-    # blocking send: only advance the state once the email actually went out
-    mailer.send_template(
-      booking.user_email,
-      {"parking_request", "rejected"},
-      common_template_args(booking),
-    ).get_json
+    # the reject above is re-applied if the flag flapped (an edit clears it),
+    # but the email is only ever sent once per booking
+    unless notified?(booking, "rejected")
+      # blocking send: only advance the state once the email actually went out
+      mailer.send_template(
+        booking.user_email,
+        {"parking_request", "rejected"},
+        common_template_args(booking),
+        bcc: @email_bcc,
+      ).get_json
+
+      record_notified(booking, "rejected")
+    end
 
     update_state(booking, "rejected")
   rescue error
@@ -2418,17 +2636,23 @@ class Place::Parking::Approvals < PlaceOS::Driver
       {"parking_request", "displaced"},
       common_template_args(booking).merge({reason: reason}),
       attachments: calendar_attachment(booking, label, cancel: true),
+      bcc: @email_bcc,
     ).get_json
+    # every displacement is a distinct event so it's never deduped, but it
+    # still counts towards the booking's email total
+    record_notified(booking)
   rescue error
     logger.warn(exception: error) { "failed to send displaced email for booking #{booking.id}" }
   end
 
   protected def update_state(booking : Booking, state : String) : Nil
-    staff_api.booking_state(
-      booking_id: booking.id,
-      state: state,
-      instance: booking.instance,
-    ).get
+    with_retry("update process_state #{state} for booking #{booking.id}") do
+      staff_api.booking_state(
+        booking_id: booking.id,
+        state: state,
+        instance: booking.instance,
+      ).get
+    end
     booking.process_state = state
   rescue error
     logger.warn(exception: error) { "failed to update process_state #{state} for booking #{booking.id}" }

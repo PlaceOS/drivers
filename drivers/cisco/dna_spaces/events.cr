@@ -24,6 +24,8 @@ abstract class Cisco::DNASpaces::Events
     "BLE_RSSI_UPDATE"        => BleRssiUpdateWrapper,
     "IOT_TELEMETRY"          => IotTelemetryWrapper,
     "WEBEX_TELEMETRY"        => WebexTelemetryUpdateWrapper,
+    "SPACE_OCCUPANCY"        => SpaceOccupancyWrapper,
+    "SPACE_OCCUPANCY_CHANGE" => SpaceOccupancyChangeWrapper,
   }
 
   @[JSON::Field(key: "recordUid")]

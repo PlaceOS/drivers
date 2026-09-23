@@ -10,7 +10,7 @@ class Cisco::DNASpaces < PlaceOS::Driver
   include Interface::Locatable
   include Interface::Sensor
 
-  # Discovery Information
+  # Discovery Information:
   descriptive_name "Cisco Spaces"
   generic_name :Cisco_Spaces
   uri_base "https://partners.dnaspaces.io"

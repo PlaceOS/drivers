@@ -189,8 +189,7 @@ class Optergy::P864 < PlaceOS::Driver
     end
   end
 
-  @[Security(Level::Administrator)]
-  def auth_headers
+  protected def auth_headers
     HTTP::Headers{
       "Accept"        => "application/json",
       "Content-Type"  => "application/json",
