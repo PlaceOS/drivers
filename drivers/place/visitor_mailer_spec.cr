@@ -468,6 +468,13 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # previous_event_date and previous_event_time should be present (time did change)
   args2["previous_event_date"].should_not be_nil
   args2["previous_event_time"].should_not be_nil
+  # the end of the visit is rendered alongside the start (PPT-2667)
+  args2["event_end_time"].should_not be_nil
+  args2["event_end_date"].should_not be_nil
+  args2["previous_event_end_time"].should_not be_nil
+  args2["previous_event_end_date"].should_not be_nil
+  # and the zone the times are in is named (the building zone's, not the driver default)
+  args2["event_timezone"].should eq "UTC"
 
   # ------------------------------------------------------------------
   # Test 3: action != "changed" is ignored (no extra email sent)
@@ -650,7 +657,12 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:Mailer)[:send_count].should eq 5
   system(:Mailer)[:last_to].should eq "visitor@external.com"
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
-  system(:Mailer)[:last_args]["event_title"].should eq "End Time Only Change"
+  args6c = system(:Mailer)[:last_args]
+  args6c["event_title"].should eq "End Time Only Change"
+  args6c["event_end_time"].should_not be_nil
+  args6c["previous_event_end_time"].should_not be_nil
+  args6c["previous_event_end_time"].should_not eq args6c["event_end_time"]
+  args6c["previous_event_time"].should eq args6c["event_time"]
 
   # ==================================================================
   # booking_host_changed_event tests
@@ -844,6 +856,9 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # previous dates should be present
   args11["previous_event_date"].should_not be_nil
   args11["previous_event_time"].should_not be_nil
+  args11["event_end_time"].should_not be_nil
+  args11["previous_event_end_time"].should_not be_nil
+  args11["event_timezone"].should eq "UTC"
   # The location did NOT change, so the "previous" room/building must mirror
   # the (unchanged) current room — resolved from system_id — rather than the
   # static @booking_space_name fallback.  Otherwise the email shows a bogus

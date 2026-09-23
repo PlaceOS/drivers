@@ -130,6 +130,9 @@ class Place::VisitorMailer < PlaceOS::Driver
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
+
+  # Zone abbreviation for the `event_timezone` placeholder (e.g. AWST)
+  TIMEZONE_FORMAT = "%Z"
   @date_format : String = "%A, %-d %B"
 
   @building_zone : ZoneDetails? = nil
@@ -592,15 +595,16 @@ class Place::VisitorMailer < PlaceOS::Driver
       host_email,
       {"visitor_invited", template}, # Template selection: "visitor_invited" "notify_checkin"
       {
-      visitor_email: visitor_email,
-      visitor_name:  visitor_name,
-      host_name:     get_host_name(host_email),
-      host_email:    host_email,
-      building_name: building_name || building_name_for(nil),
-      event_title:   event_title,
-      event_start:   local_start_time.to_s(@time_format),
-      event_date:    local_start_time.to_s(@date_format),
-      event_time:    local_start_time.to_s(@time_format),
+      visitor_email:  visitor_email,
+      visitor_name:   visitor_name,
+      host_name:      get_host_name(host_email),
+      host_email:     host_email,
+      building_name:  building_name || building_name_for(nil),
+      event_title:    event_title,
+      event_start:    local_start_time.to_s(@time_format),
+      event_date:     local_start_time.to_s(@date_format),
+      event_time:     local_start_time.to_s(@time_format),
+      event_timezone: local_start_time.to_s(TIMEZONE_FORMAT),
     },
       reply_to: host_email.presence,
     )
@@ -633,6 +637,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),
       event_time:       local_start_time.to_s(@time_format),
+      event_timezone:   local_start_time.to_s(TIMEZONE_FORMAT),
       induction_status: induction_status.to_s,
     },
       reply_to: host_email.presence,
@@ -735,6 +740,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         event_title:         event_title,
         event_date:          local_start_time.try(&.to_s(@date_format)),
         event_time:          local_start_time.try(&.to_s(@time_format)),
+        event_timezone:      local_start_time.try(&.to_s(TIMEZONE_FORMAT)),
       },
       reply_to: new_host_email.presence,
     )
@@ -752,10 +758,13 @@ class Place::VisitorMailer < PlaceOS::Driver
       {name: "event_start", description: "Start time (e.g., #{time_now.to_s(@time_format)})"},
       {name: "event_date", description: "Date of the visit (e.g., #{time_now.to_s(@date_format)})"},
       {name: "event_time", description: "Time of the visit (or 'all day' for 24-hour events)"},
+      {name: "event_timezone", description: "Abbreviation of the time zone the times are shown in (e.g., #{time_now.to_s(TIMEZONE_FORMAT)})"},
     ]
 
     invitation_fields = common_fields + [
       {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "event_end_time", description: "End time of the visit (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "event_end_date", description: "End date of the visit (e.g., #{time_now.to_s(@date_format)})"},
       {name: "network_username", description: "Network access username (if network credentials enabled)"},
       {name: "network_password", description: "Generated network access password (if network credentials enabled)"},
     ]
@@ -773,8 +782,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     # the same data but render through separate templates.
     changed_fields = common_fields + [
       {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "event_end_time", description: "The new end time"},
+      {name: "event_end_date", description: "The new end date"},
       {name: "previous_event_date", description: "The original date before it was changed"},
-      {name: "previous_event_time", description: "The original time before it was changed"},
+      {name: "previous_event_time", description: "The original start time before it was changed"},
+      {name: "previous_event_end_time", description: "The original end time before it was changed"},
+      {name: "previous_event_end_date", description: "The original end date before it was changed"},
       {name: "previous_room_name", description: "The original room or area name before it was moved"},
       {name: "previous_building_name", description: "The original building name before it was moved"},
     ] + jwt_fields
@@ -1226,6 +1239,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_id: change.booking_id.to_s,
       resource_id: change.resource_id,
       time_zone: visit_time_zone(change.zones),
+      event_end: change.current_end,
+      previous_end: change.previous_end,
     )
   end
 
@@ -1271,6 +1286,8 @@ class Place::VisitorMailer < PlaceOS::Driver
       resource_id: system_id,
       system_id: system_id,
       time_zone: visit_time_zone(resolve_system_zones(system_id)),
+      event_end: change.current_end,
+      previous_end: change.previous_end,
     )
   end
 
@@ -1296,6 +1313,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     resource_id : String? = nil,
     system_id : String? = nil,
     time_zone : Time::Location? = nil,
+    event_end : Int64? = nil,
+    previous_end : Int64? = nil,
   )
     resolved_building_name = building_name || (building_zone.display_name.presence || building_zone.name)
     resolved_room_name = room_name || @booking_space_name
@@ -1339,7 +1358,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       # describing the same change to the same visitors (PPT-2375)
       notice_key = {
         template, visitor_email.strip.downcase, host_email.strip.downcase, event_title,
-        event_start, previous_start, resolved_room_name, resolved_building_name,
+        event_start, event_end, previous_start, previous_end, resolved_room_name, resolved_building_name,
         previous_room_name, previous_building_name,
       }.join('\t')
 
@@ -1349,9 +1368,11 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
 
       local_start_time = Time.unix(event_start).in(location)
+      local_end_time = event_end.try { |timestamp| Time.unix(timestamp).in(location) }
 
       previous_date = previous_start.try { |timestamp| Time.unix(timestamp).in(location).to_s(@date_format) }
       previous_time = previous_start.try { |timestamp| Time.unix(timestamp).in(location).to_s(@time_format) }
+      previous_end_local = previous_end.try { |timestamp| Time.unix(timestamp).in(location) }
 
       guest_jwt = kiosk_url = ""
       attach = [] of NamedTuple(file_name: String, content: String, content_id: String)
@@ -1379,22 +1400,27 @@ class Place::VisitorMailer < PlaceOS::Driver
         visitor_email,
         {"visitor_invited", template},
         {
-          visitor_email:          visitor_email,
-          visitor_name:           visitor_name,
-          host_name:              get_host_name(host_email),
-          host_email:             host_email,
-          room_name:              resolved_room_name,
-          building_name:          resolved_building_name,
-          event_title:            event_title,
-          event_start:            local_start_time.to_s(@time_format),
-          event_date:             local_start_time.to_s(@date_format),
-          event_time:             local_start_time.to_s(@time_format),
-          previous_event_date:    previous_date,
-          previous_event_time:    previous_time,
-          previous_room_name:     previous_room_name,
-          previous_building_name: previous_building_name,
-          guest_jwt:              guest_jwt,
-          kiosk_url:              kiosk_url,
+          visitor_email:           visitor_email,
+          visitor_name:            visitor_name,
+          host_name:               get_host_name(host_email),
+          host_email:              host_email,
+          room_name:               resolved_room_name,
+          building_name:           resolved_building_name,
+          event_title:             event_title,
+          event_start:             local_start_time.to_s(@time_format),
+          event_date:              local_start_time.to_s(@date_format),
+          event_time:              local_start_time.to_s(@time_format),
+          event_end_time:          local_end_time.try(&.to_s(@time_format)),
+          event_end_date:          local_end_time.try(&.to_s(@date_format)),
+          event_timezone:          local_start_time.to_s(TIMEZONE_FORMAT),
+          previous_event_date:     previous_date,
+          previous_event_time:     previous_time,
+          previous_event_end_time: previous_end_local.try(&.to_s(@time_format)),
+          previous_event_end_date: previous_end_local.try(&.to_s(@date_format)),
+          previous_room_name:      previous_room_name,
+          previous_building_name:  previous_building_name,
+          guest_jwt:               guest_jwt,
+          kiosk_url:               kiosk_url,
         },
         attach,
         reply_to: host_email.presence,
@@ -1465,6 +1491,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   )
     location = time_zone || @time_zone
     local_start_time = Time.unix(event_start).in(location)
+    local_end_time = event_end.try { |timestamp| Time.unix(timestamp).in(location) }
 
     attach = if @disable_qr_code
                [] of NamedTuple(file_name: String, content: String, content_id: String)
@@ -1516,6 +1543,9 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),
       event_time:       event_time,
+      event_end_time:   local_end_time.try(&.to_s(@time_format)),
+      event_end_date:   local_end_time.try(&.to_s(@date_format)),
+      event_timezone:   local_start_time.to_s(TIMEZONE_FORMAT),
       network_username: network_username,
       network_password: network_password,
       guest_jwt:        guest_jwt,

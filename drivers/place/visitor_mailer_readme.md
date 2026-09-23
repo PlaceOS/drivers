@@ -73,6 +73,21 @@ to use the building's zone, so it does not reliably answer where the visit is he
 The `previous_event_date` / `previous_event_time` fields are rendered in the same zone,
 so both halves of a change email read consistently.
 
+Every email also carries `event_timezone`, the abbreviation of the zone its times are in
+(for example `AWST`), so a template can label the times it shows. A `time_format` that
+includes `%Z` labels every time placeholder instead:
+
+```yaml
+  time_format: "%l:%M%p %Z"
+```
+
+## End times
+
+The invitation, reminder and change emails carry the end of the visit as `event_end_time`
+and `event_end_date`. The change emails also carry `previous_event_end_time` and
+`previous_event_end_date`, so a template can show the whole window before and after an
+edit, whichever of the start or the end moved.
+
 ## Building name
 
 Emails name the building the visit is in, taken from the zones on the signal, so a
