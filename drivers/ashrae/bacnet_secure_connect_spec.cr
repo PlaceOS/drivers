@@ -190,4 +190,163 @@ DriverSpecs.mock_driver "Ashrae::BACnetSecureConnect" do
   request = parse.call(expect_send(2.seconds))
   responds complex_ack.call(request, ValueObjects{BACnet::Object.new.set_value(22.5_f32)})
   response.get.not_nil!["obj_value"].should eq(22.5)
+
+  # ===========================================================
+  # writes to a known device are sent directly to its VMAC
+  # ===========================================================
+
+  simple_ack = ->(request : Secure) do
+    message = device_message.call
+    ack = BACnet::SimpleAck.new
+    ack.invoke_id = request.application.as(BACnet::ConfirmedRequest).invoke_id.not_nil!
+    ack.service = BACnet::ConfirmedService::WriteProperty
+    message.application = ack
+    message
+  end
+
+  response = exec(:write_real, device_id, 1_u32, 20.0, "AnalogValue", 8)
+  request = parse.call(expect_send(2.seconds))
+  request.data_link.destination_address.should eq(device_vmac.hexstring)
+  request.network.not_nil!.destination_specifier.should be_false
+  details = BACnet::Client::Message::WriteProperty.parse(request)
+  details[:object_id].instance_number.should eq(1)
+  details[:priority].should eq(8)
+  responds simple_ack.call(request)
+  response.get.should eq(20.0)
+
+  # ===========================================================
+  # a device that hasn't been discovered is located with a WhoIs
+  # limited to its instance. This device is behind a BACnet router,
+  # so requests are sent to the router VMAC with a routed destination
+  # ===========================================================
+
+  router_vmac = Bytes[0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee]
+  routed_id = 400001_u32
+  routed_network = 7_u16
+  routed_address = "0c"
+  routed_binding = "#{routed_id}.AnalogValue[3]"
+
+  routed_i_am = -> do
+    data_link = Secure::BVLCI.new
+    data_link.request_type = Secure::Request::EncapsulatedNPDU
+    data_link.message_id = 101_u16
+    data_link.source_address = router_vmac
+    npdu = BACnet::NPDU.new
+    npdu.source.network = routed_network
+    npdu.source_address = routed_address
+
+    BACnet::Client::Message::IAm.build(
+      Secure.new(data_link, npdu),
+      BACnet::ObjectIdentifier.new(:device, routed_id),
+      1476, BACnet::SegmentationSupport::NotSupported, 389
+    )
+  end
+
+  response = exec(:query_value, routed_id, 3_u32, "AnalogValue")
+
+  who_is = parse.call(expect_send(2.seconds))
+  who_is.data_link.destination_broadcast?.should eq(true)
+  who_is.application.as(BACnet::UnconfirmedRequest).service.who_is?.should eq(true)
+  who_is.objects.map(&.as(BACnet::Object).to_u32).should eq([routed_id, routed_id])
+  responds routed_i_am.call
+
+  # the object is read while the device is inspected in the background
+  properties = [] of PropertyType
+  5.times do
+    request = parse.call(expect_send(2.seconds))
+    request.data_link.destination_address.should eq(router_vmac.hexstring)
+    npdu = request.network.not_nil!
+    npdu.destination.network.should eq(routed_network)
+    npdu.destination_address.should eq(routed_address)
+
+    details = read_property.call(request)
+    properties << details[:property]
+    value = case details[:property]
+            when .present_value?
+              details[:object_id].instance_number.should eq(3)
+              BACnet::Object.new.set_value(19.5_f32)
+            when .object_list?
+              BACnet::Object.new.set_value(0_u32)
+            else
+              char_string.call("Routed #{details[:property]}")
+            end
+    responds complex_ack.call(request, ValueObjects{value})
+  end
+  properties.sort.should eq([
+    PropertyType::ObjectName, PropertyType::VendorName, PropertyType::ModelName,
+    PropertyType::ObjectList, PropertyType::PresentValue,
+  ].sort)
+
+  value = response.get.not_nil!
+  value["obj_id"].should eq(routed_binding)
+  value["obj_value"].should eq(19.5)
+  status[routed_binding]["obj_value"].should eq(19.5)
+
+  # the device is now known, including where it lives
+  sleep 200.milliseconds
+  device = exec(:device, routed_id).get.not_nil!
+  device["name"].should eq("Routed ObjectName")
+  device["vmac"].should eq(router_vmac.hexstring)
+  device["network"].should eq(routed_network)
+  device["address"].should eq(routed_address)
+
+  # so writes no longer need a WhoIs and are routed
+  response = exec(:write_unsigned_int, routed_id, 4_u32, 3, "PositiveIntegerValue", 10)
+  request = parse.call(expect_send(2.seconds))
+  request.data_link.destination_address.should eq(router_vmac.hexstring)
+  request.network.not_nil!.destination.network.should eq(routed_network)
+  request.network.not_nil!.destination_address.should eq(routed_address)
+  details = BACnet::Client::Message::WriteProperty.parse(request)
+  details[:object_id].object_type.should eq(BACnet::ObjectIdentifier::ObjectType::PositiveIntegerValue)
+  details[:object_id].instance_number.should eq(4)
+  details[:priority].should eq(10)
+  responds simple_ack.call(request)
+  response.get.should eq(3)
+
+  # ===========================================================
+  # concurrent requests for an unknown device share a single WhoIs
+  # ===========================================================
+
+  other_id = 500001_u32
+  write1 = exec(:write_binary, other_id, 1_u32, true)
+  who_is = parse.call(expect_send(2.seconds))
+  who_is.objects.map(&.as(BACnet::Object).to_u32).should eq([other_id, other_id])
+
+  # a second request while the first is waiting on the IAm.
+  # NOTE:: exec clears buffered transmissions, so the WhoIs is consumed first
+  write2 = exec(:write_binary, other_id, 2_u32, false)
+  sleep 100.milliseconds
+  responds BACnet::Client::Message::IAm.build(
+    device_message.call,
+    BACnet::ObjectIdentifier.new(:device, other_id),
+    1476, BACnet::SegmentationSupport::NotSupported, 389
+  )
+
+  # 2 writes and the 4 inspection reads, no further WhoIs requests
+  written = [] of UInt32
+  6.times do
+    request = parse.call(expect_send(2.seconds))
+    request.data_link.destination_address.should eq(device_vmac.hexstring)
+    service = request.application.as(BACnet::ConfirmedRequest).service
+    if service.write_property?
+      written << BACnet::Client::Message::WriteProperty.parse(request)[:object_id].instance_number
+      responds simple_ack.call(request)
+    else
+      service.read_property?.should be_true
+      details = read_property.call(request)
+      value = details[:property].object_list? ? BACnet::Object.new.set_value(0_u32) : char_string.call("Other")
+      responds complex_ack.call(request, ValueObjects{value})
+    end
+  end
+  written.sort.should eq([1_u32, 2_u32])
+  write1.get.should eq(true)
+  write2.get.should eq(false)
+
+  # ===========================================================
+  # an unknown device that doesn't respond is an error for the caller
+  # ===========================================================
+
+  response = exec(:write_real, 600001_u32, 1_u32, 1.0)
+  parse.call(expect_send(2.seconds)).objects.map(&.as(BACnet::Object).to_u32).should eq([600001_u32, 600001_u32])
+  expect_raises(PlaceOS::Driver::RemoteException) { response.get }
 end

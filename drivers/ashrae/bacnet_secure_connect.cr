@@ -160,6 +160,15 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     end
   end
 
+  # where a device can be reached. The VMAC is the BACnet/SC node the message is
+  # sent to, for devices behind a BACnet router this is the router's VMAC and
+  # the network / address identify the device on the remote network
+  record DeviceAddress, vmac : Bytes, network : UInt16? = nil, address : String? = nil do
+    def read_property(client : ::BACnet::Client::SecureConnect, object_id, property, index = nil)
+      client.read_property(object_id, property, index, network, address, link_address: vmac)
+    end
+  end
+
   # Object tracking for BACnet objects
   class ObjectInfo
     property object_ptr : ::BACnet::ObjectIdentifier
@@ -179,8 +188,8 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       @object_ptr.instance_number
     end
 
-    def sync_value(client : ::BACnet::Client::SecureConnect, vmac : Bytes)
-      result = client.read_property(@object_ptr, ::BACnet::PropertyIdentifier::PropertyType::PresentValue, nil, nil, nil, link_address: vmac).get
+    def sync_value(client : ::BACnet::Client::SecureConnect, link : DeviceAddress)
+      result = link.read_property(client, @object_ptr, ::BACnet::PropertyIdentifier::PropertyType::PresentValue).get
       @value = client.parse_complex_ack(result)[:objects][0]?.try(&.as(::BACnet::Object))
       @changed = Time.utc
       @value
@@ -200,7 +209,17 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     property model_name : String = ""
     property objects : Array(ObjectInfo) = [] of ObjectInfo
 
-    def initialize(@device_instance, @vmac)
+    def initialize(@device_instance, @vmac, @network = nil, @address = nil)
+    end
+
+    def link : DeviceAddress
+      DeviceAddress.new(@vmac, @network, @address)
+    end
+
+    def link=(link : DeviceAddress)
+      @vmac = link.vmac
+      @network = link.network
+      @address = link.address
     end
 
     def object_ptr
@@ -234,8 +253,58 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   @devices : Hash(UInt32, DeviceInfo) = {} of UInt32 => DeviceInfo
   @mutex : Mutex = Mutex.new(:reentrant)
 
+  @inspecting : Set(UInt32) = Set(UInt32).new
+  @link_waiters : Hash(UInt32, Array(Channel(DeviceAddress))) = {} of UInt32 => Array(Channel(DeviceAddress))
+
   protected def get_device(device_id : UInt32)
     @mutex.synchronize { @devices[device_id]? }
+  end
+
+  protected def seen_link(info : ::BACnet::DiscoveryStore::Device) : DeviceAddress?
+    if vmac = info.vmac.presence
+      DeviceAddress.new(vmac.hexbytes, info.network, info.address)
+    end
+  end
+
+  # finds where a device can be reached, performing a WhoIs for the device if
+  # it hasn't been seen yet (i.e. discovery hasn't completed or it was missed)
+  #
+  # NOTE:: must not be called from the `received` fiber as it waits on an IAm
+  protected def resolve_address(device_id : UInt32, timeout : Time::Span = 3.seconds) : DeviceAddress
+    if device = get_device(device_id)
+      return device.link
+    end
+    if (info = @seen_devices[device_id]?) && (link = seen_link(info))
+      return link
+    end
+
+    waiter = Channel(DeviceAddress).new(1)
+    first = @mutex.synchronize do
+      waiting = @link_waiters[device_id] ||= [] of Channel(DeviceAddress)
+      waiting << waiter
+      waiting.size == 1
+    end
+
+    begin
+      # a WhoIs limited to a single instance, only that device will respond.
+      # this is sent directly (not queued) so it doesn't wait behind other requests
+      bacnet_client.who_is(device_id, device_id) if first
+      select
+      when link = waiter.receive
+        # inspect the device in the background so it is polled going forward
+        spawn { inspect_device(device_id, link) }
+        link
+      when timeout(timeout)
+        raise "device #{device_id} is unknown and did not respond to a WhoIs"
+      end
+    ensure
+      @mutex.synchronize do
+        if waiting = @link_waiters[device_id]?
+          waiting.delete(waiter)
+          @link_waiters.delete(device_id) if waiting.empty?
+        end
+      end
+    end
   end
 
   # Performs a WhoIs discovery against the BACnet network
@@ -311,7 +380,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     end
 
     # Query all devices in seen_devices (which includes loaded known_devices from on_update)
-    channel = Channel(Tuple(UInt32, String)).new(3)
+    channel = Channel(Tuple(UInt32, DeviceAddress)).new(3)
 
     begin
       # we could do something like 3.times here if we wanted to query more than one at a time
@@ -319,15 +388,13 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
         loop do
           details = channel.receive?
           break unless details
-          dev_id, vmac_readable = details
+          dev_id, link = details
 
           begin
-            logger.debug { "inspecting #{dev_id} - #{vmac_readable}" }
-
-            vmac = vmac_readable.hexbytes
-            inspect_device(dev_id, vmac)
+            logger.debug { "inspecting #{dev_id} - #{link.vmac.hexstring}" }
+            inspect_device(dev_id, link)
           rescue error
-            logger.error(exception: error) { "failed to inspect device #{dev_id} - #{vmac_readable}" }
+            logger.error(exception: error) { "failed to inspect device #{dev_id} - #{link.vmac.hexstring}" }
           end
         end
       end
@@ -335,9 +402,8 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       count = 0
       @seen_devices.each_value do |info|
         device_id = info.device_instance
-        # Get VMAC bytes from the device info
-        if vmac_hex = info.vmac
-          channel.send({device_id, vmac_hex})
+        if link = seen_link(info)
+          channel.send({device_id, link})
           count += 1
         end
       end
@@ -352,32 +418,41 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   end
 
   # Custom device inspection - replaces the old DeviceRegistry.inspect_device
-  protected def inspect_device(device_id : UInt32, vmac : Bytes)
-    # Check if we already have this device
-    existing = @mutex.synchronize { @devices[device_id]? }
-    return if existing && !existing.objects.empty?
+  protected def inspect_device(device_id : UInt32, link : DeviceAddress)
+    claimed = false
+    existing = @mutex.synchronize do
+      # Check if we already have this device
+      known = @devices[device_id]?
+      return if known && !known.objects.empty?
 
-    device = existing || DeviceInfo.new(device_id, vmac)
+      # a device can be inspected by discovery and a lookup at the same time
+      return unless @inspecting.add?(device_id)
+      claimed = true
+      known
+    end
+
+    device = existing || DeviceInfo.new(device_id, link.vmac)
+    device.link = link
     client = bacnet_client
     object_id = ::BACnet::ObjectIdentifier.new(:device, device_id)
 
     # Query device properties
     begin
-      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectName, nil, nil, nil, link_address: vmac).get
+      result = link.read_property(client, object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectName).get
       device.name = client.parse_complex_ack(result)[:objects][0].value.as(String)
     rescue error
       logger.debug(exception: error) { "Failed to read object_name for device [#{device_id}]" }
     end
 
     begin
-      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::VendorName, nil, nil, nil, link_address: vmac).get
+      result = link.read_property(client, object_id, ::BACnet::PropertyIdentifier::PropertyType::VendorName).get
       device.vendor_name = client.parse_complex_ack(result)[:objects][0].value.as(String)
     rescue error
       logger.debug(exception: error) { "Failed to read vendor_name for device [#{device_id}]" }
     end
 
     begin
-      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ModelName, nil, nil, nil, link_address: vmac).get
+      result = link.read_property(client, object_id, ::BACnet::PropertyIdentifier::PropertyType::ModelName).get
       device.model_name = client.parse_complex_ack(result)[:objects][0].value.as(String)
     rescue error
       logger.debug(exception: error) { "Failed to read model_name for device [#{device_id}]" }
@@ -385,7 +460,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
     # Query object list
     begin
-      result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectList, 0, nil, nil, link_address: vmac).get
+      result = link.read_property(client, object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectList, 0).get
       obj_list_item = client.parse_complex_ack(result)[:objects][0]
 
       # Handle string vs integer for object count
@@ -409,7 +484,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
       failed = 0
       (2..max_objects).each do |index|
         begin
-          result = client.read_property(object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectList, index, nil, nil, link_address: vmac).get
+          result = link.read_property(client, object_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectList, index).get
           obj_id = client.parse_complex_ack(result)[:objects][0].to_object_id
 
           # Skip device objects (sub-devices)
@@ -421,7 +496,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
           # Try to get object name
           begin
-            name_result = client.read_property(obj_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectName, nil, nil, nil, link_address: vmac).get
+            name_result = link.read_property(client, obj_id, ::BACnet::PropertyIdentifier::PropertyType::ObjectName).get
             obj_info.name = client.parse_complex_ack(name_result)[:objects][0].value.as(String)
           rescue
             obj_info.name = "(unnamed)"
@@ -430,7 +505,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           # Try to get units if applicable
           if OBJECTS_WITH_VALUES.includes?(obj_type)
             begin
-              unit_result = client.read_property(obj_id, ::BACnet::PropertyIdentifier::PropertyType::Units, nil, nil, nil, link_address: vmac).get
+              unit_result = link.read_property(client, obj_id, ::BACnet::PropertyIdentifier::PropertyType::Units).get
               unit_value = client.parse_complex_ack(unit_result)[:objects][0].to_i
               obj_info.unit = ::BACnet::Unit.new(unit_value)
             rescue
@@ -454,6 +529,8 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     new_device_found(device)
   rescue error
     logger.error(exception: error) { "Failed to inspect device #{device_id}" }
+  ensure
+    @mutex.synchronize { @inspecting.delete(device_id) } if claimed
   end
 
   getter currently_polling : Hash(UInt32, Bool) = {} of UInt32 => Bool
@@ -470,7 +547,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     logger.debug { "    Polling #{device_id}..." }
 
     client = bacnet_client
-    vmac = device.vmac
+    link = device.link
     objects = @mutex.synchronize { device.objects.dup }
     time_now = Time.utc.to_unix
 
@@ -478,7 +555,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     objects.each do |obj|
       next unless obj.object_type.in?(OBJECTS_WITH_VALUES)
 
-      obj.sync_value(client, vmac)
+      obj.sync_value(client, link)
       update_object_state(device_id, obj, time_now)
       synced += 1
 
@@ -520,15 +597,15 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   # this is fire and forget, the caller is not sent the value that was read.
   # use `query_value` where the value is required
   def update_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
-    device = get_device(device_id).not_nil!
-    obj = get_object_details(device_id, instance_id, object_type)
+    link = resolve_address(device_id)
+    obj = find_object(device_id, instance_id, object_type)
     name = object_binding(device_id, obj)
 
     # a named task, there is no point queuing multiple refreshes of the same
     # object as only the latest value is of any interest
     queue(name: name, priority: 50) do |task|
       spawn_action(task) do
-        obj.sync_value(bacnet_client, device.vmac)
+        obj.sync_value(bacnet_client, link)
         update_object_state(device_id, obj)
       end
     end
@@ -540,15 +617,15 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
   # NOTE:: deliberately not a named task, each caller is waiting on their own
   # result and a named task would abort any request it replaced in the queue
   def query_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType)
-    device = get_device(device_id).not_nil!
-    obj = get_object_details(device_id, instance_id, object_type)
+    link = resolve_address(device_id)
+    obj = find_object(device_id, instance_id, object_type)
 
     # wait: true so the task is resolved with the value read from the device.
     # no need to retry here, the client performs its own retries and times out
     # requests after 2 seconds
     queue(priority: 50, wait: true, retries: 0, timeout: 5.seconds) do |task|
       spawn_action(task) do
-        obj.sync_value(bacnet_client, device.vmac)
+        obj.sync_value(bacnet_client, link)
         update_object_state(device_id, obj)
       end
     end.response_required!
@@ -559,108 +636,61 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
     device.objects.find { |obj| obj.object_ptr.object_type == object_type && obj.object_ptr.instance_number == instance_id }.not_nil!
   end
 
-  def write_real(device_id : UInt32, instance_id : UInt32, value : Float32, object_type : ObjectType = ObjectType::AnalogValue, priority : Int32? = nil)
-    device = get_device(device_id).not_nil!
+  # the object if the device has been inspected, otherwise a placeholder so
+  # objects can be read before the device object list has been scanned
+  protected def find_object(device_id : UInt32, instance_id : UInt32, object_type : ObjectType) : ObjectInfo
+    get_device(device_id).try(&.objects.find { |obj| obj.object_ptr.object_type == object_type && obj.object_ptr.instance_number == instance_id }) ||
+      ObjectInfo.new(::BACnet::ObjectIdentifier.new(object_type, instance_id))
+  end
+
+  # the device is resolved before queuing so callers are informed of unknown devices
+  protected def write_present_value(device_id : UInt32, instance_id : UInt32, object_type : ObjectType, value : ::BACnet::Object, priority : Int32?) : Nil
+    link = resolve_address(device_id)
 
     queue(priority: 99) do |task|
       spawn_action(task) do
         bacnet_client.write_property(
           ::BACnet::ObjectIdentifier.new(object_type, instance_id),
           ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
-          ::BACnet::Object.new.set_value(value),
+          value,
           priority: priority,
-          link_address: device.vmac,
+          network: link.network,
+          address: link.address,
+          link_address: link.vmac,
         ).get
       end
     end
+  end
+
+  def write_real(device_id : UInt32, instance_id : UInt32, value : Float32, object_type : ObjectType = ObjectType::AnalogValue, priority : Int32? = nil)
+    write_present_value(device_id, instance_id, object_type, ::BACnet::Object.new.set_value(value), priority)
     value
   end
 
   def write_double(device_id : UInt32, instance_id : UInt32, value : Float64, object_type : ObjectType = ObjectType::LargeAnalogValue, priority : Int32? = nil)
-    device = get_device(device_id).not_nil!
-
-    queue(priority: 99) do |task|
-      spawn_action(task) do
-        bacnet_client.write_property(
-          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
-          ::BACnet::Object.new.set_value(value),
-          priority: priority,
-          link_address: device.vmac,
-        ).get
-      end
-    end
+    write_present_value(device_id, instance_id, object_type, ::BACnet::Object.new.set_value(value), priority)
     value
   end
 
   def write_unsigned_int(device_id : UInt32, instance_id : UInt32, value : UInt64, object_type : ObjectType = ObjectType::PositiveIntegerValue, priority : Int32? = nil)
-    device = get_device(device_id).not_nil!
-
-    queue(priority: 99) do |task|
-      spawn_action(task) do
-        bacnet_client.write_property(
-          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
-          ::BACnet::Object.new.set_value(value),
-          priority: priority,
-          link_address: device.vmac,
-        ).get
-      end
-    end
+    write_present_value(device_id, instance_id, object_type, ::BACnet::Object.new.set_value(value), priority)
     value
   end
 
   def write_signed_int(device_id : UInt32, instance_id : UInt32, value : Int64, object_type : ObjectType = ObjectType::IntegerValue, priority : Int32? = nil)
-    device = get_device(device_id).not_nil!
-
-    queue(priority: 99) do |task|
-      spawn_action(task) do
-        bacnet_client.write_property(
-          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
-          ::BACnet::Object.new.set_value(value),
-          priority: priority,
-          link_address: device.vmac,
-        ).get
-      end
-    end
+    write_present_value(device_id, instance_id, object_type, ::BACnet::Object.new.set_value(value), priority)
     value
   end
 
   def write_string(device_id : UInt32, instance_id : UInt32, value : String, object_type : ObjectType = ObjectType::CharacterStringValue, priority : Int32? = nil)
-    device = get_device(device_id).not_nil!
-
-    queue(priority: 99) do |task|
-      spawn_action(task) do
-        bacnet_client.write_property(
-          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
-          ::BACnet::Object.new.set_value(value),
-          priority: priority,
-          link_address: device.vmac,
-        ).get
-      end
-    end
+    write_present_value(device_id, instance_id, object_type, ::BACnet::Object.new.set_value(value), priority)
     value
   end
 
   def write_binary(device_id : UInt32, instance_id : UInt32, value : Bool, object_type : ObjectType = ObjectType::BinaryValue, priority : Int32? = nil)
-    val = value ? 1 : 0
-    device = get_device(device_id).not_nil!
-    val = ::BACnet::Object.new.set_value(val)
+    val = ::BACnet::Object.new.set_value(value ? 1 : 0)
     val.short_tag = 9_u8
-
-    queue(priority: 99) do |task|
-      spawn_action(task) do
-        bacnet_client.write_property(
-          ::BACnet::ObjectIdentifier.new(object_type, instance_id),
-          ::BACnet::PropertyIdentifier::PropertyType::PresentValue,
-          val,
-          priority: priority,
-          link_address: device.vmac,
-        ).get
-      end
-    end
+    write_present_value(device_id, instance_id, object_type, val, priority)
     value
   end
 
@@ -760,6 +790,14 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
           network: details[:network],
           address: details[:address]
         )
+
+        # keep inspected devices up to date and wake anyone waiting on a lookup
+        link = DeviceAddress.new(vmac, details[:network], details[:address])
+        waiters = @mutex.synchronize do
+          @devices[device]?.try &.link = link
+          @link_waiters.delete(device)
+        end
+        waiters.try &.each(&.send(link))
       end
     end
   end
@@ -918,7 +956,7 @@ class Ashrae::BACnetSecureConnect < PlaceOS::Driver
 
     if object.changed < 1.minutes.ago
       begin
-        object.sync_value(bacnet_client, device.vmac)
+        object.sync_value(bacnet_client, device.link)
       rescue error
         logger.warn(exception: error) { "failed to obtain latest value for sensor at #{mac}.#{id}" }
       end
