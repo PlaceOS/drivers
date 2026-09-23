@@ -75,10 +75,10 @@ so both halves of a change email read consistently.
 
 Every email also carries `event_timezone`, the abbreviation of the zone its times are in
 (for example `AWST`), so a template can label the times it shows. A `time_format` that
-includes `%Z` labels every time placeholder instead:
+includes `%^Z` labels every time placeholder instead:
 
 ```yaml
-  time_format: "%l:%M%p %Z"
+  time_format: "%l:%M%p %^Z"
 ```
 
 ## End times

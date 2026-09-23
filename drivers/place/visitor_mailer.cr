@@ -132,7 +132,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @time_format : String = "%l:%M%p"
 
   # Zone abbreviation for the `event_timezone` placeholder (e.g. AWST)
-  TIMEZONE_FORMAT = "%Z"
+  TIMEZONE_FORMAT = "%^Z"
   @date_format : String = "%A, %-d %B"
 
   @building_zone : ZoneDetails? = nil
