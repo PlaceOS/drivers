@@ -474,7 +474,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   args2["previous_event_end_time"].should_not be_nil
   args2["previous_event_end_date"].should_not be_nil
   # and the zone the times are in is named (the building zone's, not the driver default)
-  args2["event_timezone"].should eq "UTC"
+  args2["event_timezone"].should eq Time.unix(now).in(Time::Location.load("GMT")).to_s("%^Z")
 
   # ------------------------------------------------------------------
   # Test 3: action != "changed" is ignored (no extra email sent)
@@ -858,7 +858,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   args11["previous_event_time"].should_not be_nil
   args11["event_end_time"].should_not be_nil
   args11["previous_event_end_time"].should_not be_nil
-  args11["event_timezone"].should eq "UTC"
+  args11["event_timezone"].should eq Time.unix(now).in(Time::Location.load("GMT")).to_s("%^Z")
   # The location did NOT change, so the "previous" room/building must mirror
   # the (unchanged) current room — resolved from system_id — rather than the
   # static @booking_space_name fallback.  Otherwise the email shows a bogus
@@ -3814,4 +3814,76 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   org_args["previous_building_name"].should eq "Main Building"
   org_args["previous_room_name"].should eq "Client Floor"
   org_args["room_name"].should eq "Client Floor"
+
+  # ------------------------------------------------------------------
+  # Test 73: with event invites disabled, an event-linked booking still
+  #          invites unless skip_event_linked_booking_email says otherwise
+  # ------------------------------------------------------------------
+  #
+  # Unset, the skip follows disable_event_visitors; a site with the event
+  # path off relies on the linked booking for the attendee's only invitation.
+
+  settings({
+    timezone:               "GMT",
+    booking_space_name:     "Client Floor",
+    invite_zone_tag:        "building",
+    change_debounce:        0,
+    disable_event_visitors: true,
+  })
+  sleep 1.0
+
+  linked_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             12_i64,
+    booking_id:     601_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Linked Visit",
+    event_summary:  "Linked Visit",
+    event_starting: now + 118800,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-linked@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq linked_before + 1
+  system(:Mailer)[:last_to].should eq "visitor@external.com"
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
+
+  # explicitly opted out, the same invite is skipped
+  settings({
+    timezone:                        "GMT",
+    booking_space_name:              "Client Floor",
+    invite_zone_tag:                 "building",
+    change_debounce:                 0,
+    disable_event_visitors:          true,
+    skip_event_linked_booking_email: true,
+  })
+  sleep 1.0
+
+  linked_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             13_i64,
+    booking_id:     601_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Linked Visit",
+    event_summary:  "Linked Visit",
+    event_starting: now + 122400,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host-linked@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq linked_before
 end

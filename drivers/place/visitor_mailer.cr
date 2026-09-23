@@ -62,7 +62,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # Suppresses the `booking` template when the booking has an
     # extension_data.parent_id (i.e. auto-created from a calendar event that
-    # already triggers the `event` template).
+    # already triggers the `event` template). Unset, it follows
+    # disable_event_visitors: the linked booking's invite is skipped only while
+    # the event path sends one.
     skip_event_linked_booking_email: true,
 
     # When true, the host will not receive any visitor-targeted emails
@@ -128,11 +130,10 @@ class Place::VisitorMailer < PlaceOS::Driver
   @host_domain_filter : Array(String) = [] of String
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
+  # `%^Z` is the zone abbreviation (e.g. AWST); `%Z` would be the location name
+  TIMEZONE_FORMAT = "%^Z"
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
-
-  # Zone abbreviation for the `event_timezone` placeholder (e.g. AWST)
-  TIMEZONE_FORMAT = "%^Z"
   @date_format : String = "%A, %-d %B"
 
   @building_zone : ZoneDetails? = nil
@@ -222,8 +223,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
     @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
     @disable_event_visitors = setting?(Bool, :disable_event_visitors) || false
+    # unset: skip the linked booking's invite only when the event path sends one
     skip_event_linked = setting?(Bool, :skip_event_linked_booking_email)
-    @skip_event_linked_booking_email = skip_event_linked.nil? ? true : skip_event_linked
+    @skip_event_linked_booking_email = skip_event_linked.nil? ? !@disable_event_visitors : skip_event_linked
     skip_host_email = setting?(Bool, :skip_host_email)
     @skip_host_email = skip_host_email.nil? ? true : skip_host_email
     @skip_internal_domain_email = setting?(Bool, :skip_internal_domain_email) || false
@@ -279,7 +281,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   def building_zone : ZoneDetails
     if zone_id = @building_zone_id
       begin
-        return fetch_zone(zone_id)
+        return @building_zone = fetch_zone(zone_id)
       rescue error
         logger.warn(exception: error) { "error refreshing building zone #{zone_id}" }
         # last known good, an email is better than no email
@@ -388,10 +390,8 @@ class Place::VisitorMailer < PlaceOS::Driver
     nil
   end
 
-  # The zone a visit is in, following the parent chain upwards so a visit whose
-  # own zones omit the building (it is level or room only) still names one.
-  # Whether `zone` sits beneath a zone tagged as the building. A booking lists
-  # the org, region and campus zones above its building as well.
+  # Whether `zone` sits beneath a zone tagged as the building (a booking also
+  # lists the org, region and campus zones above its building).
   private def within_building?(zone : ZoneDetails) : Bool
     parent_id = zone.parent_id
     visited = Set(String).new

@@ -109,6 +109,27 @@ it contains: the tagged zone the others sit beneath is the one named.
 A building renamed in backoffice reaches the emails once its cache entry expires. Call
 `clear_zone_cache` to pick the new name up immediately.
 
+## Room bookings and their attendees
+
+An external attendee on a calendar event can be invited two ways: by the event itself
+(`disable_event_visitors: false`, the `event` template, which names the room) or by the
+visitor booking the front end creates beneath the event (the `booking` template).
+`skip_event_linked_booking_email` suppresses the second so the attendee is not invited
+twice. Unset, it follows `disable_event_visitors`: a site that has turned event invites
+off keeps the linked booking's invitation.
+
+The front end recreates the linked booking on every save of the event, which the driver
+sees as a new booking. With event invites off, an edit therefore re-invites the attendee
+rather than describing the change; with them on, the event's own change signal sends the
+`event_changed` email instead.
+
+```yaml
+  # invitations and change notices come from the calendar event
+  disable_event_visitors: false
+  # the visitor booking beneath the event is not invited again
+  skip_event_linked_booking_email: true
+```
+
 ## Excluding staff attendees
 
 The front end might mark any attendee as an expected visitor, so staff invited to a
