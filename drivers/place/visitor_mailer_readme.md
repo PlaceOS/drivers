@@ -47,8 +47,88 @@ combined into a single email describing the net change.
 The email goes out a few seconds after the window closes. Anything still waiting is
 sent immediately if the driver restarts, so a notification is never dropped.
 
-Setting this to `0` emails on every signal, which can mean duplicate and contradictory
-notifications, and can also notify visitors added by the edit.
+Setting this to `0` emails on every signal, which can mean contradictory notifications,
+and can also notify visitors added by the edit, or one removed by it: an event update
+is signalled before the removed attendees have been dropped from the guest list.
+
+Regardless of the window, the same visitor is never told the same thing twice: one edit
+of a group booking saves the group and every booking beneath it, each signalling the
+same change.
+
+## Time zone
+
+Every email renders its times in the time zone of the building the visit is in, taken
+from the building zone's `timezone`. A zone without one falls back to the driver's
+`timezone` setting.
+
+The timezone recorded on a booking or event is deliberately not consulted: a booking
+carries the zone of whoever last edited it (the browser's) unless the front end is set
+to use the building's zone, so it does not reliably answer where the visit is held.
+
+```yaml
+  # the deployment default where a zone has no timezone
+  timezone: "GMT"
+```
+
+The `previous_event_date` / `previous_event_time` fields are rendered in the same zone,
+so both halves of a change email read consistently.
+
+Every email also carries `event_timezone`, the abbreviation of the zone its times are in
+(for example `AWST`), so a template can label the times it shows. A `time_format` that
+includes `%^Z` labels every time placeholder instead:
+
+```yaml
+  time_format: "%l:%M%p %^Z"
+```
+
+## End times
+
+The invitation, reminder and change emails carry the end of the visit as `event_end_time`
+and `event_end_date`. The change emails also carry `previous_event_end_time` and
+`previous_event_end_date`, so a template can show the whole window before and after an
+edit, whichever of the start or the end moved.
+
+## Building name
+
+Emails name the building the visit is in, taken from the zones on the signal, so a
+driver covering a campus names the building the visitor is expected at rather than the
+campus itself. Where a visit names no building, the system's own building zone is used.
+
+An org or campus zone that is itself tagged as a building does not shadow the building
+it contains: the tagged zone the others sit beneath is the one named.
+
+```yaml
+  # the zone tag identifying a building
+  invite_zone_tag:    "building"
+  # the driver's zone is a campus, its child zones are the buildings
+  is_campus:          false
+  # how long zone details (i.e. the building name) are cached for
+  zone_cache_timeout: 300
+```
+
+A building renamed in backoffice reaches the emails once its cache entry expires. Call
+`clear_zone_cache` to pick the new name up immediately.
+
+## Room bookings and their attendees
+
+An external attendee on a calendar event can be invited two ways: by the event itself
+(`disable_event_visitors: false`, the `event` template, which names the room) or by the
+visitor booking the front end creates beneath the event (the `booking` template).
+`skip_event_linked_booking_email` suppresses the second so the attendee is not invited
+twice. Unset, it follows `disable_event_visitors`: a site that has turned event invites
+off keeps the linked booking's invitation.
+
+The front end recreates the linked booking on every save of the event, which the driver
+sees as a new booking. With event invites off, an edit therefore re-invites the attendee
+rather than describing the change; with them on, the event's own change signal sends the
+`event_changed` email instead.
+
+```yaml
+  # invitations and change notices come from the calendar event
+  disable_event_visitors: false
+  # the visitor booking beneath the event is not invited again
+  skip_event_linked_booking_email: true
+```
 
 ## Excluding staff attendees
 

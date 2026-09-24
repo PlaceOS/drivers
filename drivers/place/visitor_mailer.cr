@@ -62,7 +62,9 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     # Suppresses the `booking` template when the booking has an
     # extension_data.parent_id (i.e. auto-created from a calendar event that
-    # already triggers the `event` template).
+    # already triggers the `event` template). Unset, it follows
+    # disable_event_visitors: the linked booking's invite is skipped only while
+    # the event path sends one.
     skip_event_linked_booking_email: true,
 
     # When true, the host will not receive any visitor-targeted emails
@@ -128,13 +130,14 @@ class Place::VisitorMailer < PlaceOS::Driver
   @host_domain_filter : Array(String) = [] of String
 
   # See: https://crystal-lang.org/api/0.35.1/Time/Format.html
+  # `%^Z` is the zone abbreviation (e.g. AWST); `%Z` would be the location name
+  TIMEZONE_FORMAT = "%^Z"
   @date_time_format : String = "%c"
   @time_format : String = "%l:%M%p"
   @date_format : String = "%A, %-d %B"
 
-  getter building_zone : ZoneDetails do
-    find_building(control_system_zone_list)
-  end
+  @building_zone : ZoneDetails? = nil
+  @building_zone_id : String? = nil
 
   getter parent_zone_ids : Array(String) = [] of String
   @booking_space_name : String = "Client Floor"
@@ -181,6 +184,11 @@ class Place::VisitorMailer < PlaceOS::Driver
   @recent_invites : Array(Invite) = [] of Invite
   @recent_invites_lock : Mutex = Mutex.new
 
+  # Emails already sent, so one edit doesn't repeat them: editing a group
+  # booking signals the container and every child booking of it separately.
+  @sent_notices : Array(SentNotice) = [] of SentNotice
+  @sent_notices_lock : Mutex = Mutex.new
+
   @uri : URI = URI.new
   @jwt_private_key : String = PlaceOS::Model::JWTBase.private_key
 
@@ -202,7 +210,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     @group_event_template = setting?(String, :group_event_template) || "group_event"
     # event_change_debounce is the pre-unification name, still read so an existing
     # deployment doesn't silently fall back to the default
-    @change_debounce = setting?(Int32, :change_debounce) || setting?(Int32, :event_change_debounce) || 15
+    # capped where the invite memory is, so a change never outlives the memory
+    # of the invitations it must not repeat
+    @change_debounce = (setting?(Int32, :change_debounce) || setting?(Int32, :event_change_debounce) || 15).clamp(0, 3600)
     @disable_qr_code = setting?(Bool, :disable_qr_code) || false
     @determine_host_name_using = setting?(String, :determine_host_name_using) || "calendar-driver"
     @send_network_credentials = setting?(Bool, :send_network_credentials) || false
@@ -215,8 +225,9 @@ class Place::VisitorMailer < PlaceOS::Driver
     @network_group_ids = setting?(Array(String), :network_group_ids) || [] of String
     @host_domain_filter = setting?(Array(String), :host_domain_filter) || [] of String
     @disable_event_visitors = setting?(Bool, :disable_event_visitors) || false
+    # unset: skip the linked booking's invite only when the event path sends one
     skip_event_linked = setting?(Bool, :skip_event_linked_booking_email)
-    @skip_event_linked_booking_email = skip_event_linked.nil? ? true : skip_event_linked
+    @skip_event_linked_booking_email = skip_event_linked.nil? ? !@disable_event_visitors : skip_event_linked
     skip_host_email = setting?(Bool, :skip_host_email)
     @skip_host_email = skip_host_email.nil? ? true : skip_host_email
     @skip_internal_domain_email = setting?(Bool, :skip_internal_domain_email) || false
@@ -266,11 +277,30 @@ class Place::VisitorMailer < PlaceOS::Driver
     schedule.in(5.seconds) { ensure_building_zone(zones) }
   end
 
+  # Resolved through the zone cache on every use, so a building renamed in
+  # backoffice reaches the emails within `zone_cache_timeout` rather than
+  # surviving until the driver next reloads.
+  def building_zone : ZoneDetails
+    if zone_id = @building_zone_id
+      begin
+        return @building_zone = fetch_zone(zone_id)
+      rescue error
+        logger.warn(exception: error) { "error refreshing building zone #{zone_id}" }
+        # last known good, an email is better than no email
+        if known = @building_zone
+          return known
+        end
+      end
+    end
+    find_building(control_system_zone_list)
+  end
+
   protected def find_building(zones : Array(String)) : ZoneDetails
     zones.each do |zone_id|
       zone = fetch_zone(zone_id)
       if zone.tags.includes?(@invite_zone_tag)
         @building_zone = zone
+        @building_zone_id = zone.id
         if @is_parent_zone && (child_zones = Array(ZoneDetails).from_json(staff_api.zones(parent: zone_id).get_json))
           @parent_zone_ids = child_zones.map(&.id)
         else
@@ -301,6 +331,114 @@ class Place::VisitorMailer < PlaceOS::Driver
     else
       @zone_cache = ZoneCache.new
     end
+  end
+
+  # The building a visit is in, named from the zones the signal carries rather
+  # than the system's own zone, so a campus driver (and a visit that moved
+  # buildings) names the building the visitor is expected at.
+  protected def building_name_for(zones : Array(String)?) : String
+    found = building_zone_for(zones)
+    found ? (found.display_name.presence || found.name) : (building_zone.display_name.presence || building_zone.name)
+  end
+
+  # The zone tagged as a building that a visit belongs to, from its own zones if
+  # one of them is tagged, else from the parent chain of its zones (a level or
+  # room zone), else nil for unknown.
+  private def building_zone_for(zones : Array(String)?) : ZoneDetails?
+    return if zones.nil?
+    tagged = [] of ZoneDetails
+    zones.each do |zone_id|
+      begin
+        zone = fetch_zone(zone_id)
+        tagged << zone if zone.tags.includes?(@invite_zone_tag)
+      rescue error
+        logger.warn(exception: error) { "error looking up zone #{zone_id}" }
+      end
+    end
+
+    # an org or campus zone may also carry the building tag; whichever of the
+    # tagged zones the others sit beneath is the actual building
+    if tagged.size > 1
+      ancestors = Set(String).new
+      tagged.each do |zone|
+        parent_id = zone.parent_id
+        while parent_id && !ancestors.includes?(parent_id)
+          ancestors << parent_id
+          parent_id = fetch_zone(parent_id).parent_id
+        end
+      rescue error
+        logger.warn(exception: error) { "error looking up zone #{zone.id}" }
+      end
+      descendants = tagged.reject { |zone| zone.id.in?(ancestors) }
+      return descendants.last if descendants.size == 1
+    end
+    return tagged.last unless tagged.empty?
+
+    # the zones of a room or level carry no building; follow their parents up
+    zones.reverse_each do |zone_id|
+      begin
+        parent_id = fetch_zone(zone_id).parent_id
+        visited = Set(String).new
+        while parent_id && !visited.includes?(parent_id)
+          visited << parent_id
+          zone = fetch_zone(parent_id)
+          return zone if zone.tags.includes?(@invite_zone_tag)
+          parent_id = zone.parent_id
+        end
+      rescue error
+        logger.warn(exception: error) { "error looking up zone #{zone_id}" }
+      end
+    end
+    nil
+  end
+
+  # Whether `zone` sits beneath a zone tagged as the building (a booking also
+  # lists the org, region and campus zones above its building).
+  private def within_building?(zone : ZoneDetails) : Bool
+    parent_id = zone.parent_id
+    visited = Set(String).new
+    while parent_id && !visited.includes?(parent_id)
+      parent = fetch_zone(parent_id)
+      return true if parent.tags.includes?(@invite_zone_tag)
+      visited << parent_id
+      parent_id = parent.parent_id
+    end
+    false
+  end
+
+  private def zone_with_timezone(zones : Array(String)?) : ZoneDetails?
+    if zone = building_zone_for(zones)
+      return zone if zone.timezone.presence
+    end
+    zones.try &.each do |zone_id|
+      begin
+        zone = fetch_zone(zone_id)
+        return zone if zone.timezone.presence
+      rescue error
+        logger.warn(exception: error) { "error looking up zone #{zone_id}" }
+      end
+    end
+    nil
+  end
+
+  # The system's zone list, used to locate the building a room belongs to.
+  protected def resolve_system_zones(system_id : String) : Array(String)?
+    get_room_details(system_id).zones
+  rescue error
+    logger.warn(exception: error) { "error looking up zones for system #{system_id}" }
+    nil
+  end
+
+  # Renders in the time zone of the building the visit is in, falling back to
+  # the driver's timezone setting. The timezone a signal carries is ignored: a
+  # booking records the editing browser's zone unless the front end is set to
+  # use the building's, so it is not a reliable answer for where the visit is.
+  private def visit_time_zone(zones : Array(String)?) : Time::Location
+    candidate = zone_with_timezone(zones).try(&.timezone.presence) || @time_zone.name
+    Time::Location.load(candidate)
+  rescue error
+    logger.warn(exception: error) { "error loading time zone" }
+    @time_zone
   end
 
   protected def guest_event(payload)
@@ -350,7 +488,9 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.attendee_name,
         guest_details.host,
         guest_details.event_title || guest_details.event_summary,
-        guest_details.event_starting
+        guest_details.event_starting,
+        building_name_for(guest_details.zones),
+        visit_time_zone(guest_details.zones)
       )
       self[:users_checked_in] = @users_checked_in += 1
       return
@@ -363,7 +503,9 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.host,
           guest_details.event_title || guest_details.event_summary,
           guest_details.event_starting,
-          guest_details.induction
+          guest_details.induction,
+          building_name_for(guest_details.zones),
+          visit_time_zone(guest_details.zones)
         )
         self[:users_accepted_induction] = @users_accepted_induction += 1
       elsif guest_details.induction.declined?
@@ -374,7 +516,9 @@ class Place::VisitorMailer < PlaceOS::Driver
           guest_details.host,
           guest_details.event_title || guest_details.event_summary,
           guest_details.event_starting,
-          guest_details.induction
+          guest_details.induction,
+          building_name_for(guest_details.zones),
+          visit_time_zone(guest_details.zones)
         )
         self[:users_declined_induction] = @users_declined_induction += 1
       end
@@ -425,6 +569,8 @@ class Place::VisitorMailer < PlaceOS::Driver
         guest_details.event_id,
         area_name,
         system_id: guest_details.responds_to?(:system_id) ? guest_details.system_id : nil,
+        building_name: building_name_for(guest_details.zones),
+        time_zone: visit_time_zone(guest_details.zones),
       )
     rescue error
       # tracked apart from error_count to pinpoint a missing invite
@@ -456,22 +602,25 @@ class Place::VisitorMailer < PlaceOS::Driver
     host_email : String?,
     event_title : String?,
     event_start : Int64,
+    building_name : String? = nil,
+    time_zone : Time::Location? = nil,
   )
-    local_start_time = Time.unix(event_start).in(@time_zone)
+    local_start_time = Time.unix(event_start).in(time_zone || @time_zone)
 
     mailer.send_template(
       host_email,
       {"visitor_invited", template}, # Template selection: "visitor_invited" "notify_checkin"
       {
-      visitor_email: visitor_email,
-      visitor_name:  visitor_name,
-      host_name:     get_host_name(host_email),
-      host_email:    host_email,
-      building_name: building_zone.display_name.presence || building_zone.name,
-      event_title:   event_title,
-      event_start:   local_start_time.to_s(@time_format),
-      event_date:    local_start_time.to_s(@date_format),
-      event_time:    local_start_time.to_s(@time_format),
+      visitor_email:  visitor_email,
+      visitor_name:   visitor_name,
+      host_name:      get_host_name(host_email),
+      host_email:     host_email,
+      building_name:  building_name || building_name_for(nil),
+      event_title:    event_title,
+      event_start:    local_start_time.to_s(@time_format),
+      event_date:     local_start_time.to_s(@date_format),
+      event_time:     local_start_time.to_s(@time_format),
+      event_timezone: local_start_time.to_s(TIMEZONE_FORMAT),
     },
       reply_to: host_email.presence,
     )
@@ -486,8 +635,10 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_title : String?,
     event_start : Int64,
     induction_status : Induction,
+    building_name : String? = nil,
+    time_zone : Time::Location? = nil,
   )
-    local_start_time = Time.unix(event_start).in(@time_zone)
+    local_start_time = Time.unix(event_start).in(time_zone || @time_zone)
 
     mailer.send_template(
       host_email,
@@ -497,11 +648,12 @@ class Place::VisitorMailer < PlaceOS::Driver
       visitor_name:     visitor_name,
       host_name:        get_host_name(host_email),
       host_email:       host_email,
-      building_name:    building_zone.display_name.presence || building_zone.name,
+      building_name:    building_name || building_name_for(nil),
       event_title:      event_title,
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),
       event_time:       local_start_time.to_s(@time_format),
+      event_timezone:   local_start_time.to_s(TIMEZONE_FORMAT),
       induction_status: induction_status.to_s,
     },
       reply_to: host_email.presence,
@@ -522,12 +674,13 @@ class Place::VisitorMailer < PlaceOS::Driver
       end
     end
 
-    send_original_host_email(
-      @notify_original_host_template,
+    notify_original_host(
       details.previous_host_email,
       details.new_host_email,
       details.event_title || details.event_summary,
       details.event_starting,
+      building_name_for(details.zones),
+      details.zones,
     )
   rescue error
     logger.error { error.inspect_with_backtrace }
@@ -539,6 +692,44 @@ class Place::VisitorMailer < PlaceOS::Driver
     }
   end
 
+  # Tells the previous host their booking was reassigned, once per reassignment:
+  # a group booking reassigns its container and every child booking of it, each
+  # signalling the same change (PPT-2375).
+  protected def notify_original_host(
+    previous_host_email : String,
+    new_host_email : String,
+    event_title : String?,
+    event_start : Int64?,
+    building_name : String,
+    zones : Array(String)? = nil,
+  ) : Nil
+    key = {
+      @notify_original_host_template, previous_host_email.strip.downcase,
+      new_host_email.strip.downcase, event_title, event_start, building_name,
+    }.join('\t')
+
+    unless first_send?(key)
+      logger.debug { "skipping host reassigned email to #{previous_host_email}, already sent" }
+      return
+    end
+
+    begin
+      send_original_host_email(
+        @notify_original_host_template,
+        previous_host_email,
+        new_host_email,
+        event_title,
+        event_start,
+        building_name,
+        visit_time_zone(zones),
+      )
+    rescue error
+      # a repeat signal is the only retry there is
+      forget_send(key)
+      raise error
+    end
+  end
+
   @[Security(Level::Support)]
   def send_original_host_email(
     template : String,
@@ -546,10 +737,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     new_host_email : String,
     event_title : String?,
     event_start : Int64?,
+    building_name : String? = nil,
+    time_zone : Time::Location? = nil,
   )
     # A host can be reassigned via a metadata-only update that carries no event
     # timing, so render the date/time only when a start time is available.
-    local_start_time = event_start.try { |timestamp| Time.unix(timestamp).in(@time_zone) }
+    local_start_time = event_start.try { |timestamp| Time.unix(timestamp).in(time_zone || @time_zone) }
 
     mailer.send_template(
       previous_host_email,
@@ -559,10 +752,11 @@ class Place::VisitorMailer < PlaceOS::Driver
         previous_host_name:  get_host_name(previous_host_email),
         new_host_email:      new_host_email,
         new_host_name:       get_host_name(new_host_email),
-        building_name:       building_zone.display_name.presence || building_zone.name,
+        building_name:       building_name || building_name_for(nil),
         event_title:         event_title,
         event_date:          local_start_time.try(&.to_s(@date_format)),
         event_time:          local_start_time.try(&.to_s(@time_format)),
+        event_timezone:      local_start_time.try(&.to_s(TIMEZONE_FORMAT)),
       },
       reply_to: new_host_email.presence,
     )
@@ -580,10 +774,13 @@ class Place::VisitorMailer < PlaceOS::Driver
       {name: "event_start", description: "Start time (e.g., #{time_now.to_s(@time_format)})"},
       {name: "event_date", description: "Date of the visit (e.g., #{time_now.to_s(@date_format)})"},
       {name: "event_time", description: "Time of the visit (or 'all day' for 24-hour events)"},
+      {name: "event_timezone", description: "Abbreviation of the time zone the times are shown in (e.g., #{time_now.to_s(TIMEZONE_FORMAT)})"},
     ]
 
     invitation_fields = common_fields + [
       {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "event_end_time", description: "End time of the visit (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "event_end_date", description: "End date of the visit (e.g., #{time_now.to_s(@date_format)})"},
       {name: "network_username", description: "Network access username (if network credentials enabled)"},
       {name: "network_password", description: "Generated network access password (if network credentials enabled)"},
     ]
@@ -601,8 +798,12 @@ class Place::VisitorMailer < PlaceOS::Driver
     # the same data but render through separate templates.
     changed_fields = common_fields + [
       {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "event_end_time", description: "The new end time"},
+      {name: "event_end_date", description: "The new end date"},
       {name: "previous_event_date", description: "The original date before it was changed"},
-      {name: "previous_event_time", description: "The original time before it was changed"},
+      {name: "previous_event_time", description: "The original start time before it was changed"},
+      {name: "previous_event_end_time", description: "The original end time before it was changed"},
+      {name: "previous_event_end_date", description: "The original end date before it was changed"},
       {name: "previous_room_name", description: "The original room or area name before it was moved"},
       {name: "previous_building_name", description: "The original building name before it was moved"},
     ] + jwt_fields
@@ -777,12 +978,13 @@ class Place::VisitorMailer < PlaceOS::Driver
     # A host can be reassigned without any change to the event timing; the host
     # email still renders (date/time blank only if the lookup also came up empty).
     if (prev_host = details.previous_host_email) && prev_host.downcase != host.downcase
-      send_original_host_email(
-        @notify_original_host_template,
+      notify_original_host(
         prev_host,
         host,
         details.title,
         event_start,
+        building_name_for(details.zones),
+        details.zones,
       )
     end
 
@@ -906,7 +1108,29 @@ class Place::VisitorMailer < PlaceOS::Driver
   # Covers the debounce holding a change back, plus room for a front end that
   # adds its visitors in later requests.
   private def invite_memory : Time::Span
-    @change_debounce.clamp(0, 3600).seconds + 60.seconds
+    @change_debounce.seconds + 60.seconds
+  end
+
+  # An email we've sent, keyed on what it says rather than on the booking that
+  # prompted it, as each signal of the same edit names a different booking.
+  record SentNotice, key : String, expires : Time::Span
+
+  # Whether this is the first time we're sending it, remembering it if so.
+  # Expired entries go on the way in, as nothing else prunes them.
+  protected def first_send?(key : String) : Bool
+    now = Time.monotonic
+
+    @sent_notices_lock.synchronize do
+      @sent_notices.reject! { |notice| notice.expires <= now }
+      return false if @sent_notices.any? { |notice| notice.key == key }
+      @sent_notices << SentNotice.new(key, now + invite_memory)
+      true
+    end
+  end
+
+  # Forget an email that turned out not to have been sent.
+  protected def forget_send(key : String) : Nil
+    @sent_notices_lock.synchronize { @sent_notices.reject! { |notice| notice.key == key } }
   end
 
   # Collapses the burst of signals for one edit into a single buffered change.
@@ -986,33 +1210,37 @@ class Place::VisitorMailer < PlaceOS::Driver
     # Skip a coalesced no-op (e.g. an edit that was undone within the window).
     return unless change.changed?
 
-    # Resolve previous location names from previous zones
-    previous_building_name = building_zone.display_name.presence || building_zone.name
+    # named from the booking's own zones, so a booking moved to another building
+    # is announced as being in the building it moved to
+    if current_zone = building_zone_for(change.zones)
+      building_name = current_zone.display_name.presence || current_zone.name
+    else
+      building_name = building_zone.display_name.presence || building_zone.name
+    end
+    previous_building_name = building_name
     previous_room_name = @booking_space_name
 
-    if prev_zones = change.previous_zones
-      found_building = false
-      found_room = false
-      prev_zones.each do |zone_id|
-        break if found_building && found_room
-        begin
-          zone = fetch_zone(zone_id)
-          if zone.tags.includes?(@invite_zone_tag)
-            previous_building_name = zone.display_name.presence || zone.name
-            found_building = true
-          else
-            previous_room_name = zone.display_name.presence || zone.name
-            found_room = true
-          end
-        rescue error
-          logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
+    # Resolve previous location names from previous zones, defaulting to the
+    # current ones so a date/time-only edit reads as the same place.
+    previous_zones = change.previous_zones
+    previous_zones.try &.each do |zone_id|
+      begin
+        zone = fetch_zone(zone_id)
+        if zone.tags.includes?(@invite_zone_tag)
+          previous_building_name = zone.display_name.presence || zone.name
+        elsif within_building?(zone)
+          previous_room_name = zone.display_name.presence || zone.name
         end
+        break if previous_building_name != building_name && previous_room_name != @booking_space_name
+      rescue error
+        logger.warn(exception: error) { "error looking up previous zone #{zone_id}" }
       end
     end
 
     # include_linked: true ensures guests from child bookings (e.g. per-visitor
-    # bookings under a group parent) are returned in a single request.
-    guests = staff_api.booking_guests(change.booking_id, include_linked: change.booking_type == "group").get.as_a
+    # bookings under a group parent, or a group event's registrations) are
+    # returned in a single request. It is ignored for a child booking.
+    guests = staff_api.booking_guests(change.booking_id, include_linked: change.booking_type.in?("group", "group-event")).get.as_a
 
     send_booking_changed_emails(
       guests,
@@ -1023,8 +1251,12 @@ class Place::VisitorMailer < PlaceOS::Driver
       change.previous_start,
       previous_building_name,
       previous_room_name,
+      building_name,
       event_id: change.booking_id.to_s,
       resource_id: change.resource_id,
+      time_zone: visit_time_zone(change.zones),
+      event_end: change.current_end,
+      previous_end: change.previous_end,
     )
   end
 
@@ -1069,6 +1301,9 @@ class Place::VisitorMailer < PlaceOS::Driver
       event_id: change.event_id,
       resource_id: system_id,
       system_id: system_id,
+      time_zone: visit_time_zone(resolve_system_zones(system_id)),
+      event_end: change.current_end,
+      previous_end: change.previous_end,
     )
   end
 
@@ -1093,13 +1328,31 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_id : String? = nil,
     resource_id : String? = nil,
     system_id : String? = nil,
+    time_zone : Time::Location? = nil,
+    event_end : Int64? = nil,
+    previous_end : Int64? = nil,
   )
     resolved_building_name = building_name || (building_zone.display_name.presence || building_zone.name)
     resolved_room_name = room_name || @booking_space_name
+    location = time_zone || @time_zone
+
+    # a guest removed from a child booking is still returned against the group
+    # container (the attendee rows are per booking), so anyone withdrawn on ANY
+    # booking in the response is out, whichever row surfaced them
+    withdrawn = guests.select { |guest| no_longer_attending?(guest) }
+      .compact_map { |guest| guest["email"]?.try(&.as_s.downcase) }
 
     guests.each do |guest|
       visitor_email = guest["email"].as_s
       visitor_name = guest["name"].as_s?
+
+      # a visitor removed from the visit keeps their (soft deleted) booking, and
+      # the guest list of a group still aggregates it, so they would otherwise be
+      # told about a visit they are no longer part of (PPT-2375)
+      if visitor_email.downcase.in?(withdrawn)
+        logger.debug { "skipping #{template} email to #{visitor_email} as they are no longer attending" }
+        next
+      end
 
       # don't email the host their own booking_changed notification.
       next if @skip_host_email && visitor_email.downcase == host_email.downcase
@@ -1117,10 +1370,25 @@ class Place::VisitorMailer < PlaceOS::Driver
         next
       end
 
-      local_start_time = Time.unix(event_start).in(@time_zone)
+      # one edit signals the group container and every child booking of it, each
+      # describing the same change to the same visitors (PPT-2375)
+      notice_key = {
+        template, visitor_email.strip.downcase, host_email.strip.downcase, event_title,
+        event_start, event_end, previous_start, previous_end, resolved_room_name, resolved_building_name,
+        previous_room_name, previous_building_name,
+      }.join('\t')
 
-      previous_date = previous_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@date_format) }
-      previous_time = previous_start.try { |timestamp| Time.unix(timestamp).in(@time_zone).to_s(@time_format) }
+      unless first_send?(notice_key)
+        logger.debug { "skipping #{template} email to #{visitor_email}, already sent" }
+        next
+      end
+
+      local_start_time = Time.unix(event_start).in(location)
+      local_end_time = event_end.try { |timestamp| Time.unix(timestamp).in(location) }
+
+      previous_date = previous_start.try { |timestamp| Time.unix(timestamp).in(location).to_s(@date_format) }
+      previous_time = previous_start.try { |timestamp| Time.unix(timestamp).in(location).to_s(@time_format) }
+      previous_end_local = previous_end.try { |timestamp| Time.unix(timestamp).in(location) }
 
       guest_jwt = kiosk_url = ""
       attach = [] of NamedTuple(file_name: String, content: String, content_id: String)
@@ -1148,29 +1416,46 @@ class Place::VisitorMailer < PlaceOS::Driver
         visitor_email,
         {"visitor_invited", template},
         {
-          visitor_email:          visitor_email,
-          visitor_name:           visitor_name,
-          host_name:              get_host_name(host_email),
-          host_email:             host_email,
-          room_name:              resolved_room_name,
-          building_name:          resolved_building_name,
-          event_title:            event_title,
-          event_start:            local_start_time.to_s(@time_format),
-          event_date:             local_start_time.to_s(@date_format),
-          event_time:             local_start_time.to_s(@time_format),
-          previous_event_date:    previous_date,
-          previous_event_time:    previous_time,
-          previous_room_name:     previous_room_name,
-          previous_building_name: previous_building_name,
-          guest_jwt:              guest_jwt,
-          kiosk_url:              kiosk_url,
+          visitor_email:           visitor_email,
+          visitor_name:            visitor_name,
+          host_name:               get_host_name(host_email),
+          host_email:              host_email,
+          room_name:               resolved_room_name,
+          building_name:           resolved_building_name,
+          event_title:             event_title,
+          event_start:             local_start_time.to_s(@time_format),
+          event_date:              local_start_time.to_s(@date_format),
+          event_time:              local_start_time.to_s(@time_format),
+          event_end_time:          local_end_time.try(&.to_s(@time_format)),
+          event_end_date:          local_end_time.try(&.to_s(@date_format)),
+          event_timezone:          local_start_time.to_s(TIMEZONE_FORMAT),
+          previous_event_date:     previous_date,
+          previous_event_time:     previous_time,
+          previous_event_end_time: previous_end_local.try(&.to_s(@time_format)),
+          previous_event_end_date: previous_end_local.try(&.to_s(@date_format)),
+          previous_room_name:      previous_room_name,
+          previous_building_name:  previous_building_name,
+          guest_jwt:               guest_jwt,
+          kiosk_url:               kiosk_url,
         },
         attach,
         reply_to: host_email.presence,
       )
     rescue error
+      # a repeat signal is the only retry there is
+      forget_send(notice_key) if notice_key
       logger.warn(exception: error) { "failed to send booking_changed email to #{visitor_email}" }
     end
+  end
+
+  # Whether a guest from a booking or event guest list is no longer attending:
+  # their attendance was withdrawn, or the booking they attend was cancelled.
+  private def no_longer_attending?(guest : JSON::Any) : Bool
+    return true if guest["visit_expected"]?.try(&.as_bool?) == false
+
+    booking = guest["booking"]?
+    return false unless booking
+    !!(booking["deleted"]?.try(&.as_bool?) || booking["rejected"]?.try(&.as_bool?))
   end
 
   # Returns `{room_name, building_name}` for `system_id`, falling back to the
@@ -1217,8 +1502,12 @@ class Place::VisitorMailer < PlaceOS::Driver
 
     event_end : Int64? = nil,
     system_id : String? = nil,
+    building_name : String? = nil,
+    time_zone : Time::Location? = nil,
   )
-    local_start_time = Time.unix(event_start).in(@time_zone)
+    location = time_zone || @time_zone
+    local_start_time = Time.unix(event_start).in(location)
+    local_end_time = event_end.try { |timestamp| Time.unix(timestamp).in(location) }
 
     attach = if @disable_qr_code
                [] of NamedTuple(file_name: String, content: String, content_id: String)
@@ -1265,11 +1554,14 @@ class Place::VisitorMailer < PlaceOS::Driver
       host_name:        get_host_name(host_email),
       host_email:       host_email,
       room_name:        area_name,
-      building_name:    building_zone.display_name.presence || building_zone.name,
+      building_name:    building_name || building_name_for(nil),
       event_title:      event_title,
       event_start:      local_start_time.to_s(@time_format),
       event_date:       local_start_time.to_s(@date_format),
       event_time:       event_time,
+      event_end_time:   local_end_time.try(&.to_s(@time_format)),
+      event_end_date:   local_end_time.try(&.to_s(@date_format)),
+      event_timezone:   local_start_time.to_s(TIMEZONE_FORMAT),
       network_username: network_username,
       network_password: network_password,
       guest_jwt:        guest_jwt,
@@ -1295,6 +1587,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     guests.each do |guest|
       begin
         if event = guest["event"]?
+          event_zones = event.dig?("system", "zones").try(&.as_a.try(&.map(&.as_s)))
           send_visitor_qr_email(
             @reminder_template,
             guest["email"].as_s,
@@ -1305,7 +1598,8 @@ class Place::VisitorMailer < PlaceOS::Driver
             event.dig("system", "id").as_s,
             event["id"].as_s,
             (event.dig?("system", "display_name") || event.dig("system", "name")).as_s,
-            event_end: event["event_end"].as_i64
+            event_end: event["event_end"].as_i64,
+            time_zone: visit_time_zone(event_zones)
           )
         elsif booking = guest["booking"]?
           send_visitor_qr_email(
@@ -1318,7 +1612,8 @@ class Place::VisitorMailer < PlaceOS::Driver
             booking["asset_id"].as_s,
             booking["id"].as_i64.to_s,
             @booking_space_name,
-            event_end: booking["booking_end"].as_i64
+            event_end: booking["booking_end"].as_i64,
+            time_zone: visit_time_zone(nil)
           )
         end
       rescue error
@@ -1369,6 +1664,7 @@ class Place::VisitorMailer < PlaceOS::Driver
     property location : String?
     property tags : Array(String)
     property parent_id : String?
+    property timezone : String?
   end
 
   # A change buffered awaiting a debounced flush. `current_*` follow the latest
