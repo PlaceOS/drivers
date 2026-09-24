@@ -214,10 +214,14 @@ class Cisco::RoomKit < PlaceOS::Driver
     PIP
   end
 
+  # Source can either be specified as the physical connector or the logical
+  # source ID. Cameras connected over IP appear as Ethernet type connectors,
+  # Codec EQ accepts ConnectorId 1..9 and Codec Pro SourceId 1..10 (RoomOS 11
+  # API guide). See the `video_input` status for the connector ids in use.
   command({"Video Input SetMainVideoSource" => :camera_select},
-    connector_id_: 1..3,  # Source can either be specified as the
-    layout_: VideoLayout, # physical connector...
-    source_id_: 1..3)     # ...or the logical source ID
+    connector_id_: 1..9,
+    layout_: VideoLayout,
+    source_id_: 1..10)
 
   enum LayoutFamily
     Auto
