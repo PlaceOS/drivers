@@ -40,6 +40,19 @@ class Place::VisitorMailer < PlaceOS::Driver
     event_changed_template:   "event_changed",
     group_event_template:     "group_event",
 
+    # Sent when a visitor booking is created: the host hears about every
+    # booking made for them, and whoever booked it on their behalf gets a
+    # confirmation. Off by default; each email also needs its template to exist.
+    notify_host_on_booking:         false,
+    notify_booker_on_booking:       false,
+    notify_host_booked_template:    "notify_host_booked",
+    notify_host_delegated_template: "notify_host_delegated",
+    notify_booker_template:         "notify_booker",
+    # Also send the check-in notification to the person who made the booking
+    # when that is not the host.
+    notify_booker_on_checkin:       false,
+    notify_checkin_booker_template: "notify_checkin_booker",
+
     # Combine duplicate change emails sent within this many seconds. 0 disables,
     # which also notifies visitors added by the same edit.
     change_debounce:                    15,
@@ -125,6 +138,7 @@ class Place::VisitorMailer < PlaceOS::Driver
   @error_count : UInt64 = 0_u64
 
   @visitor_emails_sent : UInt64 = 0_u64
+  @booking_notifications_sent : UInt64 = 0_u64
   @visitor_email_errors : UInt64 = 0_u64
   @disable_qr_code : Bool = false
   @host_domain_filter : Array(String) = [] of String
@@ -157,6 +171,13 @@ class Place::VisitorMailer < PlaceOS::Driver
   @booking_changed_template : String = "booking_changed"
   @event_changed_template : String = "event_changed"
   @group_event_template : String = "group_event"
+  @notify_host_on_booking : Bool = false
+  @notify_booker_on_booking : Bool = false
+  @notify_host_booked_template : String = "notify_host_booked"
+  @notify_host_delegated_template : String = "notify_host_delegated"
+  @notify_booker_template : String = "notify_booker"
+  @notify_booker_on_checkin : Bool = false
+  @notify_checkin_booker_template : String = "notify_checkin_booker"
   @determine_host_name_using : String = "calendar-driver"
   @send_network_credentials = false
   @network_password_length : Int32 = DEFAULT_PASSWORD_LENGTH
@@ -208,6 +229,13 @@ class Place::VisitorMailer < PlaceOS::Driver
     @booking_changed_template = setting?(String, :booking_changed_template) || "booking_changed"
     @event_changed_template = setting?(String, :event_changed_template) || "event_changed"
     @group_event_template = setting?(String, :group_event_template) || "group_event"
+    @notify_host_on_booking = setting?(Bool, :notify_host_on_booking) || false
+    @notify_booker_on_booking = setting?(Bool, :notify_booker_on_booking) || false
+    @notify_host_booked_template = setting?(String, :notify_host_booked_template) || "notify_host_booked"
+    @notify_host_delegated_template = setting?(String, :notify_host_delegated_template) || "notify_host_delegated"
+    @notify_booker_template = setting?(String, :notify_booker_template) || "notify_booker"
+    @notify_booker_on_checkin = setting?(Bool, :notify_booker_on_checkin) || false
+    @notify_checkin_booker_template = setting?(String, :notify_checkin_booker_template) || "notify_checkin_booker"
     # event_change_debounce is the pre-unification name, still read so an existing
     # deployment doesn't silently fall back to the default
     # capped where the invite memory is, so a change never outlives the memory
@@ -473,6 +501,9 @@ class Place::VisitorMailer < PlaceOS::Driver
       return
     end
 
+    # the booking behind a BookingGuest, so the host and booker can be told
+    created_booking : JSON::Any? = nil
+
     case guest_details
     in GuestCheckin
       # the same signal is fired for check-out (state=false), only notify the
@@ -493,6 +524,7 @@ class Place::VisitorMailer < PlaceOS::Driver
         visit_time_zone(guest_details.zones)
       )
       self[:users_checked_in] = @users_checked_in += 1
+      notify_booker_of_checkin(guest_details) if @notify_booker_on_checkin
       return
     in BookingInduction
       if guest_details.induction.accepted?
@@ -536,7 +568,7 @@ class Place::VisitorMailer < PlaceOS::Driver
       area_name = @booking_space_name
       template = @booking_template
       invited_to = guest_details.booking_id.to_s
-      booking = staff_api.get_booking(guest_details.booking_id).get
+      booking = created_booking = staff_api.get_booking(guest_details.booking_id).get
       # a group visitor is invited to their own booking beneath the group parent
       invited_under = booking["parent_id"]?.try { |id| id.as_i64?.try(&.to_s) || id.as_s? }
 
@@ -584,6 +616,10 @@ class Place::VisitorMailer < PlaceOS::Driver
     # booking create signals attendance for everyone on it, and the front end
     # re-creates the bookings behind an event on every save (PPT-2375).
     record_invite(guest_details, invited_to, invited_under)
+
+    if guest_details.is_a?(BookingGuest) && guest_details.action == "booking_created" && (booking = created_booking)
+      notify_booking_created(guest_details, booking, area_name)
+    end
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:error_count] = @error_count += 1
@@ -592,6 +628,92 @@ class Place::VisitorMailer < PlaceOS::Driver
       time:  Time.local.to_s,
       user:  payload,
     }
+  end
+
+  # Tells the host a visitor has been booked for them and, when someone else
+  # made the booking, sends that person a confirmation. Event-linked bookings
+  # never reach here: the host already has the calendar invitation.
+  protected def notify_booking_created(guest_details : BookingGuest, booking : JSON::Any, area_name : String)
+    return unless @notify_host_on_booking || @notify_booker_on_booking
+
+    host_email = guest_details.host
+    booked_by_email = booking["booked_by_email"]?.try(&.as_s?).presence
+    booked_by_name = booking["booked_by_name"]?.try(&.as_s?).presence
+    delegated = !booked_by_email.nil? && booked_by_email.downcase != host_email.downcase
+
+    time_zone = visit_time_zone(guest_details.zones)
+    local_start_time = Time.unix(guest_details.event_starting).in(time_zone)
+    local_end_time = booking["booking_end"]?.try(&.as_i64?).try { |ends| Time.unix(ends).in(time_zone) }
+    host_name = get_host_name(host_email)
+
+    args = {
+      visitor_email:   guest_details.attendee_email,
+      visitor_name:    guest_details.attendee_name,
+      host_name:       host_name,
+      host_email:      host_email,
+      booked_by_name:  delegated ? (booked_by_name || booked_by_email) : host_name,
+      booked_by_email: delegated ? booked_by_email : host_email,
+      building_name:   building_name_for(guest_details.zones),
+      room_name:       area_name,
+      event_title:     guest_details.event_title || guest_details.event_summary,
+      event_start:     local_start_time.to_s(@time_format),
+      event_date:      local_start_time.to_s(@date_format),
+      event_time:      local_start_time.to_s(@time_format),
+      event_end_time:  local_end_time.try(&.to_s(@time_format)),
+      event_end_date:  local_end_time.try(&.to_s(@date_format)),
+      event_timezone:  local_start_time.to_s(TIMEZONE_FORMAT),
+    }
+
+    if @notify_host_on_booking
+      host_template = delegated ? @notify_host_delegated_template : @notify_host_booked_template
+      logger.debug { "emailing the #{host_template} notification to host #{host_email}" }
+      mailer.send_template(host_email, {"visitor_invited", host_template}, args, reply_to: delegated ? booked_by_email : nil)
+      self[:booking_notifications_sent] = @booking_notifications_sent += 1
+    end
+
+    if @notify_booker_on_booking && delegated && (booker = booked_by_email)
+      logger.debug { "emailing the #{@notify_booker_template} notification to booker #{booker}" }
+      mailer.send_template(booker, {"visitor_invited", @notify_booker_template}, args, reply_to: host_email)
+      self[:booking_notifications_sent] = @booking_notifications_sent += 1
+    end
+  rescue error
+    logger.warn(exception: error) { "unable to send the booking created notifications for booking #{guest_details.booking_id}" }
+  end
+
+  # The check-in notification goes to the host; this sends a copy to whoever
+  # made the booking when that is a different person.
+  protected def notify_booker_of_checkin(guest_details : GuestCheckin)
+    booking_id = guest_details.booking_id
+    return unless booking_id
+
+    booking = staff_api.get_booking(booking_id).get
+    booked_by_email = booking["booked_by_email"]?.try(&.as_s?).presence
+    return unless booked_by_email
+    return if booked_by_email.downcase == guest_details.host.downcase
+
+    local_start_time = Time.unix(guest_details.event_starting).in(visit_time_zone(guest_details.zones))
+    mailer.send_template(
+      booked_by_email,
+      {"visitor_invited", @notify_checkin_booker_template},
+      {
+        visitor_email:   guest_details.attendee_email,
+        visitor_name:    guest_details.attendee_name,
+        host_name:       get_host_name(guest_details.host),
+        host_email:      guest_details.host,
+        booked_by_name:  booking["booked_by_name"]?.try(&.as_s?).presence || booked_by_email,
+        booked_by_email: booked_by_email,
+        building_name:   building_name_for(guest_details.zones),
+        event_title:     guest_details.event_title || guest_details.event_summary,
+        event_start:     local_start_time.to_s(@time_format),
+        event_date:      local_start_time.to_s(@date_format),
+        event_time:      local_start_time.to_s(@time_format),
+        event_timezone:  local_start_time.to_s(TIMEZONE_FORMAT),
+      },
+      reply_to: guest_details.host.presence,
+    )
+    self[:booking_notifications_sent] = @booking_notifications_sent += 1
+  rescue error
+    logger.warn(exception: error) { "unable to send the check-in notification to the booker of booking #{guest_details.booking_id}" }
   end
 
   @[Security(Level::Support)]
@@ -794,6 +916,17 @@ class Place::VisitorMailer < PlaceOS::Driver
       {name: "kiosk_url", description: "URL for the visitor kiosk"},
     ]
 
+    booked_by_fields = [
+      {name: "booked_by_name", description: "Name of the person who made the booking"},
+      {name: "booked_by_email", description: "Email address of the person who made the booking"},
+    ]
+
+    booking_created_fields = common_fields + [
+      {name: "room_name", description: "Name of the room or area being visited"},
+      {name: "event_end_time", description: "End time of the visit (e.g., #{time_now.to_s(@time_format)})"},
+      {name: "event_end_date", description: "End date of the visit (e.g., #{time_now.to_s(@date_format)})"},
+    ] + booked_by_fields
+
     # Shared by the booking-changed and event-changed notifications, which carry
     # the same data but render through separate templates.
     changed_fields = common_fields + [
@@ -877,6 +1010,30 @@ class Place::VisitorMailer < PlaceOS::Driver
         name: "Event details changed notification",
         description: "Notification sent to the existing visitors on a calendar event (room) when details change (date, time, location, etc.). Visitors added by the same edit are sent their invitation instead",
         fields: changed_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_host_booked_template},
+        name: "Visitor booked, host notification",
+        description: "Notification to the host when they create a visitor booking themselves (requires notify_host_on_booking)",
+        fields: booking_created_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_host_delegated_template},
+        name: "Visitor booked on their behalf, host notification",
+        description: "Notification to the host when someone else creates a visitor booking for them (requires notify_host_on_booking)",
+        fields: booking_created_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_booker_template},
+        name: "Visitor booked, booker confirmation",
+        description: "Confirmation to the person who created a visitor booking on someone else's behalf (requires notify_booker_on_booking)",
+        fields: booking_created_fields
+      ),
+      TemplateFields.new(
+        trigger: {"visitor_invited", @notify_checkin_booker_template},
+        name: "Visitor check in notification to booker",
+        description: "Copy of the check-in notification for the person who made the booking, when that is not the host (requires notify_booker_on_checkin)",
+        fields: common_fields + booked_by_fields
       ),
     ]
   end

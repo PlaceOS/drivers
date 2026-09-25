@@ -130,6 +130,30 @@ rather than describing the change; with them on, the event's own change signal s
   skip_event_linked_booking_email: true
 ```
 
+## Host and booker notifications
+
+When a visitor booking is created the host can be told, and so can the person who
+made the booking when that is someone else (an assistant booking for an executive).
+Both are off by default.
+
+```yaml
+  notify_host_on_booking: true     # the host, for every visitor booking made for them
+  notify_booker_on_booking: true   # the booker, when the booking is not for themselves
+  notify_booker_on_checkin: true   # copy the check-in notification to that booker
+```
+
+Three templates carry them: `notify_host_booked` when the host made the booking,
+`notify_host_delegated` when someone else did, and `notify_booker` for that person.
+`notify_checkin_booker` is the booker's copy of the check-in notification. Each email
+is only sent when its template exists for the building. Replies to the host's
+delegated notification go to the booker, and replies to the booker's emails go to the
+host. Alongside the usual visitor and visit fields the templates have `booked_by_name`
+and `booked_by_email`.
+
+A booking created beneath a calendar event is left to the calendar invitation the
+host already has, and a booking with several visitors produces one notification per
+visitor, as it does for the visitors themselves.
+
 ## Excluding staff attendees
 
 The front end might mark any attendee as an expected visitor, so staff invited to a

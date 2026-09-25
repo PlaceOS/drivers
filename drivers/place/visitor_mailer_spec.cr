@@ -311,6 +311,21 @@ class StaffAPIMock < DriverSpecs::MockDriver
     end
 
     case booking_id
+    when 604_i64
+      # booked by an assistant on the host's behalf
+      {
+        id:              604,
+        booking_type:    "visitor",
+        booking_start:   0,
+        booking_end:     3600,
+        resource_id:     "visitor@external.com",
+        user_email:      "host@example.com",
+        user_name:       "Host User",
+        booked_by_email: "assistant@example.com",
+        booked_by_name:  "Ada Assistant",
+        title:           "Delegated Visit",
+        extension_data:  {} of String => String,
+      }
     when 601_i64
       {
         id:             601,
@@ -335,14 +350,16 @@ class StaffAPIMock < DriverSpecs::MockDriver
       }
     else
       {
-        id:             booking_id,
-        booking_type:   "visitor",
-        booking_start:  0,
-        booking_end:    0,
-        resource_id:    "visitor@external.com",
-        user_email:     "host@example.com",
-        title:          "Standalone Visit",
-        extension_data: {} of String => String,
+        id:              booking_id,
+        booking_type:    "visitor",
+        booking_start:   0,
+        booking_end:     3600,
+        resource_id:     "visitor@external.com",
+        user_email:      "host@example.com",
+        booked_by_email: "host@example.com",
+        booked_by_name:  "Host User",
+        title:           "Standalone Visit",
+        extension_data:  {} of String => String,
       }
     end
   end
@@ -3886,4 +3903,234 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   sleep 1.0
 
   system(:Mailer)[:send_count].should eq linked_before
+
+  # ==================================================================
+  # Host and booker notifications on booking creation (PPT-2692)
+  # ==================================================================
+
+  # Test 74: off by default, a booking creation sends only the visitor's invite
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+  })
+  sleep 1.0
+
+  default_before = system(:Mailer)[:send_count].as_i
+
+  self_booked_created = {
+    action:         "booking_created",
+    id:             40_i64,
+    booking_id:     610_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Standalone Visit",
+    event_summary:  "Standalone Visit",
+    event_starting: now + 130000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/attending", self_booked_created)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq default_before + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
+
+  # Test 75: with host notifications on, a self-made booking tells the host
+  # with the "booked" template and nobody else
+
+  settings({
+    timezone:                 "GMT",
+    booking_space_name:       "Client Floor",
+    invite_zone_tag:          "building",
+    change_debounce:          0,
+    notify_host_on_booking:   true,
+    notify_booker_on_booking: true,
+  })
+  sleep 1.0
+
+  self_before = system(:Mailer)[:send_count].as_i
+  emails_before = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/guest/attending", self_booked_created)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq self_before + 2
+  new_emails = system(:Mailer)[:emails_sent].as_a[emails_before..].map(&.as_s)
+  new_emails.should contain "visitor@external.com|booking"
+  new_emails.should contain "host@example.com|notify_host_booked"
+  new_emails.any?(&.ends_with?("|notify_booker")).should be_false
+  new_emails.any?(&.ends_with?("|notify_host_delegated")).should be_false
+
+  host_args = system(:Mailer)[:last_args]
+  host_args["booked_by_email"].should eq "host@example.com"
+  host_args["booked_by_name"].should eq "Host User"
+  host_args["visitor_name"].should eq "Visitor One"
+  host_args["room_name"].should eq "Client Floor"
+  host_args["event_end_time"].should_not be_nil
+  system(:Mailer)[:last_reply_to]?.should be_nil
+
+  # Test 76: a booking made on the host's behalf tells the host with the
+  # "delegated" template and confirms to the booker; replies cross over
+
+  delegated_before = system(:Mailer)[:send_count].as_i
+  emails_before = system(:Mailer)[:emails_sent].as_a.size
+
+  delegated_created = {
+    action:         "booking_created",
+    id:             41_i64,
+    booking_id:     604_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Delegated Visit",
+    event_summary:  "Delegated Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor Two",
+    attendee_email: "visitor2@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/attending", delegated_created)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq delegated_before + 3
+  new_emails = system(:Mailer)[:emails_sent].as_a[emails_before..].map(&.as_s)
+  new_emails.should contain "visitor2@external.com|booking"
+  new_emails.should contain "host@example.com|notify_host_delegated"
+  new_emails.should contain "assistant@example.com|notify_booker"
+
+  # the booker's confirmation is the last send; replies go to the host
+  system(:Mailer)[:last_to].should eq "assistant@example.com"
+  system(:Mailer)[:last_reply_to].should eq "host@example.com"
+  booker_args = system(:Mailer)[:last_args]
+  booker_args["booked_by_name"].should eq "Ada Assistant"
+  booker_args["booked_by_email"].should eq "assistant@example.com"
+  booker_args["host_name"].should eq "Host User"
+  booker_args["visitor_email"].should eq "visitor2@external.com"
+
+  # Test 77: an event-linked booking never notifies the host or booker
+
+  linked_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             42_i64,
+    booking_id:     601_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Linked Visit",
+    event_summary:  "Linked Visit",
+    event_starting: now + 150000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq linked_before
+
+  # Test 78: a booking update is not a creation
+
+  updated_before = system(:Mailer)[:send_count].as_i
+  emails_before = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/guest/attending", {
+    action:         "booking_updated",
+    id:             43_i64,
+    booking_id:     604_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Delegated Visit",
+    event_summary:  "Delegated Visit",
+    event_starting: now + 160000,
+    attendee_name:  "Visitor Three",
+    attendee_email: "visitor3@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 1.0
+
+  new_emails = system(:Mailer)[:emails_sent].as_a[emails_before..].map(&.as_s)
+  new_emails.any?(&.ends_with?("|notify_host_delegated")).should be_false
+  new_emails.any?(&.ends_with?("|notify_booker")).should be_false
+
+  # Test 79: the check-in copy to the booker is off by default, and when on
+  # it goes only to a booker who is not the host
+
+  checkin_before = system(:Mailer)[:send_count].as_i
+
+  delegated_checkin = {
+    action:         "checkin",
+    id:             44_i64,
+    checkin:        true,
+    booking_id:     604_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Delegated Visit",
+    event_summary:  "Delegated Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor Two",
+    attendee_email: "visitor2@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json
+
+  publish("staff/guest/checkin", delegated_checkin)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq checkin_before + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_checkin"]
+  system(:Mailer)[:last_to].should eq "host@example.com"
+
+  settings({
+    timezone:                 "GMT",
+    booking_space_name:       "Client Floor",
+    invite_zone_tag:          "building",
+    change_debounce:          0,
+    notify_booker_on_checkin: true,
+  })
+  sleep 1.0
+
+  checkin_on_before = system(:Mailer)[:send_count].as_i
+  emails_before = system(:Mailer)[:emails_sent].as_a.size
+
+  publish("staff/guest/checkin", delegated_checkin)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq checkin_on_before + 2
+  new_emails = system(:Mailer)[:emails_sent].as_a[emails_before..].map(&.as_s)
+  new_emails.should contain "host@example.com|notify_checkin"
+  new_emails.should contain "assistant@example.com|notify_checkin_booker"
+  system(:Mailer)[:last_reply_to].should eq "host@example.com"
+  system(:Mailer)[:last_args]["booked_by_name"].should eq "Ada Assistant"
+
+  self_checkin_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/checkin", {
+    action:         "checkin",
+    id:             45_i64,
+    checkin:        true,
+    booking_id:     610_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Standalone Visit",
+    event_summary:  "Standalone Visit",
+    event_starting: now + 130000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 1.0
+
+  # the host booked it themselves, so there is no separate booker to copy
+  system(:Mailer)[:send_count].should eq self_checkin_before + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_checkin"]
 end
