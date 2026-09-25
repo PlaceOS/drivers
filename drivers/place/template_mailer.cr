@@ -262,12 +262,31 @@ class Place::TemplateMailer < PlaceOS::Driver
       reply_to = metadata_template["reply_to"].to_s if (reply_to_template = metadata_template["reply_to"]?) && reply_to_template.to_s.presence
       reply_to = @reply_to if @reply_to
 
+      # a template's `to` replaces the recipient the driver chose; its `cc` and
+      # `bcc` are added to whatever the driver passed
+      template_to = addresses(metadata_template["to"]?)
+      to = template_to unless template_to.empty?
+      cc = merge_addresses(cc, metadata_template["cc"]?)
+      bcc = merge_addresses(bcc, metadata_template["bcc"]?)
+
       mailer.send_mail(to, subject, text, html, resource_attachments, attachments, cc, bcc, from, reply_to)
     else
       logger.info { "unable to find template #{template.join(SEPERATOR)} from zones #{zone_ids} metadata, forwarding to Mailer_2" }
       reply_to = @reply_to if @reply_to
       mailer.send_template(to, template, args, resource_attachments, attachments, cc, bcc, from, reply_to)
     end
+  end
+
+  # Splits a template's address list; commas, semicolons and whitespace all separate
+  protected def addresses(value : String | Int64 | Nil) : Array(String)
+    value.to_s.split(/[,;\s]+/).map(&.strip).reject(&.empty?)
+  end
+
+  protected def merge_addresses(existing : String | Array(String), extra : String | Int64 | Nil) : String | Array(String)
+    additional = addresses(extra)
+    return existing if additional.empty?
+    current = existing.is_a?(String) ? (existing.presence ? [existing] : [] of String) : existing
+    (current + additional).uniq(&.downcase)
   end
 
   alias Template = Hash(String, String | Int64)

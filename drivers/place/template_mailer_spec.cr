@@ -33,6 +33,16 @@ class StaffAPI < DriverSpecs::MockDriver
       from:     "noreply@org.com",
       reply_to: "template-reply@org.com",
     },
+    # a template that names its own recipients
+    {
+      id:      "template-2",
+      trigger: "test.reception",
+      subject: "Arrival",
+      html:    "<p>%{name} has arrived</p>",
+      to:      "reception@org.com, security@org.com",
+      cc:      "manager@org.com",
+      bcc:     "audit@org.com; Reception@org.com",
+    },
   ]
 
   def zones(q : String? = nil,
@@ -91,6 +101,9 @@ class Mailer < DriverSpecs::MockDriver
   )
     self[:sent] = self[:sent].as_i + 1
     self[:reply_to] = reply_to
+    self[:to] = to
+    self[:cc] = cc
+    self[:bcc] = bcc
     true
   end
 
@@ -108,6 +121,9 @@ class Mailer < DriverSpecs::MockDriver
   ) : Bool
     self[:sent] = self[:sent].as_i + 1
     self[:reply_to] = reply_to
+    self[:to] = to
+    self[:cc] = cc
+    self[:bcc] = bcc
     true
   end
 end
@@ -157,4 +173,31 @@ DriverSpecs.mock_driver "Place::TemplateMailer" do
     reply_to: "host@org.com",
   ).get
   system(:Mailer_2)[:reply_to].should eq "tenant@org.com"
+
+  # 4. A template with no recipients of its own leaves the caller's To, CC and
+  #    BCC untouched.
+  exec(
+    :send_template,
+    to: "steve@org.com",
+    template: {"test", "welcome"},
+    args: {name: "Bob"},
+    cc: ["assistant@org.com"],
+  ).get
+  system(:Mailer_2)[:to].should eq "steve@org.com"
+  system(:Mailer_2)[:cc].should eq ["assistant@org.com"]
+  system(:Mailer_2)[:bcc].should eq [] of String
+
+  # 5. A template's `to` replaces the recipient the driver chose, and its `cc`
+  #    and `bcc` are added to the caller's, without duplicates.
+  exec(
+    :send_template,
+    to: "host@org.com",
+    template: {"test", "reception"},
+    args: {name: "Bob"},
+    cc: ["assistant@org.com"],
+    bcc: "reception@org.com",
+  ).get
+  system(:Mailer_2)[:to].should eq ["reception@org.com", "security@org.com"]
+  system(:Mailer_2)[:cc].should eq ["assistant@org.com", "manager@org.com"]
+  system(:Mailer_2)[:bcc].should eq ["reception@org.com", "audit@org.com"]
 end
