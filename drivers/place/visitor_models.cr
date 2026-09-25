@@ -63,6 +63,8 @@ module Place
   class GuestCheckin < GuestNotification
     include JSON::Serializable
 
+    # present for booking check-ins, absent for calendar event check-ins
+    property booking_id : Int64?
     property system_id : String = ""
     property event_id : String = ""
     property resource : String = ""
