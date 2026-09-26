@@ -18,8 +18,19 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   tcp_port 3629
   descriptive_name "Epson Projector"
   generic_name :Display
+  description <<-DESC
+    ESC/VP.net control. If a Web Control / Monitor password is configured on the projector,
+    set the `password` setting (printable ASCII, max 16 characters).
+    Protocol: ESC/VP.net Software Development Manual (CONNECT request, Password header)
+    DESC
+
+  default_settings({
+    password: "",
+  })
 
   @ready : Bool = false
+  @password : String = ""
+  @connect_rejected : Bool = false
 
   getter power_actual : Bool? = nil  # actual power state
   getter? power_stable : Bool = true # are we in a stable state?
@@ -29,6 +40,24 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
   def on_load
     self[:type] = :projector
+    on_update
+  end
+
+  def on_update
+    password = setting?(String, :password) || ""
+    if password.bytesize > 16
+      logger.warn { "ESC/VP.net passwords are limited to 16 characters, truncating" }
+      password = password.byte_slice(0, 16)
+    end
+
+    # the password is only sent as part of the connection handshake
+    changed = password != @password
+    @password = password
+    return unless changed
+
+    # reconnect to handshake with the new password, skipping any back-off
+    disconnect if @ready || @connect_rejected
+    @connect_rejected = false
   end
 
   def connected
@@ -42,14 +71,22 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       end
     end
 
-    # Have to init comms
-    send("ESC/VP.net\x10\x03\x00\x00\x00\x00", priority: 99)
-    schedule.every(52.seconds, true) { do_poll }
+    # Have to init comms, backing off after a rejection so we don't hammer the projector
+    if @connect_rejected
+      schedule.in(10.seconds) { send(connect_request, priority: 99) }
+    else
+      send(connect_request, priority: 99)
+    end
   end
 
   def disconnected
     transport.tokenizer = nil
     schedule.clear
+
+    # ESC/VP21 commands are only valid after the CONNECT handshake
+    @ready = false
+    self[:ready] = false
+    queue.clear abort_current: true
   end
 
   def power(state : Bool)
@@ -169,7 +206,38 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   }
   RESPONSE = COMMAND.to_h.invert
 
+  # ESC/VP.net header: identifier, version 0x10, type 0x03 (CONNECT), reserved (2 bytes), status 0x00
+  CONNECT_HEADER = "ESC/VP.net\x10\x03\x00\x00\x00"
+
+  enum ConnectStatus : UInt8
+    OK                  = 0x20
+    BadRequest          = 0x40
+    Unauthorized        = 0x41 # password required
+    Forbidden           = 0x43 # password is wrong
+    RequestNotAllowed   = 0x45
+    ServiceUnavailable  = 0x53 # projector busy
+    VersionNotSupported = 0x55
+  end
+
+  protected def connect_request : Bytes
+    io = IO::Memory.new
+    io << CONNECT_HEADER
+    if @password.empty?
+      io.write_byte 0_u8 # number of headers
+    else
+      io.write_byte 1_u8 # number of headers
+      io.write_byte 1_u8 # header identifier: Password
+      io.write_byte 1_u8 # attribute: Plain
+      password = @password.to_slice
+      io.write password
+      (16 - password.size).times { io.write_byte 0_u8 }
+    end
+    io.to_slice
+  end
+
   def received(data, task)
+    return handle_connect_response(data, task) unless @ready
+
     data = String.new(data)
     logger.debug { "<< Received from Epson Proj: #{data.inspect}" }
 
@@ -178,16 +246,6 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
 
     # projector returns ":" on success
     return task.try(&.success) if data.size <= 2
-
-    if !@ready
-      if data.includes?("ESC/VP.net")
-        logger.debug { "-- Epson projector ready to accept commands" }
-        transport.tokenizer = Tokenizer.new(":")
-        @ready = true
-        self[:ready] = true
-      end
-      return task.try(&.success)
-    end
 
     # Handle IMEVENT messages
     if data.starts_with?("IMEVENT=")
@@ -258,6 +316,41 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
       video_mute?
     end
     do_send(:lamp, priority: 20)
+  end
+
+  private def handle_connect_response(data : Bytes, task)
+    logger.debug { "<< Received from Epson Proj: #{String.new(data).inspect}" }
+    return task.try(&.success) unless String.new(data).includes?("ESC/VP.net")
+
+    # byte 14 is the status code of the CONNECT response
+    if (byte = data[14]?) && byte != ConnectStatus::OK.value
+      status = ConnectStatus.from_value?(byte)
+      message = case status
+                when .nil?          then "projector rejected the connection: status 0x#{byte.to_s(16)}"
+                when .unauthorized? then "projector requires a password, please configure the password setting"
+                when .forbidden?    then "projector rejected the configured password"
+                else                     "projector rejected the connection: #{status}"
+                end
+      logger.error { "Epson #{message}" }
+      self[:connect_error] = message
+      @connect_rejected = true
+      task.try(&.abort(message))
+      # projector closes the connection after an error response
+      disconnect
+      return
+    end
+
+    logger.debug { "-- Epson projector ready to accept commands" }
+    transport.tokenizer = Tokenizer.new(":")
+    @ready = true
+    @connect_rejected = false
+    self[:ready] = true
+    self[:connect_error] = nil
+    task.try(&.success)
+
+    # poll outside the IO fiber, it waits on responses
+    schedule.every(52.seconds) { do_poll }
+    spawn { do_poll }
   end
 
   private def parse_imevent(data : String)
@@ -334,6 +427,9 @@ class Epson::Projector::EscVp21 < PlaceOS::Driver
   end
 
   private def do_send(command, param = nil, **options)
+    # the projector only accepts ESC/VP21 commands after a successful CONNECT handshake
+    raise "Epson projector session not established" unless @ready
+
     command = COMMAND[command]
     cmd = param ? "#{command} #{param}\r" : "#{command}?\r"
     logger.debug { ">> Sending to Epson Proj - #{command}: #{cmd}" }

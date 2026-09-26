@@ -73,4 +73,39 @@ DriverSpecs.mock_driver "Epson::Projector::EscVp21" do
   status[:power].should eq(true)
   status[:warnings].should eq(["Lamp life", "No signal"])
   status[:alarms].should eq(["Lamp ON failure", "Lamp lid", "Lamp burnout"])
+
+  # Password support: changing the password reconnects with a Password header
+  # (ESC/VP.net manual, 5.6.3 CONNECT request/response)
+  settings({password: "AbCdEfGHhIjk"})
+  expect_reconnect
+  should_send("ESC/VP.net\x10\x03\x00\x00\x00\x01\x01\x01AbCdEfGHhIjk\x00\x00\x00\x00")
+  responds("ESC/VP.net\x10\x03\x00\x00\x20\x00")
+  status[:ready].should eq(true)
+  status[:connect_error]?.should be_nil
+  # polling resumes once the session is established
+  should_send("PWR?\r")
+
+  # wrong password: projector responds 0x43 Forbidden and we disconnect
+  settings({password: "wrong"})
+  expect_reconnect
+  should_send("ESC/VP.net\x10\x03\x00\x00\x00\x01\x01\x01wrong\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+  responds("ESC/VP.net\x10\x03\x00\x00\x43\x00")
+  status[:ready].should eq(false)
+  status[:connect_error].should eq("projector rejected the configured password")
+
+  # backs off before retrying a rejected handshake
+  expect_reconnect
+  started = Time.monotonic
+  should_send("ESC/VP.net\x10\x03\x00\x00\x00\x01\x01\x01wrong\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", timeout: 12.seconds)
+  (Time.monotonic - started).should be >= 9.seconds
+  responds("ESC/VP.net\x10\x03\x00\x00\x43\x00")
+  expect_reconnect
+
+  # a settings change skips the back-off
+  settings({password: "AbCdEfGHhIjk"})
+  expect_reconnect
+  should_send("ESC/VP.net\x10\x03\x00\x00\x00\x01\x01\x01AbCdEfGHhIjk\x00\x00\x00\x00", timeout: 2.seconds)
+  responds("ESC/VP.net\x10\x03\x00\x00\x20\x00")
+  status[:ready].should eq(true)
+  status[:connect_error]?.should be_nil
 end
