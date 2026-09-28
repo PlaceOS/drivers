@@ -7,7 +7,7 @@ shards:
 
   action-controller:
     git: https://github.com/spider-gazelle/action-controller.git
-    version: 8.1.2
+    version: 8.2.1
 
   active-model:
     git: https://github.com/spider-gazelle/active-model.git
@@ -259,7 +259,7 @@ shards:
 
   placeos-models:
     git: https://github.com/placeos/models.git
-    version: 9.113.0
+    version: 9.115.0
 
   pool:
     git: https://github.com/ysbaddaden/pool.git
