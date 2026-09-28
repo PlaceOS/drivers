@@ -33,8 +33,16 @@ class Place::TemplateMailer < PlaceOS::Driver
   getter org_zone_id : String { get_local_zone_id(org_zone_ids).not_nil! }
   getter building_zone_id : String { get_local_zone_id(building_zone_ids).not_nil! }
 
+  # The mailer templated email is handed to: the next Mailer in the system,
+  # never this module itself
   def mailer
-    system.implementing(Interface::Mailer)[1]
+    mailers = system.implementing(Interface::Mailer)
+    mine = mailers.find { |mod| mod.module_id == module_id }
+    if mine
+      following = mailers.find { |mod| mod.module_name == mine.module_name && mod.index == mine.index + 1 }
+      return following if following
+    end
+    mailers.find { |mod| mod.module_id != module_id } || raise "no other mailer found in the system to send through"
   end
 
   SEPERATOR = "."
