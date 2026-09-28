@@ -293,6 +293,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     307_i64 => 300_i64,
     600_i64 => 599_i64,
     801_i64 => 800_i64,
+    811_i64 => 810_i64,
   }
 
   def get_booking(booking_id : Int64, instance : Int64? = nil)
@@ -336,6 +337,22 @@ class StaffAPIMock < DriverSpecs::MockDriver
         user_email:     "host@example.com",
         title:          "Linked Visit",
         extension_data: {parent_id: "event-evt-200"},
+      }
+    when 810_i64
+      # a group container: the front end lists the visitors on it and gives
+      # each of them a child booking (811)
+      {
+        id:             810,
+        booking_type:   "group",
+        booking_start:  0,
+        booking_end:    0,
+        resource_id:    "grp-abc123",
+        user_email:     "host@example.com",
+        title:          "Group Visit",
+        extension_data: {
+          group:         "grp-abc123",
+          group_members: [{name: "Visitor One", email: "visitor@external.com"}],
+        },
       }
     when 602_i64
       {
@@ -4133,4 +4150,82 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # the host booked it themselves, so there is no separate booker to copy
   system(:Mailer)[:send_count].should eq self_checkin_before + 1
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_checkin"]
+
+  # ------------------------------------------------------------------
+  # Test 80: a visitor on a multi-visitor booking is invited once. The front
+  #          end creates a group container listing every visitor and a child
+  #          booking per visitor, and staff-api signals both, so the container
+  #          signal must not send a second invitation.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+  })
+  sleep 1.0
+
+  group_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             80_i64,
+    booking_id:     810_i64,
+    resource_id:    "grp-abc123",
+    resource_ids:   ["grp-abc123"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 1.0
+
+  # nothing from the container
+  system(:Mailer)[:send_count].should eq group_before
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             80_i64,
+    booking_id:     811_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 1.0
+
+  # one invitation, from the visitor's own booking
+  system(:Mailer)[:send_count].should eq group_before + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
+
+  # a visitor added to the group later: the container is updated first, then
+  # their child booking is created
+  added_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "booking_updated",
+    id:             81_i64,
+    booking_id:     810_i64,
+    resource_id:    "grp-abc123",
+    resource_ids:   ["grp-abc123"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor Two",
+    attendee_email: "visitor-two@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 1.0
+
+  system(:Mailer)[:send_count].should eq added_before
 end

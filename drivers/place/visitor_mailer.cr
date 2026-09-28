@@ -582,6 +582,13 @@ class Place::VisitorMailer < PlaceOS::Driver
 
       booking_type = booking["booking_type"].as_s
       template = @group_event_template if booking_type == "group-event"
+
+      # a group container lists every visitor, but each visitor is invited from
+      # their own child booking (its id is what the QR code and check-in use)
+      if booking_type == "group" && booking.dig?("extension_data", "group_members")
+        logger.debug { "skipping the #{template} invite to #{guest_details.attendee_email} from group container #{guest_details.booking_id}, their own booking sends it" }
+        return
+      end
     in GuestNotification
       # should never get here
       return
