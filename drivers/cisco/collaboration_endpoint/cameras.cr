@@ -15,9 +15,10 @@ module Cisco::CollaborationEndpoint::Cameras
 
   command({"Camera Preset Activate" => :camera_preset},
     preset_id: 1..35)
-  # CameraId is 1..7 on Codec EQ / Plus / Pro class devices (RoomOS 11 API guide)
+  # CameraId is 1..15 on Codec EQ / Codec Pro / Room Kit EQX (RoomOS 26.2 API
+  # guide), older RoomOS 11 releases accept 1..7 and the codec rejects the rest
   command({"Camera Preset Store" => :camera_store_preset},
-    camera_id: 1..7,
+    camera_id: 1..15,
     preset_id: 1..35, # Optional - codec will auto-assign if omitted
     name_: String,
     take_snapshot_: Bool,
@@ -39,10 +40,10 @@ module Cisco::CollaborationEndpoint::Cameras
   end
 
   command({"Camera PositionReset" => :camera_position_reset},
-    camera_id: 1..7,
+    camera_id: 1..15,
     axis_: CameraAxis)
   command({"Camera Ramp" => :camera_move},
-    camera_id: 1..7,
+    camera_id: 1..15,
     pan_: Interface::Camera::PanDirection,
     pan_speed_: 1..15,
     tilt_: Interface::Camera::TiltDirection,

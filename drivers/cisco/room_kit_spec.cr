@@ -261,36 +261,36 @@ DriverSpecs.mock_driver "Cisco::RoomKit" do
     %("CommandResponse":{"PresetActivateResult":{"status":"OK"}})
   recalled.get
 
-  # up to 7 cameras on Codec EQ / Plus / Pro class devices
-  zoom = exec(:zoom, "out", 7)
-  exchange "xCommand Camera Ramp CameraId: 7 Zoom: Out ZoomSpeed: 6",
+  # up to 15 cameras on Codec EQ / Pro class devices (RoomOS 26.2)
+  zoom = exec(:zoom, "out", 9)
+  exchange "xCommand Camera Ramp CameraId: 9 Zoom: Out ZoomSpeed: 6",
     %("CommandResponse":{"CameraRampResult":{"status":"OK"}})
   zoom.get
 
-  tilt = exec(:joystick, 0.0, 50.0, 7)
-  exchange "xCommand Camera Ramp CameraId: 7 Pan: Stop Tilt: Up TiltSpeed: 8 Zoom: Stop",
+  tilt = exec(:joystick, 0.0, 50.0, 9)
+  exchange "xCommand Camera Ramp CameraId: 9 Pan: Stop Tilt: Up TiltSpeed: 8 Zoom: Stop",
     %("CommandResponse":{"CameraRampResult":{"status":"OK"}})
   tilt.get
 
-  saved = exec(:save_position, "Rear", 7)
-  exchange %(xCommand Camera Preset Store CameraId: 7 PresetId: 2 Name: "Rear"),
+  saved = exec(:save_position, "Rear", 9)
+  exchange %(xCommand Camera Preset Store CameraId: 9 PresetId: 2 Name: "Rear"),
     %("CommandResponse":{"PresetStoreResult":{"status":"OK"}})
   saved.get
-  status[:camera_presets].should eq({"1" => ["Front Lecturn"], "7" => ["Rear"]})
+  status[:camera_presets].should eq({"1" => ["Front Lecturn"], "9" => ["Rear"]})
 
-  recalled = exec(:recall, "Rear", 7)
+  recalled = exec(:recall, "Rear", 9)
   exchange "xCommand Camera Preset Activate PresetId: 2",
     %("CommandResponse":{"PresetActivateResult":{"status":"OK"}})
   recalled.get
 
   # IP cameras sit on the higher connector ids (Ethernet type connectors)
-  selected = exec(:camera_select, 7)
-  exchange "xCommand Video Input SetMainVideoSource ConnectorId: 7",
+  selected = exec(:camera_select, 9)
+  exchange "xCommand Video Input SetMainVideoSource ConnectorId: 9",
     %("CommandResponse":{"InputSetMainVideoSourceResult":{"status":"OK"}})
   selected.get.should eq "OK"
 
   expect_raises(PlaceOS::Driver::RemoteException) { exec(:camera_select, 10).get }
-  expect_raises(PlaceOS::Driver::RemoteException) { exec(:zoom, "in", 8).get }
+  expect_raises(PlaceOS::Driver::RemoteException) { exec(:zoom, "in", 16).get }
 
   # ====
   # Presentation
