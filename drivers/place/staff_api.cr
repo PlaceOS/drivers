@@ -304,6 +304,22 @@ class Place::StaffAPI < PlaceOS::Driver
     raise "failed to revive user #{id}: #{response.status_code}" unless response.success?
   end
 
+  # Syncs a user's automatic group memberships with the AD groups they are a
+  # member of. Adds the user to groups mapped to their AD groups and removes
+  # memberships that were auto-assigned from AD groups they have left.
+  # Returns the user's group memberships.
+  @[Security(Level::Support)]
+  def add_remove_ad_groups(user_id : String, ad_groups : Array(String))
+    response = post("/api/engine/v2/groups/ad_groups/sync", body: {
+      user_id:   user_id,
+      ad_groups: ad_groups,
+    }.to_json, headers: authentication(HTTP::Headers{
+      "Content-Type" => "application/json",
+    }))
+    raise "failed to sync AD groups for user #{user_id}: #{response.status_code}\n#{response.body}" unless response.success?
+    ExecResponse.new(response.body)
+  end
+
   @[Security(Level::Support)]
   def resource_token
     response = post("/api/engine/v2/users/resource_token", headers: authentication)

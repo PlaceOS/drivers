@@ -89,4 +89,42 @@ DriverSpecs.mock_driver "Place::StaffAPI" do
       "email": "user@spec.test",
       "sent": false
     }])))
+
+  sleep 1
+  sync_resp = exec(:add_remove_ad_groups, "user-12345", ["ad-group-1", "ad-group-2"])
+
+  expect_http_request do |request, response|
+    request.method.should eq "POST"
+    request.path.should eq "/api/engine/v2/groups/ad_groups/sync"
+    request.headers["X-API-Key"]?.should eq "spec-test"
+    request.headers["Content-Type"]?.should eq "application/json"
+
+    body = JSON.parse(request.body.as(IO).gets_to_end)
+    body["user_id"].should eq "user-12345"
+    body["ad_groups"].should eq JSON.parse(%(["ad-group-1", "ad-group-2"]))
+
+    response.status_code = 200
+    response << %([{
+      "user_id": "user-12345",
+      "group_id": "0199a000-0000-7000-8000-000000000001",
+      "permissions": 1,
+      "auto_assigned": "ad-group-1"
+    }])
+  end
+
+  sync_resp.get.should eq(JSON.parse(%([{
+      "user_id": "user-12345",
+      "group_id": "0199a000-0000-7000-8000-000000000001",
+      "permissions": 1,
+      "auto_assigned": "ad-group-1"
+    }])))
+
+  sleep 1
+  failed_sync = exec(:add_remove_ad_groups, "user-missing", [] of String)
+
+  expect_http_request do |_request, response|
+    response.status_code = 404
+  end
+
+  expect_raises(PlaceOS::Driver::RemoteException) { failed_sync.get }
 end
