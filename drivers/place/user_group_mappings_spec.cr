@@ -9,6 +9,11 @@ class StaffAPIMock < DriverSpecs::MockDriver
   def update_user(id : String, body_json : String) : Nil
     self[id] = body_json
   end
+
+  def add_remove_ad_groups(user_id : String, ad_groups : Array(String))
+    self["ad_groups/#{user_id}"] = ad_groups
+    [] of String
+  end
 end
 
 # :nodoc:
@@ -46,6 +51,7 @@ DriverSpecs.mock_driver "Place::LogicExample" do
 
   exec(:check_user, "user-1234").get
   system(:StaffAPI_1)["user-1234"].should eq({"groups" => ["existing_group_to_be_ignored", "intune"]}.to_json)
+  system(:StaffAPI_1)["ad_groups/user-1234"].should eq ["5f4694-96f3-4209-a432-b04ac06ca7", "bb8836-5942-402d-8d67-55b1a642"]
 
   settings({
     group_mappings: {

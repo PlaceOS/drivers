@@ -128,6 +128,14 @@ class Place::UserGroupMappings < PlaceOS::Driver
     users_groups = users_groups.as_a
 
     users_group_ids = users_groups.map { |group| group["id"].as_s }
+
+    # Sync the users PlaceOS group memberships (Group#ad_group_mappings)
+    begin
+      staff_api.add_remove_ad_groups(user[:id], users_group_ids).get
+    rescue error
+      logger.warn(exception: error) { "failed to sync AD group memberships for #{user[:id]}" }
+    end
+
     users_group_names = users_groups.map { |group| group["name"].as_s.downcase }
 
     # Build the list of placeos groups based on the mappings and update the user model
