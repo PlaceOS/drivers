@@ -1,9 +1,9 @@
 require "placeos-driver/spec"
 require "placeos-driver/interface/mailer"
 
-# The TemplateMailer under test has `generic_name :Mailer`, so it occupies the
-# Mailer_1 slot. The mock declared below becomes Mailer_2 -- the module that
-# `system.implementing(Interface::Mailer)[1]` forwards to.
+# The TemplateMailer under test hands templated email to the next Mailer in the
+# system that is not itself. The spec runner keeps the driver under test out of
+# the module map, so the first mock below (Mailer_1) is the one it forwards to.
 class StaffAPI < DriverSpecs::MockDriver
   ZONES = [
     {
@@ -129,9 +129,9 @@ class Mailer < DriverSpecs::MockDriver
 end
 
 DriverSpecs.mock_driver "Place::TemplateMailer" do
-  # The TemplateMailer under test forwards to `system.implementing(Mailer)[1]`.
-  # In production that index 1 is the next mailer in the chain (e.g. SMTP); here
-  # we declare two mock mailers so index 1 is the recording mock (Mailer_2).
+  # The TemplateMailer under test forwards to the first Mailer that is not
+  # itself. Two mocks are declared so the choice between them is visible: the
+  # recording mock is Mailer_1 and Mailer_2 must stay untouched.
   system({
     StaffAPI: {StaffAPI},
     Mailer:   {Mailer, Mailer},
@@ -146,7 +146,7 @@ DriverSpecs.mock_driver "Place::TemplateMailer" do
     args: {name: "Bob"},
     reply_to: "host@org.com",
   ).get
-  system(:Mailer_2)[:reply_to].should eq "template-reply@org.com"
+  system(:Mailer_1)[:reply_to].should eq "template-reply@org.com"
 
   # 2. With no template match and no configured reply_to, the host reply_to is
   #    forwarded through to the downstream mailer.
@@ -157,7 +157,7 @@ DriverSpecs.mock_driver "Place::TemplateMailer" do
     args: {name: "Bob"},
     reply_to: "host@org.com",
   ).get
-  system(:Mailer_2)[:reply_to].should eq "host@org.com"
+  system(:Mailer_1)[:reply_to].should eq "host@org.com"
 
   # 3. A reply_to configured on the TemplateMailer overrides BOTH the
   #    per-template reply_to and the host reply_to passed in by the caller.
@@ -172,7 +172,7 @@ DriverSpecs.mock_driver "Place::TemplateMailer" do
     args: {name: "Bob"},
     reply_to: "host@org.com",
   ).get
-  system(:Mailer_2)[:reply_to].should eq "tenant@org.com"
+  system(:Mailer_1)[:reply_to].should eq "tenant@org.com"
 
   # 4. A template with no recipients of its own leaves the caller's To, CC and
   #    BCC untouched.
@@ -183,9 +183,9 @@ DriverSpecs.mock_driver "Place::TemplateMailer" do
     args: {name: "Bob"},
     cc: ["assistant@org.com"],
   ).get
-  system(:Mailer_2)[:to].should eq "steve@org.com"
-  system(:Mailer_2)[:cc].should eq ["assistant@org.com"]
-  system(:Mailer_2)[:bcc].should eq [] of String
+  system(:Mailer_1)[:to].should eq "steve@org.com"
+  system(:Mailer_1)[:cc].should eq ["assistant@org.com"]
+  system(:Mailer_1)[:bcc].should eq [] of String
 
   # 5. A template's `to` replaces the recipient the driver chose, and its `cc`
   #    and `bcc` are added to the caller's, without duplicates.
@@ -197,7 +197,7 @@ DriverSpecs.mock_driver "Place::TemplateMailer" do
     cc: ["assistant@org.com"],
     bcc: "reception@org.com",
   ).get
-  system(:Mailer_2)[:to].should eq ["reception@org.com", "security@org.com"]
-  system(:Mailer_2)[:cc].should eq ["assistant@org.com", "manager@org.com"]
-  system(:Mailer_2)[:bcc].should eq ["reception@org.com", "audit@org.com"]
+  system(:Mailer_1)[:to].should eq ["reception@org.com", "security@org.com"]
+  system(:Mailer_1)[:cc].should eq ["assistant@org.com", "manager@org.com"]
+  system(:Mailer_1)[:bcc].should eq ["reception@org.com", "audit@org.com"]
 end
