@@ -293,6 +293,7 @@ class StaffAPIMock < DriverSpecs::MockDriver
     307_i64 => 300_i64,
     600_i64 => 599_i64,
     801_i64 => 800_i64,
+    811_i64 => 810_i64,
   }
 
   def get_booking(booking_id : Int64, instance : Int64? = nil)
@@ -336,6 +337,22 @@ class StaffAPIMock < DriverSpecs::MockDriver
         user_email:     "host@example.com",
         title:          "Linked Visit",
         extension_data: {parent_id: "event-evt-200"},
+      }
+    when 810_i64
+      # a group container: the front end lists the visitors on it and gives
+      # each of them a child booking (811)
+      {
+        id:             810,
+        booking_type:   "group",
+        booking_start:  0,
+        booking_end:    0,
+        resource_id:    "grp-abc123",
+        user_email:     "host@example.com",
+        title:          "Group Visit",
+        extension_data: {
+          group:         "grp-abc123",
+          group_members: [{name: "Visitor One", email: "visitor@external.com"}],
+        },
       }
     when 602_i64
       {
@@ -386,7 +403,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   })
 
   # Allow on_load -> on_update -> ensure_building_zone to complete
-  sleep 1.5
+  sleep 1.0
 
   # Most tests below assert an immediate send, so the debounce is disabled (it
   # defaults to 15s). The debounce behaviour has dedicated tests that turn it
@@ -426,7 +443,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   system(:StaffAPI)[:zone_lookups].should_not be_nil
 
   publish("staff/booking/changed", changed_payload_with_zones)
-  sleep 1.5
+  sleep 1.0
 
   # Verify email was sent
   system(:Mailer)[:send_count].should eq 1
@@ -472,7 +489,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", changed_payload_time_only)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 2
 
@@ -544,7 +561,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", changed_payload_short_circuit)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 3
 
@@ -637,7 +654,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", changed_payload_shrunk)
-  sleep 1.5
+  sleep 1.0
 
   # Even though the action is "metadata_changed", the time genuinely
   # changed so visitors must be notified.
@@ -669,7 +686,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", changed_payload_end_only)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 5
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -703,7 +720,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/host_changed", host_changed_payload)
-  sleep 1.5
+  sleep 1.0
 
   # Email should be sent to the previous host
   system(:Mailer)[:send_count].should eq 6
@@ -763,7 +780,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/host_changed", host_changed_no_zones)
-  sleep 1.5
+  sleep 1.0
 
   # When zones are nil, zone filtering is skipped — email should be sent
   system(:Mailer)[:send_count].should eq 7
@@ -788,7 +805,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/host_changed", host_changed_no_title)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 8
   system(:Mailer)[:last_to].should eq "old-host3@example.com"
@@ -815,7 +832,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/host_changed", host_changed_nil_summary)
-  sleep 1.5
+  sleep 1.0
 
   # Email should still be sent — event_title falls back to nil gracefully
   system(:Mailer)[:send_count].should eq 9
@@ -858,7 +875,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_time)
-  sleep 1.5
+  sleep 1.0
 
   # Visitor should receive a booking_changed email
   system(:Mailer)[:send_count].should eq 10
@@ -905,7 +922,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_location)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 11
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -934,7 +951,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_host)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 12
   system(:Mailer)[:last_to].should eq "old-organiser@example.com"
@@ -969,7 +986,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_host_no_end)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_host_no_end + 1
   system(:Mailer)[:last_to].should eq "old-organiser2@example.com"
@@ -1005,7 +1022,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_host_no_times)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_host_no_times + 1
   system(:Mailer)[:last_to].should eq "old-organiser3@example.com"
@@ -1106,7 +1123,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_end_only)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 15
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -1134,7 +1151,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_prev_location)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq 16
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -1243,7 +1260,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", group_changed_payload)
-  sleep 1.5
+  sleep 1.0
 
   # The mock returns 2 unique guests for booking 300 with
   # include_linked: true, so 2 emails should be sent.
@@ -1469,7 +1486,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_host_in_guests)
-  sleep 1.5
+  sleep 1.0
 
   # event_guests mock returns BOTH host and visitor for evt-host-in-guests,
   # but only the visitor should receive the booking_changed email.
@@ -1502,7 +1519,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", booking_changed_host_in_guests)
-  sleep 1.5
+  sleep 1.0
 
   # booking_guests mock for id 301 returns BOTH host and visitor,
   # but only the visitor should receive the booking_changed email.
@@ -1533,7 +1550,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/host_changed", prev_host_payload)
-  sleep 1.5
+  sleep 1.0
 
   # Previous-host notification still fires regardless of skip_host_email
   system(:Mailer)[:send_count].should eq count_before_prev_host + 1
@@ -1584,7 +1601,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_event_start: now + 10800,
     previous_event_end:   now + 14400,
   }.to_json)
-  sleep 1.5
+  sleep 1.0
 
   # Both host AND visitor receive the booking_changed email
   system(:Mailer)[:send_count].should eq count_before_optout_bc + 2
@@ -1691,7 +1708,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", split_event_payload)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_split_event + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -1717,7 +1734,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", split_booking_payload)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_split_booking + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -1769,7 +1786,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", linked_booking_changed)
-  sleep 1.5
+  sleep 1.0
 
   # The booking edit is the only signal these visitors receive, so it must
   # produce the booking_changed notification.
@@ -1801,7 +1818,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", standalone_booking_changed)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_standalone_change + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -1842,7 +1859,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 14400,
     extension_data:         {parent_id: "event-evt-200"},
   }.to_json)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_optout_linked + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -1884,7 +1901,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_needs_lookup)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_lookup + 1
   system(:Mailer)[:last_to].should eq "old-host-l@example.com"
@@ -1916,7 +1933,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/event/changed", event_changed_no_start)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_no_start + 1
   system(:Mailer)[:last_to].should eq "old-host-n@example.com"
@@ -2244,7 +2261,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     invite_zone_tag:    "building",
     change_debounce:    0,
   })
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_drain + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
@@ -2417,7 +2434,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building", "zone-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_host_invite
 
   # ==================================================================
@@ -2448,7 +2465,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_system_id: "sys-room2",
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_event_qr + 1
   system(:Mailer)[:last_template].should eq ["visitor_invited", "event_changed"]
@@ -2486,7 +2503,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 7200,
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_booking_qr + 1
   system(:Mailer)[:last_template].should eq ["visitor_invited", "booking_changed"]
@@ -2529,7 +2546,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_system_id: "sys-room2",
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_no_qr + 1
   system(:Mailer)[:last_attachments].as_a.size.should eq 0
@@ -2588,7 +2605,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building", "zone-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_domain_filter
 
   # ------------------------------------------------------------------
@@ -2624,7 +2641,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building", "zone-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_internal
 
   # the external visitor on the same event still gets their invite
@@ -2643,7 +2660,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building", "zone-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_internal + 1
   system(:Mailer)[:last_to].should eq "visitor@external.com"
 
@@ -2667,7 +2684,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json
 
   publish("staff/booking/changed", internal_guest_booking)
-  sleep 1.5
+  sleep 1.0
 
   # booking 302 returns colleague@example.com and visitor@external.com — only
   # the visitor is a visitor
@@ -2704,7 +2721,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building", "zone-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
   system(:Mailer)[:send_count].should eq count_before_default_internal + 1
   system(:Mailer)[:last_to].should eq "colleague@example.com"
 
@@ -2728,7 +2745,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_start: now + 10800,
     previous_booking_end:   now + 14400,
   }.to_json)
-  sleep 1.5
+  sleep 1.0
 
   system(:Mailer)[:send_count].should eq count_before_default_change + 2
 
@@ -2842,7 +2859,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   }.to_json)
 
   # debounce plus up to one sweep interval
-  sleep 8.0
+  sleep 6.0
 
   new_visitor_emails = system(:Mailer)[:emails_sent].as_a[sent_before_new_visitor..].map(&.as_s)
 
@@ -2894,7 +2911,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 14400,
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   invite_first_emails = system(:Mailer)[:emails_sent].as_a[sent_before_invite_first..].map(&.as_s)
 
@@ -2925,7 +2942,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 21600,
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   no_invite_emails = system(:Mailer)[:emails_sent].as_a[sent_before_no_invite..].map(&.as_s)
 
@@ -2974,7 +2991,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 28800,
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   other_visit_emails = system(:Mailer)[:emails_sent].as_a[sent_before_other_visit..].map(&.as_s)
 
@@ -3008,7 +3025,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     sleep 0.2
   end
 
-  sleep 8.0
+  sleep 6.0
 
   booking_burst_emails = system(:Mailer)[:emails_sent].as_a[sent_before_booking_burst..].map(&.as_s)
 
@@ -3064,7 +3081,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building", "zone-room"],
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   event_invite_emails = system(:Mailer)[:emails_sent].as_a[sent_before_event_invite..].map(&.as_s)
 
@@ -3130,7 +3147,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building", "zone-room"],
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   room_move_emails = system(:Mailer)[:emails_sent].as_a[sent_before_room_move..].map(&.as_s)
 
@@ -3196,7 +3213,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-old-building", "zone-old-room"],
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   relocate_emails = system(:Mailer)[:emails_sent].as_a[sent_before_relocate..].map(&.as_s)
 
@@ -3298,7 +3315,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-old-building", "zone-old-room"],
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   two_visit_emails = system(:Mailer)[:emails_sent].as_a[sent_before_two_visits..].map(&.as_s)
 
@@ -3370,7 +3387,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-old-building", "zone-old-room"],
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   leak_emails = system(:Mailer)[:emails_sent].as_a[sent_before_leak..].map(&.as_s)
 
@@ -3439,7 +3456,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 108000,
   }.to_json)
 
-  sleep 8.0
+  sleep 6.0
 
   evict_emails = system(:Mailer)[:emails_sent].as_a[sent_before_evict..].map(&.as_s)
 
@@ -3499,7 +3516,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     change_debounce:    0,
     domain_uri:         "https://example.com/",
   })
-  sleep 1.5
+  sleep 1.0
 
   publish("staff/booking/changed", {
     action:                 "changed",
@@ -3518,7 +3535,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-old-building", "zone-old-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   move_building_args = system(:Mailer)[:last_args]
   move_building_args["event_title"].should eq "Campus Move"
@@ -3540,7 +3557,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     change_debounce:    0,
     domain_uri:         "https://example.com/",
   })
-  sleep 1.5
+  sleep 1.0
 
   sent_before_removed = system(:Mailer)[:emails_sent].as_a.size
 
@@ -3560,7 +3577,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 129600,
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   removed_emails = system(:Mailer)[:emails_sent].as_a[sent_before_removed..].map(&.as_s)
 
@@ -3650,7 +3667,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     sleep 0.5
   end
 
-  sleep 1.5
+  sleep 1.0
 
   group_dupe_emails = system(:Mailer)[:emails_sent].as_a[sent_before_group_dupe..].map(&.as_s)
   group_dupe_emails.count("visitor-a@external.com|booking_changed").should eq 1
@@ -3681,7 +3698,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_booking_end:   now + 151200,
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   group_event_emails = system(:Mailer)[:emails_sent].as_a[sent_before_group_event..].map(&.as_s)
   group_event_emails.should contain "visitor-a@external.com|booking_changed"
@@ -3703,7 +3720,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     change_debounce:    0,
     domain_uri:         "https://example.com/",
   })
-  sleep 1.5
+  sleep 1.0
 
   sydney = Time::Location.load("Australia/Sydney")
 
@@ -3732,7 +3749,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-building2", "zone-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   sydney_args = system(:Mailer)[:last_args]
   sydney_args["event_title"].should eq "Sydney Time"
@@ -3758,7 +3775,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     zones:          ["zone-building2", "zone-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   building_time_args = system(:Mailer)[:last_args]
   building_time_args["building_name"].should eq "Second Building"
@@ -3790,7 +3807,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-campus", "zone-old-building", "zone-old-room"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   level_args = system(:Mailer)[:last_args]
   level_args["event_title"].should eq "Campus Shadow"
@@ -3824,7 +3841,7 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
     previous_zones:         ["zone-extra", "zone-building"],
   }.to_json)
 
-  sleep 1.5
+  sleep 1.0
 
   org_args = system(:Mailer)[:last_args]
   org_args["event_title"].should eq "Org Zone Room"
@@ -4133,4 +4150,82 @@ DriverSpecs.mock_driver "Place::VisitorMailer" do
   # the host booked it themselves, so there is no separate booker to copy
   system(:Mailer)[:send_count].should eq self_checkin_before + 1
   system(:Mailer)[:last_template].should eq ["visitor_invited", "notify_checkin"]
+
+  # ------------------------------------------------------------------
+  # Test 80: a visitor on a multi-visitor booking is invited once. The front
+  #          end creates a group container listing every visitor and a child
+  #          booking per visitor, and staff-api signals both, so the container
+  #          signal must not send a second invitation.
+  # ------------------------------------------------------------------
+
+  settings({
+    timezone:           "GMT",
+    booking_space_name: "Client Floor",
+    invite_zone_tag:    "building",
+    change_debounce:    0,
+  })
+  sleep 1.0
+
+  group_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             80_i64,
+    booking_id:     810_i64,
+    resource_id:    "grp-abc123",
+    resource_ids:   ["grp-abc123"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 0.5
+
+  # nothing from the container
+  system(:Mailer)[:send_count].should eq group_before
+
+  publish("staff/guest/attending", {
+    action:         "booking_created",
+    id:             80_i64,
+    booking_id:     811_i64,
+    resource_id:    "visitor@external.com",
+    resource_ids:   ["visitor@external.com"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor One",
+    attendee_email: "visitor@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 0.5
+
+  # one invitation, from the visitor's own booking
+  system(:Mailer)[:send_count].should eq group_before + 1
+  system(:Mailer)[:last_template].should eq ["visitor_invited", "booking"]
+
+  # a visitor added to the group later: the container is updated first, then
+  # their child booking is created
+  added_before = system(:Mailer)[:send_count].as_i
+
+  publish("staff/guest/attending", {
+    action:         "booking_updated",
+    id:             81_i64,
+    booking_id:     810_i64,
+    resource_id:    "grp-abc123",
+    resource_ids:   ["grp-abc123"],
+    event_title:    "Group Visit",
+    event_summary:  "Group Visit",
+    event_starting: now + 140000,
+    attendee_name:  "Visitor Two",
+    attendee_email: "visitor-two@external.com",
+    host:           "host@example.com",
+    zones:          ["zone-building", "zone-room"],
+  }.to_json)
+  sleep 0.5
+
+  system(:Mailer)[:send_count].should eq added_before
 end
