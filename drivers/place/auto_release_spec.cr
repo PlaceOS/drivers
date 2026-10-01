@@ -2,6 +2,46 @@ require "placeos-driver/spec"
 require "placeos-driver/interface/mailer"
 
 class StaffAPI < DriverSpecs::MockDriver
+  getter metadata_shape : String = "migrated"
+  getter asset_identifier : String? = "Desk from Asset"
+  getter asset_name : String? = "Fallback name"
+  getter assets_fail : Bool = false
+  getter asset_calls = 0
+
+  def configure(metadata_shape : String, identifier : String? = "Desk from Asset", name : String? = "Fallback name", assets_fail : Bool = false)
+    @metadata_shape = metadata_shape
+    @asset_identifier = identifier
+    @asset_name = name
+    @assets_fail = assets_fail
+  end
+
+  def metadata(id : String, key : String? = nil)
+    details = if metadata_shape == "migrated"
+                JSON.parse(%({"migrated":true,"migrated_at":1765438509624}))
+              else
+                JSON.parse([{id: "legacy-desk", name: "Legacy desk"}].to_json)
+              end
+    JSON.parse({key.not_nil! => {name: key, parent_id: id, details: details}}.to_json)
+  end
+
+  def asset_categories(hidden : Bool? = nil)
+    JSON.parse([{id: "category-desk", name: "_DESKS_", hidden: true}].to_json)
+  end
+
+  def asset_types(category_id : String? = nil, zone_id : String? = nil, brand : String? = nil, model_number : String? = nil)
+    JSON.parse([{id: "type-desk", name: "_DESKS_", category_id: "category-desk"}].to_json)
+  end
+
+  def assets(type_id : String? = nil, zone_id : String? = nil)
+    @asset_calls += 1
+    raise "assets unavailable" if assets_fail
+    return JSON.parse("[]") unless type_id == "type-desk" && zone_id == "zone-1234"
+    JSON.parse([
+      {id: "asset-desk", identifier: asset_identifier, name: asset_name, zone_id: zone_id, zones: [] of String},
+      {id: "legacy-desk", identifier: "Asset name for legacy desk", name: nil, zone_id: zone_id, zones: [] of String},
+    ].to_json)
+  end
+
   def on_load
     self[:rejected] = 0
   end
@@ -799,6 +839,7 @@ class Mailer < DriverSpecs::MockDriver
   )
     self[:sent] = self[:sent].as_i + 1
     self[:reply_to] = reply_to
+    self[:last_args] = args
   end
 
   def send_mail(
@@ -1306,4 +1347,43 @@ DriverSpecs.mock_driver "Place::AutoRelease" do
 
   #############################
   # End of tests for: #enabled?
+
+  api = system(:StaffAPI_1).as(StaffAPI)
+  [
+    {"migrated", "Asset identifier", "Asset name", "asset-desk", "Asset identifier"},
+    {"migrated", "", "Asset name", "asset-desk", "Asset name"},
+    {"migrated", nil, nil, "asset-desk", "asset-desk"},
+    {"migrated", "", "", "asset-desk", "asset-desk"},
+    {"legacy", "Asset identifier", "Asset name", "asset-desk", "Asset identifier"},
+    {"legacy", "Asset identifier", "Asset name", "legacy-desk", "Legacy desk"},
+    {"legacy", "Asset identifier", "Asset name", "unknown-desk", "unknown-desk"},
+  ].each do |shape, identifier, name, asset_id, expected|
+    it "resolves #{shape} #{asset_id} with identifier #{identifier.inspect} and name #{name.inspect}" do
+      api.configure(shape, identifier, name)
+      settings({auto_release: {time_before: 10, time_after: 10, resources: ["desk"]}})
+      status[:pending_release] = [StaffAPI::BOOKINGS[1].merge({asset_id: asset_id})]
+      status[:released_booking_ids] = [] of Int64
+      status[:emailed_booking_ids] = [] of Int64
+      calls = api.asset_calls
+      exec(:send_release_emails).get.should eq [2]
+      system(:Mailer_1)[:last_args]["asset_name"].should eq expected
+      api.asset_calls.should eq calls if asset_id == "legacy-desk"
+
+      calls = api.asset_calls
+      status[:emailed_booking_ids] = [] of Int64
+      exec(:send_release_emails).get.should eq [2]
+      system(:Mailer_1)[:last_args]["asset_name"].should eq expected
+      api.asset_calls.should eq calls
+    end
+  end
+
+  it "still sends the email with the raw id when the Asset request fails" do
+    api.configure("migrated", assets_fail: true)
+    settings({auto_release: {time_before: 10, time_after: 10, resources: ["desk"]}})
+    status[:pending_release] = [StaffAPI::BOOKINGS[1].merge({asset_id: "asset-desk"})]
+    status[:released_booking_ids] = [] of Int64
+    status[:emailed_booking_ids] = [] of Int64
+    exec(:send_release_emails).get.should eq [2]
+    system(:Mailer_1)[:last_args]["asset_name"].should eq "asset-desk"
+  end
 end
