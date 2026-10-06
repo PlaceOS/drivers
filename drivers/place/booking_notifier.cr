@@ -31,6 +31,19 @@ class Place::BookingNotifier < PlaceOS::Driver
     poll_bookings:       false,
     poll_every_minutes:  5,
 
+    # Reminders emailed to the booking owner before their booking starts.
+    # One reminder per entry, each entry is the number of minutes before the
+    # booking start time. An empty list disables reminders.
+    # i.e. [4320, 60, 15] => 3 days, 1 hour and 15 minutes before the booking
+    reminders_before_booking: [] of Int32,
+    # Cron schedule for checking bookings against the reminder offsets above.
+    # Run it more often than reminder_grace_minutes so no reminder is missed.
+    reminder_schedule: "*/15 * * * *",
+    # How long after an offset a reminder may still be sent. Covers the sweep
+    # interval and any downtime (a reminder outside this window is skipped
+    # rather than sent late).
+    reminder_grace_minutes: 30,
+
     notify: {
       zone_id1: {
         name:                               "Sydney Building 1",
@@ -99,6 +112,12 @@ class Place::BookingNotifier < PlaceOS::Driver
   @poll_bookings : Bool = false
   @poll_every_minutes : Int32 = 5
 
+  # minutes before a booking start, sorted ascending, empty disables reminders
+  @reminders_before_booking : Array(Int32) = [] of Int32
+  @reminder_schedule : String? = nil
+  @reminder_grace_minutes : Int32 = 30
+  @reminders_sent_count : UInt64 = 0_u64
+
   # Zone_id => notify settings
   @notify_lookup : Hash(String, SiteDetails) = {} of String => SiteDetails
 
@@ -142,8 +161,19 @@ class Place::BookingNotifier < PlaceOS::Driver
     @poll_bookings = setting(Bool, :poll_bookings)
     @poll_every_minutes = setting(Int32, :poll_every_minutes)
 
+    @reminders_before_booking = (setting?(Array(Int32), :reminders_before_booking) || [] of Int32)
+      .reject { |minutes| minutes <= 0 }
+      .uniq
+      .sort
+    @reminder_schedule = setting?(String, :reminder_schedule).presence
+    @reminder_grace_minutes = (setting?(Int32, :reminder_grace_minutes) || 30).clamp(1, 10_080)
+
     schedule.clear
     schedule.every(@poll_every_minutes.minutes) { check_bookings } if @poll_bookings
+
+    if !@reminders_before_booking.empty? && (cron = @reminder_schedule)
+      schedule.cron(cron, @time_zone) { send_booking_reminders }
+    end
   end
 
   def template_fields : Array(TemplateFields)
@@ -200,6 +230,14 @@ class Place::BookingNotifier < PlaceOS::Driver
         name: "Booking cancelled#{@template_fields_suffix}",
         description: "Notification when a booking is cancelled",
         fields: common_fields
+      ),
+      TemplateFields.new(
+        trigger: {"bookings", "booking_reminder#{@template_suffix}"},
+        name: "Booking reminder#{@template_fields_suffix}",
+        description: "Reminder sent to the booking owner ahead of the booking starting",
+        fields: common_fields + [
+          {name: "reminder_offset_minutes", description: "Minutes before the booking start this reminder was sent (e.g., 60)"},
+        ]
       ),
     ]
   end
@@ -540,6 +578,145 @@ class Place::BookingNotifier < PlaceOS::Driver
         logger.error(exception: error) { "while processing booking id #{booking_details.id}" }
       end
     end
+  end
+
+  # Emails a reminder to the booking owner for every configured offset that the
+  # booking is currently inside of. Scheduled by on_update, and can be invoked
+  # directly to check for reminders without waiting for the schedule.
+  @[Security(Level::Support)]
+  def send_booking_reminders
+    offsets = @reminders_before_booking
+    return if offsets.empty?
+
+    now = Time.utc
+    now_unix = now.to_unix
+    query_end = (now + (offsets.max + @reminder_grace_minutes).minutes).to_unix
+
+    sent = load_sent_reminders
+    upcoming = Set(String).new
+    sent_this_sweep = 0_u64
+
+    @check_bookings_mutex.synchronize do
+      @notify_lookup.each do |building_zone, details|
+        query_reminder_bookings(building_zone, now_unix, query_end).each do |booking_details|
+          # already on site, so there is nothing left to remind them about
+          next if booking_details.checked_in
+
+          booking_key = "#{booking_details.id}.#{booking_details.instance || 0}"
+          upcoming << booking_key
+
+          offsets.each do |offset|
+            seconds_before = booking_details.booking_start - now_unix
+
+            # the booking has started, or this offset is still in the future
+            next unless seconds_before > 0 && seconds_before <= offset
+
+            # the offset passed without this driver running - sending it now
+            # would be a stale reminder
+            next if seconds_before <= offset - @reminder_grace_minutes
+
+            # booked after the reminder was meant to go out
+            if created = booking_details.created
+              next if created > booking_details.booking_start - offset
+            end
+
+            next if sent[booking_key]?.try(&.includes?(offset))
+
+            begin
+              mailer.send_template(
+                to: booking_details.user_email,
+                template: {"bookings", "booking_reminder#{@template_suffix}"},
+                args: reminder_args(booking_details, building_zone, details.name, offset),
+                reply_to: booking_details.booked_by_email.presence,
+              ).get
+            rescue error
+              logger.error(exception: error) { "while sending reminder for booking #{booking_details.id}" }
+              next
+            end
+
+            logger.debug { "sent #{offset} minute reminder for booking #{booking_details.id} to #{booking_details.user_email}" }
+            (sent[booking_key] ||= [] of Int32) << offset
+            sent_this_sweep += 1
+          end
+        end
+      end
+    end
+
+    # forget reminders for bookings that are no longer upcoming (cancelled, or started)
+    sent.select! { |booking_key, _| upcoming.includes?(booking_key) }
+    self[:reminders_sent] = sent
+
+    @reminders_sent_count += sent_this_sweep
+    self[:reminders_sent_count] = @reminders_sent_count
+    logger.debug { "sent #{sent_this_sweep} booking reminders, #{sent.size} reminders tracked" }
+  rescue error
+    logger.error { error.inspect_with_backtrace }
+    self[:last_error] = {
+      error:    error.message,
+      time:     Time.local.to_s,
+      function: "send_booking_reminders",
+    }
+  end
+
+  protected def query_reminder_bookings(building_zone : String, period_start : Int64, period_end : Int64) : Array(Booking)
+    unapproved = staff_api.query_bookings(
+      type: @booking_type,
+      period_start: period_start,
+      period_end: period_end,
+      zones: [building_zone],
+      approved: false,
+      rejected: false
+    ).get.as_a
+
+    approved = staff_api.query_bookings(
+      type: @booking_type,
+      period_start: period_start,
+      period_end: period_end,
+      zones: [building_zone],
+      approved: true,
+      rejected: false
+    ).get.as_a
+
+    Array(Booking).from_json((unapproved + approved).to_json)
+  end
+
+  protected def reminder_args(booking_details : Booking, building_zone : String, building_name : String, offset : Int32)
+    timezone = booking_details.timezone.presence || @time_zone.name
+    location = Time::Location.load(timezone)
+    starting = Time.unix(booking_details.booking_start).in(location)
+    ending = Time.unix(booking_details.booking_end).in(location)
+
+    {
+      booking_id:     booking_details.id,
+      start_time:     starting.to_s(@time_format),
+      start_date:     starting.to_s(@date_format),
+      start_datetime: starting.to_s(@date_time_format),
+      end_time:       ending.to_s(@time_format),
+      end_date:       ending.to_s(@date_format),
+      end_datetime:   ending.to_s(@date_time_format),
+      starting_unix:  booking_details.booking_start,
+
+      asset_id:   booking_details.asset_id,
+      asset_name: lookup_asset(asset_id: booking_details.asset_id, type: booking_details.booking_type, zones: booking_details.zones),
+      user_id:    booking_details.user_id,
+      user_email: booking_details.user_email,
+      user_name:  booking_details.user_name,
+      reason:     booking_details.title,
+
+      level_zone:    booking_details.zones.reject { |z| z == building_zone }.first?,
+      building_zone: building_zone,
+      building_name: building_name,
+
+      booked_by_name:  booking_details.booked_by_name,
+      booked_by_email: booking_details.booked_by_email,
+
+      reminder_offset_minutes: offset.to_i64,
+    }
+  end
+
+  protected def load_sent_reminders : Hash(String, Array(Int32))
+    raw = self[:reminders_sent]?
+    raw ? Hash(String, Array(Int32)).from_json(raw.to_json) : Hash(String, Array(Int32)).new
   end
 
   @[Security(Level::Support)]

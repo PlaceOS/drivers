@@ -66,12 +66,51 @@ mail (the `reply_to` setting on the SMTP Mailer). See the Template Mailer readme
 for the full precedence cascade.
 
 
+## Booking reminders
+
+The driver can email the booking owner a reminder before their booking starts.
+Reminders are driven by a list of offsets and a scheduled sweep, because a plain
+cron entry cannot express "3 days before a booking that starts on Thursday".
+
+```yaml
+  # Minutes before the booking start time to email the booking owner.
+  # One reminder is sent per entry, an empty list disables reminders.
+  # i.e. [4320, 60, 15] => 3 days, 1 hour and 15 minutes before the booking
+  reminders_before_booking: [4320, 60]
+
+  # Cron schedule for the sweep that checks bookings against the offsets above.
+  # Run it more often than reminder_grace_minutes so no reminder is missed.
+  reminder_schedule: "*/15 * * * *"
+
+  # How long after an offset a reminder may still be sent. Covers the sweep
+  # interval and any driver downtime - a reminder outside this window is
+  # skipped rather than sent late.
+  reminder_grace_minutes: 30
+```
+
+* Recipients: only the booking owner (`user_email`), replies go to the booking
+  creator as per the Reply-To section above.
+* Already checked-in bookings are skipped, as are bookings created after their
+  reminder time had passed (booking them would not have triggered a reminder).
+* Each reminder is sent once per booking. The sent state is stored in the
+  driver status under `reminders_sent`, so a restart of the driver does not
+  re-send reminders.
+* Reminder windows are calculated from the booking's Unix start time, so the
+  booking timezone does not change when a reminder fires.
+
+A sweep can also be triggered manually with the `send_booking_reminders`
+function (level `Support`) while configuring or troubleshooting.
+
+
 ## Template configuration on Mailer
 
-There are two templates that are expected:
+The templates expected are:
 
 * `booking_notify` (the booking owner booked the asset)
 * `booked_by_notify` (someone booked on the owners behalf)
+* `rejected` (the booking was rejected)
+* `cancelled` (the booking was cancelled)
+* `booking_reminder` (reminder ahead of the booking starting)
 
 ```yaml
 email_templates:
@@ -81,6 +120,12 @@ email_templates:
       html: >
         <html><body>
         your desk %{asset_id} has been booked for %{start_date}
+        </body></html>
+    booking_reminder:
+      subject: Reminder - your desk booking
+      html: >
+        <html><body>
+        your desk %{asset_id} starts at %{start_time} on %{start_date}
         </body></html>
 ```
 
@@ -107,3 +152,5 @@ The variables available to mix into the email template are:
       booked_by_email
       attachment_name
       attachment_url
+      reminder_offset_minutes  (booking_reminder template only - the offset
+                                in minutes that triggered this reminder)
