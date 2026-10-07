@@ -172,7 +172,9 @@ class Place::BookingNotifier < PlaceOS::Driver
     schedule.every(@poll_every_minutes.minutes) { check_bookings } if @poll_bookings
 
     if !@reminders_before_booking.empty? && (cron = @reminder_schedule)
-      schedule.cron(cron, @time_zone) { send_booking_reminders }
+      # immediate: the sweep runs as soon as the driver starts or its settings
+      # change, so a restart cannot push reminders past their grace window
+      schedule.cron(cron, @time_zone, immediate: true) { send_booking_reminders }
     end
   end
 
@@ -235,7 +237,9 @@ class Place::BookingNotifier < PlaceOS::Driver
         trigger: {"bookings", "booking_reminder#{@template_suffix}"},
         name: "Booking reminder#{@template_fields_suffix}",
         description: "Reminder sent to the booking owner ahead of the booking starting",
-        fields: common_fields + [
+        # no network credentials - a reminder must not rotate the password that
+        # the booking notification already handed out
+        fields: common_fields.reject { |field| {"network_username", "network_password"}.includes?(field[:name]) } + [
           {name: "reminder_offset_minutes", description: "Minutes before the booking start this reminder was sent (e.g., 60)"},
         ]
       ),
@@ -598,9 +602,16 @@ class Place::BookingNotifier < PlaceOS::Driver
 
     @check_bookings_mutex.synchronize do
       @notify_lookup.each do |building_zone, details|
+        # a zone that never emails the booking owner gets no reminders either
+        next unless details.notify_booking_owner
+
+        attachments = details.attachments.compact_map { |n, l| get_attachment(n, l) }
+        attach = attachments.first?
+        attachments.clear if @disable_attachments
+
         query_reminder_bookings(building_zone, now_unix, query_end).each do |booking_details|
           # already on site, so there is nothing left to remind them about
-          next if booking_details.checked_in
+          next if booking_details.checked_in || booking_details.user_email.presence.nil?
 
           booking_key = "#{booking_details.id}.#{booking_details.instance || 0}"
           upcoming << booking_key
@@ -626,7 +637,8 @@ class Place::BookingNotifier < PlaceOS::Driver
               mailer.send_template(
                 to: booking_details.user_email,
                 template: {"bookings", "booking_reminder#{@template_suffix}"},
-                args: reminder_args(booking_details, building_zone, details.name, offset),
+                args: reminder_args(booking_details, building_zone, details.name, offset, attach),
+                attachments: attachments,
                 reply_to: booking_details.booked_by_email.presence,
               ).get
             rescue error
@@ -680,7 +692,13 @@ class Place::BookingNotifier < PlaceOS::Driver
     Array(Booking).from_json((unapproved + approved).to_json)
   end
 
-  protected def reminder_args(booking_details : Booking, building_zone : String, building_name : String, offset : Int32)
+  protected def reminder_args(
+    booking_details : Booking,
+    building_zone : String,
+    building_name : String,
+    offset : Int32,
+    attach : NamedTuple(file_name: String, content: String, uri: String)? = nil,
+  )
     timezone = booking_details.timezone.presence || @time_zone.name
     location = Time::Location.load(timezone)
     starting = Time.unix(booking_details.booking_start).in(location)
@@ -707,8 +725,14 @@ class Place::BookingNotifier < PlaceOS::Driver
       building_zone: building_zone,
       building_name: building_name,
 
+      approver_name:  booking_details.approver_name,
+      approver_email: booking_details.approver_email,
+
       booked_by_name:  booking_details.booked_by_name,
       booked_by_email: booking_details.booked_by_email,
+
+      attachment_name: attach.try &.[](:file_name),
+      attachment_url:  attach.try &.[](:uri),
 
       reminder_offset_minutes: offset.to_i64,
     }

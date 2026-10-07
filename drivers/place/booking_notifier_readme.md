@@ -89,14 +89,32 @@ cron entry cannot express "3 days before a booking that starts on Thursday".
 ```
 
 * Recipients: only the booking owner (`user_email`), replies go to the booking
-  creator as per the Reply-To section above.
+  creator as per the Reply-To section above. A zone without
+  `notify_booking_owner: true` gets no reminders, matching the booking
+  notification emails.
+* The sweep queries bookings of the driver's `booking_type`, so a reminder
+  reaches whichever kind of booking the instance is configured for - deploy an
+  instance per type (`desk`, `locker`, `visitor`, ...). For a visitor booking
+  `user_email` is the host, so the reminder goes to the host. With
+  `unique_templates: true` the trigger and template become
+  `bookings.booking_reminder_<booking_type>` (e.g. `booking_reminder_visitor`),
+  so each type can have its own template.
 * Already checked-in bookings are skipped, as are bookings created after their
   reminder time had passed (booking them would not have triggered a reminder).
 * Each reminder is sent once per booking. The sent state is stored in the
   driver status under `reminders_sent`, so a restart of the driver does not
   re-send reminders.
+* The schedule sweeps immediately when the driver starts or its settings
+  change, then on the cron interval. A restart therefore checks for due
+  reminders straight away instead of waiting up to `reminder_schedule`.
 * Reminder windows are calculated from the booking's Unix start time, so the
   booking timezone does not change when a reminder fires.
+* Zone `attachments` behave as they do on booking notifications: the file is
+  attached when `disable_attachments` is false, and `attachment_name` /
+  `attachment_url` merge fields are always available for linking to it.
+* The reminder template does not provide `network_username` /
+  `network_password` - a reminder must not rotate the password that the
+  booking notification already handed out.
 
 A sweep can also be triggered manually with the `send_booking_reminders`
 function (level `Support`) while configuring or troubleshooting.
@@ -154,3 +172,7 @@ The variables available to mix into the email template are:
       attachment_url
       reminder_offset_minutes  (booking_reminder template only - the offset
                                 in minutes that triggered this reminder)
+
+`network_username` and `network_password` are available to the booking
+notification templates when the zone enables `include_network_credentials`,
+but are deliberately not offered on `booking_reminder`.
