@@ -314,15 +314,20 @@ DriverSpecs.mock_driver "Place::RoomBookingApproval" do
 
   poll_before = system(:Bookings_1)[:poll_events_calls].as_i
 
+  # The exec must respond before the debounce fires, not wait for it.
+  started = Time.monotonic
   exec(:accept_event,
     calendar_id: "room5@example.com",
     event_id: "tentative-event-1",
   ).get
+  (Time.monotonic - started).should be < 5.seconds
 
+  started = Time.monotonic
   exec(:decline_event,
     calendar_id: "room5@example.com",
     event_id: "tentative-event-4",
   ).get
+  (Time.monotonic - started).should be < 5.seconds
 
   sleep 11
 
