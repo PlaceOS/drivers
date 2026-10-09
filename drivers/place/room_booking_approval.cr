@@ -153,7 +153,9 @@ class Place::RoomBookingApproval < PlaceOS::Driver
   # Multiple calls within the 10-second window are batched into a
   # single poll_events call per affected system, giving the calendar
   # provider time to propagate the status change.
-  protected def refresh_bookings(system_ids : Array(String))
+  # The exec runtime waits on any returned task, so this must not return
+  # the scheduled one.
+  protected def refresh_bookings(system_ids : Array(String)) : Nil
     return if @disable_refresh_bookings
     @pending_refresh.concat(system_ids)
     return if @refresh_scheduled
