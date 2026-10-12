@@ -1379,7 +1379,16 @@ class Place::StaffAPI < PlaceOS::Driver
 
   # For accessing PlaceOS APIs
   protected getter placeos_client : PlaceOS::Client do
-    insecure = setting?(Bool, :https_insecure) || setting?(String, :https_verify) == "none"
+    # match the driver transport: only verify certificates when https_verify sets the PEER flag
+    verify = case mode = setting?(String | Int32, :https_verify)
+             in String
+               {"peer", "all"}.includes?(mode.camelcase.downcase)
+             in Int32
+               mode.bits_set?(OpenSSL::SSL::VerifyMode::PEER.value)
+             in Nil
+               false
+             end
+    insecure = setting?(Bool, :https_insecure) || !verify
     PlaceOS::Client.new(
       @place_domain,
       host_header: @host_header,
