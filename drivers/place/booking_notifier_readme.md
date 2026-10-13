@@ -101,9 +101,10 @@ cron entry cannot express "3 days before a booking that starts on Thursday".
   so each type can have its own template.
 * Already checked-in bookings are skipped, as are bookings created after their
   reminder time had passed (booking them would not have triggered a reminder).
-* Each reminder is sent once per booking. The sent state is stored in the
-  driver status under `reminders_sent`, so a restart of the driver does not
-  re-send reminders.
+* Each reminder is sent once per booking start time. The sent state is stored
+  in the driver status under `reminders_sent`, so a restart of the driver does
+  not re-send reminders. A booking moved to a new start time is reminded again
+  about the new time.
 * The schedule sweeps immediately when the driver starts or its settings
   change, then on the cron interval. A restart therefore checks for due
   reminders straight away instead of waiting up to `reminder_schedule`.

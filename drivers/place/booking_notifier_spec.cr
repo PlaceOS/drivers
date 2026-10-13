@@ -68,24 +68,27 @@ DriverSpecs.mock_driver "Place::BookingNotifier" do
     },
   }
 
-  # starts inside the 60 minute offset (45 seconds before the start, the grace
-  # window is 30 minutes) => reminder due
-  due = reminder_booking(id: 11, starts_in: 45.seconds, email: "due@org.com")
+  # starts 45 minutes from now, inside the 60 minute offset and its 30 minute
+  # grace window => reminder due
+  due = reminder_booking(id: 11, starts_in: 45.minutes, email: "due@org.com")
   # starts outside the 60 minute offset => no reminder yet
-  not_yet_due = reminder_booking(id: 12, starts_in: 2.hours, email: "later@org.com")
-  # booked 10 seconds ago for a start 45 seconds away, so the 60 minute
+  not_yet_due = reminder_booking(id: 12, starts_in: 100.minutes, email: "later@org.com")
+  # booked 10 minutes ago for a start 45 minutes away, so the 60 minute
   # reminder moment had already passed when it was booked => skipped
   booked_too_late = reminder_booking(
     id: 13,
-    starts_in: 45.seconds,
+    starts_in: 45.minutes,
     email: "late@org.com",
-    created: Time.utc - 10.seconds
+    created: Time.utc - 10.minutes
   )
   # already on site => skipped
-  on_site = reminder_booking(id: 14, starts_in: 45.seconds, email: "onsite@org.com", checked_in: true)
+  on_site = reminder_booking(id: 14, starts_in: 45.minutes, email: "onsite@org.com", checked_in: true)
+  # the 60 minute offset passed 40 minutes ago, beyond the 30 minute grace
+  # window (i.e. the driver was offline) => skipped rather than sent late
+  stale = reminder_booking(id: 19, starts_in: 20.minutes, email: "stale@org.com")
 
   system(:StaffAPI_1).as(StaffAPIMock).set_reminders(
-    [due, not_yet_due, booked_too_late, on_site].map { |booking| JSON.parse(booking.to_json) }
+    [due, not_yet_due, booked_too_late, on_site, stale].map { |booking| JSON.parse(booking.to_json) }
   )
 
   # arming the schedule in settings sweeps immediately, so the reminders due
@@ -121,8 +124,8 @@ DriverSpecs.mock_driver "Place::BookingNotifier" do
   status[:reminders_sent_count].should eq 1
 
   # moving the offset out to 2 hours catches the booking that wasn't due yet,
-  # and the booking that was skipped is still skipped
-  settings(reminder_settings.merge({reminders_before_booking: [7200]}))
+  # and the bookings that were skipped are still skipped
+  settings(reminder_settings.merge({reminders_before_booking: [120]}))
   exec(:send_booking_reminders).get
   system(:Mailer)[:reminders].should eq 2
   system(:Mailer)[:to].should eq "later@org.com"
@@ -130,7 +133,7 @@ DriverSpecs.mock_driver "Place::BookingNotifier" do
   status[:reminders_sent_count].should eq 2
 
   # a zone that does not notify the booking owner gets no reminders either
-  ownerless_due = reminder_booking(id: 15, starts_in: 45.seconds, email: "no-flag@org.com")
+  ownerless_due = reminder_booking(id: 15, starts_in: 45.minutes, email: "no-flag@org.com")
   system(:StaffAPI_1).as(StaffAPIMock).set_reminders([ownerless_due].map { |booking| JSON.parse(booking.to_json) })
   settings(reminder_settings.merge({
     notify: {zone_id1: {name: "Sydney Building 1", email: ["concierge@place.com"]}},
@@ -143,7 +146,7 @@ DriverSpecs.mock_driver "Place::BookingNotifier" do
   # host's address, using the booking type specific template name
   visitor_due = reminder_booking(
     id: 16,
-    starts_in: 45.seconds,
+    starts_in: 45.minutes,
     email: "host@org.com",
     type: "visitor",
     asset_id: "guest@visitor.com"
@@ -179,7 +182,7 @@ DriverSpecs.mock_driver "Place::BookingNotifier" do
 
   # two offsets open at the same time on one booking => one reminder each,
   # each carrying its own offset, sent in ascending order of the offsets
-  multi_due = reminder_booking(id: 17, starts_in: 40.seconds, email: "multi@org.com")
+  multi_due = reminder_booking(id: 17, starts_in: 40.minutes, email: "multi@org.com")
   system(:StaffAPI_1).as(StaffAPIMock).set_reminders([multi_due].map { |booking| JSON.parse(booking.to_json) })
   settings(reminder_settings.merge({reminders_before_booking: [60, 45]}))
   exec(:send_booking_reminders).get
@@ -191,7 +194,7 @@ DriverSpecs.mock_driver "Place::BookingNotifier" do
 
   # a locker booking is queried as a locker booking and reminded at the
   # owner's address with the locker specific template name
-  locker_due = reminder_booking(id: 18, starts_in: 45.seconds, email: "locker@org.com", type: "locker", asset_id: "lock-1")
+  locker_due = reminder_booking(id: 18, starts_in: 45.minutes, email: "locker@org.com", type: "locker", asset_id: "lock-1")
   system(:StaffAPI_1).as(StaffAPIMock).set_reminders([locker_due].map { |booking| JSON.parse(booking.to_json) })
   settings(reminder_settings.merge({
     booking_type:             "locker",
@@ -206,6 +209,33 @@ DriverSpecs.mock_driver "Place::BookingNotifier" do
   system(:Mailer)[:to].should eq "locker@org.com"
   system(:Mailer)[:offsets].as_a.last.as_i.should eq 60
   status[:reminders_sent_count].should eq 6
+
+  # the locker booking moved to a new start time => reminded about the new time
+  locker_moved = reminder_booking(id: 18, starts_in: 50.minutes, email: "locker@org.com", type: "locker", asset_id: "lock-1")
+  system(:StaffAPI_1).as(StaffAPIMock).set_reminders([locker_moved].map { |booking| JSON.parse(booking.to_json) })
+  exec(:send_booking_reminders).get
+  system(:Mailer)[:reminders].should eq 7
+  system(:Mailer)[:args].as_h["starting_unix"].as_i64.should eq locker_moved[:booking_start]
+  exec(:send_booking_reminders).get
+  system(:Mailer)[:reminders].should eq 7
+
+  # a zone whose bookings cannot be queried does not stop the other zones
+  # being reminded, and the reminders sent are remembered for the next sweep
+  failing_due = reminder_booking(id: 20, starts_in: 45.minutes, email: "failing@org.com")
+  system(:StaffAPI_1).as(StaffAPIMock).set_reminders([failing_due].map { |booking| JSON.parse(booking.to_json) })
+  failing_zones = reminder_settings.merge({
+    notify: {
+      zone_id1:     {name: "Sydney Building 1", notify_booking_owner: true},
+      zone_offline: {name: "Offline Building", notify_booking_owner: true},
+    },
+  })
+  settings(failing_zones)
+  exec(:send_booking_reminders).get
+  system(:Mailer)[:reminders].should eq 8
+  system(:Mailer)[:to].should eq "failing@org.com"
+  status[:reminders_sent].as_h.keys.should contain "20.0.#{failing_due[:booking_start]}"
+  exec(:send_booking_reminders).get
+  system(:Mailer)[:reminders].should eq 8
 end
 
 # :nodoc:
@@ -307,9 +337,10 @@ class StaffAPIMock < DriverSpecs::MockDriver
     self[:queries] = @called
 
     # a reminder sweep queries each zone twice (approved and not yet approved),
-    # so the fixtures come back on the first query of each pair
+    # so the fixtures come back on the not yet approved query
     unless @reminders.empty?
-      return @reminders if @called.odd?
+      raise "staff api unavailable for #{zones}" if zones.includes?("zone_offline")
+      return @reminders if approved == false
       return [] of JSON::Any
     end
 

@@ -584,6 +584,8 @@ class Place::BookingNotifier < PlaceOS::Driver
     end
   end
 
+  @reminders_mutex = Mutex.new
+
   # Emails a reminder to the booking owner for every configured offset that the
   # booking is currently inside of. Scheduled by on_update, and can be invoked
   # directly to check for reminders without waiting for the schedule.
@@ -592,15 +594,24 @@ class Place::BookingNotifier < PlaceOS::Driver
     offsets = @reminders_before_booking
     return if offsets.empty?
 
-    now = Time.utc
-    now_unix = now.to_unix
-    query_end = (now + (offsets.max + @reminder_grace_minutes).minutes).to_unix
+    # serialise sweeps (cron, the immediate sweep after a settings change and
+    # manual execs) so each one sees the reminders the previous one sent
+    @reminders_mutex.synchronize { sweep_booking_reminders(offsets) }
+  end
+
+  protected def sweep_booking_reminders(offsets : Array(Int32))
+    now_unix = Time.utc.to_unix
+    grace_seconds = @reminder_grace_minutes.to_i64 * 60
+    query_end = now_unix + offsets.max.to_i64 * 60 + grace_seconds
 
     sent = load_sent_reminders
     upcoming = Set(String).new
     sent_this_sweep = 0_u64
+    # entries are only forgotten when every zone was queried successfully,
+    # otherwise a failed zone would look like its bookings were cancelled
+    all_zones_queried = true
 
-    @check_bookings_mutex.synchronize do
+    begin
       @notify_lookup.each do |building_zone, details|
         # a zone that never emails the booking owner gets no reminders either
         next unless details.notify_booking_owner
@@ -609,26 +620,37 @@ class Place::BookingNotifier < PlaceOS::Driver
         attach = attachments.first?
         attachments.clear if @disable_attachments
 
-        query_reminder_bookings(building_zone, now_unix, query_end).each do |booking_details|
+        begin
+          bookings = query_reminder_bookings(building_zone, now_unix, query_end)
+        rescue error
+          all_zones_queried = false
+          logger.error(exception: error) { "while querying reminder bookings in #{building_zone}" }
+          next
+        end
+
+        bookings.each do |booking_details|
           # already on site, so there is nothing left to remind them about
           next if booking_details.checked_in || booking_details.user_email.presence.nil?
 
-          booking_key = "#{booking_details.id}.#{booking_details.instance || 0}"
+          # the start time is part of the key so a rescheduled booking is
+          # reminded about its new time
+          booking_key = "#{booking_details.id}.#{booking_details.instance || 0}.#{booking_details.booking_start}"
           upcoming << booking_key
+          seconds_before = booking_details.booking_start - now_unix
 
           offsets.each do |offset|
-            seconds_before = booking_details.booking_start - now_unix
+            offset_seconds = offset.to_i64 * 60
 
             # the booking has started, or this offset is still in the future
-            next unless seconds_before > 0 && seconds_before <= offset
+            next unless seconds_before > 0 && seconds_before <= offset_seconds
 
             # the offset passed without this driver running - sending it now
             # would be a stale reminder
-            next if seconds_before <= offset - @reminder_grace_minutes
+            next if seconds_before <= offset_seconds - grace_seconds
 
             # booked after the reminder was meant to go out
             if created = booking_details.created
-              next if created > booking_details.booking_start - offset
+              next if created > booking_details.booking_start - offset_seconds
             end
 
             next if sent[booking_key]?.try(&.includes?(offset))
@@ -652,15 +674,17 @@ class Place::BookingNotifier < PlaceOS::Driver
           end
         end
       end
+    ensure
+      # forget reminders for bookings that are no longer upcoming (cancelled,
+      # rescheduled or started). Always persisted, so reminders that went out
+      # before an error are not sent again by the next sweep
+      sent.select! { |booking_key, _| upcoming.includes?(booking_key) } if all_zones_queried
+      self[:reminders_sent] = sent
+
+      @reminders_sent_count += sent_this_sweep
+      self[:reminders_sent_count] = @reminders_sent_count
+      logger.debug { "sent #{sent_this_sweep} booking reminders, #{sent.size} bookings tracked" }
     end
-
-    # forget reminders for bookings that are no longer upcoming (cancelled, or started)
-    sent.select! { |booking_key, _| upcoming.includes?(booking_key) }
-    self[:reminders_sent] = sent
-
-    @reminders_sent_count += sent_this_sweep
-    self[:reminders_sent_count] = @reminders_sent_count
-    logger.debug { "sent #{sent_this_sweep} booking reminders, #{sent.size} reminders tracked" }
   rescue error
     logger.error { error.inspect_with_backtrace }
     self[:last_error] = {
