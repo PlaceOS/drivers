@@ -10,7 +10,7 @@ class Cisco::DNASpaces::UserPresence
     getter user_id : String
 
     @[JSON::Field(key: "deviceIds")]
-    getter device_ids : Array(String)
+    getter device_ids : Array(String) = [] of String
     getter tags : Array(String) = [] of String
     getter mobile : String?
     getter email : String?
