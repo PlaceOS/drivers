@@ -10,15 +10,31 @@ class KontaktIO::KioCloud < PlaceOS::Driver
 
   default_settings({
     kio_api_key: "Sign in to Kio Cloud > select Users > select Security > copy the Server API Key",
-    poll_every:  2,
+    poll_every:  30,
   })
+
+  # raised when the API responds with 429 Too Many Requests
+  class RateLimited < Exception
+    getter retry_after : Time::Span?
+
+    def initialize(message, @retry_after = nil)
+      super(message)
+    end
+  end
+
+  ROOMS_CACHE_PERIOD = 10.minutes
+  MIN_BACKOFF        = 30.seconds
+  MAX_BACKOFF        = 10.minutes
 
   @api_key : String = %()
 
   def on_update
     @api_key = setting(String, :kio_api_key)
+    @rooms_cache = nil
+    @backoff_until = nil
+    @backoff = nil
 
-    poll_every = (setting?(Int32, :poll_every) || 2).seconds
+    poll_every = (setting?(Int32, :poll_every) || 30).seconds
     schedule.clear
     schedule.every(poll_every) { cache_occupancy_counts }
   end
@@ -53,6 +69,11 @@ class KontaktIO::KioCloud < PlaceOS::Driver
         logger.warn { "The API Key is invalid or disabled" }
       when 403
         logger.warn { "User who created the API no longer has access to the Kio Cloud account or their user role doesn't allow access to the endpoint. Device error if the endpoint is not available for the device model." }
+      end
+
+      if response.status_code == 429
+        retry_after = response.headers["Retry-After"]?.try(&.to_i?).try(&.seconds)
+        raise RateLimited.new("request #{path} rate limited (429), retry after: #{retry_after || "unspecified"}", retry_after)
       end
 
       unless response.success?
@@ -159,9 +180,42 @@ class KontaktIO::KioCloud < PlaceOS::Driver
   # ===================================
   getter occupancy_cache : Hash(Int64, RoomOccupancy) = {} of Int64 => RoomOccupancy
 
+  @rooms_cache : Array(Room)? = nil
+  @rooms_cached_at : Time = Time.utc
+  @backoff_until : Time? = nil
+  @backoff : Time::Span? = nil
+
+  # rooms rarely change so we avoid requesting them on every poll
+  protected def cached_rooms : Array(Room)
+    cache = @rooms_cache
+    return cache if cache && @rooms_cached_at > ROOMS_CACHE_PERIOD.ago
+    cache = rooms
+    @rooms_cached_at = Time.utc
+    @rooms_cache = cache
+  end
+
   protected def cache_occupancy_counts
+    if (backoff_until = @backoff_until) && backoff_until > Time.utc
+      logger.debug { "skipping poll, rate limited until #{backoff_until}" }
+      return
+    end
+
+    update_occupancy_cache
+    @backoff = nil
+    @backoff_until = nil
+    self[:rate_limited_until] = nil
+  rescue error : RateLimited
+    # double the backoff each time we're rate limited, unless the API tells us how long to wait
+    backoff = error.retry_after || (@backoff.try { |period| period * 2 } || MIN_BACKOFF).clamp(MIN_BACKOFF, MAX_BACKOFF)
+    @backoff = backoff
+    @backoff_until = resume_at = backoff.from_now
+    self[:rate_limited_until] = resume_at.to_unix
+    logger.warn { "#{error.message}, pausing polling for #{backoff.total_seconds.to_i}s" }
+  end
+
+  protected def update_occupancy_cache
     sensor_to_room = {} of String => Room
-    rooms.each do |room|
+    cached_rooms.each do |room|
       room.room_sensor_ids.each do |sensor_id|
         sensor_to_room[sensor_id] = room
       end
@@ -174,12 +228,26 @@ class KontaktIO::KioCloud < PlaceOS::Driver
     # 3rd party motion sensors
     recent_motion = 180_i64
     sensor_to_room.keys.each_slice(10) do |keys|
-      SimpleRetry.try_to(max_attempts: 3, base_interval: 200.milliseconds) do
-        telemetry_data = telemetry(keys)
-        telemetry_data.each do |sensor|
-          seconds_since = sensor.seconds_since_motion || 3.days.total_seconds.to_i
-          room = sensor_to_room[sensor.id]
-          self["room-#{room.id}"] = cache[room.id] = room.to_room_occupancy(seconds_since <= recent_motion, sensor.timestamp)
+      begin
+        # retrying a rate limited request only makes things worse
+        SimpleRetry.try_to(max_attempts: 3, base_interval: 200.milliseconds, raise_on: RateLimited) do
+          telemetry_data = telemetry(keys)
+          telemetry_data.each do |sensor|
+            seconds_since = sensor.seconds_since_motion || 3.days.total_seconds.to_i
+            room = sensor_to_room[sensor.id]
+            self["room-#{room.id}"] = cache[room.id] = room.to_room_occupancy(seconds_since <= recent_motion, sensor.timestamp)
+          end
+        end
+      rescue error : RateLimited
+        raise error
+      rescue error
+        # keep the previous values for these rooms and continue with the remaining sensors
+        logger.warn(exception: error) { "failed to obtain telemetry for sensors #{keys}" }
+        keys.each do |sensor_id|
+          room_id = sensor_to_room[sensor_id].id
+          if previous = @occupancy_cache[room_id]?
+            cache[room_id] = previous
+          end
         end
       end
     end
