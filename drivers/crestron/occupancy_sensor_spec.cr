@@ -10,6 +10,9 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     presence_smoothing_window_sec: 1,
     presence_smoothing_threshold:  0.6,
     presence_evaluation_sec:       1,
+
+    # keep the periodic poll out of the way, polls are triggered by long polls below
+    occupancy_poll_sec: 600,
   })
 
   full_query = %({
@@ -196,4 +199,45 @@ DriverSpecs.mock_driver "Crestron::OccupancySensor" do
     sleep 0.1.seconds
   end
   became_vacant.should be_true
+
+  puts "==> long poll keep-alive timeouts don't trigger polling"
+
+  started = Time.instant
+  while Time.instant - started < 1.second
+    expect_http_request(timeout: 3.seconds) do |request, response|
+      request.path.should eq "/Device/Longpoll"
+      response.status_code = 200
+      response << %({"Device":"Response Timeout"})
+    end
+  end
+
+  puts "==> long poll updates without occupancy trigger rate limited polling"
+
+  # the firmware doesn't always push IsRoomOccupied, so any long poll update
+  # without it triggers a direct poll - at most once every 2 seconds
+  poll_times = [] of Time::Instant
+  started = Time.instant
+  while Time.instant - started < 3.5.seconds
+    expect_http_request(timeout: 3.seconds) do |request, response|
+      case request.path
+      when "/Device/OccupancySensor"
+        poll_times << Time.instant
+        response.status_code = 200
+        response << %({"Device":{"OccupancySensor":{"IsRoomOccupied":true,"RawStates":{"IsRawEnabled":false,"RawOccupancy":false}}}})
+      when "/Device/Longpoll"
+        response.status_code = 200
+        response << %({"Device":{"SystemClock":{"CurrentTime":"2022-10-22T20:29:03Z","CurrentTimeWithOffset":"2022-10-22T20:29:03+09:30"}}})
+      else
+        response.status_code = 404
+      end
+    end
+  end
+
+  # many long poll updates, but polls are coalesced and rate limited
+  poll_times.size.should eq 2
+  (poll_times[1] - poll_times[0]).should be >= 1.9.seconds
+
+  # the polled IsRoomOccupied reading was recorded
+  exec(:update_sensor).get
+  status[:raw_occupied].should be_true
 end

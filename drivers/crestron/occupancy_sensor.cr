@@ -4,8 +4,9 @@ require "placeos-driver/interface/device_info"
 require "placeos-driver/interface/presence_smoother"
 require "./cres_next_auth"
 
-# This device doesn't seem to support a websocket interface
-# and relies on long polling.
+# This device doesn't seem to support a websocket interface and relies on
+# long polling. Some firmware doesn't always push IsRoomOccupied changes via
+# the long poll, so the occupancy is polled directly as the source of truth.
 
 class Crestron::OccupancySensor < PlaceOS::Driver
   include Crestron::CresNextAuth
@@ -30,7 +31,13 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     presence_smoothing_window_sec: 120,
     presence_smoothing_threshold:  0.7,
     presence_evaluation_sec:       10,
+
+    # how often to poll the occupancy state (the long poll is unreliable)
+    occupancy_poll_sec: 10,
   })
+
+  # never poll the occupancy state more often than this
+  MIN_POLL_INTERVAL = 2.seconds
 
   @mac : String = ""
   @name : String? = nil
@@ -50,6 +57,12 @@ class Crestron::OccupancySensor < PlaceOS::Driver
   @presence_evaluation : Time::Span = 10.seconds
   @smoother : PlaceOS::Driver::Presence::Smoother = PlaceOS::Driver::Presence::Smoother.new
 
+  # rate limits occupancy polling, coalescing requests into a single poll
+  @poll_lock : Mutex = Mutex.new
+  @poll_every : Time::Span = 10.seconds
+  @last_poll : Time::Instant? = nil
+  @poll_pending : Bool = false
+
   def on_load
   end
 
@@ -61,6 +74,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     window = (setting?(Int32, :presence_smoothing_window_sec) || 120).seconds
     threshold = setting?(Float64, :presence_smoothing_threshold) || 0.7
     @presence_evaluation = (setting?(Int32, :presence_evaluation_sec) || 10).seconds
+    @poll_every = (setting?(Int32, :occupancy_poll_sec) || 10).seconds
 
     # only rebuild the smoother (losing its history) when the tuning changes
     if window != @presence_window || threshold != @presence_threshold
@@ -76,6 +90,7 @@ class Crestron::OccupancySensor < PlaceOS::Driver
     schedule.clear
     schedule.every(10.minutes) { authenticate }
     schedule.every(@presence_evaluation) { update_sensor }
+    schedule.every(@poll_every) { request_poll }
     schedule.in(1.second) { authenticate } unless @authenticating
     @authenticating = true
   end
@@ -92,6 +107,56 @@ class Crestron::OccupancySensor < PlaceOS::Driver
         @monitoring = true
       end
     end
+  end
+
+  # Requests an occupancy poll. Polls immediately if the device hasn't been
+  # polled within MIN_POLL_INTERVAL, otherwise defers the poll until the
+  # interval has passed. Requests made while a poll is pending are coalesced.
+  def request_poll : Nil
+    delay = @poll_lock.synchronize do
+      next if @poll_pending
+      @poll_pending = true
+      if last_poll = @last_poll
+        MIN_POLL_INTERVAL - (Time.instant - last_poll)
+      else
+        0.seconds
+      end
+    end
+    return unless delay
+
+    spawn(name: "occupancy-poll") do
+      sleep delay if delay > 0.seconds
+      @poll_lock.synchronize do
+        @poll_pending = false
+        @last_poll = Time.instant
+      end
+
+      begin
+        poll_occupancy unless terminated?
+      rescue error
+        logger.warn(exception: error) { "polling occupancy" }
+      end
+    end
+  end
+
+  # queries the current occupancy, honouring raw mode if it's enabled on the device
+  def poll_occupancy : Bool?
+    return unless authenticated?
+
+    response = get("/Device/OccupancySensor", concurrent: true)
+    raise "unexpected response code: #{response.status_code}" unless response.success?
+    logger.debug { "occupancy poll: #{response.body}" }
+
+    sensor = JSON.parse(response.body).dig("Device", "OccupancySensor")
+    occupied = if sensor.dig?("RawStates", "IsRawEnabled").try(&.as_bool?)
+                 sensor.dig("RawStates", "RawOccupancy").as_bool
+               else
+                 sensor["IsRoomOccupied"].as_bool
+               end
+
+    @last_update = Time.utc.to_unix
+    observe_presence(occupied)
+    occupied
   end
 
   def poll_device_state : Nil
@@ -193,6 +258,10 @@ class Crestron::OccupancySensor < PlaceOS::Driver
       # a keep-alive / unrelated update - just note the device is still alive.
       # The scheduled update_sensor refreshes last_seen from here.
       @last_update = Time.utc.to_unix if raw_json.includes?("Device")
+
+      # the firmware doesn't always push occupancy changes alongside other
+      # updates, so confirm the state (a keep-alive timeout needs no poll)
+      request_poll unless raw_json.includes?("Response Timeout")
     end
 
     true
