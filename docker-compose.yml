@@ -41,7 +41,9 @@ services:
       - ${PWD}/binaries:/app/bin/drivers
     environment:
       AWS_REGION: ${AWS_REGION:-ap-southeast-2}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-placeos-drivers}
+      # unset by default so local builds only use the filesystem cache,
+      # the placeos-drivers bucket doesn't allow anonymous listing
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       AWS_KEY: ${AWS_KEY}
       AWS_SECRET: ${AWS_SECRET}
       GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
