@@ -124,6 +124,57 @@ class StaffAPI < DriverSpecs::MockDriver
     {name: "Colleague Five", email: "c5@example.com", groups: ["staff"]},
   ]
 
+  # the same desks as `_DESKS_` assets, with asset ids that differ from the
+  # metadata desk ids so specs can tell which source the driver used
+  ASSETS = {
+    "zone-level-a1" => [
+      [
+        {id: "asset-a1-01", identifier: "Window Desk", map_id: "desk.a", zone_id: "zone-level-a1", bookable: true, place_groups: [] of String, features: ["Window"], other_data: {floorsense_id: "fs-asset-a1-01"}},
+        {id: "asset-a1-02", identifier: "Desk A1 02", map_id: "desk.b", zone_id: "zone-level-a1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-asset-a1-02"}},
+      ],
+      [
+        {id: "asset-a1-03", identifier: "Desk A1 03", map_id: "desk.x", zone_id: "zone-level-a1", bookable: true, place_groups: ["execs"], features: [] of String, other_data: {floorsense_id: "fs-asset-a1-03"}},
+        {id: "asset-a1-c1", identifier: "Desk A1 C1", map_id: "desk.c1", zone_id: "zone-level-a1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-asset-a1-c1"}},
+        {id: "asset-a1-c2", identifier: "Desk A1 C2", map_id: "desk.c2", zone_id: "zone-level-a1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-asset-a1-c2"}},
+        {id: "asset-a1-c3", identifier: "Desk A1 C3", map_id: "desk.c3", zone_id: "zone-level-a1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-asset-a1-c3"}},
+      ],
+    ],
+    "zone-level-a2" => [
+      [
+        {id: "asset-a2-01", identifier: "Desk A2 01", map_id: "asset-a2-01", zone_id: "zone-level-a2", bookable: false, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-asset-a2-01"}},
+      ],
+    ],
+    "zone-level-b1" => [
+      [
+        {id: "asset-b1-01", identifier: "Desk B1 01", map_id: "desk.b1", zone_id: "zone-level-b1", bookable: true, place_groups: [] of String, features: ["Standing"], other_data: {floorsense_id: "fs-asset-b1-01"}},
+        {id: "asset-b1-c4", identifier: "Desk B1 C4", map_id: "desk.c4", zone_id: "zone-level-b1", bookable: true, place_groups: [] of String, features: [] of String, other_data: {floorsense_id: "fs-asset-b1-c4"}},
+      ],
+    ],
+  }
+
+  # once migrated, desk bookings reference the Asset#id
+  @desk_assets : Bool = false
+
+  def desk_assets(enabled : Bool)
+    @desk_assets = enabled
+  end
+
+  def asset_types(category_id : String? = nil, zone_id : String? = nil, brand : String? = nil, model_number : String? = nil)
+    JSON.parse([{id: "type-desk", name: "_DESKS_"}, {id: "type-locker", name: "Locker"}].to_json)
+  end
+
+  def assets(type_id : String? = nil, zone_id : String? = nil, order_id : String? = nil, barcode : String? = nil, serial_number : String? = nil, bookable : Bool? = nil, accessible : Bool? = nil, features : Array(String)? = nil, zones : Array(String)? = nil, limit : Int32 = 1000, next_page : String? = nil)
+    raise "unexpected asset type #{type_id}" unless type_id == "type-desk"
+    return JSON.parse("[]") unless pages = ASSETS[zone_id]?
+    page_index = next_page ? next_page.lchop("page-").to_i - 1 : 0
+    page = JSON.parse(pages[page_index].to_json).as_a
+    # the next page link is on the first element of a page
+    if page_index + 1 < pages.size && (first = page.first?)
+      first.as_h["next_page"] = JSON::Any.new("page-#{page_index + 2}")
+    end
+    JSON::Any.new(page)
+  end
+
   def on_load
     self[:bookings_created] = 0
     self[:last_booking_zones] = [] of String
@@ -332,17 +383,21 @@ class StaffAPI < DriverSpecs::MockDriver
       # a colleague's desk for the day
       if desk = COLLEAGUE_DESKS[email]?
         asset_id, level_id, building_id = desk
-        bookings << colleague_booking(asset_id, level_id, building_id, email)
+        bookings << colleague_booking(desk_asset_id(asset_id), level_id, building_id, email)
       end
     elsif !zones.empty?
       # everything booked on the level, used to work out what is still free
       COLLEAGUE_DESKS.each do |colleague_email, (asset_id, level_id, building_id)|
         next unless zones.includes?(level_id)
-        bookings << colleague_booking(asset_id, level_id, building_id, colleague_email)
+        bookings << colleague_booking(desk_asset_id(asset_id), level_id, building_id, colleague_email)
       end
     end
 
     bookings
+  end
+
+  protected def desk_asset_id(desk_id : String) : String
+    @desk_assets ? desk_id.sub("desk-", "asset-") : desk_id
   end
 
   protected def colleague_booking(asset_id : String, level_id : String, building_id : String, email : String) : JSON::Any
@@ -805,5 +860,101 @@ DriverSpecs.mock_driver "Place::Campus" do
     capabilities = exec(:capabilities).get.as_s
     capabilities.downcase.should contain "buildings"
     capabilities.downcase.should contain "ask"
+  end
+
+  it "lists the available desks from the level metadata" do
+    desks = exec(:desks, building_id: "zone-building-a", level_id: "zone-level-a1").get.as_a
+    # colleagues' desks are booked and desk-a1-03 is limited to execs
+    desks.map(&.["id"].as_s).should eq ["desk-a1-01", "desk-a1-02"]
+    desks.first.as_h.keys.sort.should eq ["bookable", "features", "groups", "id", "map_id", "name"]
+  end
+
+  # ===================================================
+  # desk assets
+  # ===================================================
+
+  it "lists desks from assets, excluding booked, unbookable and group restricted desks" do
+    system(:StaffAPI).as(StaffAPI).desk_assets(true)
+    settings({
+      time_zone:        "Australia/Sydney",
+      prompt_tweaks:    "",
+      max_booking_days: 14,
+      use_desk_assets:  true,
+    })
+    sleep 200.milliseconds
+
+    levels = exec(:levels, building_id: "zone-building-a").get.as_a
+    level_a1 = levels.find! { |l| l["id"].as_s == "zone-level-a1" }
+    level_a1["bookable_desk_count"].as_i.should eq 6
+    level_a1["desk_features"].as_a.map(&.as_s).should eq ["window"]
+
+    # both pages of assets are read, the colleagues' bookings of their asset ids hide them
+    desks = exec(:desks, building_id: "zone-building-a", level_id: "zone-level-a1").get.as_a
+    desks.map(&.["id"].as_s).should eq ["asset-a1-01", "asset-a1-02"]
+
+    # the LLM gets the same slim desk shape as before, no asset other_data
+    desk = desks.first.as_h
+    desk.keys.sort.should eq ["bookable", "features", "groups", "id", "map_id", "name"]
+    desk["name"].as_s.should eq "Window Desk"
+    desk["map_id"].as_s.should eq "desk.a"
+
+    exec(:desks, building_id: "zone-building-a", level_id: "zone-level-a1", feature: "window").get.as_a
+      .map(&.["id"].as_s).should eq ["asset-a1-01"]
+
+    # the only desk on level a2 isn't bookable
+    exec(:desks, building_id: "zone-building-a", level_id: "zone-level-a2").get.as_a.should be_empty
+  end
+
+  it "maps asset ids to their map_id for proximity" do
+    nearby = exec(:nearby_desks, level_id: "zone-level-a1", desk_id: "asset-a1-c1").get.as_a.map(&.as_s)
+    nearby.first.should eq "asset-a1-01"
+    nearby.should contain "asset-a1-02"
+    nearby.should_not contain "asset-a1-c1"
+
+    # the metadata desk id is no longer known
+    expect_raises(Exception, /could not find a desk with id 'desk-a1-c1'/) do
+      exec(:nearby_desks, level_id: "zone-level-a1", desk_id: "desk-a1-c1").get
+    end
+
+    result = exec(:desks_near_colleagues).get.as_a
+    result.map(&.["level_id"].as_s).should eq ["zone-level-a1", "zone-level-b1"]
+    result.first["nearby_desks"].as_a.map(&.as_s).should eq ["asset-a1-02", "asset-a1-01"]
+    result.last["nearby_desks"].as_a.map(&.as_s).should eq ["asset-b1-01"]
+  end
+
+  it "books desks against the Asset#id" do
+    exec(
+      :book_relative,
+      building_id: "zone-building-a",
+      booking_type: "desk",
+      asset_id: "asset-a1-01",
+      level_id: "zone-level-a1",
+      day_offset: 1,
+    ).get
+
+    staff_api = system(:StaffAPI)
+    staff_api[:last_booking_asset].as_s.should eq "asset-a1-01"
+    staff_api[:last_booking_asset_name].as_s.should eq "Window Desk"
+    ext = staff_api[:last_booking_extension].as_h
+    ext["assigned_asset_id"].as_s.should eq "asset-a1-01"
+    ext["name"].as_s.should eq "Window Desk"
+    ext["map_id"].as_s.should eq "desk.a"
+
+    date = Time.local(Time::Location.load("America/New_York")).at_beginning_of_day + 2.days
+    exec(
+      :book_on,
+      building_id: "zone-building-b",
+      booking_type: "desk",
+      asset_id: "asset-b1-01",
+      level_id: "zone-level-b1",
+      date: date,
+    ).get
+    staff_api[:last_booking_asset].as_s.should eq "asset-b1-01"
+    staff_api[:last_booking_extension]["map_id"].as_s.should eq "desk.b1"
+
+    # metadata desk ids can't be booked once desks are assets
+    expect_raises(Exception, /could not find a desk with id 'desk-b1-01'/) do
+      exec(:book_on, building_id: "zone-building-b", booking_type: "desk", asset_id: "desk-b1-01", level_id: "zone-level-b1", date: date).get
+    end
   end
 end

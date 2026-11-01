@@ -5,9 +5,11 @@ require "set"
 # metadata class
 require "placeos"
 require "./nearby"
+require "../desk_source"
 
 class Place::Campus < PlaceOS::Driver
   include Interface::ChatFunctions
+  include Place::DeskSource
 
   descriptive_name "LLM Campus interface"
   generic_name :Campus
@@ -20,6 +22,9 @@ class Place::Campus < PlaceOS::Driver
 
     # how many days into the future a booking may be made (inclusive)
     max_booking_days: 14,
+
+    # read desks from `_DESKS_` assets instead of the level `desks` metadata
+    use_desk_assets: false,
   })
 
   @fallback_timezone : Time::Location = Time::Location::UTC
@@ -99,20 +104,11 @@ class Place::Campus < PlaceOS::Driver
     logger.debug { "getting list of levels for building #{building_id}" }
     l = all_levels(building_id)
     l.each do |level|
-      all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
-      if all_desks
-        desks = all_desks.as_a
-        level.bookable_desk_count = desks.size
-        features = Set(String).new
-        desks.each do |desk|
-          if feat = desk["features"]?
-            feat.as_a.each { |f| features << f.as_s.downcase }
-          end
-        end
-        level.desk_features = features.to_a unless features.empty?
-      else
-        level.bookable_desk_count = 0
-      end
+      desks = level_desks(level.id)
+      level.bookable_desk_count = desks.size
+      features = Set(String).new
+      desks.each { |desk| desk.features.each { |f| features << f.downcase } }
+      level.desk_features = features.to_a unless features.empty?
     end
     l
   end
@@ -139,7 +135,7 @@ class Place::Campus < PlaceOS::Driver
   alias ChildMetadata = Array(NamedTuple(zone: PlaceZone, metadata: Metadata))
 
   @[Description("returns the list of desks available for booking in the specified building on the level and day specified. If the level has desk features then you can also filter by features.")]
-  def desks(building_id : String, level_id : String, day_offset : Int32 = 0, date : Time? = nil, feature : String? = nil) : Array(Desk)
+  def desks(building_id : String, level_id : String, day_offset : Int32 = 0, date : Time? = nil, feature : String? = nil) : Array(DeskDetails)
     logger.debug { "listing desks in building #{building_id} on level #{level_id}, day offset #{day_offset}" }
 
     # ensure the level id exists
@@ -147,9 +143,9 @@ class Place::Campus < PlaceOS::Driver
     raise "could not find level_id #{level_id} in building #{building_id}. Make sure you've obtained the list of levels." unless level
 
     # get the list of desks for the level
-    all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
-    raise "no bookable desks on this level, please try another." unless all_desks
-    desks = Array(Desk).from_json(all_desks.to_json).select!(&.bookable)
+    desks = level_desks(level.id)
+    raise "no bookable desks on this level, please try another." if desks.empty?
+    desks.select!(&.bookable?)
 
     # calculate the offset time
     tz = building_timezone(building_id)
@@ -173,14 +169,14 @@ class Place::Campus < PlaceOS::Driver
     feature = feature.try(&.downcase)
     desks.reject! do |desk|
       next true if desk.id.in?(bookings)
-      next true if feature && !desk.features.map!(&.downcase).includes?(feature)
+      next true if feature && desk.features.none? { |f| f.downcase == feature }
       if !desk.groups.empty?
         (desk.groups & me.groups).empty?
       end
     end
 
     logger.debug { "found #{desks.size} available desks" }
-    desks
+    desks.map { |desk| DeskDetails.new(desk) }
   end
 
   struct Colleagues
@@ -270,9 +266,9 @@ class Place::Campus < PlaceOS::Driver
   # Desks are booked by id, but they are drawn on the level map under their
   # map_id, so we have to translate between the two. Returns desk_id => map_id
   protected def desk_map_ids(level_id : String) : Hash(String, String)
-    all_desks = staff_api.metadata(level_id, "desks").get.dig?("desks", "details")
-    raise "no desks configured on level #{level_id}" unless all_desks
-    Array(Desk).from_json(all_desks.to_json).to_h { |desk| {desk.id, desk.map_id} }
+    desks = level_desks(level_id)
+    raise "no desks configured on level #{level_id}" if desks.empty?
+    desks.to_h { |desk| {desk.id, desk.map_id} }
   end
 
   @[Description("given a desk_id this returns nearby desks in order of how close they are. You can provide a colleagues desk_id for instance and then pick the first id that matches one of the desks available for booking. The building is resolved from the level_id, so no building_id is required")]
@@ -434,9 +430,8 @@ class Place::Campus < PlaceOS::Driver
     desk = nil
     case booking_type
     when "desk"
-      all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
-      raise "no desks found on level #{level_id}, ensure this id is correct" unless all_desks
-      desks = Array(Desk).from_json(all_desks.to_json)
+      desks = level_desks(level.id)
+      raise "no desks found on level #{level_id}, ensure this id is correct" if desks.empty?
       desk = desks.find { |d| d.id == asset_id }
 
       raise "could not find a desk with id '#{asset_id}', maybe you passed the desk name?" unless desk
@@ -509,9 +504,8 @@ class Place::Campus < PlaceOS::Driver
     desk = nil
     case booking_type
     when "desk"
-      all_desks = staff_api.metadata(level.id, "desks").get.dig?("desks", "details")
-      raise "no desks found on level #{level_id}, ensure this id is correct" unless all_desks
-      desks = Array(Desk).from_json(all_desks.to_json)
+      desks = level_desks(level.id)
+      raise "no desks found on level #{level_id}, ensure this id is correct" if desks.empty?
       desk = desks.find { |d| d.id == asset_id }
 
       raise "could not find a desk with id '#{asset_id}', maybe you passed the desk name?" unless desk
@@ -646,15 +640,25 @@ class Place::Campus < PlaceOS::Driver
     end
   end
 
-  struct Desk
+  # the desk fields returned to the LLM
+  struct DeskDetails
     include JSON::Serializable
 
     getter id : String
-    getter name : String { id }
-    getter bookable : Bool { true }
-    getter groups : Array(String) = [] of String
-    getter features : Array(String) = [] of String
-    getter map_id : String { id }
+    getter name : String
+    getter bookable : Bool
+    getter groups : Array(String)
+    getter features : Array(String)
+    getter map_id : String
+
+    def initialize(desk : Desk)
+      @id = desk.id
+      @name = desk.name
+      @bookable = desk.bookable?
+      @groups = desk.groups
+      @features = desk.features
+      @map_id = desk.map_id
+    end
   end
 
   protected def to_friendly_system(system : JSON::Any) : System?
